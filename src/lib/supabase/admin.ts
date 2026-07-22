@@ -3,7 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 /**
- * Service-role Supabase client. Bypasses Row Level Security entirely.
+ * Secret-key Supabase client. Bypasses Row Level Security entirely.
  *
  * Only import this inside server actions / route handlers, and only for the
  * specific operations RLS cannot express — currently just
@@ -13,12 +13,12 @@ import type { Database } from "@/lib/database.types";
  * client code a build error rather than a runtime leak.
  */
 export function createAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("SUPABASE_SECRET_KEY is not set");
   }
 
-  return createSupabaseClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+  return createSupabaseClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

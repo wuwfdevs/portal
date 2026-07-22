@@ -34,9 +34,9 @@ separate milestones with their own schemas under their own route groups.
   enforcement boundary, not a convenience layer behind app-level checks. See
   `supabase/migrations/20260722120001_rls_policies.sql`.
 - **Two Supabase clients, used deliberately:**
-  - `src/lib/supabase/server.ts` — anon key + the signed-in user's session. RLS applies.
-    Use this for essentially everything.
-  - `src/lib/supabase/admin.ts` — service role key, bypasses RLS. `import "server-only"`
+  - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
+    applies. Use this for essentially everything.
+  - `src/lib/supabase/admin.ts` — secret key, bypasses RLS. `import "server-only"`
     guards it. Use it **only** for `auth.admin.*` calls (inviting users) — nothing else.
     Never import it into a Client Component.
 - **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
@@ -99,7 +99,7 @@ the migration if no local instance is running — see the note at the top of tha
 
 ## Security requirements
 
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` to client code. It's only ever read inside
+- Never expose `SUPABASE_SECRET_KEY` to client code. It's only ever read inside
   `lib/supabase/admin.ts`.
 - Never bypass RLS for convenience — if a query needs data RLS is blocking, that's a sign
   the policy is wrong or the check belongs in a Server Action, not a reason to reach for

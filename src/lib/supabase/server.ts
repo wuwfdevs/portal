@@ -5,17 +5,17 @@ import type { Database } from "@/lib/database.types";
 
 /**
  * Server-side Supabase client for use in Server Components, Server Actions,
- * and Route Handlers. Runs as the signed-in user (anon key + their session
- * cookie), so every query is still subject to Row Level Security — this is
- * NOT a privilege-escalation client. See lib/supabase/admin.ts for the one
- * that is.
+ * and Route Handlers. Runs as the signed-in user (publishable key + their
+ * session cookie), so every query is still subject to Row Level Security —
+ * this is NOT a privilege-escalation client. See lib/supabase/admin.ts for
+ * the one that is.
  */
 export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll() {

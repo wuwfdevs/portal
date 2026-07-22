@@ -21,9 +21,9 @@ and Docker (for the local Supabase stack).
 
 ```bash
 npm install
-supabase start          # starts local Postgres/Auth/Storage; prints the local anon key + URL
+supabase start          # starts local Postgres/Auth/Storage; prints the local publishable key + URL
 cp .env.example .env.local
-# paste the URL/anon key `supabase start` printed into .env.local
+# paste the URL/publishable key `supabase start` printed into .env.local
 npm run dev
 ```
 
@@ -76,7 +76,7 @@ Three environments, two Supabase projects (WUWF org):
 | Preview | Vercel preview deployments (per branch/PR) | `wuwf-tools-portal-preview` — seeded with sample data, safe to reset |
 | Production | Production Vercel deployment (`tools.wuwf.org`) | `wuwf-tools-portal` — real data only |
 
-Preview deployments must never hold production service-role credentials or point at the
+Preview deployments must never hold production secret-key credentials or point at the
 production database — set preview env vars against the `-preview` project only.
 
 ### One-time setup still needed in each dashboard
@@ -89,10 +89,10 @@ through automation and need a human in each dashboard once:
    PR and a production deployment on pushes to `main`).
 2. Set environment variables — Production env pointing at `wuwf-tools-portal`, Preview env
    pointing at `wuwf-tools-portal-preview`:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — from that Supabase
-     project's Settings → API (anon/publishable key only — safe to paste in, not secret)
-   - `SUPABASE_SERVICE_ROLE_KEY` — same page, service role key (**secret** — mark it as a
-     sensitive/encrypted env var)
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — from that
+     Supabase project's Settings → API (publishable key — safe to paste in, not secret)
+   - `SUPABASE_SECRET_KEY` — same page, secret key (**sensitive** — mark it as an
+     encrypted env var)
    - `NEXT_PUBLIC_SITE_URL` — the deployment's own URL (`https://tools.wuwf.org` in
      Production)
 3. Point the `tools.wuwf.org` domain at the Production environment.
