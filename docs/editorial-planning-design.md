@@ -1,9 +1,10 @@
 # Editorial Planning — Product & Technical Design
 
-Status: **proposed** (design only — no implementation yet, per the portal-foundation
-milestone in CLAUDE.md). This document is the design deliverable for the first real
-tool in the WUWF Tools Portal; the implementation plan at the end maps it onto the
-existing architecture.
+Status: **implemented** (schema in
+`supabase/migrations/20260722130000_editorial_planning.sql`, logic in
+`src/lib/editorial/`, screens under `src/app/(portal)/editorial/`). This document is
+the design the implementation follows; treat it as the rationale record, and the code
+as the source of truth for details that have since evolved.
 
 ---
 

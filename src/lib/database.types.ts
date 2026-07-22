@@ -7,6 +7,14 @@ export type ToolStatus = "available" | "in_development" | "planned";
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
 
+// Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql.
+export type EpFieldType = "short_text" | "long_text" | "select" | "multi_select" | "date" | "url";
+export type EpPitchStatus = "open" | "assigned" | "archived";
+export type EpMeetingStatus = "open" | "agenda" | "concluded";
+export type EpDecisionOutcome = "assigned" | "deferred" | "archived";
+/** ep_pitch_values.value: a string for most field types, string[] for multi_select. */
+export type EpFieldValue = string | string[];
+
 export interface Database {
   public: {
     Tables: {
@@ -104,6 +112,150 @@ export interface Database {
           target_type: string;
         };
         Update: Partial<Database["public"]["Tables"]["audit_events"]["Row"]>;
+        Relationships: [];
+      };
+      ep_form_fields: {
+        Row: {
+          id: string;
+          key: string;
+          label: string;
+          help_text: string | null;
+          field_type: EpFieldType;
+          options: string[] | null;
+          required: boolean;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_form_fields"]["Row"]> & {
+          key: string;
+          label: string;
+          field_type: EpFieldType;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_form_fields"]["Row"]>;
+        Relationships: [];
+      };
+      ep_criteria: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          guidance: string | null;
+          weight: number;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]> & {
+          name: string;
+          description: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]>;
+        Relationships: [];
+      };
+      ep_settings: {
+        Row: {
+          id: boolean;
+          scale_min: number;
+          scale_max: number;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
+        Relationships: [];
+      };
+      ep_pitches: {
+        Row: {
+          id: string;
+          title: string;
+          status: EpPitchStatus;
+          submitted_by: string | null;
+          assigned_to: string | null;
+          archived_reason: string | null;
+          archived_by: string | null;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_pitches"]["Row"]> & {
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_pitches"]["Row"]>;
+        Relationships: [];
+      };
+      ep_pitch_values: {
+        Row: {
+          pitch_id: string;
+          field_id: string;
+          value: EpFieldValue;
+        };
+        Insert: Database["public"]["Tables"]["ep_pitch_values"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["ep_pitch_values"]["Row"]>;
+        Relationships: [];
+      };
+      ep_meetings: {
+        Row: {
+          id: string;
+          meeting_date: string;
+          status: EpMeetingStatus;
+          notes: string | null;
+          created_by: string | null;
+          agenda_at: string | null;
+          concluded_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_meetings"]["Row"]> & {
+          meeting_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_meetings"]["Row"]>;
+        Relationships: [];
+      };
+      ep_meeting_pitches: {
+        Row: {
+          id: string;
+          meeting_id: string;
+          pitch_id: string;
+          added_by: string | null;
+          outcome: EpDecisionOutcome | null;
+          assigned_to: string | null;
+          rationale: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_meeting_pitches"]["Row"]> & {
+          meeting_id: string;
+          pitch_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_meeting_pitches"]["Row"]>;
+        Relationships: [];
+      };
+      ep_reviews: {
+        Row: {
+          id: string;
+          meeting_pitch_id: string;
+          reviewer_id: string;
+          comment: string | null;
+          submitted_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_reviews"]["Row"]> & {
+          meeting_pitch_id: string;
+          reviewer_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_reviews"]["Row"]>;
+        Relationships: [];
+      };
+      ep_review_scores: {
+        Row: {
+          review_id: string;
+          criterion_id: string;
+          score: number;
+          weight_snapshot: number;
+          scale_snapshot: number;
+        };
+        Insert: Database["public"]["Tables"]["ep_review_scores"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["ep_review_scores"]["Row"]>;
         Relationships: [];
       };
     };
