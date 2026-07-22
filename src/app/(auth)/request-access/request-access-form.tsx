@@ -8,7 +8,7 @@ import { submitAccessRequest, type RequestAccessState } from "./actions";
 
 const initialState: RequestAccessState = { status: "idle" };
 
-export function RequestAccessForm() {
+export function RequestAccessForm({ initialEmail }: { initialEmail?: string }) {
   const [state, formAction, isPending] = useActionState(submitAccessRequest, initialState);
 
   if (state.status === "submitted") {
@@ -33,7 +33,14 @@ export function RequestAccessForm() {
       </div>
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="you@wuwf.org" required />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          defaultValue={initialEmail}
+          placeholder="you@wuwf.org"
+          required
+        />
       </div>
       <div>
         <Label htmlFor="note">What do you need access to? (optional)</Label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { requestSignInLink, type LoginState } from "./actions";
@@ -17,6 +18,22 @@ export function LoginForm() {
           Check your email — we sent a sign-in link to <strong>{state.email}</strong>. It&apos;s
           valid for 15 minutes.
         </p>
+      </div>
+    );
+  }
+
+  if (state.status === "no_account") {
+    return (
+      <div className="rounded border border-line bg-panel-50 p-4">
+        <p className="text-sm text-ink-700">
+          We couldn&apos;t find an account for <strong>{state.email}</strong>. If you&apos;re new
+          here, request access instead — an administrator will review it.
+        </p>
+        <Link href={`/request-access?email=${encodeURIComponent(state.email)}`}>
+          <Button variant="secondary" className="mt-3">
+            Request access
+          </Button>
+        </Link>
       </div>
     );
   }
