@@ -155,14 +155,19 @@ There is no separate "archive." The project list *is* the archive:
   by-default model would strangle the archive at birth. (Small trusted
   newsroom; the portal already gates who is a member.)
 - The search box on the project list searches titles, notes, speaker names —
-  and, in Phase 5, full transcript text and clip titles. A transcript hit
+  and, in Phase 5, the full transcript text and clips via **hybrid search**:
+  keyword full-text search *and* semantic (vector) search over embeddings,
+  merged into one ranked result list. Keyword search answers "find the name /
+  the exact phrase"; semantic search answers "find where they talk about
+  flood insurance" even when nobody said those words. A transcript hit
   deep-links into the project with the playhead at that moment.
+- One search box, no mode toggle — hybrid by default, keeping the interface
+  calm. Results show snippet, speaker, project, and timestamp.
 - A **Clips** view lists every clip across projects (filterable by speaker,
   project, date) — reuse surface for "I know we have the mayor saying this."
 
-Postgres full-text search over segments/clips covers a small newsroom's corpus
-for years. No vector search, no embeddings, no separate search service until
-FTS demonstrably fails.
+Both halves run inside Postgres (FTS + pgvector, which Supabase ships
+natively) — still no separate search service.
 
 ## 4. Screens
 
@@ -241,10 +246,24 @@ tw_clips
   title text not null
   start_ms / end_ms integer not null
   excerpt text not null                -- transcript text at creation (denormalized, searchable)
+  embedding vector(1536)               -- of title + excerpt; null until embedded (Phase 5)
   export_storage_path text             -- rendered WAV, null until first export
   exported_at timestamptz
   created_by uuid not null references profiles(id)
   created_at / updated_at
+
+-- Semantic search unit (Phase 5). Segments are too granular to embed well
+-- (a few seconds of speech is a noisy embedding), so transcripts are chunked
+-- into overlapping ~45-second / ~250-token windows with speaker labels
+-- inlined, each carrying its time range for deep-linking into the workspace.
+tw_chunks
+  id uuid pk
+  project_id uuid not null references tw_projects on delete cascade
+  start_ms / end_ms integer not null
+  text text not null                   -- "Reeves: … \n Dana: …" window
+  embedding vector(1536) not null
+  stale boolean not null default false -- set when overlapping segments are edited
+  -- + HNSW index on embedding (cosine); index (project_id)
 ```
 
 Notes and deliberate omissions:
@@ -260,7 +279,7 @@ Notes and deliberate omissions:
   boundaries are always audition-and-nudge. No re-alignment machinery.
 - **RLS** (same migration): helper `has_transcription_access(uid)` — an active,
   non-revoked `tool_access` row for the `transcription` tool, or
-  `is_administrator(uid)`. Members get select/insert/update on all five^W four
+  `is_administrator(uid)`. Members get select/insert/update on all tool
   tables (shared-workspace model, per §3F); **delete** on projects restricted
   to `created_by` or administrator. Storage bucket (`transcription-media`,
   private) gets matching `storage.objects` policies; all media access via
@@ -283,7 +302,8 @@ lean: AssemblyAI, for diarization quality and a dead-simple async API) and put
 it behind a ~50-line `TranscriptionProvider` interface (`start(url, webhook)`,
 `parseWebhook(payload) → segments/speakers/words`) so swapping later is a
 contained change, not a rewrite. API key is server-only, alongside the
-existing `SUPABASE_SECRET_KEY` discipline.
+existing `SUPABASE_SECRET_KEY` discipline (the embeddings API key, added in
+Phase 5, follows the same rule).
 
 Flow: upload completes → Server Action gives the provider a **short-lived
 signed URL** to the source object plus a webhook URL → provider calls back →
@@ -310,6 +330,39 @@ multi-hundred-MB video), never through a Next.js server function. Project row
 is created first (`status='uploading'`), so an abandoned upload is visible and
 cleanable rather than an orphaned object.
 
+### Embeddings & hybrid search (Phase 5)
+
+Vector search stays inside the existing stack: **pgvector** (a first-class
+Supabase extension) holds embeddings, and one Postgres function performs
+hybrid retrieval — full-text rank and cosine-similarity rank merged with
+reciprocal rank fusion (the standard Supabase hybrid-search pattern) — called
+via a single RPC from a Server Component. No search service, no sync job.
+
+Embedding generation mirrors the ASR decision: a managed embeddings API behind
+a thin `EmbeddingProvider` adapter (`embed(texts[]) → vectors`). Default:
+OpenAI `text-embedding-3-small` — cheap (an hour-long interview embeds for a
+fraction of a cent), well-understood, 1536 dims. The adapter makes the
+provider swappable, with one caveat worth stating: the vector column's
+dimension is fixed at migration time, so a model change means a re-embed
+migration — acceptable, since re-embedding the entire archive of a small
+newsroom is minutes and pennies.
+
+What gets embedded, and when:
+
+- **Chunks, not segments.** After the transcription webhook lands (and after
+  Phase 5 ships, on a backfill action for existing projects), the transcript
+  is sliced into overlapping ~45-second windows with speaker names inlined
+  (`tw_chunks`). Chunk-level embeddings capture *topics*; segment-level ones
+  would capture noise.
+- **Clips** embed `title + excerpt` at creation/edit — a clip's title is
+  exactly the kind of editorial summary ("mayor commits to bridge funding")
+  that semantic search thrives on.
+- **Staleness over eagerness.** Editing a segment marks overlapping chunks
+  `stale`; a debounced server action re-chunks and re-embeds the affected
+  window after edits settle. Most corrections (spelling, names) barely move an
+  embedding, so stale results in the interim are fine — this avoids an
+  embed-per-keystroke pipeline.
+
 ### Clip preview and export
 
 - **Preview** is just the existing player: seek to `start_ms`, play, stop at
@@ -330,7 +383,7 @@ cleanable rather than an orphaned object.
 | Multi-span clips / internal edits | Contiguous clips only | Assembly is DAW territory and editorially sensitive; contiguous quotes are what actualities overwhelmingly are. |
 | Transcode/proxy pipeline | Constrain upload formats; ASR ingests video natively | Deletes an entire subsystem. |
 | Job queue / worker | Provider webhooks + status columns + polling | One async step doesn't justify orchestration. |
-| Semantic/vector search | Postgres FTS (`tsvector` + GIN) | Small corpus, and "find the word/name" is the actual newsroom query. Embeddings are additive later if ever wanted. |
+| Dedicated search service for semantic search | Hybrid FTS + pgvector inside Postgres, one RPC | Both retrieval modes live in the database we already run; embeddings are the only external call, and they're batched and cheap. |
 | Private-by-default projects | Shared-by-default within the tool | The archive goal dies without it; portal membership is the trust boundary. |
 | Loudness processing on export | Clean full-res trim only | Producers master downstream; add a normalize flag later if asked. |
 
@@ -365,9 +418,12 @@ standalone PR-sized-to-a-few-PRs milestone.
 4. **Clips & export** — text-selection → clip, clip rail, preview, nudge
    trimming, ffmpeg WAV export to storage, download.
    *This is the finish line for the core promise.*
-5. **Search & reuse** — FTS across segments/clips/titles/speakers,
-   deep-linking search results into the workspace at a timestamp,
-   cross-project Clips view. *The archive emerges.*
+5. **Search & reuse** — hybrid keyword + semantic search: pgvector migration
+   (`tw_chunks`, clip embeddings, hybrid-search RPC), embedding adapter,
+   chunking on transcription-complete plus a backfill for existing projects,
+   staleness-based re-embedding on edit; one search box over
+   transcripts/clips/titles/speakers with results deep-linking into the
+   workspace at a timestamp; cross-project Clips view. *The archive emerges.*
 
 Phases 1–2 prove the riskiest integration (upload → provider → webhook) before
 any editing UI exists. Phase 4 before 5 because clips must exist before a clip
