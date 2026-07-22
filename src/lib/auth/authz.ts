@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, type Profile } from "@/lib/auth/session";
 import { isActive, isActiveAdministrator } from "@/lib/auth/predicates";
+import { getToolByKey, type Tool } from "@/lib/tools";
 
 /**
  * Single source of truth for "is this user allowed to do X". Every
@@ -59,4 +60,40 @@ export async function hasToolAccess(userId: string, toolId: string): Promise<boo
     .maybeSingle();
 
   return data !== null;
+}
+
+/**
+ * Requires an active profile with a grant for the given tool (looked up by
+ * its `tools.key`); redirects to /dashboard otherwise. For use in pages of
+ * tools beyond the placeholder stage — mirrors requireAdministrator's shape.
+ * Platform administrators are not special-cased: like every other user,
+ * they need an explicit tool_access grant (see how dana_id in seed.sql only
+ * has editorial-planning access, not every tool).
+ */
+export async function requireToolAccess(
+  toolKey: string,
+): Promise<{ profile: Profile; tool: Tool }> {
+  const profile = await requireActiveProfile();
+  const tool = await getToolByKey(toolKey);
+  if (!tool || !(await hasToolAccess(profile.id, tool.id))) {
+    redirect("/dashboard");
+  }
+  return { profile, tool };
+}
+
+/**
+ * Requires an active profile with a grant for the given tool; throws
+ * ForbiddenError otherwise. For use in that tool's server actions, where a
+ * redirect would be the wrong response — mirrors assertAdministrator.
+ */
+export async function assertToolAccess(toolKey: string): Promise<{ profile: Profile; tool: Tool }> {
+  const profile = await getCurrentProfile();
+  if (!isActive(profile)) {
+    throw new ForbiddenError();
+  }
+  const tool = await getToolByKey(toolKey);
+  if (!tool || !(await hasToolAccess(profile.id, tool.id))) {
+    throw new ForbiddenError();
+  }
+  return { profile, tool };
 }

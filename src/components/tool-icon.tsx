@@ -13,6 +13,14 @@ const ICONS: Record<string, React.ReactNode> = {
     </>
   ),
   "clip-library": <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
+  transcription: (
+    <>
+      <path d="M4 15v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2" />
+      <line x1="8" y1="9" x2="8" y2="19" />
+      <line x1="12" y1="9" x2="12" y2="19" />
+      <line x1="16" y1="9" x2="16" y2="19" />
+    </>
+  ),
   "audience-listening": (
     <>
       <path d="M3 18v-6a9 9 0 0 1 18 0v6" />

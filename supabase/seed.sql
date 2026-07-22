@@ -17,6 +17,7 @@ declare
   tool_editorial uuid;
   tool_remote uuid;
   tool_clips uuid;
+  tool_transcription uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -89,13 +90,19 @@ begin
   select id into tool_editorial from public.tools where key = 'editorial-planning';
   select id into tool_remote from public.tools where key = 'remote-interview';
   select id into tool_clips from public.tools where key = 'clip-library';
+  -- Transcription Workspace's registry row is inserted by its own schema
+  -- migration (20260722130000_transcription_workspace_schema.sql), not
+  -- here — this just looks it up to seed local tool_access grants.
+  select id into tool_transcription from public.tools where key = 'transcription';
 
   insert into public.tool_access (user_id, tool_id, tool_role, granted_by)
   values
     (dana_id, tool_editorial, 'Editor', dana_id),
     (marcus_id, tool_editorial, 'Contributor', dana_id),
     (marcus_id, tool_remote, 'Contributor', dana_id),
-    (leo_id, tool_clips, null, dana_id)
+    (leo_id, tool_clips, null, dana_id),
+    (dana_id, tool_transcription, null, dana_id),
+    (marcus_id, tool_transcription, null, dana_id)
   on conflict do nothing;
 
   insert into public.access_requests (email, display_name, note, status)

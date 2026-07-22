@@ -23,6 +23,12 @@ pitch/scoring/ranking workflow, Remote Interview media pipeline, Clip Library, o
 Audience Listening tool** without an explicit instruction to start that phase — those are
 separate milestones with their own schemas under their own route groups.
 
+**Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
+`tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
+foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
+product design and phased plan before extending it; check that plan's phase
+boundaries before building ahead of the current phase.
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
@@ -55,10 +61,13 @@ src/app/(auth)/            sign-in, request-access, /auth/callback — public ro
 src/app/(portal)/          everything behind requireActiveProfile() (portal shell + nav)
 src/app/(portal)/admin/    everything behind requireAdministrator()
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
+src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
+                            requireToolAccess("transcription")
 src/components/ui/         small shared primitives (Button, Badge, Input, Card) — keep generic
 src/components/            portal-specific components (nav, tool card, etc.)
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
+src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
 supabase/seed.sql          local/preview-only sample data — never run against production
