@@ -4,10 +4,13 @@ Internal tools portal for WUWF Public Media — shared authentication, navigatio
 approval/invitation, and access control for a small set of purpose-built internal tools
 (Editorial Planning, and later Remote Interview, Shared Clip Library, Audience Listening).
 
-This repository is the **portal foundation** milestone: application shell, auth, the tool
-registry, and admin screens. It is not, and is not meant to become, a general-purpose
-newsroom platform — see `CLAUDE.md` for the scope and architecture rules this project
-follows.
+This repository contains the **portal foundation** (application shell, auth, the tool
+registry, and admin screens) and the first real tool, **Editorial Planning** — a pitch
+backlog, a configurable submission form and scoring rubric, and weekly planning meetings
+with independent reviewer scoring, ranked agendas, and recorded decisions
+(`docs/editorial-planning-design.md` explains the design). It is not, and is not meant to
+become, a general-purpose newsroom platform — see `CLAUDE.md` for the scope and
+architecture rules this project follows.
 
 ## Stack
 
@@ -41,16 +44,16 @@ supabase db reset
 
 ### Common commands
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Start the Next.js dev server |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Run the Vitest suite once |
-| `npm run test:watch` | Vitest in watch mode |
-| `npm run format` | Prettier, write mode |
-| `npm run db:types` | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
+| Command              | What it does                                                                  |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `npm run dev`        | Start the Next.js dev server                                                  |
+| `npm run build`      | Production build                                                              |
+| `npm run lint`       | ESLint                                                                        |
+| `npm run typecheck`  | `tsc --noEmit`                                                                |
+| `npm test`           | Run the Vitest suite once                                                     |
+| `npm run test:watch` | Vitest in watch mode                                                          |
+| `npm run format`     | Prettier, write mode                                                          |
+| `npm run db:types`   | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
 
 ## Database workflow
 
@@ -70,11 +73,11 @@ Never edit an already-applied migration file; add a new one.
 
 Three environments, two Supabase projects (WUWF org):
 
-| Environment | Vercel | Supabase project |
-| --- | --- | --- |
-| Local | `next dev` | Local `supabase start` stack |
-| Preview | Vercel preview deployments (per branch/PR) | `wuwf-tools-portal-preview` — seeded with sample data, safe to reset |
-| Production | Production Vercel deployment (`tools.wuwf.org`) | `wuwf-tools-portal` — real data only |
+| Environment | Vercel                                          | Supabase project                                                     |
+| ----------- | ----------------------------------------------- | -------------------------------------------------------------------- |
+| Local       | `next dev`                                      | Local `supabase start` stack                                         |
+| Preview     | Vercel preview deployments (per branch/PR)      | `wuwf-tools-portal-preview` — seeded with sample data, safe to reset |
+| Production  | Production Vercel deployment (`tools.wuwf.org`) | `wuwf-tools-portal` — real data only                                 |
 
 Preview deployments must never hold production secret-key credentials or point at the
 production database — set preview env vars against the `-preview` project only.
@@ -85,6 +88,7 @@ Both Supabase projects and this repository already exist; two things aren't reac
 through automation and need a human in each dashboard once:
 
 **Vercel** (`vercel.com` → WUWF team):
+
 1. Import this GitHub repository as a project (enables automatic preview deployments per
    PR and a production deployment on pushes to `main`).
 2. Set environment variables — Production env pointing at `wuwf-tools-portal`, Preview env
@@ -98,6 +102,7 @@ through automation and need a human in each dashboard once:
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
 **Supabase Auth** (each project's dashboard → Authentication → URL Configuration):
+
 - Site URL = that environment's `NEXT_PUBLIC_SITE_URL`
 - Redirect URLs include `<site-url>/auth/callback`
 

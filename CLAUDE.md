@@ -14,14 +14,16 @@ is its own focused application area with its own schema. The portal's job ends a
 Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
 integrations. When in doubt, keep scope narrow.
 
-## Current milestone: portal foundation
+## Current milestone: portal foundation + Editorial Planning
 
-This repo currently implements *only* the portal foundation: app shell, auth, profiles,
-platform roles, tool registry, dashboard, admin (users + tools + audit log), RLS, and a
-placeholder route for Editorial Planning. **Do not build the real Editorial Planning
-pitch/scoring/ranking workflow, Remote Interview media pipeline, Clip Library, or
-Audience Listening tool** without an explicit instruction to start that phase — those are
-separate milestones with their own schemas under their own route groups.
+This repo implements the portal foundation (app shell, auth, profiles, platform roles,
+tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Planning**
+(pitch backlog, configurable submission form and rubric, weekly meetings with
+independent scoring, ranked agendas, and recorded decisions). Its design rationale
+lives in `docs/editorial-planning-design.md` — read it before changing editorial
+workflow or schema. **Do not build the Remote Interview media pipeline, Clip Library,
+or Audience Listening tool** without an explicit instruction to start that phase —
+those are separate milestones with their own schemas under their own route groups.
 
 ## Architecture
 
@@ -54,20 +56,26 @@ separate milestones with their own schemas under their own route groups.
 src/app/(auth)/            sign-in, request-access, /auth/callback — public routes
 src/app/(portal)/          everything behind requireActiveProfile() (portal shell + nav)
 src/app/(portal)/admin/    everything behind requireAdministrator()
+src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
+                           gated by requireEditorialAccess() from lib/editorial/access.ts
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
 src/components/ui/         small shared primitives (Button, Badge, Input, Card) — keep generic
 src/components/            portal-specific components (nav, tool card, etc.)
+src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
+src/lib/editorial/         Editorial Planning logic: access gates (server-only) plus pure,
+                           tested modules (roles, scoring, staleness, form validation)
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
 supabase/seed.sql          local/preview-only sample data — never run against production
 ```
 
-A future tool (e.g. `editorial-planning` going from placeholder to real) gets its own
-route segment (`src/app/(portal)/editorial/`), its own migration(s) for tool-specific
-tables, and reuses `tool_access`/`profiles` for authorization — it should not need
-portal-schema changes.
+A future tool follows the Editorial Planning pattern: its own route segment, its own
+migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
+`tool_access`/`profiles` for authorization — it should not need portal-schema changes
+beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
+migration.
 
 ## Common commands
 
