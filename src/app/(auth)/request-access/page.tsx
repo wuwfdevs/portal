@@ -2,7 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { RequestAccessForm } from "./request-access-form";
 
-export default function RequestAccessPage() {
+export default async function RequestAccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const { email } = await searchParams;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-panel-50 px-6 py-12">
       <div className="w-full max-w-[400px] rounded border border-line bg-white p-9">
@@ -12,7 +18,7 @@ export default function RequestAccessPage() {
           Tell us who you are and what you need. A WUWF Tools administrator reviews every request
           before access is granted.
         </p>
-        <RequestAccessForm />
+        <RequestAccessForm initialEmail={email} />
         <div className="my-6 border-t border-line" />
         <p className="text-sm text-ink-500">
           Already have access?{" "}
