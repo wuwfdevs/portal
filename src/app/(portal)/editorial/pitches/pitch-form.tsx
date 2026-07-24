@@ -2,8 +2,9 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { FieldError, FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { savePitch, type PitchFormState } from "./actions";
 import type { EpFieldValue, EpFieldType } from "@/lib/database.types";
 
@@ -47,22 +48,24 @@ export function PitchForm({
   const title = state.status === "error" ? state.title : initialTitle;
   const values = state.status === "error" ? state.values : initialValues;
 
-  const inputClass =
-    "w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 " +
-    "focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface";
-
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {pitchId && <input type="hidden" name="pitch_id" value={pitchId} />}
-      {state.status === "error" && state.message && (
-        <p className="rounded border border-danger/30 bg-danger/[0.06] px-3 py-2 text-xs text-danger">
-          {state.message}
-        </p>
-      )}
+      {state.status === "error" && state.message && <Alert>{state.message}</Alert>}
 
       <div>
-        <Label htmlFor="title">Title *</Label>
-        <Input id="title" name="title" defaultValue={title} maxLength={200} required />
+        <Label htmlFor="title">
+          Title <span className="text-danger">*</span>
+        </Label>
+        <Input
+          id="title"
+          name="title"
+          defaultValue={title}
+          maxLength={200}
+          required
+          aria-invalid={errors.title ? true : undefined}
+          placeholder="One line that says what the story is"
+        />
         {errors.title && <FieldError>{errors.title}</FieldError>}
       </div>
 
@@ -71,24 +74,27 @@ export function PitchForm({
         const value = values[field.key];
         const text = Array.isArray(value) ? "" : (value ?? "");
         const selected = Array.isArray(value) ? value : value ? [value] : [];
-        const label = field.required ? `${field.label} *` : field.label;
+        const invalid = errors[field.key] ? true : undefined;
 
         return (
           <div key={field.id}>
-            <Label htmlFor={name}>{label}</Label>
+            <Label htmlFor={name}>
+              {field.label}
+              {field.required && <span className="text-danger"> *</span>}
+            </Label>
             {field.field_type === "long_text" ? (
-              <textarea id={name} name={name} defaultValue={text} rows={4} className={inputClass} />
+              <Textarea id={name} name={name} defaultValue={text} rows={4} aria-invalid={invalid} />
             ) : field.field_type === "select" ? (
-              <select id={name} name={name} defaultValue={text} className={inputClass}>
+              <Select id={name} name={name} defaultValue={text} aria-invalid={invalid}>
                 <option value="">Choose…</option>
                 {(field.options ?? []).map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : field.field_type === "multi_select" ? (
-              <div className="flex flex-col gap-1.5 pt-0.5">
+              <div className="flex flex-col gap-2 pt-1">
                 {(field.options ?? []).map((option) => (
                   <label key={option} className="flex items-center gap-2 text-sm text-ink-900">
                     <input
@@ -96,6 +102,7 @@ export function PitchForm({
                       name={name}
                       value={option}
                       defaultChecked={selected.includes(option)}
+                      className="h-4 w-4"
                     />
                     {option}
                   </label>
@@ -107,6 +114,7 @@ export function PitchForm({
                 name={name}
                 type={TEXT_INPUT_TYPE[field.field_type] ?? "text"}
                 defaultValue={text}
+                aria-invalid={invalid}
               />
             )}
             {errors[field.key] ? (

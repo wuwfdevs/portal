@@ -59,12 +59,15 @@ src/app/(portal)/admin/    everything behind requireAdministrator()
 src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
                            gated by requireEditorialAccess() from lib/editorial/access.ts
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
-src/components/ui/         small shared primitives (Button, Badge, Input, Card) — keep generic
+src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
+                           Alert, Table) — keep generic; use these rather than re-typing
+                           control/table class strings inline
 src/components/            portal-specific components (nav, tool card, etc.)
 src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
-src/lib/editorial/         Editorial Planning logic: access gates (server-only) plus pure,
+src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
+                           (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
@@ -131,6 +134,15 @@ make explicitly, not by default.
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename
   things "while you're in there," or add abstractions for a single current use.
+- Never discard a Supabase `error`. A read that falls back to `[]` and a write that
+  redirects as though it succeeded both render exactly like a healthy screen, so a real
+  outage looks like a UI bug — that is how an unapplied migration once passed for "the
+  settings aren't configurable". Reads go through `unwrapRead()` (throws, caught by the
+  route's `error.tsx`); writes go through `failIfError()` / `failWith()` from
+  `lib/editorial/action-result.ts`, which bounce back with `?error=` for the screen to show.
+- Migrations in `supabase/migrations/` are not self-applying. After adding one, apply it to
+  the Supabase projects (preview first, then production) and confirm the tables exist —
+  a migration that only lives in the repo ships a tool that silently does nothing.
 - Run `npm run lint`, `npm run typecheck`, and `npm test` before calling a change done.
 - Update this file and/or README.md when you change architecture, directory conventions,
   or the local/deploy workflow — not for routine feature work.

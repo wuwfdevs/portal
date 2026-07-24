@@ -3,18 +3,20 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
-import { getSettings, listCriteria } from "@/lib/editorial/data";
+import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { getSettings, listCriteria, unwrapRead } from "@/lib/editorial/data";
 import { validateReviewScores } from "@/lib/editorial/scoring";
 import { logAuditEvent } from "@/lib/audit";
 import type { EpDecisionOutcome } from "@/lib/database.types";
 
+const MEETINGS_PATH = "/editorial/meetings";
+
 async function getMeetingStatus(meetingId: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("ep_meetings")
-    .select("status")
-    .eq("id", meetingId)
-    .maybeSingle();
+  const data = unwrapRead(
+    await supabase.from("ep_meetings").select("status").eq("id", meetingId).maybeSingle(),
+    "the meeting",
+  );
   return data?.status ?? null;
 }
 
@@ -22,7 +24,7 @@ export async function createMeeting(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingDate = String(formData.get("meeting_date") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(meetingDate)) {
-    redirect("/editorial/meetings?error=" + encodeURIComponent("Pick a meeting date."));
+    failWith(MEETINGS_PATH, "Pick a meeting date.");
   }
 
   const supabase = await createClient();
@@ -31,9 +33,8 @@ export async function createMeeting(formData: FormData): Promise<void> {
     .insert({ meeting_date: meetingDate, created_by: editor.profile.id })
     .select("id")
     .single();
-  if (error || !meeting) {
-    redirect("/editorial/meetings?error=" + encodeURIComponent("Could not create the meeting."));
-  }
+  failIfError(error, MEETINGS_PATH, "Could not create the meeting");
+  if (!meeting) failWith(MEETINGS_PATH, "Could not create the meeting — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -43,34 +44,46 @@ export async function createMeeting(formData: FormData): Promise<void> {
     metadata: { meeting_date: meetingDate },
   });
 
-  redirect(`/editorial/meetings/${meeting.id}`);
+  redirect(`${MEETINGS_PATH}/${meeting.id}`);
 }
 
 export async function addPitchToSlate(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const pitchId = String(formData.get("pitch_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(`/editorial/meetings/${meetingId}`);
+  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
 
   const supabase = await createClient();
-  // The (meeting_id, pitch_id) unique constraint makes double-adds a no-op.
-  await supabase
+  // ignoreDuplicates makes a double-add (two editors, same pitch) a real no-op
+  // against the (meeting_id, pitch_id) unique constraint rather than an error.
+  const { error } = await supabase
     .from("ep_meeting_pitches")
-    .insert({ meeting_id: meetingId, pitch_id: pitchId, added_by: editor.profile.id });
+    .upsert(
+      { meeting_id: meetingId, pitch_id: pitchId, added_by: editor.profile.id },
+      { onConflict: "meeting_id,pitch_id", ignoreDuplicates: true },
+    );
+  failIfError(error, meetingPath, "Could not add the pitch to the slate");
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 export async function removePitchFromSlate(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const entryId = String(formData.get("entry_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(`/editorial/meetings/${meetingId}`);
+  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
 
   const supabase = await createClient();
-  await supabase.from("ep_meeting_pitches").delete().eq("id", entryId).eq("meeting_id", meetingId);
+  const { error } = await supabase
+    .from("ep_meeting_pitches")
+    .delete()
+    .eq("id", entryId)
+    .eq("meeting_id", meetingId);
+  failIfError(error, meetingPath, "Could not remove the pitch from the slate");
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 /**
@@ -83,8 +96,9 @@ export async function removePitchFromSlate(formData: FormData): Promise<void> {
 export async function submitReview(formData: FormData): Promise<void> {
   const reviewer = await assertEditorialRole("reviewer");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const entryId = String(formData.get("entry_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(`/editorial/meetings/${meetingId}`);
+  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
 
   const [criteria, settings] = await Promise.all([
     listCriteria({ activeOnly: true }),
@@ -100,9 +114,7 @@ export async function submitReview(formData: FormData): Promise<void> {
     raw,
     { min: settings.scale_min, max: settings.scale_max },
   );
-  if (error) {
-    redirect(`/editorial/meetings/${meetingId}?error=${encodeURIComponent(error)}`);
-  }
+  if (error) failWith(meetingPath, error);
 
   const comment = String(formData.get("comment") ?? "").trim() || null;
   const weightByCriterion = new Map(criteria.map((criterion) => [criterion.id, criterion.weight]));
@@ -121,37 +133,44 @@ export async function submitReview(formData: FormData): Promise<void> {
     )
     .select("id")
     .single();
-  if (reviewError || !review) {
-    redirect(
-      `/editorial/meetings/${meetingId}?error=${encodeURIComponent("Could not save your review.")}`,
+  failIfError(reviewError, meetingPath, "Could not save your review");
+  if (!review) failWith(meetingPath, "Could not save your review — no row was written.");
+
+  const { error: clearError } = await supabase
+    .from("ep_review_scores")
+    .delete()
+    .eq("review_id", review.id);
+  failIfError(clearError, meetingPath, "Could not save your review");
+
+  if (scores.length > 0) {
+    const { error: scoreError } = await supabase.from("ep_review_scores").insert(
+      scores.map(({ criterionId, score }) => ({
+        review_id: review.id,
+        criterion_id: criterionId,
+        score,
+        weight_snapshot: weightByCriterion.get(criterionId) ?? 1,
+        scale_snapshot: settings.scale_max,
+      })),
     );
+    failIfError(scoreError, meetingPath, "Could not save your scores");
   }
 
-  await supabase.from("ep_review_scores").delete().eq("review_id", review.id);
-  await supabase.from("ep_review_scores").insert(
-    scores.map(({ criterionId, score }) => ({
-      review_id: review.id,
-      criterion_id: criterionId,
-      score,
-      weight_snapshot: weightByCriterion.get(criterionId) ?? 1,
-      scale_snapshot: settings.scale_max,
-    })),
-  );
-
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 /** open -> agenda: scoring locks, scores unlock for everyone, ranking appears. */
 export async function closeScoring(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_meetings")
     .update({ status: "agenda", agenda_at: new Date().toISOString() })
     .eq("id", meetingId)
     .eq("status", "open");
+  failIfError(error, meetingPath, "Could not close scoring");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -160,7 +179,7 @@ export async function closeScoring(formData: FormData): Promise<void> {
     targetId: meetingId,
   });
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 const OUTCOMES: EpDecisionOutcome[] = ["assigned", "deferred", "archived"];
@@ -173,33 +192,33 @@ const OUTCOMES: EpDecisionOutcome[] = ["assigned", "deferred", "archived"];
 export async function recordDecision(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const entryId = String(formData.get("entry_id") ?? "");
   const outcomeRaw = String(formData.get("outcome") ?? "");
   const assignedTo = String(formData.get("assigned_to") ?? "") || null;
   const rationale = String(formData.get("rationale") ?? "").trim() || null;
 
-  if (!OUTCOMES.includes(outcomeRaw as EpDecisionOutcome))
-    redirect(`/editorial/meetings/${meetingId}`);
+  if (!OUTCOMES.includes(outcomeRaw as EpDecisionOutcome)) redirect(meetingPath);
   const outcome = outcomeRaw as EpDecisionOutcome;
   if (outcome === "assigned" && !assignedTo) {
-    redirect(
-      `/editorial/meetings/${meetingId}?error=${encodeURIComponent("Pick who the story is assigned to.")}`,
-    );
+    failWith(meetingPath, "Pick who the story is assigned to.");
   }
-  if ((await getMeetingStatus(meetingId)) !== "agenda")
-    redirect(`/editorial/meetings/${meetingId}`);
+  if ((await getMeetingStatus(meetingId)) !== "agenda") redirect(meetingPath);
 
   const supabase = await createClient();
-  const { data: entry } = await supabase
-    .from("ep_meeting_pitches")
-    .select("id, pitch_id")
-    .eq("id", entryId)
-    .eq("meeting_id", meetingId)
-    .maybeSingle();
-  if (!entry) redirect(`/editorial/meetings/${meetingId}`);
+  const entry = unwrapRead(
+    await supabase
+      .from("ep_meeting_pitches")
+      .select("id, pitch_id")
+      .eq("id", entryId)
+      .eq("meeting_id", meetingId)
+      .maybeSingle(),
+    "the slate item",
+  );
+  if (!entry) redirect(meetingPath);
 
   const now = new Date().toISOString();
-  await supabase
+  const { error: decisionError } = await supabase
     .from("ep_meeting_pitches")
     .update({
       outcome,
@@ -209,6 +228,7 @@ export async function recordDecision(formData: FormData): Promise<void> {
       decided_at: now,
     })
     .eq("id", entryId);
+  failIfError(decisionError, meetingPath, "Could not record the decision");
 
   const pitchUpdate =
     outcome === "assigned"
@@ -228,7 +248,11 @@ export async function recordDecision(formData: FormData): Promise<void> {
             archived_by: null,
             archived_at: null,
           };
-  await supabase.from("ep_pitches").update(pitchUpdate).eq("id", entry.pitch_id);
+  const { error: pitchError } = await supabase
+    .from("ep_pitches")
+    .update(pitchUpdate)
+    .eq("id", entry.pitch_id);
+  failIfError(pitchError, meetingPath, "Recorded the decision but could not update the pitch");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -242,28 +266,31 @@ export async function recordDecision(formData: FormData): Promise<void> {
     },
   });
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 /** agenda -> concluded: anything undecided is recorded as deferred. */
 export async function concludeMeeting(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "agenda")
-    redirect(`/editorial/meetings/${meetingId}`);
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
+  if ((await getMeetingStatus(meetingId)) !== "agenda") redirect(meetingPath);
 
   const supabase = await createClient();
   const now = new Date().toISOString();
-  await supabase
+  const { error: deferError } = await supabase
     .from("ep_meeting_pitches")
     .update({ outcome: "deferred", decided_by: editor.profile.id, decided_at: now })
     .eq("meeting_id", meetingId)
     .is("outcome", null);
-  await supabase
+  failIfError(deferError, meetingPath, "Could not defer the undecided pitches");
+
+  const { error } = await supabase
     .from("ep_meetings")
     .update({ status: "concluded", concluded_at: now })
     .eq("id", meetingId)
     .eq("status", "agenda");
+  failIfError(error, meetingPath, "Could not conclude the meeting");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -272,16 +299,18 @@ export async function concludeMeeting(formData: FormData): Promise<void> {
     targetId: meetingId,
   });
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }
 
 export async function updateMeetingNotes(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
+  const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   const supabase = await createClient();
-  await supabase.from("ep_meetings").update({ notes }).eq("id", meetingId);
+  const { error } = await supabase.from("ep_meetings").update({ notes }).eq("id", meetingId);
+  failIfError(error, meetingPath, "Could not save the notes");
 
-  redirect(`/editorial/meetings/${meetingId}`);
+  redirect(meetingPath);
 }

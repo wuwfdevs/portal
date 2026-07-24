@@ -6,17 +6,16 @@ export default async function EditorialSettingsLayout({ children }: { children: 
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 border-b border-line pb-3">
         <nav className="flex gap-4 text-[13px]">
           <EditorialTabLink href="/editorial/settings/form">Submission form</EditorialTabLink>
           <EditorialTabLink href="/editorial/settings/rubric">Rubric</EditorialTabLink>
         </nav>
+        <p className="mt-2 max-w-2xl text-xs leading-relaxed text-ink-400">
+          What writers are asked for, and what reviewers score against. Retired entries stay on the
+          pitches and scores that used them, so nothing you change here rewrites history.
+        </p>
       </div>
-      <p className="mb-5 max-w-2xl text-xs leading-relaxed text-ink-400">
-        Edits here are for typo fixes and clarifications. If a field or criterion should start
-        meaning something different, deactivate it and create a new one — otherwise historical
-        pitches and scores silently change meaning.
-      </p>
       {children}
     </div>
   );

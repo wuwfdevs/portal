@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/editorial/data";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldHint } from "@/components/ui/input";
+import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { updateFormField } from "../../../actions";
+import { FIELD_TYPE_LABEL } from "../../add-field-form";
 
 export default async function EditFormFieldPage({
   params,
@@ -15,50 +18,63 @@ export default async function EditFormFieldPage({
   const { id } = await params;
   const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: field } = await supabase
-    .from("ep_form_fields")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const field = unwrapRead(
+    await supabase.from("ep_form_fields").select("*").eq("id", id).maybeSingle(),
+    "the field",
+  );
   if (!field) notFound();
 
   const hasOptions = field.field_type === "select" || field.field_type === "multi_select";
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/editorial/settings/form" className="text-xs font-semibold text-brand-link">
+      <div className="mb-4">
+        <Link
+          href="/editorial/settings/form"
+          className="text-xs font-semibold text-brand-link hover:underline"
+        >
           ← Back to submission form
         </Link>
       </div>
       <div className="rounded border border-line">
         <div className="border-b border-line px-5 py-4">
           <div className="font-serif text-[17px] font-bold text-ink-900">{field.label}</div>
-          <p className="mt-0.5 text-xs text-ink-400">
-            Key <code>{field.key}</code> · type {field.field_type} (fixed — create a new field to
-            change what it means)
+          <p className="mt-1 text-xs text-ink-400">
+            <code className="font-mono">{field.key}</code> ·{" "}
+            {FIELD_TYPE_LABEL[field.field_type].toLowerCase()}
           </p>
         </div>
         <form action={updateFormField} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="field_id" value={field.id} />
-          {error && <p className="text-xs text-danger">{error}</p>}
+          {error && <Alert>{error}</Alert>}
+
+          <Alert variant="note">
+            The key and type are fixed. To change what this field <em>means</em>, retire it and add
+            a new one — editing it in place would silently rewrite what past pitches were answering.
+          </Alert>
+
           <div>
             <Label htmlFor="label">Label</Label>
-            <Input id="label" name="label" defaultValue={field.label} required />
+            <Input id="label" name="label" defaultValue={field.label} required maxLength={120} />
           </div>
           <div>
             <Label htmlFor="help_text">Help text</Label>
-            <Input id="help_text" name="help_text" defaultValue={field.help_text ?? ""} />
+            <Input
+              id="help_text"
+              name="help_text"
+              defaultValue={field.help_text ?? ""}
+              maxLength={200}
+            />
           </div>
           {hasOptions && (
             <div>
               <Label htmlFor="options">Options</Label>
-              <textarea
+              <Textarea
                 id="options"
                 name="options"
-                rows={4}
+                rows={5}
                 defaultValue={(field.options ?? []).join("\n")}
-                className="w-full rounded border border-line px-3 py-2 text-sm text-ink-900"
+                required
               />
               <FieldHint>
                 One option per line. Removing an option doesn&apos;t change pitches that already
@@ -67,7 +83,12 @@ export default async function EditFormFieldPage({
             </div>
           )}
           <label className="flex items-center gap-2 text-sm text-ink-700">
-            <input type="checkbox" name="required" defaultChecked={field.required} />
+            <input
+              type="checkbox"
+              name="required"
+              defaultChecked={field.required}
+              className="h-4 w-4"
+            />
             Required
           </label>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">

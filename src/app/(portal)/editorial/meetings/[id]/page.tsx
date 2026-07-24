@@ -14,7 +14,11 @@ import {
 import { aggregateReviews, rankSlate } from "@/lib/editorial/scoring";
 import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
   addPitchToSlate,
   closeScoring,
@@ -81,17 +85,27 @@ export default async function MeetingPage({
   const distinctReviewers = new Set(allReviews.map(({ review }) => review.reviewer_id)).size;
   const undecidedCount = slate.filter(({ entry }) => entry.outcome === null).length;
 
+  const statusLine =
+    meeting.status === "open"
+      ? "Scoring is open. Reviewers score independently — nobody sees anyone else's scores until scoring closes."
+      : meeting.status === "agenda"
+        ? "Scoring is closed and the slate is ranked. Record a decision for each pitch, then conclude."
+        : "This meeting is concluded and is now a permanent record.";
+
   return (
     <div className="max-w-3xl">
-      <div className="mb-5">
-        <Link href="/editorial/meetings" className="text-xs font-semibold text-brand-link">
+      <div className="mb-4">
+        <Link
+          href="/editorial/meetings"
+          className="text-xs font-semibold text-brand-link hover:underline"
+        >
           ← Back to meetings
         </Link>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 className="font-serif text-[19px] font-bold text-ink-900">
-          Meeting · {formatDate(meeting.meeting_date)}
+          {formatDate(meeting.meeting_date)}
         </h2>
         <MeetingStatusBadge status={meeting.status} />
         <div className="flex-1" />
@@ -111,27 +125,28 @@ export default async function MeetingPage({
         )}
       </div>
 
-      {error && (
-        <p className="mb-4 rounded border border-danger/30 bg-danger/[0.06] px-3 py-2 text-xs text-danger">
-          {error}
-        </p>
-      )}
+      {error && <Alert className="mb-4">{error}</Alert>}
 
-      {meeting.status !== "open" && (
-        <p className="mb-4 text-xs text-ink-400">
-          {distinctReviewers} {distinctReviewers === 1 ? "reviewer" : "reviewers"} scored this slate
-          {meeting.agenda_at ? ` · scoring closed ${formatDate(meeting.agenda_at)}` : ""}
-          {meeting.concluded_at ? ` · concluded ${formatDate(meeting.concluded_at)}` : ""}
-        </p>
-      )}
+      <p className="mb-5 text-xs leading-relaxed text-ink-400">
+        {statusLine}
+        {meeting.status !== "open" && (
+          <>
+            {" "}
+            {distinctReviewers} {distinctReviewers === 1 ? "reviewer" : "reviewers"} scored this
+            slate
+            {meeting.agenda_at ? ` · scoring closed ${formatDate(meeting.agenda_at)}` : ""}
+            {meeting.concluded_at ? ` · concluded ${formatDate(meeting.concluded_at)}` : ""}.
+          </>
+        )}
+      </p>
 
       {meeting.status === "open" ? (
         <>
           {slate.length === 0 ? (
-            <p className="mb-4 text-sm text-ink-500">
+            <div className="mb-5 max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
               No pitches on the slate yet.
               {isEditor ? " Add some from the backlog below." : " An editor is still building it."}
-            </p>
+            </div>
           ) : (
             <ScoringSection
               meetingId={meeting.id}
@@ -169,23 +184,23 @@ export default async function MeetingPage({
       )}
 
       <section className="mt-8">
-        <h3 className="mb-2 text-sm font-bold text-ink-900">Meeting notes</h3>
+        <h3 className="mb-2.5 text-sm font-bold text-ink-900">Meeting notes</h3>
         {isEditor && meeting.status !== "concluded" ? (
-          <form action={updateMeetingNotes} className="flex flex-col items-end gap-2">
+          <form action={updateMeetingNotes} className="flex flex-col items-end gap-2.5">
             <input type="hidden" name="meeting_id" value={meeting.id} />
-            <textarea
+            <Textarea
               name="notes"
+              aria-label="Meeting notes"
               rows={3}
               defaultValue={meeting.notes ?? ""}
               placeholder="Anything worth remembering about this meeting…"
-              className="w-full rounded border border-line px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400"
             />
             <Button type="submit" variant="secondary">
               Save notes
             </Button>
           </form>
         ) : meeting.notes ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
+          <p className="whitespace-pre-wrap rounded border border-line px-4 py-3 text-sm leading-relaxed text-ink-700">
             {meeting.notes}
           </p>
         ) : (
@@ -212,67 +227,88 @@ async function SlateBuilder({
   return (
     <section className="mt-8">
       <h3 className="mb-2.5 text-sm font-bold text-ink-900">Build the slate</h3>
+
       {slate.length > 0 && (
-        <div className="mb-3 flex flex-col gap-1.5">
+        <div className="mb-4 rounded border border-line">
+          <div className="border-b border-line bg-panel-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-ink-500">
+            On the slate ({slate.length})
+          </div>
           {slate.map(({ entry, pitch }) => (
             <form
               key={entry.id}
               action={removePitchFromSlate}
-              className="flex items-center gap-3 text-sm"
+              className="flex items-center gap-3 border-b border-line px-4 py-2.5 text-sm last:border-b-0"
             >
               <input type="hidden" name="meeting_id" value={meetingId} />
               <input type="hidden" name="entry_id" value={entry.id} />
-              <span className="text-ink-700">{pitch.title}</span>
-              <button type="submit" className="text-xs font-semibold text-danger hover:underline">
+              <span className="min-w-0 flex-1 truncate text-ink-700">{pitch.title}</span>
+              <button
+                type="submit"
+                className="rounded text-xs font-semibold text-danger hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
+              >
                 Remove
               </button>
             </form>
           ))}
         </div>
       )}
+
       {candidates.length === 0 ? (
-        <p className="text-sm text-ink-400">Every open pitch is already on the slate.</p>
+        <p className="text-sm text-ink-400">
+          {slate.length > 0
+            ? "Every open pitch is already on the slate."
+            : "There are no open pitches in the backlog to add."}
+        </p>
       ) : (
-        <div className="overflow-x-auto rounded border border-line">
-          <table className="w-full min-w-[560px] text-sm">
+        <TableFrame>
+          <Table className="min-w-[560px]">
             <thead>
-              <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-                <th className="px-4 py-2.5">Open pitch</th>
-                <th className="px-4 py-2.5">Submitted by</th>
-                <th className="px-4 py-2.5">Deferred</th>
-                <th className="px-4 py-2.5" />
-              </tr>
+              <HeaderRow>
+                <Th>Open pitch</Th>
+                <Th>Submitted by</Th>
+                <Th>Deferred</Th>
+                <Th>
+                  <span className="sr-only">Add</span>
+                </Th>
+              </HeaderRow>
             </thead>
             <tbody>
               {candidates.map((candidate) => (
-                <tr key={candidate.pitch.id} className="border-b border-line last:border-b-0">
-                  <td className="px-4 py-2.5">
+                <Row key={candidate.pitch.id}>
+                  <Cell>
                     <Link
                       href={`/editorial/pitches/${candidate.pitch.id}`}
-                      className="font-semibold text-ink-900 hover:text-brand-link"
+                      className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
                     >
                       {candidate.pitch.title}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2.5 text-ink-500">{candidate.submitterName ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-ink-500">
+                    {candidate.stale && (
+                      <span className="ml-2 align-middle">
+                        <Badge variant="danger">Stale</Badge>
+                      </span>
+                    )}
+                  </Cell>
+                  <Cell className="text-ink-500">{candidate.submitterName ?? "—"}</Cell>
+                  <Cell className="tabular-nums text-ink-500">
                     {candidate.deferralCount > 0 ? `${candidate.deferralCount}×` : "—"}
-                    {candidate.stale && <span title="Stale"> ⚠</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
+                  </Cell>
+                  <Cell>
                     <form action={addPitchToSlate}>
                       <input type="hidden" name="meeting_id" value={meetingId} />
                       <input type="hidden" name="pitch_id" value={candidate.pitch.id} />
-                      <button type="submit" className="text-xs font-semibold text-brand-link">
+                      <button
+                        type="submit"
+                        className="rounded text-xs font-semibold text-brand-link hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
+                      >
                         + Add
                       </button>
                     </form>
-                  </td>
-                </tr>
+                  </Cell>
+                </Row>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableFrame>
       )}
     </section>
   );

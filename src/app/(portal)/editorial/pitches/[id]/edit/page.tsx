@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { getPitchValues, listFormFields } from "@/lib/editorial/data";
+import { getPitchValues, listFormFields, unwrapRead } from "@/lib/editorial/data";
 import { PitchForm } from "../../pitch-form";
 import type { EpFieldValue } from "@/lib/database.types";
 
@@ -11,24 +11,30 @@ export default async function EditPitchPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: pitch } = await supabase.from("ep_pitches").select("*").eq("id", id).maybeSingle();
+  const pitch = unwrapRead(
+    await supabase.from("ep_pitches").select("*").eq("id", id).maybeSingle(),
+    "the pitch",
+  );
   if (!pitch) notFound();
 
   // Same edit rule the RLS policy enforces: submitter while open and not on an
   // active slate, or an editor.
-  const { data: activeRounds } = await supabase
-    .from("ep_meeting_pitches")
-    .select("id, meeting_id")
-    .eq("pitch_id", pitch.id);
+  const activeRounds = unwrapRead(
+    await supabase.from("ep_meeting_pitches").select("id, meeting_id").eq("pitch_id", pitch.id),
+    "the review history",
+  );
   let underReview = false;
   if (activeRounds && activeRounds.length > 0) {
-    const { data: meetings } = await supabase
-      .from("ep_meetings")
-      .select("id, status")
-      .in(
-        "id",
-        activeRounds.map((round) => round.meeting_id),
-      );
+    const meetings = unwrapRead(
+      await supabase
+        .from("ep_meetings")
+        .select("id, status")
+        .in(
+          "id",
+          activeRounds.map((round) => round.meeting_id),
+        ),
+      "the meetings",
+    );
     underReview = (meetings ?? []).some((meeting) => meeting.status !== "concluded");
   }
   const canEdit =

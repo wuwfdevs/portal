@@ -27,7 +27,16 @@ export function EditorialTabLink({
     alsoMatch.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   return (
-    <Link href={href} className={cn("font-semibold", active ? "text-brand-link" : "text-ink-400")}>
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "-mb-px border-b-2 pb-2 font-semibold transition-colors",
+        active
+          ? "border-brand-primary text-brand-link"
+          : "border-transparent text-ink-400 hover:border-line hover:text-ink-700",
+      )}
+    >
       {children}
     </Link>
   );

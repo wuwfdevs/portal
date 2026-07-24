@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
+import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { listCriteria, listFormFields } from "@/lib/editorial/data";
 import { fieldKeyFromLabel } from "@/lib/editorial/form";
 import { logAuditEvent } from "@/lib/audit";
@@ -17,13 +18,20 @@ const FIELD_TYPES: EpFieldType[] = [
   "url",
 ];
 
-function parseOptions(formData: FormData, fieldType: EpFieldType): string[] | null {
-  if (fieldType !== "select" && fieldType !== "multi_select") return null;
-  const options = String(formData.get("options") ?? "")
+const FORM_PATH = "/editorial/settings/form";
+const RUBRIC_PATH = "/editorial/settings/rubric";
+
+/** Only select-style fields carry an options list. */
+function takesOptions(fieldType: EpFieldType): boolean {
+  return fieldType === "select" || fieldType === "multi_select";
+}
+
+/** The options textarea: one option per line, blank lines dropped. */
+function parseOptions(formData: FormData): string[] {
+  return String(formData.get("options") ?? "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  return options.length > 0 ? options : null;
 }
 
 // Submission form fields ------------------------------------------------------
@@ -36,17 +44,13 @@ export async function createFormField(formData: FormData): Promise<void> {
   const fieldType = FIELD_TYPES.includes(fieldTypeRaw as EpFieldType)
     ? (fieldTypeRaw as EpFieldType)
     : "short_text";
-  const options = parseOptions(formData, fieldType);
   const required = formData.get("required") === "on";
 
-  if (!label) {
-    redirect("/editorial/settings/form?error=" + encodeURIComponent("Give the field a label."));
-  }
-  if ((fieldType === "select" || fieldType === "multi_select") && !options) {
-    redirect(
-      "/editorial/settings/form?error=" +
-        encodeURIComponent("List at least one option, one per line."),
-    );
+  if (!label) failWith(FORM_PATH, "Give the field a label.");
+
+  const options = takesOptions(fieldType) ? parseOptions(formData) : null;
+  if (options !== null && options.length === 0) {
+    failWith(FORM_PATH, "A select field needs at least one option, one per line.");
   }
 
   const existing = await listFormFields();
@@ -57,7 +61,7 @@ export async function createFormField(formData: FormData): Promise<void> {
   const sortOrder = Math.max(0, ...existing.map((field) => field.sort_order)) + 1;
 
   const supabase = await createClient();
-  const { data: created } = await supabase
+  const { data: created, error } = await supabase
     .from("ep_form_fields")
     .insert({
       key,
@@ -70,45 +74,51 @@ export async function createFormField(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
+  failIfError(error, FORM_PATH, "Could not add the field");
+  if (!created) failWith(FORM_PATH, "Could not add the field — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,
     action: "ep.form_field.created",
     targetType: "ep_form_field",
-    targetId: created?.id,
+    targetId: created.id,
     metadata: { key, label, field_type: fieldType },
   });
 
-  redirect("/editorial/settings/form");
+  redirect(FORM_PATH);
 }
 
 export async function updateFormField(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const fieldId = String(formData.get("field_id") ?? "");
+  const editPath = `${FORM_PATH}/${fieldId}/edit`;
   const label = String(formData.get("label") ?? "").trim();
   const helpText = String(formData.get("help_text") ?? "").trim() || null;
   const required = formData.get("required") === "on";
 
-  if (!label) {
-    redirect(
-      `/editorial/settings/form/${fieldId}/edit?error=` +
-        encodeURIComponent("Give the field a label."),
-    );
-  }
+  if (!label) failWith(editPath, "Give the field a label.");
 
   const supabase = await createClient();
-  const { data: field } = await supabase
+  const { data: field, error: loadError } = await supabase
     .from("ep_form_fields")
     .select("field_type")
     .eq("id", fieldId)
     .maybeSingle();
-  if (!field) redirect("/editorial/settings/form");
-  const options = parseOptions(formData, field.field_type);
+  failIfError(loadError, editPath, "Could not load the field");
+  if (!field) failWith(FORM_PATH, "That field no longer exists.");
 
-  await supabase
+  // Field type is fixed after creation, so an options list is required for the
+  // life of a select field — emptying the box would leave nothing to choose.
+  const options = takesOptions(field.field_type) ? parseOptions(formData) : null;
+  if (options !== null && options.length === 0) {
+    failWith(editPath, "A select field needs at least one option, one per line.");
+  }
+
+  const { error } = await supabase
     .from("ep_form_fields")
     .update({ label, help_text: helpText, required, ...(options !== null ? { options } : {}) })
     .eq("id", fieldId);
+  failIfError(error, editPath, "Could not save the field");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -118,7 +128,7 @@ export async function updateFormField(formData: FormData): Promise<void> {
     metadata: { label },
   });
 
-  redirect("/editorial/settings/form");
+  redirect(FORM_PATH);
 }
 
 export async function toggleFormFieldActive(formData: FormData): Promise<void> {
@@ -127,7 +137,11 @@ export async function toggleFormFieldActive(formData: FormData): Promise<void> {
   const nextActive = String(formData.get("next_active") ?? "") === "true";
 
   const supabase = await createClient();
-  await supabase.from("ep_form_fields").update({ active: nextActive }).eq("id", fieldId);
+  const { error } = await supabase
+    .from("ep_form_fields")
+    .update({ active: nextActive })
+    .eq("id", fieldId);
+  failIfError(error, FORM_PATH, `Could not ${nextActive ? "reactivate" : "deactivate"} the field`);
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -136,7 +150,7 @@ export async function toggleFormFieldActive(formData: FormData): Promise<void> {
     targetId: fieldId,
   });
 
-  redirect("/editorial/settings/form");
+  redirect(FORM_PATH);
 }
 
 export async function moveFormField(formData: FormData): Promise<void> {
@@ -149,7 +163,7 @@ export async function moveFormField(formData: FormData): Promise<void> {
   const target = index + direction;
   const moving = fields[index];
   const neighbor = fields[target];
-  if (!moving || !neighbor) redirect("/editorial/settings/form");
+  if (!moving || !neighbor) redirect(FORM_PATH);
 
   const reordered = [...fields];
   reordered[index] = neighbor;
@@ -158,14 +172,15 @@ export async function moveFormField(formData: FormData): Promise<void> {
   const supabase = await createClient();
   for (const [position, field] of reordered.entries()) {
     if (field.sort_order !== position + 1) {
-      await supabase
+      const { error } = await supabase
         .from("ep_form_fields")
         .update({ sort_order: position + 1 })
         .eq("id", field.id);
+      failIfError(error, FORM_PATH, "Could not reorder the fields");
     }
   }
 
-  redirect("/editorial/settings/form");
+  redirect(FORM_PATH);
 }
 
 // Rubric criteria -------------------------------------------------------------
@@ -178,58 +193,54 @@ export async function createCriterion(formData: FormData): Promise<void> {
   const weight = Number(formData.get("weight") ?? 1);
 
   if (!name || !description) {
-    redirect(
-      "/editorial/settings/rubric?error=" +
-        encodeURIComponent("Name and description are required."),
-    );
+    failWith(RUBRIC_PATH, "Name and description are required.");
   }
   if (!Number.isFinite(weight) || weight <= 0 || weight > 10) {
-    redirect(
-      "/editorial/settings/rubric?error=" + encodeURIComponent("Weight must be between 0 and 10."),
-    );
+    failWith(RUBRIC_PATH, "Weight must be between 0 and 10.");
   }
 
   const existing = await listCriteria();
   const sortOrder = Math.max(0, ...existing.map((criterion) => criterion.sort_order)) + 1;
 
   const supabase = await createClient();
-  const { data: created } = await supabase
+  const { data: created, error } = await supabase
     .from("ep_criteria")
     .insert({ name, description, guidance, weight, sort_order: sortOrder })
     .select("id")
     .single();
+  failIfError(error, RUBRIC_PATH, "Could not add the criterion");
+  if (!created) failWith(RUBRIC_PATH, "Could not add the criterion — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,
     action: "ep.criterion.created",
     targetType: "ep_criterion",
-    targetId: created?.id,
+    targetId: created.id,
     metadata: { name, weight },
   });
 
-  redirect("/editorial/settings/rubric");
+  redirect(RUBRIC_PATH);
 }
 
 export async function updateCriterion(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const criterionId = String(formData.get("criterion_id") ?? "");
+  const editPath = `${RUBRIC_PATH}/${criterionId}/edit`;
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const guidance = String(formData.get("guidance") ?? "").trim() || null;
   const weight = Number(formData.get("weight") ?? 1);
 
   if (!name || !description || !Number.isFinite(weight) || weight <= 0 || weight > 10) {
-    redirect(
-      `/editorial/settings/rubric/${criterionId}/edit?error=` +
-        encodeURIComponent("Name, description, and a weight between 0 and 10 are required."),
-    );
+    failWith(editPath, "Name, description, and a weight between 0 and 10 are required.");
   }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_criteria")
     .update({ name, description, guidance, weight })
     .eq("id", criterionId);
+  failIfError(error, editPath, "Could not save the criterion");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -239,7 +250,7 @@ export async function updateCriterion(formData: FormData): Promise<void> {
     metadata: { name, weight },
   });
 
-  redirect("/editorial/settings/rubric");
+  redirect(RUBRIC_PATH);
 }
 
 export async function toggleCriterionActive(formData: FormData): Promise<void> {
@@ -248,7 +259,15 @@ export async function toggleCriterionActive(formData: FormData): Promise<void> {
   const nextActive = String(formData.get("next_active") ?? "") === "true";
 
   const supabase = await createClient();
-  await supabase.from("ep_criteria").update({ active: nextActive }).eq("id", criterionId);
+  const { error } = await supabase
+    .from("ep_criteria")
+    .update({ active: nextActive })
+    .eq("id", criterionId);
+  failIfError(
+    error,
+    RUBRIC_PATH,
+    `Could not ${nextActive ? "reactivate" : "deactivate"} the criterion`,
+  );
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -257,7 +276,7 @@ export async function toggleCriterionActive(formData: FormData): Promise<void> {
     targetId: criterionId,
   });
 
-  redirect("/editorial/settings/rubric");
+  redirect(RUBRIC_PATH);
 }
 
 export async function moveCriterion(formData: FormData): Promise<void> {
@@ -270,7 +289,7 @@ export async function moveCriterion(formData: FormData): Promise<void> {
   const target = index + direction;
   const moving = criteria[index];
   const neighbor = criteria[target];
-  if (!moving || !neighbor) redirect("/editorial/settings/rubric");
+  if (!moving || !neighbor) redirect(RUBRIC_PATH);
 
   const reordered = [...criteria];
   reordered[index] = neighbor;
@@ -279,14 +298,15 @@ export async function moveCriterion(formData: FormData): Promise<void> {
   const supabase = await createClient();
   for (const [position, criterion] of reordered.entries()) {
     if (criterion.sort_order !== position + 1) {
-      await supabase
+      const { error } = await supabase
         .from("ep_criteria")
         .update({ sort_order: position + 1 })
         .eq("id", criterion.id);
+      failIfError(error, RUBRIC_PATH, "Could not reorder the rubric");
     }
   }
 
-  redirect("/editorial/settings/rubric");
+  redirect(RUBRIC_PATH);
 }
 
 export async function updateScale(formData: FormData): Promise<void> {
@@ -301,17 +321,15 @@ export async function updateScale(formData: FormData): Promise<void> {
     scaleMax > 10 ||
     scaleMin >= scaleMax
   ) {
-    redirect(
-      "/editorial/settings/rubric?error=" +
-        encodeURIComponent("The scale needs whole numbers between 0 and 10, with min below max."),
-    );
+    failWith(RUBRIC_PATH, "The scale needs whole numbers between 0 and 10, with min below max.");
   }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_settings")
     .update({ scale_min: scaleMin, scale_max: scaleMax })
     .eq("id", true);
+  failIfError(error, RUBRIC_PATH, "Could not save the scale");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -320,5 +338,5 @@ export async function updateScale(formData: FormData): Promise<void> {
     metadata: { scale_min: scaleMin, scale_max: scaleMax },
   });
 
-  redirect("/editorial/settings/rubric");
+  redirect(RUBRIC_PATH);
 }

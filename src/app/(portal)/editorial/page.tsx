@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { listPitchesWithActivity, type PitchListEntry } from "@/lib/editorial/data";
+import {
+  countPitchesByStatus,
+  listPitchesWithActivity,
+  type PitchListEntry,
+} from "@/lib/editorial/data";
 import { formatAge, formatShortDate } from "@/lib/editorial/format";
 import { archiveSelectedPitches } from "./pitches/actions";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 
 type BacklogView = "open" | "stale" | "assigned" | "archived";
@@ -15,41 +23,63 @@ const VIEWS: { key: BacklogView; label: string }[] = [
   { key: "archived", label: "Archived" },
 ];
 
+const EMPTY_MESSAGE: Record<BacklogView, string> = {
+  open: "No open pitches yet. Submit the first one and it lands here for the next meeting.",
+  stale: "Nothing stale — every open pitch is either recent or has been looked at.",
+  assigned: "No assigned stories yet. Pitches land here once a meeting assigns them.",
+  archived: "No archived pitches.",
+};
+
 export default async function BacklogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; error?: string }>;
 }) {
   const { role } = await requireEditorialAccess();
-  const { view: viewParam } = await searchParams;
-  const view: BacklogView = (VIEWS.find((v) => v.key === viewParam)?.key ?? "open") as BacklogView;
+  const { view: viewParam, error } = await searchParams;
+  const view: BacklogView = VIEWS.find((v) => v.key === viewParam)?.key ?? "open";
 
-  const status = view === "assigned" ? "assigned" : view === "archived" ? "archived" : "open";
-  const all = await listPitchesWithActivity([status]);
-  const entries = view === "stale" ? all.filter((entry) => entry.stale) : all;
-  const staleCount = view === "open" ? all.filter((entry) => entry.stale).length : 0;
+  // Staleness only applies to open pitches, and the Stale tab needs its count on
+  // every view — so the open list is always loaded and the other views layer on.
+  const [openEntries, counts] = await Promise.all([
+    listPitchesWithActivity(["open"]),
+    countPitchesByStatus(),
+  ]);
+  const staleCount = openEntries.filter((entry) => entry.stale).length;
+  const entries =
+    view === "open"
+      ? openEntries
+      : view === "stale"
+        ? openEntries.filter((entry) => entry.stale)
+        : await listPitchesWithActivity([view]);
   const canBulkArchive = view === "stale" && role === "editor" && entries.length > 0;
 
+  const countFor = (key: BacklogView): number => (key === "stale" ? staleCount : counts[key]);
+
   const table = (
-    <div className="overflow-x-auto rounded border border-line">
-      <table className="w-full min-w-[720px] text-sm">
+    <TableFrame>
+      <Table className="min-w-[720px]">
         <thead>
-          <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-            {canBulkArchive && <th className="w-10 px-4 py-2.5" />}
-            <th className="px-4 py-2.5">Title</th>
-            <th className="px-4 py-2.5">Submitted by</th>
-            <th className="px-4 py-2.5">Age</th>
+          <HeaderRow>
+            {canBulkArchive && (
+              <Th className="w-10">
+                <span className="sr-only">Select</span>
+              </Th>
+            )}
+            <Th>Title</Th>
+            <Th>Submitted by</Th>
+            <Th>Age</Th>
             {view === "assigned" ? (
-              <th className="px-4 py-2.5">Assigned to</th>
+              <Th>Assigned to</Th>
             ) : view === "archived" ? (
-              <th className="px-4 py-2.5">Reason</th>
+              <Th>Reason</Th>
             ) : (
               <>
-                <th className="px-4 py-2.5">Last reviewed</th>
-                <th className="px-4 py-2.5">Deferred</th>
+                <Th>Last reviewed</Th>
+                <Th>Deferred</Th>
               </>
             )}
-          </tr>
+          </HeaderRow>
         </thead>
         <tbody>
           {entries.map((entry) => (
@@ -61,59 +91,78 @@ export default async function BacklogPage({
             />
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableFrame>
   );
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-4">
-        <div className="flex gap-1.5">
-          {VIEWS.map((v) => (
-            <Link
-              key={v.key}
-              href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold",
-                v.key === view
-                  ? "bg-brand-surface text-brand-link"
-                  : "text-ink-500 hover:bg-panel-50",
-              )}
-            >
-              {v.label}
-              {v.key === view && ` (${entries.length})`}
-            </Link>
-          ))}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex flex-wrap gap-1.5">
+          {VIEWS.map((v) => {
+            const count = countFor(v.key);
+            return (
+              <Link
+                key={v.key}
+                href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
+                aria-current={v.key === view ? "page" : undefined}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  v.key === view
+                    ? "bg-brand-surface text-brand-link"
+                    : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
+                )}
+              >
+                {v.label}
+                {count > 0 && (
+                  <span
+                    className={cn("ml-1.5", v.key === view ? "text-brand-link/70" : "text-ink-400")}
+                  >
+                    {count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
-        {staleCount > 0 && (
-          <span className="text-xs text-ink-400">
-            {staleCount} {staleCount === 1 ? "pitch looks" : "pitches look"} stale —{" "}
-            <Link href="/editorial?view=stale" className="font-semibold text-brand-link">
-              review them
-            </Link>
-          </span>
-        )}
         <div className="flex-1" />
         <Link href="/editorial/pitches/new">
-          <Button>+ New pitch</Button>
+          <Button>New pitch</Button>
         </Link>
       </div>
 
+      {error && <Alert className="mb-4">{error}</Alert>}
+
+      {view === "open" && staleCount > 0 && (
+        <Alert variant="info" className="mb-4">
+          {staleCount} {staleCount === 1 ? "pitch has" : "pitches have"} been sitting without a
+          decision.{" "}
+          <Link href="/editorial?view=stale" className="font-semibold text-brand-link underline">
+            Review them
+          </Link>
+        </Alert>
+      )}
+
+      {view === "stale" && entries.length > 0 && (
+        <p className="mb-3 text-xs leading-relaxed text-ink-400">
+          Pitches that have aged out or been deferred repeatedly. Archiving one keeps it on the
+          record — it just stops crowding the backlog.
+        </p>
+      )}
+
       {entries.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          {view === "open" && "No open pitches. Submit the first one."}
-          {view === "stale" && "Nothing stale — the backlog is in good shape."}
-          {view === "assigned" && "No assigned stories yet."}
-          {view === "archived" && "No archived pitches."}
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+          {EMPTY_MESSAGE[view]}
         </div>
       ) : canBulkArchive ? (
         <form action={archiveSelectedPitches}>
           {table}
-          <div className="mt-3 flex items-center justify-end gap-2.5">
-            <input
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2.5">
+            <Input
               name="reason"
               placeholder="Reason (optional)"
-              className="w-64 rounded border border-line px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400"
+              className="w-full sm:w-64"
+              maxLength={200}
             />
             <Button type="submit" variant="secondary">
               Archive selected
@@ -138,42 +187,49 @@ function BacklogRow({
 }) {
   const { pitch } = entry;
   return (
-    <tr className="border-b border-line last:border-b-0">
+    <Row>
       {selectable && (
-        <td className="px-4 py-3">
+        <Cell>
           <input
             type="checkbox"
             name="pitch_id"
             value={pitch.id}
             aria-label={`Select ${pitch.title}`}
+            className="h-4 w-4"
           />
-        </td>
+        </Cell>
       )}
-      <td className="px-4 py-3">
+      <Cell>
         <Link
           href={`/editorial/pitches/${pitch.id}`}
-          className="font-semibold text-ink-900 hover:text-brand-link"
+          className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
         >
           {pitch.title}
         </Link>
-      </td>
-      <td className="px-4 py-3 text-ink-500">{entry.submitterName ?? "—"}</td>
-      <td className="px-4 py-3 text-ink-500">{formatAge(pitch.created_at)}</td>
+        {entry.stale && view === "open" && (
+          <span className="ml-2 align-middle">
+            <Badge variant="danger">Stale</Badge>
+          </span>
+        )}
+      </Cell>
+      <Cell className="text-ink-500">{entry.submitterName ?? "—"}</Cell>
+      <Cell className="whitespace-nowrap tabular-nums text-ink-500">
+        {formatAge(pitch.created_at)}
+      </Cell>
       {view === "assigned" ? (
-        <td className="px-4 py-3 text-ink-500">{entry.assigneeName ?? "—"}</td>
+        <Cell className="text-ink-500">{entry.assigneeName ?? "—"}</Cell>
       ) : view === "archived" ? (
-        <td className="px-4 py-3 text-ink-500">{pitch.archived_reason ?? "—"}</td>
+        <Cell className="text-ink-500">{pitch.archived_reason ?? "—"}</Cell>
       ) : (
         <>
-          <td className="px-4 py-3 text-ink-500">
-            {entry.lastReviewedAt ? formatShortDate(entry.lastReviewedAt) : "—"}
-          </td>
-          <td className="px-4 py-3 text-ink-500">
+          <Cell className="whitespace-nowrap text-ink-500">
+            {entry.lastReviewedAt ? formatShortDate(entry.lastReviewedAt) : "Never"}
+          </Cell>
+          <Cell className="tabular-nums text-ink-500">
             {entry.deferralCount > 0 ? `${entry.deferralCount}×` : "—"}
-            {entry.stale && view === "open" && <span title="Stale"> ⚠</span>}
-          </td>
+          </Cell>
         </>
       )}
-    </tr>
+    </Row>
   );
 }

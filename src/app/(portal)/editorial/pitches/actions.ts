@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
-import { listFormFields } from "@/lib/editorial/data";
+import { failIfError } from "@/lib/editorial/action-result";
+import { listFormFields, unwrapRead } from "@/lib/editorial/data";
 import { validatePitchValues } from "@/lib/editorial/form";
 import { logAuditEvent } from "@/lib/audit";
 import type { EpFieldValue } from "@/lib/database.types";
@@ -58,11 +59,14 @@ export async function savePitch(
   });
 
   if (pitchId) {
-    const { data: pitch } = await supabase
-      .from("ep_pitches")
-      .select("id, submitted_by, status")
-      .eq("id", pitchId)
-      .maybeSingle();
+    const pitch = unwrapRead(
+      await supabase
+        .from("ep_pitches")
+        .select("id, submitted_by, status")
+        .eq("id", pitchId)
+        .maybeSingle(),
+      "the pitch",
+    );
     if (!pitch) return errorState("This pitch no longer exists.");
     const isOwn = pitch.submitted_by === profile.id;
     if (!isOwn && role !== "editor") return errorState("You can only edit your own pitches.");
@@ -74,16 +78,31 @@ export async function savePitch(
       .from("ep_pitches")
       .update({ title })
       .eq("id", pitchId);
-    if (updateError)
+    if (updateError) {
+      console.error("Could not update the pitch:", updateError);
       return errorState("Could not save the pitch — it may be under review right now.");
+    }
 
-    await supabase.from("ep_pitch_values").delete().eq("pitch_id", pitchId);
+    // Replace-all, so a field the writer cleared actually goes away. If the
+    // insert half fails the pitch would silently lose its details, so report it.
+    const { error: clearError } = await supabase
+      .from("ep_pitch_values")
+      .delete()
+      .eq("pitch_id", pitchId);
+    if (clearError) {
+      console.error("Could not clear the pitch's details:", clearError);
+      return errorState("Could not save the pitch's details. Try again.");
+    }
     if (values.length > 0) {
-      await supabase
+      const { error: valuesError } = await supabase
         .from("ep_pitch_values")
         .insert(
           values.map(({ fieldId, value }) => ({ pitch_id: pitchId, field_id: fieldId, value })),
         );
+      if (valuesError) {
+        console.error("Could not save the pitch's details:", valuesError);
+        return errorState("Could not save the pitch's details. Try again.");
+      }
     }
     redirect(`/editorial/pitches/${pitchId}`);
   }
@@ -93,14 +112,27 @@ export async function savePitch(
     .insert({ title, submitted_by: profile.id })
     .select("id")
     .single();
-  if (insertError || !created) return errorState("Could not submit the pitch. Try again.");
+  if (insertError || !created) {
+    console.error("Could not create the pitch:", insertError);
+    return errorState(
+      insertError
+        ? `Could not submit the pitch: ${insertError.message}`
+        : "Could not submit the pitch. Try again.",
+    );
+  }
 
   if (values.length > 0) {
-    await supabase
+    const { error: valuesError } = await supabase
       .from("ep_pitch_values")
       .insert(
         values.map(({ fieldId, value }) => ({ pitch_id: created.id, field_id: fieldId, value })),
       );
+    if (valuesError) {
+      console.error("Could not save the new pitch's details:", valuesError);
+      return errorState(
+        "The pitch was created but its details could not be saved. Edit it to retry.",
+      );
+    }
   }
   redirect(`/editorial/pitches/${created.id}`);
 }
@@ -108,10 +140,11 @@ export async function savePitch(
 export async function archivePitch(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchPath = `/editorial/pitches/${pitchId}`;
   const reason = String(formData.get("reason") ?? "").trim() || null;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_pitches")
     .update({
       status: "archived",
@@ -121,6 +154,7 @@ export async function archivePitch(formData: FormData): Promise<void> {
     })
     .eq("id", pitchId)
     .eq("status", "open");
+  failIfError(error, pitchPath, "Could not archive the pitch");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -130,19 +164,21 @@ export async function archivePitch(formData: FormData): Promise<void> {
     metadata: reason ? { reason } : {},
   });
 
-  redirect(`/editorial/pitches/${pitchId}`);
+  redirect(pitchPath);
 }
 
 export async function unarchivePitch(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchPath = `/editorial/pitches/${pitchId}`;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_pitches")
     .update({ status: "open", archived_reason: null, archived_by: null, archived_at: null })
     .eq("id", pitchId)
     .eq("status", "archived");
+  failIfError(error, pitchPath, "Could not restore the pitch");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -151,7 +187,7 @@ export async function unarchivePitch(formData: FormData): Promise<void> {
     targetId: pitchId,
   });
 
-  redirect(`/editorial/pitches/${pitchId}`);
+  redirect(pitchPath);
 }
 
 /** Bulk archive from the backlog's stale view. */
@@ -162,7 +198,7 @@ export async function archiveSelectedPitches(formData: FormData): Promise<void> 
   const reason = String(formData.get("reason") ?? "").trim() || "Archived in a backlog review.";
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("ep_pitches")
     .update({
       status: "archived",
@@ -172,6 +208,7 @@ export async function archiveSelectedPitches(formData: FormData): Promise<void> 
     })
     .in("id", pitchIds)
     .eq("status", "open");
+  failIfError(error, "/editorial?view=stale", "Could not archive the selected pitches");
 
   await logAuditEvent({
     actorId: editor.profile.id,
