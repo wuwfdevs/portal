@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getProjectById } from "@/lib/transcription/projects";
+import { getProjectById, listSegmentsForProject } from "@/lib/transcription/projects";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { deleteProject } from "../actions";
+import { deleteProject, retryTranscription } from "../actions";
+import { TranscriptPlayer } from "./transcript-player";
 
 export default async function TranscriptionProjectPage({
   params,
@@ -19,10 +20,13 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.created_by === profile.id;
-  const signedUrl =
+  const hasMedia = Boolean(project.media_storage_path);
+  const [signedUrl, segments] = await Promise.all([
     project.status === "ready" && project.media_storage_path
-      ? await getSignedMediaUrl(project.media_storage_path)
-      : null;
+      ? getSignedMediaUrl(project.media_storage_path)
+      : Promise.resolve(null),
+    project.status === "ready" ? listSegmentsForProject(project.id) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -45,11 +49,11 @@ export default async function TranscriptionProjectPage({
       {project.status === "ready" && (
         <div className="max-w-2xl rounded border border-line bg-white p-5">
           {signedUrl ? (
-            isVideoContentType(project.media_content_type ?? "") ? (
-              <video controls src={signedUrl} className="w-full rounded bg-panel-100" />
-            ) : (
-              <audio controls src={signedUrl} className="w-full" />
-            )
+            <TranscriptPlayer
+              mediaUrl={signedUrl}
+              isVideo={isVideoContentType(project.media_content_type ?? "")}
+              segments={segments}
+            />
           ) : (
             <p className="text-sm text-ink-500">
               Couldn&apos;t load the media right now. Reload the page to try again.
@@ -69,10 +73,12 @@ export default async function TranscriptionProjectPage({
               </div>
             )}
           </dl>
-          <p className="mt-5 rounded bg-panel-50 px-3 py-2.5 text-xs text-ink-500">
-            Transcription, speaker identification, and clip creation aren&apos;t built yet — this
-            project is saved and ready for that work.
-          </p>
+          {segments.length > 0 && (
+            <p className="mt-5 rounded bg-panel-50 px-3 py-2.5 text-xs text-ink-500">
+              Speaker naming, transcript correction, and clip creation aren&apos;t built yet — the
+              transcript above is read-only for now.
+            </p>
+          )}
         </div>
       )}
 
@@ -86,16 +92,21 @@ export default async function TranscriptionProjectPage({
 
       {project.status === "processing" && (
         <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-          Processing…
+          Transcribing — this can take a few minutes for a long recording. Feel free to leave this
+          page; the project list will show it as Ready when it&apos;s done.
         </div>
       )}
 
       {project.status === "failed" && (
         <div className="max-w-lg rounded border border-line bg-white p-5">
           <p className="text-sm text-ink-700">
-            {project.error_message ?? "Something went wrong with this upload."}
+            {project.error_message ?? "Something went wrong with this project."}
           </p>
-          {canDelete && <DeleteForm projectId={project.id} label="Delete and try again" />}
+          {hasMedia ? (
+            <RetryForm projectId={project.id} />
+          ) : (
+            canDelete && <DeleteForm projectId={project.id} label="Delete and try again" />
+          )}
         </div>
       )}
     </div>
@@ -106,7 +117,7 @@ function StatusBadge({ status }: { status: "uploading" | "processing" | "ready" 
   const map = {
     ready: { label: "Ready", variant: "accent" as const },
     uploading: { label: "Uploading", variant: "neutral" as const },
-    processing: { label: "Processing", variant: "neutral" as const },
+    processing: { label: "Transcribing", variant: "neutral" as const },
     failed: { label: "Failed", variant: "danger" as const },
   };
   const { label, variant } = map[status];
@@ -119,6 +130,17 @@ function DeleteForm({ projectId, label }: { projectId: string; label: string }) 
       <input type="hidden" name="project_id" value={projectId} />
       <Button type="submit" variant="secondary">
         {label}
+      </Button>
+    </form>
+  );
+}
+
+function RetryForm({ projectId }: { projectId: string }) {
+  return (
+    <form action={retryTranscription} className="mt-4">
+      <input type="hidden" name="project_id" value={projectId} />
+      <Button type="submit" variant="secondary">
+        Retry transcription
       </Button>
     </form>
   );

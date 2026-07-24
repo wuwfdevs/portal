@@ -13,7 +13,7 @@ const STATUS_BADGE: Record<
 > = {
   ready: { label: "Ready", variant: "accent" },
   uploading: { label: "Uploading", variant: "neutral" },
-  processing: { label: "Processing", variant: "neutral" },
+  processing: { label: "Transcribing", variant: "neutral" },
   failed: { label: "Failed", variant: "danger" },
 };
 

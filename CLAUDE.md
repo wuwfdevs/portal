@@ -43,8 +43,10 @@ boundaries before building ahead of the current phase.
   - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
     applies. Use this for essentially everything.
   - `src/lib/supabase/admin.ts` — secret key, bypasses RLS. `import "server-only"`
-    guards it. Use it **only** for `auth.admin.*` calls (inviting users) — nothing else.
-    Never import it into a Client Component.
+    guards it. Use it **only** for `auth.admin.*` calls (inviting users) and verified
+    external webhook handlers with no signed-in user session to act as (e.g. the
+    transcription ASR webhook — see that file's comment) — nothing else. Never import it
+    into a Client Component.
 - **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
   `requireAdministrator`, `assertAdministrator`, `hasToolAccess`) is the only place
   platform-role/account-status checks should be written. Don't re-implement these checks

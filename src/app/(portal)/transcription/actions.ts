@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
+import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
+import { getTranscriptionProvider } from "@/lib/transcription/asr";
+import { getSiteUrl } from "@/lib/site-url";
 
 export type CreateProjectResult = { id: string } | { error: string };
 
@@ -45,11 +48,62 @@ export async function createProject(input: {
 }
 
 /**
+ * Kicks off transcription for a project whose source media is already in
+ * Storage, and updates the row accordingly. Shared by completeProjectUpload
+ * (automatic kickoff right after upload) and retryTranscription (manual
+ * re-kick after a transcription-stage failure) — both already know the
+ * project has a valid media_storage_path/media_content_type before calling
+ * this.
+ */
+async function startTranscriptionForProject(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  params: { projectId: string; storagePath: string },
+): Promise<{ error?: string }> {
+  const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
+  const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
+
+  if (!mediaUrl || !webhookSecret) {
+    await supabase
+      .from("tw_projects")
+      .update({ status: "failed", error_message: "Transcription isn't configured yet." })
+      .eq("id", params.projectId);
+    return { error: "Transcription isn't configured yet." };
+  }
+
+  try {
+    const providerJobId = await getTranscriptionProvider().startTranscription({
+      mediaUrl,
+      webhookUrl: `${getSiteUrl()}/api/transcription/webhook`,
+      webhookSecret,
+    });
+
+    await supabase
+      .from("tw_projects")
+      .update({
+        status: "processing",
+        transcription_provider_job_id: providerJobId,
+        error_message: null,
+      })
+      .eq("id", params.projectId);
+
+    return {};
+  } catch {
+    await supabase
+      .from("tw_projects")
+      .update({
+        status: "failed",
+        error_message: "Could not start transcription. Please try again.",
+      })
+      .eq("id", params.projectId);
+    return { error: "Could not start transcription. Please try again." };
+  }
+}
+
+/**
  * Finalizes a project after the browser has uploaded its source file
- * directly to Storage (never through this server). Flips status straight
- * to 'ready' — Phase 1 has no transcription pipeline yet, so there is no
- * 'processing' step between upload and playable; that stage gets used
- * starting in Phase 2's transcription kickoff.
+ * directly to Storage (never through this server), then kicks off
+ * transcription automatically — there's no scenario where a reporter
+ * uploads and doesn't want a transcript (see design doc §3A).
  */
 export async function completeProjectUpload(input: {
   projectId: string;
@@ -72,7 +126,7 @@ export async function completeProjectUpload(input: {
       media_content_type: input.contentType,
       media_size_bytes: input.sizeBytes,
       media_duration_ms: input.durationMs,
-      status: "ready",
+      status: "processing",
       error_message: null,
     })
     .eq("id", input.projectId);
@@ -80,7 +134,42 @@ export async function completeProjectUpload(input: {
   if (error) {
     return { error: "The upload finished, but we couldn't save the project. Please try again." };
   }
-  return {};
+
+  return startTranscriptionForProject(supabase, {
+    projectId: input.projectId,
+    storagePath: input.storagePath,
+  });
+}
+
+/**
+ * Re-kicks transcription after a transcription-stage failure (media is
+ * already uploaded, so this is distinct from re-uploading). Any tool member
+ * can retry, not just the uploader — matches the shared-workspace CRUD model
+ * used for speakers/segments/clips.
+ */
+export async function retryTranscription(formData: FormData): Promise<void> {
+  await assertToolAccess("transcription");
+  const projectId = String(formData.get("project_id") ?? "");
+
+  const supabase = await createClient();
+  const { data: project } = await supabase
+    .from("tw_projects")
+    .select("media_storage_path")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (project?.media_storage_path) {
+    await supabase
+      .from("tw_projects")
+      .update({ status: "processing", error_message: null })
+      .eq("id", projectId);
+    await startTranscriptionForProject(supabase, {
+      projectId,
+      storagePath: project.media_storage_path,
+    });
+  }
+
+  redirect(`/transcription/${projectId}`);
 }
 
 /** Marks a project failed after a client-side upload error, with a reason a reporter can act on. */
