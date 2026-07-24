@@ -1,16 +1,28 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
-import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
 
 export interface TranscriptSegment {
   id: string;
+  position: number;
   startMs: number;
   endMs: number;
   text: string;
-  speakerLabel: string;
+  textEdited: boolean;
+  speakerId: string | null;
+}
+
+export interface TranscriptSpeaker {
+  id: string;
+  diarizationLabel: string;
+  displayName: string | null;
+}
+
+export interface ProjectTranscript {
+  segments: TranscriptSegment[];
+  speakers: TranscriptSpeaker[];
 }
 
 /**
@@ -42,18 +54,20 @@ export async function getProjectById(id: string): Promise<TwProject | null> {
 }
 
 /**
- * Ordered, read-only transcript for a project — Phase 2 has no editing yet
- * (Phase 3). Two flat queries joined in JS rather than a Postgrest embedded
- * select, since database.types.ts is hand-written with empty Relationships
- * (see its header comment) and doesn't carry the foreign-key metadata
- * embedded selects rely on for reliable typing.
+ * A project's transcript: ordered segments plus the project's speakers,
+ * fetched as two flat queries rather than a Postgrest embedded select,
+ * since database.types.ts is hand-written with empty Relationships (see its
+ * header comment) and doesn't carry the foreign-key metadata embedded
+ * selects rely on for reliable typing. Segments carry the raw speaker_id
+ * (not a pre-merged display label) so the correction UI can offer
+ * reassignment among the project's actual speaker rows.
  */
-export async function listSegmentsForProject(projectId: string): Promise<TranscriptSegment[]> {
+export async function getTranscriptForProject(projectId: string): Promise<ProjectTranscript> {
   const supabase = await createClient();
   const [{ data: segments }, { data: speakers }] = await Promise.all([
     supabase
       .from("tw_segments")
-      .select("id, speaker_id, start_ms, end_ms, text")
+      .select("id, position, speaker_id, start_ms, end_ms, text, text_edited")
       .eq("project_id", projectId)
       .order("position"),
     supabase
@@ -62,18 +76,20 @@ export async function listSegmentsForProject(projectId: string): Promise<Transcr
       .eq("project_id", projectId),
   ]);
 
-  const speakerById = new Map((speakers ?? []).map((s) => [s.id, s]));
-
-  return (segments ?? []).map((row) => {
-    const speaker = row.speaker_id ? speakerById.get(row.speaker_id) : undefined;
-    return {
+  return {
+    segments: (segments ?? []).map((row) => ({
       id: row.id,
+      position: row.position,
       startMs: row.start_ms,
       endMs: row.end_ms,
       text: row.text,
-      speakerLabel: speaker
-        ? speakerDisplayLabel(speaker.diarization_label, speaker.display_name)
-        : "Unknown speaker",
-    };
-  });
+      textEdited: row.text_edited,
+      speakerId: row.speaker_id,
+    })),
+    speakers: (speakers ?? []).map((row) => ({
+      id: row.id,
+      diarizationLabel: row.diarization_label,
+      displayName: row.display_name,
+    })),
+  };
 }

@@ -198,7 +198,12 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      tw_shift_segment_positions: {
+        Args: { p_project_id: string; after_position: number; delta: number };
+        Returns: undefined;
+      };
+    };
     Enums: {
       platform_role: PlatformRole;
       account_status: AccountStatus;

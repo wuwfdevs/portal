@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getProjectById, listSegmentsForProject } from "@/lib/transcription/projects";
+import { getProjectById, getTranscriptForProject } from "@/lib/transcription/projects";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProject, retryTranscription } from "../actions";
-import { TranscriptPlayer } from "./transcript-player";
+import { TranscriptWorkspace } from "./transcript-workspace";
 
 export default async function TranscriptionProjectPage({
   params,
@@ -21,11 +21,13 @@ export default async function TranscriptionProjectPage({
 
   const canDelete = project.created_by === profile.id;
   const hasMedia = Boolean(project.media_storage_path);
-  const [signedUrl, segments] = await Promise.all([
+  const [signedUrl, transcript] = await Promise.all([
     project.status === "ready" && project.media_storage_path
       ? getSignedMediaUrl(project.media_storage_path)
       : Promise.resolve(null),
-    project.status === "ready" ? listSegmentsForProject(project.id) : Promise.resolve([]),
+    project.status === "ready"
+      ? getTranscriptForProject(project.id)
+      : Promise.resolve({ segments: [], speakers: [] }),
   ]);
 
   return (
@@ -49,10 +51,11 @@ export default async function TranscriptionProjectPage({
       {project.status === "ready" && (
         <div className="max-w-2xl rounded border border-line bg-white p-5">
           {signedUrl ? (
-            <TranscriptPlayer
+            <TranscriptWorkspace
               mediaUrl={signedUrl}
               isVideo={isVideoContentType(project.media_content_type ?? "")}
-              segments={segments}
+              segments={transcript.segments}
+              speakers={transcript.speakers}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -73,10 +76,10 @@ export default async function TranscriptionProjectPage({
               </div>
             )}
           </dl>
-          {segments.length > 0 && (
+          {transcript.segments.length > 0 && (
             <p className="mt-5 rounded bg-panel-50 px-3 py-2.5 text-xs text-ink-500">
-              Speaker naming, transcript correction, and clip creation aren&apos;t built yet — the
-              transcript above is read-only for now.
+              Clip creation isn&apos;t built yet — name speakers, correct the text, and split or
+              merge lines above as needed in the meantime.
             </p>
           )}
         </div>
