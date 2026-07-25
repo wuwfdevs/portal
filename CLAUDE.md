@@ -34,7 +34,9 @@ those are separate milestones with their own schemas under their own route group
   Server Components/Server Actions talk to Supabase directly.
 - **Row Level Security is not optional.** Every table has RLS enabled and is the real
   enforcement boundary, not a convenience layer behind app-level checks. See
-  `supabase/migrations/20260722120001_rls_policies.sql`.
+  `supabase/migrations/20260722120001_rls_policies.sql`. The predicates those policies
+  call (`private.is_administrator`, `private.ep_*`) live in the `private` schema so they
+  are not reachable as REST endpoints — see "Authorization expectations".
 - **Two Supabase clients, used deliberately:**
   - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
     applies. Use this for essentially everything.
@@ -101,9 +103,15 @@ the migration if no local instance is running — see the note at the top of tha
   `lib/auth/authz.ts`, not a hand-rolled check.
 - New Server Actions: call `assertAdministrator()` (or the relevant check) as the first
   line, before touching any data.
-- New tables: RLS enabled, policies scoped to `auth.uid()` / `is_administrator(auth.uid())`
-  — follow the existing pattern in `20260722120001_rls_policies.sql` rather than inventing
-  a new one.
+- New tables: RLS enabled, policies scoped to `auth.uid()` /
+  `private.is_administrator(auth.uid())` — follow the existing pattern in
+  `20260722120001_rls_policies.sql` rather than inventing a new one.
+- Authorization helper functions live in the `private` schema, never `public`. They are
+  `security definer` (they read `profiles`/`tool_access` past RLS) and must stay
+  `execute`-able by `authenticated`, because a policy expression runs as the querying
+  user — revoking that permission makes every policy calling it fail outright. `private`
+  is not in PostgREST's exposed schemas, so placement, not permission, is what keeps them
+  off the API. See `20260724120000_private_authz_functions.sql`.
 - Tool-specific roles (e.g. "Editor" for Editorial Planning) are free-text on
   `tool_access.tool_role` and interpreted by that tool alone — the portal does not
   understand or enforce them.
