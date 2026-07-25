@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
+import { unwrapRead } from "@/lib/editorial/data";
 import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createMeeting } from "./actions";
 
 export default async function MeetingsPage({
@@ -15,24 +19,28 @@ export default async function MeetingsPage({
   const { error } = await searchParams;
   const supabase = await createClient();
 
-  const { data: meetings } = await supabase
-    .from("ep_meetings")
-    .select("*")
-    .order("meeting_date", { ascending: false });
-  const meetingRows = meetings ?? [];
+  const meetingRows =
+    unwrapRead(
+      await supabase.from("ep_meetings").select("*").order("meeting_date", { ascending: false }),
+      "meetings",
+    ) ?? [];
 
-  const { data: slateRows } =
+  const slateRows =
     meetingRows.length > 0
-      ? await supabase
-          .from("ep_meeting_pitches")
-          .select("meeting_id, outcome")
-          .in(
-            "meeting_id",
-            meetingRows.map((meeting) => meeting.id),
-          )
-      : { data: [] };
+      ? (unwrapRead(
+          await supabase
+            .from("ep_meeting_pitches")
+            .select("meeting_id, outcome")
+            .in(
+              "meeting_id",
+              meetingRows.map((meeting) => meeting.id),
+            ),
+          "the slates",
+        ) ?? [])
+      : [];
+
   const slateStats = new Map<string, { total: number; assigned: number }>();
-  for (const row of slateRows ?? []) {
+  for (const row of slateRows) {
     const stats = slateStats.get(row.meeting_id) ?? { total: 0, assigned: 0 };
     stats.total += 1;
     if (row.outcome === "assigned") stats.assigned += 1;
@@ -42,73 +50,74 @@ export default async function MeetingsPage({
   return (
     <div>
       {role === "editor" && (
-        <form action={createMeeting} className="mb-4 flex flex-wrap items-end gap-2.5">
-          <div>
-            <label
-              htmlFor="meeting_date"
-              className="mb-1.5 block text-xs font-semibold text-ink-700"
-            >
-              Meeting date
-            </label>
-            <input
-              id="meeting_date"
-              name="meeting_date"
-              type="date"
-              required
-              className="rounded border border-line px-3 py-2 text-sm text-ink-900"
-            />
+        <div className="mb-5 rounded border border-line">
+          <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink-900">
+            New meeting
           </div>
-          <Button type="submit">Create meeting</Button>
-          {error && <p className="text-xs text-danger">{error}</p>}
-        </form>
+          <form action={createMeeting} className="flex flex-wrap items-end gap-3 px-4 py-4">
+            <div>
+              <Label htmlFor="meeting_date">Meeting date</Label>
+              <Input id="meeting_date" name="meeting_date" type="date" required className="w-44" />
+            </div>
+            <Button type="submit">Create meeting</Button>
+            <p className="basis-full text-xs leading-relaxed text-ink-400">
+              A new meeting opens for slate building and independent scoring. Nobody sees anyone
+              else&apos;s scores until you close scoring.
+            </p>
+          </form>
+        </div>
       )}
 
+      {error && <Alert className="mb-4">{error}</Alert>}
+
       {meetingRows.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
           No meetings yet.{" "}
           {role === "editor"
-            ? "Create one and pick a slate from the backlog."
+            ? "Create one above and pick a slate from the backlog."
             : "An editor will create the first one."}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded border border-line">
-          <table className="w-full min-w-[560px] text-sm">
+        <TableFrame>
+          <Table className="min-w-[560px]">
             <thead>
-              <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-                <th className="px-4 py-2.5">Meeting</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Slate</th>
-                <th className="px-4 py-2.5">Assigned</th>
-              </tr>
+              <HeaderRow>
+                <Th>Meeting</Th>
+                <Th>Status</Th>
+                <Th>Slate</Th>
+                <Th>Assigned</Th>
+              </HeaderRow>
             </thead>
             <tbody>
               {meetingRows.map((meeting) => {
                 const stats = slateStats.get(meeting.id) ?? { total: 0, assigned: 0 };
                 return (
-                  <tr key={meeting.id} className="border-b border-line last:border-b-0">
-                    <td className="px-4 py-3">
+                  <Row key={meeting.id}>
+                    <Cell>
                       <Link
                         href={`/editorial/meetings/${meeting.id}`}
-                        className="font-semibold text-ink-900 hover:text-brand-link"
+                        className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
                       >
                         {formatDate(meeting.meeting_date)}
                       </Link>
-                    </td>
-                    <td className="px-4 py-3">
+                    </Cell>
+                    <Cell>
                       <MeetingStatusBadge status={meeting.status} />
-                    </td>
-                    <td className="px-4 py-3 text-ink-500">
-                      {stats.total} {stats.total === 1 ? "pitch" : "pitches"}
-                    </td>
-                    <td className="px-4 py-3 text-ink-500">
+                    </Cell>
+                    <Cell className="whitespace-nowrap text-ink-500">
+                      {stats.total === 0
+                        ? "Empty"
+                        : `${stats.total} ${stats.total === 1 ? "pitch" : "pitches"}`}
+                    </Cell>
+                    <Cell className="tabular-nums text-ink-500">
                       {meeting.status === "concluded" ? stats.assigned : "—"}
-                    </td>
-                  </tr>
+                    </Cell>
+                  </Row>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableFrame>
       )}
     </div>
   );

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/editorial/data";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldHint } from "@/components/ui/input";
+import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { updateCriterion } from "../../../actions";
 
 export default async function EditCriterionPage({
@@ -15,17 +17,19 @@ export default async function EditCriterionPage({
   const { id } = await params;
   const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: criterion } = await supabase
-    .from("ep_criteria")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const criterion = unwrapRead(
+    await supabase.from("ep_criteria").select("*").eq("id", id).maybeSingle(),
+    "the criterion",
+  );
   if (!criterion) notFound();
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/editorial/settings/rubric" className="text-xs font-semibold text-brand-link">
+      <div className="mb-4">
+        <Link
+          href="/editorial/settings/rubric"
+          className="text-xs font-semibold text-brand-link hover:underline"
+        >
           ← Back to rubric
         </Link>
       </div>
@@ -35,10 +39,16 @@ export default async function EditCriterionPage({
         </div>
         <form action={updateCriterion} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="criterion_id" value={criterion.id} />
-          {error && <p className="text-xs text-danger">{error}</p>}
+          {error && <Alert>{error}</Alert>}
+
+          <Alert variant="note">
+            To change what this criterion <em>measures</em>, retire it and add a new one — past
+            scores were given against the wording below.
+          </Alert>
+
           <div>
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" defaultValue={criterion.name} required />
+            <Input id="name" name="name" defaultValue={criterion.name} required maxLength={80} />
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
@@ -47,17 +57,18 @@ export default async function EditCriterionPage({
               name="description"
               defaultValue={criterion.description}
               required
+              maxLength={200}
             />
           </div>
           <div>
             <Label htmlFor="guidance">Guidance for reviewers</Label>
-            <textarea
+            <Textarea
               id="guidance"
               name="guidance"
               rows={3}
               defaultValue={criterion.guidance ?? ""}
-              className="w-full rounded border border-line px-3 py-2 text-sm text-ink-900"
             />
+            <FieldHint>Shown inline while scoring.</FieldHint>
           </div>
           <div>
             <Label htmlFor="weight">Weight</Label>
@@ -69,6 +80,7 @@ export default async function EditCriterionPage({
               min="0.1"
               max="10"
               defaultValue={criterion.weight}
+              className="w-24"
             />
             <FieldHint>
               Weight changes apply to future scoring only; existing scores keep the weight they were

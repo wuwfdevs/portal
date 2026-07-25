@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { getPitchValues, getProfileNames, listFormFields } from "@/lib/editorial/data";
+import { getPitchValues, getProfileNames, listFormFields, unwrapRead } from "@/lib/editorial/data";
 import { aggregateReviews } from "@/lib/editorial/scoring";
 import { formatDate, formatScore } from "@/lib/editorial/format";
 import { PitchValues } from "@/components/editorial/pitch-values";
@@ -11,49 +11,73 @@ import {
   OutcomeBadge,
   MeetingStatusBadge,
 } from "@/components/editorial/outcome-badge";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { archivePitch, unarchivePitch } from "../actions";
 
-export default async function PitchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PitchDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { profile, role } = await requireEditorialAccess();
   const { id } = await params;
+  const { error } = await searchParams;
   const supabase = await createClient();
 
-  const { data: pitch } = await supabase.from("ep_pitches").select("*").eq("id", id).maybeSingle();
+  const pitch = unwrapRead(
+    await supabase.from("ep_pitches").select("*").eq("id", id).maybeSingle(),
+    "the pitch",
+  );
   if (!pitch) notFound();
 
-  const [fields, valuesByPitch, { data: rounds }] = await Promise.all([
+  const [fields, valuesByPitch, rounds] = await Promise.all([
     listFormFields(),
     getPitchValues([pitch.id]),
-    supabase.from("ep_meeting_pitches").select("*").eq("pitch_id", pitch.id),
+    supabase
+      .from("ep_meeting_pitches")
+      .select("*")
+      .eq("pitch_id", pitch.id)
+      .then((result) => unwrapRead(result, "the review history")),
   ]);
 
   const roundRows = rounds ?? [];
   const meetingIds = roundRows.map((round) => round.meeting_id);
-  const { data: meetings } =
+  const meetings =
     meetingIds.length > 0
-      ? await supabase.from("ep_meetings").select("*").in("id", meetingIds)
-      : { data: [] };
+      ? unwrapRead(
+          await supabase.from("ep_meetings").select("*").in("id", meetingIds),
+          "the meetings",
+        )
+      : [];
   const meetingById = new Map((meetings ?? []).map((meeting) => [meeting.id, meeting]));
 
   // Reviews for this pitch's rounds — RLS returns only what the caller may see
   // (their own, plus everyone's once a meeting reaches the agenda).
   const roundIds = roundRows.map((round) => round.id);
-  const { data: reviews } =
+  const reviewRows =
     roundIds.length > 0
-      ? await supabase.from("ep_reviews").select("*").in("meeting_pitch_id", roundIds)
-      : { data: [] };
-  const reviewRows = reviews ?? [];
-  const { data: scores } =
+      ? (unwrapRead(
+          await supabase.from("ep_reviews").select("*").in("meeting_pitch_id", roundIds),
+          "reviews",
+        ) ?? [])
+      : [];
+  const scores =
     reviewRows.length > 0
-      ? await supabase
-          .from("ep_review_scores")
-          .select("*")
-          .in(
-            "review_id",
-            reviewRows.map((review) => review.id),
-          )
-      : { data: [] };
+      ? unwrapRead(
+          await supabase
+            .from("ep_review_scores")
+            .select("*")
+            .in(
+              "review_id",
+              reviewRows.map((review) => review.id),
+            ),
+          "review scores",
+        )
+      : [];
   const scoresByReview = new Map<
     string,
     { criterionId: string; score: number; weight: number }[]
@@ -88,27 +112,31 @@ export default async function PitchDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-5">
-        <Link href="/editorial" className="text-xs font-semibold text-brand-link">
+      <div className="mb-4">
+        <Link href="/editorial" className="text-xs font-semibold text-brand-link hover:underline">
           ← Back to backlog
         </Link>
       </div>
 
+      {error && <Alert className="mb-4">{error}</Alert>}
+
       <div className="rounded border border-line">
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-          <div>
-            <h2 className="font-serif text-[19px] font-bold text-ink-900">{pitch.title}</h2>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="font-serif text-[19px] font-bold leading-snug text-ink-900">
+              {pitch.title}
+            </h2>
             <p className="mt-1 text-xs text-ink-400">
               Submitted by {names.get(pitch.submitted_by ?? "") ?? "a former member"} on{" "}
               {formatDate(pitch.created_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-3">
             <PitchStatusBadge status={pitch.status} />
             {canEdit && (
               <Link
                 href={`/editorial/pitches/${pitch.id}/edit`}
-                className="text-xs font-semibold text-brand-link"
+                className="text-xs font-semibold text-brand-link hover:underline"
               >
                 Edit
               </Link>
@@ -140,12 +168,17 @@ export default async function PitchDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {role === "editor" && pitch.status === "open" && (
-        <form action={archivePitch} className="mt-4 flex items-center justify-end gap-2.5">
+        <form
+          action={archivePitch}
+          className="mt-4 flex flex-wrap items-center justify-end gap-2.5"
+        >
           <input type="hidden" name="pitch_id" value={pitch.id} />
-          <input
+          <Input
             name="reason"
             placeholder="Reason (optional)"
-            className="w-64 rounded border border-line px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400"
+            aria-label="Reason for archiving"
+            maxLength={200}
+            className="w-full sm:w-64"
           />
           <Button type="submit" variant="secondary">
             Archive pitch
@@ -163,11 +196,11 @@ export default async function PitchDetailPage({ params }: { params: Promise<{ id
 
       <h3 className="mb-2.5 mt-8 text-sm font-bold text-ink-900">Review history</h3>
       {sortedRounds.length === 0 ? (
-        <p className="text-sm text-ink-400">
+        <p className="rounded border border-dashed border-line p-5 text-sm text-ink-500">
           This pitch hasn&apos;t been discussed in a meeting yet.
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {sortedRounds.map(({ round, meeting }) => {
             const roundReviews = reviewRows.filter(
               (review) => review.meeting_pitch_id === round.id,

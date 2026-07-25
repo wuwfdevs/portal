@@ -1,5 +1,7 @@
 import { PitchValues } from "@/components/editorial/pitch-values";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
 import type {
   CriterionRow,
   FormFieldRow,
@@ -40,61 +42,99 @@ export function ScoringSection({
     scaleValues.push(value);
   }
   const scoredCount = slate.filter(({ entry }) => ownReviewByEntry.has(entry.id)).length;
+  const allScored = scoredCount === slate.length;
 
   return (
     <section>
-      <div className="mb-2.5 flex items-baseline justify-between">
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-bold text-ink-900">Review the slate</h3>
         {canReview && slate.length > 0 && (
-          <span className="text-xs text-ink-500">
-            Your progress: {scoredCount} / {slate.length}
+          <span
+            className={allScored ? "text-xs font-semibold text-success-fg" : "text-xs text-ink-500"}
+          >
+            {allScored ? "All scored" : `Scored ${scoredCount} of ${slate.length}`}
           </span>
         )}
       </div>
+
+      {canReview && criteria.length === 0 && (
+        <Alert variant="info" className="mb-3">
+          The rubric has no active criteria, so there is nothing to score against yet. An editor can
+          add criteria in Settings → Rubric.
+        </Alert>
+      )}
+
       {!canReview && slate.length > 0 && (
-        <p className="mb-3 text-xs text-ink-400">
+        <p className="mb-3 text-xs leading-relaxed text-ink-400">
           Reviewers are scoring independently; scores are revealed when the editor closes scoring.
         </p>
       )}
-      <div className="flex flex-col gap-3">
+
+      <div className="flex flex-col gap-2.5">
         {slate.map(({ entry, pitch }) => {
           const own = ownReviewByEntry.get(entry.id);
           const ownScores = new Map(own?.scores.map((score) => [score.criterion_id, score.score]));
           return (
-            <details key={entry.id} className="rounded border border-line">
-              <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                <span className="text-sm font-semibold text-ink-900">{pitch.title}</span>
-                <span className="flex-1" />
+            <details key={entry.id} className="group rounded border border-line open:shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center gap-3 rounded px-4 py-3 hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                <span
+                  aria-hidden="true"
+                  className="text-ink-400 transition-transform group-open:rotate-90"
+                >
+                  ›
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-semibold text-ink-900">
+                  {pitch.title}
+                </span>
                 {canReview && (
-                  <span className="text-xs font-semibold text-ink-400">
-                    {own ? "✓ scored" : "not scored"}
+                  <span
+                    className={
+                      own
+                        ? "whitespace-nowrap text-xs font-semibold text-success-fg"
+                        : "whitespace-nowrap text-xs font-semibold text-ink-400"
+                    }
+                  >
+                    {own ? "✓ Scored" : "Not scored"}
                   </span>
                 )}
               </summary>
+
               <div className="border-t border-line p-4">
                 <PitchValues fields={fields} values={valuesByPitch.get(pitch.id) ?? []} />
-                {canReview && (
-                  <form action={submitReview} className="mt-4 border-t border-line pt-4">
+
+                {canReview && criteria.length > 0 && (
+                  <form action={submitReview} className="mt-5 border-t border-line pt-4">
                     <input type="hidden" name="meeting_id" value={meetingId} />
                     <input type="hidden" name="entry_id" value={entry.id} />
-                    <div className="flex flex-col gap-3">
+
+                    <div className="flex flex-col gap-4">
                       {criteria.map((criterion) => (
-                        <div key={criterion.id} className="flex flex-wrap items-center gap-3">
-                          <div className="w-56">
-                            <div className="text-xs font-semibold text-ink-700">
-                              {criterion.name}
-                            </div>
-                            {criterion.guidance && (
-                              <div className="text-[11px] leading-snug text-ink-400">
-                                {criterion.guidance}
-                              </div>
+                        <fieldset key={criterion.id}>
+                          <legend className="text-xs font-semibold text-ink-700">
+                            {criterion.name}
+                            {criterion.weight !== 1 && (
+                              <span className="ml-1.5 font-normal text-ink-400">
+                                ×{criterion.weight}
+                              </span>
                             )}
-                          </div>
-                          <div className="flex gap-2">
+                          </legend>
+                          {criterion.guidance && (
+                            <p className="mt-0.5 text-[11px] leading-snug text-ink-400">
+                              {criterion.guidance}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             {scaleValues.map((value) => (
                               <label
                                 key={value}
-                                className="flex cursor-pointer items-center gap-1 text-sm text-ink-700"
+                                className="relative cursor-pointer text-sm"
+                                title={
+                                  value === settings.scale_min
+                                    ? "Lowest"
+                                    : value === settings.scale_max
+                                      ? "Highest"
+                                      : undefined
+                                }
                               >
                                 <input
                                   type="radio"
@@ -102,28 +142,38 @@ export function ScoringSection({
                                   value={value}
                                   required
                                   defaultChecked={ownScores.get(criterion.id) === value}
+                                  className="peer sr-only"
                                 />
-                                {value}
+                                <span className="flex h-9 w-9 items-center justify-center rounded border border-line font-semibold text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+                                  {value}
+                                </span>
                               </label>
                             ))}
+                            <span className="ml-1 text-[11px] text-ink-400">
+                              {settings.scale_min} lowest · {settings.scale_max} highest
+                            </span>
                           </div>
-                        </div>
+                        </fieldset>
                       ))}
+
                       <div>
                         <label
                           htmlFor={`comment_${entry.id}`}
                           className="mb-1.5 block text-xs font-semibold text-ink-700"
                         >
-                          Comment (optional, visible to the room after scoring closes)
+                          Comment
+                          <span className="ml-1.5 font-normal text-ink-400">
+                            optional · visible to the room after scoring closes
+                          </span>
                         </label>
-                        <textarea
+                        <Textarea
                           id={`comment_${entry.id}`}
                           name="comment"
                           rows={2}
                           defaultValue={own?.review.comment ?? ""}
-                          className="w-full rounded border border-line px-3 py-2 text-sm text-ink-900"
                         />
                       </div>
+
                       <div className="flex justify-end">
                         <Button type="submit" variant="secondary">
                           {own ? "Update review" : "Save review"}

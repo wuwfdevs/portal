@@ -1,10 +1,31 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { EDITORIAL_TOOL_KEY } from "./access";
 import { normalizeToolRole, type EditorialRole } from "./roles";
 import { isStalePitch } from "./staleness";
 import type { EpPitchStatus } from "@/lib/database.types";
+
+/**
+ * Reads are not allowed to fail quietly. A query that errors and falls back to
+ * an empty array renders exactly like a healthy empty state, so a real outage
+ * (RLS misconfiguration, a table that doesn't exist yet) shows up as "the tool
+ * has no data" rather than as a problem. Throw instead and let the editorial
+ * error boundary say what happened.
+ */
+export function unwrapRead<T>(
+  // T is inferred straight off `data`, which already carries the null from
+  // Supabase's failure branch — so the return stays `Row | null` / `Row[] | null`.
+  result: { data: T; error: PostgrestError | null },
+  what: string,
+): T {
+  if (result.error) {
+    console.error(`Editorial read failed (${what}):`, result.error);
+    throw new Error(`Could not load ${what}: ${result.error.message}`);
+  }
+  return result.data;
+}
 
 export type FormFieldRow = Database["public"]["Tables"]["ep_form_fields"]["Row"];
 export type CriterionRow = Database["public"]["Tables"]["ep_criteria"]["Row"];
@@ -18,8 +39,11 @@ export type ReviewScoreRow = Database["public"]["Tables"]["ep_review_scores"]["R
 
 export async function getSettings(): Promise<SettingsRow> {
   const supabase = await createClient();
-  const { data } = await supabase.from("ep_settings").select("*").maybeSingle();
-  // The migration seeds the singleton; the fallback only guards a broken DB.
+  const data = unwrapRead(
+    await supabase.from("ep_settings").select("*").maybeSingle(),
+    "the scoring scale",
+  );
+  // The migration seeds the singleton; the fallback only covers a missing row.
   return data ?? { id: true, scale_min: 1, scale_max: 5, updated_at: "" };
 }
 
@@ -27,16 +51,14 @@ export async function listFormFields(options?: { activeOnly?: boolean }): Promis
   const supabase = await createClient();
   let query = supabase.from("ep_form_fields").select("*").order("sort_order").order("created_at");
   if (options?.activeOnly) query = query.eq("active", true);
-  const { data } = await query;
-  return data ?? [];
+  return unwrapRead(await query, "the submission form") ?? [];
 }
 
 export async function listCriteria(options?: { activeOnly?: boolean }): Promise<CriterionRow[]> {
   const supabase = await createClient();
   let query = supabase.from("ep_criteria").select("*").order("sort_order").order("created_at");
   if (options?.activeOnly) query = query.eq("active", true);
-  const { data } = await query;
-  return data ?? [];
+  return unwrapRead(await query, "the rubric") ?? [];
 }
 
 /** Display names for arbitrary profile ids (submitters, reviewers, assignees). */
@@ -44,7 +66,10 @@ export async function getProfileNames(ids: Iterable<string | null>): Promise<Map
   const unique = Array.from(new Set(Array.from(ids).filter((id): id is string => id !== null)));
   if (unique.length === 0) return new Map();
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, display_name").in("id", unique);
+  const data = unwrapRead(
+    await supabase.from("profiles").select("id, display_name").in("id", unique),
+    "member names",
+  );
   return new Map((data ?? []).map((row) => [row.id, row.display_name]));
 }
 
@@ -57,27 +82,32 @@ export interface Member {
 /** Active members of the editorial tool — the assignee picker and reviewer roster. */
 export async function listMembers(): Promise<Member[]> {
   const supabase = await createClient();
-  const { data: tool } = await supabase
-    .from("tools")
-    .select("id")
-    .eq("key", EDITORIAL_TOOL_KEY)
-    .maybeSingle();
+  const tool = unwrapRead(
+    await supabase.from("tools").select("id").eq("key", EDITORIAL_TOOL_KEY).maybeSingle(),
+    "the tool registry",
+  );
   if (!tool) return [];
 
-  const { data: grants } = await supabase
-    .from("tool_access")
-    .select("user_id, tool_role")
-    .eq("tool_id", tool.id)
-    .is("revoked_at", null);
+  const grants = unwrapRead(
+    await supabase
+      .from("tool_access")
+      .select("user_id, tool_role")
+      .eq("tool_id", tool.id)
+      .is("revoked_at", null),
+    "the member roster",
+  );
   if (!grants || grants.length === 0) return [];
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, display_name, account_status")
-    .in(
-      "id",
-      grants.map((grant) => grant.user_id),
-    );
+  const profiles = unwrapRead(
+    await supabase
+      .from("profiles")
+      .select("id, display_name, account_status")
+      .in(
+        "id",
+        grants.map((grant) => grant.user_id),
+      ),
+    "the member roster",
+  );
   const activeNames = new Map(
     (profiles ?? [])
       .filter((profile) => profile.account_status === "active")
@@ -112,18 +142,24 @@ export async function listPitchesWithActivity(
   statuses: EpPitchStatus[],
 ): Promise<PitchListEntry[]> {
   const supabase = await createClient();
-  const { data: pitches } = await supabase
-    .from("ep_pitches")
-    .select("*")
-    .in("status", statuses)
-    .order("created_at", { ascending: false });
+  const pitches = unwrapRead(
+    await supabase
+      .from("ep_pitches")
+      .select("*")
+      .in("status", statuses)
+      .order("created_at", { ascending: false }),
+    "the backlog",
+  );
   if (!pitches || pitches.length === 0) return [];
 
   const pitchIds = pitches.map((pitch) => pitch.id);
-  const { data: rounds } = await supabase
-    .from("ep_meeting_pitches")
-    .select("pitch_id, outcome, decided_at")
-    .in("pitch_id", pitchIds);
+  const rounds = unwrapRead(
+    await supabase
+      .from("ep_meeting_pitches")
+      .select("pitch_id, outcome, decided_at")
+      .in("pitch_id", pitchIds),
+    "review history",
+  );
 
   const statsByPitch = new Map<string, { deferralCount: number; lastReviewedAt: string | null }>();
   for (const round of rounds ?? []) {
@@ -162,10 +198,22 @@ export async function listPitchesWithActivity(
   });
 }
 
+/** Row counts per status, so every backlog tab can show its size, not just the open one. */
+export async function countPitchesByStatus(): Promise<Record<EpPitchStatus, number>> {
+  const supabase = await createClient();
+  const rows = unwrapRead(await supabase.from("ep_pitches").select("status"), "the backlog") ?? [];
+  const counts: Record<EpPitchStatus, number> = { open: 0, assigned: 0, archived: 0 };
+  for (const row of rows) counts[row.status] += 1;
+  return counts;
+}
+
 export async function getPitchValues(pitchIds: string[]): Promise<Map<string, PitchValueRow[]>> {
   if (pitchIds.length === 0) return new Map();
   const supabase = await createClient();
-  const { data } = await supabase.from("ep_pitch_values").select("*").in("pitch_id", pitchIds);
+  const data = unwrapRead(
+    await supabase.from("ep_pitch_values").select("*").in("pitch_id", pitchIds),
+    "pitch details",
+  );
   const byPitch = new Map<string, PitchValueRow[]>();
   for (const row of data ?? []) {
     const list = byPitch.get(row.pitch_id) ?? [];
@@ -189,50 +237,58 @@ export interface MeetingBundle {
 
 export async function getMeetingBundle(meetingId: string): Promise<MeetingBundle | null> {
   const supabase = await createClient();
-  const { data: meeting } = await supabase
-    .from("ep_meetings")
-    .select("*")
-    .eq("id", meetingId)
-    .maybeSingle();
+  const meeting = unwrapRead(
+    await supabase.from("ep_meetings").select("*").eq("id", meetingId).maybeSingle(),
+    "the meeting",
+  );
   if (!meeting) return null;
 
-  const { data: entries } = await supabase
-    .from("ep_meeting_pitches")
-    .select("*")
-    .eq("meeting_id", meetingId);
+  const entries = unwrapRead(
+    await supabase.from("ep_meeting_pitches").select("*").eq("meeting_id", meetingId),
+    "the slate",
+  );
   const slateEntries = entries ?? [];
 
   const pitchesById = new Map<string, PitchRow>();
   if (slateEntries.length > 0) {
-    const { data: pitches } = await supabase
-      .from("ep_pitches")
-      .select("*")
-      .in(
-        "id",
-        slateEntries.map((entry) => entry.pitch_id),
-      );
+    const pitches = unwrapRead(
+      await supabase
+        .from("ep_pitches")
+        .select("*")
+        .in(
+          "id",
+          slateEntries.map((entry) => entry.pitch_id),
+        ),
+      "the slate's pitches",
+    );
     for (const pitch of pitches ?? []) pitchesById.set(pitch.id, pitch);
   }
 
   const reviewsByEntry = new Map<string, ReviewWithScores[]>();
   if (slateEntries.length > 0) {
-    const { data: reviews } = await supabase
-      .from("ep_reviews")
-      .select("*")
-      .in(
-        "meeting_pitch_id",
-        slateEntries.map((entry) => entry.id),
-      );
+    const reviews = unwrapRead(
+      await supabase
+        .from("ep_reviews")
+        .select("*")
+        .in(
+          "meeting_pitch_id",
+          slateEntries.map((entry) => entry.id),
+        ),
+      "reviews",
+    );
     const reviewRows = reviews ?? [];
     const scoresByReview = new Map<string, ReviewScoreRow[]>();
     if (reviewRows.length > 0) {
-      const { data: scores } = await supabase
-        .from("ep_review_scores")
-        .select("*")
-        .in(
-          "review_id",
-          reviewRows.map((review) => review.id),
-        );
+      const scores = unwrapRead(
+        await supabase
+          .from("ep_review_scores")
+          .select("*")
+          .in(
+            "review_id",
+            reviewRows.map((review) => review.id),
+          ),
+        "review scores",
+      );
       for (const score of scores ?? []) {
         const list = scoresByReview.get(score.review_id) ?? [];
         list.push(score);
