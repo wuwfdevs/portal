@@ -1,5 +1,13 @@
-// Hand-written to match supabase/migrations/*. Once a real Supabase project
-// exists, regenerate with `npm run db:types` and replace this file.
+// Hand-written to match supabase/migrations/*, verified field-by-field
+// against `supabase gen types` output from the live preview project
+// (2026-07-25) — accurate as of that check. Kept hand-written rather than
+// swapped for the generator's raw output on purpose: the generator emits a
+// differently-shaped module (generic Tables<>/TablesInsert<>/Enums<>
+// helpers, no named exports) that every existing import of PlatformRole,
+// ToolStatus, EpFieldType, etc. across both tools would break against.
+// Re-run `npm run db:types` to re-verify after a schema change, but
+// reconcile its output into this file's existing shape rather than
+// replacing it outright.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";

@@ -119,12 +119,20 @@ create trigger set_tw_clips_updated_at
 
 -- Row Level Security ----------------------------------------------------------
 
--- Membership check for this tool specifically, mirroring is_administrator()'s
--- shape. Deliberately does NOT bypass for platform administrators: tool
--- access in this portal is always an explicit tool_access grant, even for
--- admins (see how dana_id in seed.sql only has editorial-planning access,
--- not automatic access to every tool) — this keeps that convention intact.
-create function public.has_transcription_access(uid uuid)
+-- Membership check for this tool specifically, mirroring
+-- private.is_administrator()'s shape. Lives in `private` (created by
+-- 20260724120000_private_authz_functions.sql, which runs before this
+-- migration), not `public` — a function in `public` is reachable as a
+-- PostgREST RPC endpoint (/rest/v1/rpc/...), letting any signed-in user
+-- probe other people's tool access; `private` isn't in PostgREST's exposed
+-- schema list, so this stays usable inside policies without being an API
+-- surface. See that migration's comment for the full rationale.
+--
+-- Deliberately does NOT bypass for platform administrators: tool access in
+-- this portal is always an explicit tool_access grant, even for admins (see
+-- how dana_id in seed.sql only has editorial-planning access, not automatic
+-- access to every tool) — this keeps that convention intact.
+create function private.has_transcription_access(uid uuid)
 returns boolean
 language sql
 security definer
@@ -143,8 +151,8 @@ as $$
   );
 $$;
 
-revoke execute on function public.has_transcription_access(uuid) from public, anon;
-grant execute on function public.has_transcription_access(uuid) to authenticated;
+revoke execute on function private.has_transcription_access(uuid) from public, anon;
+grant execute on function private.has_transcription_access(uuid) to authenticated;
 
 alter table public.tw_projects enable row level security;
 alter table public.tw_speakers enable row level security;
@@ -165,23 +173,23 @@ grant select, insert, update, delete on public.tw_clips to authenticated;
 create policy tw_projects_select on public.tw_projects
   for select
   to authenticated
-  using (public.has_transcription_access(auth.uid()));
+  using (private.has_transcription_access(auth.uid()));
 
 create policy tw_projects_insert on public.tw_projects
   for insert
   to authenticated
-  with check (public.has_transcription_access(auth.uid()) and created_by = auth.uid());
+  with check (private.has_transcription_access(auth.uid()) and created_by = auth.uid());
 
 create policy tw_projects_update on public.tw_projects
   for update
   to authenticated
-  using (public.has_transcription_access(auth.uid()))
-  with check (public.has_transcription_access(auth.uid()));
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
 
 create policy tw_projects_delete on public.tw_projects
   for delete
   to authenticated
-  using (public.has_transcription_access(auth.uid()) and created_by = auth.uid());
+  using (private.has_transcription_access(auth.uid()) and created_by = auth.uid());
 
 -- tw_speakers / tw_segments / tw_clips: full CRUD for any tool member, no
 -- per-row ownership. These are sub-resources of a project the member
@@ -191,20 +199,20 @@ create policy tw_projects_delete on public.tw_projects
 create policy tw_speakers_member_all on public.tw_speakers
   for all
   to authenticated
-  using (public.has_transcription_access(auth.uid()))
-  with check (public.has_transcription_access(auth.uid()));
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
 
 create policy tw_segments_member_all on public.tw_segments
   for all
   to authenticated
-  using (public.has_transcription_access(auth.uid()))
-  with check (public.has_transcription_access(auth.uid()));
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
 
 create policy tw_clips_member_all on public.tw_clips
   for all
   to authenticated
-  using (public.has_transcription_access(auth.uid()))
-  with check (public.has_transcription_access(auth.uid()));
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
 
 -- Storage ---------------------------------------------------------------------
 -- Private bucket for source media (and, from Phase 4, rendered clip
@@ -235,23 +243,23 @@ on conflict (id) do update set
 create policy tw_media_select on storage.objects
   for select
   to authenticated
-  using (bucket_id = 'transcription-media' and public.has_transcription_access(auth.uid()));
+  using (bucket_id = 'transcription-media' and private.has_transcription_access(auth.uid()));
 
 create policy tw_media_insert on storage.objects
   for insert
   to authenticated
-  with check (bucket_id = 'transcription-media' and public.has_transcription_access(auth.uid()));
+  with check (bucket_id = 'transcription-media' and private.has_transcription_access(auth.uid()));
 
 create policy tw_media_update on storage.objects
   for update
   to authenticated
-  using (bucket_id = 'transcription-media' and public.has_transcription_access(auth.uid()))
-  with check (bucket_id = 'transcription-media' and public.has_transcription_access(auth.uid()));
+  using (bucket_id = 'transcription-media' and private.has_transcription_access(auth.uid()))
+  with check (bucket_id = 'transcription-media' and private.has_transcription_access(auth.uid()));
 
 create policy tw_media_delete on storage.objects
   for delete
   to authenticated
-  using (bucket_id = 'transcription-media' and public.has_transcription_access(auth.uid()));
+  using (bucket_id = 'transcription-media' and private.has_transcription_access(auth.uid()));
 
 -- Tool registry -----------------------------------------------------------------
 -- status='available' (not 'in_development'): Phase 1 ships real, usable
