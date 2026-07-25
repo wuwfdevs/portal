@@ -14,14 +14,16 @@ is its own focused application area with its own schema. The portal's job ends a
 Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
 integrations. When in doubt, keep scope narrow.
 
-## Current milestone: portal foundation
+## Current milestone: portal foundation + Editorial Planning
 
-This repo currently implements *only* the portal foundation: app shell, auth, profiles,
-platform roles, tool registry, dashboard, admin (users + tools + audit log), RLS, and a
-placeholder route for Editorial Planning. **Do not build the real Editorial Planning
-pitch/scoring/ranking workflow, Remote Interview media pipeline, Clip Library, or
-Audience Listening tool** without an explicit instruction to start that phase — those are
-separate milestones with their own schemas under their own route groups.
+This repo implements the portal foundation (app shell, auth, profiles, platform roles,
+tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Planning**
+(pitch backlog, configurable submission form and rubric, weekly meetings with
+independent scoring, ranked agendas, and recorded decisions). Its design rationale
+lives in `docs/editorial-planning-design.md` — read it before changing editorial
+workflow or schema. **Do not build the Remote Interview media pipeline, Clip Library,
+or Audience Listening tool** without an explicit instruction to start that phase —
+those are separate milestones with their own schemas under their own route groups.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -38,7 +40,9 @@ boundaries before building ahead of the current phase.
   Server Components/Server Actions talk to Supabase directly.
 - **Row Level Security is not optional.** Every table has RLS enabled and is the real
   enforcement boundary, not a convenience layer behind app-level checks. See
-  `supabase/migrations/20260722120001_rls_policies.sql`.
+  `supabase/migrations/20260722120001_rls_policies.sql`. The predicates those policies
+  call (`private.is_administrator`, `private.ep_*`) live in the `private` schema so they
+  are not reachable as REST endpoints — see "Authorization expectations".
 - **Two Supabase clients, used deliberately:**
   - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
     applies. Use this for essentially everything.
@@ -62,23 +66,32 @@ boundaries before building ahead of the current phase.
 src/app/(auth)/            sign-in, request-access, /auth/callback — public routes
 src/app/(portal)/          everything behind requireActiveProfile() (portal shell + nav)
 src/app/(portal)/admin/    everything behind requireAdministrator()
+src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
+                           gated by requireEditorialAccess() from lib/editorial/access.ts
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
 src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
                             requireToolAccess("transcription")
-src/components/ui/         small shared primitives (Button, Badge, Input, Card) — keep generic
+src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
+                           Alert, Table) — keep generic; use these rather than re-typing
+                           control/table class strings inline
 src/components/            portal-specific components (nav, tool card, etc.)
+src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
 src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
+src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
+                           (data.ts), the action failure helper (action-result.ts), plus pure,
+                           tested modules (roles, scoring, staleness, form validation)
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
 supabase/seed.sql          local/preview-only sample data — never run against production
 ```
 
-A future tool (e.g. `editorial-planning` going from placeholder to real) gets its own
-route segment (`src/app/(portal)/editorial/`), its own migration(s) for tool-specific
-tables, and reuses `tool_access`/`profiles` for authorization — it should not need
-portal-schema changes.
+A future tool follows the Editorial Planning pattern: its own route segment, its own
+migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
+`tool_access`/`profiles` for authorization — it should not need portal-schema changes
+beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
+migration.
 
 ## Common commands
 
@@ -101,9 +114,15 @@ the migration if no local instance is running — see the note at the top of tha
   `lib/auth/authz.ts`, not a hand-rolled check.
 - New Server Actions: call `assertAdministrator()` (or the relevant check) as the first
   line, before touching any data.
-- New tables: RLS enabled, policies scoped to `auth.uid()` / `is_administrator(auth.uid())`
-  — follow the existing pattern in `20260722120001_rls_policies.sql` rather than inventing
-  a new one.
+- New tables: RLS enabled, policies scoped to `auth.uid()` /
+  `private.is_administrator(auth.uid())` — follow the existing pattern in
+  `20260722120001_rls_policies.sql` rather than inventing a new one.
+- Authorization helper functions live in the `private` schema, never `public`. They are
+  `security definer` (they read `profiles`/`tool_access` past RLS) and must stay
+  `execute`-able by `authenticated`, because a policy expression runs as the querying
+  user — revoking that permission makes every policy calling it fail outright. `private`
+  is not in PostgREST's exposed schemas, so placement, not permission, is what keeps them
+  off the API. See `20260724120000_private_authz_functions.sql`.
 - Tool-specific roles (e.g. "Editor" for Editorial Planning) are free-text on
   `tool_access.tool_role` and interpreted by that tool alone — the portal does not
   understand or enforce them.
@@ -134,6 +153,15 @@ make explicitly, not by default.
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename
   things "while you're in there," or add abstractions for a single current use.
+- Never discard a Supabase `error`. A read that falls back to `[]` and a write that
+  redirects as though it succeeded both render exactly like a healthy screen, so a real
+  outage looks like a UI bug — that is how an unapplied migration once passed for "the
+  settings aren't configurable". Reads go through `unwrapRead()` (throws, caught by the
+  route's `error.tsx`); writes go through `failIfError()` / `failWith()` from
+  `lib/editorial/action-result.ts`, which bounce back with `?error=` for the screen to show.
+- Migrations in `supabase/migrations/` are not self-applying. After adding one, apply it to
+  the Supabase projects (preview first, then production) and confirm the tables exist —
+  a migration that only lives in the repo ships a tool that silently does nothing.
 - Run `npm run lint`, `npm run typecheck`, and `npm test` before calling a change done.
 - Update this file and/or README.md when you change architecture, directory conventions,
   or the local/deploy workflow — not for routine feature work.

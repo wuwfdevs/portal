@@ -17,7 +17,17 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error("auth/callback: exchangeCodeForSession failed", {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      url: request.url,
+    });
+    return NextResponse.redirect(
+      `${origin}/login?error=link_expired&reason=${encodeURIComponent(error.code ?? error.message)}`,
+    );
   }
 
-  return NextResponse.redirect(`${origin}/login?error=link_expired`);
+  console.error("auth/callback: no code param on request", request.url);
+  return NextResponse.redirect(`${origin}/login?error=link_expired&reason=no_code`);
 }
