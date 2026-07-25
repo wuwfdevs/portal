@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildClipExportFilename,
+  clipExportObjectPath,
   extensionForContentType,
   formatBytes,
   formatDuration,
   isAllowedMediaType,
   isVideoContentType,
+  slugify,
   sourceObjectPath,
 } from "./media";
 
@@ -61,5 +64,39 @@ describe("formatDuration", () => {
 
   it("formats hour-plus durations as h:mm:ss", () => {
     expect(formatDuration(3_661_000)).toBe("1:01:01");
+  });
+});
+
+describe("clipExportObjectPath", () => {
+  it("places a clip export at <project id>/clips/<clip id>.wav", () => {
+    expect(clipExportObjectPath("proj-1", "clip-2")).toBe("proj-1/clips/clip-2.wav");
+  });
+});
+
+describe("slugify", () => {
+  it("lowercases and hyphenates", () => {
+    expect(slugify("Mayor Reeves on Bridge Funding")).toBe("mayor-reeves-on-bridge-funding");
+  });
+
+  it("strips punctuation and collapses repeated separators", () => {
+    expect(slugify('Reeves: "We\'ll fund it!"')).toBe("reeves-we-ll-fund-it");
+  });
+
+  it("falls back to a placeholder for a string with no alphanumeric characters", () => {
+    expect(slugify("***")).toBe("untitled");
+  });
+});
+
+describe("buildClipExportFilename", () => {
+  it("builds a predictable, human-readable filename", () => {
+    expect(buildClipExportFilename("2026-07-22", "Reeves interview", "Bridge funding")).toBe(
+      "2026-07-22_reeves-interview_bridge-funding.wav",
+    );
+  });
+
+  it("takes just the date portion of a full timestamp", () => {
+    expect(buildClipExportFilename("2026-07-22T14:03:00.000Z", "Interview", "Clip")).toBe(
+      "2026-07-22_interview_clip.wav",
+    );
   });
 });

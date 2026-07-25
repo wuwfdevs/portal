@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById, getTranscriptForProject } from "@/lib/transcription/projects";
+import { listClipsForProject } from "@/lib/transcription/clips";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
@@ -21,13 +22,14 @@ export default async function TranscriptionProjectPage({
 
   const canDelete = project.created_by === profile.id;
   const hasMedia = Boolean(project.media_storage_path);
-  const [signedUrl, transcript] = await Promise.all([
+  const [signedUrl, transcript, clips] = await Promise.all([
     project.status === "ready" && project.media_storage_path
       ? getSignedMediaUrl(project.media_storage_path)
       : Promise.resolve(null),
     project.status === "ready"
       ? getTranscriptForProject(project.id)
       : Promise.resolve({ segments: [], speakers: [] }),
+    project.status === "ready" ? listClipsForProject(project.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -49,13 +51,15 @@ export default async function TranscriptionProjectPage({
       </div>
 
       {project.status === "ready" && (
-        <div className="max-w-2xl rounded border border-line bg-white p-5">
+        <div className="max-w-5xl rounded border border-line bg-white p-5">
           {signedUrl ? (
             <TranscriptWorkspace
+              projectId={project.id}
               mediaUrl={signedUrl}
               isVideo={isVideoContentType(project.media_content_type ?? "")}
               segments={transcript.segments}
               speakers={transcript.speakers}
+              clips={clips}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -76,12 +80,6 @@ export default async function TranscriptionProjectPage({
               </div>
             )}
           </dl>
-          {transcript.segments.length > 0 && (
-            <p className="mt-5 rounded bg-panel-50 px-3 py-2.5 text-xs text-ink-500">
-              Clip creation isn&apos;t built yet — name speakers, correct the text, and split or
-              merge lines above as needed in the meantime.
-            </p>
-          )}
         </div>
       )}
 

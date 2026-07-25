@@ -41,6 +41,38 @@ export function sourceObjectPath(projectId: string, contentType: string): string
   return `${projectId}/source.${extensionForContentType(contentType)}`;
 }
 
+/** Every clip export lives at `<project id>/clips/<clip id>.wav`. */
+export function clipExportObjectPath(projectId: string, clipId: string): string {
+  return `${projectId}/clips/${clipId}.wav`;
+}
+
+// A clip is an excerpt, not a re-upload of the whole interview — this bounds
+// both the export's memory footprint (the rendered WAV is buffered in full
+// before upload) and guards against a selection mistake spanning nearly the
+// entire recording.
+export const MAX_CLIP_DURATION_MS = 20 * 60 * 1000;
+
+/** Lowercase, hyphenated, filesystem-safe. Falls back to "untitled" for a string with no alphanumeric characters. */
+export function slugify(text: string): string {
+  const slug = text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return slug || "untitled";
+}
+
+/** Predictable export filename, e.g. "2026-07-22_reeves-interview_bridge-funding.wav". */
+export function buildClipExportFilename(
+  dateIso: string,
+  projectTitle: string,
+  clipTitle: string,
+): string {
+  const date = dateIso.slice(0, 10);
+  return `${date}_${slugify(projectTitle)}_${slugify(clipTitle)}.wav`;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

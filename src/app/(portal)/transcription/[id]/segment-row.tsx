@@ -18,13 +18,19 @@ export function SegmentRow({
   speakers,
   isActive,
   isLast,
+  isSelected,
+  isInSelectionRange,
   onSeek,
+  onToggleSelect,
 }: {
   segment: TranscriptSegment;
   speakers: TranscriptSpeaker[];
   isActive: boolean;
   isLast: boolean;
+  isSelected: boolean;
+  isInSelectionRange: boolean;
   onSeek: (startMs: number) => void;
+  onToggleSelect: () => void;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -98,9 +104,17 @@ export function SegmentRow({
       className={cn(
         "border-b border-line px-4 py-3 last:border-b-0",
         isActive && "bg-brand-surface",
+        !isActive && isInSelectionRange && "bg-panel-50",
       )}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          aria-label="Select this line for a clip"
+          className="h-3.5 w-3.5 rounded border-line"
+        />
         <select
           value={speakerId}
           onChange={handleSpeakerChange}
