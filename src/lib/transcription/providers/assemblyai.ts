@@ -33,6 +33,11 @@ export const assemblyAiProvider: TranscriptionProvider = {
       },
       body: JSON.stringify({
         audio_url: input.mediaUrl,
+        // Ordered model-availability fallback list — without this the API
+        // silently applies its own default, which isn't necessarily the
+        // current best model. universal-2 as the fallback covers all 99
+        // languages if universal-3-pro isn't available for this account/audio.
+        speech_models: ["universal-3-pro", "universal-2"],
         speaker_labels: true,
         webhook_url: input.webhookUrl,
         webhook_auth_header_name: WEBHOOK_AUTH_HEADER_NAME,
