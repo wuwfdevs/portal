@@ -1,11 +1,20 @@
-// Hand-written to match supabase/migrations/*. Once a real Supabase project
-// exists, regenerate with `npm run db:types` and replace this file.
+// Hand-written to match supabase/migrations/*, verified field-by-field
+// against `supabase gen types` output from the live preview project
+// (2026-07-25) — accurate as of that check. Kept hand-written rather than
+// swapped for the generator's raw output on purpose: the generator emits a
+// differently-shaped module (generic Tables<>/TablesInsert<>/Enums<>
+// helpers, no named exports) that every existing import of PlatformRole,
+// ToolStatus, EpFieldType, etc. across both tools would break against.
+// Re-run `npm run db:types` to re-verify after a schema change, but
+// reconcile its output into this file's existing shape rather than
+// replacing it outright.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
 export type ToolStatus = "available" | "in_development" | "planned";
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
+export type TwProjectStatus = "uploading" | "processing" | "ready" | "failed";
 
 // Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql.
 export type EpFieldType = "short_text" | "long_text" | "select" | "multi_select" | "date" | "url";
@@ -112,6 +121,95 @@ export interface Database {
           target_type: string;
         };
         Update: Partial<Database["public"]["Tables"]["audit_events"]["Row"]>;
+        Relationships: [];
+      };
+      tw_projects: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          interview_date: string | null;
+          status: TwProjectStatus;
+          media_storage_path: string | null;
+          media_content_type: string | null;
+          media_size_bytes: number | null;
+          media_duration_ms: number | null;
+          transcription_provider_job_id: string | null;
+          error_message: string | null;
+          transcribed_at: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tw_projects"]["Row"]> & {
+          title: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tw_projects"]["Row"]>;
+        Relationships: [];
+      };
+      tw_speakers: {
+        Row: {
+          id: string;
+          project_id: string;
+          diarization_label: string;
+          display_name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tw_speakers"]["Row"]> & {
+          project_id: string;
+          diarization_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tw_speakers"]["Row"]>;
+        Relationships: [];
+      };
+      tw_segments: {
+        Row: {
+          id: string;
+          project_id: string;
+          speaker_id: string | null;
+          position: number;
+          start_ms: number;
+          end_ms: number;
+          text: string;
+          words: unknown;
+          text_edited: boolean;
+          search: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tw_segments"]["Row"]> & {
+          project_id: string;
+          position: number;
+          start_ms: number;
+          end_ms: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["tw_segments"]["Row"]>;
+        Relationships: [];
+      };
+      tw_clips: {
+        Row: {
+          id: string;
+          project_id: string;
+          title: string;
+          start_ms: number;
+          end_ms: number;
+          excerpt: string;
+          export_storage_path: string | null;
+          exported_at: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tw_clips"]["Row"]> & {
+          project_id: string;
+          title: string;
+          start_ms: number;
+          end_ms: number;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tw_clips"]["Row"]>;
         Relationships: [];
       };
       ep_form_fields: {
@@ -260,12 +358,18 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      tw_shift_segment_positions: {
+        Args: { p_project_id: string; after_position: number; delta: number };
+        Returns: undefined;
+      };
+    };
     Enums: {
       platform_role: PlatformRole;
       account_status: AccountStatus;
       tool_status: ToolStatus;
       access_request_status: AccessRequestStatus;
+      tw_project_status: TwProjectStatus;
     };
     CompositeTypes: Record<string, never>;
   };

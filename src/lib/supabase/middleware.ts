@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-const PUBLIC_PATHS = ["/login", "/request-access", "/auth/callback"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/request-access",
+  "/auth/callback",
+  // Third-party webhook callback: carries no Supabase session (it's
+  // authenticated by its own shared secret — see that route's comment), so
+  // it must never hit the login redirect below.
+  "/api/transcription/webhook",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

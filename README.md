@@ -99,6 +99,8 @@ through automation and need a human in each dashboard once:
      encrypted env var)
    - `NEXT_PUBLIC_SITE_URL` — the deployment's own URL (`https://tools.wuwf.org` in
      Production)
+   - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Transcription Workspace's
+     ASR provider (**sensitive** — mark both encrypted); see `.env.example` for details
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
 **Supabase Auth** (each project's dashboard → Authentication → URL Configuration):

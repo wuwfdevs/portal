@@ -25,6 +25,19 @@ workflow or schema. **Do not build the Remote Interview media pipeline, Clip Lib
 or Audience Listening tool** without an explicit instruction to start that phase —
 those are separate milestones with their own schemas under their own route groups.
 
+**Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
+`tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
+foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
+product design and phased plan before extending it; check that plan's phase
+boundaries before building ahead of the current phase.
+
+**AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
+elsewhere):** the API changes over time — do not rely on memorized parameter names
+or model identifiers. Before writing or changing AssemblyAI-related code, check current
+behavior via the `assemblyai-docs` MCP server (project-scoped in `.mcp.json` — approve
+it once when prompted) or by fetching `https://www.assemblyai.com/docs/llms-full.txt`.
+Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
@@ -41,8 +54,10 @@ those are separate milestones with their own schemas under their own route group
   - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
     applies. Use this for essentially everything.
   - `src/lib/supabase/admin.ts` — secret key, bypasses RLS. `import "server-only"`
-    guards it. Use it **only** for `auth.admin.*` calls (inviting users) — nothing else.
-    Never import it into a Client Component.
+    guards it. Use it **only** for `auth.admin.*` calls (inviting users) and verified
+    external webhook handlers with no signed-in user session to act as (e.g. the
+    transcription ASR webhook — see that file's comment) — nothing else. Never import it
+    into a Client Component.
 - **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
   `requireAdministrator`, `assertAdministrator`, `hasToolAccess`) is the only place
   platform-role/account-status checks should be written. Don't re-implement these checks
@@ -61,6 +76,8 @@ src/app/(portal)/admin/    everything behind requireAdministrator()
 src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
                            gated by requireEditorialAccess() from lib/editorial/access.ts
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
+src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
+                            requireToolAccess("transcription")
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
@@ -68,6 +85,7 @@ src/components/            portal-specific components (nav, tool card, etc.)
 src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
+src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
