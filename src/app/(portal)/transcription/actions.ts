@@ -87,7 +87,17 @@ async function startTranscriptionForProject(
       .eq("id", params.projectId);
 
     return {};
-  } catch {
+  } catch (error) {
+    // Log the provider's actual complaint. The reporter-facing message stays
+    // generic (an ASR API error isn't theirs to act on), but discarding the
+    // cause entirely makes a hard failure — a rejected parameter, a missing
+    // ASSEMBLYAI_API_KEY — indistinguishable from a transient blip, which is
+    // exactly how a request-rejecting bug once read as "please try again".
+    console.error("[transcription] startTranscription failed", {
+      projectId: params.projectId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     await supabase
       .from("tw_projects")
       .update({
