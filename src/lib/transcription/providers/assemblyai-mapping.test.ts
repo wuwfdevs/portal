@@ -1,30 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { mapAssemblyAiTranscript, type AssemblyAiTranscript } from "./assemblyai-mapping";
+import type { Transcript } from "assemblyai";
+import { mapAssemblyAiTranscript } from "./assemblyai-mapping";
 
 describe("mapAssemblyAiTranscript", () => {
   it("maps utterances, preserving speaker labels and millisecond timings", () => {
-    const transcript: AssemblyAiTranscript = {
-      id: "job-1",
-      status: "completed",
+    const transcript: Pick<Transcript, "utterances"> = {
       utterances: [
         {
           speaker: "A",
+          confidence: 0.98,
           start: 0,
           end: 2500,
           text: "Thanks for having me.",
           words: [
-            { text: "Thanks", start: 0, end: 400 },
-            { text: "for", start: 400, end: 600 },
-            { text: "having", start: 600, end: 900 },
-            { text: "me.", start: 900, end: 1200 },
+            { text: "Thanks", start: 0, end: 400, confidence: 0.99, speaker: "A" },
+            { text: "for", start: 400, end: 600, confidence: 0.99, speaker: "A" },
+            { text: "having", start: 600, end: 900, confidence: 0.99, speaker: "A" },
+            { text: "me.", start: 900, end: 1200, confidence: 0.99, speaker: "A" },
           ],
         },
         {
           speaker: "B",
+          confidence: 0.95,
           start: 2600,
           end: 4000,
           text: "Glad you could join us.",
-          words: [{ text: "Glad", start: 2600, end: 2900 }],
+          words: [{ text: "Glad", start: 2600, end: 2900, confidence: 0.97, speaker: "B" }],
         },
       ],
     };
@@ -48,7 +49,7 @@ describe("mapAssemblyAiTranscript", () => {
   });
 
   it("returns an empty utterances array when the transcript has none", () => {
-    const result = mapAssemblyAiTranscript({ id: "job-2", status: "completed" });
+    const result = mapAssemblyAiTranscript({ utterances: null });
     expect(result.utterances).toEqual([]);
   });
 });

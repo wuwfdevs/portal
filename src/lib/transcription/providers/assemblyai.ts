@@ -1,37 +1,38 @@
 import "server-only";
+import { AssemblyAI } from "assemblyai";
 import type {
   StartTranscriptionInput,
   TranscriptionProvider,
   TranscriptionResult,
 } from "../asr-provider";
 import { TranscriptionProviderError } from "../asr-provider";
-import { mapAssemblyAiTranscript, type AssemblyAiTranscript } from "./assemblyai-mapping";
+import { mapAssemblyAiTranscript } from "./assemblyai-mapping";
 
-const API_BASE = "https://api.assemblyai.com/v2";
 const WEBHOOK_AUTH_HEADER_NAME = "x-transcription-webhook-secret";
 
-function apiKey(): string {
-  const key = process.env.ASSEMBLYAI_API_KEY;
-  if (!key) throw new TranscriptionProviderError("ASSEMBLYAI_API_KEY is not set");
-  return key;
+function client(): AssemblyAI {
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  if (!apiKey) throw new TranscriptionProviderError("ASSEMBLYAI_API_KEY is not set");
+  return new AssemblyAI({ apiKey });
 }
 
 /**
  * Thin adapter over AssemblyAI's async transcription API (speaker
  * diarization + word-level timestamps + webhooks, all native — see
- * docs/transcription-workspace-design.md §6 for why this provider). Kept
- * intentionally small: swapping providers later means writing a new file
- * behind the TranscriptionProvider interface, not touching the pipeline.
+ * docs/transcription-workspace-design.md §6 for why this provider), via the
+ * official `assemblyai` SDK rather than hand-rolled fetch calls (see
+ * CLAUDE.md's AssemblyAI note). Uses `transcripts.submit()`, not
+ * `transcripts.transcribe()` — the latter polls until done, which would
+ * block a Server Action for however long transcription takes; this pipeline
+ * is webhook-driven, so submit-and-return-immediately is what we want.
+ * Kept intentionally small: swapping providers later means writing a new
+ * file behind the TranscriptionProvider interface, not touching the
+ * pipeline.
  */
 export const assemblyAiProvider: TranscriptionProvider = {
   async startTranscription(input: StartTranscriptionInput): Promise<string> {
-    const response = await fetch(`${API_BASE}/transcript`, {
-      method: "POST",
-      headers: {
-        Authorization: apiKey(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      const transcript = await client().transcripts.submit({
         audio_url: input.mediaUrl,
         // Ordered model-availability fallback list — without this the API
         // silently applies its own default, which isn't necessarily the
@@ -42,31 +43,18 @@ export const assemblyAiProvider: TranscriptionProvider = {
         webhook_url: input.webhookUrl,
         webhook_auth_header_name: WEBHOOK_AUTH_HEADER_NAME,
         webhook_auth_header_value: input.webhookSecret,
-      }),
-    });
-
-    if (!response.ok) {
+      });
+      return transcript.id;
+    } catch (error) {
       throw new TranscriptionProviderError(
-        `AssemblyAI rejected the transcription request (${response.status})`,
+        `AssemblyAI rejected the transcription request: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-
-    const data = (await response.json()) as { id: string };
-    return data.id;
   },
 
   async fetchResult(providerJobId: string): Promise<TranscriptionResult> {
-    const response = await fetch(`${API_BASE}/transcript/${providerJobId}`, {
-      headers: { Authorization: apiKey() },
-    });
+    const transcript = await client().transcripts.get(providerJobId);
 
-    if (!response.ok) {
-      throw new TranscriptionProviderError(
-        `Could not fetch transcript ${providerJobId} (${response.status})`,
-      );
-    }
-
-    const transcript = (await response.json()) as AssemblyAiTranscript;
     if (transcript.status === "error") {
       throw new TranscriptionProviderError(transcript.error ?? "Transcription failed");
     }

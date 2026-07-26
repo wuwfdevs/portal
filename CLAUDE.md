@@ -31,6 +31,13 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
+**AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
+elsewhere):** the API changes over time — do not rely on memorized parameter names
+or model identifiers. Before writing or changing AssemblyAI-related code, check current
+behavior via the `assemblyai-docs` MCP server (project-scoped in `.mcp.json` — approve
+it once when prompted) or by fetching `https://www.assemblyai.com/docs/llms-full.txt`.
+Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
