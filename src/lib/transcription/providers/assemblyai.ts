@@ -34,11 +34,16 @@ export const assemblyAiProvider: TranscriptionProvider = {
     try {
       const transcript = await client().transcripts.submit({
         audio_url: input.mediaUrl,
-        // Ordered model-availability fallback list — without this the API
-        // silently applies its own default, which isn't necessarily the
-        // current best model. universal-2 as the fallback covers all 99
-        // languages if universal-3-pro isn't available for this account/audio.
-        speech_models: ["universal-3-pro", "universal-2"],
+        // Highest-accuracy model, which is what interview transcription wants.
+        // Use the singular `speech_model` field, not the `speech_models`
+        // priority-list field: the former is typed as the `SpeechModel` union
+        // ("best" | "nano" | "slam-1" | "universal"), so a bad identifier is a
+        // compile error, while the latter is a bare `string[]` that accepts
+        // anything and fails only at request time. A previous revision passed
+        // invented ids ("universal-3-pro", "universal-2") through that hole and
+        // every transcription request was rejected. Check the union in the
+        // installed SDK before changing this value.
+        speech_model: "best",
         speaker_labels: true,
         webhook_url: input.webhookUrl,
         webhook_auth_header_name: WEBHOOK_AUTH_HEADER_NAME,
