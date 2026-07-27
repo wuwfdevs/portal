@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProject, retryTranscription } from "../actions";
 import { TranscriptWorkspace } from "./transcript-workspace";
+import { ProcessingPoller } from "./processing-poller";
 
 export default async function TranscriptionProjectPage({
   params,
@@ -93,8 +94,9 @@ export default async function TranscriptionProjectPage({
 
       {project.status === "processing" && (
         <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-          Transcribing — this can take a few minutes for a long recording. Feel free to leave this
-          page; the project list will show it as Ready when it&apos;s done.
+          Transcribing — this can take a few minutes for a long recording. This page will show the
+          transcript as soon as it&apos;s ready; you can also leave and come back.
+          <ProcessingPoller />
         </div>
       )}
 

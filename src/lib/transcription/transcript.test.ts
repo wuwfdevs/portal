@@ -44,6 +44,23 @@ describe("findActiveSegmentIndex", () => {
   it("returns -1 for an empty transcript", () => {
     expect(findActiveSegmentIndex([], 1000)).toBe(-1);
   });
+
+  it("agrees with a linear scan at every boundary of a long transcript", () => {
+    // Guards the binary search against off-by-one at segment starts, where
+    // the highlight visibly hands over from one line to the next.
+    const long = Array.from({ length: 500 }, (_, i) => ({ startMs: i * 1000 }));
+    const scan = (ms: number) => {
+      let active = -1;
+      long.forEach((segment, index) => {
+        if (segment.startMs <= ms) active = index;
+      });
+      return active;
+    };
+
+    for (const ms of [-1, 0, 1, 999, 1000, 1001, 249_500, 499_000, 499_001, 1_000_000]) {
+      expect(findActiveSegmentIndex(long, ms)).toBe(scan(ms));
+    }
+  });
 });
 
 describe("findFirstSegmentIndexForSpeaker", () => {

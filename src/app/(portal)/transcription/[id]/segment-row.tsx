@@ -35,6 +35,9 @@ export function SegmentRow({
   isActive,
   isLast,
   showSpeaker,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
   onSeek,
 }: {
   projectId: string;
@@ -45,11 +48,14 @@ export function SegmentRow({
   isActive: boolean;
   isLast: boolean;
   showSpeaker: boolean;
+  /** Which line is open for editing is owned by the workspace, so only one ever is and `E` can open the active one. */
+  isEditing: boolean;
+  onStartEditing: () => void;
+  onStopEditing: () => void;
   onSeek: (startMs: number) => void;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isEditing, setIsEditing] = useState(false);
   // Synced, not plain useState: a split/merge changes this row's server text
   // while React keeps the same instance (same list key), and a stale local
   // copy here is what silently overwrote a real split in production.
@@ -65,13 +71,13 @@ export function SegmentRow({
 
   function beginEditing() {
     setActionError(null);
-    setIsEditing(true);
+    onStartEditing();
   }
 
   function cancelEditing() {
     setText(segment.text);
     setIsDirty(false);
-    setIsEditing(false);
+    onStopEditing();
     setActionError(null);
   }
 
@@ -97,7 +103,7 @@ export function SegmentRow({
 
   async function handleSave() {
     if (!(await saveText())) return;
-    setIsEditing(false);
+    onStopEditing();
     router.refresh();
   }
 
@@ -126,7 +132,7 @@ export function SegmentRow({
       setActionError(result.error);
       return;
     }
-    setIsEditing(false);
+    onStopEditing();
     router.refresh();
   }
 
@@ -139,12 +145,15 @@ export function SegmentRow({
       setActionError(result.error);
       return;
     }
-    setIsEditing(false);
+    onStopEditing();
     router.refresh();
   }
 
   return (
     <div
+      // On the wrapper, not the text, so follow-along can find the active
+      // line even while it's being edited. Token spans stay nested inside.
+      data-segment-index={segmentIndex}
       className={cn(
         "group border-l-2 px-4 py-2 transition-colors",
         isActive ? "border-brand-primary bg-brand-surface/50" : "border-transparent",
@@ -226,11 +235,7 @@ export function SegmentRow({
               </div>
             </div>
           ) : (
-            <p
-              data-segment-index={segmentIndex}
-              onDoubleClick={beginEditing}
-              className="text-sm leading-relaxed text-ink-900"
-            >
+            <p onDoubleClick={beginEditing} className="text-sm leading-relaxed text-ink-900">
               {/* Spaces sit between the spans, not inside them, so selecting
                   whitespace alone never counts as touching a word. */}
               {tokens.map((token, tokenIndex) => (

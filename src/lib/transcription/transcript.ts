@@ -14,20 +14,29 @@ export function speakerDisplayLabel(diarizationLabel: string, displayName: strin
  * requiring an exact [start, end) match, so the highlight holds steady
  * through gaps between utterances instead of flickering off. Returns -1
  * before the first segment starts.
+ *
+ * Binary search rather than a scan: this runs on every `timeupdate` (~4×
+ * per second, and again per seek), and a linear walk over an hour-long
+ * interview's segments is real work to repeat that often.
  */
 export function findActiveSegmentIndex(
   segments: { startMs: number }[],
   currentTimeMs: number,
 ): number {
+  let low = 0;
+  let high = segments.length - 1;
   let active = -1;
-  for (let i = 0; i < segments.length; i += 1) {
-    const segment = segments[i];
-    if (segment && segment.startMs <= currentTimeMs) {
-      active = i;
+
+  while (low <= high) {
+    const mid = (low + high) >>> 1;
+    if (segments[mid]!.startMs <= currentTimeMs) {
+      active = mid;
+      low = mid + 1;
     } else {
-      break;
+      high = mid - 1;
     }
   }
+
   return active;
 }
 
