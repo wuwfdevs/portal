@@ -11,6 +11,17 @@ import { getSiteUrl } from "@/lib/site-url";
 export type CreateProjectResult = { id: string } | { error: string };
 
 /**
+ * Strips URLs out of a provider error before it's persisted or logged. The
+ * signed ingest URL we hand the ASR provider is a six-hour read credential for
+ * the source media, and providers routinely echo the offending request back in
+ * their error text — error_message is rendered on the project screen, so it
+ * must not become a place that token gets written down.
+ */
+function redactUrls(message: string): string {
+  return message.replace(/https?:\/\/\S+/gi, "[url]");
+}
+
+/**
  * Creates the project row before any upload starts, with status='uploading'
  * — so an abandoned upload is a visible, cleanable row rather than an
  * orphaned storage object (see design doc §6). Called directly from the
@@ -62,12 +73,30 @@ async function startTranscriptionForProject(
   const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
   const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
 
-  if (!mediaUrl || !webhookSecret) {
+  // Name the specific missing piece. These are variable *names*, never values,
+  // and only tool members reach this screen — worth surfacing, because an
+  // unset ASSEMBLYAI_API_KEY otherwise threw inside the try below and arrived
+  // as the same "please try again" as a genuine provider outage.
+  if (!process.env.ASSEMBLYAI_API_KEY || !webhookSecret) {
+    const missing = [
+      !process.env.ASSEMBLYAI_API_KEY && "ASSEMBLYAI_API_KEY",
+      !webhookSecret && "TRANSCRIPTION_WEBHOOK_SECRET",
+    ].filter((name): name is string => Boolean(name));
+    const message = `Transcription isn't configured yet (missing ${missing.join(" and ")}).`;
     await supabase
       .from("tw_projects")
-      .update({ status: "failed", error_message: "Transcription isn't configured yet." })
+      .update({ status: "failed", error_message: message })
       .eq("id", params.projectId);
-    return { error: "Transcription isn't configured yet." };
+    return { error: message };
+  }
+
+  if (!mediaUrl) {
+    const message = "Couldn't read the uploaded media file. Please re-upload.";
+    await supabase
+      .from("tw_projects")
+      .update({ status: "failed", error_message: message })
+      .eq("id", params.projectId);
+    return { error: message };
   }
 
   try {
@@ -88,24 +117,23 @@ async function startTranscriptionForProject(
 
     return {};
   } catch (error) {
-    // Log the provider's actual complaint. The reporter-facing message stays
-    // generic (an ASR API error isn't theirs to act on), but discarding the
-    // cause entirely makes a hard failure — a rejected parameter, a missing
-    // ASSEMBLYAI_API_KEY — indistinguishable from a transient blip, which is
-    // exactly how a request-rejecting bug once read as "please try again".
+    // Surface the provider's actual complaint rather than a generic retry
+    // prompt — same as the webhook handler does on the finishing side. A bare
+    // "please try again" made a rejected request parameter look identical to a
+    // transient blip, which is how an always-failing kickoff went unexplained.
+    const reason = redactUrls(error instanceof Error ? error.message : String(error));
+    const message = `Could not start transcription: ${reason}`;
+
     console.error("[transcription] startTranscription failed", {
       projectId: params.projectId,
-      error: error instanceof Error ? error.message : String(error),
+      error: reason,
     });
 
     await supabase
       .from("tw_projects")
-      .update({
-        status: "failed",
-        error_message: "Could not start transcription. Please try again.",
-      })
+      .update({ status: "failed", error_message: message })
       .eq("id", params.projectId);
-    return { error: "Could not start transcription. Please try again." };
+    return { error: message };
   }
 }
 
