@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { parseWords } from "@/lib/transcription/transcript";
+import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database } from "@/lib/database.types";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
@@ -13,6 +15,8 @@ export interface TranscriptSegment {
   text: string;
   textEdited: boolean;
   speakerId: string | null;
+  /** ASR word timings, what text selection snaps clip boundaries to. */
+  words: TranscribedWord[];
 }
 
 export interface TranscriptSpeaker {
@@ -69,7 +73,7 @@ export async function getTranscriptForProject(projectId: string): Promise<Projec
   const [segmentResult, speakerResult] = await Promise.all([
     supabase
       .from("tw_segments")
-      .select("id, position, speaker_id, start_ms, end_ms, text, text_edited")
+      .select("id, position, speaker_id, start_ms, end_ms, text, text_edited, words")
       .eq("project_id", projectId)
       .order("position"),
     supabase
@@ -90,6 +94,7 @@ export async function getTranscriptForProject(projectId: string): Promise<Projec
       text: row.text,
       textEdited: row.text_edited,
       speakerId: row.speaker_id,
+      words: parseWords(row.words),
     })),
     speakers: (speakers ?? []).map((row) => ({
       id: row.id,

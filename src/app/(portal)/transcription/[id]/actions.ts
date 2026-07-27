@@ -134,11 +134,7 @@ export async function splitSegment(input: {
     return { error: "Both halves need some text — try a different split point." };
   }
 
-  const words = partitionWords(
-    parseWords(segment.words),
-    input.splitAtChar,
-    segment.text,
-  );
+  const words = partitionWords(parseWords(segment.words), input.splitAtChar, segment.text);
   const timing =
     splitTimingFromWords(words.first, words.second, segment.start_ms, segment.end_ms) ??
     splitTiming(segment.start_ms, segment.end_ms, input.splitAtChar, segment.text.length);

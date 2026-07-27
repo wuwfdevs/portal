@@ -1,17 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import { formatDuration } from "@/lib/transcription/media";
 import { findActiveSegmentIndex } from "@/lib/transcription/transcript";
+import {
+  buildTimedTokens,
+  resolveSelection,
+  type SelectionRange,
+  type TokenRef,
+} from "@/lib/transcription/selection";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 import type { ProjectClip } from "@/lib/transcription/clips";
 import { SpeakerPanel } from "./speaker-panel";
 import { SegmentRow } from "./segment-row";
 import { ClipRail } from "./clip-rail";
-import { createClip } from "./clip-actions";
+import { ClipComposer } from "./clip-composer";
 
 /**
  * The player, speaker naming, transcript, and clips as one coupled surface
@@ -26,7 +29,9 @@ import { createClip } from "./clip-actions";
  * callback. `segments` and `clips` are read straight from props on purpose:
  * split/merge and clip creation/export change server-generated ids and
  * values that aren't worth re-deriving client-side, so those actions call
- * router.refresh() and let the next render carry the truth.
+ * router.refresh() and let the next render carry the truth. The rows
+ * themselves sync their editable copies via useSyncedState, so a refresh
+ * lands cleanly instead of leaving stale text behind.
  */
 export function TranscriptWorkspace({
   projectId,
@@ -46,10 +51,13 @@ export function TranscriptWorkspace({
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
   const stopAtMsRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [speakers, setSpeakers] = useState(initialSpeakers);
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [selection, setSelection] = useState<SelectionRange | null>(null);
+
+  const tokensBySegment = useMemo(() => segments.map(buildTimedTokens), [segments]);
 
   function getMediaElement(): HTMLMediaElement | null {
     return videoRef.current ?? audioRef.current;
@@ -88,24 +96,57 @@ export function TranscriptWorkspace({
     );
   }
 
-  function toggleSegmentSelection(index: number) {
-    setSelectedIndices((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
+  /**
+   * Reads the browser's text selection back into (line, word) coordinates.
+   * Runs on mouseup rather than on every `selectionchange` because it walks
+   * every rendered word, which is far too much work to repeat per character
+   * of a drag across a long interview.
+   */
+  const captureSelection = useCallback(() => {
+    const root = transcriptRef.current;
+    const domSelection = window.getSelection();
+    if (!root || !domSelection || domSelection.isCollapsed || domSelection.rangeCount === 0) {
+      setSelection(null);
+      return;
+    }
+
+    const range = domSelection.getRangeAt(0);
+    if (!root.contains(range.commonAncestorContainer)) {
+      setSelection(null);
+      return;
+    }
+
+    const refs: TokenRef[] = [];
+    root.querySelectorAll<HTMLElement>("[data-segment-index]").forEach((segmentEl) => {
+      const segmentIndex = Number(segmentEl.dataset.segmentIndex);
+      segmentEl.querySelectorAll<HTMLElement>("[data-token-index]").forEach((tokenEl) => {
+        if (rangeTouches(range, tokenEl)) {
+          refs.push({ segmentIndex, tokenIndex: Number(tokenEl.dataset.tokenIndex) });
+        }
+      });
     });
+
+    setSelection(resolveSelection(tokensBySegment, refs));
+  }, [tokensBySegment]);
+
+  // Clicking anywhere collapses the selection; drop the composer when it does,
+  // so it never lingers describing a range the user can no longer see.
+  useEffect(() => {
+    function handleSelectionChange() {
+      const domSelection = window.getSelection();
+      if (!domSelection || domSelection.isCollapsed) setSelection(null);
+    }
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, []);
+
+  function clearSelection() {
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
   }
 
-  const hasSelection = selectedIndices.size > 0;
-  const rangeStart = hasSelection ? Math.min(...selectedIndices) : -1;
-  const rangeEnd = hasSelection ? Math.max(...selectedIndices) : -1;
-
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex flex-col gap-5">
         {isVideo ? (
           <video
@@ -138,117 +179,64 @@ export function TranscriptWorkspace({
             The transcript didn&apos;t come back with any speech.
           </p>
         ) : (
-          <>
-            <div className="max-h-[560px] overflow-y-auto rounded border border-line">
+          <div>
+            <p className="mb-2 text-xs text-ink-400">
+              Select any stretch of text to make a clip. Hover a line to edit, split, merge, or
+              reassign it.
+            </p>
+            <div
+              ref={transcriptRef}
+              onMouseUp={captureSelection}
+              className="max-h-[560px] overflow-y-auto rounded border border-line py-2"
+            >
               {segments.map((segment, index) => (
                 <SegmentRow
                   key={segment.id}
                   projectId={projectId}
                   segment={segment}
+                  tokens={tokensBySegment[index] ?? []}
                   speakers={speakers}
+                  segmentIndex={index}
                   isActive={index === activeIndex}
                   isLast={index === segments.length - 1}
-                  isSelected={selectedIndices.has(index)}
-                  isInSelectionRange={hasSelection && index >= rangeStart && index <= rangeEnd}
+                  showSpeaker={index === 0 || segments[index - 1]?.speakerId !== segment.speakerId}
                   onSeek={seekTo}
-                  onToggleSelect={() => toggleSegmentSelection(index)}
                 />
               ))}
             </div>
-
-            {hasSelection && (
-              <ClipComposer
-                projectId={projectId}
-                segments={segments}
-                rangeStart={rangeStart}
-                rangeEnd={rangeEnd}
-                onPreview={previewRange}
-                onCancel={() => setSelectedIndices(new Set())}
-                onCreated={() => {
-                  setSelectedIndices(new Set());
-                  router.refresh();
-                }}
-              />
-            )}
-          </>
+          </div>
         )}
       </div>
 
-      <ClipRail clips={clips} onPreview={previewRange} />
+      <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+        {selection && (
+          <ClipComposer
+            projectId={projectId}
+            selection={selection}
+            onPreview={previewRange}
+            onCancel={clearSelection}
+            onCreated={() => {
+              clearSelection();
+              router.refresh();
+            }}
+          />
+        )}
+        <ClipRail clips={clips} onPreview={previewRange} />
+      </div>
     </div>
   );
 }
 
-function ClipComposer({
-  projectId,
-  segments,
-  rangeStart,
-  rangeEnd,
-  onPreview,
-  onCancel,
-  onCreated,
-}: {
-  projectId: string;
-  segments: TranscriptSegment[];
-  rangeStart: number;
-  rangeEnd: number;
-  onPreview: (startMs: number, endMs: number) => void;
-  onCancel: () => void;
-  onCreated: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
-
-  const selected = segments.slice(rangeStart, rangeEnd + 1);
-  const startMs = selected[0]?.startMs ?? 0;
-  const endMs = selected[selected.length - 1]?.endMs ?? 0;
-  const excerpt = selected.map((s) => s.text).join(" ");
-
-  async function handleCreate() {
-    if (!title.trim()) {
-      setError("Give the clip a title.");
-      return;
-    }
-    setIsPending(true);
-    setError(null);
-    const result = await createClip({ projectId, startMs, endMs, title, excerpt });
-    setIsPending(false);
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-    onCreated();
-  }
-
+/**
+ * True when the selection genuinely covers part of `node`, rather than
+ * merely ending at its edge — Range.intersectsNode() counts a zero-width
+ * touch, which would pull an extra word into every selection.
+ */
+function rangeTouches(range: Range, node: Node): boolean {
+  const nodeRange = document.createRange();
+  nodeRange.selectNodeContents(node);
   return (
-    <div className="rounded border border-brand-primary bg-brand-surface/40 p-4">
-      <p className="mb-2 text-xs font-semibold text-ink-700">
-        {selected.length} line{selected.length === 1 ? "" : "s"} selected ({formatDuration(startMs)}
-        –{formatDuration(endMs)})
-      </p>
-      <p className="mb-3 line-clamp-2 text-xs text-ink-500">{excerpt}</p>
-      <div className="mb-3">
-        <Label htmlFor="clip-title">Clip title</Label>
-        <Input
-          id="clip-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="What is this quote?"
-        />
-      </div>
-      {error && <p className="mb-2 text-xs text-danger">{error}</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={handleCreate} disabled={isPending}>
-          {isPending ? "Creating…" : "Create clip"}
-        </Button>
-        <Button type="button" variant="secondary" onClick={() => onPreview(startMs, endMs)}>
-          Preview
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0 &&
+    range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0
   );
 }
