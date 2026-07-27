@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
@@ -43,14 +44,15 @@ export async function listProjects(search?: string): Promise<TwProject[]> {
     query = query.or(`title.ilike.${pattern},description.ilike.${pattern}`);
   }
 
-  const { data } = await query;
-  return data ?? [];
+  return unwrapRead(await query, "the project list") ?? [];
 }
 
 export async function getProjectById(id: string): Promise<TwProject | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tw_projects").select("*").eq("id", id).maybeSingle();
-  return data;
+  return unwrapRead(
+    await supabase.from("tw_projects").select("*").eq("id", id).maybeSingle(),
+    "this project",
+  );
 }
 
 /**
@@ -64,7 +66,7 @@ export async function getProjectById(id: string): Promise<TwProject | null> {
  */
 export async function getTranscriptForProject(projectId: string): Promise<ProjectTranscript> {
   const supabase = await createClient();
-  const [{ data: segments }, { data: speakers }] = await Promise.all([
+  const [segmentResult, speakerResult] = await Promise.all([
     supabase
       .from("tw_segments")
       .select("id, position, speaker_id, start_ms, end_ms, text, text_edited")
@@ -75,6 +77,9 @@ export async function getTranscriptForProject(projectId: string): Promise<Projec
       .select("id, diarization_label, display_name")
       .eq("project_id", projectId),
   ]);
+
+  const segments = unwrapRead(segmentResult, "this transcript");
+  const speakers = unwrapRead(speakerResult, "this project's speakers");
 
   return {
     segments: (segments ?? []).map((row) => ({

@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   findActiveSegmentIndex,
   findFirstSegmentIndexForSpeaker,
+  parseWords,
+  partitionWords,
   speakerDisplayLabel,
   splitTiming,
+  splitTimingFromWords,
 } from "./transcript";
 
 describe("speakerDisplayLabel", () => {
@@ -77,5 +80,112 @@ describe("splitTiming", () => {
 
   it("returns null when the segment is too short to split", () => {
     expect(splitTiming(0, 3, 1, 2)).toBeNull();
+  });
+});
+
+describe("parseWords", () => {
+  it("keeps well-formed words", () => {
+    const words = [
+      { w: "hello", s: 0, e: 500 },
+      { w: "there", s: 500, e: 900 },
+    ];
+    expect(parseWords(words)).toEqual(words);
+  });
+
+  it("returns an empty array for anything that isn't a word array", () => {
+    expect(parseWords(null)).toEqual([]);
+    expect(parseWords(undefined)).toEqual([]);
+    expect(parseWords("hello")).toEqual([]);
+    expect(parseWords({ w: "hello", s: 0, e: 1 })).toEqual([]);
+  });
+
+  it("drops entries that don't carry the full word shape", () => {
+    const result = parseWords([
+      { w: "keep", s: 0, e: 100 },
+      { w: "no-timing" },
+      { s: 100, e: 200 },
+      null,
+      "nope",
+    ]);
+    expect(result).toEqual([{ w: "keep", s: 0, e: 100 }]);
+  });
+});
+
+describe("partitionWords", () => {
+  const text = "The stale smell of old beer lingers.";
+  const words = [
+    { w: "The", s: 0, e: 100 },
+    { w: "stale", s: 100, e: 200 },
+    { w: "smell", s: 200, e: 300 },
+    { w: "of", s: 300, e: 400 },
+    { w: "old", s: 400, e: 500 },
+    { w: "beer", s: 500, e: 600 },
+    { w: "lingers.", s: 600, e: 700 },
+  ];
+
+  it("splits at the word boundary matching the character offset", () => {
+    // "The stale smell " is 16 characters — three words before the split.
+    const { first, second } = partitionWords(words, 16, text);
+    expect(first.map((word) => word.w)).toEqual(["The", "stale", "smell"]);
+    expect(second.map((word) => word.w)).toEqual(["of", "old", "beer", "lingers."]);
+  });
+
+  it("keeps a word that the split lands inside with the first half", () => {
+    // Offset 13 falls inside "smell".
+    const { first, second } = partitionWords(words, 13, text);
+    expect(first.map((word) => word.w)).toEqual(["The", "stale", "smell"]);
+    expect(second[0]?.w).toBe("of");
+  });
+
+  it("loses no words — the two halves always reconstruct the whole", () => {
+    for (let offset = 0; offset <= text.length; offset += 1) {
+      const { first, second } = partitionWords(words, offset, text);
+      expect([...first, ...second]).toEqual(words);
+    }
+  });
+
+  it("handles a segment whose timings were already discarded", () => {
+    expect(partitionWords([], 10, text)).toEqual({ first: [], second: [] });
+  });
+
+  it("clamps to the available words when the text and timings have drifted apart", () => {
+    // Corrected text can carry more tokens than the ASR's word array.
+    const { first, second } = partitionWords(words.slice(0, 2), text.length, text);
+    expect(first).toHaveLength(2);
+    expect(second).toEqual([]);
+  });
+});
+
+describe("splitTimingFromWords", () => {
+  it("cuts in the gap between the two halves' words", () => {
+    const first = [{ w: "hello", s: 1000, e: 1400 }];
+    const second = [{ w: "there", s: 1900, e: 2300 }];
+    expect(splitTimingFromWords(first, second, 1000, 2300)).toEqual({
+      firstEndMs: 1400,
+      secondStartMs: 1900,
+    });
+  });
+
+  it("returns null when either half has no words to anchor to", () => {
+    const word = [{ w: "hello", s: 0, e: 400 }];
+    expect(splitTimingFromWords([], word, 0, 1000)).toBeNull();
+    expect(splitTimingFromWords(word, [], 0, 1000)).toBeNull();
+  });
+
+  it("returns null when the segment is too short to split at all", () => {
+    const first = [{ w: "a", s: 0, e: 1 }];
+    const second = [{ w: "b", s: 1, e: 3 }];
+    expect(splitTimingFromWords(first, second, 0, 3)).toBeNull();
+  });
+
+  it("clamps word timings that fall outside the segment's own range", () => {
+    // Drifted words must never produce a half violating end_ms > start_ms.
+    const first = [{ w: "early", s: -500, e: -100 }];
+    const second = [{ w: "late", s: 99_000, e: 99_500 }];
+    const result = splitTimingFromWords(first, second, 0, 10_000);
+    expect(result).not.toBeNull();
+    expect(result!.firstEndMs).toBeGreaterThan(0);
+    expect(result!.secondStartMs).toBeLessThan(10_000);
+    expect(result!.secondStartMs).toBeGreaterThanOrEqual(result!.firstEndMs);
   });
 });

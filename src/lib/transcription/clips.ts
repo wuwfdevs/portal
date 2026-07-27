@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { buildClipExportFilename } from "@/lib/transcription/media";
 
@@ -20,7 +21,7 @@ export interface ProjectClip {
  */
 export async function listClipsForProject(projectId: string): Promise<ProjectClip[]> {
   const supabase = await createClient();
-  const [{ data: clips }, { data: project }] = await Promise.all([
+  const [clipResult, projectResult] = await Promise.all([
     supabase
       .from("tw_clips")
       .select("id, title, start_ms, end_ms, excerpt, export_storage_path, exported_at")
@@ -32,6 +33,9 @@ export async function listClipsForProject(projectId: string): Promise<ProjectCli
       .eq("id", projectId)
       .maybeSingle(),
   ]);
+
+  const clips = unwrapRead(clipResult, "this project's clips");
+  const project = unwrapRead(projectResult, "this project");
 
   const projectTitle = project?.title ?? "interview";
   const projectDate = project?.interview_date ?? project?.created_at ?? new Date().toISOString();

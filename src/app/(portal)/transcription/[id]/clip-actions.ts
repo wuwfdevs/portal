@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
@@ -17,6 +18,10 @@ import {
 // or export any clip in a project they have access to.
 
 const MIN_CLIP_DURATION_MS = 500;
+
+function revalidateProject(projectId: string) {
+  revalidatePath(`/transcription/${projectId}`);
+}
 
 export async function createClip(input: {
   projectId: string;
@@ -51,6 +56,7 @@ export async function createClip(input: {
     .single();
 
   if (error || !data) return { error: "Could not create the clip. Please try again." };
+  revalidateProject(input.projectId);
   return { id: data.id };
 }
 
@@ -91,6 +97,7 @@ export async function updateClipTrim(input: {
     .eq("id", input.clipId);
 
   if (error) return { error: "Could not save the trim. Please try again." };
+  revalidateProject(clip.project_id);
   return { startMs, endMs };
 }
 
@@ -144,5 +151,6 @@ export async function exportClip(
   if (!downloadUrl)
     return { error: "Exported, but couldn't create a download link. Reload and try again." };
 
+  revalidateProject(clip.project_id);
   return { downloadUrl };
 }

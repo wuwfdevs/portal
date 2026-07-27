@@ -1,31 +1,16 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
-import type { PostgrestError } from "@supabase/supabase-js";
+import { unwrapRead } from "@/lib/read-result";
 import { EDITORIAL_TOOL_KEY } from "./access";
 import { normalizeToolRole, type EditorialRole } from "./roles";
 import { isStalePitch } from "./staleness";
 import type { EpPitchStatus } from "@/lib/database.types";
 
-/**
- * Reads are not allowed to fail quietly. A query that errors and falls back to
- * an empty array renders exactly like a healthy empty state, so a real outage
- * (RLS misconfiguration, a table that doesn't exist yet) shows up as "the tool
- * has no data" rather than as a problem. Throw instead and let the editorial
- * error boundary say what happened.
- */
-export function unwrapRead<T>(
-  // T is inferred straight off `data`, which already carries the null from
-  // Supabase's failure branch — so the return stays `Row | null` / `Row[] | null`.
-  result: { data: T; error: PostgrestError | null },
-  what: string,
-): T {
-  if (result.error) {
-    console.error(`Editorial read failed (${what}):`, result.error);
-    throw new Error(`Could not load ${what}: ${result.error.message}`);
-  }
-  return result.data;
-}
+// Reads throw rather than falling back to empty — see lib/read-result.ts.
+// Re-exported so the call sites below (and the tool's other modules) keep
+// importing it from the place they always have.
+export { unwrapRead };
 
 export type FormFieldRow = Database["public"]["Tables"]["ep_form_fields"]["Row"];
 export type CriterionRow = Database["public"]["Tables"]["ep_criteria"]["Row"];

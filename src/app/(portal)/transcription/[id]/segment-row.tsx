@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 import {
@@ -14,6 +15,7 @@ import {
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 
 export function SegmentRow({
+  projectId,
   segment,
   speakers,
   isActive,
@@ -23,6 +25,7 @@ export function SegmentRow({
   onSeek,
   onToggleSelect,
 }: {
+  projectId: string;
   segment: TranscriptSegment;
   speakers: TranscriptSpeaker[];
   isActive: boolean;
@@ -35,49 +38,76 @@ export function SegmentRow({
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [text, setText] = useState(segment.text);
-  const [speakerId, setSpeakerId] = useState(segment.speakerId ?? "");
+  // Synced, not plain useState: a split/merge changes this row's server text
+  // while React keeps the same instance (same list key), and a stale local
+  // copy here is what silently overwrote a real split in production.
+  const [text, setText] = useSyncedState(segment.text);
+  const [speakerId, setSpeakerId] = useSyncedState(segment.speakerId ?? "");
+  const [isDirty, setIsDirty] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  /** Saves an in-progress edit if there is one — called before split/merge so neither silently drops unsaved text. */
-  async function saveTextIfChanged(): Promise<boolean> {
-    if (text.trim() === segment.text.trim()) return true;
-    const result = await updateSegmentText({ segmentId: segment.id, text });
+  function handleTextChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    setText(event.target.value);
+    setIsDirty(true);
+  }
+
+  /**
+   * Saves only when the user actually typed. The old check — "does my copy
+   * differ from the prop?" — treated a stale render as an edit, which is
+   * precisely how a completed split got written back to its pre-split text.
+   */
+  async function saveText(): Promise<boolean> {
+    if (!isDirty) return true;
+    const result = await updateSegmentText({ projectId, segmentId: segment.id, text });
     if (result.error) {
       setActionError(result.error);
       return false;
     }
+    setIsDirty(false);
     return true;
   }
 
   async function handleTextBlur() {
     setIsEditing(false);
-    if (text.trim() === segment.text.trim()) return;
+    if (!isDirty) return;
     setStatus("saving");
-    const result = await updateSegmentText({ segmentId: segment.id, text });
+    const result = await updateSegmentText({ projectId, segmentId: segment.id, text });
     if (result.error) {
       setStatus("error");
       setActionError(result.error);
       setText(segment.text);
+      setIsDirty(false);
       return;
     }
+    setIsDirty(false);
     setStatus("saved");
     setTimeout(() => setStatus("idle"), 1500);
+    router.refresh();
   }
 
   async function handleSpeakerChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const nextValue = event.target.value;
     setSpeakerId(nextValue);
-    await reassignSegmentSpeaker({ segmentId: segment.id, speakerId: nextValue || null });
+    const result = await reassignSegmentSpeaker({
+      projectId,
+      segmentId: segment.id,
+      speakerId: nextValue || null,
+    });
+    if (result.error) {
+      setActionError(result.error);
+      setSpeakerId(segment.speakerId ?? "");
+      return;
+    }
+    router.refresh();
   }
 
   async function handleSplit() {
     const cursor = textareaRef.current?.selectionStart ?? 0;
     setActionError(null);
-    if (!(await saveTextIfChanged())) return;
+    if (!(await saveText())) return;
 
-    const result = await splitSegment({ segmentId: segment.id, splitAtChar: cursor });
+    const result = await splitSegment({ projectId, segmentId: segment.id, splitAtChar: cursor });
     if (result.error) {
       setActionError(result.error);
       return;
@@ -88,9 +118,9 @@ export function SegmentRow({
 
   async function handleMerge() {
     setActionError(null);
-    if (!(await saveTextIfChanged())) return;
+    if (!(await saveText())) return;
 
-    const result = await mergeSegmentWithNext({ segmentId: segment.id });
+    const result = await mergeSegmentWithNext({ projectId, segmentId: segment.id });
     if (result.error) {
       setActionError(result.error);
       return;
@@ -143,7 +173,7 @@ export function SegmentRow({
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onBlur={handleTextBlur}
             autoFocus
             rows={2}

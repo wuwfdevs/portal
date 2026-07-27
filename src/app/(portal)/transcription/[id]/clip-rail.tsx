@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSyncedState } from "@/lib/use-synced-state";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/transcription/media";
 import { exportClip, updateClipTrim } from "./clip-actions";
@@ -38,9 +39,12 @@ function ClipCard({
   clip: ProjectClip;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
-  const [startMs, setStartMs] = useState(clip.startMs);
-  const [endMs, setEndMs] = useState(clip.endMs);
-  const [downloadUrl, setDownloadUrl] = useState(clip.downloadUrl);
+  // Synced to the server copy so a refresh triggered elsewhere on the page
+  // (a new clip, an export) doesn't leave this card showing pre-refresh trim
+  // points — same stale-state hazard as SegmentRow.
+  const [startMs, setStartMs] = useSyncedState(clip.startMs);
+  const [endMs, setEndMs] = useSyncedState(clip.endMs);
+  const [downloadUrl, setDownloadUrl] = useSyncedState(clip.downloadUrl);
   const [exportStatus, setExportStatus] = useState<"idle" | "exporting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

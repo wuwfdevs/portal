@@ -126,6 +126,7 @@ export function TranscriptWorkspace({
         )}
 
         <SpeakerPanel
+          projectId={projectId}
           speakers={speakers}
           segments={segments}
           onSeek={seekTo}
@@ -142,6 +143,7 @@ export function TranscriptWorkspace({
               {segments.map((segment, index) => (
                 <SegmentRow
                   key={segment.id}
+                  projectId={projectId}
                   segment={segment}
                   speakers={speakers}
                   isActive={index === activeIndex}
