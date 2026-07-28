@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildClipExportFilename,
+  buildClipsZipFilename,
+  buildTranscriptExportFilename,
   clipExportObjectPath,
   extensionForContentType,
   formatBytes,
@@ -97,6 +99,22 @@ describe("buildClipExportFilename", () => {
   it("takes just the date portion of a full timestamp", () => {
     expect(buildClipExportFilename("2026-07-22T14:03:00.000Z", "Interview", "Clip")).toBe(
       "2026-07-22_interview_clip.wav",
+    );
+  });
+});
+
+describe("buildTranscriptExportFilename", () => {
+  it("names the transcript after the project and date", () => {
+    expect(buildTranscriptExportFilename("2026-07-22", "Reeves interview")).toBe(
+      "2026-07-22_reeves-interview_transcript.txt",
+    );
+  });
+});
+
+describe("buildClipsZipFilename", () => {
+  it("names the archive after the project and date", () => {
+    expect(buildClipsZipFilename("2026-07-22T14:03:00.000Z", "Reeves interview")).toBe(
+      "2026-07-22_reeves-interview_clips.zip",
     );
   });
 });

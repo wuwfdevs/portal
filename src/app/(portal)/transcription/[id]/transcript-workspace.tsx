@@ -14,6 +14,7 @@ import type { ProjectClip } from "@/lib/transcription/clips";
 import { SpeakerPanel } from "./speaker-panel";
 import { SegmentRow } from "./segment-row";
 import { ClipRail } from "./clip-rail";
+import { TranscriptExport } from "./transcript-export";
 import { ClipComposer } from "./clip-composer";
 import { PlayerBar } from "./player-bar";
 import { ShortcutsHelp } from "./shortcuts-help";
@@ -39,6 +40,9 @@ const SKIP_MS = 5000;
  */
 export function TranscriptWorkspace({
   projectId,
+  projectTitle,
+  interviewDate,
+  exportDate,
   mediaUrl,
   isVideo,
   segments,
@@ -46,6 +50,10 @@ export function TranscriptWorkspace({
   clips,
 }: {
   projectId: string;
+  projectTitle: string;
+  interviewDate: string | null;
+  /** Interview date, falling back to the project's creation date — the date every export filename carries. */
+  exportDate: string;
   mediaUrl: string;
   isVideo: boolean;
   segments: TranscriptSegment[];
@@ -278,12 +286,23 @@ export function TranscriptWorkspace({
           </p>
         ) : (
           <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-ink-400">
                 Select any stretch of text to make a clip. Hover a line to edit, split, merge, or
                 reassign it.
               </p>
-              <ShortcutsHelp />
+              <div className="flex items-center gap-3">
+                {/* Built from `segments` and the live `speakers` state, so a
+                    copy always carries the corrections and names on screen. */}
+                <TranscriptExport
+                  projectTitle={projectTitle}
+                  interviewDate={interviewDate}
+                  exportDate={exportDate}
+                  segments={segments}
+                  speakers={speakers}
+                />
+                <ShortcutsHelp />
+              </div>
             </div>
             <div
               ref={transcriptRef}
@@ -337,7 +356,13 @@ export function TranscriptWorkspace({
             }}
           />
         )}
-        <ClipRail clips={clips} onPreview={previewRange} />
+        <ClipRail
+          projectId={projectId}
+          projectTitle={projectTitle}
+          exportDate={exportDate}
+          clips={clips}
+          onPreview={previewRange}
+        />
       </div>
     </div>
   );

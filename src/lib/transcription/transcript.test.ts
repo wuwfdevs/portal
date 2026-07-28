@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTranscriptText,
   findActiveSegmentIndex,
   findFirstSegmentIndexForSpeaker,
   parseWords,
@@ -204,5 +205,82 @@ describe("splitTimingFromWords", () => {
     expect(result!.firstEndMs).toBeGreaterThan(0);
     expect(result!.secondStartMs).toBeLessThan(10_000);
     expect(result!.secondStartMs).toBeGreaterThanOrEqual(result!.firstEndMs);
+  });
+});
+
+describe("buildTranscriptText", () => {
+  const speakers = [
+    { id: "s1", diarizationLabel: "A", displayName: "Mayor Reeves" },
+    { id: "s2", diarizationLabel: "B", displayName: null },
+  ];
+  const segments = [
+    { startMs: 0, text: "The bridge money was never ours.", speakerId: "s1" },
+    { startMs: 6000, text: "We asked twice.", speakerId: "s1" },
+    { startMs: 91000, text: "And you got nothing.", speakerId: "s2" },
+  ];
+
+  it("groups consecutive lines under one speaker heading, with timestamps", () => {
+    expect(
+      buildTranscriptText(
+        { title: "Reeves interview", interviewDate: "2026-07-22" },
+        segments,
+        speakers,
+      ),
+    ).toBe(
+      [
+        "Reeves interview",
+        "2026-07-22",
+        "",
+        "MAYOR REEVES",
+        "[0:00] The bridge money was never ours.",
+        "[0:06] We asked twice.",
+        "",
+        "SPEAKER B",
+        "[1:31] And you got nothing.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("repeats a heading when the speaker changes back", () => {
+    const text = buildTranscriptText(
+      { title: "Interview", interviewDate: null },
+      [
+        { startMs: 0, text: "One.", speakerId: "s1" },
+        { startMs: 1000, text: "Two.", speakerId: "s2" },
+        { startMs: 2000, text: "Three.", speakerId: "s1" },
+      ],
+      speakers,
+    );
+
+    expect(text.match(/MAYOR REEVES/g)).toHaveLength(2);
+  });
+
+  it("omits the date line when the project has no interview date", () => {
+    const text = buildTranscriptText(
+      { title: "Interview", interviewDate: null },
+      segments,
+      speakers,
+    );
+    expect(text.split("\n")[1]).toBe("");
+  });
+
+  it("labels lines with no speaker, and skips blank ones", () => {
+    const text = buildTranscriptText(
+      { title: "Interview", interviewDate: null },
+      [
+        { startMs: 0, text: "   ", speakerId: null },
+        { startMs: 1000, text: "Something said.", speakerId: null },
+      ],
+      speakers,
+    );
+
+    expect(text).toBe("Interview\n\nUNKNOWN SPEAKER\n[0:01] Something said.\n");
+  });
+
+  it("returns just the header for a transcript with no speech", () => {
+    expect(buildTranscriptText({ title: "Interview", interviewDate: null }, [], speakers)).toBe(
+      "Interview\n",
+    );
   });
 });

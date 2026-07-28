@@ -2,9 +2,51 @@
 // client-side TranscriptPlayer — no "server-only", testable without mocks.
 
 import type { TranscribedWord } from "./asr-provider";
+import { formatDuration } from "./media";
 
 export function speakerDisplayLabel(diarizationLabel: string, displayName: string | null): string {
   return displayName?.trim() || `Speaker ${diarizationLabel}`;
+}
+
+/**
+ * The transcript as plain text, for "Copy transcript" and the .txt download.
+ *
+ * Mirrors how the workspace reads on screen rather than inventing a second
+ * layout: a speaker heading only where the speaker changes, and a timestamp
+ * on every line so a quote pasted into a script can still be found in the
+ * audio. Pure and client-safe — the copy/download buttons build this from
+ * the segments already rendered, including any corrections and speaker
+ * names applied in this session, so the text always matches what's on screen.
+ */
+export function buildTranscriptText(
+  project: { title: string; interviewDate: string | null },
+  segments: { startMs: number; text: string; speakerId: string | null }[],
+  speakers: { id: string; diarizationLabel: string; displayName: string | null }[],
+): string {
+  const lines: string[] = [project.title];
+  if (project.interviewDate) lines.push(project.interviewDate.slice(0, 10));
+
+  let lastSpeakerId: string | null | undefined;
+  for (const segment of segments) {
+    const text = segment.text.trim();
+    if (!text) continue;
+
+    if (segment.speakerId !== lastSpeakerId) {
+      const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
+      lines.push(
+        "",
+        (speaker
+          ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
+          : "Unknown speaker"
+        ).toUpperCase(),
+      );
+      lastSpeakerId = segment.speakerId;
+    }
+
+    lines.push(`[${formatDuration(segment.startMs)}] ${text}`);
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 /**

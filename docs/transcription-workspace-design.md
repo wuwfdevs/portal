@@ -146,6 +146,23 @@ processing in v1 — producers master in their own chain; a clean, accurately
 trimmed, full-resolution cut is the deliverable. (If WUWF later wants
 −24 LUFS conformance on export, that's an additive flag, not a redesign.)
 
+**Export all clips** hands the whole rail over at once, as a single zip
+(`2026-07-22_reeves-interview_clips.zip`) containing every clip under its
+usual export filename. Clips that were never exported individually are
+rendered on the way past and kept in storage exactly as a single export is,
+so nothing is rendered twice. It streams from an API route rather than a
+Server Action — the result is a file, not data, and streaming keeps peak
+memory at one clip's WAV however many clips a project holds. An
+unreasonably large set is refused with an explanation rather than queued
+(`MAX_CLIPS_ZIP_DURATION_MS`); the per-clip export is always still there.
+
+**The transcript leaves as text.** "Copy transcript" and "Download .txt"
+produce the same speaker-grouped, timestamped reading the workspace shows.
+Both are built in the browser from the segments on screen, so a transcript
+copied straight after a correction or a speaker rename carries it — and
+there is no second, server-side formatter to drift out of step with the
+rendering.
+
 ### F. Search & reuse (grows out of the same list)
 
 There is no separate "archive." The project list *is* the archive:
