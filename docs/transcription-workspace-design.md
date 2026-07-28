@@ -58,10 +58,9 @@ or recording session. But three deliberate constraints keep the model simple:
    global people/entity table is a real archival feature — but consistent
    naming plus full-text search gets 90% of the value ("find everything Reeves
    said") with none of the entity-resolution complexity. Revisit only if naming
-   drift actually becomes a problem. (§3G adds a role/title to a speaker and
-   argues that per-project is not merely a simplification here but the *correct*
-   model: it records who someone was on the day of the recording, which a global
-   table would silently overwrite.)
+   drift actually becomes a problem. (§3G considered and cut a role/title field
+   on speakers: the project's background text already supplies "Reeves is
+   mayor" without a second field to leave blank.)
 
 The durable object hierarchy:
 
@@ -203,14 +202,15 @@ keeping, which is a stronger relevance signal than any embedding.
 
 **What a result has to show.** A search hit is the *only* thing the finder
 sees before deciding whether to chase a quote, so a result carries the
-provenance of §3G, not just the text:
+project's context (§3G), not just the matched text:
 
 > **Clip** · "We can't keep patching that bridge"
-> Reeves (Mayor of Pensacola) — 14:22
-> *Escambia County Commission, regular meeting* · 14 Mar 2026 · Public record
+> Reeves — 14:22 · *Escambia County Commission, March meeting* · 14 Mar 2026
+> Monthly commission meeting; bridge repair funding was the third agenda item.
+> Reeves is the mayor, Ford the county administrator.
 
-A result whose recording is marked background or off-the-record says so
-loudly, in the list, before anyone plays it.
+That third line is the project's background text, and it is the whole reason
+the result is legible to someone who wasn't there.
 
 **Everything deep-links back to the moment.** Every result — and every clip
 anywhere in the tool — links to `/transcription/<project>?t=<ms>`, which opens
@@ -232,82 +232,59 @@ Phases 1–4 optimized for the reporter who was *in the room* — they remember
 the interview, so a title and a speaker name are enough. Search inverts that.
 The person who finds a quote from a county commission meeting eighteen months
 later is usually not the person who recorded it, and a transcript that reads
-perfectly to its author is close to unusable to a stranger. Four questions
-block reuse, roughly in order of how often:
+perfectly to its author is close to unusable to a stranger. They need to know
+what the recording *was*: whose meeting, what was on the agenda, who the
+voices are, why WUWF was there.
 
-1. **Who is this, and what were they then?** "Reeves" is not attributable
-   copy; "D.C. Reeves, Mayor of Pensacola" is. And a quote from 2024 needs the
-   title he held in 2024.
-2. **What was this recording?** A commission meeting, a phoner, a press
-   conference, and a background coffee are four different editorial objects,
-   and knowing which one changes how the quote can be used.
-3. **Are we allowed to air it?** The single most expensive thing to get wrong.
-4. **What is he referring to here?** "The deal" meant something specific in
-   the room that day, and nothing at all to a reader two years later.
+**The field for that already exists.** `tw_projects.description` is free-form
+text on the project, and since a project holds exactly one recording and one
+transcript (§2), it is already "a description of the transcript." Phase 5 adds
+no context columns at all. What it fixes is that the field is currently
+inert:
 
-The answers are three small, deliberately un-generic additions — not a
-metadata system:
+1. **It is write-once.** `createProject()` is the only code that has ever
+   written it, so the background gets typed at upload — before anyone has
+   listened, when the reporter is watching a progress bar — or never. Phase 5
+   adds `updateProjectDetails()` so title, date, and background are editable
+   from the workspace, which is where a reporter is sitting when they actually
+   learn what the recording was.
+2. **It is never shown where a stranger needs it.** It appears on the project
+   list and the project header, and nowhere else — not on a clip, not on a
+   search result. Every result card in §3F carries it.
+3. **It is not in the index.** It joins the keyword index alongside transcript
+   text and clip titles, and it becomes the provenance header prepended to
+   every chunk before embedding (§6) — so a passage reading "we can't keep
+   patching it" is retrievable by "county commission bridge maintenance"
+   because the *project* said so even though the passage didn't.
 
-**1. Speakers gain a role, not a people table.** One optional `role_title`
-field per speaker ("Mayor of Pensacola", "Escambia County Administrator"),
-edited in the speaker panel right where names are already typed. One field,
-not a role/organization/contact triple — every additional field is another one
-left blank. This deliberately stays per-project (see §2): it captures who
-someone was *at the time of that recording*, which is exactly what
-attribution needs and exactly what a global contacts table would destroy on
-the day they change jobs.
+That last point is the honest argument for filling the field in: background
+text is not decoration, it is what makes everything recorded that day
+findable.
 
-**2. The project gains provenance, not a metadata system.** Three structured
-fields on the project, all optional, all editable after the fact from the
-project page (not just at upload, when the reporter is in a hurry and hasn't
-listened yet):
+**Deliberately not built**, having been proposed and cut:
 
-- `recording_type` — interview · public meeting · press conference · speech
-  or event · phone · other. Defaults to interview.
-- `location` — free text ("Escambia County Government Complex").
-- `usage_terms` — on the record · public record · background · off the
-  record, blank meaning nobody said. This is a **label, not a lock**: RLS is
-  unchanged and every member still sees every project. It exists so that a
-  clip pulled out of the archive announces its own terms instead of relying on
-  someone remembering them. Anything stricter than a label belongs in a
-  conversation about whether the recording should be in a shared workspace at
-  all.
+- *Structured provenance* (`recording_type`, `location`, `usage_terms`). An
+  enum that defaults to "interview" is quietly wrong on every meeting someone
+  forgets to change, and a confidently wrong label is worse than prose. Titles
+  and background already carry this, and search reads prose fine.
+- *Speaker roles* (`role_title` on `tw_speakers`). Attribution genuinely needs
+  "Mayor of Pensacola" — but a background that reads "Reeves is mayor, Ford is
+  county administrator" supplies it without a second field to leave blank.
+  Revisit if result cards feel anonymous in practice; it is one additive
+  column.
+- *Moment notes* (`tw_notes`) and *per-clip notes* (`tw_clips.context_note`).
+  Context pinned to a time range is a table, an anchoring model, inline
+  rendering, and overlap logic against search hits — for annotating moments
+  that, in this tool, are one gesture away from simply being clips with
+  titles. A required clip title is already an editorial summary of the moment.
+- *Topic tags.* A tag vocabulary in a six-person newsroom decays into three
+  people's private taxonomies within a year, and semantic search is precisely
+  the feature that makes them unnecessary.
 
-`description` stays the one free-text field, relabeled "Background" with a
-prompt for what actually helps later ("what was this, who called it, what was
-the news peg").
-
-*Rejected: topic tags.* A tag vocabulary in a six-person newsroom decays into
-three people's private taxonomies within a year, and semantic search is
-precisely the feature that makes them unnecessary — "flood insurance" finds
-the flood-insurance material whether or not anyone tagged it. If browsing by
-subject turns out to be a real need after 5B ships, revisit it then, with
-evidence.
-
-**3. Moment notes (`tw_notes`) — context pinned to a point in the audio.**
-Project-level fields describe the whole recording; they cannot say "'the deal'
-here is the 2019 ECUA land swap" or "he corrects this number at 41:10". A note
-is a short body of text anchored to a **time range** on the project timeline,
-added by selecting transcript text the same way a clip is made. Notes render
-inline in the transcript at their anchor, travel with any clip whose range
-contains them, and appear beside an overlapping search hit — so the annotation
-reaches the person who needs it, which is the whole point.
-
-Anchored to a time range rather than to a segment id on purpose: segments get
-split and merged during correction, and a note must survive that. Time is the
-stable coordinate everywhere else in this tool (clips are time ranges for the
-same reason).
-
-*Not a comment system.* No replies, no resolve state, no mentions, no
-notifications. These are annotations for the archive, not a discussion thread
-— the newsroom has Slack for the discussion.
-
-**Context is also what makes the search good.** These fields are not only
-display: each transcript chunk is embedded with a short provenance header
-prepended (see §6), so a passage reading "we can't keep patching it" becomes
-retrievable by "county commission bridge maintenance" even though the chunk
-itself says neither. Filling in context makes the archive *findable*, not just
-legible — which is the honest argument for asking reporters to fill it in.
+The through-line: **one free-text field, made live, shown everywhere, and
+indexed** beats four structured ones that are mostly blank. If reuse later
+proves that a specific field is being asked of the prose over and over, that
+is the evidence to add it — additively, one column at a time.
 
 ## 4. Screens
 
@@ -333,10 +310,10 @@ Four screens, one of which is a panel:
    (status on the list row, a full-pane state in the workspace while
    transcribing or on failure with a retry button). Not separate screens.
 
-Phase 5 adds no new screen for context: the project's provenance fields edit
-in place in the workspace header, speaker roles in the existing speaker panel,
-and notes inline in the transcript. Context gets captured next to the work,
-not on a form someone has to remember to go and fill in.
+Phase 5 adds no new screen for context either: the project's title, date, and
+background become editable in place in the workspace header. Context gets
+captured next to the work — while the reporter is listening and actually knows
+what the recording was — not on a form someone has to remember to go back to.
 
 Admin needs no new screens: membership is portal `tool_access`, and there's
 deliberately no tool-level settings surface in v1.
@@ -400,31 +377,15 @@ tw_clips
   created_by uuid not null references profiles(id)
   created_at / updated_at
 
--- Context on a recording (Phase 5A) — see §3G. Additive columns on tables
--- that already exist, plus one new table; nothing here changes existing
--- behavior when left blank.
-create type tw_recording_type as enum
-  ('interview','public_meeting','press_conference','speech','phone','other');
-create type tw_usage_terms as enum
-  ('on_record','public_record','background','off_record');
+-- Context (Phase 5A) adds no columns at all: tw_projects.description is
+-- already the free-text field, it just needs a writer, a place to show, and
+-- an index. See §3G, including the structured fields considered and cut.
 
-tw_projects  + recording_type tw_recording_type not null default 'interview'
-             + location text
-             + usage_terms tw_usage_terms       -- null = nobody said
-
-tw_speakers  + role_title text                  -- "Mayor of Pensacola", at the time
-
--- Context pinned to a moment, not to a segment: segments split and merge
--- during correction, time ranges survive it (§3G).
-tw_notes
-  id uuid pk
-  project_id uuid not null references tw_projects on delete cascade
-  start_ms / end_ms integer not null
-  body text not null
-  created_by uuid not null references profiles(id)
-  created_at / updated_at
-  search tsvector generated always as (to_tsvector('english', body)) stored
-  -- + GIN on search; index (project_id, start_ms)
+-- Keyword-search surface for the project's own metadata (Phase 5A), so a
+-- project can rank as a result on its title and background alone.
+tw_projects  + search tsvector generated always as
+                 (to_tsvector('english', title || ' ' || coalesce(description,''))) stored
+             -- + GIN on search
 
 -- Semantic search unit (Phase 5B). Segments are too granular to embed well
 -- (a few seconds of speech is a noisy embedding), so transcripts are chunked
@@ -447,12 +408,11 @@ tw_clips     + embedding vector(1536)  -- of title + excerpt; null until embedde
 ```
 
 The `text` a chunk stores is what the search result displays; the string that
-gets *embedded* is that text with a one-line provenance header prepended from
-§3G's context ("Escambia County Commission, regular meeting — 14 Mar 2026,
-Pensacola. Speakers: D.C. Reeves (Mayor), Dana Ford (WUWF)"). Storing the raw
-window and embedding the enriched one keeps result snippets clean while
-letting a chunk be retrieved by facts stated nowhere inside it — the standard
-contextual-retrieval trade, and cheap here because the header is built from
+gets *embedded* is that text with a provenance header prepended, built from
+the project's title, date, and background (§3G). Storing the raw window and
+embedding the enriched one keeps result snippets clean while letting a chunk
+be retrieved by facts stated nowhere inside it — the standard
+contextual-retrieval trade, and free here because the header is built from
 columns we already have.
 
 Notes and deliberate omissions:
@@ -553,18 +513,20 @@ What gets embedded, and when:
   (`tw_chunks`). Chunk-level embeddings capture *topics*; segment-level ones
   would capture noise.
 - **With a provenance header.** The embedded string is the window prefixed
-  with one line of §3G context (recording type, date, location, speakers with
-  their roles); the stored `text` stays raw for display. This is what makes
-  "county commission bridge maintenance" find a passage whose words are "we
-  can't keep patching it" — and it means a project whose context is filled in
-  is measurably more findable than one whose isn't.
+  with the project's title, date, and background text (§3G); the stored `text`
+  stays raw for display. This is what makes "county commission bridge
+  maintenance" find a passage whose words are "we can't keep patching it" —
+  and it means a project whose background is filled in is measurably more
+  findable than one whose isn't. It also means editing the background marks
+  that project's chunks `stale`, exactly as editing a segment does.
 - **Clips** embed `title + excerpt` at creation/edit — a clip's title is
   exactly the kind of editorial summary ("mayor commits to bridge funding")
   that semantic search thrives on.
-- **Notes are indexed but not embedded.** A note is a short factual pointer
-  ("this is the 2019 ECUA land swap"), so keyword search finds it reliably and
-  an embedding of thirty words adds little; a note surfaces alongside the
-  moment it annotates rather than competing with it as a result.
+- **Projects are indexed, not embedded.** A project ranks as a result on its
+  title and background via full-text search alone. Embedding a background blob
+  as its own vector would have it compete with the passages it describes for
+  the same query, which is backwards — its job is to make *those* retrievable,
+  which the chunk header already does.
 - **Staleness over eagerness.** Editing a segment marks overlapping chunks
   `stale`; a debounced server action re-chunks and re-embeds the affected
   window after edits settle. Most corrections (spelling, names) barely move an
@@ -629,15 +591,15 @@ standalone PR-sized-to-a-few-PRs milestone.
 5. **Search & reuse** — split in two, because half of it needs no new
    external dependency and half of it does:
 
-   **5A — Context & the clip library.** The context migration of §3G
-   (`recording_type` / `location` / `usage_terms` on projects, `role_title` on
-   speakers, `tw_notes`), edited in place in the workspace; the cross-project
-   **Clips** tab; deep-linking (`?t=`, `&clip=`) so every clip and every hit
-   opens the workspace at that moment; and keyword (Postgres FTS) search
-   across transcripts, clips, notes, titles and speakers, rendering the result
-   list of §3F. *Usable as: the clip library — searchable by words, with every
-   quote carrying its provenance and a way back to the recording it came
-   from.*
+   **5A — Context & the clip library.** Context per §3G: an
+   `updateProjectDetails()` action making title/date/background editable in
+   the workspace, and that background carried onto every clip and every search
+   result. Plus the cross-project **Clips** tab; deep-linking (`?t=`, `&clip=`)
+   so every clip and every hit opens the workspace at that moment; and keyword
+   (Postgres FTS) search across transcripts, clips, and project metadata,
+   rendering the result list of §3F. *Usable as: the clip library — searchable
+   by words, with every quote carrying the story of the recording it came from
+   and a way back to it.*
 
    **5B — Semantic search.** pgvector, `tw_chunks`, the embedding adapter and
    its API key, chunking on transcription-complete plus a backfill action for
