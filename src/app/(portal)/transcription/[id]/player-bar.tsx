@@ -3,6 +3,7 @@
 import { useEffect, useState, type RefObject } from "react";
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/transcription/media";
+import { PauseIcon, PlayIcon } from "./transport-icons";
 
 const SKIP_MS = 5000;
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
@@ -86,21 +87,7 @@ export function PlayerBar({
         aria-label={isPlaying ? "Pause" : "Play"}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white hover:bg-[#2278B8]"
       >
-        {isPlaying ? (
-          <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true" fill="currentColor">
-            <rect x="1" y="1" width="3.5" height="10" rx="0.5" />
-            <rect x="7.5" y="1" width="3.5" height="10" rx="0.5" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 12 12"
-            className="ml-0.5 h-3 w-3"
-            aria-hidden="true"
-            fill="currentColor"
-          >
-            <path d="M2 1.2v9.6a.5.5 0 0 0 .76.43l7.7-4.8a.5.5 0 0 0 0-.86l-7.7-4.8A.5.5 0 0 0 2 1.2Z" />
-          </svg>
-        )}
+        {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="ml-0.5 h-3 w-3" />}
       </button>
 
       <div className="flex shrink-0 gap-1">
