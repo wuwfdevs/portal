@@ -14,6 +14,7 @@ import {
   updateClipTrim,
 } from "./clip-actions";
 import { downloadBlob } from "./download-blob";
+import { PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
 
 // Nudge steps, in the order radio editors reach for them: coarse out, fine
@@ -262,14 +263,18 @@ function ClipCard({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
+        {/* The one icon-only control in the rail: a clip is a piece of audio,
+            and this is the same play glyph the transport bar uses, so the
+            card doesn't have to spend a whole labelled button saying so. */}
+        <button
           type="button"
-          variant="secondary"
           onClick={() => onPreview(startMs, endMs)}
-          className="px-2.5 py-1.5 text-xs"
+          aria-label="Preview this clip"
+          title="Preview this clip"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface"
         >
-          Preview
-        </Button>
+          <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+        </button>
         <Button
           type="button"
           variant="secondary"
