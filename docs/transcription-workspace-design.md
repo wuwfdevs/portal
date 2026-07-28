@@ -1,7 +1,11 @@
 # Transcription Workspace — Product & Engineering Design
 
-Status: **proposal for discussion** — no code implements this yet.
+Status: **Phases 1–4 shipped. Phase 5 is the current milestone.**
 Scope: the first substantive tool in the WUWF Tools Portal, at `/transcription`.
+
+Revised 2026-07-28: §3F rewritten (search results and click-through), §3G added
+(context on a recording), §5 extended, and Phase 5 split into 5A/5B. Everything
+before §3F describes shipped behavior.
 
 ---
 
@@ -54,7 +58,10 @@ or recording session. But three deliberate constraints keep the model simple:
    global people/entity table is a real archival feature — but consistent
    naming plus full-text search gets 90% of the value ("find everything Reeves
    said") with none of the entity-resolution complexity. Revisit only if naming
-   drift actually becomes a problem.
+   drift actually becomes a problem. (§3G adds a role/title to a speaker and
+   argues that per-project is not merely a simplification here but the *correct*
+   model: it records who someone was on the day of the recording, which a global
+   table would silently overwrite.)
 
 The durable object hierarchy:
 
@@ -77,7 +84,9 @@ the clip library, grown organically rather than built as a separate app.
 Recommendation: register this as a new tool (`transcription`), narrow the
 Remote Interview description to recording/capture when that milestone starts,
 and plan for Clip Library to be retired or pointed at this tool's search view.
-(Decision for the product owner; nothing here blocks on it.)
+(Decision for the product owner; nothing here blocks on it.) *Settled: the
+`transcription` row shipped in Phase 1 and the Shared Clip Library row was
+retired — Phase 5's Clips tab and search are what replaced it.*
 
 ## 3. Primary user workflows
 
@@ -176,15 +185,129 @@ There is no separate "archive." The project list *is* the archive:
   keyword full-text search *and* semantic (vector) search over embeddings,
   merged into one ranked result list. Keyword search answers "find the name /
   the exact phrase"; semantic search answers "find where they talk about
-  flood insurance" even when nobody said those words. A transcript hit
-  deep-links into the project with the playhead at that moment.
+  flood insurance" even when nobody said those words.
 - One search box, no mode toggle — hybrid by default, keeping the interface
-  calm. Results show snippet, speaker, project, and timestamp.
-- A **Clips** view lists every clip across projects (filterable by speaker,
-  project, date) — reuse surface for "I know we have the mayor saying this."
+  calm.
 
 Both halves run inside Postgres (FTS + pgvector, which Supabase ships
 natively) — still no separate search service.
+
+**One ranked list, not per-kind lists.** A search returns three kinds of
+thing — a **clip**, a transcript **moment** (a chunk of a project's
+transcript), and a **project** matched on its own metadata — but they answer
+the same question ("where do we have someone saying this?"), so they rank
+against each other in a single list with a kind badge, rather than in three
+columns the reporter has to check separately. Clips get a modest ranking
+boost: a clip exists because a human already decided that passage was worth
+keeping, which is a stronger relevance signal than any embedding.
+
+**What a result has to show.** A search hit is the *only* thing the finder
+sees before deciding whether to chase a quote, so a result carries the
+provenance of §3G, not just the text:
+
+> **Clip** · "We can't keep patching that bridge"
+> Reeves (Mayor of Pensacola) — 14:22
+> *Escambia County Commission, regular meeting* · 14 Mar 2026 · Public record
+
+A result whose recording is marked background or off-the-record says so
+loudly, in the list, before anyone plays it.
+
+**Everything deep-links back to the moment.** Every result — and every clip
+anywhere in the tool — links to `/transcription/<project>?t=<ms>`, which opens
+the workspace with the playhead at that timestamp, the segment scrolled into
+view and highlighted. A clip result adds `&clip=<id>`, which additionally
+opens that clip in the rail so it can be re-trimmed or re-exported on the
+spot. A clip is never a dead end: the project it came from is always one click
+away, because "what else did they say about this?" is the next question every
+single time.
+
+A **Clips** view (a tab on the tool home) lists every clip across every
+project — filterable by project, speaker, and date — for the case where the
+reporter is browsing rather than searching: "I know we have the mayor saying
+something about this."
+
+### G. Context (what a resurfaced quote has to carry)
+
+Phases 1–4 optimized for the reporter who was *in the room* — they remember
+the interview, so a title and a speaker name are enough. Search inverts that.
+The person who finds a quote from a county commission meeting eighteen months
+later is usually not the person who recorded it, and a transcript that reads
+perfectly to its author is close to unusable to a stranger. Four questions
+block reuse, roughly in order of how often:
+
+1. **Who is this, and what were they then?** "Reeves" is not attributable
+   copy; "D.C. Reeves, Mayor of Pensacola" is. And a quote from 2024 needs the
+   title he held in 2024.
+2. **What was this recording?** A commission meeting, a phoner, a press
+   conference, and a background coffee are four different editorial objects,
+   and knowing which one changes how the quote can be used.
+3. **Are we allowed to air it?** The single most expensive thing to get wrong.
+4. **What is he referring to here?** "The deal" meant something specific in
+   the room that day, and nothing at all to a reader two years later.
+
+The answers are three small, deliberately un-generic additions — not a
+metadata system:
+
+**1. Speakers gain a role, not a people table.** One optional `role_title`
+field per speaker ("Mayor of Pensacola", "Escambia County Administrator"),
+edited in the speaker panel right where names are already typed. One field,
+not a role/organization/contact triple — every additional field is another one
+left blank. This deliberately stays per-project (see §2): it captures who
+someone was *at the time of that recording*, which is exactly what
+attribution needs and exactly what a global contacts table would destroy on
+the day they change jobs.
+
+**2. The project gains provenance, not a metadata system.** Three structured
+fields on the project, all optional, all editable after the fact from the
+project page (not just at upload, when the reporter is in a hurry and hasn't
+listened yet):
+
+- `recording_type` — interview · public meeting · press conference · speech
+  or event · phone · other. Defaults to interview.
+- `location` — free text ("Escambia County Government Complex").
+- `usage_terms` — on the record · public record · background · off the
+  record, blank meaning nobody said. This is a **label, not a lock**: RLS is
+  unchanged and every member still sees every project. It exists so that a
+  clip pulled out of the archive announces its own terms instead of relying on
+  someone remembering them. Anything stricter than a label belongs in a
+  conversation about whether the recording should be in a shared workspace at
+  all.
+
+`description` stays the one free-text field, relabeled "Background" with a
+prompt for what actually helps later ("what was this, who called it, what was
+the news peg").
+
+*Rejected: topic tags.* A tag vocabulary in a six-person newsroom decays into
+three people's private taxonomies within a year, and semantic search is
+precisely the feature that makes them unnecessary — "flood insurance" finds
+the flood-insurance material whether or not anyone tagged it. If browsing by
+subject turns out to be a real need after 5B ships, revisit it then, with
+evidence.
+
+**3. Moment notes (`tw_notes`) — context pinned to a point in the audio.**
+Project-level fields describe the whole recording; they cannot say "'the deal'
+here is the 2019 ECUA land swap" or "he corrects this number at 41:10". A note
+is a short body of text anchored to a **time range** on the project timeline,
+added by selecting transcript text the same way a clip is made. Notes render
+inline in the transcript at their anchor, travel with any clip whose range
+contains them, and appear beside an overlapping search hit — so the annotation
+reaches the person who needs it, which is the whole point.
+
+Anchored to a time range rather than to a segment id on purpose: segments get
+split and merged during correction, and a note must survive that. Time is the
+stable coordinate everywhere else in this tool (clips are time ranges for the
+same reason).
+
+*Not a comment system.* No replies, no resolve state, no mentions, no
+notifications. These are annotations for the archive, not a discussion thread
+— the newsroom has Slack for the discussion.
+
+**Context is also what makes the search good.** These fields are not only
+display: each transcript chunk is embedded with a short provenance header
+prepended (see §6), so a passage reading "we can't keep patching it" becomes
+retrievable by "county commission bridge maintenance" even though the chunk
+itself says neither. Filling in context makes the archive *findable*, not just
+legible — which is the honest argument for asking reporters to fill it in.
 
 ## 4. Screens
 
@@ -192,7 +315,10 @@ Four screens, one of which is a panel:
 
 1. **Project list** (`/transcription`) — tool home. New-project button, search
    box, rows showing title / date / duration / speakers / status / clip count.
-   Doubles as the archive as it grows. Later gains the Clips tab.
+   Doubles as the archive as it grows. Phase 5 gives it two tabs —
+   **Projects** and **Clips** (every clip across every project) — and turns
+   the search box into the hybrid search over both, rendering a ranked result
+   list in place of the table when a query is present.
 2. **Project workspace** (`/transcription/[id]`) — the heart of the tool, one
    screen, three zones:
    - a persistent, compact **player bar** (play/pause, time, seek, speed),
@@ -206,6 +332,11 @@ Four screens, one of which is a panel:
 4. **Processing / error states** — rendered inside the same two screens
    (status on the list row, a full-pane state in the workspace while
    transcribing or on failure with a retry button). Not separate screens.
+
+Phase 5 adds no new screen for context: the project's provenance fields edit
+in place in the workspace header, speaker roles in the existing speaker panel,
+and notes inline in the transcript. Context gets captured next to the work,
+not on a form someone has to remember to go and fill in.
 
 Admin needs no new screens: membership is portal `tool_access`, and there's
 deliberately no tool-level settings surface in v1.
@@ -269,7 +400,33 @@ tw_clips
   created_by uuid not null references profiles(id)
   created_at / updated_at
 
--- Semantic search unit (Phase 5). Segments are too granular to embed well
+-- Context on a recording (Phase 5A) — see §3G. Additive columns on tables
+-- that already exist, plus one new table; nothing here changes existing
+-- behavior when left blank.
+create type tw_recording_type as enum
+  ('interview','public_meeting','press_conference','speech','phone','other');
+create type tw_usage_terms as enum
+  ('on_record','public_record','background','off_record');
+
+tw_projects  + recording_type tw_recording_type not null default 'interview'
+             + location text
+             + usage_terms tw_usage_terms       -- null = nobody said
+
+tw_speakers  + role_title text                  -- "Mayor of Pensacola", at the time
+
+-- Context pinned to a moment, not to a segment: segments split and merge
+-- during correction, time ranges survive it (§3G).
+tw_notes
+  id uuid pk
+  project_id uuid not null references tw_projects on delete cascade
+  start_ms / end_ms integer not null
+  body text not null
+  created_by uuid not null references profiles(id)
+  created_at / updated_at
+  search tsvector generated always as (to_tsvector('english', body)) stored
+  -- + GIN on search; index (project_id, start_ms)
+
+-- Semantic search unit (Phase 5B). Segments are too granular to embed well
 -- (a few seconds of speech is a noisy embedding), so transcripts are chunked
 -- into overlapping ~45-second / ~250-token windows with speaker labels
 -- inlined, each carrying its time range for deep-linking into the workspace.
@@ -277,11 +434,26 @@ tw_chunks
   id uuid pk
   project_id uuid not null references tw_projects on delete cascade
   start_ms / end_ms integer not null
-  text text not null                   -- "Reeves: … \n Dana: …" window
-  embedding vector(1536) not null
+  text text not null                   -- "Reeves: … \n Dana: …" window, as displayed
+  embedding vector(1536)               -- null until embedded
   stale boolean not null default false -- set when overlapping segments are edited
-  -- + HNSW index on embedding (cosine); index (project_id)
+  search tsvector generated always as (to_tsvector('english', text)) stored
+  -- + HNSW index on embedding (cosine); GIN on search; index (project_id)
+
+tw_clips     + embedding vector(1536)  -- of title + excerpt; null until embedded
+             + embedding_stale boolean not null default true
+             + search tsvector generated always as
+                 (to_tsvector('english', title || ' ' || excerpt)) stored
 ```
+
+The `text` a chunk stores is what the search result displays; the string that
+gets *embedded* is that text with a one-line provenance header prepended from
+§3G's context ("Escambia County Commission, regular meeting — 14 Mar 2026,
+Pensacola. Speakers: D.C. Reeves (Mayor), Dana Ford (WUWF)"). Storing the raw
+window and embedding the enriched one keeps result snippets clean while
+letting a chunk be retrieved by facts stated nowhere inside it — the standard
+contextual-retrieval trade, and cheap here because the header is built from
+columns we already have.
 
 Notes and deliberate omissions:
 
@@ -300,7 +472,16 @@ Notes and deliberate omissions:
   tables (shared-workspace model, per §3F); **delete** on projects restricted
   to `created_by` or administrator. Storage bucket (`transcription-media`,
   private) gets matching `storage.objects` policies; all media access via
-  short-lived signed URLs.
+  short-lived signed URLs. `tw_notes` and `tw_chunks` follow the same
+  member-scoped policy as the other sub-resource tables, in the migration that
+  creates them.
+- **The hybrid-search function is `security invoker`, not `security
+  definer`** — the opposite of the `private.*` authz helpers, and deliberately
+  so. Those exist to read past RLS; this one must be *subject* to it, so the
+  policies on `tw_chunks`/`tw_clips`/`tw_projects` stay the enforcement
+  boundary for search exactly as they are for every other read. It lives in
+  `public` because it is called as a PostgREST RPC, which is safe precisely
+  because it carries no elevated rights.
 
 ## 6. Architecture
 
@@ -367,13 +548,23 @@ newsroom is minutes and pennies.
 What gets embedded, and when:
 
 - **Chunks, not segments.** After the transcription webhook lands (and after
-  Phase 5 ships, on a backfill action for existing projects), the transcript
+  Phase 5B ships, on a backfill action for existing projects), the transcript
   is sliced into overlapping ~45-second windows with speaker names inlined
   (`tw_chunks`). Chunk-level embeddings capture *topics*; segment-level ones
   would capture noise.
+- **With a provenance header.** The embedded string is the window prefixed
+  with one line of §3G context (recording type, date, location, speakers with
+  their roles); the stored `text` stays raw for display. This is what makes
+  "county commission bridge maintenance" find a passage whose words are "we
+  can't keep patching it" — and it means a project whose context is filled in
+  is measurably more findable than one whose isn't.
 - **Clips** embed `title + excerpt` at creation/edit — a clip's title is
   exactly the kind of editorial summary ("mayor commits to bridge funding")
   that semantic search thrives on.
+- **Notes are indexed but not embedded.** A note is a short factual pointer
+  ("this is the 2019 ECUA land swap"), so keyword search finds it reliably and
+  an embedding of thirty words adds little; a note surfaces alongside the
+  moment it annotates rather than competing with it as a result.
 - **Staleness over eagerness.** Editing a segment marks overlapping chunks
   `stale`; a debounced server action re-chunks and re-embeds the affected
   window after edits settle. Most corrections (spelling, names) barely move an
@@ -435,18 +626,34 @@ standalone PR-sized-to-a-few-PRs milestone.
 4. **Clips & export** — text-selection → clip, clip rail, preview, nudge
    trimming, ffmpeg WAV export to storage, download.
    *This is the finish line for the core promise.*
-5. **Search & reuse** — hybrid keyword + semantic search: pgvector migration
-   (`tw_chunks`, clip embeddings, hybrid-search RPC), embedding adapter,
-   chunking on transcription-complete plus a backfill for existing projects,
-   staleness-based re-embedding on edit; one search box over
-   transcripts/clips/titles/speakers with results deep-linking into the
-   workspace at a timestamp; cross-project Clips view. *The archive emerges.*
+5. **Search & reuse** — split in two, because half of it needs no new
+   external dependency and half of it does:
+
+   **5A — Context & the clip library.** The context migration of §3G
+   (`recording_type` / `location` / `usage_terms` on projects, `role_title` on
+   speakers, `tw_notes`), edited in place in the workspace; the cross-project
+   **Clips** tab; deep-linking (`?t=`, `&clip=`) so every clip and every hit
+   opens the workspace at that moment; and keyword (Postgres FTS) search
+   across transcripts, clips, notes, titles and speakers, rendering the result
+   list of §3F. *Usable as: the clip library — searchable by words, with every
+   quote carrying its provenance and a way back to the recording it came
+   from.*
+
+   **5B — Semantic search.** pgvector, `tw_chunks`, the embedding adapter and
+   its API key, chunking on transcription-complete plus a backfill action for
+   the existing archive, clip embeddings, staleness-based re-embedding, and
+   the RRF hybrid RPC that merges vector hits into the ranking. The search box
+   does not change; it gets better. *The archive emerges.*
 
 Phases 1–2 prove the riskiest integration (upload → provider → webhook) before
 any editing UI exists. Phase 4 before 5 because clips must exist before a clip
-library means anything.
+library means anything. 5A before 5B for the same reason one more time: 5A is
+where the result list, the deep-link, and the Clips view are designed and
+proven against real use, so 5B only has to add a ranking signal rather than a
+feature — and 5A's context fields are the input that makes 5B's embeddings
+worth having.
 
 ---
 
-*Once direction is agreed, Phase 1 starts with the migration and route
-scaffolding on this branch.*
+*Phases 1–4 are shipped. Phase 5A starts with the context migration and the
+Clips tab; 5B follows once an embeddings key is provisioned.*
