@@ -29,6 +29,7 @@ export function ClipRail({
   projectTitle,
   exportDate,
   clips,
+  highlightClipId,
   onPreview,
 }: {
   projectId: string;
@@ -36,6 +37,8 @@ export function ClipRail({
   /** Interview date, falling back to the project's creation date — the date every export filename carries. */
   exportDate: string;
   clips: ProjectClip[];
+  /** Clip arrived at from a search result or the clip library (?clip=) — scrolled to and marked. */
+  highlightClipId?: string | null;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
   const router = useRouter();
@@ -111,7 +114,14 @@ export function ClipRail({
           Select some transcript text to make your first clip.
         </p>
       ) : (
-        clips.map((clip) => <ClipCard key={clip.id} clip={clip} onPreview={onPreview} />)
+        clips.map((clip) => (
+          <ClipCard
+            key={clip.id}
+            clip={clip}
+            isHighlighted={clip.id === highlightClipId}
+            onPreview={onPreview}
+          />
+        ))
       )}
     </div>
   );
@@ -119,12 +129,15 @@ export function ClipRail({
 
 function ClipCard({
   clip,
+  isHighlighted = false,
   onPreview,
 }: {
   clip: ProjectClip;
+  isHighlighted?: boolean;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
   const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
   // Synced to the server copy so a refresh triggered elsewhere on the page
   // (a new clip, an export) doesn't leave this card showing pre-refresh trim
   // points — same stale-state hazard as SegmentRow.
@@ -224,8 +237,22 @@ function ClipCard({
     router.refresh();
   }
 
+  // Arriving from a search result or the clip library: bring the clip the
+  // reporter actually clicked into view, rather than leaving them to find it
+  // in a rail that may hold a dozen.
+  useEffect(() => {
+    if (isHighlighted) {
+      cardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [isHighlighted]);
+
   return (
-    <div className="rounded border border-line bg-white p-3">
+    <div
+      ref={cardRef}
+      className={`rounded border bg-white p-3 ${
+        isHighlighted ? "border-brand-primary ring-2 ring-brand-surface" : "border-line"
+      }`}
+    >
       {isRenaming ? (
         <Input
           value={title}

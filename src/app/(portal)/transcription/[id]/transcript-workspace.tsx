@@ -48,6 +48,8 @@ export function TranscriptWorkspace({
   segments,
   speakers: initialSpeakers,
   clips,
+  initialSeekMs = null,
+  highlightClipId = null,
 }: {
   projectId: string;
   projectTitle: string;
@@ -59,6 +61,10 @@ export function TranscriptWorkspace({
   segments: TranscriptSegment[];
   speakers: TranscriptSpeaker[];
   clips: ProjectClip[];
+  /** ?t= from a search result or clip link — where to put the playhead on arrival. */
+  initialSeekMs?: number | null;
+  /** ?clip= from a clip result — which clip to surface in the rail. */
+  highlightClipId?: string | null;
 }) {
   const router = useRouter();
   const mediaRef = useRef<HTMLMediaElement | null>(null);
@@ -69,6 +75,7 @@ export function TranscriptWorkspace({
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
+  const initialSeekAppliedRef = useRef(false);
 
   const tokensBySegment = useMemo(() => segments.map(buildTimedTokens), [segments]);
 
@@ -113,6 +120,36 @@ export function TranscriptWorkspace({
       .querySelector(`[data-segment-index="${activeIndex}"]`)
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeIndex]);
+
+  /**
+   * Deep link (?t=) — the thing that makes a search hit a *place* rather than
+   * a citation (design doc §3F). Seeks without playing: a page that starts
+   * blasting audio on arrival is hostile, browsers block it half the time
+   * anyway, and setting activeIndex is what scrolls the line into view via
+   * the follow-along effect below.
+   *
+   * Waits for metadata, because currentTime assigned before the media knows
+   * its own duration is silently discarded — which looked exactly like the
+   * deep link not working at all.
+   */
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (initialSeekMs === null || el === null || initialSeekAppliedRef.current) return;
+
+    const apply = () => {
+      if (initialSeekAppliedRef.current) return;
+      initialSeekAppliedRef.current = true;
+      el.currentTime = initialSeekMs / 1000;
+      setActiveIndex(findActiveSegmentIndex(segments, initialSeekMs));
+    };
+
+    if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      apply();
+      return;
+    }
+    el.addEventListener("loadedmetadata", apply, { once: true });
+    return () => el.removeEventListener("loadedmetadata", apply);
+  }, [initialSeekMs, segments]);
 
   // Follow-along. Kept off while a line is open for editing: yanking the
   // transcript out from under someone mid-correction is worse than losing
@@ -361,6 +398,7 @@ export function TranscriptWorkspace({
           projectTitle={projectTitle}
           exportDate={exportDate}
           clips={clips}
+          highlightClipId={highlightClipId}
           onPreview={previewRange}
         />
       </div>

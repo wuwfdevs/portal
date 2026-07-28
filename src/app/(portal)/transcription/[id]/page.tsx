@@ -11,14 +11,22 @@ import { retryTranscription } from "../actions";
 import { DeleteProjectButton } from "../delete-project-button";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { ProcessingPoller } from "./processing-poller";
+import { ProjectDetails } from "./project-details";
+import { ReindexButton } from "./reindex-button";
 
 export default async function TranscriptionProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ t?: string; clip?: string }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
+  const { t, clip } = await searchParams;
+  // ?t= arrives from a search result or a clip in the library; anything that
+  // isn't a plain number is ignored rather than trusted into a seek.
+  const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
   const project = await getProjectById(id);
   if (!project) notFound();
 
@@ -45,9 +53,20 @@ export default async function TranscriptionProjectPage({
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{project.title}</h1>
-          {project.description && (
-            <p className="max-w-xl text-sm text-ink-500">{project.description}</p>
+          {project.description ? (
+            <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
+          ) : (
+            <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
+              No background yet — a note here is what tells someone finding a quote from this
+              recording in two years what it was.
+            </p>
           )}
+          <ProjectDetails
+            projectId={project.id}
+            title={project.title}
+            description={project.description}
+            interviewDate={project.interview_date}
+          />
         </div>
         <StatusBadge status={project.status} />
       </div>
@@ -65,6 +84,8 @@ export default async function TranscriptionProjectPage({
               segments={transcript.segments}
               speakers={transcript.speakers}
               clips={clips}
+              initialSeekMs={initialSeekMs}
+              highlightClipId={clip ?? null}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -85,7 +106,10 @@ export default async function TranscriptionProjectPage({
               </div>
             )}
           </dl>
-          {canDelete && <DeleteProjectButton projectId={project.id} />}
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <ReindexButton projectId={project.id} />
+            {canDelete && <DeleteProjectButton projectId={project.id} />}
+          </div>
         </div>
       )}
 

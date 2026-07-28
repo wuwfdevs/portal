@@ -15,7 +15,7 @@ at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or 
 integrations. When in doubt, keep scope narrow.
 
 The registry once also carried a **Shared Clip Library** row. It has been retired: the
-Transcription Workspace absorbed it, since its cross-project clip and search views *are*
+Transcription Workspace absorbed it, since its cross-project clip and search views _are_
 the clip library (see `docs/transcription-workspace-design.md` §3F). Don't reintroduce it.
 
 ## Current milestone: portal foundation + Editorial Planning
@@ -42,6 +42,15 @@ behavior via the `assemblyai-docs` MCP server (project-scoped in `.mcp.json` —
 it once when prompted) or by fetching `https://www.assemblyai.com/docs/llms-full.txt`.
 Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
 
+**Search (`tw_search`, `tw_chunks`, `lib/transcription/{search,indexing,chunking,embeddings}.ts`):**
+hybrid keyword + semantic search lives entirely in Postgres — FTS and pgvector merged
+by reciprocal rank fusion in one `security invoker` RPC, so RLS is still the boundary.
+Two rules when touching it: the embeddings key (`OPENAI_API_KEY`) is **optional** and
+every path must keep working without it (chunks still build, keyword search still runs
+— never make an unset key an error), and embedding failures are never fatal to the
+write that triggered them. The `stale` / `embedding_stale` flags are maintained by
+database triggers, so a re-embed pass is always safe to re-run.
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
@@ -50,7 +59,7 @@ Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
 - **Supabase is the backend.** Postgres + Auth + (later) Storage. No custom API layer —
   Server Components/Server Actions talk to Supabase directly. The handful of route
   handlers under `src/app/api/` are the deliberate exceptions, for requests an action
-  can't serve: an external webhook with no user session, or a response that is a *file*
+  can't serve: an external webhook with no user session, or a response that is a _file_
   rather than data (the transcription clip archive streams; an action would have to
   base64 it through the RSC payload). Reach for a Server Action first.
 - **Row Level Security is not optional.** Every table has RLS enabled and is the real
