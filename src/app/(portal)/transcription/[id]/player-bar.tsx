@@ -36,8 +36,7 @@ export function PlayerBar({
     if (!el) return;
 
     const syncTime = () => setCurrentMs(el.currentTime * 1000);
-    const syncDuration = () =>
-      setDurationMs(Number.isFinite(el.duration) ? el.duration * 1000 : 0);
+    const syncDuration = () => setDurationMs(Number.isFinite(el.duration) ? el.duration * 1000 : 0);
     const syncPlaying = () => setIsPlaying(!el.paused);
     const syncRate = () => setRate(el.playbackRate);
 
@@ -93,7 +92,12 @@ export function PlayerBar({
             <rect x="7.5" y="1" width="3.5" height="10" rx="0.5" />
           </svg>
         ) : (
-          <svg viewBox="0 0 12 12" className="ml-0.5 h-3 w-3" aria-hidden="true" fill="currentColor">
+          <svg
+            viewBox="0 0 12 12"
+            className="ml-0.5 h-3 w-3"
+            aria-hidden="true"
+            fill="currentColor"
+          >
             <path d="M2 1.2v9.6a.5.5 0 0 0 .76.43l7.7-4.8a.5.5 0 0 0 0-.86l-7.7-4.8A.5.5 0 0 0 2 1.2Z" />
           </svg>
         )}

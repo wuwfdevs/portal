@@ -7,7 +7,8 @@ import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { deleteProject, retryTranscription } from "../actions";
+import { retryTranscription } from "../actions";
+import { DeleteProjectButton } from "../delete-project-button";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { ProcessingPoller } from "./processing-poller";
 
@@ -81,6 +82,7 @@ export default async function TranscriptionProjectPage({
               </div>
             )}
           </dl>
+          {canDelete && <DeleteProjectButton projectId={project.id} />}
         </div>
       )}
 
@@ -88,7 +90,12 @@ export default async function TranscriptionProjectPage({
         <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
           This project doesn&apos;t have any media yet — either an upload is still running in
           another tab, or it was interrupted.
-          {canDelete && <DeleteForm projectId={project.id} label="Delete this project" />}
+          {canDelete && (
+            <DeleteProjectButton
+              projectId={project.id}
+              warning="This removes the project and anything already uploaded for it."
+            />
+          )}
         </div>
       )}
 
@@ -105,10 +112,13 @@ export default async function TranscriptionProjectPage({
           <p className="text-sm text-ink-700">
             {project.error_message ?? "Something went wrong with this project."}
           </p>
-          {hasMedia ? (
-            <RetryForm projectId={project.id} />
-          ) : (
-            canDelete && <DeleteForm projectId={project.id} label="Delete and try again" />
+          {hasMedia && <RetryForm projectId={project.id} />}
+          {canDelete && (
+            <DeleteProjectButton
+              projectId={project.id}
+              label={hasMedia ? "Delete this project" : "Delete and try again"}
+              warning="This removes the project and anything already uploaded for it."
+            />
           )}
         </div>
       )}
@@ -125,17 +135,6 @@ function StatusBadge({ status }: { status: "uploading" | "processing" | "ready" 
   };
   const { label, variant } = map[status];
   return <Badge variant={variant}>{label}</Badge>;
-}
-
-function DeleteForm({ projectId, label }: { projectId: string; label: string }) {
-  return (
-    <form action={deleteProject} className="mt-4">
-      <input type="hidden" name="project_id" value={projectId} />
-      <Button type="submit" variant="secondary">
-        {label}
-      </Button>
-    </form>
-  );
 }
 
 function RetryForm({ projectId }: { projectId: string }) {

@@ -147,17 +147,6 @@ export function TranscriptWorkspace({
     setSelection(resolveSelection(tokensBySegment, refs));
   }, [tokensBySegment]);
 
-  // Clicking anywhere collapses the selection; drop the composer when it does,
-  // so it never lingers describing a range the user can no longer see.
-  useEffect(() => {
-    function handleSelectionChange() {
-      const domSelection = window.getSelection();
-      if (!domSelection || domSelection.isCollapsed) setSelection(null);
-    }
-    document.addEventListener("selectionchange", handleSelectionChange);
-    return () => document.removeEventListener("selectionchange", handleSelectionChange);
-  }, []);
-
   const clearSelection = useCallback(() => {
     window.getSelection()?.removeAllRanges();
     setSelection(null);
@@ -174,8 +163,7 @@ export function TranscriptWorkspace({
         event.ctrlKey ||
         event.altKey ||
         (target &&
-          (target.isContentEditable ||
-            ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)))
+          (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)))
       ) {
         return;
       }
@@ -299,6 +287,13 @@ export function TranscriptWorkspace({
             </div>
             <div
               ref={transcriptRef}
+              // Clearing on mousedown *here* rather than on a document-wide
+              // selectionchange: focusing any form control collapses the
+              // document selection, so listening globally meant clicking
+              // into the clip title closed the composer you'd just opened.
+              // A pending clip now survives until you touch the transcript
+              // again, create it, or cancel.
+              onMouseDown={() => setSelection(null)}
               onMouseUp={captureSelection}
               // Wheel and touch fire only for user-driven scrolling, never
               // for scrollIntoView — so following stops the moment the
