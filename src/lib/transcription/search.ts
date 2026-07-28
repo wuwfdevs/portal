@@ -8,7 +8,13 @@ import { getEmbeddingProvider, toVectorLiteral } from "./embeddings";
 // rank fusion — so this module only has to turn the query into an embedding
 // and the rows into something a card can render.
 
-export type SearchResultKind = "clip" | "moment" | "project";
+/**
+ * What a hit actually is. "transcript" means a window of transcript nobody
+ * has clipped — just a place in the audio where the query comes up; "clip"
+ * means someone saved and titled that passage; "project" means nothing in
+ * the audio matched but the recording's own title or background did.
+ */
+export type SearchResultKind = "clip" | "transcript" | "project";
 
 export interface SearchResult {
   kind: SearchResultKind;

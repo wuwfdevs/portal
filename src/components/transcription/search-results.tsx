@@ -3,17 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/lib/transcription/media";
 import type { SearchResult, SearchResultKind } from "@/lib/transcription/search";
 
-// One ranked list, three kinds of result (design doc §3F). A clip and a
-// transcript moment answer the same question — "where do we have someone
-// saying this?" — so they compete in one list rather than sitting in separate
-// panes the reporter has to check twice.
+// One ranked list, three kinds of result (design doc §3F). A saved clip and
+// an unclipped stretch of transcript answer the same question — "where do we
+// have someone saying this?" — so they compete in one list rather than
+// sitting in separate panes the reporter has to check twice.
 
 const KIND_BADGE: Record<
   SearchResultKind,
   { label: string; variant: "accent" | "neutral" | "muted" }
 > = {
   clip: { label: "Clip", variant: "accent" },
-  moment: { label: "Moment", variant: "neutral" },
+  transcript: { label: "In transcript", variant: "neutral" },
   project: { label: "Project", variant: "muted" },
 };
 

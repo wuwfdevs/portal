@@ -235,7 +235,7 @@ as $$
   -- Keyword half: every kind ranked together, so a strong project-title match
   -- can outrank a weak transcript match rather than living in its own list.
   keyword as (
-    select 'moment'::text as hit_kind, ch.id as hit_id, ts_rank_cd(ch.search, q.ts) as rank_score
+    select 'transcript'::text as hit_kind, ch.id as hit_id, ts_rank_cd(ch.search, q.ts) as rank_score
       from public.tw_chunks ch, q
      where numnode(q.ts) > 0 and ch.search @@ q.ts
     union all
@@ -255,12 +255,12 @@ as $$
   -- index is actually usable; they are fused by rank afterwards anyway.
   vector_hits as (
     select * from (
-      select 'moment'::text as hit_kind, ch.id as hit_id, (ch.embedding <=> query_embedding) as distance
+      select 'transcript'::text as hit_kind, ch.id as hit_id, (ch.embedding <=> query_embedding) as distance
         from public.tw_chunks ch
        where query_embedding is not null and ch.embedding is not null
        order by ch.embedding <=> query_embedding
        limit greatest(match_limit, 30) * 2
-    ) moments
+    ) transcript_hits
     union all
     select * from (
       select 'clip'::text, cl.id, (cl.embedding <=> query_embedding)
@@ -303,7 +303,7 @@ as $$
     spk.label as speaker_label,
     f.fused_score::real as score
     from fused f
-    left join public.tw_chunks ch on f.hit_kind = 'moment' and ch.id = f.hit_id
+    left join public.tw_chunks ch on f.hit_kind = 'transcript' and ch.id = f.hit_id
     left join public.tw_clips cl on f.hit_kind = 'clip' and cl.id = f.hit_id
     join public.tw_projects p
       on p.id = case f.hit_kind when 'project' then f.hit_id else coalesce(ch.project_id, cl.project_id) end

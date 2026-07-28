@@ -192,13 +192,26 @@ Both halves run inside Postgres (FTS + pgvector, which Supabase ships
 natively) — still no separate search service.
 
 **One ranked list, not per-kind lists.** A search returns three kinds of
-thing — a **clip**, a transcript **moment** (a chunk of a project's
-transcript), and a **project** matched on its own metadata — but they answer
-the same question ("where do we have someone saying this?"), so they rank
-against each other in a single list with a kind badge, rather than in three
-columns the reporter has to check separately. Clips get a modest ranking
-boost: a clip exists because a human already decided that passage was worth
-keeping, which is a stronger relevance signal than any embedding.
+thing, and the badge on each result says which — in the reporter's words, not
+ours:
+
+| Badge | What it is |
+| --- | --- |
+| **Clip** | Someone saved this passage and gave it a title. |
+| **In transcript** | Nobody clipped this — it's a stretch of transcript (one ~45s window) where the query comes up. |
+| **Project** | Nothing in the audio matched; the recording's own title or background did. |
+
+They answer the same question ("where do we have someone saying this?"), so
+they rank against each other in a single list rather than in three columns
+the reporter has to check separately. Clips get a modest ranking boost: a
+clip exists because a human already decided that passage was worth keeping,
+which is a stronger relevance signal than any embedding.
+
+A naming note, since this doc got it wrong first: the middle kind was called
+a "moment" through two revisions. It read fine here, next to a paragraph
+explaining it, and meant nothing at all as a bare one-word badge in the UI —
+which is where it actually had to work. Label things the way someone who has
+not read this document would.
 
 **What a result has to show.** A search hit is the _only_ thing the finder
 sees before deciding whether to chase a quote, so a result carries the
