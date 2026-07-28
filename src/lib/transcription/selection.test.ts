@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildTimedTokens, resolveSelection, type TimedToken } from "./selection";
+import {
+  buildTimedTokens,
+  clipAtToken,
+  findClipStart,
+  resolveClipCoverage,
+  resolveSelection,
+  type TimedToken,
+} from "./selection";
 
 describe("buildTimedTokens", () => {
   it("uses the ASR word timings when they line up with the text", () => {
@@ -134,5 +141,124 @@ describe("resolveSelection", () => {
     ]);
 
     expect(result).toEqual({ startMs: 0, endMs: 200, excerpt: "The" });
+  });
+});
+
+describe("resolveClipCoverage", () => {
+  const tokensBySegment: TimedToken[][] = [
+    [
+      { text: "The", startMs: 0, endMs: 200 },
+      { text: "stale", startMs: 200, endMs: 500 },
+      { text: "smell", startMs: 500, endMs: 800 },
+    ],
+    [
+      { text: "A", startMs: 1200, endMs: 1300 },
+      { text: "cold", startMs: 1300, endMs: 1600 },
+      { text: "dip", startMs: 1600, endMs: 1900 },
+    ],
+  ];
+
+  it("marks the words a clip covers", () => {
+    const coverage = resolveClipCoverage(tokensBySegment, [
+      { id: "clip-1", startMs: 200, endMs: 800 },
+    ]);
+
+    expect(coverage).toEqual([
+      [{ clipId: "clip-1", fromTokenIndex: 1, toTokenIndex: 2, durationMs: 600 }],
+      [],
+    ]);
+  });
+
+  it("carries a clip across the lines it spans", () => {
+    const coverage = resolveClipCoverage(tokensBySegment, [
+      { id: "clip-1", startMs: 500, endMs: 1600 },
+    ]);
+
+    expect(coverage[0]).toEqual([
+      { clipId: "clip-1", fromTokenIndex: 2, toTokenIndex: 2, durationMs: 1100 },
+    ]);
+    expect(coverage[1]).toEqual([
+      { clipId: "clip-1", fromTokenIndex: 0, toTokenIndex: 1, durationMs: 1100 },
+    ]);
+  });
+
+  it("does not light up a word the clip merely ends at", () => {
+    // Out point lands exactly on "smell"'s first millisecond.
+    const coverage = resolveClipCoverage(tokensBySegment, [
+      { id: "clip-1", startMs: 200, endMs: 500 },
+    ]);
+
+    expect(coverage[0]).toEqual([
+      { clipId: "clip-1", fromTokenIndex: 1, toTokenIndex: 1, durationMs: 300 },
+    ]);
+  });
+
+  it("reports every clip over a word, so overlaps are not lost", () => {
+    const coverage = resolveClipCoverage(tokensBySegment, [
+      { id: "long", startMs: 0, endMs: 800 },
+      { id: "tight", startMs: 500, endMs: 800 },
+    ]);
+
+    expect(coverage[0]?.map((span) => span.clipId)).toEqual(["long", "tight"]);
+  });
+
+  it("leaves a clip trimmed into silence uncovered rather than guessing", () => {
+    const coverage = resolveClipCoverage(tokensBySegment, [
+      { id: "clip-1", startMs: 900, endMs: 1100 },
+    ]);
+
+    expect(coverage).toEqual([[], []]);
+  });
+
+  it("handles a transcript with no clips at all", () => {
+    expect(resolveClipCoverage(tokensBySegment, [])).toEqual([[], []]);
+  });
+});
+
+describe("clipAtToken", () => {
+  const spans = [
+    { clipId: "long", fromTokenIndex: 0, toTokenIndex: 5, durationMs: 8000 },
+    { clipId: "tight", fromTokenIndex: 2, toTokenIndex: 3, durationMs: 1200 },
+  ];
+
+  it("picks the tightest clip covering the word", () => {
+    expect(clipAtToken(spans, 2)).toBe("tight");
+  });
+
+  it("falls back to the surrounding clip outside the tighter one", () => {
+    expect(clipAtToken(spans, 5)).toBe("long");
+  });
+
+  it("returns null for an unclipped word", () => {
+    expect(clipAtToken(spans, 9)).toBeNull();
+    expect(clipAtToken([], 0)).toBeNull();
+  });
+
+  it("keeps the earlier clip when two are the same length", () => {
+    expect(
+      clipAtToken(
+        [
+          { clipId: "first", fromTokenIndex: 0, toTokenIndex: 2, durationMs: 500 },
+          { clipId: "second", fromTokenIndex: 0, toTokenIndex: 2, durationMs: 500 },
+        ],
+        1,
+      ),
+    ).toBe("first");
+  });
+});
+
+describe("findClipStart", () => {
+  const coverage = [
+    [],
+    [{ clipId: "clip-1", fromTokenIndex: 3, toTokenIndex: 5, durationMs: 900 }],
+    [{ clipId: "clip-1", fromTokenIndex: 0, toTokenIndex: 1, durationMs: 900 }],
+  ];
+
+  it("finds the first word of the clip", () => {
+    expect(findClipStart(coverage, "clip-1")).toEqual({ segmentIndex: 1, tokenIndex: 3 });
+  });
+
+  it("returns null for a clip that covers no words", () => {
+    expect(findClipStart(coverage, "clip-2")).toBeNull();
   });
 });

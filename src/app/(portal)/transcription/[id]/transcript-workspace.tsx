@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { findActiveSegmentIndex } from "@/lib/transcription/transcript";
 import {
   buildTimedTokens,
+  findClipStart,
+  resolveClipCoverage,
   resolveSelection,
   type SelectionRange,
   type TokenRef,
@@ -13,7 +15,7 @@ import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/p
 import type { ProjectClip } from "@/lib/transcription/clips";
 import { SpeakerPanel } from "./speaker-panel";
 import { SegmentRow } from "./segment-row";
-import { ClipRail } from "./clip-rail";
+import { ClipRail, type ClipSelectionOrigin } from "./clip-rail";
 import { TranscriptExport } from "./transcript-export";
 import { ClipComposer } from "./clip-composer";
 import { PlayerBar } from "./player-bar";
@@ -76,8 +78,54 @@ export function TranscriptWorkspace({
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
   const initialSeekAppliedRef = useRef(false);
+  // Which clip the transcript and the rail are both pointing at. Seeded from
+  // ?clip= so arriving from a search result or the clip library lands on the
+  // words, not just the card — one piece of state for the deep link, a click
+  // on the transcript, and a click on a card alike. The origin travels with
+  // it because it decides which half of the pairing has to move: neither
+  // panel should scroll the one the reporter is already looking at.
+  const [selectedClip, setSelectedClip] = useState<{
+    id: string;
+    origin: ClipSelectionOrigin;
+  } | null>(highlightClipId ? { id: highlightClipId, origin: "deep-link" } : null);
+  const selectedClipId = selectedClip?.id ?? null;
+  const [hoveredClipId, setHoveredClipId] = useState<string | null>(null);
+  /**
+   * Clips whose trim the rail is moving, before the 400ms-deferred write
+   * lands. Without it the mark on the transcript would trail the nudge by a
+   * round-trip and a refresh, which reads as the highlight being broken
+   * rather than merely deferred.
+   *
+   * Entries are never pruned and don't need to be: the card pushes the
+   * server's clamped values up as soon as the write returns, so an entry
+   * converges on the same range the next `clips` prop carries.
+   */
+  const [pendingTrims, setPendingTrims] = useState<
+    Record<string, { startMs: number; endMs: number }>
+  >({});
 
   const tokensBySegment = useMemo(() => segments.map(buildTimedTokens), [segments]);
+
+  /**
+   * Where every clip lands in the transcript. Computed once per change rather
+   * than per row, because hovering a card re-renders every line and this walks
+   * every word of the interview.
+   */
+  const clipCoverage = useMemo(
+    () =>
+      resolveClipCoverage(
+        tokensBySegment,
+        clips.map((clip) => {
+          const trim = pendingTrims[clip.id];
+          return {
+            id: clip.id,
+            startMs: trim?.startMs ?? clip.startMs,
+            endMs: trim?.endMs ?? clip.endMs,
+          };
+        }),
+      ),
+    [tokensBySegment, clips, pendingTrims],
+  );
 
   const seekTo = useCallback((startMs: number) => {
     const el = mediaRef.current;
@@ -120,6 +168,27 @@ export function TranscriptWorkspace({
       .querySelector(`[data-segment-index="${activeIndex}"]`)
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeIndex]);
+
+  /**
+   * Clicking a clip in the rail: mark it and go to its words.
+   *
+   * Following is switched off first, exactly as a wheel gesture does — if the
+   * audio is rolling, the follow-along effect would drag the transcript
+   * straight back to the playhead and the clip would never arrive.
+   */
+  function handleSelectFromRail(clipId: string) {
+    setSelectedClip({ id: clipId, origin: "rail" });
+    setFollow(false);
+
+    const root = transcriptRef.current;
+    const start = findClipStart(clipCoverage, clipId);
+    if (!root || !start) return;
+    root
+      .querySelector(
+        `[data-segment-index="${start.segmentIndex}"] [data-token-index="${start.tokenIndex}"]`,
+      )
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 
   /**
    * Deep link (?t=) — the thing that makes a search hit a *place* rather than
@@ -189,7 +258,12 @@ export function TranscriptWorkspace({
       });
     });
 
-    setSelection(resolveSelection(tokensBySegment, refs));
+    const resolved = resolveSelection(tokensBySegment, refs);
+    setSelection(resolved);
+    // Dragging out a new clip supersedes whichever one was open: the composer
+    // takes the panel anyway, and leaving the old clip tinted underneath a
+    // fresh selection makes it ambiguous which words are about to be cut.
+    if (resolved) setSelectedClip(null);
   }, [tokensBySegment]);
 
   const clearSelection = useCallback(() => {
@@ -364,6 +438,9 @@ export function TranscriptWorkspace({
                   projectId={projectId}
                   segment={segment}
                   tokens={tokensBySegment[index] ?? []}
+                  clipSpans={clipCoverage[index] ?? []}
+                  selectedClipId={selectedClipId}
+                  hoveredClipId={hoveredClipId}
                   speakers={speakers}
                   segmentIndex={index}
                   isActive={index === activeIndex}
@@ -373,6 +450,9 @@ export function TranscriptWorkspace({
                   onStartEditing={() => setEditingSegmentId(segment.id)}
                   onStopEditing={() => setEditingSegmentId(null)}
                   onSeek={seekTo}
+                  onSelectClip={(clipId) =>
+                    setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
+                  }
                 />
               ))}
             </div>
@@ -398,7 +478,13 @@ export function TranscriptWorkspace({
           projectTitle={projectTitle}
           exportDate={exportDate}
           clips={clips}
-          highlightClipId={highlightClipId}
+          selectedClipId={selectedClipId}
+          selectionOrigin={selectedClip?.origin ?? null}
+          onSelect={handleSelectFromRail}
+          onHover={setHoveredClipId}
+          onTrimPreview={(clipId, range) =>
+            setPendingTrims((current) => ({ ...current, [clipId]: range }))
+          }
           onPreview={previewRange}
         />
       </div>
