@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
+import { embedPending, getProjectContext } from "@/lib/transcription/indexing";
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -21,6 +22,29 @@ const MIN_CLIP_DURATION_MS = 500;
 
 function revalidateProject(projectId: string) {
   revalidatePath(`/transcription/${projectId}`);
+  // A clip is a result in the cross-project library and search list too.
+  revalidatePath("/transcription");
+}
+
+/**
+ * Embeds a clip as soon as it is created or retitled, so it is semantically
+ * searchable immediately rather than at the next reindex — a clip's title is
+ * exactly the editorial summary semantic search is best at (design doc §6),
+ * and it's one short embedding request.
+ *
+ * Best-effort by design: the row is already flagged embedding_stale by a
+ * trigger, so a failure here just defers the work. Never blocks the write.
+ */
+async function embedClipQuietly(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+): Promise<void> {
+  try {
+    const context = await getProjectContext(supabase, projectId);
+    if (context) await embedPending(supabase, projectId, context);
+  } catch (error) {
+    console.error("[transcription] clip embedding failed", { projectId, error });
+  }
 }
 
 export async function createClip(input: {
@@ -56,6 +80,7 @@ export async function createClip(input: {
     .single();
 
   if (error || !data) return { error: "Could not create the clip. Please try again." };
+  await embedClipQuietly(supabase, input.projectId);
   revalidateProject(input.projectId);
   return { id: data.id };
 }
@@ -120,6 +145,7 @@ export async function renameClip(input: {
   if (error) return { error: "Could not rename the clip." };
   if (!data) return { error: "That clip no longer exists." };
 
+  await embedClipQuietly(supabase, data.project_id);
   revalidateProject(data.project_id);
   return {};
 }

@@ -130,6 +130,8 @@ export interface Database {
           description: string | null;
           interview_date: string | null;
           status: TwProjectStatus;
+          /** Generated column (title + description) — read-only. */
+          search: string;
           media_storage_path: string | null;
           media_content_type: string | null;
           media_size_bytes: number | null;
@@ -196,6 +198,11 @@ export interface Database {
           start_ms: number;
           end_ms: number;
           excerpt: string;
+          /** Generated column (title + excerpt) — read-only. */
+          search: string;
+          /** pgvector column; written as a "[0.1,...]" literal, never read back into JS. */
+          embedding: string | null;
+          embedding_stale: boolean;
           export_storage_path: string | null;
           exported_at: string | null;
           created_by: string;
@@ -210,6 +217,30 @@ export interface Database {
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["tw_clips"]["Row"]>;
+        Relationships: [];
+      };
+      tw_chunks: {
+        Row: {
+          id: string;
+          project_id: string;
+          start_ms: number;
+          end_ms: number;
+          text: string;
+          /** pgvector column; written as a "[0.1,...]" literal, never read back into JS. */
+          embedding: string | null;
+          stale: boolean;
+          /** Generated column — read-only. */
+          search: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tw_chunks"]["Row"]> & {
+          project_id: string;
+          start_ms: number;
+          end_ms: number;
+          text: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tw_chunks"]["Row"]>;
         Relationships: [];
       };
       ep_form_fields: {
@@ -362,6 +393,31 @@ export interface Database {
       tw_shift_segment_positions: {
         Args: { p_project_id: string; after_position: number; delta: number };
         Returns: undefined;
+      };
+      /**
+       * Hybrid keyword + semantic search (20260728120000_transcription_search.sql).
+       * query_embedding is a pgvector literal string, or null for keyword-only.
+       */
+      tw_search: {
+        Args: {
+          query_text: string;
+          query_embedding?: string | null;
+          match_limit?: number;
+        };
+        Returns: {
+          kind: string;
+          result_id: string;
+          project_id: string;
+          project_title: string;
+          project_description: string | null;
+          interview_date: string | null;
+          start_ms: number | null;
+          end_ms: number | null;
+          title: string | null;
+          snippet: string;
+          speaker_label: string | null;
+          score: number;
+        }[];
       };
     };
     Enums: {

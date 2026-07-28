@@ -7,6 +7,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
+import { reindexProject, embedPending, getProjectContext } from "@/lib/transcription/indexing";
 import { getSiteUrl } from "@/lib/site-url";
 
 export type CreateProjectResult = { id: string } | { error: string };
@@ -57,6 +58,104 @@ export async function createProject(input: {
     return { error: "Could not create the project. Please try again." };
   }
   return { id: data.id };
+}
+
+/**
+ * Edits a project's title, interview date, and background text after the fact.
+ *
+ * The background is the tool's whole context story (design doc §3G): it is
+ * what tells a reporter who finds a quote eighteen months from now what the
+ * recording actually was. Until this action existed, createProject() was the
+ * only thing that ever wrote it — so it got typed at upload, before anyone
+ * had listened, or never. This is the same field, made editable from the
+ * workspace, where a reporter is sitting when they actually learn what they
+ * recorded.
+ *
+ * Any member can edit, matching the shared-workspace model used for speakers,
+ * segments and clips. Editing marks the project's chunks stale (a database
+ * trigger), because the background rides along on every chunk's embedding —
+ * so the re-embed below picks the change up.
+ */
+export async function updateProjectDetails(input: {
+  projectId: string;
+  title: string;
+  description: string;
+  interviewDate: string;
+}): Promise<{ error?: string }> {
+  await assertToolAccess("transcription");
+
+  const title = input.title.trim();
+  if (!title) {
+    return { error: "A project needs a title." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tw_projects")
+    .update({
+      title,
+      description: input.description.trim() || null,
+      interview_date: input.interviewDate || null,
+    })
+    .eq("id", input.projectId);
+
+  if (error) {
+    console.error("Could not save the project details:", error);
+    return { error: `Could not save the project details: ${error.message}` };
+  }
+
+  await reembedProjectQuietly(supabase, input.projectId);
+
+  revalidatePath(`/transcription/${input.projectId}`);
+  revalidatePath("/transcription");
+  return {};
+}
+
+/**
+ * Rebuilds a project's search index from its current transcript.
+ *
+ * Serves two jobs deliberately kept as one action: the Phase 5 backfill for
+ * projects transcribed before search existed, and a manual re-run when a
+ * reporter has finished a round of corrections. Both are "make the index
+ * match the transcript", and a second entry point would only be a second
+ * thing to keep in step.
+ */
+export async function reindexProjectSearch(projectId: string): Promise<{
+  error?: string;
+  chunks?: number;
+  embedded?: number;
+  embeddingError?: string;
+}> {
+  await assertToolAccess("transcription");
+
+  const supabase = await createClient();
+  try {
+    const result = await reindexProject(supabase, projectId);
+    revalidatePath(`/transcription/${projectId}`);
+    revalidatePath("/transcription");
+    return result;
+  } catch (error) {
+    console.error("[transcription] reindex failed", { projectId, error });
+    return { error: "Could not rebuild the search index for this project." };
+  }
+}
+
+/**
+ * Best-effort re-embed after an edit. Never blocks or fails the write that
+ * triggered it: the rows stay flagged stale, so the next reindex or edit
+ * picks them up, and in the meantime the stale embedding still points at
+ * substantially the same passage (design doc §6, "staleness over eagerness").
+ */
+async function reembedProjectQuietly(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+): Promise<void> {
+  try {
+    const context = await getProjectContext(supabase, projectId);
+    if (context) await embedPending(supabase, projectId, context);
+  } catch (error) {
+    console.error("[transcription] re-embed after edit failed", { projectId, error });
+  }
 }
 
 /**

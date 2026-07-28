@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
+import { reindexProject } from "@/lib/transcription/indexing";
 import { WEBHOOK_AUTH_HEADER_NAME } from "@/lib/transcription/providers/assemblyai";
 
 // Called by the ASR provider (never by a signed-in user) when a
@@ -89,6 +90,21 @@ export async function POST(request: Request): Promise<Response> {
       .from("tw_projects")
       .update({ status: "ready", transcribed_at: new Date().toISOString(), error_message: null })
       .eq("id", project.id);
+
+    // Build the search index while the transcript is fresh, so a project is
+    // findable the moment it's ready rather than after someone remembers to
+    // reindex it. Deliberately after the status flip and deliberately
+    // swallowed: a chunking or embeddings failure must not turn a transcript
+    // that landed perfectly well into a failed project. The rows stay flagged
+    // stale and the workspace's "Rebuild search index" action picks them up.
+    try {
+      await reindexProject(supabase, project.id);
+    } catch (indexError) {
+      console.error("[transcription] indexing after webhook failed", {
+        projectId: project.id,
+        error: indexError,
+      });
+    }
   } catch (error) {
     await supabase
       .from("tw_projects")
