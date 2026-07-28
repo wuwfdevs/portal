@@ -16,7 +16,6 @@ declare
   leo_id uuid := '10000000-0000-0000-0000-000000000006';
   tool_editorial uuid;
   tool_remote uuid;
-  tool_clips uuid;
   tool_transcription uuid;
 begin
   insert into auth.users (
@@ -79,9 +78,10 @@ begin
     ('remote-interview', 'Remote Interview',
      'Record, transcribe, and edit remote audio and video interviews.',
      '/tools/remote-interview', 'in_development', true, 'invite_only', 2),
-    ('clip-library', 'Shared Clip Library',
-     'Search and reuse approved interview excerpts and actualities.',
-     '/tools/clip-library', 'in_development', true, 'approved_staff', 3),
+    -- No Shared Clip Library row: the Transcription Workspace absorbed it
+    -- (see docs/transcription-workspace-design.md §3F — the cross-project
+    -- clip and search views are the clip library), so it was retired from
+    -- the registry rather than left as a placeholder nobody will build.
     ('audience-listening', 'Audience Listening',
      'Organize and analyze structured audience input.',
      '/tools/audience-listening', 'planned', true, 'invite_only', 4)
@@ -89,7 +89,6 @@ begin
 
   select id into tool_editorial from public.tools where key = 'editorial-planning';
   select id into tool_remote from public.tools where key = 'remote-interview';
-  select id into tool_clips from public.tools where key = 'clip-library';
   -- Transcription Workspace's registry row is inserted by its own schema
   -- migration (20260722130000_transcription_workspace_schema.sql), not
   -- here — this just looks it up to seed local tool_access grants.
@@ -103,7 +102,6 @@ begin
     (marcus_id, tool_editorial, 'contributor', dana_id),
     (leo_id, tool_editorial, 'reviewer', dana_id),
     (marcus_id, tool_remote, 'contributor', dana_id),
-    (leo_id, tool_clips, null, dana_id),
     (dana_id, tool_transcription, null, dana_id),
     (marcus_id, tool_transcription, null, dana_id)
   on conflict do nothing;

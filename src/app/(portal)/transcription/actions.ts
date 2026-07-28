@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
@@ -248,10 +249,23 @@ export async function deleteProject(formData: FormData): Promise<void> {
     redirect("/transcription");
   }
 
-  if (project.media_storage_path) {
-    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove([project.media_storage_path]);
+  // Rendered clip exports live under <project id>/clips/ and are not
+  // reachable from the project row once it's gone, so they have to be swept
+  // here — deleting the row cascades tw_clips but tells storage nothing.
+  const { data: exportedClips } = await supabase.storage
+    .from(TRANSCRIPTION_MEDIA_BUCKET)
+    .list(`${projectId}/clips`);
+
+  const objectPaths = [
+    ...(project.media_storage_path ? [project.media_storage_path] : []),
+    ...(exportedClips ?? []).map((object) => `${projectId}/clips/${object.name}`),
+  ];
+  if (objectPaths.length > 0) {
+    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
   }
+
   await supabase.from("tw_projects").delete().eq("id", projectId);
 
+  revalidatePath("/transcription");
   redirect("/transcription");
 }
