@@ -1,8 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
-import { splitTiming } from "@/lib/transcription/transcript";
+import {
+  parseWords,
+  partitionWords,
+  splitTiming,
+  splitTimingFromWords,
+} from "@/lib/transcription/transcript";
 
 // Transcript-correction actions for a single project: speaker naming,
 // per-segment reassignment, inline text edits, and split/merge (see
@@ -12,13 +18,23 @@ import { splitTiming } from "@/lib/transcription/transcript";
 // matching that model. Kept separate from the parent route's actions.ts,
 // which owns project lifecycle (upload/transcription/delete) rather than
 // transcript content.
+//
+// Every one of these takes projectId and revalidates the workspace on the
+// way out. Without that, a mutation leaves Next's client router cache
+// holding the pre-edit transcript, so navigating away and back silently
+// resurrects old text.
 
 async function assertTranscriptionAccess() {
   await assertToolAccess("transcription");
   return createClient();
 }
 
+function revalidateProject(projectId: string) {
+  revalidatePath(`/transcription/${projectId}`);
+}
+
 export async function renameSpeaker(input: {
+  projectId: string;
   speakerId: string;
   displayName: string;
 }): Promise<{ error?: string }> {
@@ -31,10 +47,12 @@ export async function renameSpeaker(input: {
     .eq("id", input.speakerId);
 
   if (error) return { error: "Could not save the speaker name." };
+  revalidateProject(input.projectId);
   return {};
 }
 
 export async function reassignSegmentSpeaker(input: {
+  projectId: string;
   segmentId: string;
   speakerId: string | null;
 }): Promise<{ error?: string }> {
@@ -46,11 +64,19 @@ export async function reassignSegmentSpeaker(input: {
     .eq("id", input.segmentId);
 
   if (error) return { error: "Could not reassign that line." };
+  revalidateProject(input.projectId);
   return {};
 }
 
-/** A segment can't be saved empty — merging it with a neighbor is the sanctioned way to remove its content. */
+/**
+ * A segment can't be saved empty — merging it with a neighbor is the
+ * sanctioned way to remove its content. `words` is deliberately left in
+ * place: text_edited is the flag that marks its timings approximate, and
+ * approximate anchors still beat no anchors for clip selection (see
+ * docs/transcription-workspace-design.md §5).
+ */
 export async function updateSegmentText(input: {
+  projectId: string;
   segmentId: string;
   text: string;
 }): Promise<{ error?: string }> {
@@ -67,17 +93,25 @@ export async function updateSegmentText(input: {
     .eq("id", input.segmentId);
 
   if (error) return { error: "Could not save the correction." };
+  revalidateProject(input.projectId);
   return {};
 }
 
 /**
- * Splits a segment into two at a character offset into its text. Timing is
- * a proportional approximation, not a re-alignment against word timings —
- * see splitTiming's comment. Shifts every later segment's position by +1
- * first (via RPC — see the ordering migration) to make room, then inserts
- * the new second half.
+ * Splits a segment into two at a character offset into its text. Shifts
+ * every later segment's position by +1 first (via RPC — see the ordering
+ * migration) to make room, then inserts the new second half.
+ *
+ * Word timings are partitioned between the halves rather than discarded:
+ * throwing them away used to cost the whole transcript its word-level
+ * anchors after a single split, which is what clip selection snaps to. With
+ * the words kept, the cut lands exactly in the gap between the last word of
+ * the first half and the first word of the second; splitTiming's
+ * character-ratio estimate is only the fallback for segments whose words
+ * are already gone.
  */
 export async function splitSegment(input: {
+  projectId: string;
   segmentId: string;
   splitAtChar: number;
 }): Promise<{ error?: string }> {
@@ -85,7 +119,7 @@ export async function splitSegment(input: {
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, project_id, position, start_ms, end_ms, text, speaker_id")
+    .select("id, project_id, position, start_ms, end_ms, text, text_edited, speaker_id, words")
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };
@@ -100,12 +134,10 @@ export async function splitSegment(input: {
     return { error: "Both halves need some text — try a different split point." };
   }
 
-  const timing = splitTiming(
-    segment.start_ms,
-    segment.end_ms,
-    input.splitAtChar,
-    segment.text.length,
-  );
+  const words = partitionWords(parseWords(segment.words), input.splitAtChar, segment.text);
+  const timing =
+    splitTimingFromWords(words.first, words.second, segment.start_ms, segment.end_ms) ??
+    splitTiming(segment.start_ms, segment.end_ms, input.splitAtChar, segment.text.length);
   if (!timing) {
     return { error: "This line is too short to split." };
   }
@@ -124,36 +156,43 @@ export async function splitSegment(input: {
     start_ms: timing.secondStartMs,
     end_ms: segment.end_ms,
     text: secondText,
-    text_edited: true,
-    words: [],
+    text_edited: segment.text_edited,
+    words: words.second,
   });
   if (insertError) return { error: "Could not split this line. Please try again." };
 
   const { error: updateError } = await supabase
     .from("tw_segments")
-    .update({ text: firstText, end_ms: timing.firstEndMs, text_edited: true, words: [] })
+    .update({ text: firstText, end_ms: timing.firstEndMs, words: words.first })
     .eq("id", segment.id);
   if (updateError) return { error: "Could not split this line. Please try again." };
 
+  revalidateProject(input.projectId);
   return {};
 }
 
-/** Merges a segment with the next one by position: concatenates text, spans both timings, keeps the first segment's speaker. */
+/**
+ * Merges a segment with the next one by position: concatenates text and
+ * word timings, spans both timings, keeps the first segment's speaker.
+ * Neither half's words are lost, so a merge is as reversible (by splitting
+ * again) as the timings allow.
+ */
 export async function mergeSegmentWithNext(input: {
+  projectId: string;
   segmentId: string;
 }): Promise<{ error?: string }> {
   const supabase = await assertTranscriptionAccess();
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, project_id, position, end_ms, text")
+    .select("id, project_id, position, end_ms, text, text_edited, words")
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };
 
   const { data: nextSegment } = await supabase
     .from("tw_segments")
-    .select("id, end_ms, text")
+    .select("id, end_ms, text, text_edited, words")
     .eq("project_id", segment.project_id)
     .gt("position", segment.position)
     .order("position")
@@ -166,12 +205,18 @@ export async function mergeSegmentWithNext(input: {
     .update({
       text: `${segment.text} ${nextSegment.text}`.trim(),
       end_ms: nextSegment.end_ms,
-      text_edited: true,
-      words: [],
+      text_edited: segment.text_edited || nextSegment.text_edited,
+      words: [...parseWords(segment.words), ...parseWords(nextSegment.words)],
     })
     .eq("id", segment.id);
   if (updateError) return { error: "Could not merge these lines." };
 
-  await supabase.from("tw_segments").delete().eq("id", nextSegment.id);
+  const { error: deleteError } = await supabase
+    .from("tw_segments")
+    .delete()
+    .eq("id", nextSegment.id);
+  if (deleteError) return { error: "Merged, but the old line is still there. Reload the page." };
+
+  revalidateProject(input.projectId);
   return {};
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSyncedState } from "@/lib/use-synced-state";
 import { findFirstSegmentIndexForSpeaker } from "@/lib/transcription/transcript";
 import { formatDuration } from "@/lib/transcription/media";
 import { renameSpeaker } from "./actions";
@@ -12,11 +14,13 @@ import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/p
  * unnamed-speaker count is a gentle nudge, never a gate.
  */
 export function SpeakerPanel({
+  projectId,
   speakers,
   segments,
   onSeek,
   onRenamed,
 }: {
+  projectId: string;
   speakers: TranscriptSpeaker[];
   segments: TranscriptSegment[];
   onSeek: (startMs: number) => void;
@@ -43,6 +47,7 @@ export function SpeakerPanel({
           return (
             <SpeakerRow
               key={speaker.id}
+              projectId={projectId}
               speaker={speaker}
               snippet={snippet ?? null}
               onSeek={onSeek}
@@ -56,37 +61,48 @@ export function SpeakerPanel({
 }
 
 function SpeakerRow({
+  projectId,
   speaker,
   snippet,
   onSeek,
   onRenamed,
 }: {
+  projectId: string;
   speaker: TranscriptSpeaker;
   snippet: TranscriptSegment | null;
   onSeek: (startMs: number) => void;
   onRenamed: (speakerId: string, displayName: string) => void;
 }) {
-  const [value, setValue] = useState(speaker.displayName ?? "");
+  // Synced + dirty-tracked for the same reason as SegmentRow: never let a
+  // stale local copy decide that the user made an edit.
+  const [value, setValue] = useSyncedState(speaker.displayName ?? "");
+  const [isDirty, setIsDirty] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const router = useRouter();
 
   async function handleBlur() {
-    if (value.trim() === (speaker.displayName ?? "").trim()) return;
+    if (!isDirty) return;
     setStatus("saving");
-    const result = await renameSpeaker({ speakerId: speaker.id, displayName: value });
+    const result = await renameSpeaker({ projectId, speakerId: speaker.id, displayName: value });
     if (result.error) {
       setStatus("error");
       return;
     }
+    setIsDirty(false);
     onRenamed(speaker.id, value.trim());
     setStatus("saved");
     setTimeout(() => setStatus("idle"), 1500);
+    router.refresh();
   }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
       <input
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setIsDirty(true);
+        }}
         onBlur={handleBlur}
         placeholder={`Speaker ${speaker.diarizationLabel}`}
         className="w-48 rounded border border-line bg-white px-2.5 py-1.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface"

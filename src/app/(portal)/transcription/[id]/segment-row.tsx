@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
+import type { TimedToken } from "@/lib/transcription/selection";
 import {
   mergeSegmentWithNext,
   reassignSegmentSpeaker,
@@ -13,173 +15,299 @@ import {
 } from "./actions";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 
+/**
+ * One line of the transcript.
+ *
+ * Reading mode renders the line as ordinary selectable prose, one span per
+ * word carrying its (line, word) coordinates — that is what lets a drag
+ * across the transcript become a clip range (see lib/transcription/
+ * selection.ts). Because a plain click now belongs to text selection,
+ * editing lives behind an explicit control rather than "click the text and
+ * hope": the row's actions appear on hover/focus, and Edit (or a
+ * double-click) is what opens the textarea.
+ */
 export function SegmentRow({
+  projectId,
   segment,
+  tokens,
   speakers,
+  segmentIndex,
   isActive,
   isLast,
-  isSelected,
-  isInSelectionRange,
+  showSpeaker,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
   onSeek,
-  onToggleSelect,
 }: {
+  projectId: string;
   segment: TranscriptSegment;
+  tokens: TimedToken[];
   speakers: TranscriptSpeaker[];
+  segmentIndex: number;
   isActive: boolean;
   isLast: boolean;
-  isSelected: boolean;
-  isInSelectionRange: boolean;
+  showSpeaker: boolean;
+  /** Which line is open for editing is owned by the workspace, so only one ever is and `E` can open the active one. */
+  isEditing: boolean;
+  onStartEditing: () => void;
+  onStopEditing: () => void;
   onSeek: (startMs: number) => void;
-  onToggleSelect: () => void;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [text, setText] = useState(segment.text);
-  const [speakerId, setSpeakerId] = useState(segment.speakerId ?? "");
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Synced, not plain useState: a split/merge changes this row's server text
+  // while React keeps the same instance (same list key), and a stale local
+  // copy here is what silently overwrote a real split in production.
+  const [text, setText] = useSyncedState(segment.text);
+  const [speakerId, setSpeakerId] = useSyncedState(segment.speakerId ?? "");
+  const [isDirty, setIsDirty] = useState(false);
+  const [caret, setCaret] = useState(0);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  /** Saves an in-progress edit if there is one — called before split/merge so neither silently drops unsaved text. */
-  async function saveTextIfChanged(): Promise<boolean> {
-    if (text.trim() === segment.text.trim()) return true;
-    const result = await updateSegmentText({ segmentId: segment.id, text });
+  const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
+  const canSplit = caret > 0 && caret < text.trim().length;
+
+  function beginEditing() {
+    setActionError(null);
+    onStartEditing();
+  }
+
+  function cancelEditing() {
+    setText(segment.text);
+    setIsDirty(false);
+    onStopEditing();
+    setActionError(null);
+  }
+
+  /**
+   * Saves only when the user actually typed. The old check — "does my copy
+   * differ from the prop?" — treated a stale render as an edit, which is
+   * precisely how a completed split got written back to its pre-split text.
+   */
+  async function saveText(): Promise<boolean> {
+    if (!isDirty) return true;
+    setStatus("saving");
+    const result = await updateSegmentText({ projectId, segmentId: segment.id, text });
     if (result.error) {
+      setStatus("idle");
       setActionError(result.error);
       return false;
     }
+    setIsDirty(false);
+    setStatus("saved");
+    setTimeout(() => setStatus("idle"), 1500);
     return true;
   }
 
-  async function handleTextBlur() {
-    setIsEditing(false);
-    if (text.trim() === segment.text.trim()) return;
-    setStatus("saving");
-    const result = await updateSegmentText({ segmentId: segment.id, text });
-    if (result.error) {
-      setStatus("error");
-      setActionError(result.error);
-      setText(segment.text);
-      return;
-    }
-    setStatus("saved");
-    setTimeout(() => setStatus("idle"), 1500);
+  async function handleSave() {
+    if (!(await saveText())) return;
+    onStopEditing();
+    router.refresh();
   }
 
   async function handleSpeakerChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const nextValue = event.target.value;
     setSpeakerId(nextValue);
-    await reassignSegmentSpeaker({ segmentId: segment.id, speakerId: nextValue || null });
+    const result = await reassignSegmentSpeaker({
+      projectId,
+      segmentId: segment.id,
+      speakerId: nextValue || null,
+    });
+    if (result.error) {
+      setActionError(result.error);
+      setSpeakerId(segment.speakerId ?? "");
+      return;
+    }
+    router.refresh();
   }
 
   async function handleSplit() {
-    const cursor = textareaRef.current?.selectionStart ?? 0;
     setActionError(null);
-    if (!(await saveTextIfChanged())) return;
+    if (!(await saveText())) return;
 
-    const result = await splitSegment({ segmentId: segment.id, splitAtChar: cursor });
+    const result = await splitSegment({ projectId, segmentId: segment.id, splitAtChar: caret });
     if (result.error) {
       setActionError(result.error);
       return;
     }
-    setIsEditing(false);
+    onStopEditing();
     router.refresh();
   }
 
   async function handleMerge() {
     setActionError(null);
-    if (!(await saveTextIfChanged())) return;
+    if (!(await saveText())) return;
 
-    const result = await mergeSegmentWithNext({ segmentId: segment.id });
+    const result = await mergeSegmentWithNext({ projectId, segmentId: segment.id });
     if (result.error) {
       setActionError(result.error);
       return;
     }
-    setIsEditing(false);
+    onStopEditing();
     router.refresh();
   }
 
   return (
     <div
+      // On the wrapper, not the text, so follow-along can find the active
+      // line even while it's being edited. Token spans stay nested inside.
+      data-segment-index={segmentIndex}
       className={cn(
-        "border-b border-line px-4 py-3 last:border-b-0",
-        isActive && "bg-brand-surface",
-        !isActive && isInSelectionRange && "bg-panel-50",
+        "group border-l-2 px-4 py-2 transition-colors",
+        isActive ? "border-brand-primary bg-brand-surface/50" : "border-transparent",
       )}
     >
-      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          aria-label="Select this line for a clip"
-          className="h-3.5 w-3.5 rounded border-line"
-        />
-        <select
-          value={speakerId}
-          onChange={handleSpeakerChange}
-          className="rounded border border-line bg-white px-1.5 py-1 text-xs font-semibold text-ink-700 focus:border-brand-primary focus:outline-none"
-        >
-          <option value="">Unknown speaker</option>
-          {speakers.map((speaker) => (
-            <option key={speaker.id} value={speaker.id}>
-              {speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)}
-            </option>
-          ))}
-        </select>
+      {showSpeaker && (
+        <p className="mb-1 mt-2 text-xs font-bold uppercase tracking-wide text-ink-700 first:mt-0">
+          {speaker
+            ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
+            : "Unknown speaker"}
+        </p>
+      )}
+
+      <div className="flex items-start gap-3">
         <button
           type="button"
           onClick={() => onSeek(segment.startMs)}
-          className="font-mono text-[11px] font-normal text-ink-400 hover:text-brand-link hover:underline"
+          title="Play from here"
+          className="mt-0.5 w-11 shrink-0 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline"
         >
           {formatDuration(segment.startMs)}
         </button>
-        {status === "saving" && <span className="text-ink-400">Saving…</span>}
-        {status === "saved" && <span className="text-ink-400">Saved</span>}
-      </div>
 
-      {isEditing ? (
-        <div>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={handleTextBlur}
-            autoFocus
-            rows={2}
-            className="w-full rounded border border-brand-primary px-2 py-1.5 text-sm text-ink-900 focus:outline-none"
-          />
-          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <div>
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setIsDirty(true);
+                  setCaret(e.target.selectionStart);
+                }}
+                onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") cancelEditing();
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleSave();
+                }}
+                autoFocus
+                rows={3}
+                className="w-full rounded border border-brand-primary px-2 py-1.5 text-sm leading-relaxed text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-surface"
+              />
+
+              {canSplit && <SplitPreview text={text} caret={caret} />}
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleSave}
+                  className="rounded bg-brand-primary px-2.5 py-1 text-xs font-bold text-white hover:bg-[#2278B8]"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={cancelEditing}
+                  className="rounded border border-line px-2.5 py-1 text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleSplit}
+                  disabled={!canSplit}
+                  title={
+                    canSplit
+                      ? "Split this line at the cursor"
+                      : "Put the cursor inside the text to split there"
+                  }
+                  className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
+                >
+                  Split here
+                </button>
+                <span className="text-[11px] text-ink-400">⌘↵ to save · Esc to cancel</span>
+              </div>
+            </div>
+          ) : (
+            <p onDoubleClick={beginEditing} className="text-sm leading-relaxed text-ink-900">
+              {/* Spaces sit between the spans, not inside them, so selecting
+                  whitespace alone never counts as touching a word. */}
+              {tokens.map((token, tokenIndex) => (
+                <Fragment key={tokenIndex}>
+                  {tokenIndex > 0 ? " " : ""}
+                  <span data-token-index={tokenIndex}>{token.text}</span>
+                </Fragment>
+              ))}
+            </p>
+          )}
+        </div>
+
+        {!isEditing && (
+          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            {status === "saving" && <span className="text-[11px] text-ink-400">Saving…</span>}
+            {status === "saved" && <span className="text-[11px] text-ink-400">Saved</span>}
+            <select
+              value={speakerId}
+              onChange={handleSpeakerChange}
+              aria-label="Who is speaking on this line"
+              title="Reassign this line to another speaker"
+              className="max-w-[9rem] rounded border border-line bg-white px-1 py-0.5 text-[11px] text-ink-700 focus:border-brand-primary focus:outline-none"
+            >
+              <option value="">Unknown speaker</option>
+              {speakers.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {speakerDisplayLabel(option.diarizationLabel, option.displayName)}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleSplit}
-              className="font-semibold text-brand-link hover:underline"
+              onClick={beginEditing}
+              className="text-[11px] font-semibold text-brand-link hover:underline"
             >
-              Split at cursor
+              Edit
             </button>
             {!isLast && (
               <button
                 type="button"
-                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleMerge}
-                className="font-semibold text-brand-link hover:underline"
+                title="Join this line with the one below"
+                className="text-[11px] font-semibold text-brand-link hover:underline"
               >
-                Merge with next
+                Merge ↓
               </button>
             )}
           </div>
-        </div>
-      ) : (
-        <p
-          onClick={() => setIsEditing(true)}
-          className="cursor-text rounded px-1 py-0.5 text-sm text-ink-900 hover:bg-white"
-        >
-          {text}
-        </p>
-      )}
+        )}
+      </div>
 
-      {actionError && <p className="mt-1.5 text-xs text-danger">{actionError}</p>}
+      {actionError && <p className="mt-1.5 pl-14 text-xs text-danger">{actionError}</p>}
+    </div>
+  );
+}
+
+/**
+ * Shows where "Split here" will actually cut. The caret is invisible once
+ * you move the mouse to the button, so without this the split is a guess.
+ */
+function SplitPreview({ text, caret }: { text: string; caret: number }) {
+  const first = text.slice(0, caret).trim();
+  const second = text.slice(caret).trim();
+
+  return (
+    <div className="mt-1.5 rounded border border-dashed border-line bg-panel-50 px-2 py-1.5 text-[11px] leading-relaxed text-ink-500">
+      <p className="truncate">
+        <span className="font-semibold text-ink-700">1.</span> {first}
+      </p>
+      <p className="truncate">
+        <span className="font-semibold text-ink-700">2.</span> {second}
+      </p>
     </div>
   );
 }
