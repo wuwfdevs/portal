@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
-import type { TimedToken } from "@/lib/transcription/selection";
+import { clipAtToken, type ClipSpan, type TimedToken } from "@/lib/transcription/selection";
 import {
   mergeSegmentWithNext,
   reassignSegmentSpeaker,
@@ -25,11 +25,18 @@ import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/p
  * editing lives behind an explicit control rather than "click the text and
  * hope": the row's actions appear on hover/focus, and Edit (or a
  * double-click) is what opens the textarea.
+ *
+ * Words already belonging to a clip carry an underline, and the one clip
+ * that's active carries a tint as well — see markClass() for why those are
+ * two different channels rather than two shades of one.
  */
 export function SegmentRow({
   projectId,
   segment,
   tokens,
+  clipSpans,
+  selectedClipId,
+  hoveredClipId,
   speakers,
   segmentIndex,
   isActive,
@@ -39,10 +46,15 @@ export function SegmentRow({
   onStartEditing,
   onStopEditing,
   onSeek,
+  onSelectClip,
 }: {
   projectId: string;
   segment: TranscriptSegment;
   tokens: TimedToken[];
+  /** Which runs of this line's words belong to clips — precomputed once by the workspace. */
+  clipSpans: ClipSpan[];
+  selectedClipId: string | null;
+  hoveredClipId: string | null;
   speakers: TranscriptSpeaker[];
   segmentIndex: number;
   isActive: boolean;
@@ -53,6 +65,8 @@ export function SegmentRow({
   onStartEditing: () => void;
   onStopEditing: () => void;
   onSeek: (startMs: number) => void;
+  /** A plain click on a word: null where nothing is clipped, which clears the selection. */
+  onSelectClip: (clipId: string | null) => void;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -68,6 +82,42 @@ export function SegmentRow({
 
   const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
   const canSplit = caret > 0 && caret < text.trim().length;
+
+  /** How strongly one word is marked: the strongest state any clip over it asks for. */
+  function tokenMark(tokenIndex: number): Mark {
+    let mark: Mark = "none";
+    for (const span of clipSpans) {
+      if (tokenIndex < span.fromTokenIndex || tokenIndex > span.toTokenIndex) continue;
+      if (span.clipId === selectedClipId) return "selected";
+      if (span.clipId === hoveredClipId) mark = "hovered";
+      else if (mark === "none") mark = "clipped";
+    }
+    return mark;
+  }
+
+  /**
+   * The space before a word takes the *weaker* of its neighbours, so a mark
+   * runs unbroken through a clip but stops at its edge instead of spilling
+   * onto the whitespace beyond it.
+   */
+  function gapMark(tokenIndex: number): Mark {
+    const before = tokenMark(tokenIndex - 1);
+    const after = tokenMark(tokenIndex);
+    return MARK_ORDER.indexOf(before) < MARK_ORDER.indexOf(after) ? before : after;
+  }
+
+  /**
+   * A plain click on a clipped word opens that clip in the rail. Safe to hang
+   * off the text because the click that ends a drag leaves a live selection
+   * behind, which is the one case this bails on — so making a clip and
+   * opening one stay separate gestures on the same words.
+   */
+  function handleTextClick(event: React.MouseEvent<HTMLParagraphElement>) {
+    const tokenEl = (event.target as HTMLElement).closest("[data-token-index]");
+    if (!(tokenEl instanceof HTMLElement)) return;
+    if (window.getSelection()?.isCollapsed === false) return;
+    onSelectClip(clipAtToken(clipSpans, Number(tokenEl.dataset.tokenIndex)));
+  }
 
   function beginEditing() {
     setActionError(null);
@@ -235,13 +285,22 @@ export function SegmentRow({
               </div>
             </div>
           ) : (
-            <p onDoubleClick={beginEditing} className="text-sm leading-relaxed text-ink-900">
+            <p
+              onDoubleClick={beginEditing}
+              onClick={handleTextClick}
+              className="text-sm leading-relaxed text-ink-900"
+            >
               {/* Spaces sit between the spans, not inside them, so selecting
-                  whitespace alone never counts as touching a word. */}
+                  whitespace alone never counts as touching a word. They do get
+                  a span of their own when both neighbours are in the same
+                  clip, purely so the mark runs unbroken across the gap —
+                  without a data-token-index, so selection still ignores it. */}
               {tokens.map((token, tokenIndex) => (
                 <Fragment key={tokenIndex}>
-                  {tokenIndex > 0 ? " " : ""}
-                  <span data-token-index={tokenIndex}>{token.text}</span>
+                  {tokenIndex > 0 && <span className={markClass(gapMark(tokenIndex))}> </span>}
+                  <span data-token-index={tokenIndex} className={markClass(tokenMark(tokenIndex))}>
+                    {token.text}
+                  </span>
                 </Fragment>
               ))}
             </p>
@@ -290,6 +349,32 @@ export function SegmentRow({
       {actionError && <p className="mt-1.5 pl-14 text-xs text-danger">{actionError}</p>}
     </div>
   );
+}
+
+/** Weakest to strongest, which is also the order the states override each other. */
+const MARK_ORDER = ["none", "clipped", "hovered", "selected"] as const;
+
+type Mark = (typeof MARK_ORDER)[number];
+
+/**
+ * Two channels, not two shades. "This is clipped" is an underline, because
+ * it's ambient — it's on for every clipped word at once, it has to survive
+ * clips overlapping (one underline whether one clip covers a word or three),
+ * and being a non-colour channel it doesn't rely on hue to be legible. The
+ * tint is spent on the single clip that's active, which is the state a
+ * background can afford to be loud about.
+ */
+function markClass(mark: Mark): string {
+  switch (mark) {
+    case "selected":
+      return "cursor-pointer border-b-2 border-clipped-line bg-clipped-selected";
+    case "hovered":
+      return "cursor-pointer border-b-2 border-clipped-line bg-clipped-hover";
+    case "clipped":
+      return "cursor-pointer border-b-2 border-clipped-line/60";
+    case "none":
+      return "";
+  }
 }
 
 /**

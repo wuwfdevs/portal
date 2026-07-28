@@ -24,12 +24,24 @@ const NUDGE_STEPS_MS = [-250, -50, 50, 250];
 /** How long the trim can sit still before it's written — see nudge(). */
 const TRIM_COMMIT_DELAY_MS = 400;
 
+/**
+ * Where the current clip selection came from, which is what decides whether
+ * a card scrolls itself into view: a clip picked in the rail is already under
+ * the pointer, and one picked in the transcript only needs finding if it
+ * happens to be off screen.
+ */
+export type ClipSelectionOrigin = "deep-link" | "transcript" | "rail";
+
 export function ClipRail({
   projectId,
   projectTitle,
   exportDate,
   clips,
-  highlightClipId,
+  selectedClipId,
+  selectionOrigin,
+  onSelect,
+  onHover,
+  onTrimPreview,
   onPreview,
 }: {
   projectId: string;
@@ -37,8 +49,14 @@ export function ClipRail({
   /** Interview date, falling back to the project's creation date — the date every export filename carries. */
   exportDate: string;
   clips: ProjectClip[];
-  /** Clip arrived at from a search result or the clip library (?clip=) — scrolled to and marked. */
-  highlightClipId?: string | null;
+  /** The clip marked in the transcript too — from ?clip=, a click here, or a click on the text. */
+  selectedClipId?: string | null;
+  selectionOrigin?: ClipSelectionOrigin | null;
+  onSelect: (clipId: string) => void;
+  /** Hover and focus alike, so tabbing through the rail marks the transcript the same way pointing at it does. */
+  onHover: (clipId: string | null) => void;
+  /** An in-progress trim, so the transcript's mark tracks the nudge instead of the write. */
+  onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
   const router = useRouter();
@@ -118,7 +136,11 @@ export function ClipRail({
           <ClipCard
             key={clip.id}
             clip={clip}
-            isHighlighted={clip.id === highlightClipId}
+            isSelected={clip.id === selectedClipId}
+            selectionOrigin={selectionOrigin ?? null}
+            onSelect={() => onSelect(clip.id)}
+            onHover={onHover}
+            onTrimPreview={onTrimPreview}
             onPreview={onPreview}
           />
         ))
@@ -129,11 +151,19 @@ export function ClipRail({
 
 function ClipCard({
   clip,
-  isHighlighted = false,
+  isSelected = false,
+  selectionOrigin,
+  onSelect,
+  onHover,
+  onTrimPreview,
   onPreview,
 }: {
   clip: ProjectClip;
-  isHighlighted?: boolean;
+  isSelected?: boolean;
+  selectionOrigin: ClipSelectionOrigin | null;
+  onSelect: () => void;
+  onHover: (clipId: string | null) => void;
+  onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
   const router = useRouter();
@@ -168,6 +198,9 @@ function ClipCard({
     setStartMs(next.startMs);
     setEndMs(next.endMs);
     setErrorMessage(null);
+    // Straight away, not on commit: the mark on the transcript is how you see
+    // a word join or leave the clip, and it's no use arriving a round-trip late.
+    onTrimPreview(clip.id, next);
 
     clearTimeout(commitTimer.current ?? undefined);
     commitTimer.current = setTimeout(async () => {
@@ -179,6 +212,7 @@ function ClipCard({
       // The server clamps, so its values are the truth, not the proposal.
       setStartMs(result.startMs);
       setEndMs(result.endMs);
+      onTrimPreview(clip.id, { startMs: result.startMs, endMs: result.endMs });
       // Trimming invalidates any previous export — re-exporting is explicit.
       setHasExport(false);
       onPreview(result.startMs, result.endMs);
@@ -237,20 +271,41 @@ function ClipCard({
     router.refresh();
   }
 
-  // Arriving from a search result or the clip library: bring the clip the
-  // reporter actually clicked into view, rather than leaving them to find it
-  // in a rail that may hold a dozen.
+  /**
+   * Bring the selected card into view — but only as far as it needs to move.
+   *
+   * Arriving from a search result or the clip library still centres the card,
+   * because the reporter has no idea where in the rail it is. A clip picked by
+   * clicking its words scrolls only if it's actually off screen ("nearest"):
+   * centring there would haul the page around under a reporter who is reading
+   * the transcript, to show them a card that was already in front of them.
+   * Picking the card itself moves nothing.
+   */
   useEffect(() => {
-    if (isHighlighted) {
-      cardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-  }, [isHighlighted]);
+    if (!isSelected || selectionOrigin === "rail") return;
+    cardRef.current?.scrollIntoView({
+      block: selectionOrigin === "deep-link" ? "center" : "nearest",
+      behavior: "smooth",
+    });
+  }, [isSelected, selectionOrigin]);
 
   return (
     <div
       ref={cardRef}
+      // Clicking anywhere on the card marks its words in the transcript.
+      // Deliberately a div and not a button: the card is full of real
+      // controls, and nesting them inside one is both invalid and unusable.
+      // Keyboard reach is covered by onFocus below — tabbing into any of
+      // those controls marks the passage exactly as pointing at it does.
+      onClick={onSelect}
+      onMouseEnter={() => onHover(clip.id)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(clip.id)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onHover(null);
+      }}
       className={`rounded border bg-white p-3 ${
-        isHighlighted ? "border-brand-primary ring-2 ring-brand-surface" : "border-line"
+        isSelected ? "border-brand-primary ring-2 ring-brand-surface" : "border-line"
       }`}
     >
       {isRenaming ? (

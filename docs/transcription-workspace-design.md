@@ -142,6 +142,20 @@ audition-and-nudge anyway — see D.)
 4. Clips are contiguous ranges only. Internal edits — cutting an "um" out of
    the middle, assembling a Franken-quote — are DAW work (and editorially
    sensitive besides). If a producer needs two quotes, they make two clips.
+5. **Clips are visible on the transcript, and the two panels point at each
+   other.** Words that already belong to a clip are underlined, so scanning a
+   transcript shows what's been used without cross-referencing the rail.
+   Clicking clipped text opens that clip in the rail; hovering or focusing a
+   card marks its words; selecting from either side tints the passage. Because
+   clips are stored as time ranges, the marks are recovered by time
+   (`resolveClipCoverage`) rather than stored — which means they follow a clip
+   as it's trimmed, survive splits and merges, and are only as precise as the
+   word timings under them: on an edited line, where timings are interpolated,
+   the mark shows roughly the right passage. The clip's in/out points remain
+   the truth about the audio. Underline and tint are separate channels on
+   purpose: overlapping clips are normal (a tight pull taken from inside a
+   longer answer), so "clipped" has to survive stacking, and a click on
+   overlapping clips resolves to the shortest one covering the word.
 
 ### E. Export (the handoff)
 
@@ -195,11 +209,11 @@ natively) — still no separate search service.
 thing, and the badge on each result says which — in the reporter's words, not
 ours:
 
-| Badge | What it is |
-| --- | --- |
-| **Clip** | Someone saved this passage and gave it a title. |
+| Badge             | What it is                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| **Clip**          | Someone saved this passage and gave it a title.                                                |
 | **In transcript** | Nobody clipped this — it's a stretch of transcript (one ~45s window) where the query comes up. |
-| **Project** | Nothing in the audio matched; the recording's own title or background did. |
+| **Project**       | Nothing in the audio matched; the recording's own title or background did.                     |
 
 They answer the same question ("where do we have someone saying this?"), so
 they rank against each other in a single list rather than in three columns

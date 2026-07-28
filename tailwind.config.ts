@@ -17,6 +17,15 @@ const config: Config = {
           400: "#8A9099",
         },
         line: "#E2E5E9",
+        // Words that already belong to a clip. Deliberately not a brand blue:
+        // ::selection and the follow-along line are both brand-surface, so a
+        // blue mark here would be indistinguishable from "selected right now"
+        // and "the playhead is on this line".
+        clipped: {
+          line: "#D7A21A",
+          hover: "#FBF2D2",
+          selected: "#FBEFC0",
+        },
         panel: {
           50: "#F5F7F9",
           100: "#ECEFF2",
