@@ -181,6 +181,41 @@ export async function embedPending(
   }
 }
 
+export interface SearchIndexStatus {
+  /** Windows of transcript currently in the index. Zero means nothing in this transcript can be found by searching. */
+  chunkCount: number;
+  /** Windows whose embedding is missing or out of date. Normal and self-healing; only interesting in aggregate. */
+  staleCount: number;
+}
+
+/**
+ * Whether this project's transcript is actually searchable.
+ *
+ * Worth a query on every project page because "indexed" is otherwise
+ * invisible: a project transcribed before search existed looks completely
+ * normal and simply never appears in results. The workspace uses this to say
+ * so out loud rather than leaving a reporter to conclude the search box is
+ * broken.
+ */
+export async function getSearchIndexStatus(
+  supabase: Client,
+  projectId: string,
+): Promise<SearchIndexStatus> {
+  const [{ count: chunkCount }, { count: staleCount }] = await Promise.all([
+    supabase
+      .from("tw_chunks")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId),
+    supabase
+      .from("tw_chunks")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("stale", true),
+  ]);
+
+  return { chunkCount: chunkCount ?? 0, staleCount: staleCount ?? 0 };
+}
+
 /** Project context for the embedding header, read fresh so an edited background is picked up. */
 export async function getProjectContext(
   supabase: Client,

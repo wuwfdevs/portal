@@ -4,6 +4,8 @@ import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById, getTranscriptForProject } from "@/lib/transcription/projects";
 import { listClipsForProject } from "@/lib/transcription/clips";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
+import { getSearchIndexStatus } from "@/lib/transcription/indexing";
+import { createClient } from "@/lib/supabase/server";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +34,7 @@ export default async function TranscriptionProjectPage({
 
   const canDelete = project.created_by === profile.id;
   const hasMedia = Boolean(project.media_storage_path);
-  const [signedUrl, transcript, clips] = await Promise.all([
+  const [signedUrl, transcript, clips, indexStatus] = await Promise.all([
     project.status === "ready" && project.media_storage_path
       ? getSignedMediaUrl(project.media_storage_path)
       : Promise.resolve(null),
@@ -40,7 +42,17 @@ export default async function TranscriptionProjectPage({
       ? getTranscriptForProject(project.id)
       : Promise.resolve({ segments: [], speakers: [] }),
     project.status === "ready" ? listClipsForProject(project.id) : Promise.resolve([]),
+    project.status === "ready"
+      ? createClient().then((client) => getSearchIndexStatus(client, project.id))
+      : Promise.resolve({ chunkCount: 0, staleCount: 0 }),
   ]);
+
+  // A transcript that was never indexed is invisible to search while looking
+  // completely normal here — so say it at the top, not in a link under the
+  // transcript pane. Only for projects that actually have a transcript to
+  // index; an empty one has nothing to say.
+  const needsIndexing =
+    project.status === "ready" && indexStatus.chunkCount === 0 && transcript.segments.length > 0;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -70,6 +82,8 @@ export default async function TranscriptionProjectPage({
         </div>
         <StatusBadge status={project.status} />
       </div>
+
+      {needsIndexing && <ReindexButton projectId={project.id} variant="banner" />}
 
       {project.status === "ready" && (
         <div className="max-w-5xl rounded border border-line bg-white p-5">
@@ -107,7 +121,7 @@ export default async function TranscriptionProjectPage({
             )}
           </dl>
           <div className="mt-4 flex flex-wrap items-center gap-4">
-            <ReindexButton projectId={project.id} />
+            <ReindexButton projectId={project.id} chunkCount={indexStatus.chunkCount} />
             {canDelete && <DeleteProjectButton projectId={project.id} />}
           </div>
         </div>
