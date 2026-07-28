@@ -48,7 +48,11 @@ Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
   (`src/app/(auth)`, `src/app/(portal)`) separate concerns; individual tools get their own
   route segment and, eventually, their own schema/migrations — not a separate service.
 - **Supabase is the backend.** Postgres + Auth + (later) Storage. No custom API layer —
-  Server Components/Server Actions talk to Supabase directly.
+  Server Components/Server Actions talk to Supabase directly. The handful of route
+  handlers under `src/app/api/` are the deliberate exceptions, for requests an action
+  can't serve: an external webhook with no user session, or a response that is a *file*
+  rather than data (the transcription clip archive streams; an action would have to
+  base64 it through the RSC payload). Reach for a Server Action first.
 - **Row Level Security is not optional.** Every table has RLS enabled and is the real
   enforcement boundary, not a convenience layer behind app-level checks. See
   `supabase/migrations/20260722120001_rls_policies.sql`. The predicates those policies

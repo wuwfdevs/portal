@@ -52,6 +52,13 @@ export function clipExportObjectPath(projectId: string, clipId: string): string 
 // entire recording.
 export const MAX_CLIP_DURATION_MS = 20 * 60 * 1000;
 
+// "Export all clips" renders and archives every clip in one request, so the
+// same memory argument applies to the project as a whole: one clip's WAV is
+// held at a time while the zip streams out, but a project with an
+// unreasonable amount of audio in it should be told to export clip by clip
+// rather than tie up a request for minutes of ffmpeg work.
+export const MAX_CLIPS_ZIP_DURATION_MS = 60 * 60 * 1000;
+
 /** Lowercase, hyphenated, filesystem-safe. Falls back to "untitled" for a string with no alphanumeric characters. */
 export function slugify(text: string): string {
   const slug = text
@@ -71,6 +78,16 @@ export function buildClipExportFilename(
 ): string {
   const date = dateIso.slice(0, 10);
   return `${date}_${slugify(projectTitle)}_${slugify(clipTitle)}.wav`;
+}
+
+/** Same shape as a clip export, for the whole project's transcript, e.g. "2026-07-22_reeves-interview_transcript.txt". */
+export function buildTranscriptExportFilename(dateIso: string, projectTitle: string): string {
+  return `${dateIso.slice(0, 10)}_${slugify(projectTitle)}_transcript.txt`;
+}
+
+/** Same shape again, for the archive of every clip in a project. */
+export function buildClipsZipFilename(dateIso: string, projectTitle: string): string {
+  return `${dateIso.slice(0, 10)}_${slugify(projectTitle)}_clips.zip`;
 }
 
 export function formatBytes(bytes: number): string {

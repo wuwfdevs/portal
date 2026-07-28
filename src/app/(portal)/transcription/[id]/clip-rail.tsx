@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDuration } from "@/lib/transcription/media";
+import { buildClipsZipFilename, formatDuration } from "@/lib/transcription/media";
 import {
   deleteClip,
   exportClip,
@@ -13,6 +13,7 @@ import {
   renameClip,
   updateClipTrim,
 } from "./clip-actions";
+import { downloadBlob } from "./download-blob";
 import type { ProjectClip } from "@/lib/transcription/clips";
 
 // Nudge steps, in the order radio editors reach for them: coarse out, fine
@@ -23,17 +24,87 @@ const NUDGE_STEPS_MS = [-250, -50, 50, 250];
 const TRIM_COMMIT_DELAY_MS = 400;
 
 export function ClipRail({
+  projectId,
+  projectTitle,
+  exportDate,
   clips,
   onPreview,
 }: {
+  projectId: string;
+  projectTitle: string;
+  /** Interview date, falling back to the project's creation date — the date every export filename carries. */
+  exportDate: string;
   clips: ProjectClip[];
   onPreview: (startMs: number, endMs: number) => void;
 }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "preparing">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const pendingCount = clips.filter((clip) => !clip.hasExport).length;
+
+  /**
+   * The whole rail as one download. Fetched rather than navigated to,
+   * because a failure has to land back in this panel — a plain navigation to
+   * a route that turns out to error would replace the workspace with an
+   * error page and lose the reporter's place.
+   */
+  async function handleExportAll() {
+    setStatus("preparing");
+    setErrorMessage(null);
+    try {
+      const response = await fetch(`/api/transcription/projects/${projectId}/clips.zip`);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setErrorMessage(body?.error ?? "Could not export these clips. Please try again.");
+        return;
+      }
+      // A signed-out request is redirected to /login, which fetch follows and
+      // reports as a perfectly successful HTML page — without this check, that
+      // lands on disk as a "zip" that won't open.
+      if (!response.headers.get("Content-Type")?.includes("application/zip")) {
+        setErrorMessage("Your session may have expired. Reload the page and try again.");
+        return;
+      }
+      // Rejects if the archive fails part-way through rendering, which is
+      // the one failure the server can't report as JSON.
+      downloadBlob(await response.blob(), buildClipsZipFilename(exportDate, projectTitle));
+      // Clips rendered along the way now have a download of their own.
+      router.refresh();
+    } catch {
+      setErrorMessage("The export stopped part-way through. Please try again.");
+    } finally {
+      setStatus("idle");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
-        Clips{clips.length > 0 && ` (${clips.length})`}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
+          Clips{clips.length > 0 && ` (${clips.length})`}
+        </h2>
+        {clips.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportAll}
+            disabled={status === "preparing"}
+            title="Download every clip in this project as a zip"
+            className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
+          >
+            {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
+          </button>
+        )}
+      </div>
+
+      {status === "preparing" && pendingCount > 0 && (
+        <p className="text-xs text-ink-400">
+          Rendering {pendingCount} clip{pendingCount === 1 ? "" : "s"} that{" "}
+          {pendingCount === 1 ? "hasn't" : "haven't"} been exported yet — this can take a minute.
+        </p>
+      )}
+      {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
+
       {clips.length === 0 ? (
         <p className="rounded border border-dashed border-line p-3 text-xs leading-relaxed text-ink-400">
           Select some transcript text to make your first clip.

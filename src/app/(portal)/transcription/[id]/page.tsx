@@ -57,6 +57,9 @@ export default async function TranscriptionProjectPage({
           {signedUrl ? (
             <TranscriptWorkspace
               projectId={project.id}
+              projectTitle={project.title}
+              interviewDate={project.interview_date}
+              exportDate={project.interview_date ?? project.created_at}
               mediaUrl={signedUrl}
               isVideo={isVideoContentType(project.media_content_type ?? "")}
               segments={transcript.segments}
