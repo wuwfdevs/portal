@@ -9,10 +9,14 @@ fixed set of internal WUWF tools — not a general-purpose newsroom platform. It
 authentication, invitation/approval-based access, role-based authorization, a tool
 registry, a dashboard, and admin screens for user/tool management.
 
-Each tool (Editorial Planning, Remote Interview, Shared Clip Library, Audience Listening)
-is its own focused application area with its own schema. The portal's job ends at "Open
-Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
+Each tool (Editorial Planning, Transcription Workspace, Remote Interview, Audience
+Listening) is its own focused application area with its own schema. The portal's job ends
+at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
 integrations. When in doubt, keep scope narrow.
+
+The registry once also carried a **Shared Clip Library** row. It has been retired: the
+Transcription Workspace absorbed it, since its cross-project clip and search views *are*
+the clip library (see `docs/transcription-workspace-design.md` §3F). Don't reintroduce it.
 
 ## Current milestone: portal foundation + Editorial Planning
 
@@ -21,9 +25,9 @@ tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Plan
 (pitch backlog, configurable submission form and rubric, weekly meetings with
 independent scoring, ranked agendas, and recorded decisions). Its design rationale
 lives in `docs/editorial-planning-design.md` — read it before changing editorial
-workflow or schema. **Do not build the Remote Interview media pipeline, Clip Library,
-or Audience Listening tool** without an explicit instruction to start that phase —
-those are separate milestones with their own schemas under their own route groups.
+workflow or schema. **Do not build the Remote Interview media pipeline or the Audience
+Listening tool** without an explicit instruction to start that phase — those are separate
+milestones with their own schemas under their own route groups.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

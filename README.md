@@ -2,7 +2,8 @@
 
 Internal tools portal for WUWF Public Media — shared authentication, navigation, user
 approval/invitation, and access control for a small set of purpose-built internal tools
-(Editorial Planning, and later Remote Interview, Shared Clip Library, Audience Listening).
+(Editorial Planning, Transcription Workspace, and later Remote Interview and Audience
+Listening).
 
 This repository contains the **portal foundation** (application shell, auth, the tool
 registry, and admin screens) and the first real tool, **Editorial Planning** — a pitch
