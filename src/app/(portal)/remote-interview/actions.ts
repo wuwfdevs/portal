@@ -122,6 +122,39 @@ export async function addParticipant(formData: FormData): Promise<void> {
   redirect(sessionPath);
 }
 
+/**
+ * Admits a guest who's finished preflight and is waiting (design doc §3C):
+ * "Nobody joins an interview that has already started without the host
+ * knowing." This is the only place admitted_at is ever set — a guest cannot
+ * set it on their own row; see ri_guest_join_waiting_room()'s comment in
+ * supabase/migrations/20260729180000_remote_interview_waiting_room.sql.
+ */
+export async function admitParticipant(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("remote-interview");
+  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
+  await requireHost(sessionId, profile.id, sessionPath);
+
+  const participantId = String(formData.get("participant_id") ?? "");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ri_participants")
+    .update({ admitted_at: new Date().toISOString() })
+    .eq("id", participantId)
+    .eq("session_id", sessionId);
+  failIfError(error, sessionPath, "Could not admit the guest");
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "ri.participant.admitted",
+    targetType: "ri_participant",
+    targetId: participantId,
+    metadata: { session_id: sessionId },
+  });
+
+  redirect(sessionPath);
+}
+
 /** Revoking a link is immediate and doesn't disturb any other participant (design doc §3A). */
 export async function revokeParticipant(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("remote-interview");

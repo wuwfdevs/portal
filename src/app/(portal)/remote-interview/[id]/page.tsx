@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getSessionById, listParticipants } from "@/lib/remote-interview/sessions";
+import {
+  getLatestPreflightResults,
+  getSessionById,
+  listParticipants,
+  listWaitingParticipants,
+} from "@/lib/remote-interview/sessions";
 import { isJoinLinkActive } from "@/lib/remote-interview/tokens";
 import { getSiteUrl } from "@/lib/site-url";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { addParticipant } from "../actions";
+import { addParticipant, admitParticipant } from "../actions";
 import { CopyLinkButton } from "./copy-link-button";
 import { RevokeLinkButton } from "./revoke-link-button";
 
@@ -30,6 +35,9 @@ export default async function RemoteInterviewSessionPage({
   const isHost = session.created_by === profile.id;
   const siteUrl = getSiteUrl();
 
+  const waitingParticipants = isHost ? await listWaitingParticipants(id) : [];
+  const preflightResults = isHost ? await getLatestPreflightResults(id) : {};
+
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <div className="mb-5">
@@ -47,6 +55,55 @@ export default async function RemoteInterviewSessionPage({
       </div>
 
       {error && <Alert className="mb-4">{error}</Alert>}
+
+      {isHost && waitingParticipants.length > 0 && (
+        <div className="mb-6 max-w-xl rounded border border-line bg-white">
+          <div className="border-b border-line px-4 py-3">
+            <h2 className="font-serif text-[15px] font-bold text-ink-900">Waiting room</h2>
+          </div>
+          <ul>
+            {waitingParticipants.map((participant) => {
+              const preflight = preflightResults[participant.id];
+              return (
+                <li key={participant.id} className="border-b border-line px-4 py-3 last:border-b-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <span className="text-sm font-semibold text-ink-900">
+                        {participant.display_name}
+                      </span>
+                      {preflight?.deviceLabel && (
+                        <p className="mt-0.5 text-xs text-ink-500">Mic: {preflight.deviceLabel}</p>
+                      )}
+                      {preflight && preflight.warnings.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {preflight.warnings.map((warning) => (
+                            <Badge
+                              key={warning.code}
+                              variant={warning.severity === "blocking" ? "danger" : "muted"}
+                            >
+                              {warning.code.replace(/_/g, " ")}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {!preflight && (
+                        <p className="mt-0.5 text-xs text-ink-400">No preflight results recorded.</p>
+                      )}
+                    </div>
+                    <form action={admitParticipant}>
+                      <input type="hidden" name="session_id" value={session.id} />
+                      <input type="hidden" name="participant_id" value={participant.id} />
+                      <Button type="submit" variant="secondary">
+                        Admit
+                      </Button>
+                    </form>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="max-w-xl rounded border border-line bg-white">
         <div className="border-b border-line px-4 py-3">

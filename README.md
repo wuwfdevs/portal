@@ -104,10 +104,15 @@ through automation and need a human in each dashboard once:
      ASR provider (**sensitive** — mark both encrypted); see `.env.example` for details
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
-**Supabase Auth** (each project's dashboard → Authentication → URL Configuration):
+**Supabase Auth** (each project's dashboard → Authentication):
 
-- Site URL = that environment's `NEXT_PUBLIC_SITE_URL`
-- Redirect URLs include `<site-url>/auth/callback`
+- URL Configuration: Site URL = that environment's `NEXT_PUBLIC_SITE_URL`; Redirect URLs
+  include `<site-url>/auth/callback`
+- Sign In / Providers: enable **Anonymous sign-ins**. Required for Remote Interview's
+  guest join flow (`/join/[token]`) — a guest has no portal account, so that route binds
+  an anonymous Supabase user to their `ri_participants` row instead. See
+  `docs/remote-interview-design.md`, "Guest identity," for why. Without this enabled,
+  opening a guest link fails at the sign-in step.
 
 Everything else — schema, RLS, seed data, the tool registry — is already applied to both
 Supabase projects via migrations.

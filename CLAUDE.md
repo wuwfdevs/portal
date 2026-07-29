@@ -30,8 +30,9 @@ instruction to start that phase — a separate milestone with its own schema und
 route group. (Remote Interview's guardrail has been lifted — see below.)
 
 **Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slice 1
-(Foundation) is done, and slice 2 (Preflight and guest join) is next — proceed with it
-without asking again.**
+(Foundation) is done, slice 2 (Preflight and guest join) is done, and slice 3 (the
+studio — Daily integration, the live call, recording start/stop, per-participant status)
+is next — proceed with it without asking again.**
 Two design documents: `docs/remote-interview-design.md` (the product — capture only:
 local lossless per-participant recording, a cloud backup of the call via Daily's
 raw-tracks recording, chunked upload with recovery, and handoff to the Transcription
@@ -63,14 +64,27 @@ policies, the registry row narrowed per that doc's §2, the route segment
 and the session list / create-session / join-link screens (`lib/remote-interview/`).
 The migration has been written but — like every migration in this repo — is not
 self-applying; confirm it's been applied to both Supabase projects before relying on the
-tables existing. **Slice 2 (Preflight and guest join)** is next: the `/join/[token]`
-guest route (outside both `(portal)` and `(auth)` — see the design doc's "Fit with portal
-conventions" for why), anonymous-auth binding to `ri_participants.guest_user_id`, the
-waiting room, and host admission. Daily and the live call are slice 3 — don't build them
-out of order. Before touching the migration again, read the assessment doc's Finding 4 (a
-real, already-characterized, non-blocking gap in this repo's own migration history,
+tables existing. Before touching the migration again, read the assessment doc's Finding 4
+(a real, already-characterized, non-blocking gap in this repo's own migration history,
 discovered during Phase 4 prep) so it isn't mistaken for something new or accidentally
 reapplied.
+
+**Phase 4 slice 2 (Preflight and guest join) has landed**: the `/join/[token]` guest
+route (`src/app/join/[token]/`, outside both `(portal)` and `(auth)` — see the design
+doc's "Fit with portal conventions"), anonymous-auth binding to
+`ri_participants.guest_user_id` via the security-definer `ri_bind_guest_participant()` and
+`ri_guest_join_waiting_room()` functions (added in
+`20260729180000_remote_interview_waiting_room.sql` — a plain RLS update policy on a
+guest's own row would also let them set their own `admitted_at`, which is exactly the
+self-admission bypass the design doc rules out), the preflight screen (device pick, level
+meter, test recording, and the warning set from §3B — pure derivation logic in
+`lib/remote-interview/preflight.ts`), the waiting room (short client-side poll for
+admission — there's still no notification layer), and host admission
+(`admitParticipant` in the portal route's `actions.ts`). **Anonymous sign-ins must be
+enabled in both Supabase projects' dashboards** (see README.md's one-time setup list) —
+without it, `signInAnonymously()` fails and no guest can join. **Slice 3 (the studio)** is
+next: Daily integration, the live call, recording start/stop, per-participant status from
+§3D, and the cloud backup lifecycle. Don't build it out of order.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -139,10 +153,11 @@ src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the
 src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
                             requireToolAccess("transcription")
 src/app/(portal)/remote-interview/  Remote Interview — its own route segment, gated by
-                            requireToolAccess("remote-interview"). From slice 2 on, its
-                            guest-facing /join/[token] route lives outside both
-                            (portal) and (auth) — a guest has no profile — see
-                            docs/remote-interview-design.md, "Fit with portal conventions"
+                            requireToolAccess("remote-interview")
+src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
+                            outside both (portal) and (auth), since a guest has no
+                            profile — see docs/remote-interview-design.md, "Fit with
+                            portal conventions"
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
