@@ -24,6 +24,26 @@ export type EpDecisionOutcome = "assigned" | "deferred" | "archived";
 /** ep_pitch_values.value: a string for most field types, string[] for multi_select. */
 export type EpFieldValue = string | string[];
 
+// Remote Interview (ri_*) — see supabase/migrations/20260729120000_remote_interview_schema.sql.
+export type RiSessionStatus =
+  | "scheduled"
+  | "live"
+  | "recording"
+  | "processing"
+  | "ready"
+  | "needs_recovery"
+  | "failed";
+export type RiParticipantRole = "host" | "guest";
+export type RiTrackSource = "local" | "cloud";
+export type RiTrackStatus =
+  | "recording"
+  | "uploading"
+  | "assembling"
+  | "complete"
+  | "partial"
+  | "missing"
+  | "failed";
+
 export interface Database {
   public: {
     Tables: {
@@ -387,6 +407,118 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ep_review_scores"]["Row"]>;
         Relationships: [];
       };
+      ri_sessions: {
+        Row: {
+          id: string;
+          title: string;
+          notes: string | null;
+          scheduled_at: string | null;
+          status: RiSessionStatus;
+          recording_started_at: string | null;
+          recording_stopped_at: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ri_sessions"]["Row"]> & {
+          title: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ri_sessions"]["Row"]>;
+        Relationships: [];
+      };
+      ri_participants: {
+        Row: {
+          id: string;
+          session_id: string;
+          display_name: string;
+          role: RiParticipantRole;
+          profile_id: string | null;
+          guest_user_id: string | null;
+          join_token: string;
+          token_expires_at: string | null;
+          revoked_at: string | null;
+          admitted_at: string | null;
+          clock_offset_ms: number | null;
+          storage_prefix: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ri_participants"]["Row"]> & {
+          session_id: string;
+          display_name: string;
+          role: RiParticipantRole;
+          join_token: string;
+          storage_prefix: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ri_participants"]["Row"]>;
+        Relationships: [];
+      };
+      ri_tracks: {
+        Row: {
+          id: string;
+          participant_id: string;
+          source: RiTrackSource;
+          run_index: number;
+          status: RiTrackStatus;
+          started_at_ms: number | null;
+          expected_part_count: number | null;
+          storage_path: string | null;
+          content_type: string | null;
+          size_bytes: number | null;
+          duration_ms: number | null;
+          sample_rate: number | null;
+          checksum: string | null;
+          verified_at: string | null;
+          assembled_at: string | null;
+          error_message: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ri_tracks"]["Row"]> & {
+          participant_id: string;
+          source: RiTrackSource;
+        };
+        Update: Partial<Database["public"]["Tables"]["ri_tracks"]["Row"]>;
+        Relationships: [];
+      };
+      ri_track_parts: {
+        Row: {
+          id: string;
+          track_id: string;
+          sequence: number;
+          storage_path: string;
+          size_bytes: number;
+          checksum: string;
+          started_at_ms: number;
+          duration_ms: number | null;
+          uploaded_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ri_track_parts"]["Row"]> & {
+          track_id: string;
+          sequence: number;
+          storage_path: string;
+          size_bytes: number;
+          checksum: string;
+          started_at_ms: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["ri_track_parts"]["Row"]>;
+        Relationships: [];
+      };
+      ri_session_events: {
+        Row: {
+          id: string;
+          session_id: string;
+          participant_id: string | null;
+          kind: string;
+          detail: Record<string, unknown>;
+          occurred_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ri_session_events"]["Row"]> & {
+          session_id: string;
+          kind: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ri_session_events"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -426,6 +558,10 @@ export interface Database {
       tool_status: ToolStatus;
       access_request_status: AccessRequestStatus;
       tw_project_status: TwProjectStatus;
+      ri_session_status: RiSessionStatus;
+      ri_participant_role: RiParticipantRole;
+      ri_track_source: RiTrackSource;
+      ri_track_status: RiTrackStatus;
     };
     CompositeTypes: Record<string, never>;
   };
