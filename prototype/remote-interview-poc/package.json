@@ -1,0 +1,25 @@
+{
+  "name": "remote-interview-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch src/server/server.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test:e2e": "tsx test/driver.ts"
+  },
+  "dependencies": {
+    "extendable-media-recorder": "9.2.39",
+    "extendable-media-recorder-wav-encoder": "7.0.140",
+    "ffmpeg-static": "5.3.0",
+    "ffprobe-static": "3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@types/wicg-file-system-access": "2023.10.7",
+    "playwright": "1.56.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3",
+    "vite": "8.1.5"
+  }
+}
