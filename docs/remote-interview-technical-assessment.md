@@ -1,9 +1,13 @@
 # Remote Interview — Existing-System & Technical-Options Assessment
 
-Phases 1 and 2 of the development process in the product brief: what already
-exists and can be reused, what credible building blocks exist outside, and the
-proposed architecture with its risks. **No code has been written.** This
-document exists to be argued with before anything is built.
+Status: **Phases 1, 2, and the local-capture half of Phase 3 are done.**
+Phases 1–2 (below) are the existing-system inventory and building-block
+evaluation. Phase 3's throwaway prototype (`prototype/remote-interview-poc/`)
+validated the two riskiest assumptions — chunked WAV assembly and OPFS
+durability across a crash — with a real, runnable test; see "Phase 3 results"
+near the end of this document for what was and wasn't covered. **Phase 4
+(product implementation) is explicitly authorized and is the next step** —
+start with the Foundation slice in `docs/remote-interview-design.md` §7.
 
 Companion to `docs/remote-interview-design.md`, which describes the product.
 Where the two disagree, this one is newer.
@@ -18,7 +22,7 @@ The portal is small, coherent, and deliberately lean: **eight runtime
 dependencies**, nineteen tables, two API route handlers. Its authentication,
 authorization, audit, and UI conventions are directly reusable and should be
 reused without modification. Its _media_ infrastructure, however, is much
-thinner than it looks from the design documents, and three findings below
+thinner than it looks from the design documents, and four findings below
 change what this tool has to build.
 
 ### What can be reused unchanged
@@ -37,7 +41,7 @@ change what this tool has to build.
 | Private storage bucket + RLS pattern | `transcription-media` bucket and `tw_media_*` policies (`…transcription_workspace_schema.sql:217-262`)                                       | The bucket/policy shape is directly copyable.                                                                                                      |
 | Signed URL access                    | `src/lib/transcription/storage.ts`                                                                                                           | `createSignedUrl` with TTL and `download` filename — reusable as-is for track downloads.                                                           |
 
-### Three findings that change the plan
+### Four findings that change the plan
 
 **1. There is no canonical audio-file table. The brief's premise does not hold.**
 
@@ -105,6 +109,54 @@ Media assembly and upload-recovery sweeps must therefore be designed to run as
 request-scoped work (a server action or route handler, ≤300 s) with status
 columns and retry, or the tool must introduce the first job system in the repo.
 Part 3 recommends the former.
+
+**4. The migration history has a gap — characterized, not blocking, but worth
+knowing before adding new migrations.**
+
+Both hosted Supabase projects (`wuwf-tools-portal` and `wuwf-tools-portal-preview`)
+have a migration named `harden_functions` applied, right after `rls_policies`,
+in both — confirmed via `list_migrations` and its exact SQL pulled from
+`supabase_migrations.schema_migrations`:
+
+```sql
+alter function public.set_updated_at() set search_path = public;
+revoke execute on function public.handle_new_auth_user() from public, anon, authenticated;
+revoke execute on function public.handle_auth_user_sign_in() from public, anon, authenticated;
+revoke execute on function public.is_administrator(uuid) from public, anon;
+grant execute on function public.is_administrator(uuid) to authenticated;
+```
+
+**No file in `supabase/migrations/` corresponds to this migration.** But its
+content is not actually missing from the repo — it's already baked directly
+into the committed `20260722120000_platform_schema.sql` (`set search_path =
+public` on `set_updated_at` at line 100; the identical revoke/grant block at
+lines 188-191). The most likely explanation: `platform_schema.sql` was edited
+_after_ being applied to both hosted projects, to fold in a fix that had
+already shipped live as its own separate `harden_functions` migration —
+exactly the practice `CLAUDE.md`/`README.md` forbid ("never edit an
+already-applied migration file; add a new one").
+
+**Confirmed non-issues, so this isn't a live problem to fix under pressure:**
+`get_advisors(type: security)` on the preview project shows nothing related
+(only an unrelated, pre-existing "leaked password protection disabled" auth
+toggle) — both hosted databases are correctly hardened. And because the fix
+is baked into `platform_schema.sql`, a fresh `supabase db reset` locally
+reproduces the same hardened end state, just via a different (and, per the
+file's current content, more accurate) path than what actually happened on
+hosted infrastructure historically.
+
+**What's actually wrong is narrower than it first looks: an audit-trail gap,
+not a functional or security one.** Both hosted projects' migration history
+now contains a step (`harden_functions`) that no longer corresponds to
+anything in git, and replaying `supabase/migrations/*.sql` from scratch would
+never reproduce that exact two-step history — though it reproduces the same
+final schema. **Deliberately not fixed here**: reconciling it (e.g. reverting
+the edit and adding a proper `harden_functions.sql`) is pure churn with no
+functional benefit given both live databases are already correct, and it's a
+call worth making on purpose rather than as a drive-by fix while building an
+unrelated tool. Flagging it here means whoever writes the `ri_*` migration
+knows the history has this quirk, doesn't need to re-discover it, and doesn't
+accidentally re-apply `harden_functions` believing it's missing.
 
 ### Gaps this tool must fill
 
@@ -356,22 +408,59 @@ open question above.
 8. **`extendable-media-recorder`'s single maintainer** — mitigated by MIT
    licensing and a small surface, with the AudioWorklet path as the exit.
 
-### What Phase 3 must prove before any UI work
+### Phase 3 results: what was proven, and what's still open
 
-The prototype in the brief, narrowed to the assertions that would invalidate
-this architecture: a WAV master captured locally through a real call, uploaded
-progressively while the network is deliberately interrupted, resumed from OPFS
-after a refresh, assembled server-side, verified readable, **opened in Adobe
-Audition**, and checked for alignment against a second machine's track — with a
-Daily raw-tracks backup present, landing in its intended bucket, and correctly
-labelled throughout.
+The local-capture half of Phase 3 ran as a real, executable prototype —
+`prototype/remote-interview-poc/` (throwaway, not product code; see its
+README) — not a paper design. Chromium's fake-audio-device flags let a
+headless browser record a real synthesized tone with no hardware, so this
+validated actual behavior against concrete, numeric pass/fail criteria rather
+than assumption:
 
-Build the call layer behind a thin interface. Not to hedge the vendor decision —
-that is made — but because the seam falls out of the work anyway and keeps the
-LiveKit fallback cheap if trials go badly.
+- **Chunked WAV assembly holds.** An open upstream issue claims only the first
+  chunk from `extendable-media-recorder` carries a WAV header — confirmed
+  true against the exact pinned version by dumping the actual bytes emitted,
+  rather than trusted on faith. Assembly detects this per-part instead of
+  hardcoding it. A 25s recording assembled to a file ffprobe validated as
+  correct format, correct duration (within tens of milliseconds), and
+  genuinely non-silent audio.
+- **OPFS survives a crash, and nothing is lost or duplicated.** A reload
+  triggered right after recording stopped, before uploads had acked, with the
+  server's _response_ (not the write) deliberately delayed — reproducing the
+  real failure mode where the server already durably has a part but the
+  client's view of the ack was aborted by navigation. Confirmed: the
+  not-yet-acked parts were still in OPFS immediately post-reload, the
+  resume-on-load drain found and re-uploaded them, the server's idempotent
+  dedupe absorbed the resend cleanly, and the final assembled duration
+  matched the original recording to within 24ms.
+
+**Still open, deliberately deferred, and not yet touched by any code:** Daily's
+raw-tracks integration itself, the S3-destination question (risk #6 above), a
+live two-person call, real network flakiness (the reload test is a
+deterministic stand-in for a crash, not a flaky-network simulation), and
+cross-machine clock alignment (risk #7 — this one specifically needs two
+physical machines on different networks and cannot be validated in a sandboxed
+single-machine environment regardless of how much of this pass was spent on
+it). Opening an assembled file in Adobe Audition was also out of reach here —
+nothing in this environment can perform that check; the prototype's driver
+prints the file paths for a human to do so.
+
+**Phase 4 (product implementation) is authorized and is the next step**,
+starting with the Foundation slice from `docs/remote-interview-design.md` §7:
+the `ri_*` migration + RLS + `private.has_remote_interview_access` (mirroring
+`private.has_transcription_access`), the storage bucket and policies, the
+registry row narrowed per that doc's §2, the route segment gated by
+`requireToolAccess("remote-interview")`, and the session list / create-session
+/ join-link screens. Read Finding 4 above (the migration-history gap) before
+writing that migration — it's non-blocking but worth knowing going in. Build
+the call layer behind a thin interface in the following slice — not to hedge
+the vendor decision, which is made, but because the seam falls out of the
+work anyway and keeps a LiveKit fallback cheap if Daily trials go badly.
 
 ---
 
-_Nothing in this document is built. It supersedes `docs/remote-interview-design.md`
-§6 where the two conflict — chiefly the SFU and lossless-capture decisions,
-both reversed by the cloud-backup and WAV requirements in the product brief._
+_Nothing in `prototype/remote-interview-poc/` ships; it is validation
+evidence, not product code. This document supersedes
+`docs/remote-interview-design.md` §6 where the two conflict — chiefly the SFU
+and lossless-capture decisions, both reversed by the cloud-backup and WAV
+requirements in the product brief._
