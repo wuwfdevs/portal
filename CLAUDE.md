@@ -29,10 +29,11 @@ workflow or schema. **Do not build the Audience Listening tool** without an expl
 instruction to start that phase — a separate milestone with its own schema under its own
 route group. (Remote Interview's guardrail has been lifted — see below.)
 
-**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slice 1
-(Foundation) is done, slice 2 (Preflight and guest join) is done, and slice 3 (the
-studio — Daily integration, the live call, recording start/stop, per-participant status)
-is next — proceed with it without asking again.**
+**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-3
+(Foundation; Preflight and guest join; the studio) are done, and slice 4 (completion,
+recovery, and delivery — the completion states from §3E, resume-on-reopen, assembly
+retry, provenance and integrity on the detail screen, per-track and bulk download) is
+next — proceed with it without asking again.**
 Two design documents: `docs/remote-interview-design.md` (the product — capture only:
 local lossless per-participant recording, a cloud backup of the call via Daily's
 raw-tracks recording, chunked upload with recovery, and handoff to the Transcription
@@ -82,9 +83,44 @@ meter, test recording, and the warning set from §3B — pure derivation logic i
 admission — there's still no notification layer), and host admission
 (`admitParticipant` in the portal route's `actions.ts`). **Anonymous sign-ins must be
 enabled in both Supabase projects' dashboards** (see README.md's one-time setup list) —
-without it, `signInAnonymously()` fails and no guest can join. **Slice 3 (the studio)** is
-next: Daily integration, the live call, recording start/stop, per-participant status from
-§3D, and the cloud backup lifecycle. Don't build it out of order.
+without it, `signInAnonymously()` fails and no guest can join.
+
+**Phase 4 slice 3 (the studio) has landed**: `lib/remote-interview/daily.ts`, a thin
+server-only client for Daily's REST API (room creation, meeting tokens — recording
+start/stop deliberately goes through the client SDK instead, see below); the host's live
+screen (`src/app/(portal)/remote-interview/[id]/studio/`, host-only — no second staff
+member can join a session's Daily room in this slice); the guest's in-call view
+(`src/app/join/[token]/call.tsx`, replacing slice 2's "you're in" placeholder — a
+deliberately smaller version of the studio per §3D, no record button); and the local
+lossless capture pipeline (`lib/remote-interview/capture.ts` — `extendable-media-recorder`
+
+- OPFS, product code following Phase 3's validated prototype pattern, `write → upload →
+delete-on-ack`) shared between both via `lib/remote-interview/use-local-capture.ts`. The
+  call carries **audio only** — recorded video was deliberately dropped from this slice's
+  scope, consistent with §6's "must never be allowed to compromise audio reliability. If it
+  threatens to, it is deferred." Recording start/stop, mint by `studio/actions.ts`, drives
+  three things in lockstep: the database (session status, the reference clock, cloud-backup
+  `ri_tracks` rows — `20260729190000_remote_interview_studio_rls.sql` broadens `ri_tracks`
+  RLS so the host can write a guest's cloud-track row), Daily's raw-tracks recording via
+  `callObject.startRecording()`/`stopRecording()` **on the client**, not a guessed REST
+  endpoint (`docs.daily.co` returns 403 to automated fetches, confirmed again while building
+  this slice — the REST surface used here is limited to room/token creation, which could be
+  verified against the installed `@daily-co/daily-js` type definitions), and every
+  participant's local capture, via a `sendAppMessage` broadcast so a guest's browser starts
+  and stops in lockstep without its own record button (§3D: "Guests cannot start or stop
+  recording"). Cloud backup is opt-in via three `DAILY_RECORDINGS_BUCKET_*`/
+  `DAILY_RECORDINGS_ASSUME_ROLE_ARN` env vars (`.env.example`) — unset, it's skipped with a
+  visible "not configured" status rather than failing recording start; **this repo still has
+  no Daily account**, so the REST/SDK integration is unverified against a live one, and the
+  raw-tracks S3-destination question from the assessment doc remains open. Per-participant
+  status (`lib/remote-interview/call-status.ts`, pure and tested) derives from Daily
+  participant/recording events plus each guest's periodic status broadcast — deliberately
+  **not** connection status (§3D): a flaky network alone never marks a participant unsafe,
+  only a failed local recording with no working cloud backup does. One scope boundary
+  carried forward from the phase split: this slice's OPFS buffering retries a stalled upload
+  with backoff for as long as the page stays open, but does not reconstruct an in-flight
+  track from a fresh page load after a crash or navigation away — that "resume-on-reopen" is
+  slice 4's job, not built yet.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
