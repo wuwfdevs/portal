@@ -29,8 +29,9 @@ workflow or schema. **Do not build the Audience Listening tool** without an expl
 instruction to start that phase — a separate milestone with its own schema under its own
 route group. (Remote Interview's guardrail has been lifted — see below.)
 
-**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 (product
-implementation) is explicitly authorized — proceed with it without asking again.**
+**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slice 1
+(Foundation) is done, and slice 2 (Preflight and guest join) is next — proceed with it
+without asking again.**
 Two design documents: `docs/remote-interview-design.md` (the product — capture only:
 local lossless per-participant recording, a cloud backup of the call via Daily's
 raw-tracks recording, chunked upload with recovery, and handoff to the Transcription
@@ -54,15 +55,22 @@ call, real network flakiness, and cross-machine clock alignment — the last of 
 two physical machines and can't be done in a sandboxed session), are in the assessment
 doc's "Phase 3 results" section.
 
-**Start Phase 4 with the Foundation slice** (`docs/remote-interview-design.md` §7): the
+**Phase 4 slice 1 (Foundation) has landed** (`docs/remote-interview-design.md` §7): the
 `ri_*` migration + RLS + `private.has_remote_interview_access` (mirroring
-`private.has_transcription_access`), storage bucket + policies, the registry row narrowed
-per that doc's §2, the route segment gated by `requireToolAccess("remote-interview")`, and
-session list / create-session / join-link screens. Daily and the live call are the next
-slice after that — don't build them out of order. Before writing the migration, read the
-assessment doc's Finding 4 (a real, already-characterized, non-blocking gap in this
-repo's own migration history, discovered during Phase 4 prep) so it isn't mistaken for
-something new or accidentally reapplied.
+`private.has_transcription_access`), the `remote-interview-media` storage bucket +
+policies, the registry row narrowed per that doc's §2, the route segment
+(`src/app/(portal)/remote-interview/`) gated by `requireToolAccess("remote-interview")`,
+and the session list / create-session / join-link screens (`lib/remote-interview/`).
+The migration has been written but — like every migration in this repo — is not
+self-applying; confirm it's been applied to both Supabase projects before relying on the
+tables existing. **Slice 2 (Preflight and guest join)** is next: the `/join/[token]`
+guest route (outside both `(portal)` and `(auth)` — see the design doc's "Fit with portal
+conventions" for why), anonymous-auth binding to `ri_participants.guest_user_id`, the
+waiting room, and host admission. Daily and the live call are slice 3 — don't build them
+out of order. Before touching the migration again, read the assessment doc's Finding 4 (a
+real, already-characterized, non-blocking gap in this repo's own migration history,
+discovered during Phase 4 prep) so it isn't mistaken for something new or accidentally
+reapplied.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -130,6 +138,11 @@ src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, set
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
 src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
                             requireToolAccess("transcription")
+src/app/(portal)/remote-interview/  Remote Interview — its own route segment, gated by
+                            requireToolAccess("remote-interview"). From slice 2 on, its
+                            guest-facing /join/[token] route lives outside both
+                            (portal) and (auth) — a guest has no profile — see
+                            docs/remote-interview-design.md, "Fit with portal conventions"
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
@@ -138,6 +151,8 @@ src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
 src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
+src/lib/remote-interview/  Remote Interview's data access + pure logic (tokens, storage
+                           prefixes) — not portal-schema
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
