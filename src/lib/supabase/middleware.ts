@@ -10,6 +10,12 @@ const PUBLIC_PATHS = [
   // authenticated by its own shared secret — see that route's comment), so
   // it must never hit the login redirect below.
   "/api/transcription/webhook",
+  // Remote Interview guest join: a guest has no profile and never signs in
+  // through /login — they get an anonymous session on this route itself
+  // (see src/app/join/[token]/actions.ts). Outside both (portal) and (auth)
+  // for the same reason (docs/remote-interview-design.md, "Fit with portal
+  // conventions").
+  "/join",
 ];
 
 function isPublicPath(pathname: string): boolean {

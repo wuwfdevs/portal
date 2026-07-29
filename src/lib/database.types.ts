@@ -441,6 +441,7 @@ export interface Database {
           admitted_at: string | null;
           clock_offset_ms: number | null;
           storage_prefix: string;
+          waiting_since: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -522,6 +523,23 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      /**
+       * Guest-join entry point (20260729180000_remote_interview_waiting_room.sql).
+       * Validates the join token and binds it to the caller's own (anonymous)
+       * auth.uid(). Returns null for any invalid token.
+       */
+      ri_bind_guest_participant: {
+        Args: { p_token: string };
+        Returns: Database["public"]["Tables"]["ri_participants"]["Row"] | null;
+      };
+      /**
+       * Called once guest preflight completes. Returns null if the caller
+       * isn't bound to that row, the link was revoked, or it's already admitted.
+       */
+      ri_guest_join_waiting_room: {
+        Args: { p_participant_id: string; p_display_name?: string | null };
+        Returns: Database["public"]["Tables"]["ri_participants"]["Row"] | null;
+      };
       tw_shift_segment_positions: {
         Args: { p_project_id: string; after_position: number; delta: number };
         Returns: undefined;
