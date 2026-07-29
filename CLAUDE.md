@@ -25,9 +25,44 @@ tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Plan
 (pitch backlog, configurable submission form and rubric, weekly meetings with
 independent scoring, ranked agendas, and recorded decisions). Its design rationale
 lives in `docs/editorial-planning-design.md` — read it before changing editorial
-workflow or schema. **Do not build the Remote Interview media pipeline or the Audience
-Listening tool** without an explicit instruction to start that phase — those are separate
-milestones with their own schemas under their own route groups.
+workflow or schema. **Do not build the Audience Listening tool** without an explicit
+instruction to start that phase — a separate milestone with its own schema under its own
+route group. (Remote Interview's guardrail has been lifted — see below.)
+
+**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 (product
+implementation) is explicitly authorized — proceed with it without asking again.**
+Two design documents: `docs/remote-interview-design.md` (the product — capture only:
+local lossless per-participant recording, a cloud backup of the call via Daily's
+raw-tracks recording, chunked upload with recovery, and handoff to the Transcription
+Workspace) and `docs/remote-interview-technical-assessment.md` (the existing-system
+inventory, building-block evaluation, deployment, and risks — including a vendor reversal
+from an earlier LiveKit recommendation to Daily, and Phase 3's results). Where they
+conflict, the assessment is newer. Read both before touching any of it — and note two
+findings there that contradict older docs: **there is no canonical audio-file table** in
+this database (media metadata is columns on `tw_projects`), and **there is no resumable
+upload infrastructure** (the Transcription Workspace uses a single-request `.upload()`,
+despite its design doc saying TUS). Neither tool has a job queue, notification layer, or
+error reporting.
+
+Phase 3's throwaway prototype (`prototype/remote-interview-poc/` — not product code, its
+own `package.json`, see its README) ran for real (Chromium's fake-audio-device flags let a
+headless browser record without hardware) and validated the two riskiest assumptions:
+chunked WAV assembly reassembles correctly, and the OPFS-buffer-then-upload-then-delete-
+on-ack sequence survives a crash/reload with neither data loss nor duplication. Full
+results, and what's still open (Daily's raw-tracks integration itself, a live two-person
+call, real network flakiness, and cross-machine clock alignment — the last of which needs
+two physical machines and can't be done in a sandboxed session), are in the assessment
+doc's "Phase 3 results" section.
+
+**Start Phase 4 with the Foundation slice** (`docs/remote-interview-design.md` §7): the
+`ri_*` migration + RLS + `private.has_remote_interview_access` (mirroring
+`private.has_transcription_access`), storage bucket + policies, the registry row narrowed
+per that doc's §2, the route segment gated by `requireToolAccess("remote-interview")`, and
+session list / create-session / join-link screens. Daily and the live call are the next
+slice after that — don't build them out of order. Before writing the migration, read the
+assessment doc's Finding 4 (a real, already-characterized, non-blocking gap in this
+repo's own migration history, discovered during Phase 4 prep) so it isn't mistaken for
+something new or accidentally reapplied.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

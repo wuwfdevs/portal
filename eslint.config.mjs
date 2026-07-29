@@ -10,6 +10,7 @@ const eslintConfig = [
       "src/lib/database.types.ts",
       ".next/**",
       "node_modules/**",
+      "prototype/**",
     ],
   },
 ];

@@ -20,6 +20,12 @@
 /supabase/.branches
 /supabase/.temp
 
+# throwaway prototype (docs/remote-interview-technical-assessment.md Phase 3) —
+# its own package.json/node_modules, not part of the portal app
+/prototype/remote-interview-poc/node_modules
+/prototype/remote-interview-poc/dist
+/prototype/remote-interview-poc/data
+
 # misc
 .DS_Store
 *.pem
