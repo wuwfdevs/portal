@@ -29,6 +29,13 @@ workflow or schema. **Do not build the Remote Interview media pipeline or the Au
 Listening tool** without an explicit instruction to start that phase — those are separate
 milestones with their own schemas under their own route groups.
 
+**Remote Interview is designed but not started.** `docs/remote-interview-design.md` is
+the reviewed product/engineering design (capture only — local per-participant recording,
+chunked upload, handoff to the Transcription Workspace; transcription and editing stay
+where they are). It is a plan, not permission: the guardrail above still holds, and Phase 1
+needs an explicit instruction before any `ri_*` migration or route lands. Read that doc,
+and check its phase boundaries, before building any of it.
+
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
