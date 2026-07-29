@@ -135,18 +135,60 @@ putting a media server in the path — an SFU. This reverses the recommendation 
 the existing design document, which chose plain P2P and explicitly rejected an
 SFU.
 
-| Option                            | License / model                  | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **LiveKit Cloud** (SFU + Egress)  | Apache-2.0 core, managed service | **Recommended.** Track Egress records each participant's audio to a separate file — exactly the backup this tool needs, not a composited mix. Writes to any S3-compatible endpoint with a custom endpoint URL, and Supabase Storage is S3-compatible, so backups land in the same bucket as the local masters with no second storage system. Managed, so no SFU to operate. TURN is included, which removes a separate infrastructure item. Track egress is ~$0.001/min, so a 60-minute two-person interview costs roughly $0.12 in egress plus participant minutes — negligible at WUWF's volume. |
-| **LiveKit self-hosted**           | Apache-2.0                       | Same software, but adds a Go service, Redis, a TURN deployment, and an egress worker (which runs headless Chrome for compositing) to operate. Disproportionate for a small newsroom, per the brief's own constraint. Keep as the exit path if the managed service is ever unacceptable — the client code is identical.                                                                                                                                                                                                                                                                             |
-| **Daily.co**                      | Proprietary SaaS                 | Genuinely strong fit: `raw-tracks` recording captures each participant's track separately to your own S3 bucket, and they publish `daily-co/raw-tracks-tools` for alignment and compositing. The main strike against it is that it is closed-source with no self-host path, where LiveKit's core is Apache-2.0 and the same client code runs against self-hosted infrastructure. Recommend as the fallback if LiveKit Cloud disappoints in trials.                                                                                                                                                 |
-| **mediasoup / Janus / ion-sfu**   | Various OSS                      | Rejected. All are SFU libraries requiring you to build and operate the surrounding service, plus a separate recording pipeline. This is the "large platform-engineering team" the brief warns against.                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Plain P2P `RTCPeerConnection`** | Browser-native                   | Rejected _for this brief_, though it remains the simplest call layer. It cannot satisfy the cloud-backup requirement, and a separate "recorder peer" that joins each call to record is an SFU built badly.                                                                                                                                                                                                                                                                                                                                                                                         |
+| Option                            | License / model                  | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Daily**                         | Proprietary SaaS                 | **Recommended.** `raw-tracks` captures each participant's track separately to a customer-owned S3 bucket — exactly the backup this tool needs, not a composited mix — and emits an event JSON alongside the media carrying the timing data. They publish `daily-co/raw-tracks-tools` for alignment and compositing. Recording is billed per wall-clock minute rather than per track-minute. Managed, so no SFU to operate, and TURN is included. |
+| **LiveKit Cloud** (SFU + Egress)  | Apache-2.0 core, managed service | Runner-up, and the fallback if Daily disappoints in trials. Track Egress also produces per-participant files and writes to any S3-compatible endpoint. Lost on alignment (see below), which is the dimension that matters most here.                                                                                                                                                                                                             |
+| **LiveKit self-hosted**           | Apache-2.0                       | Rejected for now, retained as the no-vendor option. Adds a Go service, Redis, a TURN deployment, and an egress worker to operate — disproportionate for a small newsroom, per the brief's own constraint. Worth reviving only if procurement blocks a SaaS vendor outright.                                                                                                                                                                      |
+| **mediasoup / Janus / ion-sfu**   | Various OSS                      | Rejected. All are SFU libraries requiring you to build and operate the surrounding service, plus a separate recording pipeline. This is the "large platform-engineering team" the brief warns against.                                                                                                                                                                                                                                           |
+| **Plain P2P `RTCPeerConnection`** | Browser-native                   | Rejected _for this brief_, though it remains the simplest call layer. It cannot satisfy the cloud-backup requirement, and a separate "recorder peer" that joins each call to record is an SFU built badly.                                                                                                                                                                                                                                       |
 
-Adopting LiveKit means adopting `livekit-client` (browser) and
-`livekit-server-sdk` (token minting in a server action) — two dependencies, both
-Apache-2.0. That is a real addition to an eight-dependency project and should be
-justified in the commit that introduces it, per `CLAUDE.md`.
+### Why Daily over LiveKit — a recorded reversal
+
+An earlier revision of this document recommended LiveKit Cloud, on the strength
+of one argument: its core is Apache-2.0, the client code is identical
+self-hosted, so you can leave without a rewrite. That argument does not survive
+scrutiny, and a second consideration actively favours Daily.
+
+**The lock-in argument was overstated.** The call layer in this design is small
+— mint a token, publish the microphone, subscribe to peers, render tiles and
+levels, handle connection events, start and stop the server-side recording. The
+hard, genuinely novel work (lossless local capture, OPFS buffering, chunked
+upload, resume, assembly, verification) is vendor-agnostic and untouched by a
+swap. A switching cost that low should not drive the decision.
+
+**Alignment favours Daily, and this is the deciding factor.** `livekit/egress`
+issue #1139 — closed, with no documented workaround — reports that Track Egress
+files are _not_ mutually aligned: `FileInfo.started_at` deviates, and the
+deviation grows under poor network conditions. That is precisely the condition
+this tool is built for. Daily's raw-tracks event JSON carries the timing data
+needed to align its tracks, and the alignment tooling is published. Given that
+§"Track synchronization" in the design document proposes using the backup as an
+alignment anchor for the local masters, mutually-aligned backups are not a
+nicety — they are load-bearing.
+
+Cost did not decide it, and shouldn't: at the volume assumed below both vendors
+are within a few dollars a month of each other and of zero.
+
+Adopting Daily means adopting `@daily-co/daily-js` plus server-side REST calls
+for room and recording control. That is a real addition to an eight-dependency
+project and should be justified in the commit that introduces it, per
+`CLAUDE.md`.
+
+### Cost
+
+Assume ~20 interviews per month, ~45 minutes, two participants: roughly 1,800
+participant-minutes and 900 wall-clock recorded minutes. That sits inside
+Daily's free allowance of 10,000 participant-minutes, with audio-only recording
+at ~$0.005/min putting the recurring cost near **$5/month**. LiveKit's free tier
+(5,000 WebRTC minutes, 50 GB egress) would likewise cover it.
+
+Two caveats worth carrying: **do not run production on a free tier** — hard caps
+stop rather than bill, and that failure would land mid-interview — and **carrying
+video is what threatens an egress allowance**, not audio, which is one more
+reason recorded video stays out of v1. These figures come from secondary sources;
+both vendors' pricing pages return 403 to automated fetches, so confirm them
+against the vendor before committing.
 
 ### Lossless local capture
 
@@ -209,10 +251,11 @@ still the right model for alignment and is adopted in scaled-down form. Opencast
 Studio remains the best reference for browser capture handling.
 
 The brief's caution against inheriting creator-platform features applies
-directly to LiveKit: adopt `livekit-client`, `livekit-server-sdk`, and Track
-Egress. Do not adopt LiveKit Components' prebuilt conference UI, which is a
+directly to Daily: adopt `@daily-co/daily-js`, room and recording control, and
+raw-tracks. Do not adopt Daily Prebuilt, its drop-in call UI — it is a
 video-conferencing product's interface and would fight the calm,
-operationally-explicit interface this tool needs.
+operationally-explicit interface this tool needs, where recording health is the
+primary information and the video grid is incidental.
 
 ---
 
@@ -233,10 +276,17 @@ until the server has acknowledged it.**
 
 ### Cloud backup path
 
-LiveKit Track Egress, started with the recording, writing one OGG/Opus file per
-participant to the same Supabase Storage bucket via its S3-compatible endpoint.
-Lower fidelity by nature — it is the transmitted call — and never presented as
-anything else.
+Daily `raw-tracks`, started with the recording, writing one file per participant
+plus an event JSON carrying the timing data. Lower fidelity by nature — it is the
+transmitted call — and never presented as anything else.
+
+**Open question for the prototype:** raw-tracks writes to a customer-owned S3
+bucket, and it is unverified whether Supabase Storage's S3-compatible endpoint is
+an accepted destination. If it is not, backups need their own bucket on a real
+S3 provider, which splits storage across two systems and adds credentials,
+lifecycle, and access-control surface. That is a genuine architectural
+consequence, not a configuration detail, and it should be settled early rather
+than discovered late.
 
 ### Provenance, which must never be fudged
 
@@ -269,14 +319,16 @@ transcription tool is never a dependency for downloading a recording.
 
 ### Deployment implications
 
-| Runs where             | What                                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Vercel (existing)      | All staff UI, server actions, token minting, assembly route handler, guest lobby and room pages |
-| Supabase (existing)    | Postgres, Auth, Storage (masters, parts, and cloud backups in one bucket)                       |
-| **New: LiveKit Cloud** | SFU, TURN, Track Egress → Supabase Storage over S3                                              |
+| Runs where          | What                                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| Vercel (existing)   | All staff UI, server actions, room/token and recording control, assembly route handler, guest pages  |
+| Supabase (existing) | Postgres, Auth, Storage (masters and parts; cloud backups too, if raw-tracks accepts it as a target) |
+| **New: Daily**      | SFU, TURN, raw-tracks recording → S3                                                                 |
 
 One new external service, no new servers to operate. New environment variables:
-LiveKit URL/key/secret, and Supabase S3 credentials scoped for egress.
+Daily API key, and S3 credentials for the raw-tracks destination — scoped to
+Supabase Storage if it works as a target, otherwise to a dedicated bucket per the
+open question above.
 
 ### Principal technical risks
 
@@ -292,10 +344,16 @@ LiveKit URL/key/secret, and Supabase S3 credentials scoped for egress.
    unfixable; the honest answer is detection and a preflight warning, not a
    promise.
 4. **OPFS quota and eviction** under long sessions.
-5. **Egress start failure** leaving no backup at the moment it is most needed —
-   backup status must be surfaced live, not assumed.
-6. **Clock alignment across machines**, per the existing design document.
-7. **`extendable-media-recorder`'s single maintainer** — mitigated by MIT
+5. **Recording start failure** leaving no backup at the moment it is most needed
+   — raw-tracks status must be surfaced live, not assumed.
+6. **The raw-tracks S3 destination**, per the open question above: whether
+   Supabase Storage works as a target decides whether storage stays in one system
+   or splits into two.
+7. **Clock alignment across machines**, per the existing design document — and
+   note that the backup-as-anchor technique proposed there inherits whatever
+   alignment the vendor's own tracks have, so Daily's event-JSON timing data
+   needs verifying in practice rather than trusting.
+8. **`extendable-media-recorder`'s single maintainer** — mitigated by MIT
    licensing and a small surface, with the AudioWorklet path as the exit.
 
 ### What Phase 3 must prove before any UI work
@@ -305,7 +363,12 @@ this architecture: a WAV master captured locally through a real call, uploaded
 progressively while the network is deliberately interrupted, resumed from OPFS
 after a refresh, assembled server-side, verified readable, **opened in Adobe
 Audition**, and checked for alignment against a second machine's track — with a
-LiveKit cloud backup present and correctly labelled throughout.
+Daily raw-tracks backup present, landing in its intended bucket, and correctly
+labelled throughout.
+
+Build the call layer behind a thin interface. Not to hedge the vendor decision —
+that is made — but because the seam falls out of the work anyway and keeps the
+LiveKit fallback cheap if trials go badly.
 
 ---
 

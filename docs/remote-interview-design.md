@@ -392,15 +392,25 @@ decisions and, where the brief overturned the first draft, says so.
 ### Two reversals from the first draft
 
 **An SFU is now required, and the first draft was wrong to rule it out.** That
-draft chose plain peer-to-peer WebRTC and rejected LiveKit. The cloud backup
-requirement makes that untenable for a simple reason: _you cannot record a call
-server-side if the media never reaches a server_. P2P sends audio browser to
-browser. Recommendation is now **LiveKit Cloud** — its Track Egress records each
-participant's audio to a separate file (not a composited mix), writes to any
-S3-compatible endpoint, and Supabase Storage is S3-compatible, so backups land
-in the same bucket as the masters. It bundles TURN, which removes a separate
-infrastructure item the first draft had to budget for. LiveKit's core is
-Apache-2.0, so self-hosting stays available as an exit without a client rewrite.
+draft chose plain peer-to-peer WebRTC and rejected a media server outright. The
+cloud backup requirement makes that untenable for a simple reason: _you cannot
+record a call server-side if the media never reaches a server_. P2P sends audio
+browser to browser, so there is no clever local-only version of this — any
+"backup" that also runs in the guest's browser is correlated with the failures it
+is meant to insure against (the browser dying, the device dying), and therefore
+buys nothing.
+
+The provider is **Daily**. Its `raw-tracks` recording captures each participant's
+track separately to a customer-owned S3 bucket — not a composited mix — and emits
+an event JSON carrying the timing data. It bundles TURN, which removes a separate
+infrastructure item the first draft had to budget for. The deciding factor was
+alignment: `livekit/egress` issue #1139 reports that LiveKit's Track Egress files
+are not mutually aligned and that the deviation grows under poor network
+conditions, which is exactly the condition this tool exists for. Since §"Track
+synchronization" below uses the backup as an alignment anchor, mutually-aligned
+backup tracks are load-bearing rather than a nicety. The technical assessment
+carries the full reasoning, including why the Apache-2.0 lock-in argument that
+originally favoured LiveKit did not survive scrutiny.
 
 **Masters are lossless, and the first draft was wrong to argue for Opus.** It
 claimed Opus was transparent for speech and rejected lossless capture. The brief
@@ -497,6 +507,29 @@ dedicated protocol server. The offset arithmetic is pure logic and gets
 colocated Vitest tests — the most valuable tests in the tool, because its
 failure mode is silent.
 
+**The backup is also an alignment anchor, not only insurance.** Each local master
+and its own cloud backup contain the same voice saying the same words, differing
+only in quality, so cross-correlating them recovers the offset by _measuring the
+signal_ rather than estimating clock skew. This is the standard dual-system-sound
+technique — how you sync a lavalier recorder to a camera by matching audio rather
+than trusting timecode — and it is more robust than clock arithmetic because it
+observes what actually happened instead of modelling it.
+
+Two constraints on the technique, both worth stating so it isn't over-trusted:
+
+- **It inherits the backups' own alignment.** Anchoring each master to its backup
+  only aligns the masters to each other if the backups are mutually aligned. That
+  is why the vendor's timing metadata matters, and why it needs verifying in
+  practice rather than assuming.
+- **It cannot be replaced by correlating the two masters directly.** That would
+  rely on each participant's microphone picking up the other person, and preflight
+  deliberately recommends headphones — doing the right thing acoustically removes
+  the bleed such a correlation would need.
+
+So correlation is a refinement layered on top, not a replacement. The clock
+machinery stays primary, because it is what remains when a backup is missing or
+partial — which is precisely the situation where the masters matter most.
+
 ### Guest identity
 
 Guests have no portal account and the portal has no public self-signup, yet
@@ -506,7 +539,7 @@ their browsers must write hundreds of objects to Storage.
 calls `signInAnonymously()`; a server action verifies the join token and binds
 the resulting user id to `ri_participants.guest_user_id`. The guest then holds a
 real JWT, `auth.uid()` exists, and every policy is ordinary RLS — storage writes
-scoped to their own participant prefix, and LiveKit tokens minted server-side
+scoped to their own participant prefix, and Daily room tokens minted server-side
 only for a bound, unrevoked participant.
 
 The objection to answer is "doesn't this create public accounts?" No, and the
@@ -565,27 +598,29 @@ behind `requireActiveProfile()`; a guest has no profile and still needs a workin
 page. `CLAUDE.md`'s directory conventions should gain a line for it when Phase 1
 lands.
 
-New infrastructure, none of which exists today: LiveKit Cloud (credentials in
-`.env.example`), anonymous sign-in enabled per Supabase project, Supabase S3
-credentials for egress, and a `remote-interview-media` bucket.
+New infrastructure, none of which exists today: a Daily account (API key in
+`.env.example`), anonymous sign-in enabled per Supabase project, S3 credentials
+for the raw-tracks destination, and a `remote-interview-media` bucket. Whether
+that destination can be Supabase Storage or needs its own bucket is an open
+question for the prototype — see the technical assessment.
 
 ### What's deliberately _not_ in the architecture
 
-| Implied/expected                                                       | Recommended instead                                                   | Why                                                                                                                                                |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Self-hosted SFU (mediasoup, Janus, self-hosted LiveKit)                | LiveKit Cloud                                                         | The software is the same and Apache-2.0; running it means a Go service, Redis, TURN, and an egress worker. Disproportionate for a small newsroom.  |
-| Cloud recording as the primary source                                  | Local master, cloud as backup only                                    | Recording what survived the network is the problem this tool exists to solve.                                                                      |
-| Lossy Opus masters                                                     | Lossless WAV                                                          | Reversed from the first draft; the brief is right that a production master should not be a lossy codec.                                            |
-| Any capture-time processing (NR, gating, EQ, compression, enhancement) | Nothing, and AGC/NS/AEC off on the recorded stream                    | Destructive and irreversible. Producers master downstream.                                                                                         |
-| In-memory buffering until the call ends                                | OPFS-first, delete-after-ack                                          | The largest data-loss risk in this class of tool.                                                                                                  |
-| One resumable (TUS) upload per track                                   | Independent per-part objects                                          | A stream being produced as it uploads has no file to resume.                                                                                       |
-| A job queue for assembly                                               | Route handler with status columns and retry                           | One async step per session; the Transcription Workspace reached the same conclusion. Introducing the repo's first queue for this is not justified. |
-| A generic media/asset table                                            | `ri_*` owns recording; `tw_projects` stays the canonical worked asset | The canonical audio table the brief assumes does not exist (assessment, Part 1); inventing one for a second consumer would be speculative.         |
-| Transcode or normalize on assembly                                     | Concatenate and fix the header only                                   | Minimal, non-destructive, and fast.                                                                                                                |
-| LiveKit Components' prebuilt conference UI                             | Purpose-built studio UI on existing primitives                        | It is a video-conferencing product's interface; this tool needs calm operational status, not a meeting grid.                                       |
-| Guest accounts                                                         | Anonymous auth bound to a join token                                  | Any account a guest must create is a reason the interview doesn't happen.                                                                          |
-| Sample-accurate alignment                                              | Tens of milliseconds                                                  | Inaudible for speech; removes an entire class of machinery.                                                                                        |
-| Live mixing, switching, streaming, video layouts                       | Nothing — record and hand off                                         | That's a broadcast product.                                                                                                                        |
+| Implied/expected                                                       | Recommended instead                                                   | Why                                                                                                                                                             |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Self-hosted SFU (mediasoup, Janus, self-hosted LiveKit)                | Daily                                                                 | Running one means a media service, Redis, TURN, and a recording worker. Disproportionate for a small newsroom; revive only if procurement blocks a SaaS vendor. |
+| Cloud recording as the primary source                                  | Local master, cloud as backup only                                    | Recording what survived the network is the problem this tool exists to solve.                                                                                   |
+| Lossy Opus masters                                                     | Lossless WAV                                                          | Reversed from the first draft; the brief is right that a production master should not be a lossy codec.                                                         |
+| Any capture-time processing (NR, gating, EQ, compression, enhancement) | Nothing, and AGC/NS/AEC off on the recorded stream                    | Destructive and irreversible. Producers master downstream.                                                                                                      |
+| In-memory buffering until the call ends                                | OPFS-first, delete-after-ack                                          | The largest data-loss risk in this class of tool.                                                                                                               |
+| One resumable (TUS) upload per track                                   | Independent per-part objects                                          | A stream being produced as it uploads has no file to resume.                                                                                                    |
+| A job queue for assembly                                               | Route handler with status columns and retry                           | One async step per session; the Transcription Workspace reached the same conclusion. Introducing the repo's first queue for this is not justified.              |
+| A generic media/asset table                                            | `ri_*` owns recording; `tw_projects` stays the canonical worked asset | The canonical audio table the brief assumes does not exist (assessment, Part 1); inventing one for a second consumer would be speculative.                      |
+| Transcode or normalize on assembly                                     | Concatenate and fix the header only                                   | Minimal, non-destructive, and fast.                                                                                                                             |
+| Daily Prebuilt (the vendor's drop-in call UI)                          | Purpose-built studio UI on existing primitives                        | It is a video-conferencing product's interface; this tool needs calm operational status, where recording health is primary and the video grid is incidental.    |
+| Guest accounts                                                         | Anonymous auth bound to a join token                                  | Any account a guest must create is a reason the interview doesn't happen.                                                                                       |
+| Sample-accurate alignment                                              | Tens of milliseconds                                                  | Inaudible for speech; removes an entire class of machinery.                                                                                                     |
+| Live mixing, switching, streaming, video layouts                       | Nothing — record and hand off                                         | That's a broadcast product.                                                                                                                                     |
 
 ## 7. Phased implementation plan
 
@@ -595,17 +630,22 @@ are `docs/remote-interview-technical-assessment.md`. What remains:
 **Phase 3 — technical proof of concept.** Before any product UI, prove the
 architecture end to end with a deliberately ugly prototype: host creates a
 session, guest joins by link, they talk, each browser captures an isolated
-lossless local track, parts upload progressively, LiveKit Track Egress records
-the cloud backup, the network is deliberately interrupted and the local
-recording survives, upload resumes from OPFS after a refresh, the call ends,
-the server assembles and verifies both masters, the backup is preserved and
-labelled, the host downloads the files, and **they open correctly in Adobe
-Audition**. Test under genuinely weak-network and interruption conditions, not
-just on a good desk connection.
+lossless local track, parts upload progressively, Daily raw-tracks records the
+cloud backup, the network is deliberately interrupted and the local recording
+survives, upload resumes from OPFS after a refresh, the call ends, the server
+assembles and verifies both masters, the backup is preserved and labelled, the
+host downloads the files, and **they open correctly in Adobe Audition**. Test
+under genuinely weak-network and interruption conditions, not just on a good desk
+connection.
 
-The prototype exists to invalidate assumptions cheaply. The two most likely to
-break: chunked-WAV assembly producing a file Audition dislikes, and sustained
-lossless upload on a weak connection. Both are better discovered now.
+The prototype exists to invalidate assumptions cheaply. Three are most likely to
+break: chunked-WAV assembly producing a file Audition dislikes, sustained
+lossless upload on a weak connection, and whether raw-tracks will write to
+Supabase Storage or forces a second bucket. All are better discovered now.
+
+Build the call layer behind a thin interface. Not to hedge the vendor decision —
+that is made — but because the seam falls out of the work anyway and keeps the
+LiveKit fallback cheap if trials go badly.
 
 **Phase 4 — product implementation**, only after Phase 3 holds, as a dependable
 vertical slice before any breadth:
