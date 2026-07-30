@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { getPitchValues, listFormFields, unwrapRead } from "@/lib/editorial/data";
+import { getPitchValues, listPitchFormFields, unwrapRead } from "@/lib/editorial/data";
 import { PitchForm } from "../../pitch-form";
 import type { EpFieldValue } from "@/lib/database.types";
 
@@ -43,7 +43,7 @@ export default async function EditPitchPage({ params }: { params: Promise<{ id: 
   if (!canEdit) redirect(`/editorial/pitches/${pitch.id}`);
 
   const [fields, valuesByPitch] = await Promise.all([
-    listFormFields({ activeOnly: true }),
+    listPitchFormFields(),
     getPitchValues([pitch.id]),
   ]);
   const fieldById = new Map(fields.map((field) => [field.id, field]));

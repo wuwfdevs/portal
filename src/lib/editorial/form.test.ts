@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   fieldKeyFromLabel,
   pillarContributionRequired,
+  pillarHelpText,
+  pillarSelectOptions,
   validatePitchValues,
+  withPillarOptions,
   type FormFieldDef,
 } from "./form";
 
@@ -115,6 +118,61 @@ describe("validatePitchValues", () => {
       expect(result.values.find((v) => v.fieldId === "contrib")?.value).toBe(
         "Advances the health pillar's access throughline.",
       );
+    });
+  });
+});
+
+describe("pillar options derived from ep_pillars", () => {
+  const pillars = [
+    { name: "Growth and Resilience", guiding_question: "How can the region grow sustainably?" },
+    { name: "Power and Politics", guiding_question: null },
+  ];
+
+  describe("pillarSelectOptions", () => {
+    it("lists configured pillars followed by the fixed status options", () => {
+      expect(pillarSelectOptions(pillars)).toEqual([
+        "Growth and Resilience",
+        "Power and Politics",
+        "Outside current pillars",
+        "Emerging issue / possible future priority",
+        "Immediate public need",
+      ]);
+    });
+
+    it("still returns the status options with no configured pillars", () => {
+      expect(pillarSelectOptions([])).toEqual([
+        "Outside current pillars",
+        "Emerging issue / possible future priority",
+        "Immediate public need",
+      ]);
+    });
+  });
+
+  describe("pillarHelpText", () => {
+    it("includes each pillar's guiding question when present", () => {
+      const text = pillarHelpText(pillars);
+      expect(text).toContain("Growth and Resilience (How can the region grow sustainably?)");
+      expect(text).toContain("Power and Politics");
+      expect(text).not.toContain("Power and Politics (");
+    });
+
+    it("prompts to configure pillars when none exist", () => {
+      expect(pillarHelpText([])).toContain("Settings → Pillars");
+    });
+  });
+
+  describe("withPillarOptions", () => {
+    const base = { key: "primary_pillar", options: null, help_text: "stale" };
+
+    it("overrides options and help_text for the primary_pillar field", () => {
+      const merged = withPillarOptions(base, pillars);
+      expect(merged.options).toEqual(pillarSelectOptions(pillars));
+      expect(merged.help_text).toBe(pillarHelpText(pillars));
+    });
+
+    it("leaves other fields untouched", () => {
+      const other = { key: "format", options: ["Feature"], help_text: "Pick one" };
+      expect(withPillarOptions(other, pillars)).toBe(other);
     });
   });
 });
