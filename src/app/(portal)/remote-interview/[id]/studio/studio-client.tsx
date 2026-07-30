@@ -25,9 +25,23 @@ import {
   type LocalRecordingState,
   type ParticipantStatus,
 } from "@/lib/remote-interview/call-status";
+import { createClient } from "@/lib/supabase/client";
 import { useLocalCapture } from "@/lib/remote-interview/use-local-capture";
 import { useMicLevel } from "@/lib/remote-interview/use-mic-level";
-import { getStudioCallCredentials, startStudioRecording, stopStudioRecording } from "./actions";
+import {
+  admitWaitingParticipant,
+  getStudioCallCredentials,
+  startStudioRecording,
+  stopStudioRecording,
+} from "./actions";
+
+/** Matches the guest's own WaitingRoom poll (join/[token]/waiting-room.tsx) — same reasoning: no notification layer, so a short client-side poll is the honest, minimal way to notice a new arrival. */
+const WAITING_ROOM_POLL_INTERVAL_MS = 4000;
+
+interface WaitingGuest {
+  id: string;
+  displayName: string;
+}
 
 export interface StudioParticipant {
   id: string;
@@ -86,7 +100,11 @@ export function StudioClient({
   initialRecordingStartedAt: string | null;
   participants: StudioParticipant[];
 }) {
-  const host = participants.find((p) => p.role === "host") ?? null;
+  const [participantList, setParticipantList] = useState<StudioParticipant[]>(participants);
+  const host = participantList.find((p) => p.role === "host") ?? null;
+
+  const [waitingGuests, setWaitingGuests] = useState<WaitingGuest[]>([]);
+  const [admittingId, setAdmittingId] = useState<string | null>(null);
 
   const callRef = useRef<DailyCall | null>(null);
   const [callState, setCallState] = useState<"connecting" | "joined" | "error">("connecting");
@@ -301,8 +319,51 @@ export function StudioClient({
     setMicOn(next);
   }
 
+  // No notification layer exists yet (CLAUDE.md), so — same as the guest's
+  // own WaitingRoom poll — this is the honest, minimal way for the host to
+  // notice someone new waiting without leaving the live call to check the
+  // session detail page.
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+
+    async function poll() {
+      const { data, error } = await supabase
+        .from("ri_participants")
+        .select("id, display_name, waiting_since")
+        .eq("session_id", sessionId)
+        .eq("role", "guest")
+        .is("revoked_at", null)
+        .is("admitted_at", null)
+        .not("waiting_since", "is", null)
+        .order("waiting_since", { ascending: true });
+      if (cancelled || error) return;
+      setWaitingGuests((data ?? []).map((p) => ({ id: p.id, displayName: p.display_name })));
+    }
+
+    void poll();
+    const interval = setInterval(poll, WAITING_ROOM_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [sessionId]);
+
+  async function handleAdmit(participantId: string) {
+    setAdmittingId(participantId);
+    setActionError(null);
+    const result = await admitWaitingParticipant(sessionId, participantId);
+    if (result.ok) {
+      setParticipantList((prev) => [...prev, result.data]);
+      setWaitingGuests((prev) => prev.filter((g) => g.id !== participantId));
+    } else {
+      setActionError(result.message);
+    }
+    setAdmittingId(null);
+  }
+
   const participantStatuses = useMemo<ParticipantStatus[]>(() => {
-    return participants.map((p) => {
+    return participantList.map((p) => {
       const isHost = p.role === "host";
       const dp = Object.values(dailyParticipants).find((d) => d.user_id === p.id);
 
@@ -335,7 +396,7 @@ export function StudioClient({
       };
     });
   }, [
-    participants,
+    participantList,
     dailyParticipants,
     remoteStatuses,
     localCapture.state,
@@ -379,6 +440,35 @@ export function StudioClient({
         <h1 className="font-serif text-[22px] font-bold text-ink-900">{sessionTitle}</h1>
         {callState === "connecting" && <Badge variant="neutral">Connecting…</Badge>}
       </div>
+
+      {waitingGuests.length > 0 && (
+        <div className="mb-6 max-w-xl rounded border border-warning-border bg-warning-bg">
+          <div className="border-b border-warning-border px-4 py-3">
+            <h2 className="text-sm font-bold text-warning-fg">
+              Waiting room — {waitingGuests.length} guest{waitingGuests.length === 1 ? "" : "s"}{" "}
+              ready to join
+            </h2>
+          </div>
+          <ul>
+            {waitingGuests.map((guest) => (
+              <li
+                key={guest.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-warning-border px-4 py-3 last:border-b-0"
+              >
+                <span className="text-sm font-semibold text-ink-900">{guest.displayName}</span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={admittingId === guest.id}
+                  onClick={() => handleAdmit(guest.id)}
+                >
+                  Admit
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {needsAttention && (
         <Alert className="mb-4">

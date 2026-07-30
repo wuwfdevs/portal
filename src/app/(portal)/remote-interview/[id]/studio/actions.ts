@@ -87,6 +87,66 @@ export async function getStudioCallCredentials(
   }
 }
 
+export interface AdmittedParticipant {
+  id: string;
+  displayName: string;
+  role: "host" | "guest";
+  storagePrefix: string;
+}
+
+/**
+ * Admits a waiting guest from inside the studio, so the host doesn't have to
+ * leave the live call — and lose their own connection — to let someone in
+ * (design doc §3C). Same admission rule as the session detail page's
+ * admitParticipant (../actions.ts); this is that action's imperative-result
+ * twin, for a client component to react to instead of following a redirect.
+ */
+export async function admitWaitingParticipant(
+  sessionId: string,
+  participantId: string,
+): Promise<ActionResult<AdmittedParticipant>> {
+  const { profile } = await assertToolAccess("remote-interview");
+
+  try {
+    await requireHostSession(sessionId, profile.id);
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Could not admit the guest.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ri_participants")
+    .update({ admitted_at: new Date().toISOString() })
+    .eq("id", participantId)
+    .eq("session_id", sessionId)
+    .select("id, display_name, role, storage_prefix")
+    .single();
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Could not admit the guest." };
+  }
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "ri.participant.admitted",
+    targetType: "ri_participant",
+    targetId: participantId,
+    metadata: { session_id: sessionId },
+  });
+
+  return {
+    ok: true,
+    data: {
+      id: data.id,
+      displayName: data.display_name,
+      role: data.role,
+      storagePrefix: data.storage_prefix,
+    },
+  };
+}
+
 export interface RecordingStarted {
   runIndex: number;
   referenceStartedAtMs: number;
