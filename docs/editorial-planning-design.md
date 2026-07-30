@@ -596,23 +596,45 @@ row that held it is deactivated — the historical row keeps its key and its FK 
 blocked. This is a narrow schema fix in service of the existing deactivate-then-recreate
 pattern (§4.2), not a new lifecycle rule.
 
-**Coverage pillars are not hard-coded.** They live entirely in
-`primary_pillar`'s `options` array — an ordinary editable list, like any other select
-field. The migration originally seeded five clearly-labeled placeholder pillars
-pending formal adoption; migration `20260730140000_editorial_sextant_pillars.sql`
-replaced them with the newsroom's actual six, adopted alongside the Sextant podcast
-framework: Growth and Resilience, Public Health and Well-Being, Military Affairs,
-Public Safety and Civil Liberties, Affordability and Opportunity, and Power and
-Politics — each anchored to an enduring guiding question (see the field's help text
-for the full mapping). Changing a select field's option list is a plain update, not a
-deactivate-and-recreate (§4.2's rule is about a field's *meaning*, not its option
-vocabulary — the settings screen already treats option edits this way), and no pitch
-had used the placeholders yet, so nothing needed reconciling. Three fixed status
-options are still appended to every `primary_pillar` field: `Outside current pillars`,
-`Emerging issue / possible future priority`, and `Immediate public need`. These are
-structural, not pillar names — a pitch choosing one of them is never treated as
-pillar-deficient; it is scored on its own editorial merit via the other rubric criteria
-(§10.2) and the choice itself is a signal for future analytics (§10.7).
+**Coverage pillars are a first-class, admin-configurable entity** — `ep_pillars`
+(migration `20260730150000_editorial_pillars_table.sql`), not text embedded in a
+select field's options. Each row is a name plus an optional guiding question, with the
+same active/sort_order lifecycle as `ep_criteria`/`ep_form_fields`, and its own
+Settings → Pillars screen (add, edit, reorder, retire/restore — plus an outright
+Delete once a pillar has been retired and confirmed unused; see below). This followed
+two rounds of the pillar work: `20260730140000_editorial_sextant_pillars.sql` first
+replaced five placeholder pillar names with the newsroom's actual six — adopted
+alongside the Sextant podcast framework: Growth and Resilience, Public Health and
+Well-Being, Military Affairs, Public Safety and Civil Liberties, Affordability and
+Opportunity, and Power and Politics, each with its guiding question — by editing
+`primary_pillar`'s `options` array directly; `20260730150000` then promoted pillars out
+of that array into their own table so editors could manage them "just as they can the
+rubric," instead of only through the generic select-field-options editor.
+
+`primary_pillar`'s selectable options and help text are now derived **live** from
+`ep_pillars` at read time (`pillarSelectOptions`/`pillarHelpText`/`withPillarOptions` in
+`lib/editorial/form.ts`, merged in by `listPitchFormFields` in `data.ts`) rather than
+stored on the field row — the field's own `options`/`help_text` columns are cleared and
+unused, so there is exactly one place a pillar's name or guiding question can be edited,
+and the pitch form can never show something Settings → Pillars doesn't. The generic
+field-settings screens special-case `primary_pillar` to point here instead of exposing
+a redundant (and silently ineffective) options editor.
+
+Three fixed status options are still appended to every `primary_pillar` picklist,
+hard-coded rather than stored as pillars: `Outside current pillars`, `Emerging issue /
+possible future priority`, and `Immediate public need`. These are structural, not
+pillar names — a pitch choosing one of them is never treated as pillar-deficient; it is
+scored on its own editorial merit via the other rubric criteria (§10.2) and the choice
+itself is a signal for future analytics (§10.7).
+
+**Delete vs. retire.** Every other configuration table in this tool only supports
+retiring, never deleting, because a criterion or form field is referenced by a foreign
+key from historical scores/values — deleting it would orphan them. A pillar name is a
+plain string copied into `ep_pitch_values`, not a foreign key, so deleting an *unused*
+pillar is safe; `deletePillar` checks for that (any `ep_pitch_values` row equal to the
+pillar's name) and refuses with a pointer to retire instead if it finds one. The
+settings screen only offers Delete on an already-retired pillar, so removing one is
+always a deliberate two-step action.
 
 **The one piece of field interdependency in the form:** `pillar_contribution` is
 required only when `primary_pillar`'s value is a real pillar (not one of the three

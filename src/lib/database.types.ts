@@ -515,6 +515,22 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"]>;
         Relationships: [];
       };
+      ep_pillars: {
+        Row: {
+          id: string;
+          name: string;
+          guiding_question: string | null;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_pillars"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_pillars"]["Row"]>;
+        Relationships: [];
+      };
       ri_sessions: {
         Row: {
           id: string;

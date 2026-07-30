@@ -5,6 +5,7 @@ import { unwrapRead } from "@/lib/read-result";
 import { EDITORIAL_TOOL_KEY } from "./access";
 import { normalizeToolRole, type EditorialRole } from "./roles";
 import { isStalePitch } from "./staleness";
+import { withPillarOptions } from "./form";
 import type { EpPitchStatus } from "@/lib/database.types";
 
 // Reads throw rather than falling back to empty — see lib/read-result.ts.
@@ -24,6 +25,7 @@ export type ReviewScoreRow = Database["public"]["Tables"]["ep_review_scores"]["R
 export type RubricProfileRow = Database["public"]["Tables"]["ep_rubric_profiles"]["Row"];
 export type StoryPlanRow = Database["public"]["Tables"]["ep_story_plans"]["Row"];
 export type StoryPlanMilestoneRow = Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"];
+export type PillarRow = Database["public"]["Tables"]["ep_pillars"]["Row"];
 
 export async function getSettings(): Promise<SettingsRow> {
   const supabase = await createClient();
@@ -42,6 +44,28 @@ export async function listFormFields(options?: { activeOnly?: boolean }): Promis
   let query = supabase.from("ep_form_fields").select("*").order("sort_order").order("created_at");
   if (options?.activeOnly) query = query.eq("active", true);
   return unwrapRead(await query, "the submission form") ?? [];
+}
+
+export async function listPillars(options?: { activeOnly?: boolean }): Promise<PillarRow[]> {
+  const supabase = await createClient();
+  let query = supabase.from("ep_pillars").select("*").order("sort_order").order("created_at");
+  if (options?.activeOnly) query = query.eq("active", true);
+  return unwrapRead(await query, "the coverage pillars") ?? [];
+}
+
+/**
+ * Active submission-form fields with primary_pillar's options/help_text
+ * merged in live from ep_pillars — the single source of truth for the
+ * pillar picklist (Settings → Pillars). Use this (not listFormFields) for
+ * anywhere a pitch is actually written: rendering the form and validating
+ * a submission.
+ */
+export async function listPitchFormFields(): Promise<FormFieldRow[]> {
+  const [fields, pillars] = await Promise.all([
+    listFormFields({ activeOnly: true }),
+    listPillars({ activeOnly: true }),
+  ]);
+  return fields.map((field) => withPillarOptions(field, pillars));
 }
 
 export async function listCriteria(options?: {

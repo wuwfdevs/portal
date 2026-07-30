@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
 import { failIfError } from "@/lib/editorial/action-result";
-import { listFormFields, unwrapRead } from "@/lib/editorial/data";
+import { listPitchFormFields, unwrapRead } from "@/lib/editorial/data";
 import { validatePitchValues } from "@/lib/editorial/form";
 import { logAuditEvent } from "@/lib/audit";
 import type { EpFieldValue } from "@/lib/database.types";
@@ -34,7 +34,7 @@ export async function savePitch(
 
   const pitchId = String(formData.get("pitch_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
-  const fields = await listFormFields({ activeOnly: true });
+  const fields = await listPitchFormFields();
 
   const raw: Record<string, EpFieldValue> = {};
   for (const field of fields) {

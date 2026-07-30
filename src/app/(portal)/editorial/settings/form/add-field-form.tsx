@@ -4,17 +4,9 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FIELD_TYPE_LABEL } from "@/lib/editorial/form";
 import { createFormField } from "../actions";
 import type { EpFieldType } from "@/lib/database.types";
-
-export const FIELD_TYPE_LABEL: Record<EpFieldType, string> = {
-  short_text: "Short text",
-  long_text: "Long text",
-  select: "Select (one)",
-  multi_select: "Select (several)",
-  date: "Date",
-  url: "Link",
-};
 
 /**
  * Client component purely so the options box appears only for the field types

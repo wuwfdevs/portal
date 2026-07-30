@@ -13,6 +13,22 @@ export interface FormFieldDef {
   required: boolean;
 }
 
+// Deliberately not exported from add-field-form.tsx (a "use client" module):
+// a Server Component importing a plain constant across that boundary is
+// fragile — it type-checks and works in dev, but broke in the actual
+// production Turbopack bundle (settings/form/[id]/edit threw "Cannot read
+// properties of undefined (reading 'toLowerCase')" because FIELD_TYPE_LABEL
+// came back undefined there). Living in this plain module, it's safe to
+// import from server or client code alike.
+export const FIELD_TYPE_LABEL: Record<EpFieldType, string> = {
+  short_text: "Short text",
+  long_text: "Long text",
+  select: "Select (one)",
+  multi_select: "Select (several)",
+  date: "Date",
+  url: "Link",
+};
+
 export interface PitchValidationResult {
   /** One entry per field that has a value; empty optional fields are omitted. */
   values: { fieldId: string; value: EpFieldValue }[];
@@ -43,6 +59,44 @@ export function pillarContributionRequired(raw: Record<string, EpFieldValue | un
   const text = Array.isArray(value) ? value[0] : value;
   if (!text) return false;
   return !NON_PILLAR_OPTIONS.includes(text);
+}
+
+// primary_pillar's options and help text are derived live from ep_pillars
+// (a first-class, admin-configurable table — see Settings → Pillars)
+// rather than stored on the field row, so they can never drift out of sync
+// with what's actually configured. These are pure so the derivation is
+// testable without touching Supabase; data.ts calls withPillarOptions when
+// it loads the fields writers actually see.
+
+export interface PillarOption {
+  name: string;
+  guiding_question: string | null;
+}
+
+/** The full primary_pillar picklist: configured pillars, then the fixed status options. */
+export function pillarSelectOptions(pillars: PillarOption[]): string[] {
+  return [...pillars.map((pillar) => pillar.name), ...NON_PILLAR_OPTIONS];
+}
+
+export function pillarHelpText(pillars: PillarOption[]): string {
+  const closer = "If this doesn't map to a current pillar, say so instead of forcing a fit.";
+  if (pillars.length === 0) {
+    return `No coverage pillars are configured yet — add them in Settings → Pillars. ${closer}`;
+  }
+  const summary = pillars
+    .map((pillar) =>
+      pillar.guiding_question ? `${pillar.name} (${pillar.guiding_question})` : pillar.name,
+    )
+    .join("; ");
+  return `WUWF's coverage pillars, each built around a guiding question — ${summary}. ${closer}`;
+}
+
+/** Merges live pillar data into primary_pillar's options/help_text; other fields pass through untouched. */
+export function withPillarOptions<
+  T extends { key: string; options: string[] | null; help_text: string | null },
+>(field: T, pillars: PillarOption[]): T {
+  if (field.key !== PRIMARY_PILLAR_FIELD_KEY) return field;
+  return { ...field, options: pillarSelectOptions(pillars), help_text: pillarHelpText(pillars) };
 }
 
 export function validatePitchValues(

@@ -9,6 +9,7 @@ export default async function EditorialSettingsLayout({ children }: { children: 
       <div className="mb-4 border-b border-line pb-3">
         <nav className="flex gap-4 text-[13px]">
           <EditorialTabLink href="/editorial/settings/form">Submission form</EditorialTabLink>
+          <EditorialTabLink href="/editorial/settings/pillars">Pillars</EditorialTabLink>
           <EditorialTabLink href="/editorial/settings/rubric">Rubric</EditorialTabLink>
         </nav>
         <p className="mt-2 max-w-2xl text-xs leading-relaxed text-ink-400">

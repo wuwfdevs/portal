@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { listFormFields } from "@/lib/editorial/data";
+import { listPitchFormFields } from "@/lib/editorial/data";
 import { PitchForm } from "../pitch-form";
 
 export default async function NewPitchPage() {
   await requireEditorialAccess();
-  const fields = await listFormFields({ activeOnly: true });
+  const fields = await listPitchFormFields();
 
   return (
     <div className="max-w-lg">

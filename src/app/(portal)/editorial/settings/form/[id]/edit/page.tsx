@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/editorial/data";
+import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { updateFormField } from "../../../actions";
-import { FIELD_TYPE_LABEL } from "../../add-field-form";
 
 export default async function EditFormFieldPage({
   params,
@@ -24,7 +24,9 @@ export default async function EditFormFieldPage({
   );
   if (!field) notFound();
 
-  const hasOptions = field.field_type === "select" || field.field_type === "multi_select";
+  const isPillarField = field.key === PRIMARY_PILLAR_FIELD_KEY;
+  const hasOptions =
+    !isPillarField && (field.field_type === "select" || field.field_type === "multi_select");
 
   return (
     <div className="max-w-lg">

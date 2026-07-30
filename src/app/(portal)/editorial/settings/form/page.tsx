@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import { cn } from "@/lib/cn";
+import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
 import { moveFormField, toggleFormFieldActive } from "../actions";
-import { AddFieldForm, FIELD_TYPE_LABEL } from "./add-field-form";
+import { AddFieldForm } from "./add-field-form";
 import type { FormFieldRow } from "@/lib/editorial/data";
 
 type FieldView = "active" | "retired";
@@ -137,11 +138,23 @@ function FieldRow({
     <Row className={field.active ? undefined : "bg-panel-50/40"}>
       <Cell>
         <div className="font-semibold text-ink-900">{field.label}</div>
-        {field.help_text && (
-          <div className="mt-0.5 text-xs leading-snug text-ink-400">{field.help_text}</div>
-        )}
-        {field.options && field.options.length > 0 && (
-          <div className="mt-1 text-xs text-ink-400">Options: {field.options.join(" · ")}</div>
+        {field.key === PRIMARY_PILLAR_FIELD_KEY ? (
+          <div className="mt-0.5 text-xs leading-snug text-ink-400">
+            Picklist and guidance managed in{" "}
+            <Link href="/editorial/settings/pillars" className="text-brand-link hover:underline">
+              Settings → Pillars
+            </Link>
+            .
+          </div>
+        ) : (
+          <>
+            {field.help_text && (
+              <div className="mt-0.5 text-xs leading-snug text-ink-400">{field.help_text}</div>
+            )}
+            {field.options && field.options.length > 0 && (
+              <div className="mt-1 text-xs text-ink-400">Options: {field.options.join(" · ")}</div>
+            )}
+          </>
         )}
         <code className="mt-1 block font-mono text-[11px] text-ink-400">{field.key}</code>
       </Cell>
