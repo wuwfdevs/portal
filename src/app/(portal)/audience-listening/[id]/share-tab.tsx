@@ -73,6 +73,16 @@ export function ShareTab({
           recorder work inside the article — without it, browsers refuse the microphone and there is
           nothing the page can do about it.
         </p>
+        <Alert variant="note" className="mb-3">
+          <span className="font-semibold">
+            If the embed says recording has to open in a new tab,
+          </span>{" "}
+          the CMS dropped that permission — either by stripping the attribute, or by wrapping this
+          iframe inside one of its own that doesn&apos;t pass it on. Every frame in the chain has to
+          allow the microphone, and we only control the innermost one. Nothing is broken: the embed
+          detects it and sends people to the public link, which always works. If you&apos;d rather
+          not have that extra step, publish the public link on its own instead of the embed.
+        </Alert>
         <pre className="overflow-x-auto rounded border border-line bg-panel-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-ink-700">
           {embedCode}
         </pre>

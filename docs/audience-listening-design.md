@@ -477,12 +477,41 @@ only. Next sets no `X-Frame-Options` by default, so the routes are already
 framable; the explicit header states the intent and keeps a future global CSP from
 silently breaking every published embed.
 
-Microphone access inside a cross-origin iframe requires the parent to delegate it
-with `allow="microphone"`. When the reporter (or Grove) drops that attribute,
-`getUserMedia` rejects with `NotAllowedError` and there is nothing the embedded
-page can do about it — so the embed detects that it is framed
-(`window.self !== window.top`), and on a permission failure offers a prominent
-link to open the same query standalone in a new tab, rather than a dead end.
+Microphone access inside a cross-origin iframe requires **every** frame in the
+chain to delegate it with `allow="microphone"`. We control only the innermost
+iframe, the one in the snippet. A CMS that strips the attribute — or that wraps
+our iframe inside one of its own without passing the permission on — breaks the
+chain, and nothing served from our origin can override that.
+
+Observed in a real Grove story preview: the microphone was blocked in the embed.
+
+The failure needs care, because `getUserMedia` rejects with `NotAllowedError`
+in **two** completely different situations: the person clicked "Block", and the
+frame was never granted the permission at all. The first version of this flow
+collapsed them into one message telling everybody to "allow it from the address
+bar" — which in the second case is not just unhelpful but wrong, since the
+browser never prompted and there is nothing in the address bar to change.
+
+`lib/audience-listening/microphone.ts` separates them (pure, tested):
+
+- `readMicrophonePolicy()` asks the document whether microphone is delegated,
+  via `permissionsPolicy`/`featurePolicy`. Chromium answers; Safari and Firefox
+  expose nothing, so this returns `null` and the messages stay honest about not
+  knowing rather than guessing a cause.
+- When the answer is a definite `false`, the mic step **skips the "Allow
+  microphone access" button entirely** and leads with "Open in a new tab to
+  record". Pressing a button that provably cannot work, reading an error, and
+  only then being offered the thing that does work is three steps of wasted
+  trust from someone who was doing us a favour by responding at all.
+- When it's unknowable and we're framed, the message says the microphone isn't
+  available *in this article*, offers the new tab first and a retry second, and
+  never mentions the address bar.
+- Only on a top-level page — where the advice actually works — does it say to
+  allow the microphone from the address bar.
+
+The Share tab tells the reporter the same thing from their side: if the embed
+sends people to a new tab, the CMS dropped the permission, nothing is broken,
+and publishing the public link on its own avoids the extra step.
 
 ### Abuse protection
 
@@ -601,6 +630,22 @@ environment:
 - **The embed's height is a guess based on question count.** No resizer, by
   choice. If Grove turns out to expose a resizing contract worth targeting, that
   is a small, well-bounded follow-up.
+
+- **The embed may not be able to record at all, and there is a second reason
+  beyond the microphone.** In a cross-origin iframe our Supabase session cookie
+  is a third-party cookie. Safari blocks those outright, and Chrome partitions
+  them — so `signInAnonymously()` at "Begin" may not persist inside the frame
+  even where the microphone *is* delegated, which would break the flow at the
+  upload step rather than at the permission step. This has not yet been observed,
+  only reasoned about, and it needs a real Safari test inside a real Grove
+  article to confirm or rule out.
+
+  Both of these point the same way: **the embed may be better as a launcher than
+  as the recording surface** — an introduction, the question list, and one button
+  that opens the standalone page. That is a deliberate product decision rather
+  than a bug fix, so it is recorded here rather than made unilaterally. The
+  current behaviour already degrades to exactly that when the microphone is
+  provably blocked.
 - **The migration is not self-applying.** Like every migration here, it must be
   applied to the preview project, verified, then production — and anonymous
   sign-ins must be enabled in both dashboards (already required by Remote

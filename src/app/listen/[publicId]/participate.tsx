@@ -23,6 +23,12 @@ import {
   type ParticipantValues,
   type QuestionProgress,
 } from "@/lib/audience-listening/participation";
+import {
+  deriveMicrophoneGuidance,
+  readMicrophonePolicy,
+  shouldSkipStraightToNewTab,
+  type MicrophoneGuidance,
+} from "@/lib/audience-listening/microphone";
 import type { PublicQueryPayload } from "@/lib/database.types";
 import { ListenShell } from "./listen-shell";
 import {
@@ -126,6 +132,10 @@ export function Participate({
   });
   const [submittedCount, setSubmittedCount] = useState(0);
   const [supported, setSupported] = useState(true);
+  // null until the capability check runs, and stays null on browsers that don't
+  // expose Permissions Policy introspection at all (Safari, Firefox).
+  const [micPolicy, setMicPolicy] = useState<boolean | null>(null);
+  const [guidance, setGuidance] = useState<MicrophoneGuidance | null>(null);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -177,8 +187,12 @@ export function Participate({
   useEffect(() => {
     const hasGetUserMedia = Boolean(navigator.mediaDevices?.getUserMedia);
     const hasRecorder = typeof MediaRecorder !== "undefined";
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- capability detection can only run in the browser.
+    /* eslint-disable react-hooks/set-state-in-effect -- capability detection can only run in the browser. */
     setSupported(hasGetUserMedia && hasRecorder);
+    // Read before anything is clicked, so a frame that was never given the
+    // microphone can say so up front instead of after a failed attempt.
+    setMicPolicy(readMicrophonePolicy(document));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // Move focus to the new step's heading so a keyboard or screen-reader user is
@@ -288,8 +302,18 @@ export function Participate({
       setMicState("granted");
       setAnnouncement("Microphone ready.");
     } catch (error) {
+      // getUserMedia rejects with NotAllowedError both when a person clicks
+      // "Block" and when this frame was never delegated the microphone. Those
+      // need opposite advice — see lib/audience-listening/microphone.ts.
       const name = error instanceof DOMException ? error.name : "";
-      setMicState(name === "NotFoundError" ? "no_device" : "denied");
+      const result = deriveMicrophoneGuidance({
+        embedded,
+        policyAllowsMicrophone: micPolicy,
+        errorName: name,
+      });
+      setGuidance(result);
+      setMicState(result.block === "no_device" ? "no_device" : "denied");
+      setAnnouncement(result.message);
     }
   }
 
@@ -507,6 +531,7 @@ export function Participate({
   // --- Render ------------------------------------------------------------
 
   const blockedReason = submitBlockedReason(readiness, consent.agreed, missingFields);
+  const skipToNewTab = shouldSkipStraightToNewTab({ embedded, policyAllowsMicrophone: micPolicy });
   const isSaved = currentAnswer.savedDurationMs !== null;
   const showRecorder = !isSaved || currentAnswer.retake;
 
@@ -590,33 +615,52 @@ export function Participate({
 
       {screen === "mic" && (
         <div className="flex flex-col gap-4">
-          <p className="text-[15px] leading-relaxed text-ink-700">
-            WUWF needs access to your microphone. You&apos;ll only be asked once — recording starts
-            when you press Start recording, and stops when you press Stop.
-          </p>
+          {/* The frame provably has no microphone permission, so the "Allow"
+              button below cannot work. Say so and offer the route that does,
+              instead of making someone fail first to find out. */}
+          {micState === "idle" && skipToNewTab ? (
+            <>
+              <p className="text-[15px] leading-relaxed text-ink-700">
+                Recording needs to happen in its own tab — this article doesn&apos;t allow it inside
+                the page. Nothing is lost by opening it; you&apos;ll start from here.
+              </p>
+              <a href={standaloneUrl} target="_blank" rel="noopener noreferrer">
+                <Button type="button" className="w-full">
+                  Open in a new tab to record
+                </Button>
+              </a>
+            </>
+          ) : (
+            <p className="text-[15px] leading-relaxed text-ink-700">
+              WUWF needs access to your microphone. You&apos;ll only be asked once — recording
+              starts when you press Start recording, and stops when you press Stop.
+            </p>
+          )}
 
-          {micState === "idle" && (
+          {micState === "idle" && !skipToNewTab && (
             <Button type="button" onClick={requestMicrophone}>
               Allow microphone access
             </Button>
           )}
           {micState === "requesting" && <p className="text-sm text-ink-500">Requesting access…</p>}
 
-          {micState === "denied" && (
+          {micState === "denied" && guidance && (
             <>
-              <Alert>
-                Your browser blocked the microphone. Allow it from the address bar and try again.
-                {embedded &&
-                  " Microphones are often blocked inside an article's embedded frame, which nothing on this page can override."}
-              </Alert>
+              <Alert>{guidance.message}</Alert>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={requestMicrophone}>
-                  Try again
-                </Button>
-                {embedded && (
+                {guidance.offerNewTab && (
                   <a href={standaloneUrl} target="_blank" rel="noopener noreferrer">
                     <Button type="button">Open in a new tab</Button>
                   </a>
+                )}
+                {guidance.offerRetry && (
+                  <Button
+                    type="button"
+                    variant={guidance.offerNewTab ? "secondary" : "primary"}
+                    onClick={requestMicrophone}
+                  >
+                    Try again
+                  </Button>
                 )}
               </div>
             </>
