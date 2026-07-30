@@ -11,7 +11,8 @@ import {
   generateJoinToken,
   storagePrefixFor,
 } from "@/lib/remote-interview/tokens";
-import { getSessionById } from "@/lib/remote-interview/sessions";
+import { getSessionById, refreshSessionCompletionStatus } from "@/lib/remote-interview/sessions";
+import { assembleLocalTrack } from "@/lib/remote-interview/assembly";
 
 const SESSIONS_PATH = "/remote-interview";
 
@@ -176,6 +177,37 @@ export async function revokeParticipant(formData: FormData): Promise<void> {
     action: "ri.participant.revoked",
     targetType: "ri_participant",
     targetId: participantId,
+    metadata: { session_id: sessionId },
+  });
+
+  redirect(sessionPath);
+}
+
+/**
+ * Assembles (or re-assembles) a local master from its uploaded parts —
+ * design doc §3E/§3F: the host sees which tracks are complete and can
+ * "retry a failed assembly." Host-only, same as every other recording
+ * control, even though the track being assembled may belong to a guest —
+ * see the migration broadening ri_media_insert/update for exactly this.
+ */
+export async function assembleTrack(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("remote-interview");
+  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
+  await requireHost(sessionId, profile.id, sessionPath);
+
+  const trackId = String(formData.get("track_id") ?? "");
+  const result = await assembleLocalTrack(trackId);
+  await refreshSessionCompletionStatus(sessionId);
+  if (!result.ok) {
+    failWith(sessionPath, result.message);
+  }
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "ri.track.assembled",
+    targetType: "ri_track",
+    targetId: trackId,
     metadata: { session_id: sessionId },
   });
 

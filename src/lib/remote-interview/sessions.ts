@@ -2,10 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { deriveSessionCompletionStatus } from "@/lib/remote-interview/track-status";
 
 export type RiSession = Database["public"]["Tables"]["ri_sessions"]["Row"];
 export type RiParticipant = Database["public"]["Tables"]["ri_participants"]["Row"];
 export type RiSessionEvent = Database["public"]["Tables"]["ri_session_events"]["Row"];
+export type RiTrack = Database["public"]["Tables"]["ri_tracks"]["Row"];
 
 export interface PreflightResult {
   warnings: { code: string; severity: string }[];
@@ -140,6 +142,94 @@ export async function nextRunIndex(sessionId: string): Promise<number> {
   );
   if (!tracks || tracks.length === 0) return 0;
   return Math.max(...tracks.map((t) => t.run_index)) + 1;
+}
+
+/**
+ * Every track belonging to this session's participants, newest run first —
+ * for the detail screen's per-participant track list (design doc §4:
+ * "the tracks with per-track duration, size, format, source and integrity
+ * status, download, recovery actions where available, download-all").
+ */
+export async function listTracksForSession(sessionId: string): Promise<RiTrack[]> {
+  const participants = await listParticipants(sessionId);
+  if (participants.length === 0) return [];
+
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("ri_tracks")
+        .select("*")
+        .in(
+          "participant_id",
+          participants.map((p) => p.id),
+        )
+        .order("run_index", { ascending: false }),
+      "this session's tracks",
+    ) ?? []
+  );
+}
+
+/**
+ * Which participant_ids have a ri_session_events row saying their local
+ * track had to be drained from OPFS after a crash/reload (capture.ts's
+ * resume-on-reopen, logged as kind 'local_track_resumed') — used to label a
+ * track "recovered" rather than a plain "complete" (design doc §6:
+ * provenance is "never fudged"). A set rather than a per-track map because
+ * a participant only ever has one local track in flight at a time; if any
+ * of their runs needed resuming, showing that once is enough context.
+ */
+export async function listResumedParticipantIds(sessionId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const rows = unwrapRead(
+    await supabase
+      .from("ri_session_events")
+      .select("participant_id")
+      .eq("session_id", sessionId)
+      .eq("kind", "local_track_resumed"),
+    "this session's recovery history",
+  );
+
+  return new Set((rows ?? []).map((row) => row.participant_id).filter((id): id is string => id !== null));
+}
+
+/**
+ * Rolls up this session's local-master tracks (the production source, per
+ * §2) to a session-level status once recording has stopped (design doc §3E:
+ * "A session is not 'complete' because the call ended — it is complete when
+ * the data is verified present and readable"). A no-op before the session
+ * has left 'scheduled'/'live'/'recording', and a no-op if some track is
+ * still in flight — called after every assembly attempt, success or not,
+ * so the session status only ever reflects what's actually settled.
+ */
+export async function refreshSessionCompletionStatus(sessionId: string): Promise<void> {
+  const session = await getSessionById(sessionId);
+  if (!session) return;
+  if (session.status === "scheduled" || session.status === "live" || session.status === "recording") {
+    return;
+  }
+
+  const participants = await listActiveParticipants(sessionId);
+  if (participants.length === 0) return;
+
+  const supabase = await createClient();
+  const tracks = unwrapRead(
+    await supabase
+      .from("ri_tracks")
+      .select("status")
+      .eq("source", "local")
+      .in(
+        "participant_id",
+        participants.map((p) => p.id),
+      ),
+    "this session's local tracks",
+  );
+
+  const completion = deriveSessionCompletionStatus((tracks ?? []).map((t) => t.status));
+  if (completion === "processing" || completion === session.status) return;
+
+  const { error } = await supabase.from("ri_sessions").update({ status: completion }).eq("id", sessionId);
+  if (error) console.error(`Could not roll up session ${sessionId}'s completion status:`, error);
 }
 
 /**

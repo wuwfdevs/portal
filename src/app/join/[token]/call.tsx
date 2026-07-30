@@ -9,6 +9,11 @@ import {
   localRecordingBadgeVariant,
   uploadBacklogBadgeVariant,
 } from "@/lib/remote-interview/call-status";
+import {
+  canGuestSafelyLeave,
+  deriveGuestCompletionState,
+  GUEST_COMPLETION_MESSAGES,
+} from "@/lib/remote-interview/track-status";
 import { useLocalCapture } from "@/lib/remote-interview/use-local-capture";
 import { useMicLevel } from "@/lib/remote-interview/use-mic-level";
 import { GuestShell } from "./guest-shell";
@@ -149,14 +154,31 @@ export function Call({
   }
 
   if (callState === "left") {
+    // Design doc §3E: "A guest is not told they can leave until their
+    // recording has either fully uploaded or been determined
+    // unrecoverable." The four messages below are verbatim from that
+    // section; the background upload keeps running (localCapture isn't
+    // disposed here) for as long as this tab stays open, so this screen's
+    // job is to say honestly which of the four states applies right now.
+    const completionState = deriveGuestCompletionState({
+      localRecording: localCapture.state,
+      pendingUploadParts: localCapture.pendingUploadParts,
+    });
+    const safeToClose = canGuestSafelyLeave(completionState);
+
     return (
       <GuestShell>
         <h1 className="mb-2 font-serif text-lg font-bold text-ink-900">You&apos;ve left</h1>
         <p className="text-sm leading-relaxed text-ink-500">
-          {localCapture.pendingUploadParts > 0
-            ? "Your recording is still uploading in the background. If you close this tab now, anything not yet uploaded stays only on this device."
-            : "Thanks for joining. Your recording has been uploaded."}
+          {GUEST_COMPLETION_MESSAGES[completionState]}
         </p>
+        {!safeToClose && (
+          <div className="mt-3">
+            <Badge variant={completionState === "needs_reopen" ? "danger" : "warning"}>
+              {completionState === "needs_reopen" ? "Not fully uploaded" : "Still working"}
+            </Badge>
+          </div>
+        )}
       </GuestShell>
     );
   }
