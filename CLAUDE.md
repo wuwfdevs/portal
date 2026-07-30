@@ -122,6 +122,12 @@ delete-on-ack`) shared between both via `lib/remote-interview/use-local-capture.
   track from a fresh page load after a crash or navigation away — that "resume-on-reopen" is
   slice 4's job, not built yet.
 
+**Phase 5 (cloud-backup video) is planned but not authorized — same guardrail as Audience
+Listening: do not start it without an explicit instruction.** The design is recorded in
+`docs/remote-interview-design.md` §7: video would ride the existing Daily call and cloud
+backup only — deliberately **no local video capture**, which is a different and much larger
+engineering problem than the WAV pipeline slice 3 built. Slice 4 above is still next.
+
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
