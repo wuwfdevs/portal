@@ -15,6 +15,11 @@ import { Button } from "@/components/ui/button";
 import {
   deriveParticipantHealth,
   anyParticipantNeedsAttention,
+  cloudBackupBadgeVariant,
+  connectionBadgeVariant,
+  dataSafetyBadgeVariant,
+  localRecordingBadgeVariant,
+  uploadBacklogBadgeVariant,
   type CloudBackupState,
   type ConnectionState,
   type LocalRecordingState,
@@ -408,7 +413,7 @@ export function StudioClient({
         >
           {micOn ? "Mute myself" : "Unmute myself"}
         </Button>
-        <Badge variant={cloudBackupState === "failed" ? "danger" : "neutral"}>
+        <Badge variant={!cloudBackupConfigured ? "muted" : cloudBackupBadgeVariant(cloudBackupState)}>
           Cloud backup:{" "}
           {!cloudBackupConfigured
             ? "not configured"
@@ -440,15 +445,7 @@ function ParticipantTile({ status, level }: { status: ParticipantStatus; level: 
     <div className="rounded border border-line bg-white p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-ink-900">{status.displayName}</span>
-        <Badge
-          variant={
-            health.safety === "unsafe"
-              ? "danger"
-              : health.safety === "at_risk"
-                ? "accent"
-                : "neutral"
-          }
-        >
+        <Badge variant={dataSafetyBadgeVariant(health.safety)}>
           {health.safety === "safe" ? "OK" : health.safety === "at_risk" ? "At risk" : "Unsafe"}
         </Badge>
       </div>
@@ -462,18 +459,30 @@ function ParticipantTile({ status, level }: { status: ParticipantStatus; level: 
         </div>
       )}
 
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-500">
+      <dl className="grid grid-cols-2 items-center gap-x-3 gap-y-1.5 text-xs text-ink-500">
         <dt>Connection</dt>
-        <dd className="text-right capitalize">{status.connection}</dd>
+        <dd className="flex justify-end">
+          <Badge variant={connectionBadgeVariant(status.connection)}>{status.connection}</Badge>
+        </dd>
         <dt>Mic</dt>
-        <dd className="text-right">{status.micMuted ? "Muted" : "Live"}</dd>
+        <dd className="flex justify-end">
+          <Badge variant={status.micMuted ? "muted" : "success"}>
+            {status.micMuted ? "Muted" : "Live"}
+          </Badge>
+        </dd>
         <dt>Local recording</dt>
-        <dd className="text-right capitalize">{status.localRecording}</dd>
+        <dd className="flex justify-end">
+          <Badge variant={localRecordingBadgeVariant(status.localRecording)}>
+            {status.localRecording}
+          </Badge>
+        </dd>
         <dt>Upload</dt>
-        <dd className="text-right">
-          {status.pendingUploadParts === 0
-            ? "Caught up"
-            : `${status.pendingUploadParts} part(s) pending`}
+        <dd className="flex justify-end">
+          <Badge variant={uploadBacklogBadgeVariant(status.pendingUploadParts)}>
+            {status.pendingUploadParts === 0
+              ? "Caught up"
+              : `${status.pendingUploadParts} part(s) pending`}
+          </Badge>
         </dd>
       </dl>
 
