@@ -2,7 +2,7 @@
 
 Status: **implemented**, including the strategic/magazine refinement (schema in
 `supabase/migrations/20260722130000_editorial_planning.sql` and
-`supabase/migrations/20260730120000_editorial_strategic_refinement.sql`, logic in
+`supabase/migrations/20260730130000_editorial_strategic_refinement.sql`, logic in
 `src/lib/editorial/`, screens under `src/app/(portal)/editorial/`). This document is
 the design the implementation follows; treat it as the rationale record, and the code
 as the source of truth for details that have since evolved. §10 covers the
@@ -570,7 +570,7 @@ WUWF's editorial strategy is shifting toward fewer reactive spot-news assignment
 default and more planned, wide-angle, issue-based, explanatory, accountability,
 enterprise, and audio-rich journalism organized around defined coverage pillars —
 without penalizing genuinely urgent public-service coverage that falls outside a
-current pillar. Migration `20260730120000_editorial_strategic_refinement.sql` and the
+current pillar. Migration `20260730130000_editorial_strategic_refinement.sql` and the
 UI/logic changes described below implement that shift as an extension of the
 foundation in §1–§9, not a rebuild. Every existing pitch, review, meeting, and
 historical score calculation is preserved: obsolete form fields and rubric criteria

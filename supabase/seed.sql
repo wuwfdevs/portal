@@ -128,7 +128,7 @@ end $$;
 -- pitch state and pillar option (including the "immediate public need"
 -- status option), and a story plan for the assigned pitch. Default form
 -- fields, rubric criteria, and rubric profiles come from the strategic
--- refinement migration itself (20260730120000).
+-- refinement migration itself (20260730130000).
 
 do $$
 declare

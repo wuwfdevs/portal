@@ -17,7 +17,7 @@ export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
 export type TwProjectStatus = "uploading" | "processing" | "ready" | "failed";
 
 // Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql
-// and supabase/migrations/20260730120000_editorial_strategic_refinement.sql.
+// and supabase/migrations/20260730130000_editorial_strategic_refinement.sql.
 export type EpFieldType = "short_text" | "long_text" | "select" | "multi_select" | "date" | "url";
 export type EpPitchStatus = "open" | "assigned" | "archived";
 export type EpMeetingStatus = "open" | "agenda" | "concluded";
