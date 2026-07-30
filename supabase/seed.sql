@@ -17,6 +17,7 @@ declare
   tool_editorial uuid;
   tool_remote uuid;
   tool_transcription uuid;
+  tool_audience uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -82,9 +83,14 @@ begin
     -- (see docs/transcription-workspace-design.md §3F — the cross-project
     -- clip and search views are the clip library), so it was retired from
     -- the registry rather than left as a placeholder nobody will build.
+    -- Audience Listening's registry row, like the Transcription Workspace's,
+    -- is now maintained by its own schema migration
+    -- (20260730170000_audience_listening.sql) rather than here. This row is
+    -- left in place for a database seeded before that migration existed; the
+    -- `on conflict do nothing` means the migration's values win either way.
     ('audience-listening', 'Audience Listening',
-     'Organize and analyze structured audience input.',
-     '/tools/audience-listening', 'planned', true, 'invite_only', 4)
+     'Collect recorded answers from the public to a short set of questions, and review them here.',
+     '/audience-listening', 'available', true, 'invite_only', 4)
   on conflict (key) do nothing;
 
   select id into tool_editorial from public.tools where key = 'editorial-planning';
@@ -93,6 +99,7 @@ begin
   -- migration (20260722130000_transcription_workspace_schema.sql), not
   -- here — this just looks it up to seed local tool_access grants.
   select id into tool_transcription from public.tools where key = 'transcription';
+  select id into tool_audience from public.tools where key = 'audience-listening';
 
   -- Editorial tool roles use the canonical lowercase set the tool interprets:
   -- 'contributor' < 'reviewer' < 'editor' (anything else falls back to contributor).
@@ -103,7 +110,12 @@ begin
     (leo_id, tool_editorial, 'reviewer', dana_id),
     (marcus_id, tool_remote, 'contributor', dana_id),
     (dana_id, tool_transcription, null, dana_id),
-    (marcus_id, tool_transcription, null, dana_id)
+    (marcus_id, tool_transcription, null, dana_id),
+    -- Audience Listening has no tool roles: a grant is the whole permission,
+    -- and any member can do everything. Dana holds transcription access too,
+    -- which is what the per-answer handoff needs.
+    (dana_id, tool_audience, null, dana_id),
+    (marcus_id, tool_audience, null, dana_id)
   on conflict do nothing;
 
   insert into public.access_requests (email, display_name, note, status)

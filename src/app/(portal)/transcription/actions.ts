@@ -5,23 +5,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
-import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
-import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { reindexProject, embedPending, getProjectContext } from "@/lib/transcription/indexing";
-import { getSiteUrl } from "@/lib/site-url";
+import { startTranscriptionForProject } from "@/lib/transcription/ingest";
 
 export type CreateProjectResult = { id: string } | { error: string };
-
-/**
- * Strips URLs out of a provider error before it's persisted or logged. The
- * signed ingest URL we hand the ASR provider is a six-hour read credential for
- * the source media, and providers routinely echo the offending request back in
- * their error text — error_message is rendered on the project screen, so it
- * must not become a place that token gets written down.
- */
-function redactUrls(message: string): string {
-  return message.replace(/https?:\/\/\S+/gi, "[url]");
-}
 
 /**
  * Creates the project row before any upload starts, with status='uploading'
@@ -155,85 +142,6 @@ async function reembedProjectQuietly(
     if (context) await embedPending(supabase, projectId, context);
   } catch (error) {
     console.error("[transcription] re-embed after edit failed", { projectId, error });
-  }
-}
-
-/**
- * Kicks off transcription for a project whose source media is already in
- * Storage, and updates the row accordingly. Shared by completeProjectUpload
- * (automatic kickoff right after upload) and retryTranscription (manual
- * re-kick after a transcription-stage failure) — both already know the
- * project has a valid media_storage_path/media_content_type before calling
- * this.
- */
-async function startTranscriptionForProject(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  params: { projectId: string; storagePath: string },
-): Promise<{ error?: string }> {
-  const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
-  const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
-
-  // Name the specific missing piece. These are variable *names*, never values,
-  // and only tool members reach this screen — worth surfacing, because an
-  // unset ASSEMBLYAI_API_KEY otherwise threw inside the try below and arrived
-  // as the same "please try again" as a genuine provider outage.
-  if (!process.env.ASSEMBLYAI_API_KEY || !webhookSecret) {
-    const missing = [
-      !process.env.ASSEMBLYAI_API_KEY && "ASSEMBLYAI_API_KEY",
-      !webhookSecret && "TRANSCRIPTION_WEBHOOK_SECRET",
-    ].filter((name): name is string => Boolean(name));
-    const message = `Transcription isn't configured yet (missing ${missing.join(" and ")}).`;
-    await supabase
-      .from("tw_projects")
-      .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
-    return { error: message };
-  }
-
-  if (!mediaUrl) {
-    const message = "Couldn't read the uploaded media file. Please re-upload.";
-    await supabase
-      .from("tw_projects")
-      .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
-    return { error: message };
-  }
-
-  try {
-    const providerJobId = await getTranscriptionProvider().startTranscription({
-      mediaUrl,
-      webhookUrl: `${getSiteUrl()}/api/transcription/webhook`,
-      webhookSecret,
-    });
-
-    await supabase
-      .from("tw_projects")
-      .update({
-        status: "processing",
-        transcription_provider_job_id: providerJobId,
-        error_message: null,
-      })
-      .eq("id", params.projectId);
-
-    return {};
-  } catch (error) {
-    // Surface the provider's actual complaint rather than a generic retry
-    // prompt — same as the webhook handler does on the finishing side. A bare
-    // "please try again" made a rejected request parameter look identical to a
-    // transient blip, which is how an always-failing kickoff went unexplained.
-    const reason = redactUrls(error instanceof Error ? error.message : String(error));
-    const message = `Could not start transcription: ${reason}`;
-
-    console.error("[transcription] startTranscription failed", {
-      projectId: params.projectId,
-      error: reason,
-    });
-
-    await supabase
-      .from("tw_projects")
-      .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
-    return { error: message };
   }
 }
 

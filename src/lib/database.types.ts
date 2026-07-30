@@ -70,6 +70,51 @@ export type RiTrackStatus =
   | "missing"
   | "failed";
 
+// Audience Listening (al_*) — see supabase/migrations/20260730170000_audience_listening.sql.
+export type AlQueryStatus = "draft" | "open" | "closed" | "archived";
+export type AlFieldMode = "hidden" | "optional" | "required";
+export type AlTranscriptionMode = "automatic" | "manual";
+export type AlSubmissionStatus = "in_progress" | "submitted";
+export type AlReviewState = "new" | "reviewed" | "flagged" | "rejected";
+export type AlAnswerStatus = "pending" | "uploaded" | "failed";
+export type AlTranscriptionState = "none" | "queued" | "sent" | "failed";
+/** Whether the public route may accept a submission right now. */
+export type AlPublicState = "open" | "not_yet_open" | "closed";
+/** One question as the public sees it — no internal_context. */
+export interface PublicQuestionPayload {
+  id: string;
+  position: number;
+  prompt: string;
+  guidance: string | null;
+  required: boolean;
+  max_duration_seconds: number;
+}
+/**
+ * Exactly what al_public_query() returns: the public view of a query. Notably
+ * absent, and deliberately: internal_title, internal_notes, the questions'
+ * internal_context, and anything at all about submissions.
+ */
+export interface PublicQueryPayload {
+  public_id: string;
+  public_title: string;
+  public_intro: string;
+  state: AlPublicState;
+  opens_at: string | null;
+  closes_at: string | null;
+  consent_text: string;
+  ask_contact_permission: boolean;
+  ask_attribution_permission: boolean;
+  allow_anonymous_request: boolean;
+  fields: {
+    name: AlFieldMode;
+    email: AlFieldMode;
+    phone: AlFieldMode;
+    city: AlFieldMode;
+    note: AlFieldMode;
+  };
+  questions: PublicQuestionPayload[];
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -531,6 +576,126 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ep_pillars"]["Row"]>;
         Relationships: [];
       };
+      al_queries: {
+        Row: {
+          id: string;
+          public_id: string;
+          internal_title: string;
+          public_title: string;
+          public_intro: string;
+          internal_notes: string | null;
+          status: AlQueryStatus;
+          opens_at: string | null;
+          closes_at: string | null;
+          field_name: AlFieldMode;
+          field_email: AlFieldMode;
+          field_phone: AlFieldMode;
+          field_city: AlFieldMode;
+          field_note: AlFieldMode;
+          consent_text: string;
+          ask_contact_permission: boolean;
+          ask_attribution_permission: boolean;
+          allow_anonymous_request: boolean;
+          transcription_mode: AlTranscriptionMode;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_queries"]["Row"]> & {
+          public_id: string;
+          internal_title: string;
+          public_title: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_queries"]["Row"]>;
+        Relationships: [];
+      };
+      al_questions: {
+        Row: {
+          id: string;
+          query_id: string;
+          position: number;
+          prompt: string;
+          guidance: string | null;
+          internal_context: string | null;
+          required: boolean;
+          max_duration_seconds: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_questions"]["Row"]> & {
+          query_id: string;
+          position: number;
+          prompt: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_questions"]["Row"]>;
+        Relationships: [];
+      };
+      al_submissions: {
+        Row: {
+          id: string;
+          query_id: string;
+          participant_user_id: string | null;
+          status: AlSubmissionStatus;
+          participant_name: string | null;
+          participant_email: string | null;
+          participant_phone: string | null;
+          participant_city: string | null;
+          participant_note: string | null;
+          consent_contact: boolean;
+          consent_identify: boolean;
+          request_anonymous: boolean;
+          consent_agreed_at: string | null;
+          submitted_at: string | null;
+          review_state: AlReviewState;
+          internal_notes: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Insert-only via al_start_submission(); no insert grant exists for
+        // `authenticated`. Kept for completeness of the Row/Update shape.
+        Insert: Partial<Database["public"]["Tables"]["al_submissions"]["Row"]> & {
+          query_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_submissions"]["Row"]>;
+        Relationships: [];
+      };
+      al_answers: {
+        Row: {
+          id: string;
+          submission_id: string;
+          query_id: string;
+          question_id: string | null;
+          question_prompt: string;
+          question_position: number;
+          question_required: boolean;
+          status: AlAnswerStatus;
+          storage_path: string;
+          content_type: string;
+          size_bytes: number | null;
+          duration_ms: number | null;
+          review_state: AlReviewState;
+          internal_note: string | null;
+          transcription_state: AlTranscriptionState;
+          transcription_project_id: string | null;
+          transcription_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Insert-only via al_reserve_answer(), as above.
+        Insert: Partial<Database["public"]["Tables"]["al_answers"]["Row"]> & {
+          submission_id: string;
+          query_id: string;
+          question_prompt: string;
+          question_position: number;
+          storage_path: string;
+          content_type: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_answers"]["Row"]>;
+        Relationships: [];
+      };
       ri_sessions: {
         Row: {
           id: string;
@@ -648,6 +813,61 @@ export interface Database {
     Views: Record<string, never>;
     Functions: {
       /**
+       * The seven-function public surface of Audience Listening
+       * (20260730170000_audience_listening.sql). al_* table RLS is staff-only;
+       * these security-definer functions are how a participant reads a query
+       * and writes a submission. Every one of them re-derives authorization
+       * from auth.uid() and returns only public-facing fields. All return
+       * jsonb, so each `Returns` below is the documented payload shape rather
+       * than a row type.
+       */
+      al_public_query: {
+        Args: { p_public_id: string };
+        Returns: PublicQueryPayload | null;
+      };
+      al_start_submission: {
+        Args: { p_public_id: string };
+        Returns: { submission_id: string; resumed: boolean } | { error: string };
+      };
+      al_participant_progress: {
+        Args: { p_submission_id: string };
+        Returns: {
+          status: AlSubmissionStatus;
+          answers: {
+            answer_id: string;
+            question_id: string | null;
+            status: AlAnswerStatus;
+            duration_ms: number | null;
+          }[];
+        } | null;
+      };
+      al_reserve_answer: {
+        Args: { p_submission_id: string; p_question_id: string; p_content_type: string };
+        Returns: { answer_id: string; storage_path: string } | { error: string };
+      };
+      al_complete_answer: {
+        Args: { p_answer_id: string; p_size_bytes: number; p_duration_ms: number | null };
+        Returns: { ok: true } | { error: string };
+      };
+      al_save_participant_details: {
+        Args: {
+          p_submission_id: string;
+          p_name: string | null;
+          p_email: string | null;
+          p_phone: string | null;
+          p_city: string | null;
+          p_note: string | null;
+          p_consent_contact: boolean;
+          p_consent_identify: boolean;
+          p_request_anonymous: boolean;
+        };
+        Returns: { ok: true } | { error: string };
+      };
+      al_finalize_submission: {
+        Args: { p_submission_id: string; p_consent_agreed: boolean };
+        Returns: { ok: true; answers: number } | { error: string };
+      };
+      /**
        * Guest-join entry point (20260729180000_remote_interview_waiting_room.sql).
        * Validates the join token and binds it to the caller's own (anonymous)
        * auth.uid(). Returns null for any invalid token.
@@ -704,6 +924,13 @@ export interface Database {
       ri_participant_role: RiParticipantRole;
       ri_track_source: RiTrackSource;
       ri_track_status: RiTrackStatus;
+      al_query_status: AlQueryStatus;
+      al_field_mode: AlFieldMode;
+      al_transcription_mode: AlTranscriptionMode;
+      al_submission_status: AlSubmissionStatus;
+      al_review_state: AlReviewState;
+      al_answer_status: AlAnswerStatus;
+      al_transcription_state: AlTranscriptionState;
     };
     CompositeTypes: Record<string, never>;
   };

@@ -25,9 +25,8 @@ tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Plan
 (pitch backlog, configurable submission form and rubric, weekly meetings with
 independent scoring, ranked agendas, and recorded decisions). Its design rationale
 lives in `docs/editorial-planning-design.md` — read it before changing editorial
-workflow or schema. **Do not build the Audience Listening tool** without an explicit
-instruction to start that phase — a separate milestone with its own schema under its own
-route group. (Remote Interview's guardrail has been lifted — see below.)
+workflow or schema. (The guardrails against Remote Interview and Audience Listening have
+both been lifted — see below.)
 
 **Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
 (Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)
@@ -147,12 +146,50 @@ alongside this: assembly is host-triggered but writes into *the participant's* s
 prefix, so `ri_media_insert`/`update` needed the same host-of-session broadening slice 3
 already gave `ri_tracks`.
 
-**Phase 5 (cloud-backup video) is planned but not authorized — same guardrail as Audience
-Listening: do not start it without an explicit instruction.** The design is recorded in
+**Phase 5 (cloud-backup video) is planned but not authorized — do not start it without an
+explicit instruction.** The design is recorded in
 `docs/remote-interview-design.md` §7: video would ride the existing Daily call and cloud
 backup only — deliberately **no local video capture**, which is a different and much larger
 engineering problem than the WAV pipeline slice 3 built. Slice 5 (handoff) above is still
 next.
+
+**Audience Listening: milestone 1 has landed** — the guardrail against building it is
+lifted. Read `docs/audience-listening-design.md` before touching any of it. A reporter
+creates a **query** (a public listening initiative), gives it one to five ordered
+questions, publishes it as a standalone page or a Grove iframe embed, and reviews the
+grouped **submissions** and their individual audio **answers** here; each answer can be
+handed individually to the Transcription Workspace. Tables are `al_*`
+(`20260730170000_audience_listening.sql`), the internal route segment is
+`src/app/(portal)/audience-listening/` gated by `requireToolAccess("audience-listening")`,
+and the public route is `src/app/listen/[publicId]/` (plus `/embed`), outside both
+`(portal)` and `(auth)` for the same reason `/join/[token]` is.
+
+Three things about it are load-bearing and easy to break by accident:
+
+1. **`al_*` table RLS is staff-only, and the public surface is seven `security definer`
+   functions** (`al_public_query`, `al_start_submission`, `al_participant_progress`,
+   `al_reserve_answer`, `al_complete_answer`, `al_save_participant_details`,
+   `al_finalize_submission`). RLS is row-level and these rows are half public, half
+   internal — the same `al_queries` row holds the public title and the internal notes, and
+   column-level grants can't help because an anonymous participant and a staff reporter are
+   both `authenticated`. Do **not** add a participant-facing RLS policy to an `al_*` table;
+   extend the function list instead. Storage is the one deliberate exception (uploads go
+   browser → Storage directly), scoped to the object prefix of an in-progress submission
+   the caller owns.
+2. **Answers snapshot their question.** `question_prompt`/`question_position`/
+   `question_required` are copied onto `al_answers` by `al_reserve_answer()` from
+   `al_questions` — never supplied by the client. Wording stays editable after submissions
+   exist; removal and reordering do not.
+3. **"Automatic" transcription is automatic *eligibility*, not background processing.**
+   There is still no job queue in this repo, so finalizing a submission on an `automatic`
+   query marks its answers `queued` and a staff member drains them in one click. Don't
+   describe it as unattended.
+
+The handoff reuses `startTranscriptionForProject()`, which moved out of
+`src/app/(portal)/transcription/actions.ts` into `src/lib/transcription/ingest.ts` so both
+tools call one place — there is no second ASR pipeline, webhook, or transcript table.
+Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
+Interview, now required by a second tool).
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -222,10 +259,15 @@ src/app/(portal)/transcription/  Transcription Workspace — its own route segme
                             requireToolAccess("transcription")
 src/app/(portal)/remote-interview/  Remote Interview — its own route segment, gated by
                             requireToolAccess("remote-interview")
+src/app/(portal)/audience-listening/  Audience Listening — its own route segment, gated by
+                            requireToolAccess("audience-listening")
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
                             portal conventions"
+src/app/listen/[publicId]/ Audience Listening's public participation page, and /embed for
+                            the Grove iframe. Outside (portal)/(auth) for the same reason
+                            as /join, and listed in the middleware's PUBLIC_PATHS
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
@@ -236,6 +278,9 @@ src/lib/auth/              session lookup + authorization checks
 src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
 src/lib/remote-interview/  Remote Interview's data access + pure logic (tokens, storage
                            prefixes) — not portal-schema
+src/lib/audience-listening/  Audience Listening's data access + pure logic (public ids,
+                           query/participation state, embed code, provenance). participant.ts
+                           is the only path a member of the public reaches
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

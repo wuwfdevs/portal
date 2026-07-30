@@ -2,16 +2,26 @@
 
 Internal tools portal for WUWF Public Media — shared authentication, navigation, user
 approval/invitation, and access control for a small set of purpose-built internal tools
-(Editorial Planning, Transcription Workspace, and later Remote Interview and Audience
-Listening).
+(Editorial Planning, Transcription Workspace, Remote Interview, and Audience Listening).
 
 This repository contains the **portal foundation** (application shell, auth, the tool
-registry, and admin screens) and the first real tool, **Editorial Planning** — a pitch
-backlog, a configurable submission form and scoring rubric, and weekly planning meetings
-with independent reviewer scoring, ranked agendas, and recorded decisions
-(`docs/editorial-planning-design.md` explains the design). It is not, and is not meant to
-become, a general-purpose newsroom platform — see `CLAUDE.md` for the scope and
-architecture rules this project follows.
+registry, and admin screens) plus the tools built on it:
+
+- **Editorial Planning** — a pitch backlog, a configurable submission form and scoring
+  rubric, and weekly planning meetings with independent reviewer scoring, ranked agendas,
+  and recorded decisions (`docs/editorial-planning-design.md`).
+- **Transcription Workspace** — upload, transcribe, correct, clip, and search interview
+  audio (`docs/transcription-workspace-design.md`).
+- **Remote Interview** — record a remote guest at full quality from their own browser
+  (`docs/remote-interview-design.md`, `docs/remote-interview-technical-assessment.md`).
+- **Audience Listening** — publish a short set of questions as a public page or a Grove
+  embed, collect recorded answers from listeners, review them, and hand individual
+  answers to the Transcription Workspace (`docs/audience-listening-design.md`). This is
+  the only tool with a public, account-less write surface; that document's §6 explains
+  the security model it needs as a result.
+
+It is not, and is not meant to become, a general-purpose newsroom platform — see
+`CLAUDE.md` for the scope and architecture rules this project follows.
 
 ## Stack
 
@@ -118,11 +128,17 @@ through automation and need a human in each dashboard once:
 
 - URL Configuration: Site URL = that environment's `NEXT_PUBLIC_SITE_URL`; Redirect URLs
   include `<site-url>/auth/callback`
-- Sign In / Providers: enable **Anonymous sign-ins**. Required for Remote Interview's
-  guest join flow (`/join/[token]`) — a guest has no portal account, so that route binds
-  an anonymous Supabase user to their `ri_participants` row instead. See
-  `docs/remote-interview-design.md`, "Guest identity," for why. Without this enabled,
-  opening a guest link fails at the sign-in step.
+- Sign In / Providers: enable **Anonymous sign-ins**. Two tools need it, and neither
+  works at all without it:
+  - Remote Interview's guest join flow (`/join/[token]`) — a guest has no portal
+    account, so that route binds an anonymous Supabase user to their `ri_participants`
+    row instead (`docs/remote-interview-design.md`, "Guest identity"). Unset, opening a
+    guest link fails at the sign-in step.
+  - Audience Listening's public participation page (`/listen/[publicId]`) — a
+    participant's anonymous session is what owns their submission and permits their
+    direct-to-storage upload (`docs/audience-listening-design.md` §6). Unset, pressing
+    Begin fails; reading the questions still works, since that is the one thing `anon`
+    may do.
 
 Everything else — schema, RLS, seed data, the tool registry — is already applied to both
 Supabase projects via migrations.
