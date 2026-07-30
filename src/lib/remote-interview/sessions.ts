@@ -97,6 +97,52 @@ export async function listWaitingParticipants(sessionId: string): Promise<RiPart
 }
 
 /**
+ * Admitted, unrevoked participants (host + guests) — who's actually in the
+ * room for the studio (design doc §3D) and who gets a cloud-backup track
+ * row when a recording run starts (studio/actions.ts).
+ */
+export async function listActiveParticipants(sessionId: string): Promise<RiParticipant[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("ri_participants")
+        .select("*")
+        .eq("session_id", sessionId)
+        .not("admitted_at", "is", null)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: true }),
+      "this session's active participants",
+    ) ?? []
+  );
+}
+
+/**
+ * One past the highest run_index across this session's tracks so far — 0
+ * for a session's first recording run, N+1 after a stop/restart cycle
+ * (design doc §5: run_index is how a stop/start or a rejoin gets more than
+ * one track per participant).
+ */
+export async function nextRunIndex(sessionId: string): Promise<number> {
+  const participants = await listActiveParticipants(sessionId);
+  if (participants.length === 0) return 0;
+
+  const supabase = await createClient();
+  const tracks = unwrapRead(
+    await supabase
+      .from("ri_tracks")
+      .select("run_index")
+      .in(
+        "participant_id",
+        participants.map((p) => p.id),
+      ),
+    "this session's tracks",
+  );
+  if (!tracks || tracks.length === 0) return 0;
+  return Math.max(...tracks.map((t) => t.run_index)) + 1;
+}
+
+/**
  * The latest preflight_completed event per participant, for the waiting-room
  * view (design doc §3C: "with their preflight results"). A guest can in
  * principle re-run preflight and re-submit, so this keeps only the newest

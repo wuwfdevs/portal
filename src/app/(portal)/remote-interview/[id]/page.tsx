@@ -51,7 +51,16 @@ export default async function RemoteInterviewSessionPage({
           <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{session.title}</h1>
           {session.notes && <p className="max-w-xl text-sm text-ink-500">{session.notes}</p>}
         </div>
-        <Badge variant="neutral">{session.status.replace("_", " ")}</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="neutral">{session.status.replace("_", " ")}</Badge>
+          {isHost && (
+            <Link href={`/remote-interview/${session.id}/studio`}>
+              <Button type="button" variant="primary">
+                Open studio
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {error && <Alert className="mb-4">{error}</Alert>}
@@ -87,7 +96,9 @@ export default async function RemoteInterviewSessionPage({
                         </div>
                       )}
                       {!preflight && (
-                        <p className="mt-0.5 text-xs text-ink-400">No preflight results recorded.</p>
+                        <p className="mt-0.5 text-xs text-ink-400">
+                          No preflight results recorded.
+                        </p>
                       )}
                     </div>
                     <form action={admitParticipant}>

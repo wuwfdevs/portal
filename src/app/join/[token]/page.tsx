@@ -1,19 +1,20 @@
 import { getBoundParticipant } from "@/lib/remote-interview/guest";
 import { isJoinLinkActive } from "@/lib/remote-interview/tokens";
 import { Alert } from "@/components/ui/alert";
+import { Call } from "./call";
 import { GuestBootstrap } from "./guest-bootstrap";
 import { GuestShell } from "./guest-shell";
 import { PreflightForm } from "./preflight-form";
 import { WaitingRoom } from "./waiting-room";
 
 /**
- * Guest-facing join link (design doc §3B/§3C/§3E; "Fit with portal
+ * Guest-facing join link (design doc §3B/§3C/§3D/§3E; "Fit with portal
  * conventions" for why this lives outside both (portal) and (auth)). State
  * is derived entirely from the participant row, which is why there's no
- * client-side routing here: revoked/expired → error, admitted → placeholder
- * (the studio itself is slice 3), waiting_since set → waiting room,
- * otherwise → preflight. GuestBootstrap handles the one case none of this
- * can: no session bound yet at all.
+ * client-side routing here: revoked/expired → error, admitted → the call
+ * (slice 3), waiting_since set → waiting room, otherwise → preflight.
+ * GuestBootstrap handles the one case none of this can: no session bound
+ * yet at all.
  */
 export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -42,12 +43,12 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 
   if (participant.admitted_at) {
     return (
-      <GuestShell>
-        <h1 className="mb-2 font-serif text-lg font-bold text-ink-900">You&apos;re in</h1>
-        <p className="text-sm leading-relaxed text-ink-500">
-          {participant.display_name}, the host has admitted you. The interview will begin shortly.
-        </p>
-      </GuestShell>
+      <Call
+        token={token}
+        participantId={participant.id}
+        displayName={participant.display_name}
+        storagePrefix={participant.storage_prefix}
+      />
     );
   }
 
