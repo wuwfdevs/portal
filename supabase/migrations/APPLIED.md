@@ -1,0 +1,80 @@
+# Migration ledger
+
+**A migration is not done when it is written. It is done when it has been applied
+to both Supabase projects and recorded here.**
+
+Migrations in this directory are not self-applying, and nothing in a normal
+build, test run, or deploy will apply them. A migration that only lives in the
+repo ships a tool that silently does nothing — or worse, half-does something:
+Audience Listening's registry row was flipped to `available` while its route
+still pointed at the generic placeholder, because the migration that repoints it
+had not been run. The result was an infinite redirect with nothing on screen to
+explain it.
+
+This file is the answer to "has it actually been applied?", and
+`npm run db:check` is what stops the question going unasked. That check fails
+if a migration file has no row here, if a row names a file that doesn't exist,
+or if either environment column is anything other than a date.
+
+## How to apply one
+
+Preview first, verify, then production — never the other way round.
+
+1. Apply to `wuwf-tools-portal-preview`.
+2. Verify: the tables/policies/functions exist, and the feature works against a
+   preview deployment.
+3. Apply to `wuwf-tools-portal`.
+4. Verify the same way.
+5. Add the row below, with the date each apply landed.
+6. `npm run db:check`.
+
+Either the Supabase CLI (`supabase db push --linked`) or the Supabase MCP
+server's `apply_migration` will do it. Whichever you use, the remote history
+records its own timestamp for the apply, so the versions Supabase reports do not
+match these filenames — the migration **name** is the join key between this
+repo and a project's history, not the version number.
+
+## Applied
+
+| Migration file                                            | Preview    | Production |
+| --------------------------------------------------------- | ---------- | ---------- |
+| `20260722120000_platform_schema.sql`                       | 2026-07-22 | 2026-07-22 |
+| `20260722120001_rls_policies.sql`                          | 2026-07-22 | 2026-07-22 |
+| `20260722130000_editorial_planning.sql`                    | 2026-07-24 | 2026-07-24 |
+| `20260724120000_private_authz_functions.sql`               | 2026-07-24 | 2026-07-24 |
+| `20260725000000_transcription_workspace_schema.sql`        | 2026-07-25 | 2026-07-25 |
+| `20260725010000_transcription_segment_ordering.sql`        | 2026-07-25 | 2026-07-25 |
+| `20260728120000_transcription_search.sql`                  | 2026-07-28 | 2026-07-28 |
+| `20260729120000_remote_interview_schema.sql`               | 2026-07-29 | 2026-07-29 |
+| `20260729180000_remote_interview_waiting_room.sql`         | 2026-07-29 | 2026-07-29 |
+| `20260729190000_remote_interview_studio_rls.sql`           | 2026-07-29 | 2026-07-29 |
+| `20260730120000_skip_profile_for_anonymous_guests.sql`     | 2026-07-30 | 2026-07-30 |
+| `20260730130000_editorial_strategic_refinement.sql`        | 2026-07-30 | 2026-07-30 |
+| `20260730140000_editorial_sextant_pillars.sql`             | 2026-07-30 | 2026-07-30 |
+| `20260730150000_editorial_pillars_table.sql`               | 2026-07-30 | 2026-07-30 |
+| `20260730160000_remote_interview_assembly_rls.sql`         | 2026-07-30 | 2026-07-30 |
+| `20260730170000_audience_listening.sql`                    | 2026-07-30 | 2026-07-30 |
+
+Verified against both projects' `supabase_migrations.schema_migrations` on
+2026-07-30: every file above is present in both, and neither project carries an
+applied migration this repo doesn't have, except the one noted below.
+
+## Known discrepancy: `harden_functions`
+
+Both hosted projects carry a `harden_functions` migration (applied 2026-07-22)
+with **no corresponding file in this directory**. Its effect — the
+`revoke execute ... from public, anon, authenticated` on
+`handle_new_auth_user()`/`handle_auth_user_sign_in()`/`is_administrator()` — was
+folded into `20260722120000_platform_schema.sql` instead of being tracked as its
+own file.
+
+This is a real, already-characterized gap in the audit trail, not drift in
+behaviour: a fresh database built from this directory ends up in the same state
+as the hosted ones. It is Finding 4 in
+`docs/remote-interview-technical-assessment.md`, recorded here too so that
+whoever reconciles this ledger against a project's history doesn't mistake it
+for something new — and, in particular, doesn't try to "fix" it by writing a
+replacement file and applying it on top.
+
+Deliberately not in the table above: the table is keyed on files that exist, and
+`npm run db:check` treats a row naming a missing file as an error.

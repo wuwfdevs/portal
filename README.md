@@ -65,6 +65,7 @@ supabase db reset
 | `npm run test:watch` | Vitest in watch mode                                                          |
 | `npm run format`     | Prettier, write mode                                                          |
 | `npm run db:types`   | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
+| `npm run db:check`   | Verify every migration is recorded as applied to both Supabase projects      |
 
 ## Database workflow
 
@@ -76,9 +77,22 @@ schema change:
 2. Write the SQL, including any RLS policy changes the new table/column needs
 3. `supabase db reset` locally to verify it applies cleanly against a fresh database
 4. Regenerate types: `npm run db:types`
-5. Apply to the non-production project first, verify, then apply to production
+5. Apply to `wuwf-tools-portal-preview`, and verify there
+6. Apply to `wuwf-tools-portal`, and verify there
+7. Record both dates in [`supabase/migrations/APPLIED.md`](supabase/migrations/APPLIED.md)
+8. `npm run db:check`
 
 Never edit an already-applied migration file; add a new one.
+
+**Steps 5–8 are the ones that get skipped, and skipping them is invisible.** Nothing in
+`npm run build`, the test suite, or a Vercel deploy applies a migration — so a merged
+migration that was never run ships a feature whose tables don't exist, which looks like a
+UI bug rather than a missing deploy step. `APPLIED.md` is the record of what has actually
+been applied where, and `npm run db:check` fails on a migration with no row, a row naming
+a file that doesn't exist, or a row where either environment isn't a date. It needs no
+credentials and no network: it checks that a human did the work and wrote it down, not
+that the database agrees. Reconciling the ledger against a project's live history is a
+manual step, described in `APPLIED.md`.
 
 ## Environments
 
