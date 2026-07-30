@@ -598,14 +598,21 @@ pattern (§4.2), not a new lifecycle rule.
 
 **Coverage pillars are not hard-coded.** They live entirely in
 `primary_pillar`'s `options` array — an ordinary editable list, like any other select
-field — seeded with clearly-labeled placeholder pillars (e.g. "Coastal & environmental
-resilience," "Regional economy & workforce") since the newsroom has not formally
-adopted final pillar names. Three fixed status options are appended to every
-`primary_pillar` field: `Outside current pillars`, `Emerging issue / possible future
-priority`, and `Immediate public need`. These are structural, not pillar names — a
-pitch choosing one of them is never treated as pillar-deficient; it is scored on its
-own editorial merit via the other rubric criteria (§10.2) and the choice itself is a
-signal for future analytics (§10.7).
+field. The migration originally seeded five clearly-labeled placeholder pillars
+pending formal adoption; migration `20260730140000_editorial_sextant_pillars.sql`
+replaced them with the newsroom's actual six, adopted alongside the Sextant podcast
+framework: Growth and Resilience, Public Health and Well-Being, Military Affairs,
+Public Safety and Civil Liberties, Affordability and Opportunity, and Power and
+Politics — each anchored to an enduring guiding question (see the field's help text
+for the full mapping). Changing a select field's option list is a plain update, not a
+deactivate-and-recreate (§4.2's rule is about a field's *meaning*, not its option
+vocabulary — the settings screen already treats option edits this way), and no pitch
+had used the placeholders yet, so nothing needed reconciling. Three fixed status
+options are still appended to every `primary_pillar` field: `Outside current pillars`,
+`Emerging issue / possible future priority`, and `Immediate public need`. These are
+structural, not pillar names — a pitch choosing one of them is never treated as
+pillar-deficient; it is scored on its own editorial merit via the other rubric criteria
+(§10.2) and the choice itself is a signal for future analytics (§10.7).
 
 **The one piece of field interdependency in the form:** `pillar_contribution` is
 required only when `primary_pillar`'s value is a real pillar (not one of the three

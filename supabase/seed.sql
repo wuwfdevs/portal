@@ -208,13 +208,13 @@ begin
     (p_beach, f_public_stakes, to_jsonb('Beachfront property values, tourism revenue, and the county''s long-term storm budget all ride on this formula.'::text)),
     (p_beach, f_reporting_approach, to_jsonb('County budget records, commission meeting minutes, interviews with the erosion-control engineer and two beachfront business owners.'::text)),
     (p_beach, f_perspectives, to_jsonb('Beachfront businesses, county budget staff, residents who oppose the tax increase.'::text)),
-    (p_beach, f_primary_pillar, to_jsonb('Coastal & environmental resilience'::text)),
+    (p_beach, f_primary_pillar, to_jsonb('Growth and Resilience'::text)),
     (p_beach, f_pillar_contribution, to_jsonb('Establishes the funding-mechanism throughline we''ll need for future resilience coverage as storms intensify.'::text)),
     (p_beach, f_format, to_jsonb('Standard story'::text)),
     (p_beach, f_urgency, to_jsonb('Time-bound / known date'::text)),
     (p_shrimp, f_summary, to_jsonb('Gulf shrimpers say this season could be the worst in a decade; imports and fuel costs are squeezing the fleet.'::text)),
     (p_shrimp, f_why_now, to_jsonb('Season opens in six weeks; boats are deciding now whether to go out at all.'::text)),
-    (p_shrimp, f_primary_pillar, to_jsonb('Regional economy & workforce'::text)),
+    (p_shrimp, f_primary_pillar, to_jsonb('Affordability and Opportunity'::text)),
     (p_shrimp, f_sources_materials, to_jsonb('Harbor master at Joe Patti''s, two boat captains from previous reporting.'::text)),
     (p_shrimp, f_format, to_jsonb('Audio feature'::text)),
     (p_shrimp, f_urgency, to_jsonb('Planned / several weeks'::text)),
@@ -229,11 +229,11 @@ begin
     (p_hurricane, f_urgency, to_jsonb('Planned / several weeks'::text)),
     (p_bridge, f_summary, to_jsonb('The bridge authority opened a public comment period on toll changes with almost no publicity.'::text)),
     (p_bridge, f_why_now, to_jsonb('Comment period closes at the end of the month.'::text)),
-    (p_bridge, f_primary_pillar, to_jsonb('Government & public accountability'::text)),
+    (p_bridge, f_primary_pillar, to_jsonb('Power and Politics'::text)),
     (p_bridge, f_pillar_contribution, to_jsonb('Tests whether public-notice requirements are being met — a pattern worth tracking across other authorities.'::text)),
     (p_bridge, f_urgency, to_jsonb('Time-bound / known date'::text)),
     (p_housing, f_summary, to_jsonb('UWF enrollment growth is outpacing dorm capacity and off-campus rents are climbing.'::text)),
-    (p_housing, f_primary_pillar, to_jsonb('Education & youth opportunity'::text))
+    (p_housing, f_primary_pillar, to_jsonb('Affordability and Opportunity'::text))
   on conflict do nothing;
 
   -- Last week's meeting: concluded, with a full review record.
