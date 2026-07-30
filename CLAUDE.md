@@ -184,6 +184,17 @@ Three things about it are load-bearing and easy to break by accident:
    There is still no job queue in this repo, so finalizing a submission on an `automatic`
    query marks its answers `queued` and a staff member drains them in one click. Don't
    describe it as unattended.
+4. **The public flow's session lives in `localStorage`, not a cookie — deliberately, not
+   an oversight.** `lib/audience-listening/public-client.ts` and `participant-client.ts`
+   exist because a cookie set inside this route's cross-origin Grove iframe embed is a
+   third-party cookie and does not survive the round trip back to the server (confirmed in
+   production: the first authenticated call after `signInAnonymously()` succeeded, the next
+   one — a separate request — came back "permission denied" because the browser never sent
+   the cookie). Every write in the public flow goes through the browser directly with this
+   dedicated client; do not route a new one through a Server Action using the normal
+   cookie-based `lib/supabase/server.ts`/`client.ts` pair, or it will silently work in local
+   dev and preview (same-origin, no third-party cookie problem) and fail only in a real
+   embed.
 
 The handoff reuses `startTranscriptionForProject()`, which moved out of
 `src/app/(portal)/transcription/actions.ts` into `src/lib/transcription/ingest.ts` so both
@@ -279,8 +290,12 @@ src/lib/transcription/     Transcription Workspace's data access + pure logic (n
 src/lib/remote-interview/  Remote Interview's data access + pure logic (tokens, storage
                            prefixes) — not portal-schema
 src/lib/audience-listening/  Audience Listening's data access + pure logic (public ids,
-                           query/participation state, embed code, provenance). participant.ts
-                           is the only path a member of the public reaches
+                           query/participation state, embed code, provenance).
+                           participant.ts (server) and participant-client.ts +
+                           public-client.ts (browser) are the only paths a member
+                           of the public reaches — see public-client.ts's comment
+                           for why the public flow gets its own, non-cookie
+                           Supabase client
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

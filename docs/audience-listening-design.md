@@ -75,8 +75,8 @@ Five constraints:
 
 2. **Question wording is snapshotted onto the answer.** A reporter will reword a
    question after seeing the first few responses. Every answer therefore carries
-   the exact prompt, its position, and whether it was required *as presented to
-   that participant*. Nothing downstream ever has to ask "but which version of
+   the exact prompt, its position, and whether it was required _as presented to
+   that participant_. Nothing downstream ever has to ask "but which version of
    question 2 was this?"
 
 3. **One answer, one transcription project.** The Transcription Workspace models
@@ -87,7 +87,7 @@ Five constraints:
 
 4. **The original is never replaced.** The file the participant's browser
    uploaded stays in `audience-listening-media` untouched forever. Transcription
-   handoff *copies* into `transcription-media`; it does not move or re-encode.
+   handoff _copies_ into `transcription-media`; it does not move or re-encode.
 
 5. **Nothing is public but the questions.** No response gallery, no vote counts,
    no participant-visible anything beyond their own in-flight submission. The
@@ -99,12 +99,12 @@ The `audience-listening` row is currently seed-only
 (`supabase/seed.sql:85-87`), pointing at the generic placeholder route with
 `status = 'planned'`:
 
-|                | Now                                          | After this milestone                                                                          |
-| -------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+|                | Now                                               | After this milestone                                                                          |
+| -------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | description    | "Organize and analyze structured audience input." | "Collect recorded answers from the public to a short set of questions, and review them here." |
-| route          | `/tools/audience-listening` (placeholder)    | `/audience-listening`                                                                          |
-| status         | `planned`                                    | `available`                                                                                    |
-| default_access | `invite_only`                                | `invite_only` (unchanged)                                                                      |
+| route          | `/tools/audience-listening` (placeholder)         | `/audience-listening`                                                                         |
+| status         | `planned`                                         | `available`                                                                                   |
+| default_access | `invite_only`                                     | `invite_only` (unchanged)                                                                     |
 
 Following the Transcription Workspace and Remote Interview precedent, the row is
 maintained by this tool's own migration rather than seed data, so it exists
@@ -143,7 +143,7 @@ The five-question ceiling is enforced by a database trigger, not just by the UI 
 this is the sort of limit that gets worked around by an action nobody remembered
 to guard.
 
-Once a query has submissions, question *wording* stays editable (the reporter
+Once a query has submissions, question _wording_ stays editable (the reporter
 learns what the question should have said from the first responses) but questions
 can no longer be deleted or reordered, and the screen says why: existing answers
 carry the wording they were given, and renumbering would make historical answers
@@ -241,15 +241,15 @@ and it is why one failed upload cannot cost the participant the other answers.
 
 ## 4. Screens
 
-| Route                                                       | Who        | What                                                                    |
-| ----------------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
-| `/audience-listening`                                       | staff      | Query list: status, question count, submissions, unreviewed, owner       |
-| `/audience-listening/new`                                   | staff      | Create a draft query                                                     |
-| `/audience-listening/[id]?tab=…`                            | staff      | Workspace: overview, questions, settings, submissions, share             |
-| `/audience-listening/[id]/preview`                          | staff      | The public experience, rendered read-only, for a draft or open query     |
-| `/audience-listening/[id]/submissions/[submissionId]`       | staff      | One grouped submission and its answers                                   |
-| `/listen/[publicId]`                                        | **public** | Standalone participation page                                            |
-| `/listen/[publicId]/embed`                                  | **public** | The same flow, chrome-free, for a cross-origin iframe                    |
+| Route                                                 | Who        | What                                                                 |
+| ----------------------------------------------------- | ---------- | -------------------------------------------------------------------- |
+| `/audience-listening`                                 | staff      | Query list: status, question count, submissions, unreviewed, owner   |
+| `/audience-listening/new`                             | staff      | Create a draft query                                                 |
+| `/audience-listening/[id]?tab=…`                      | staff      | Workspace: overview, questions, settings, submissions, share         |
+| `/audience-listening/[id]/preview`                    | staff      | The public experience, rendered read-only, for a draft or open query |
+| `/audience-listening/[id]/submissions/[submissionId]` | staff      | One grouped submission and its answers                               |
+| `/listen/[publicId]`                                  | **public** | Standalone participation page                                        |
+| `/listen/[publicId]/embed`                            | **public** | The same flow, chrome-free, for a cross-origin iframe                |
 
 The public routes live at `/listen`, outside both `(portal)` and `(auth)`, for
 the same reason Remote Interview's `/join/[token]` does: a participant has no
@@ -344,7 +344,7 @@ row-level, and this tool's rows are half public and half internal.** The same
 notes they must never see. The same `al_submissions` row holds the participant's
 own answers and the newsroom's review state and reviewer identity.
 
-Column-level `GRANT`s can express that split, but they are granted per *role*,
+Column-level `GRANT`s can express that split, but they are granted per _role_,
 and an anonymous participant and a staff reporter are both `authenticated` — so a
 column grant tight enough for the participant would break the reporter.
 
@@ -366,15 +366,15 @@ whole surface rather than two calls.
 
 The functions, all `security definer`, `set search_path = public`:
 
-| Function                        | Callable by            | Does                                                                 |
-| ------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| `al_public_query`               | `anon`, `authenticated`| Returns the public view of a query + its questions, or null           |
-| `al_start_submission`           | `authenticated`        | Creates (or resumes) this participant's `in_progress` submission      |
-| `al_participant_progress`       | `authenticated`        | Which questions this submission has saved answers for                 |
-| `al_reserve_answer`             | `authenticated`        | Creates/resets the answer row, snapshots the prompt, returns the path |
-| `al_complete_answer`            | `authenticated`        | Marks the answer uploaded after a successful direct upload            |
-| `al_save_participant_details`   | `authenticated`        | Writes only the participant/consent columns of an own, open submission|
-| `al_finalize_submission`        | `authenticated`        | Validates everything and flips the submission to `submitted`          |
+| Function                      | Callable by             | Does                                                                   |
+| ----------------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| `al_public_query`             | `anon`, `authenticated` | Returns the public view of a query + its questions, or null            |
+| `al_start_submission`         | `authenticated`         | Creates (or resumes) this participant's `in_progress` submission       |
+| `al_participant_progress`     | `authenticated`         | Which questions this submission has saved answers for                  |
+| `al_reserve_answer`           | `authenticated`         | Creates/resets the answer row, snapshots the prompt, returns the path  |
+| `al_complete_answer`          | `authenticated`         | Marks the answer uploaded after a successful direct upload             |
+| `al_save_participant_details` | `authenticated`         | Writes only the participant/consent columns of an own, open submission |
+| `al_finalize_submission`      | `authenticated`         | Validates everything and flips the submission to `submitted`           |
 
 `anon` can call exactly one of them, and it only reads. Everything that writes
 requires a real (if anonymous) session, established at **Begin**.
@@ -397,7 +397,7 @@ Transcription Workspace's upload path) and the obvious one for audio. That means
 the storage policies, unlike the table policies, do have to admit participants:
 
 - `insert` / `update` are allowed when the object key sits under a submission the
-  caller owns *and that submission is still `in_progress`* — expressed by
+  caller owns _and that submission is still `in_progress`_ — expressed by
   `private.al_owns_open_submission_object(name, uid)`. A submitted submission's
   audio can no longer be overwritten by the participant who made it.
 - `select` and `delete` are staff-only. A participant never reads back from
@@ -449,7 +449,7 @@ it the handoff would fail for exactly one browser, at the last step.
    `startTranscriptionForProject()`;
 5. records the outcome on the answer, and audits it.
 
-**"Automatic" transcription is automatic *eligibility*, not background
+**"Automatic" transcription is automatic _eligibility_, not background
 processing.** This repository has no job queue — the Remote Interview design doc
 says so, and its own assembly step is host-triggered "never automatic, since
 there's still no job queue." Finalizing a submission on an `automatic` query sets
@@ -504,7 +504,7 @@ browser never prompted and there is nothing in the address bar to change.
   only then being offered the thing that does work is three steps of wasted
   trust from someone who was doing us a favour by responding at all.
 - When it's unknowable and we're framed, the message says the microphone isn't
-  available *in this article*, offers the new tab first and a retry second, and
+  available _in this article_, offers the new tab first and a retry second, and
   never mentions the address bar.
 - Only on a top-level page — where the advice actually works — does it say to
   allow the microphone from the address bar.
@@ -531,7 +531,7 @@ Without adding standing infrastructure, four layers:
 4. **Bounded in time.** `opens_at` / `closes_at` and `status` are checked inside
    `al_start_submission`, not just rendered.
 
-What is deliberately *not* here: a CAPTCHA, an IP-address table, or a rate-limit
+What is deliberately _not_ here: a CAPTCHA, an IP-address table, or a rate-limit
 store. All three are standing infrastructure this repository does not have, and
 adding one for a tool that has not yet been attacked would be exactly the
 speculative infrastructure `CLAUDE.md` warns against. §7 records it.
@@ -559,18 +559,18 @@ speculative infrastructure `CLAUDE.md` warns against. §7 records it.
 
 Everything below is reuse, not new mechanism:
 
-| Concern              | Reused from                                                                    |
-| -------------------- | ------------------------------------------------------------------------------ |
-| Access gate          | `requireToolAccess("audience-listening")` / `assertToolAccess` (`lib/auth/authz`) |
+| Concern              | Reused from                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| Access gate          | `requireToolAccess("audience-listening")` / `assertToolAccess` (`lib/auth/authz`)       |
 | Membership predicate | `private.has_audience_listening_access`, shaped exactly like `has_transcription_access` |
-| Audit                | `logAuditEvent()` after every privileged write                                  |
-| Read failures        | `unwrapRead()`                                                                  |
-| Write failures       | `failIfError()` / `failWith()` from `lib/editorial/action-result`                |
-| UI                   | `components/ui/*` — no new primitives                                           |
-| Public route shape   | `/join/[token]`'s outside-the-route-groups placement and `GuestShell` pattern    |
-| Anonymous identity   | `signInAnonymously()`, already enabled for Remote Interview                     |
-| Direct upload        | The Transcription Workspace's row-then-upload-then-complete sequence            |
-| ASR                  | `startTranscriptionForProject()`, extracted and now shared                      |
+| Audit                | `logAuditEvent()` after every privileged write                                          |
+| Read failures        | `unwrapRead()`                                                                          |
+| Write failures       | `failIfError()` / `failWith()` from `lib/editorial/action-result`                       |
+| UI                   | `components/ui/*` — no new primitives                                                   |
+| Public route shape   | `/join/[token]`'s outside-the-route-groups placement and `GuestShell` pattern           |
+| Anonymous identity   | `signInAnonymously()`, already enabled for Remote Interview                             |
+| Direct upload        | The Transcription Workspace's row-then-upload-then-complete sequence                    |
+| ASR                  | `startTranscriptionForProject()`, extracted and now shared                              |
 
 One portal-schema change is needed, and it is the narrowly-scoped additive kind
 the `CLAUDE.md` conventions anticipate: an `audit_events` insert policy for
@@ -631,21 +631,57 @@ environment:
   choice. If Grove turns out to expose a resizing contract worth targeting, that
   is a small, well-bounded follow-up.
 
-- **The embed may not be able to record at all, and there is a second reason
-  beyond the microphone.** In a cross-origin iframe our Supabase session cookie
-  is a third-party cookie. Safari blocks those outright, and Chrome partitions
-  them — so `signInAnonymously()` at "Begin" may not persist inside the frame
-  even where the microphone *is* delegated, which would break the flow at the
-  upload step rather than at the permission step. This has not yet been observed,
-  only reasoned about, and it needs a real Safari test inside a real Grove
-  article to confirm or rule out.
+- **RESOLVED — the third-party-cookie risk flagged above was real, and it hit
+  in production the same day.** A reporter tested a live, published Grove
+  embed: the microphone permission fix worked, recording worked, and the
+  _first submitted answer_ failed with a generic "something went wrong on our
+  side." Vercel's runtime error logs gave the exact cause —
+  `permission denied for function al_reserve_answer` (Postgres 42501) — and
+  Supabase's API logs gave the timeline: `al_start_submission` succeeded
+  immediately after `signInAnonymously()`, then the very next authenticated
+  call, ~15 seconds later, arrived as `anon`. The pattern is exact: a call
+  reusing the session already held in memory _within the same request_ that
+  signed in succeeds; a call that has to recover the session _from a cookie
+  sent back by the browser_ does not — because that cookie, set inside this
+  route's cross-origin iframe embed, is a third-party cookie, and SameSite=Lax
+  (the default, and what `@supabase/ssr`'s cookie-based client sets) excludes
+  it from every request except a top-level navigation.
 
-  Both of these point the same way: **the embed may be better as a launcher than
-  as the recording surface** — an introduction, the question list, and one button
-  that opens the standalone page. That is a deliberate product decision rather
-  than a bug fix, so it is recorded here rather than made unilaterally. The
-  current behaviour already degrades to exactly that when the microphone is
-  provably blocked.
+  Fixed by giving the public participation flow its own session transport,
+  independent of the cookie-sharing convention every other client in this
+  portal uses. `lib/audience-listening/public-client.ts` is a Supabase client
+  built with plain `createClient` from `@supabase/supabase-js` — not
+  `@supabase/ssr`'s `createBrowserClient`, which was checked at the source and
+  found to force cookie-based storage unconditionally, with no supported way
+  to opt out. Plain `createClient`'s default session store is `localStorage`;
+  supabase-js attaches that session as an `Authorization: Bearer` header on
+  every request, a JS operation unaffected by SameSite or partitioning.
+  `lib/audience-listening/participant-client.ts` replaces the six participant
+  functions that used to run as Server Actions (`al_start_submission` through
+  `al_finalize_submission`) with client-side twins calling this client
+  directly — same names, same signatures, same `{ error }` shapes, so
+  `participate.tsx` changed only its import line for those, plus one line
+  where the storage upload now uses the same client (the storage RLS policy
+  checks `auth.uid()` against the submission's owner, so upload and RPC calls
+  have to authenticate as the identical session). `al_public_query` stays
+  server-side in `participant.ts`, unaffected, since it needs no session at
+  all. `actions.ts` (the Server Action wrapper file) had nothing left to do
+  and was deleted.
+
+  Trade-off, stated rather than left implicit: this swaps an httpOnly cookie
+  (unreadable by page JS) for a bearer token in `localStorage` (readable by
+  any script on this origin). That would be a real downgrade for a staff
+  session holding real credentials — it is not one here. The token's entire
+  privilege is exactly what the seven `al_*` functions grant an anonymous
+  participant, scoped to the one submission the same tab is already actively
+  creating; anyone who could read it via XSS already controls the tab.
+
+  One thing this does **not** resolve, and was never about: whether the
+  microphone permission itself reaches the iframe at all (see
+  `lib/audience-listening/microphone.ts` above) — that is Grove's embedding
+  chain, a separate concern from what this fixes, which is purely about the
+  session surviving _after_ the microphone already works.
+
 - **The migration is not self-applying.** Like every migration here, it must be
   applied to the preview project, verified, then production — and anonymous
   sign-ins must be enabled in both dashboards (already required by Remote

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createPublicAudienceClient } from "@/lib/audience-listening/public-client";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import {
   reserveAnswerSlot,
   saveDetails,
   submitResponse,
-} from "./actions";
+} from "@/lib/audience-listening/participant-client";
 
 /**
  * The whole public participation flow, standalone and embedded alike.
@@ -434,7 +434,10 @@ export function Participate({
       return false;
     }
 
-    const supabase = createClient();
+    // Same client the RPC calls above use — the storage RLS policy checks
+    // auth.uid() against this submission's participant_user_id, so the upload
+    // has to authenticate as the identical session that created it.
+    const supabase = createPublicAudienceClient();
     const { error: uploadError } = await supabase.storage
       .from(AUDIENCE_LISTENING_MEDIA_BUCKET)
       .upload(reserved.storagePath, answer.blob, { contentType, upsert: true });
