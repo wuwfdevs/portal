@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
+import { cn } from "@/lib/cn";
 import type { CriterionRow, RubricProfileRow } from "@/lib/editorial/data";
 import {
   moveCriterion,
@@ -15,17 +16,23 @@ import {
 } from "../actions";
 import { CriterionForm } from "./criterion-form";
 
+type CriterionView = "active" | "retired";
+
 export default async function RubricSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; view?: string }>;
 }) {
-  const { error } = await searchParams;
-  const [criteria, settings, profiles] = await Promise.all([
+  const { error, view: viewParam } = await searchParams;
+  const view: CriterionView = viewParam === "retired" ? "retired" : "active";
+  const [allCriteria, settings, profiles] = await Promise.all([
     listCriteria(),
     getSettings(),
     listRubricProfiles(),
   ]);
+  const activeCount = allCriteria.filter((c) => c.active).length;
+  const retiredCount = allCriteria.length - activeCount;
+  const criteria = allCriteria.filter((c) => (view === "active" ? c.active : !c.active));
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -38,11 +45,17 @@ export default async function RubricSettingsPage({
           judgment, not an automatic commissioning system — editors always retain discretion.
         </Alert>
 
+        <div className="mb-3 flex gap-1.5">
+          <ViewTab view="active" current={view} count={activeCount} />
+          <ViewTab view="retired" current={view} count={retiredCount} />
+        </div>
+
         {profiles.map((profile) => (
           <ProfileRubric
             key={profile.id}
             profile={profile}
             criteria={criteria.filter((c) => c.profile_id === profile.id)}
+            view={view}
           />
         ))}
 
@@ -127,16 +140,51 @@ export default async function RubricSettingsPage({
   );
 }
 
+function ViewTab({
+  view,
+  current,
+  count,
+}: {
+  view: CriterionView;
+  current: CriterionView;
+  count: number;
+}) {
+  const label = view === "active" ? "Active" : "Retired";
+  return (
+    <Link
+      href={
+        view === "active" ? "/editorial/settings/rubric" : "/editorial/settings/rubric?view=retired"
+      }
+      aria-current={view === current ? "page" : undefined}
+      className={cn(
+        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+        view === current
+          ? "bg-brand-surface text-brand-link"
+          : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
+      )}
+    >
+      {label}
+      <span className={cn("ml-1.5", view === current ? "text-brand-link/70" : "text-ink-400")}>
+        {count}
+      </span>
+    </Link>
+  );
+}
+
 function ProfileRubric({
   profile,
   criteria,
+  view,
 }: {
   profile: RubricProfileRow;
   criteria: CriterionRow[];
+  view: CriterionView;
 }) {
   const core = criteria.filter((c) => c.criterion_type === "core");
   const modifiers = criteria.filter((c) => c.criterion_type === "modifier");
-  const activeCoreWeight = core.filter((c) => c.active).reduce((sum, c) => sum + c.weight, 0);
+  const activeCoreWeight = core.reduce((sum, c) => sum + c.weight, 0);
+
+  if (view === "retired" && criteria.length === 0) return null;
 
   return (
     <div className="mb-6">
@@ -154,36 +202,46 @@ function ProfileRubric({
             </span>
           )}
         </h2>
-        <span
-          className={
-            activeCoreWeight === 100 ? "text-xs text-ink-400" : "text-xs font-semibold text-danger"
-          }
-        >
-          Active core weights sum to {activeCoreWeight}
-          {activeCoreWeight !== 100 && " (expected 100)"}
-        </span>
+        {view === "active" && (
+          <span
+            className={
+              activeCoreWeight === 100 ? "text-xs text-ink-400" : "text-xs font-semibold text-danger"
+            }
+          >
+            Active core weights sum to {activeCoreWeight}
+            {activeCoreWeight !== 100 && " (expected 100)"}
+          </span>
+        )}
       </div>
       {profile.description && (
         <p className="mb-2.5 text-xs leading-relaxed text-ink-400">{profile.description}</p>
       )}
 
-      <CriterionTable criteria={core} />
+      <CriterionTable criteria={core} view={view} emptyMessage="No core criteria here yet." />
 
-      {modifiers.length > 0 && (
+      {(modifiers.length > 0 || view === "active") && (
         <div className="mt-3">
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-500">
             Modifiers — scored separately, never part of the core average
           </div>
-          <CriterionTable criteria={modifiers} />
+          <CriterionTable criteria={modifiers} view={view} emptyMessage="No modifiers here yet." />
         </div>
       )}
     </div>
   );
 }
 
-function CriterionTable({ criteria }: { criteria: CriterionRow[] }) {
+function CriterionTable({
+  criteria,
+  view,
+  emptyMessage,
+}: {
+  criteria: CriterionRow[];
+  view: CriterionView;
+  emptyMessage: string;
+}) {
   if (criteria.length === 0) {
-    return <p className="text-sm text-ink-500">Nothing here yet.</p>;
+    return <p className="text-sm text-ink-500">{emptyMessage}</p>;
   }
   return (
     <TableFrame>
@@ -193,8 +251,7 @@ function CriterionTable({ criteria }: { criteria: CriterionRow[] }) {
             <Th>Criterion</Th>
             <Th>Weight</Th>
             <Th>Scale</Th>
-            <Th>Status</Th>
-            <Th>Order</Th>
+            {view === "active" && <Th>Order</Th>}
             <Th>
               <span className="sr-only">Actions</span>
             </Th>
@@ -234,23 +291,18 @@ function CriterionTable({ criteria }: { criteria: CriterionRow[] }) {
               <Cell className="whitespace-nowrap tabular-nums text-ink-500">
                 {criterion.scale_min ?? "tool"}–{criterion.scale_max ?? "tool"}
               </Cell>
-              <Cell>
-                {criterion.active ? (
-                  <Badge variant="accent">Active</Badge>
-                ) : (
-                  <Badge variant="muted">Retired</Badge>
-                )}
-              </Cell>
-              <Cell>
-                <ReorderButtons
-                  action={moveCriterion}
-                  idName="criterion_id"
-                  id={criterion.id}
-                  label={criterion.name}
-                  isFirst={index === 0}
-                  isLast={index === criteria.length - 1}
-                />
-              </Cell>
+              {view === "active" && (
+                <Cell>
+                  <ReorderButtons
+                    action={moveCriterion}
+                    idName="criterion_id"
+                    id={criterion.id}
+                    label={criterion.name}
+                    isFirst={index === 0}
+                    isLast={index === criteria.length - 1}
+                  />
+                </Cell>
+              )}
               <Cell>
                 <div className="flex items-center gap-3 whitespace-nowrap">
                   <Link
