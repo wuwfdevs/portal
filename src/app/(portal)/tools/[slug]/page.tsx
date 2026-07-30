@@ -13,7 +13,18 @@ export default async function ToolPlaceholderPage({
   const { slug } = await params;
   const tool = await getToolByKey(slug);
   if (!tool) notFound();
-  if (tool.status === "available") redirect(tool.route);
+
+  // Only redirect somewhere else. A tool marked 'available' whose route is
+  // still this placeholder redirects to itself — an infinite loop the browser
+  // reports as ERR_TOO_MANY_REDIRECTS, with nothing on screen to explain it.
+  // That is one click away in the admin registry screen (/admin/tools/[id]/edit
+  // lets status and route be changed independently), and it is exactly what
+  // happened when Audience Listening was flipped to 'available' before its
+  // migration had repointed the route. Falling through to the placeholder makes
+  // the misconfiguration visible instead of fatal.
+  if (tool.status === "available" && tool.route !== `/tools/${slug}`) {
+    redirect(tool.route);
+  }
 
   return <ToolPlaceholder tool={tool} />;
 }

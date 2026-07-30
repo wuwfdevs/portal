@@ -298,8 +298,9 @@ migration.
 ## Common commands
 
 `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test` ·
-`npm run format` · `npm run db:types`. Run lint, typecheck, and test before considering a
-change done.
+`npm run format` · `npm run db:types` · `npm run db:check`. Run lint, typecheck, and test
+before considering a change done — and `db:check` too if the change touched
+`supabase/migrations/`.
 
 ## Database workflow
 
@@ -309,6 +310,26 @@ table in the same or an immediately-following migration — a table without RLS 
 a bug, not an oversight to fix later. Regenerate `src/lib/database.types.ts` after schema
 changes (`npm run db:types` against a local instance, or hand-update it consistently with
 the migration if no local instance is running — see the note at the top of that file).
+
+**Writing the migration is not finishing it.** Nothing in a build, a test run, or a
+Vercel deploy applies migrations, so a merged migration that was never run ships a tool
+that silently does nothing — or half-does something, which is worse. That has already
+happened here: Audience Listening's registry row was flipped to `available` while its
+route still pointed at the generic placeholder, because the migration that repoints it
+hadn't been run, and `/tools/audience-listening` redirected to itself forever.
+
+So a schema change is done when, and only when:
+
+1. It is applied to **`wuwf-tools-portal-preview`**, and verified there.
+2. It is applied to **`wuwf-tools-portal`**, and verified there.
+3. Its row is added to **`supabase/migrations/APPLIED.md`** with both dates.
+4. **`npm run db:check`** passes.
+
+`APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
+a migration file with no row, a row naming a missing file, or a row where either
+environment isn't a date. Read that file before touching migration history — it also
+records the one known discrepancy between this directory and the hosted projects
+(`harden_functions`), so nobody tries to "fix" it by reapplying it.
 
 ## Authorization expectations
 
@@ -361,10 +382,13 @@ make explicitly, not by default.
   settings aren't configurable". Reads go through `unwrapRead()` (throws, caught by the
   route's `error.tsx`); writes go through `failIfError()` / `failWith()` from
   `lib/editorial/action-result.ts`, which bounce back with `?error=` for the screen to show.
-- Migrations in `supabase/migrations/` are not self-applying. After adding one, apply it to
-  the Supabase projects (preview first, then production) and confirm the tables exist —
-  a migration that only lives in the repo ships a tool that silently does nothing.
-- Run `npm run lint`, `npm run typecheck`, and `npm test` before calling a change done.
+- Migrations in `supabase/migrations/` are not self-applying, and no build or deploy will
+  apply them. Adding one is not the end of the job: apply it to preview, then production,
+  confirm the tables exist, record both dates in `supabase/migrations/APPLIED.md`, and run
+  `npm run db:check`. See "Database workflow" above — this is the step most often skipped,
+  and skipping it ships a tool that silently does nothing.
+- Run `npm run lint`, `npm run typecheck`, and `npm test` before calling a change done —
+  plus `npm run db:check` when the change touched `supabase/migrations/`.
 - Update this file and/or README.md when you change architecture, directory conventions,
   or the local/deploy workflow — not for routine feature work.
 - Don't add a major dependency without a specific reason it's needed (and note that
