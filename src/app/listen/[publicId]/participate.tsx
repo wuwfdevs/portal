@@ -120,6 +120,7 @@ export function Participate({
   const [micState, setMicState] = useState<MicState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 20 }, () => 12));
   const [flowError, setFlowError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -365,6 +366,10 @@ export function Participate({
     tickRef.current = setInterval(() => {
       const elapsed = Date.now() - startedAtRef.current;
       setElapsedMs(elapsed);
+      // Purely decorative — a level meter would need a real analyser node for
+      // one moment of visual feedback. This is the same "recording is live"
+      // signal as the pulsing dot, just shaped like a waveform.
+      setWaveform(Array.from({ length: 20 }, () => 8 + Math.random() * 36));
       if (elapsed >= maxMs) {
         setAnnouncement("Maximum length reached. Recording stopped.");
         stopRecording();
@@ -549,8 +554,18 @@ export function Participate({
     done: "WUWF received your response",
   };
 
+  // Nothing left to show progress toward once WUWF has the submission.
+  const progressPct =
+    screen === "done"
+      ? null
+      : screen === "question"
+        ? Math.round(((questionIndex + 1) / questions.length) * 100)
+        : screen === "intro" || screen === "mic"
+          ? 0
+          : 100;
+
   return (
-    <ListenShell embedded={embedded}>
+    <ListenShell embedded={embedded} progressPct={progressPct}>
       {/* Transitions only. The timer is deliberately not in here. */}
       <p aria-live="polite" className="sr-only">
         {announcement}
@@ -604,7 +619,7 @@ export function Participate({
             use or a reply.
           </Alert>
           {supported ? (
-            <Button type="button" onClick={handleBegin} disabled={busy || previewMode}>
+            <Button type="button" className="w-full" onClick={handleBegin} disabled={busy || previewMode}>
               {busy ? "Starting…" : "Begin"}
             </Button>
           ) : (
@@ -641,7 +656,7 @@ export function Participate({
           )}
 
           {micState === "idle" && !skipToNewTab && (
-            <Button type="button" onClick={requestMicrophone}>
+            <Button type="button" className="w-full" onClick={requestMicrophone}>
               Allow microphone access
             </Button>
           )}
@@ -677,10 +692,11 @@ export function Participate({
 
           {micState === "granted" && (
             <>
-              <p className="rounded border border-line bg-panel-50 px-3.5 py-2.5 text-sm font-semibold text-ink-700">
+              <p className="flex items-center gap-2.5 rounded border border-success-border bg-success-bg px-3.5 py-3 text-sm font-semibold text-success-fg">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-success-fg" aria-hidden="true" />
                 Microphone ready
               </p>
-              <Button type="button" onClick={() => setScreen("question")}>
+              <Button type="button" className="w-full" onClick={() => setScreen("question")}>
                 Continue to question 1
               </Button>
             </>
@@ -707,22 +723,41 @@ export function Participate({
           )}
 
           {isRecording ? (
-            <div className="flex flex-col gap-3 rounded border border-line bg-panel-50 p-4">
-              <p className="text-sm font-bold text-ink-900">Recording</p>
+            <div className="flex flex-col items-center gap-3.5 py-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 animate-al-pulse rounded-full bg-danger"
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-bold text-danger">Recording</span>
+              </div>
+              <div className="flex h-12 items-end gap-[3px]" aria-hidden="true">
+                {waveform.map((height, index) => (
+                  <div
+                    key={index}
+                    className="w-1 rounded-sm bg-brand-primary"
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
               <p
                 role="timer"
                 aria-live="off"
-                className="font-mono text-[26px] font-bold tabular-nums text-ink-900"
+                className="font-mono text-[15px] text-ink-700"
               >
                 {formatClock(elapsedMs / 1000)}
-                <span className="text-base font-normal text-ink-400">
+                <span className="text-ink-400">
                   {" / "}
                   {formatClock(currentQuestion.max_duration_seconds)}
                 </span>
               </p>
-              <Button type="button" onClick={stopRecording}>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="rounded bg-ink-900 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-black"
+              >
                 Stop recording
-              </Button>
+              </button>
             </div>
           ) : currentAnswer.take === "recorded" || currentAnswer.take === "failed" ? (
             <div className="flex flex-col gap-3 rounded border border-line bg-panel-50 p-4">
@@ -739,10 +774,16 @@ export function Participate({
               )}
               {currentAnswer.error && <Alert>{currentAnswer.error}</Alert>}
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={discardTake} disabled={busy}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={discardTake}
+                  disabled={busy}
+                >
                   Redo this answer
                 </Button>
-                <Button type="button" onClick={handleSaveAndContinue} disabled={busy}>
+                <Button type="button" className="flex-1" onClick={handleSaveAndContinue} disabled={busy}>
                   {busy
                     ? "Saving…"
                     : currentAnswer.take === "failed"
@@ -764,11 +805,12 @@ export function Participate({
                 <Button
                   type="button"
                   variant="secondary"
+                  className="flex-1"
                   onClick={() => setAnswer(currentQuestion.id, { retake: true })}
                 >
                   Replace this answer
                 </Button>
-                <Button type="button" onClick={advance}>
+                <Button type="button" className="flex-1" onClick={advance}>
                   {questionIndex === questions.length - 1 ? "Review answers" : "Next question"}
                 </Button>
               </div>
@@ -781,9 +823,20 @@ export function Participate({
                   else you&apos;ve sent is affected.
                 </Alert>
               )}
-              <Button type="button" onClick={startRecording} disabled={micState !== "granted"}>
-                Start recording
-              </Button>
+              <div className="flex flex-col items-center gap-4 py-3">
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  disabled={micState !== "granted"}
+                  aria-label="Start recording"
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white transition-colors hover:bg-[#2278B8] disabled:bg-panel-100 disabled:text-ink-400"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                </button>
+                <span className="text-sm text-ink-500">Press to start recording</span>
+              </div>
               {isSaved && currentAnswer.retake && (
                 <Button
                   type="button"
@@ -859,7 +912,8 @@ export function Participate({
                   </div>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="ghost"
+                    className="whitespace-nowrap"
                     onClick={() => {
                       if (state === "saved") setAnswer(question.id, { retake: true });
                       setQuestionIndex(index);
@@ -879,6 +933,7 @@ export function Participate({
 
           <Button
             type="button"
+            className="w-full"
             onClick={() => setScreen(visibleFields.length > 0 ? "info" : "consent")}
             disabled={!readiness.canSubmit}
           >
@@ -1007,23 +1062,34 @@ export function Participate({
       )}
 
       {screen === "submitting" && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col items-center gap-3 py-2 text-center">
           <p className="text-[15px] leading-relaxed text-ink-700">
             Please keep this page open until this finishes.
           </p>
-          <p aria-live="polite" className="text-sm font-semibold text-ink-900">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-panel-100" aria-hidden="true">
+            <div className="h-full w-1/3 animate-al-indeterminate rounded-full bg-brand-primary" />
+          </div>
+          <p aria-live="polite" className="text-xs text-ink-400">
             Sending…
           </p>
         </div>
       )}
 
       {screen === "done" && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-4 py-1 text-center">
+          <div
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-success-border bg-success-bg"
+            aria-hidden="true"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5D7A16" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
           <p className="text-[15px] leading-relaxed text-ink-700">
             {submittedCount} answer{submittedCount === 1 ? "" : "s"} received. Thank you — you can
             close this page.
           </p>
-          <Alert variant="note">
+          <Alert variant="note" className="text-left">
             A reporter may contact you only if you gave permission. Nothing here is published
             automatically, and submitting doesn&apos;t guarantee a reply.
           </Alert>
