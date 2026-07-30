@@ -400,10 +400,18 @@ the storage policies, unlike the table policies, do have to admit participants:
   caller owns _and that submission is still `in_progress`_ — expressed by
   `private.al_owns_open_submission_object(name, uid)`. A submitted submission's
   audio can no longer be overwritten by the participant who made it.
-- `select` and `delete` are staff-only. A participant never reads back from
-  storage (playback during the flow is from the in-memory blob), and nothing
-  gives them the ability to remove their own submitted evidence — the same call
-  Remote Interview made for guests.
+- `delete` is staff-only, and nothing gives a participant the ability to remove
+  their own submitted evidence — the same call Remote Interview made for guests.
+- `select` is staff-only **plus** the same "owns an open submission" grant as
+  insert/update (`al_media_select_own`, added in
+  `20260730180000_audience_listening_media_select.sql`). This was not the
+  original design — see "RESOLVED" below — but it turned out to be required,
+  not optional: playback during the flow is still from the in-memory blob, a
+  participant still can't browse the bucket, but `select` on `storage.objects`
+  turns out to be a precondition for `insert`/`update` themselves whenever the
+  upload sets `upsert: true`, which this one always does (see "Recording" and
+  "RESOLVED" below for why a redo has to overwrite in place rather than create
+  a second object).
 
 The order of operations mirrors `createProject` → upload → `completeProjectUpload`:
 **the row is created before the bytes exist.** `al_reserve_answer` returns a path
@@ -681,6 +689,43 @@ environment:
   `lib/audience-listening/microphone.ts` above) — that is Grove's embedding
   chain, a separate concern from what this fixes, which is purely about the
   session surviving _after_ the microphone already works.
+
+- **RESOLVED — fixing the cookie bug above surfaced a second, previously
+  masked failure, on the same embed and story: the first answer's storage
+  upload started failing with `new row violates row-level security policy for
+  table "objects"`.** (It was masked before because every upload was failing
+  earlier, at the RPC step, for the cookie reason — the storage call was never
+  reached.) This one was not an auth-identity problem: the Supabase Storage
+  and Postgres logs for the failing request showed the correct, valid,
+  `is_anonymous` session; the `al_answers` row it was trying to fill existed
+  with the exact matching `storage_path`; and calling
+  `private.al_owns_open_submission_object(name, uid)` directly with that exact
+  pair of values returned `true`. Every server-side fact checked out — the
+  policy's own logic was never wrong.
+
+  The actual cause was a missing grant, not a wrong one. This tool's upload
+  always passes `upsert: true` — the storage path is a fixed key
+  (`<query id>/<submission id>/<answer id>`, see `al_answers.storage_path`'s
+  comment) specifically so a redo overwrites in place instead of orphaning the
+  first attempt under a different key. `storage-js`'s own `upload()`
+  documentation says this plainly: upserting requires `select`, `insert` _and_
+  `update` on `storage.objects`, not just `insert`/`update` — Storage has to
+  be able to see whether an object already exists at that key before it can
+  decide which to run, and needs `select` visibility of the existing row to do
+  it. `al_media_select` was staff-only, so a participant had no `select` grant
+  at all, and every upsert — including, per that same documentation, the
+  first one — failed.
+
+  Fixed in `20260730180000_audience_listening_media_select.sql`, which adds
+  `al_media_select_own`: the same `al_owns_open_submission_object` scoping
+  `al_media_insert`/`al_media_update` already used, as an additional
+  permissive `select` policy alongside the existing staff-only one (Postgres
+  OR's permissive policies together, so neither policy needed editing). This
+  is the same "storage is the deliberate exception to staff-only RLS" call
+  already made for insert/update — see "Storage is the one exception, and
+  deliberately so" above, now updated to describe `select` the same way.
+  Participants still cannot browse the bucket or list any other participant's
+  answers; the grant is exactly as narrow as insert/update always were.
 
 - **The migration is not self-applying.** Like every migration here, it must be
   applied to the preview project, verified, then production — and anonymous

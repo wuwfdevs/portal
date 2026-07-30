@@ -54,6 +54,7 @@ repo and a project's history, not the version number.
 | `20260730150000_editorial_pillars_table.sql`               | 2026-07-30 | 2026-07-30 |
 | `20260730160000_remote_interview_assembly_rls.sql`         | 2026-07-30 | 2026-07-30 |
 | `20260730170000_audience_listening.sql`                    | 2026-07-30 | 2026-07-30 |
+| `20260730180000_audience_listening_media_select.sql`       | 2026-07-30 | 2026-07-30 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
