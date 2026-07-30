@@ -1,10 +1,17 @@
 # Editorial Planning — Product & Technical Design
 
-Status: **implemented** (schema in
-`supabase/migrations/20260722130000_editorial_planning.sql`, logic in
+Status: **implemented**, including the strategic/magazine refinement (schema in
+`supabase/migrations/20260722130000_editorial_planning.sql` and
+`supabase/migrations/20260730130000_editorial_strategic_refinement.sql`, logic in
 `src/lib/editorial/`, screens under `src/app/(portal)/editorial/`). This document is
 the design the implementation follows; treat it as the rationale record, and the code
-as the source of truth for details that have since evolved.
+as the source of truth for details that have since evolved. §10 covers the
+refinement: a fuller pitch form organized around coverage pillars, a granular
+strategic/enterprise rubric, a true core/modifier split (institutional alignment kept
+visibly outside the editorial-merit score), reviewer recommendations and structured
+concern flags, rubric profiles (strategic vs. immediate/emerging-news), and a narrowly
+scoped post-selection story-planning phase. Everything in §1–§9 below still describes
+the foundation those additions build on.
 
 ---
 
@@ -554,3 +561,253 @@ one lib directory, one route segment.
 
 Sensible PR boundaries: (1)+(2) as "schema + logic," (3) as "pitches," (4) as
 "meetings," (5)+(6) as "settings + launch." No new dependencies at any step.
+
+---
+
+## 10. Strategic/magazine refinement
+
+WUWF's editorial strategy is shifting toward fewer reactive spot-news assignments by
+default and more planned, wide-angle, issue-based, explanatory, accountability,
+enterprise, and audio-rich journalism organized around defined coverage pillars —
+without penalizing genuinely urgent public-service coverage that falls outside a
+current pillar. Migration `20260730130000_editorial_strategic_refinement.sql` and the
+UI/logic changes described below implement that shift as an extension of the
+foundation in §1–§9, not a rebuild. Every existing pitch, review, meeting, and
+historical score calculation is preserved: obsolete form fields and rubric criteria
+are deactivated (never deleted), and every new column on `ep_reviews`/`ep_review_scores`
+is additive.
+
+### 10.1 A fuller, pillar-aware pitch form
+
+The four starter fields (`summary`, `why_now`, `sources`, `format`) are deactivated and
+replaced by fifteen seeded fields — ten required, five optional — covering summary,
+central question, why now, public stakes, reporting approach, relevant perspectives, a
+primary coverage pillar, that pillar's contribution, suggested format, and urgency,
+plus optional sources/materials, prior coverage, audio/visual opportunities, support
+needs, and a resource estimate. All are ordinary rows in `ep_form_fields`, edited the
+same way as before — nothing about the form engine changed.
+
+One retired field's slug (`key`) had to become reusable: `ep_form_fields.key` was
+globally unique, which blocked "retire the old `summary` field and seed a fuller one
+with the same key." The migration replaces that global unique constraint with a
+partial unique index (`unique (key) where active`), so a slug frees up the moment the
+row that held it is deactivated — the historical row keeps its key and its FK from old
+`ep_pitch_values` rows stays intact; only a second _active_ row with the same key is
+blocked. This is a narrow schema fix in service of the existing deactivate-then-recreate
+pattern (§4.2), not a new lifecycle rule.
+
+**Coverage pillars are not hard-coded.** They live entirely in
+`primary_pillar`'s `options` array — an ordinary editable list, like any other select
+field — seeded with clearly-labeled placeholder pillars (e.g. "Coastal & environmental
+resilience," "Regional economy & workforce") since the newsroom has not formally
+adopted final pillar names. Three fixed status options are appended to every
+`primary_pillar` field: `Outside current pillars`, `Emerging issue / possible future
+priority`, and `Immediate public need`. These are structural, not pillar names — a
+pitch choosing one of them is never treated as pillar-deficient; it is scored on its
+own editorial merit via the other rubric criteria (§10.2) and the choice itself is a
+signal for future analytics (§10.7).
+
+**The one piece of field interdependency in the form:** `pillar_contribution` is
+required only when `primary_pillar`'s value is a real pillar (not one of the three
+status options). This is deliberately narrow — a single named exception
+(`lib/editorial/form.ts`'s `pillarContributionRequired`), not a general conditional-logic
+builder. The pitch form client component (`pitch-form.tsx`) mirrors the same check to
+show the requirement live as the writer picks a pillar; the server action is the actual
+enforcement.
+
+### 10.2 A granular core rubric
+
+The four starter criteria (`News value`, `Local relevance`, `Feasibility`, `Audience
+impact`) are deactivated. In their place, the default **Strategic / Enterprise** rubric
+profile (§10.4) seeds ten core criteria whose active weights sum to 100: Public impact
+(16), Audience and community relevance (12), Timeliness and strategic moment (8),
+Accountability and civic significance (13), Originality and discovery (10), Explanatory
+and service value (9), Human and narrative potential (7), Breadth of perspective and
+community representation (7), Coverage-pillar contribution (13), and Reporting
+opportunity and readiness (5).
+
+These are deliberately not "News value" writ ten different ways. Prominence, conflict,
+magnitude, celebrity, and shareability are not independently scored anywhere — they are
+evidence a reviewer weighs _within_ Public impact, Timeliness, or Human and narrative
+potential, not separate line items that would double-count the same appeal or reward
+it directly. Coverage-pillar contribution is a **core** criterion, not a bolt-on, because
+the pillars express WUWF's own editorial priorities — advancing them is part of
+editorial merit, not a separate consideration.
+
+The tool-wide scale moved from 1–5 to **0–4** (`ep_settings.scale_min`/`scale_max`).
+This only affects future scoring: every `ep_review_scores` row snapshots the scale it
+was given under, so a 2026-era review still reads back as "scored 1–5" even after the
+default moves. Two new criterion-level columns support this and the modifier (§10.3)
+without touching that snapshot design:
+
+- `scale_min`/`scale_max` (nullable) — a criterion-specific scale override. Null (the
+  common case) means "use the tool-wide scale"; the modifier sets an explicit `0..5`.
+- `anchors` (`jsonb`, `{"0": "…", "1": "…", …}`) — a short description shown to
+  reviewers at each score point. Every seeded criterion has one for every point on its
+  scale, editable the same way name/description/guidance are.
+
+`ep_review_scores` gained `scale_min_snapshot` alongside the existing `scale_snapshot`
+(the max), since a review given against a criterion with an overridden scale now needs
+its _whole_ scale preserved, not just the ceiling the original single-scale design
+assumed. Historical rows backfilled to `1` (the tool's scale-min before this
+migration); every new write sets it explicitly.
+
+### 10.3 The institutional-alignment modifier
+
+`ep_criteria.criterion_type` is `'core'` or `'modifier'`. A core criterion feeds the
+weighted editorial-merit average exactly as before
+(`weightedReviewScore`/`aggregateReviews` in `lib/editorial/scoring.ts`, now filtering on
+`criterion_type = 'core'`). A modifier is scored on its own scale, entirely outside that
+average — **UWF institutional alignment must never be a low-weight core criterion**,
+because that would make it fungible with genuine public-service merit instead of
+staying visibly secondary to it.
+
+The seeded modifier, **Institutional public-value alignment**, scores `0` to `+5`:
+does the pitch create additional public value through a legitimate connection to UWF's
+educational, research, cultural, workforce, or regional-service mission? Its anchors
+are explicit that publicity or reputation-management value scores `0`, the same as no
+connection at all — the modifier rewards genuine public value that happens to touch
+UWF, never favorable coverage of UWF for its own sake. It is optional per reviewer
+(§10.4's scoring form gives it an explicit "N/A" option, `required={false}` in
+`validateReviewScores`) — a reviewer is never forced to score it when no legitimate
+connection exists, and its group average
+(`PitchAggregate.modifierAverage`/`modifierReviewerCount`) is computed only over the
+reviewers who did.
+
+**The formula** (`computeAdjustedScore` in `lib/editorial/scoring.ts`, tested in
+`scoring.test.ts`):
+
+```
+adjustedScore = coreAverage + (modifierApplied ? modifierAverage : 0)
+modifierApplied = modifierAverage !== null && coreAverage >= modifierMinCoreScore
+```
+
+`modifierMinCoreScore` is `ep_settings.modifier_min_core_score`, editor-configurable in
+Settings → Rubric (default `2.5` on the 0–4 scale — solidly above the midpoint).
+Below that threshold the modifier contributes nothing: **it cannot rescue a pitch that
+is editorially weak on its own**, because the addition never happens unless the core
+score already cleared the bar. This is deliberately simple and transparent — no
+normalization, no reweighting, two numbers added together under one guard condition —
+so a newsroom conversation can audit it by eye off the agenda screen. The agenda
+(`agenda-section.tsx`) and the pitch detail page's review history both display core
+score, modifier, and adjusted score as three distinct numbers, plus reviewer spread on
+the core score, exactly as this section's requirements specify; the modifier never
+edits `PitchAggregate.average` itself.
+
+Ranking (`rankSlate`) sorts the agenda by **adjusted** score, not core score alone.
+That is a deliberate reading of "may modestly increase organizational priority": once a
+pitch has cleared the merit bar, a legitimate public-value connection is allowed to
+move it up the discussion order — but never past the bar itself, and never for a pitch
+that hasn't earned it on independent merit.
+
+### 10.4 Reviewer recommendation and structured concerns
+
+`ep_reviews` gained two columns, both nullable at the database level (so historical
+reviews given before they existed stay valid) but required by the `submitReview`
+action for new submissions:
+
+- `recommendation` — one of `advance`, `advance_with_revisions`, `hold_for_development`,
+  `needs_more_reporting`, `defer`, `decline`, `route_to_immediate_news`
+  (`lib/editorial/review.ts`). A structured judgment call, separate from the numeric
+  scores — a reviewer can score a pitch respectably and still recommend `hold_for_development`
+  because the reporting isn't ready, and the agenda shows both.
+- `concern_flags` — zero or more of `focus_scope`, `reporting_path`, `duplication`,
+  `resource_conflict`, `viewpoint_breadth`, `framing`, `verification`, `ethics_harm`,
+  `editorial_independence`. Lightweight checkboxes next to the free-text comment, not a
+  second form to fill out.
+
+Comments stay exactly as lightweight as before — optional, never required per
+criterion. What changed is a **prompt**, not a requirement:
+`reviewNeedsExplanation` (`lib/editorial/review.ts`, tested in `review.test.ts`) flags a
+review as worth a sentence of explanation when the core score is near either extreme,
+the recommendation reads sharply against the numeric score (e.g. a low score paired
+with `advance`), the modifier is scored near its maximum, or any concern flag is
+raised. The scoring UI shows a one-line nudge under the comment box when this fires;
+submission is never blocked on it.
+
+### 10.5 Post-selection story planning
+
+`ep_story_plans` (one row per pitch, `unique (pitch_id)`) and
+`ep_story_plan_milestones` extend the pipeline exactly one step past assignment,
+per this section's brief: **not** a production-tracking suite — no Kanban, no time
+tracking, no drafting/publishing workflow, no full calendar. A story plan is created on
+demand (never automatically) once a pitch is `assigned`, by the assigned reporter or an
+editor, from a "Start story plan" link on the pitch detail page.
+
+Lifecycle: `draft → ready_for_editor → approved`
+(`canTransitionStoryPlanStatus` in `lib/editorial/story-plan.ts`, tested). The reporter
+can move a plan between `draft` and `ready_for_editor` in either direction; only an
+editor can approve it or reopen an approved plan for revision — enforced twice, once in
+the RLS update policy (whose `with check` clause never permits a non-editor to write
+`status = 'approved'`) and once in the app-level transition check, so the UI's
+affordances and the database's actual guarantee agree.
+
+The field set foregrounds **viewpoint diversity** as the brief requires: alongside the
+confirmed central question, intended public-service value, working frame/scope,
+deliverables, and a reporting/evidence map, the plan has explicit fields for people
+directly affected, decision-makers, expert and experiential sources, the main credible
+interpretations or competing interests, a **missing-perspective assessment**,
+**source-concentration risks**, and **framing risks** — plus opportunity-to-respond
+requirements and status (`otr_status`: not applicable / not yet sought / in progress /
+declined / obtained), a small `standards_flags` set (ethics/harm, editorial
+independence, verification, framing), reporter/editor assignment, a target publication
+window, and a small ordered list of editorial milestones. The story-plan screen
+(`pitches/[id]/story-plan/`) states directly that breadth of perspective does not mean
+equal treatment of unequal evidence or artificial partisan symmetry — the
+missing-perspective field asks what's missing and why, not "did both sides get equal
+time."
+
+### 10.6 Rubric profiles
+
+`ep_rubric_profiles` (seeded with **Strategic / Enterprise**, the default, and
+**Immediate / Emerging News**) is the smallest sound extension for supporting more than
+one scoring profile without a rules engine: every `ep_criteria` row belongs to exactly
+one profile (`profile_id`, not null), and every `ep_meetings` row picks one profile to
+score its slate against (`rubric_profile_id`, editor-selectable at meeting creation,
+defaulting to Strategic / Enterprise). `listCriteria({ profileId })` filters by it; the
+scoring and agenda screens, and `submitReview`'s validation, only ever see the active
+meeting's profile's criteria. Nothing about the aggregation math changed — a profile is
+just a tag criteria carry and a meeting picks, using the exact same tables and
+`ep_review_scores` snapshot design as before.
+
+Immediate / Emerging News reweights toward urgency and readiness (Urgency and public
+safety impact 22, Public impact 15, Accountability and civic significance 12, Reporting
+readiness and source access right now 15, Explanatory and service value 10, Audience
+and community relevance 10, Breadth of perspective and fairness under deadline 8,
+Coverage-pillar contribution or emerging-issue signal 8) and, per this section's
+requirement, never gates urgent coverage on pillar fit — its pillar criterion explicitly
+credits an emerging-issue signal as an alternative to a defined-pillar connection. It
+carries its own copy of the institutional-alignment modifier, since a modifier is
+itself profile-scoped like any other criterion.
+
+Profiles are configuration data, editable the same way criteria are (the rubric
+settings screen groups criteria by profile and lets an editor assign a new criterion to
+either one); there is no profile-management UI beyond that; a third profile would be
+one more seeded row plus its criteria, not a schema change.
+
+### 10.7 Portfolio context and future analytics
+
+No analytics dashboard is built in this refinement, but every question this section
+asks for is now a query away, because the relational structure already supports it:
+pitch/assignment volume by pillar and format (`ep_pitch_values` joined on those fields),
+high-value pitches outside current pillars or flagged emerging/immediate (the same
+join filtered to the three status options), repeated emerging issues (grouping
+`primary_pillar = 'Emerging issue / possible future priority'` pitches over time),
+deferrals and declines (`ep_meeting_pitches.outcome` plus `ep_reviews.recommendation`),
+reviewer disagreement (`PitchAggregate.spread`, already computed for the agenda),
+source/viewpoint planning patterns (`ep_story_plans`' missing-perspective and
+source-concentration fields), institutional-modifier use
+(`ep_review_scores` rows against a `criterion_type = 'modifier'` criterion, and how
+often `modifierApplied` actually fires), and allocation between strategic and immediate
+coverage (`ep_meetings.rubric_profile_id` over time). A read-only `/editorial/insights`
+page remains future work, whenever wanted.
+
+### 10.8 Configuration ownership, restated
+
+Nothing about who owns these editorial choices changed: the `editor` tool role still
+configures fields, criteria, weights, options, active status, rubric profiles, and now
+the modifier threshold — all through the same Settings screens, all still governed by
+the deactivate-then-recreate rule (§4.2) rather than editing meaning in place. The
+rubric settings screen states this inline, alongside a direct reminder that the rubric
+is a structured aid to judgment, not an automatic commissioning system, and that
+weights express current priorities worth revisiting periodically — not a fixed formula.

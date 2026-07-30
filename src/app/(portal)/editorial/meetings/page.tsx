@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { unwrapRead } from "@/lib/editorial/data";
+import { listRubricProfiles, unwrapRead } from "@/lib/editorial/data";
 import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createMeeting } from "./actions";
 
@@ -19,11 +19,15 @@ export default async function MeetingsPage({
   const { error } = await searchParams;
   const supabase = await createClient();
 
-  const meetingRows =
-    unwrapRead(
-      await supabase.from("ep_meetings").select("*").order("meeting_date", { ascending: false }),
-      "meetings",
-    ) ?? [];
+  const [meetingRows, profiles] = await Promise.all([
+    supabase
+      .from("ep_meetings")
+      .select("*")
+      .order("meeting_date", { ascending: false })
+      .then((result) => unwrapRead(result, "meetings") ?? []),
+    listRubricProfiles({ activeOnly: true }),
+  ]);
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
 
   const slateRows =
     meetingRows.length > 0
@@ -59,10 +63,26 @@ export default async function MeetingsPage({
               <Label htmlFor="meeting_date">Meeting date</Label>
               <Input id="meeting_date" name="meeting_date" type="date" required className="w-44" />
             </div>
+            <div>
+              <Label htmlFor="rubric_profile_id">Rubric profile</Label>
+              <Select
+                id="rubric_profile_id"
+                name="rubric_profile_id"
+                className="w-56"
+                defaultValue={profiles.find((p) => p.is_default)?.id ?? profiles[0]?.id ?? ""}
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Button type="submit">Create meeting</Button>
             <p className="basis-full text-xs leading-relaxed text-ink-400">
               A new meeting opens for slate building and independent scoring. Nobody sees anyone
-              else&apos;s scores until you close scoring.
+              else&apos;s scores until you close scoring. Pick Immediate / Emerging News when the
+              slate is dominated by urgent coverage — pillar fit won&apos;t gate those pitches.
             </p>
           </form>
         </div>
@@ -84,6 +104,7 @@ export default async function MeetingsPage({
               <HeaderRow>
                 <Th>Meeting</Th>
                 <Th>Status</Th>
+                <Th>Profile</Th>
                 <Th>Slate</Th>
                 <Th>Assigned</Th>
               </HeaderRow>
@@ -103,6 +124,9 @@ export default async function MeetingsPage({
                     </Cell>
                     <Cell>
                       <MeetingStatusBadge status={meeting.status} />
+                    </Cell>
+                    <Cell className="text-ink-500">
+                      {profileById.get(meeting.rubric_profile_id)?.name ?? "—"}
                     </Cell>
                     <Cell className="whitespace-nowrap text-ink-500">
                       {stats.total === 0

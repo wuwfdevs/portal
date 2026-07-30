@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fieldKeyFromLabel, validatePitchValues, type FormFieldDef } from "./form";
+import {
+  fieldKeyFromLabel,
+  pillarContributionRequired,
+  validatePitchValues,
+  type FormFieldDef,
+} from "./form";
 
 const field = (overrides: Partial<FormFieldDef>): FormFieldDef => ({
   id: "f1",
@@ -61,6 +66,56 @@ describe("validatePitchValues", () => {
     expect(validatePitchValues([url], { link: "wuwf.org" }).errors.link).toBeTruthy();
     expect(validatePitchValues([date], { peg: "2026-08-01" }).errors).toEqual({});
     expect(validatePitchValues([date], { peg: "next week" }).errors.peg).toBeTruthy();
+  });
+
+  describe("pillar_contribution conditional requirement", () => {
+    const pillarField = field({
+      id: "pillar",
+      key: "primary_pillar",
+      label: "Primary coverage pillar",
+      field_type: "select",
+      options: ["Health & public services", "Outside current pillars", "Immediate public need"],
+      required: true,
+    });
+    const contributionField = field({
+      id: "contrib",
+      key: "pillar_contribution",
+      label: "Contribution to sustained coverage",
+      required: false,
+    });
+
+    it("requires contribution when a defined pillar is selected", () => {
+      expect(pillarContributionRequired({ primary_pillar: "Health & public services" })).toBe(true);
+      const result = validatePitchValues([pillarField, contributionField], {
+        primary_pillar: "Health & public services",
+        pillar_contribution: "",
+      });
+      expect(result.errors.pillar_contribution).toBeTruthy();
+    });
+
+    it("does not require contribution for a status option", () => {
+      expect(pillarContributionRequired({ primary_pillar: "Outside current pillars" })).toBe(false);
+      const result = validatePitchValues([pillarField, contributionField], {
+        primary_pillar: "Immediate public need",
+        pillar_contribution: "",
+      });
+      expect(result.errors.pillar_contribution).toBeUndefined();
+    });
+
+    it("does not require contribution when no pillar is chosen yet", () => {
+      expect(pillarContributionRequired({})).toBe(false);
+    });
+
+    it("accepts a filled-in contribution regardless of pillar choice", () => {
+      const result = validatePitchValues([pillarField, contributionField], {
+        primary_pillar: "Health & public services",
+        pillar_contribution: "Advances the health pillar's access throughline.",
+      });
+      expect(result.errors.pillar_contribution).toBeUndefined();
+      expect(result.values.find((v) => v.fieldId === "contrib")?.value).toBe(
+        "Advances the health pillar's access throughline.",
+      );
+    });
   });
 });
 

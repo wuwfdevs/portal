@@ -9,9 +9,10 @@ import {
   listFormFields,
   listMembers,
   listPitchesWithActivity,
+  listRubricProfiles,
   getSettings,
 } from "@/lib/editorial/data";
-import { aggregateReviews, rankSlate } from "@/lib/editorial/scoring";
+import { aggregateReviews, computeAdjustedScore, rankSlate } from "@/lib/editorial/scoring";
 import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
@@ -45,13 +46,16 @@ export default async function MeetingPage({
   const { meeting, slate, reviewsByEntry } = bundle;
   const isEditor = role === "editor";
 
-  const [allCriteria, activeCriteria, settings, fields, members] = await Promise.all([
+  const [allCriteria, activeCriteria, settings, fields, members, profiles] = await Promise.all([
     listCriteria(),
-    listCriteria({ activeOnly: true }),
+    listCriteria({ activeOnly: true, profileId: meeting.rubric_profile_id }),
     getSettings(),
     listFormFields(),
     listMembers(),
+    listRubricProfiles(),
   ]);
+  const criterionById = new Map(allCriteria.map((criterion) => [criterion.id, criterion]));
+  const rubricProfile = profiles.find((p) => p.id === meeting.rubric_profile_id);
   const valuesByPitch = await getPitchValues(slate.map(({ pitch }) => pitch.id));
 
   const allReviews = Array.from(reviewsByEntry.values()).flat();
@@ -64,21 +68,23 @@ export default async function MeetingPage({
   const rankedItems: AgendaItem[] = rankSlate(
     slate.map(({ entry, pitch }) => {
       const reviews = reviewsByEntry.get(entry.id) ?? [];
-      return {
-        entry,
-        pitch,
-        reviews,
-        aggregate: aggregateReviews(
-          reviews.map(({ review, scores }) => ({
-            reviewerId: review.reviewer_id,
-            scores: scores.map((score) => ({
-              criterionId: score.criterion_id,
-              score: score.score,
-              weight: score.weight_snapshot,
-            })),
+      const aggregate = aggregateReviews(
+        reviews.map(({ review, scores }) => ({
+          reviewerId: review.reviewer_id,
+          scores: scores.map((score) => ({
+            criterionId: score.criterion_id,
+            score: score.score,
+            weight: score.weight_snapshot,
+            criterionType: criterionById.get(score.criterion_id)?.criterion_type ?? "core",
           })),
-        ),
-      };
+        })),
+      );
+      const { adjustedScore, modifierApplied } = computeAdjustedScore({
+        coreAverage: aggregate.average,
+        modifierAverage: aggregate.modifierAverage,
+        minCoreScoreForModifier: settings.modifier_min_core_score,
+      });
+      return { entry, pitch, reviews, aggregate, adjustedScore, modifierApplied };
     }),
   );
 
@@ -108,6 +114,7 @@ export default async function MeetingPage({
           {formatDate(meeting.meeting_date)}
         </h2>
         <MeetingStatusBadge status={meeting.status} />
+        {rubricProfile && <Badge variant="neutral">{rubricProfile.name}</Badge>}
         <div className="flex-1" />
         {isEditor && meeting.status === "open" && slate.length > 0 && (
           <form action={closeScoring}>

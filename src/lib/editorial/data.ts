@@ -21,6 +21,9 @@ export type MeetingRow = Database["public"]["Tables"]["ep_meetings"]["Row"];
 export type MeetingPitchRow = Database["public"]["Tables"]["ep_meeting_pitches"]["Row"];
 export type ReviewRow = Database["public"]["Tables"]["ep_reviews"]["Row"];
 export type ReviewScoreRow = Database["public"]["Tables"]["ep_review_scores"]["Row"];
+export type RubricProfileRow = Database["public"]["Tables"]["ep_rubric_profiles"]["Row"];
+export type StoryPlanRow = Database["public"]["Tables"]["ep_story_plans"]["Row"];
+export type StoryPlanMilestoneRow = Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"];
 
 export async function getSettings(): Promise<SettingsRow> {
   const supabase = await createClient();
@@ -29,7 +32,9 @@ export async function getSettings(): Promise<SettingsRow> {
     "the scoring scale",
   );
   // The migration seeds the singleton; the fallback only covers a missing row.
-  return data ?? { id: true, scale_min: 1, scale_max: 5, updated_at: "" };
+  return (
+    data ?? { id: true, scale_min: 0, scale_max: 4, modifier_min_core_score: 2.5, updated_at: "" }
+  );
 }
 
 export async function listFormFields(options?: { activeOnly?: boolean }): Promise<FormFieldRow[]> {
@@ -39,11 +44,34 @@ export async function listFormFields(options?: { activeOnly?: boolean }): Promis
   return unwrapRead(await query, "the submission form") ?? [];
 }
 
-export async function listCriteria(options?: { activeOnly?: boolean }): Promise<CriterionRow[]> {
+export async function listCriteria(options?: {
+  activeOnly?: boolean;
+  profileId?: string;
+}): Promise<CriterionRow[]> {
   const supabase = await createClient();
   let query = supabase.from("ep_criteria").select("*").order("sort_order").order("created_at");
   if (options?.activeOnly) query = query.eq("active", true);
+  if (options?.profileId) query = query.eq("profile_id", options.profileId);
   return unwrapRead(await query, "the rubric") ?? [];
+}
+
+export async function listRubricProfiles(options?: {
+  activeOnly?: boolean;
+}): Promise<RubricProfileRow[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("ep_rubric_profiles")
+    .select("*")
+    .order("sort_order")
+    .order("created_at");
+  if (options?.activeOnly) query = query.eq("active", true);
+  return unwrapRead(await query, "the rubric profiles") ?? [];
+}
+
+/** The profile new meetings should default to: the is_default row, or the first active one. */
+export async function getDefaultRubricProfile(): Promise<RubricProfileRow | null> {
+  const profiles = await listRubricProfiles({ activeOnly: true });
+  return profiles.find((profile) => profile.is_default) ?? profiles[0] ?? null;
 }
 
 /** Display names for arbitrary profile ids (submitters, reviewers, assignees). */
@@ -296,4 +324,32 @@ export async function getMeetingBundle(meetingId: string): Promise<MeetingBundle
       ),
     reviewsByEntry,
   };
+}
+
+// Story planning ---------------------------------------------------------------
+// One plan per pitch (design §5A); reads mirror the rest of this module.
+
+export async function getStoryPlan(pitchId: string): Promise<StoryPlanRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("ep_story_plans").select("*").eq("pitch_id", pitchId).maybeSingle(),
+    "the story plan",
+  );
+}
+
+export async function listStoryPlanMilestones(
+  storyPlanId: string,
+): Promise<StoryPlanMilestoneRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("ep_story_plan_milestones")
+        .select("*")
+        .eq("story_plan_id", storyPlanId)
+        .order("sort_order")
+        .order("created_at"),
+      "the story plan's milestones",
+    ) ?? []
+  );
 }
