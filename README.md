@@ -102,6 +102,16 @@ through automation and need a human in each dashboard once:
      Production)
    - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Transcription Workspace's
      ASR provider (**sensitive** — mark both encrypted); see `.env.example` for details
+   - `DAILY_API_KEY` — Remote Interview's call provider (**sensitive** — mark encrypted).
+     Required for the studio and guest call to work at all; without it, room creation and
+     meeting tokens fail outright. Get it from the Daily dashboard for the account this
+     deployment should use.
+   - `DAILY_RECORDINGS_BUCKET_NAME`, `DAILY_RECORDINGS_BUCKET_REGION`,
+     `DAILY_RECORDINGS_ASSUME_ROLE_ARN` — optional. Configures the raw-tracks cloud-backup
+     recording's destination bucket; unset, cloud backup is simply skipped with a visible
+     "not configured" status. See `.env.example` for the caveat about whether Supabase
+     Storage's S3-compatible endpoint actually works as this destination — unverified, and
+     the first thing to test once Daily access exists.
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
 **Supabase Auth** (each project's dashboard → Authentication):
