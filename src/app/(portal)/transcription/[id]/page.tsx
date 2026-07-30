@@ -72,7 +72,7 @@ export default async function TranscriptionProjectPage({
       </div>
 
       {project.status === "ready" && (
-        <div className="max-w-5xl rounded border border-line bg-white p-5">
+        <div className="rounded border border-line bg-white p-5">
           {signedUrl ? (
             <TranscriptWorkspace
               projectId={project.id}
