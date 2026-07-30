@@ -4,20 +4,33 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { getSettings, listCriteria, unwrapRead } from "@/lib/editorial/data";
-import { validateReviewScores } from "@/lib/editorial/scoring";
+import {
+  getDefaultRubricProfile,
+  getSettings,
+  listCriteria,
+  listRubricProfiles,
+  unwrapRead,
+} from "@/lib/editorial/data";
+import { validateReviewScores, type CriterionDef } from "@/lib/editorial/scoring";
+import { CONCERN_FLAGS, RECOMMENDATIONS } from "@/lib/editorial/review";
 import { logAuditEvent } from "@/lib/audit";
-import type { EpDecisionOutcome } from "@/lib/database.types";
+import type { EpConcernFlag, EpDecisionOutcome, EpRecommendation } from "@/lib/database.types";
 
 const MEETINGS_PATH = "/editorial/meetings";
 
-async function getMeetingStatus(meetingId: string): Promise<string | null> {
+async function getMeeting(
+  meetingId: string,
+): Promise<{ status: string; rubric_profile_id: string } | null> {
   const supabase = await createClient();
   const data = unwrapRead(
-    await supabase.from("ep_meetings").select("status").eq("id", meetingId).maybeSingle(),
+    await supabase
+      .from("ep_meetings")
+      .select("status, rubric_profile_id")
+      .eq("id", meetingId)
+      .maybeSingle(),
     "the meeting",
   );
-  return data?.status ?? null;
+  return data ?? null;
 }
 
 export async function createMeeting(formData: FormData): Promise<void> {
@@ -27,10 +40,21 @@ export async function createMeeting(formData: FormData): Promise<void> {
     failWith(MEETINGS_PATH, "Pick a meeting date.");
   }
 
+  const requestedProfileId = String(formData.get("rubric_profile_id") ?? "") || null;
+  const profiles = await listRubricProfiles({ activeOnly: true });
+  const profile = requestedProfileId
+    ? (profiles.find((p) => p.id === requestedProfileId) ?? null)
+    : await getDefaultRubricProfile();
+  if (!profile) failWith(MEETINGS_PATH, "No active rubric profile is configured.");
+
   const supabase = await createClient();
   const { data: meeting, error } = await supabase
     .from("ep_meetings")
-    .insert({ meeting_date: meetingDate, created_by: editor.profile.id })
+    .insert({
+      meeting_date: meetingDate,
+      created_by: editor.profile.id,
+      rubric_profile_id: profile.id,
+    })
     .select("id")
     .single();
   failIfError(error, MEETINGS_PATH, "Could not create the meeting");
@@ -41,7 +65,7 @@ export async function createMeeting(formData: FormData): Promise<void> {
     action: "ep.meeting.created",
     targetType: "ep_meeting",
     targetId: meeting.id,
-    metadata: { meeting_date: meetingDate },
+    metadata: { meeting_date: meetingDate, rubric_profile_id: profile.id },
   });
 
   redirect(`${MEETINGS_PATH}/${meeting.id}`);
@@ -52,7 +76,7 @@ export async function addPitchToSlate(formData: FormData): Promise<void> {
   const meetingId = String(formData.get("meeting_id") ?? "");
   const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const pitchId = String(formData.get("pitch_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
+  if ((await getMeeting(meetingId))?.status !== "open") redirect(meetingPath);
 
   const supabase = await createClient();
   // ignoreDuplicates makes a double-add (two editors, same pitch) a real no-op
@@ -73,7 +97,7 @@ export async function removePitchFromSlate(formData: FormData): Promise<void> {
   const meetingId = String(formData.get("meeting_id") ?? "");
   const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const entryId = String(formData.get("entry_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
+  if ((await getMeeting(meetingId))?.status !== "open") redirect(meetingPath);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -98,10 +122,11 @@ export async function submitReview(formData: FormData): Promise<void> {
   const meetingId = String(formData.get("meeting_id") ?? "");
   const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
   const entryId = String(formData.get("entry_id") ?? "");
-  if ((await getMeetingStatus(meetingId)) !== "open") redirect(meetingPath);
+  const meeting = await getMeeting(meetingId);
+  if (meeting?.status !== "open") redirect(meetingPath);
 
   const [criteria, settings] = await Promise.all([
-    listCriteria({ activeOnly: true }),
+    listCriteria({ activeOnly: true, profileId: meeting.rubric_profile_id }),
     getSettings(),
   ]);
   const raw: Record<string, string | undefined> = {};
@@ -109,15 +134,31 @@ export async function submitReview(formData: FormData): Promise<void> {
     const value = formData.get(`score_${criterion.id}`);
     raw[criterion.id] = value === null ? undefined : String(value);
   }
-  const { scores, error } = validateReviewScores(
-    criteria.map((criterion) => criterion.id),
-    raw,
-    { min: settings.scale_min, max: settings.scale_max },
-  );
+  const criterionDefs: CriterionDef[] = criteria.map((criterion) => ({
+    id: criterion.id,
+    criterionType: criterion.criterion_type,
+    scaleMin: criterion.scale_min,
+    scaleMax: criterion.scale_max,
+  }));
+  const { scores, error } = validateReviewScores(criterionDefs, raw, {
+    min: settings.scale_min,
+    max: settings.scale_max,
+  });
   if (error) failWith(meetingPath, error);
 
+  const recommendationRaw = String(formData.get("recommendation") ?? "");
+  if (!RECOMMENDATIONS.includes(recommendationRaw as EpRecommendation)) {
+    failWith(meetingPath, "Pick a recommendation before saving your review.");
+  }
+  const recommendation = recommendationRaw as EpRecommendation;
+
+  const concernFlags = formData
+    .getAll("concern_flags")
+    .map(String)
+    .filter((flag): flag is EpConcernFlag => CONCERN_FLAGS.includes(flag as EpConcernFlag));
+
   const comment = String(formData.get("comment") ?? "").trim() || null;
-  const weightByCriterion = new Map(criteria.map((criterion) => [criterion.id, criterion.weight]));
+  const criterionById = new Map(criteria.map((criterion) => [criterion.id, criterion]));
 
   const supabase = await createClient();
   const { data: review, error: reviewError } = await supabase
@@ -127,6 +168,8 @@ export async function submitReview(formData: FormData): Promise<void> {
         meeting_pitch_id: entryId,
         reviewer_id: reviewer.profile.id,
         comment,
+        recommendation,
+        concern_flags: concernFlags,
         submitted_at: new Date().toISOString(),
       },
       { onConflict: "meeting_pitch_id,reviewer_id" },
@@ -144,13 +187,17 @@ export async function submitReview(formData: FormData): Promise<void> {
 
   if (scores.length > 0) {
     const { error: scoreError } = await supabase.from("ep_review_scores").insert(
-      scores.map(({ criterionId, score }) => ({
-        review_id: review.id,
-        criterion_id: criterionId,
-        score,
-        weight_snapshot: weightByCriterion.get(criterionId) ?? 1,
-        scale_snapshot: settings.scale_max,
-      })),
+      scores.map(({ criterionId, score }) => {
+        const criterion = criterionById.get(criterionId);
+        return {
+          review_id: review.id,
+          criterion_id: criterionId,
+          score,
+          weight_snapshot: criterion?.weight ?? 1,
+          scale_snapshot: criterion?.scale_max ?? settings.scale_max,
+          scale_min_snapshot: criterion?.scale_min ?? settings.scale_min,
+        };
+      }),
     );
     failIfError(scoreError, meetingPath, "Could not save your scores");
   }
@@ -203,7 +250,7 @@ export async function recordDecision(formData: FormData): Promise<void> {
   if (outcome === "assigned" && !assignedTo) {
     failWith(meetingPath, "Pick who the story is assigned to.");
   }
-  if ((await getMeetingStatus(meetingId)) !== "agenda") redirect(meetingPath);
+  if ((await getMeeting(meetingId))?.status !== "agenda") redirect(meetingPath);
 
   const supabase = await createClient();
   const entry = unwrapRead(
@@ -274,7 +321,7 @@ export async function concludeMeeting(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
   const meetingId = String(formData.get("meeting_id") ?? "");
   const meetingPath = `${MEETINGS_PATH}/${meetingId}`;
-  if ((await getMeetingStatus(meetingId)) !== "agenda") redirect(meetingPath);
+  if ((await getMeeting(meetingId))?.status !== "agenda") redirect(meetingPath);
 
   const supabase = await createClient();
   const now = new Date().toISOString();

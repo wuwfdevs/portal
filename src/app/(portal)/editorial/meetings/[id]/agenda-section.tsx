@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { formatScore } from "@/lib/editorial/format";
 import { weightedReviewScore, type PitchAggregate } from "@/lib/editorial/scoring";
+import { CONCERN_FLAG_LABEL, RECOMMENDATION_LABEL } from "@/lib/editorial/review";
 import type {
   CriterionRow,
   Member,
@@ -19,12 +20,17 @@ export interface AgendaItem {
   pitch: PitchRow;
   reviews: ReviewWithScores[];
   aggregate: PitchAggregate;
+  adjustedScore: number | null;
+  modifierApplied: boolean;
 }
 
 /**
  * The ranked agenda a meeting runs off once scoring closes. Ranking organizes
  * the conversation; the decision buttons don't care about rank order —
- * editorial discretion is the point.
+ * editorial discretion is the point. Core score, the institutional modifier,
+ * and the adjusted priority score are shown as three distinct numbers — the
+ * modifier never edits the core score, only adds to a separate total, and
+ * only once it clears the configured threshold (design §4A).
  */
 export function AgendaSection({
   meetingId,
@@ -45,7 +51,7 @@ export function AgendaSection({
 
   return (
     <section className="flex flex-col gap-2.5">
-      {items.map(({ entry, pitch, reviews, aggregate }, index) => {
+      {items.map(({ entry, pitch, reviews, aggregate, adjustedScore, modifierApplied }, index) => {
         const contested = aggregate.spread !== null && aggregate.spread >= 1.5;
         return (
           <div key={entry.id} className="rounded border border-line">
@@ -62,10 +68,31 @@ export function AgendaSection({
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-400">
                   <span>
-                    Score{" "}
+                    Core{" "}
                     <span className="font-semibold tabular-nums text-ink-700">
                       {formatScore(aggregate.average)}
                     </span>
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    Modifier{" "}
+                    <span className="font-semibold tabular-nums text-ink-700">
+                      {aggregate.modifierAverage === null
+                        ? "n/a"
+                        : formatScore(aggregate.modifierAverage)}
+                    </span>
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    Adjusted{" "}
+                    <span className="font-semibold tabular-nums text-ink-700">
+                      {formatScore(adjustedScore)}
+                    </span>
+                    {modifierApplied && (
+                      <span className="ml-1 text-brand-link" title="Modifier applied">
+                        ↑
+                      </span>
+                    )}
                   </span>
                   <span aria-hidden="true">·</span>
                   <span>
@@ -81,13 +108,24 @@ export function AgendaSection({
                     </span>
                   )}
                 </div>
+                {reviews.some((r) => r.review.concern_flags.length > 0) && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {Array.from(new Set(reviews.flatMap((r) => r.review.concern_flags))).map(
+                      (flag) => (
+                        <Badge key={flag} variant="danger">
+                          {CONCERN_FLAG_LABEL[flag]}
+                        </Badge>
+                      ),
+                    )}
+                  </div>
+                )}
               </div>
               <OutcomeBadge outcome={entry.outcome} />
             </div>
 
             <details className="border-t border-line">
               <summary className="cursor-pointer list-none px-4 py-2 text-xs font-semibold text-brand-link hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
-                Scores &amp; comments
+                Scores, recommendations &amp; comments
               </summary>
               <div className="border-t border-line px-4 py-3">
                 {reviews.length === 0 ? (
@@ -95,12 +133,19 @@ export function AgendaSection({
                 ) : (
                   <>
                     <ul className="flex flex-col gap-1">
-                      {Array.from(aggregate.criterionMeans.entries()).map(([criterionId, mean]) => (
-                        <li key={criterionId} className="text-xs text-ink-500">
-                          {criterionById.get(criterionId)?.name ?? "Retired criterion"}:{" "}
-                          <span className="font-semibold text-ink-700">{formatScore(mean)}</span>
-                        </li>
-                      ))}
+                      {Array.from(aggregate.criterionMeans.entries()).map(([criterionId, mean]) => {
+                        const criterion = criterionById.get(criterionId);
+                        return (
+                          <li key={criterionId} className="text-xs text-ink-500">
+                            {criterion?.name ?? "Retired criterion"}
+                            {criterion?.criterion_type === "modifier" && (
+                              <span className="ml-1 text-ink-400">(modifier)</span>
+                            )}
+                            {": "}
+                            <span className="font-semibold text-ink-700">{formatScore(mean)}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                     <ul className="mt-2.5 flex flex-col gap-1 border-t border-line pt-2.5">
                       {reviews.map(({ review, scores }) => (
@@ -115,8 +160,24 @@ export function AgendaSection({
                                 criterionId: score.criterion_id,
                                 score: score.score,
                                 weight: score.weight_snapshot,
+                                criterionType:
+                                  criterionById.get(score.criterion_id)?.criterion_type ?? "core",
                               })),
                             ),
+                          )}
+                          {review.recommendation && (
+                            <span className="ml-1.5">
+                              <Badge variant="neutral">
+                                {RECOMMENDATION_LABEL[review.recommendation]}
+                              </Badge>
+                            </span>
+                          )}
+                          {review.concern_flags.length > 0 && (
+                            <span className="ml-1.5 text-ink-400">
+                              {review.concern_flags
+                                .map((flag) => CONCERN_FLAG_LABEL[flag])
+                                .join(", ")}
+                            </span>
                           )}
                           {review.comment && (
                             <span className="text-ink-500"> · {review.comment}</span>

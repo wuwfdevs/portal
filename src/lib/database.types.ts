@@ -16,13 +16,39 @@ export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
 export type TwProjectStatus = "uploading" | "processing" | "ready" | "failed";
 
-// Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql.
+// Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql
+// and supabase/migrations/20260730120000_editorial_strategic_refinement.sql.
 export type EpFieldType = "short_text" | "long_text" | "select" | "multi_select" | "date" | "url";
 export type EpPitchStatus = "open" | "assigned" | "archived";
 export type EpMeetingStatus = "open" | "agenda" | "concluded";
 export type EpDecisionOutcome = "assigned" | "deferred" | "archived";
 /** ep_pitch_values.value: a string for most field types, string[] for multi_select. */
 export type EpFieldValue = string | string[];
+/** core: part of the weighted editorial-merit average. modifier: scored separately — see ep_settings.modifier_min_core_score. */
+export type EpCriterionType = "core" | "modifier";
+/** ep_criteria.anchors: score (as a string key, e.g. "0".."4") -> anchor description. */
+export type EpCriterionAnchors = Record<string, string>;
+export type EpRecommendation =
+  | "advance"
+  | "advance_with_revisions"
+  | "hold_for_development"
+  | "needs_more_reporting"
+  | "defer"
+  | "decline"
+  | "route_to_immediate_news";
+export type EpConcernFlag =
+  | "focus_scope"
+  | "reporting_path"
+  | "duplication"
+  | "resource_conflict"
+  | "viewpoint_breadth"
+  | "framing"
+  | "verification"
+  | "ethics_harm"
+  | "editorial_independence";
+export type EpStoryPlanStatus = "draft" | "ready_for_editor" | "approved";
+export type EpOtrStatus = "not_applicable" | "not_yet_sought" | "in_progress" | "declined" | "obtained";
+export type EpStandardsFlag = "ethics_harm" | "editorial_independence" | "verification" | "framing";
 
 // Remote Interview (ri_*) — see supabase/migrations/20260729120000_remote_interview_schema.sql.
 export type RiSessionStatus =
@@ -296,10 +322,16 @@ export interface Database {
           sort_order: number;
           created_at: string;
           updated_at: string;
+          criterion_type: EpCriterionType;
+          scale_min: number | null;
+          scale_max: number | null;
+          anchors: EpCriterionAnchors | null;
+          profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]> & {
           name: string;
           description: string;
+          profile_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]>;
         Relationships: [];
@@ -309,10 +341,30 @@ export interface Database {
           id: boolean;
           scale_min: number;
           scale_max: number;
+          modifier_min_core_score: number;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
+        Relationships: [];
+      };
+      ep_rubric_profiles: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          description: string | null;
+          is_default: boolean;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]> & {
+          key: string;
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]>;
         Relationships: [];
       };
       ep_pitches: {
@@ -354,6 +406,7 @@ export interface Database {
           agenda_at: string | null;
           concluded_at: string | null;
           created_at: string;
+          rubric_profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_meetings"]["Row"]> & {
           meeting_date: string;
@@ -387,6 +440,8 @@ export interface Database {
           reviewer_id: string;
           comment: string | null;
           submitted_at: string;
+          recommendation: EpRecommendation | null;
+          concern_flags: EpConcernFlag[];
         };
         Insert: Partial<Database["public"]["Tables"]["ep_reviews"]["Row"]> & {
           meeting_pitch_id: string;
@@ -402,9 +457,62 @@ export interface Database {
           score: number;
           weight_snapshot: number;
           scale_snapshot: number;
+          scale_min_snapshot: number;
         };
         Insert: Database["public"]["Tables"]["ep_review_scores"]["Row"];
         Update: Partial<Database["public"]["Tables"]["ep_review_scores"]["Row"]>;
+        Relationships: [];
+      };
+      ep_story_plans: {
+        Row: {
+          id: string;
+          pitch_id: string;
+          status: EpStoryPlanStatus;
+          central_question: string | null;
+          public_service_value: string | null;
+          frame_scope: string | null;
+          deliverables: string | null;
+          reporting_evidence_map: string | null;
+          people_affected: string | null;
+          decision_makers: string | null;
+          expert_experiential_sources: string | null;
+          main_interpretations: string | null;
+          missing_perspective_assessment: string | null;
+          source_concentration_risks: string | null;
+          framing_risks: string | null;
+          key_claims_to_verify: string | null;
+          records_data_needed: string | null;
+          otr_requirements: string | null;
+          otr_status: EpOtrStatus;
+          standards_flags: EpStandardsFlag[];
+          reporter_id: string | null;
+          editor_id: string | null;
+          target_window: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_story_plans"]["Row"]> & {
+          pitch_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_story_plans"]["Row"]>;
+        Relationships: [];
+      };
+      ep_story_plan_milestones: {
+        Row: {
+          id: string;
+          story_plan_id: string;
+          label: string;
+          target_date: string | null;
+          completed: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"]> & {
+          story_plan_id: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"]>;
         Relationships: [];
       };
       ri_sessions: {

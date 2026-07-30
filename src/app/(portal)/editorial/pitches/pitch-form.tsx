@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { savePitch, type PitchFormState } from "./actions";
+import {
+  NON_PILLAR_OPTIONS,
+  PILLAR_CONTRIBUTION_FIELD_KEY,
+  PRIMARY_PILLAR_FIELD_KEY,
+} from "@/lib/editorial/form";
 import type { EpFieldValue, EpFieldType } from "@/lib/database.types";
 
 // The schema-driven renderer for the configurable pitch form: one flat,
@@ -48,6 +53,13 @@ export function PitchForm({
   const title = state.status === "error" ? state.title : initialTitle;
   const values = state.status === "error" ? state.values : initialValues;
 
+  const initialPillar = values[PRIMARY_PILLAR_FIELD_KEY];
+  const [primaryPillar, setPrimaryPillar] = useState(
+    Array.isArray(initialPillar) ? "" : (initialPillar ?? ""),
+  );
+  const pillarContributionRequired =
+    primaryPillar !== "" && !NON_PILLAR_OPTIONS.includes(primaryPillar);
+
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {pitchId && <input type="hidden" name="pitch_id" value={pitchId} />}
@@ -75,17 +87,36 @@ export function PitchForm({
         const text = Array.isArray(value) ? "" : (value ?? "");
         const selected = Array.isArray(value) ? value : value ? [value] : [];
         const invalid = errors[field.key] ? true : undefined;
+        const isPillarContribution = field.key === PILLAR_CONTRIBUTION_FIELD_KEY;
+        const required = isPillarContribution ? pillarContributionRequired : field.required;
 
         return (
           <div key={field.id}>
             <Label htmlFor={name}>
               {field.label}
-              {field.required && <span className="text-danger"> *</span>}
+              {required && <span className="text-danger"> *</span>}
             </Label>
             {field.field_type === "long_text" ? (
-              <Textarea id={name} name={name} defaultValue={text} rows={4} aria-invalid={invalid} />
+              <Textarea
+                id={name}
+                name={name}
+                defaultValue={text}
+                rows={4}
+                aria-invalid={invalid}
+                required={isPillarContribution ? pillarContributionRequired : undefined}
+              />
             ) : field.field_type === "select" ? (
-              <Select id={name} name={name} defaultValue={text} aria-invalid={invalid}>
+              <Select
+                id={name}
+                name={name}
+                defaultValue={text}
+                aria-invalid={invalid}
+                onChange={
+                  field.key === PRIMARY_PILLAR_FIELD_KEY
+                    ? (event) => setPrimaryPillar(event.target.value)
+                    : undefined
+                }
+              >
                 <option value="">Choose…</option>
                 {(field.options ?? []).map((option) => (
                   <option key={option} value={option}>

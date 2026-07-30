@@ -1,12 +1,20 @@
 // Pure aggregation math for reviewer scores. Every score carries the weight
-// snapshotted when it was given (see ep_review_scores), so these functions
-// reproduce a meeting's ranking exactly as it stood, regardless of later
-// rubric changes.
+// (and, for criteria with a non-default scale, the scale) snapshotted when it
+// was given (see ep_review_scores), so these functions reproduce a meeting's
+// ranking exactly as it stood, regardless of later rubric changes.
+//
+// Core criteria feed the weighted editorial-merit average, unchanged from the
+// original design. The institutional-alignment modifier (and any future
+// modifier) is deliberately kept out of that average — see computeAdjustedScore
+// and docs/editorial-planning-design.md §4A for the full rationale.
+
+import type { EpCriterionType } from "@/lib/database.types";
 
 export interface CriterionScore {
   criterionId: string;
   score: number;
   weight: number;
+  criterionType: EpCriterionType;
 }
 
 export interface ReviewScores {
@@ -15,25 +23,37 @@ export interface ReviewScores {
 }
 
 export interface PitchAggregate {
-  /** Mean of each reviewer's weighted score, or null with no reviews. */
+  /** Mean of each reviewer's weighted core score, or null with no core reviews. */
   average: number | null;
-  /** Max minus min of reviewers' weighted scores — a simple agreement signal. */
+  /** Max minus min of reviewers' weighted core scores — a simple agreement signal. */
   spread: number | null;
   reviewerCount: number;
-  /** Unweighted mean score per criterion across reviewers. */
+  /** Unweighted mean score per criterion (core or modifier) across reviewers who scored it. */
   criterionMeans: Map<string, number>;
+  /** Mean of reviewers' modifier score, among those who scored it; null if nobody did. */
+  modifierAverage: number | null;
+  /** How many reviewers scored the modifier — it is optional, so this can be less than reviewerCount. */
+  modifierReviewerCount: number;
 }
 
-/** One reviewer's weighted score: Σ(score × weight) / Σ(weight). */
+/** One reviewer's weighted core score: Σ(score × weight) / Σ(weight), core criteria only. */
 export function weightedReviewScore(scores: CriterionScore[]): number | null {
-  const totalWeight = scores.reduce((sum, s) => sum + s.weight, 0);
+  const core = scores.filter((s) => s.criterionType === "core");
+  const totalWeight = core.reduce((sum, s) => sum + s.weight, 0);
   if (totalWeight === 0) return null;
-  const weightedSum = scores.reduce((sum, s) => sum + s.score * s.weight, 0);
+  const weightedSum = core.reduce((sum, s) => sum + s.score * s.weight, 0);
   return weightedSum / totalWeight;
 }
 
+/** One reviewer's modifier score (unweighted; there is normally exactly one modifier criterion). */
+export function reviewerModifierScore(scores: CriterionScore[]): number | null {
+  const modifiers = scores.filter((s) => s.criterionType === "modifier");
+  if (modifiers.length === 0) return null;
+  return modifiers.reduce((sum, s) => sum + s.score, 0) / modifiers.length;
+}
+
 export function aggregateReviews(reviews: ReviewScores[]): PitchAggregate {
-  const reviewScores = reviews
+  const coreReviewScores = reviews
     .map((review) => weightedReviewScore(review.scores))
     .filter((value): value is number => value !== null);
 
@@ -51,26 +71,87 @@ export function aggregateReviews(reviews: ReviewScores[]): PitchAggregate {
     criterionMeans.set(criterionId, sum / count);
   }
 
-  if (reviewScores.length === 0) {
-    return { average: null, spread: null, reviewerCount: reviews.length, criterionMeans };
+  const modifierScores = reviews
+    .map((review) => reviewerModifierScore(review.scores))
+    .filter((value): value is number => value !== null);
+  const modifierAverage =
+    modifierScores.length === 0
+      ? null
+      : modifierScores.reduce((sum, value) => sum + value, 0) / modifierScores.length;
+
+  if (coreReviewScores.length === 0) {
+    return {
+      average: null,
+      spread: null,
+      reviewerCount: reviews.length,
+      criterionMeans,
+      modifierAverage,
+      modifierReviewerCount: modifierScores.length,
+    };
   }
 
-  const average = reviewScores.reduce((sum, value) => sum + value, 0) / reviewScores.length;
-  const spread = Math.max(...reviewScores) - Math.min(...reviewScores);
-  return { average, spread, reviewerCount: reviews.length, criterionMeans };
+  const average = coreReviewScores.reduce((sum, value) => sum + value, 0) / coreReviewScores.length;
+  const spread = Math.max(...coreReviewScores) - Math.min(...coreReviewScores);
+  return {
+    average,
+    spread,
+    reviewerCount: reviews.length,
+    criterionMeans,
+    modifierAverage,
+    modifierReviewerCount: modifierScores.length,
+  };
+}
+
+export interface AdjustedScoreResult {
+  /** Core score plus the modifier, only once the core score clears the threshold; null with no core score. */
+  adjustedScore: number | null;
+  /** Whether the modifier actually contributed to adjustedScore this time. */
+  modifierApplied: boolean;
 }
 
 /**
- * Sort slate items into agenda order: highest average first, unscored items
- * last, ties left in input order (stable) so ranking is deterministic.
+ * The adjusted priority score: core score, plus the institutional modifier
+ * only once the pitch has already cleared a configurable core-merit
+ * threshold. Below the threshold the modifier contributes nothing, so it
+ * cannot rescue a promotional or editorially weak pitch — see design §4A.
+ * Deliberately simple and transparent: no normalization, no reweighting.
  */
-export function rankSlate<T extends { aggregate: PitchAggregate }>(items: T[]): T[] {
+export function computeAdjustedScore(params: {
+  coreAverage: number | null;
+  modifierAverage: number | null;
+  minCoreScoreForModifier: number;
+}): AdjustedScoreResult {
+  const { coreAverage, modifierAverage, minCoreScoreForModifier } = params;
+  if (coreAverage === null) return { adjustedScore: null, modifierApplied: false };
+  const modifierApplied = modifierAverage !== null && coreAverage >= minCoreScoreForModifier;
+  return {
+    adjustedScore: coreAverage + (modifierApplied ? modifierAverage : 0),
+    modifierApplied,
+  };
+}
+
+/**
+ * Sort slate items into agenda order: highest adjusted score first (falling
+ * back to core score for items with no modifier), unscored items last, ties
+ * left in input order (stable) so ranking is deterministic.
+ */
+export function rankSlate<T extends { aggregate: PitchAggregate; adjustedScore: number | null }>(
+  items: T[],
+): T[] {
   return [...items].sort((a, b) => {
-    if (a.aggregate.average === null && b.aggregate.average === null) return 0;
-    if (a.aggregate.average === null) return 1;
-    if (b.aggregate.average === null) return -1;
-    return b.aggregate.average - a.aggregate.average;
+    if (a.adjustedScore === null && b.adjustedScore === null) return 0;
+    if (a.adjustedScore === null) return 1;
+    if (b.adjustedScore === null) return -1;
+    return b.adjustedScore - a.adjustedScore;
   });
+}
+
+export interface CriterionDef {
+  id: string;
+  criterionType: EpCriterionType;
+  /** Null uses defaultScale — see ep_criteria.scale_min/scale_max. */
+  scaleMin: number | null;
+  scaleMax: number | null;
 }
 
 export interface ScoreValidationResult {
@@ -79,22 +160,38 @@ export interface ScoreValidationResult {
 }
 
 /**
- * Validate a submitted review: every listed criterion must have an integer
- * score within the scale. Raw values arrive as strings straight from the form.
+ * Validate a submitted review: every core criterion must have an integer
+ * score within its scale; a modifier criterion is optional (skipped when
+ * blank, per design §4A — reviewers should not be forced to score it when no
+ * legitimate institutional connection exists) but must be in range when
+ * given. Raw values arrive as strings straight from the form.
  */
 export function validateReviewScores(
-  criterionIds: string[],
+  criteria: CriterionDef[],
   raw: Record<string, string | undefined>,
-  scale: { min: number; max: number },
+  defaultScale: { min: number; max: number },
 ): ScoreValidationResult {
   const scores: { criterionId: string; score: number }[] = [];
-  for (const criterionId of criterionIds) {
-    const value = raw[criterionId];
-    const score = value === undefined || value === "" ? NaN : Number(value);
-    if (!Number.isInteger(score) || score < scale.min || score > scale.max) {
-      return { scores: [], error: "Score every criterion before saving your review." };
+  for (const criterion of criteria) {
+    const scale = {
+      min: criterion.scaleMin ?? defaultScale.min,
+      max: criterion.scaleMax ?? defaultScale.max,
+    };
+    const rawValue = raw[criterion.id];
+    const isBlank = rawValue === undefined || rawValue === "";
+
+    if (isBlank) {
+      if (criterion.criterionType === "core") {
+        return { scores: [], error: "Score every core criterion before saving your review." };
+      }
+      continue;
     }
-    scores.push({ criterionId, score });
+
+    const score = Number(rawValue);
+    if (!Number.isInteger(score) || score < scale.min || score > scale.max) {
+      return { scores: [], error: "Score every core criterion before saving your review." };
+    }
+    scores.push({ criterionId: criterion.id, score });
   }
   return { scores, error: null };
 }

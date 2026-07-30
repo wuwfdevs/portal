@@ -23,22 +23,47 @@ export interface PitchValidationResult {
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// The one deliberate piece of field interdependency in this form (per
+// CLAUDE.md: useful, narrow conditional validation — not a general
+// conditional-logic builder). primary_pillar's status-only options describe
+// pitches that don't map to a defined pillar; contribution is only required
+// when a real pillar was chosen. Both are seeded keys, not guaranteed to
+// exist if a newsroom retires them, so callers must tolerate their absence.
+export const PRIMARY_PILLAR_FIELD_KEY = "primary_pillar";
+export const PILLAR_CONTRIBUTION_FIELD_KEY = "pillar_contribution";
+export const NON_PILLAR_OPTIONS = [
+  "Outside current pillars",
+  "Emerging issue / possible future priority",
+  "Immediate public need",
+];
+
+/** Whether the selected primary pillar is a defined pillar (not a status option). */
+export function pillarContributionRequired(raw: Record<string, EpFieldValue | undefined>): boolean {
+  const value = raw[PRIMARY_PILLAR_FIELD_KEY];
+  const text = Array.isArray(value) ? value[0] : value;
+  if (!text) return false;
+  return !NON_PILLAR_OPTIONS.includes(text);
+}
+
 export function validatePitchValues(
   fields: FormFieldDef[],
   raw: Record<string, EpFieldValue | undefined>,
 ): PitchValidationResult {
   const values: { fieldId: string; value: EpFieldValue }[] = [];
   const errors: Record<string, string> = {};
+  const pillarRequired = pillarContributionRequired(raw);
 
   for (const field of fields) {
     const rawValue = raw[field.key];
+    const effectiveRequired =
+      field.key === PILLAR_CONTRIBUTION_FIELD_KEY ? pillarRequired : field.required;
 
     if (field.field_type === "multi_select") {
       const selected = (Array.isArray(rawValue) ? rawValue : rawValue ? [rawValue] : []).filter(
         Boolean,
       );
       if (selected.length === 0) {
-        if (field.required) errors[field.key] = `${field.label} is required.`;
+        if (effectiveRequired) errors[field.key] = `${field.label} is required.`;
         continue;
       }
       if (selected.some((option) => !(field.options ?? []).includes(option))) {
@@ -51,7 +76,12 @@ export function validatePitchValues(
 
     const text = (Array.isArray(rawValue) ? rawValue[0] : rawValue)?.trim() ?? "";
     if (text === "") {
-      if (field.required) errors[field.key] = `${field.label} is required.`;
+      if (effectiveRequired) {
+        errors[field.key] =
+          field.key === PILLAR_CONTRIBUTION_FIELD_KEY
+            ? `${field.label} is required when a defined pillar is selected.`
+            : `${field.label} is required.`;
+      }
       continue;
     }
 

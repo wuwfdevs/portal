@@ -2,8 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
-import { getPitchValues, getProfileNames, listFormFields, unwrapRead } from "@/lib/editorial/data";
-import { aggregateReviews } from "@/lib/editorial/scoring";
+import {
+  getPitchValues,
+  getProfileNames,
+  getSettings,
+  getStoryPlan,
+  listCriteria,
+  listFormFields,
+  unwrapRead,
+} from "@/lib/editorial/data";
+import { STORY_PLAN_STATUS_LABEL } from "@/lib/editorial/story-plan";
+import { aggregateReviews, computeAdjustedScore } from "@/lib/editorial/scoring";
 import { formatDate, formatScore } from "@/lib/editorial/format";
 import { PitchValues } from "@/components/editorial/pitch-values";
 import {
@@ -34,7 +43,7 @@ export default async function PitchDetailPage({
   );
   if (!pitch) notFound();
 
-  const [fields, valuesByPitch, rounds] = await Promise.all([
+  const [fields, valuesByPitch, rounds, criteria, settings, storyPlan] = await Promise.all([
     listFormFields(),
     getPitchValues([pitch.id]),
     supabase
@@ -42,7 +51,11 @@ export default async function PitchDetailPage({
       .select("*")
       .eq("pitch_id", pitch.id)
       .then((result) => unwrapRead(result, "the review history")),
+    listCriteria(),
+    getSettings(),
+    getStoryPlan(pitch.id),
   ]);
+  const criterionById = new Map(criteria.map((criterion) => [criterion.id, criterion]));
 
   const roundRows = rounds ?? [];
   const meetingIds = roundRows.map((round) => round.meeting_id);
@@ -80,7 +93,7 @@ export default async function PitchDetailPage({
       : [];
   const scoresByReview = new Map<
     string,
-    { criterionId: string; score: number; weight: number }[]
+    { criterionId: string; score: number; weight: number; criterionType: "core" | "modifier" }[]
   >();
   for (const score of scores ?? []) {
     const list = scoresByReview.get(score.review_id) ?? [];
@@ -88,6 +101,7 @@ export default async function PitchDetailPage({
       criterionId: score.criterion_id,
       score: score.score,
       weight: score.weight_snapshot,
+      criterionType: criterionById.get(score.criterion_id)?.criterion_type ?? "core",
     });
     scoresByReview.set(score.review_id, list);
   }
@@ -148,8 +162,28 @@ export default async function PitchDetailPage({
         </div>
 
         {pitch.status === "assigned" && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-panel-50 px-5 py-3 text-sm text-ink-700">
+            <span>
+              Assigned to <strong>{names.get(pitch.assigned_to ?? "") ?? "—"}</strong>
+            </span>
+            <Link
+              href={`/editorial/pitches/${pitch.id}/story-plan`}
+              className="text-xs font-semibold text-brand-link hover:underline"
+            >
+              {storyPlan
+                ? `Story plan · ${STORY_PLAN_STATUS_LABEL[storyPlan.status]}`
+                : "Start story plan"}
+            </Link>
+          </div>
+        )}
+        {pitch.status !== "assigned" && storyPlan && (
           <div className="border-t border-line bg-panel-50 px-5 py-3 text-sm text-ink-700">
-            Assigned to <strong>{names.get(pitch.assigned_to ?? "") ?? "—"}</strong>
+            <Link
+              href={`/editorial/pitches/${pitch.id}/story-plan`}
+              className="text-xs font-semibold text-brand-link hover:underline"
+            >
+              Story plan · {STORY_PLAN_STATUS_LABEL[storyPlan.status]}
+            </Link>
           </div>
         )}
         {pitch.status === "archived" && (
@@ -211,6 +245,11 @@ export default async function PitchDetailPage({
                 scores: scoresByReview.get(review.id) ?? [],
               })),
             );
+            const { adjustedScore } = computeAdjustedScore({
+              coreAverage: aggregate.average,
+              modifierAverage: aggregate.modifierAverage,
+              minCoreScoreForModifier: settings.modifier_min_core_score,
+            });
             return (
               <div key={round.id} className="rounded border border-line px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
@@ -224,7 +263,9 @@ export default async function PitchDetailPage({
                   <div className="flex-1" />
                   {meeting!.status !== "open" && (
                     <span className="text-sm text-ink-500">
-                      Score {formatScore(aggregate.average)}
+                      Core {formatScore(aggregate.average)}
+                      {aggregate.modifierAverage !== null &&
+                        ` · Modifier ${formatScore(aggregate.modifierAverage)} · Adjusted ${formatScore(adjustedScore)}`}
                     </span>
                   )}
                   <OutcomeBadge outcome={round.outcome} />
