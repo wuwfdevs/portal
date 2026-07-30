@@ -16,6 +16,12 @@ const PUBLIC_PATHS = [
   // for the same reason (docs/remote-interview-design.md, "Fit with portal
   // conventions").
   "/join",
+  // Audience Listening's public participation page and its iframe variant.
+  // Same reasoning as /join above: a participant has no profile and never
+  // signs in through /login — they get an anonymous session on this route
+  // itself, and only when they press Begin (see
+  // src/lib/audience-listening/participant.ts).
+  "/listen",
 ];
 
 function isPublicPath(pathname: string): boolean {
