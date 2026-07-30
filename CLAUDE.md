@@ -29,10 +29,9 @@ workflow or schema. **Do not build the Audience Listening tool** without an expl
 instruction to start that phase — a separate milestone with its own schema under its own
 route group. (Remote Interview's guardrail has been lifted — see below.)
 
-**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-3
-(Foundation; Preflight and guest join; the studio) are done, and slice 4 (completion,
-recovery, and delivery — the completion states from §3E, resume-on-reopen, assembly
-retry, provenance and integrity on the detail screen, per-track and bulk download) is
+**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
+(Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)
+are done, and slice 5 (handoff — creating a `tw_projects` row from a track) is
 next — proceed with it without asking again.**
 Two design documents: `docs/remote-interview-design.md` (the product — capture only:
 local lossless per-participant recording, a cloud backup of the call via Daily's
@@ -116,17 +115,44 @@ delete-on-ack`) shared between both via `lib/remote-interview/use-local-capture.
   status (`lib/remote-interview/call-status.ts`, pure and tested) derives from Daily
   participant/recording events plus each guest's periodic status broadcast — deliberately
   **not** connection status (§3D): a flaky network alone never marks a participant unsafe,
-  only a failed local recording with no working cloud backup does. One scope boundary
-  carried forward from the phase split: this slice's OPFS buffering retries a stalled upload
-  with backoff for as long as the page stays open, but does not reconstruct an in-flight
-  track from a fresh page load after a crash or navigation away — that "resume-on-reopen" is
-  slice 4's job, not built yet.
+  only a failed local recording with no working cloud backup does. This slice's OPFS
+  buffering retried a stalled upload with backoff for as long as the page stayed open, but
+  did not reconstruct an in-flight track from a fresh page load after a crash or navigation
+  away — slice 4 below closed that gap.
+
+**Phase 4 slice 4 (completion, recovery, and delivery) has landed**: assembly
+(`lib/remote-interview/assembly.ts`, server-only) concatenates a local track's uploaded
+parts via `ffmpeg-static`'s concat demuxer, rewrites the WAV header, verifies the result is
+readable (`lib/remote-interview/wav.ts`, pure and tested), and records size/duration/
+checksum — host-triggered from the session detail screen's "Assemble"/"Retry assembly"
+button (`assembleTrack` in the portal route's `actions.ts`), never automatic, since there's
+still no job queue. Cloud-backup tracks are **not** assembled here — Daily writes those
+straight to the S3 destination and this repo still has no webhook confirming delivery, so
+that half of the design doc's "raw-tracks S3-destination question" remains open; only local
+masters get the assemble/retry/download treatment. Resume-on-reopen
+(`resumeIncompleteTracks` in `capture.ts`) runs on every mount of `useLocalCapture`: it
+finds OPFS directories left over from a crash or reload, verifies each belongs to the
+current participant, and drains whatever wasn't acknowledged before the interruption using
+the same upload-with-retry path live capture uses — logged as a `local_track_resumed`
+session event so the detail screen can label the result "recovered" rather than a plain
+"complete" (`lib/remote-interview/track-status.ts`, pure and tested, also derives the
+session-level `ready`/`needs_recovery`/`failed` rollup and the guest completion screen's
+four exact messages from §3E). The session detail screen (`[id]/page.tsx`) now lists every
+track per participant with provenance, size, duration, a per-track download (signed URL)
+and a "Download all" zip (`/api/remote-interview/sessions/[id]/tracks.zip`, a route handler
+for the same file-vs-data reason as the Transcription Workspace's `clips.zip`, reusing its
+generic zip writer directly). One RLS migration
+(`20260730160000_remote_interview_assembly_rls.sql`, applied to both projects) was needed
+alongside this: assembly is host-triggered but writes into *the participant's* storage
+prefix, so `ri_media_insert`/`update` needed the same host-of-session broadening slice 3
+already gave `ri_tracks`.
 
 **Phase 5 (cloud-backup video) is planned but not authorized — same guardrail as Audience
 Listening: do not start it without an explicit instruction.** The design is recorded in
 `docs/remote-interview-design.md` §7: video would ride the existing Daily call and cloud
 backup only — deliberately **no local video capture**, which is a different and much larger
-engineering problem than the WAV pipeline slice 3 built. Slice 4 above is still next.
+engineering problem than the WAV pipeline slice 3 built. Slice 5 (handoff) above is still
+next.
 
 **Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
 `tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

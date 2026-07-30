@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { LocalTrackRecorder } from "@/lib/remote-interview/capture";
+import { LocalTrackRecorder, resumeIncompleteTracks } from "@/lib/remote-interview/capture";
 import type { LocalRecordingState } from "@/lib/remote-interview/call-status";
 
 export interface UseLocalCaptureParams {
@@ -46,6 +46,32 @@ export function useLocalCapture({
       recorderRef.current?.dispose();
     };
   }, []);
+
+  // Resume-on-reopen (design doc §7 slice 4): on every mount — including a
+  // guest reopening the same join link after a crash or refresh — drain
+  // whatever this device still has buffered in OPFS from an earlier,
+  // unfinished run before any new recording starts. Runs independently of
+  // beginRun/endRun below and doesn't touch this hook's own `state`/
+  // `pendingUploadParts`, which describe the *current* run's recorder —
+  // resumed parts belong to a previous run's track and settle in the
+  // background; failures are logged, not surfaced here, since there is no
+  // live run for the studio/call UI to attach that warning to.
+  useEffect(() => {
+    if (!participantId || !storagePrefix) return;
+    let cancelled = false;
+    resumeIncompleteTracks(participantId, storagePrefix, (outcome) => {
+      if (!outcome.ok && outcome.interrupted) {
+        console.error("A previously buffered recording part failed to resume:", outcome.message);
+      }
+    }).catch((err) => {
+      if (!cancelled) {
+        console.error("Could not resume buffered recordings from a previous session:", err);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [participantId, storagePrefix]);
 
   const beginRun = useCallback(
     async (runIndex: number, referenceStartedAtMs: number) => {

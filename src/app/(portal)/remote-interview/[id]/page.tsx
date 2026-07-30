@@ -5,15 +5,26 @@ import {
   getLatestPreflightResults,
   getSessionById,
   listParticipants,
+  listResumedParticipantIds,
+  listTracksForSession,
   listWaitingParticipants,
+  type RiTrack,
 } from "@/lib/remote-interview/sessions";
 import { isJoinLinkActive } from "@/lib/remote-interview/tokens";
+import { trackDownloadFilename } from "@/lib/remote-interview/media";
+import { getSignedTrackUrl } from "@/lib/remote-interview/storage";
+import {
+  deriveTrackProvenance,
+  TRACK_PROVENANCE_LABELS,
+  trackStatusBadgeVariant,
+} from "@/lib/remote-interview/track-status";
+import { formatBytes, formatDuration } from "@/lib/transcription/media";
 import { getSiteUrl } from "@/lib/site-url";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { addParticipant, admitParticipant } from "../actions";
+import { addParticipant, admitParticipant, assembleTrack } from "../actions";
 import { CopyLinkButton } from "./copy-link-button";
 import { RevokeLinkButton } from "./revoke-link-button";
 
@@ -37,6 +48,25 @@ export default async function RemoteInterviewSessionPage({
 
   const waitingParticipants = isHost ? await listWaitingParticipants(id) : [];
   const preflightResults = isHost ? await getLatestPreflightResults(id) : {};
+
+  const tracks = await listTracksForSession(id);
+  const resumedParticipantIds = await listResumedParticipantIds(id);
+  const displayNameById = new Map(participants.map((p) => [p.id, p.display_name]));
+  const downloadUrlByTrackId = new Map<string, string>();
+  for (const track of tracks) {
+    if (!track.storage_path) continue;
+    const url = await getSignedTrackUrl(
+      track.storage_path,
+      trackDownloadFilename({
+        displayName: displayNameById.get(track.participant_id) ?? "participant",
+        source: track.source,
+        runIndex: track.run_index,
+        contentType: track.content_type,
+      }),
+    );
+    if (url) downloadUrlByTrackId.set(track.id, url);
+  }
+  const anyDownloadableTrack = downloadUrlByTrackId.size > 0;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -180,6 +210,107 @@ export default async function RemoteInterviewSessionPage({
             </div>
             <Button type="submit" variant="secondary">
               Create link
+            </Button>
+          </form>
+        )}
+      </div>
+
+      {tracks.length > 0 && (
+        <div className="mt-6 max-w-xl rounded border border-line bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <h2 className="font-serif text-[15px] font-bold text-ink-900">Recordings</h2>
+            {anyDownloadableTrack && (
+              <a
+                href={`/api/remote-interview/sessions/${session.id}/tracks.zip`}
+                className="text-xs font-semibold text-brand-link"
+              >
+                Download all
+              </a>
+            )}
+          </div>
+          <ul>
+            {participants
+              .filter((participant) => tracks.some((t) => t.participant_id === participant.id))
+              .map((participant) => (
+                <li key={participant.id} className="border-b border-line px-4 py-3 last:border-b-0">
+                  <p className="mb-2 text-sm font-semibold text-ink-900">
+                    {participant.display_name}
+                  </p>
+                  <div className="space-y-2">
+                    {tracks
+                      .filter((t) => t.participant_id === participant.id)
+                      .map((track) => (
+                        <TrackRow
+                          key={track.id}
+                          track={track}
+                          sessionId={session.id}
+                          isHost={isHost}
+                          wasResumed={resumedParticipantIds.has(participant.id)}
+                          downloadUrl={downloadUrlByTrackId.get(track.id) ?? null}
+                        />
+                      ))}
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackRow({
+  track,
+  sessionId,
+  isHost,
+  wasResumed,
+  downloadUrl,
+}: {
+  track: RiTrack;
+  sessionId: string;
+  isHost: boolean;
+  wasResumed: boolean;
+  downloadUrl: string | null;
+}) {
+  const provenance = deriveTrackProvenance(track, { wasResumed });
+  const canAssemble =
+    isHost &&
+    track.source === "local" &&
+    (track.status === "uploading" || track.status === "partial" || track.status === "failed");
+
+  return (
+    <div className="rounded border border-line bg-panel-50 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+          {track.source === "local" ? "Local master" : "Cloud backup"} · run {track.run_index}
+        </span>
+        <Badge variant={trackStatusBadgeVariant(track.status)}>
+          {TRACK_PROVENANCE_LABELS[provenance]}
+        </Badge>
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-500">
+        {track.duration_ms != null && <span>{formatDuration(track.duration_ms)}</span>}
+        {track.size_bytes != null && <span>{formatBytes(track.size_bytes)}</span>}
+        {track.content_type && <span>{track.content_type}</span>}
+      </div>
+
+      {track.error_message && (
+        <p className="mt-1.5 text-xs leading-relaxed text-danger">{track.error_message}</p>
+      )}
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {downloadUrl && (
+          <a href={downloadUrl} className="text-xs font-semibold text-brand-link">
+            Download
+          </a>
+        )}
+        {canAssemble && (
+          <form action={assembleTrack}>
+            <input type="hidden" name="session_id" value={sessionId} />
+            <input type="hidden" name="track_id" value={track.id} />
+            <Button type="submit" variant="secondary">
+              {track.status === "uploading" ? "Assemble" : "Retry assembly"}
             </Button>
           </form>
         )}
