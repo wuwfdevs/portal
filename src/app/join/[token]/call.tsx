@@ -5,6 +5,10 @@ import Daily, { type DailyCall, type DailyEventObjectAppMessage } from "@daily-c
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  localRecordingBadgeVariant,
+  uploadBacklogBadgeVariant,
+} from "@/lib/remote-interview/call-status";
 import { useLocalCapture } from "@/lib/remote-interview/use-local-capture";
 import { useMicLevel } from "@/lib/remote-interview/use-mic-level";
 import { GuestShell } from "./guest-shell";
@@ -173,20 +177,30 @@ export function Call({
         </div>
       )}
 
-      <dl className="mb-4 grid grid-cols-2 gap-y-1.5 text-sm">
+      <dl className="mb-4 grid grid-cols-2 items-center gap-y-1.5 text-sm">
         <dt className="text-ink-500">Recording</dt>
-        <dd className="text-right font-semibold text-ink-900">
-          {recordingActive ? "On" : "Not started"}
+        <dd className="flex justify-end">
+          <Badge variant={recordingActive ? "success" : "neutral"}>
+            {recordingActive ? "On" : "Not started"}
+          </Badge>
         </dd>
         <dt className="text-ink-500">Your mic</dt>
-        <dd className="text-right font-semibold text-ink-900">{micOn ? "Live" : "Muted"}</dd>
+        <dd className="flex justify-end">
+          <Badge variant={micOn ? "success" : "muted"}>{micOn ? "Live" : "Muted"}</Badge>
+        </dd>
         <dt className="text-ink-500">Your recording</dt>
-        <dd className="text-right font-semibold text-ink-900 capitalize">{localCapture.state}</dd>
+        <dd className="flex justify-end">
+          <Badge variant={localRecordingBadgeVariant(localCapture.state)}>
+            {localCapture.state}
+          </Badge>
+        </dd>
         <dt className="text-ink-500">Upload</dt>
-        <dd className="text-right font-semibold text-ink-900">
-          {localCapture.pendingUploadParts === 0
-            ? "Caught up"
-            : `${localCapture.pendingUploadParts} part(s) pending`}
+        <dd className="flex justify-end">
+          <Badge variant={uploadBacklogBadgeVariant(localCapture.pendingUploadParts)}>
+            {localCapture.pendingUploadParts === 0
+              ? "Caught up"
+              : `${localCapture.pendingUploadParts} part(s) pending`}
+          </Badge>
         </dd>
       </dl>
 
@@ -216,7 +230,9 @@ export function Call({
           : "The host controls when recording starts."}
       </p>
       <div className="mt-2">
-        <Badge variant="neutral">{recordingActive ? "Recording" : "Waiting for host"}</Badge>
+        <Badge variant={recordingActive ? "success" : "neutral"}>
+          {recordingActive ? "Recording" : "Waiting for host"}
+        </Badge>
       </div>
     </GuestShell>
   );

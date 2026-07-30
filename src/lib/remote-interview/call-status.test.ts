@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   UPLOAD_BACKLOG_WARNING_THRESHOLD,
   anyParticipantNeedsAttention,
+  cloudBackupBadgeVariant,
+  connectionBadgeVariant,
+  dataSafetyBadgeVariant,
   deriveParticipantHealth,
+  localRecordingBadgeVariant,
+  uploadBacklogBadgeVariant,
   type ParticipantStatus,
 } from "./call-status";
 
@@ -83,5 +88,39 @@ describe("anyParticipantNeedsAttention", () => {
         status({ participantId: "p2", localRecording: "failed", cloudBackup: "failed" }),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("badge variant helpers", () => {
+  it("maps data safety to success/warning/danger", () => {
+    expect(dataSafetyBadgeVariant("safe")).toBe("success");
+    expect(dataSafetyBadgeVariant("at_risk")).toBe("warning");
+    expect(dataSafetyBadgeVariant("unsafe")).toBe("danger");
+  });
+
+  it("maps connection state to success/warning/danger", () => {
+    expect(connectionBadgeVariant("connected")).toBe("success");
+    expect(connectionBadgeVariant("reconnecting")).toBe("warning");
+    expect(connectionBadgeVariant("disconnected")).toBe("danger");
+  });
+
+  it("maps local recording state", () => {
+    expect(localRecordingBadgeVariant("recording")).toBe("success");
+    expect(localRecordingBadgeVariant("idle")).toBe("neutral");
+    expect(localRecordingBadgeVariant("interrupted")).toBe("warning");
+    expect(localRecordingBadgeVariant("failed")).toBe("danger");
+  });
+
+  it("maps cloud backup state", () => {
+    expect(cloudBackupBadgeVariant("recording")).toBe("success");
+    expect(cloudBackupBadgeVariant("idle")).toBe("neutral");
+    expect(cloudBackupBadgeVariant("failed")).toBe("danger");
+    expect(cloudBackupBadgeVariant("unavailable")).toBe("muted");
+  });
+
+  it("only flags the upload backlog once it crosses the same threshold deriveParticipantHealth uses", () => {
+    expect(uploadBacklogBadgeVariant(0)).toBe("success");
+    expect(uploadBacklogBadgeVariant(UPLOAD_BACKLOG_WARNING_THRESHOLD)).toBe("neutral");
+    expect(uploadBacklogBadgeVariant(UPLOAD_BACKLOG_WARNING_THRESHOLD + 1)).toBe("warning");
   });
 });
