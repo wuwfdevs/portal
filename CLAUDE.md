@@ -175,7 +175,13 @@ Three things about it are load-bearing and easy to break by accident:
    both `authenticated`. Do **not** add a participant-facing RLS policy to an `al_*` table;
    extend the function list instead. Storage is the one deliberate exception (uploads go
    browser → Storage directly), scoped to the object prefix of an in-progress submission
-   the caller owns.
+   the caller owns. That exception has to include `select`, not just `insert`/`update`:
+   this tool's upload always passes `upsert: true` (a redo overwrites the same fixed
+   object key rather than orphaning the first attempt), and `storage-js` requires `select`
+   on `storage.objects` to upsert at all — a staff-only `select` policy broke every
+   participant upload, including first-time ones, with "new row violates row-level
+   security policy for table 'objects'" (fixed by `al_media_select_own` in
+   `20260730180000_audience_listening_media_select.sql`).
 2. **Answers snapshot their question.** `question_prompt`/`question_position`/
    `question_required` are copied onto `al_answers` by `al_reserve_answer()` from
    `al_questions` — never supplied by the client. Wording stays editable after submissions
