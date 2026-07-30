@@ -10,6 +10,8 @@
 // safety — only the local recording and cloud backup states do, because
 // those are what actually capture audio.
 
+import type { BadgeVariant } from "@/components/ui/badge";
+
 export type ConnectionState = "connected" | "reconnecting" | "disconnected";
 export type LocalRecordingState = "idle" | "recording" | "interrupted" | "failed";
 export type CloudBackupState = "idle" | "recording" | "failed" | "unavailable";
@@ -81,4 +83,65 @@ export function deriveParticipantHealth(status: ParticipantStatus): ParticipantH
 /** Whether the studio's recording-health banner (design doc §4) should show at all. */
 export function anyParticipantNeedsAttention(statuses: ParticipantStatus[]): boolean {
   return statuses.some((status) => deriveParticipantHealth(status).safety !== "safe");
+}
+
+// Badge-color vocabulary for the studio and guest call-status pills: success
+// (capturing normally), warning (needs a look but nothing lost yet), danger
+// (unsafe), neutral/muted (informational, no judgment). Centralized here so
+// the studio and the guest's own call view (call.tsx) color the same states
+// the same way.
+
+export function dataSafetyBadgeVariant(safety: DataSafety): BadgeVariant {
+  switch (safety) {
+    case "safe":
+      return "success";
+    case "at_risk":
+      return "warning";
+    case "unsafe":
+      return "danger";
+  }
+}
+
+export function connectionBadgeVariant(connection: ConnectionState): BadgeVariant {
+  switch (connection) {
+    case "connected":
+      return "success";
+    case "reconnecting":
+      return "warning";
+    case "disconnected":
+      return "danger";
+  }
+}
+
+export function localRecordingBadgeVariant(state: LocalRecordingState): BadgeVariant {
+  switch (state) {
+    case "recording":
+      return "success";
+    case "idle":
+      return "neutral";
+    case "interrupted":
+      return "warning";
+    case "failed":
+      return "danger";
+  }
+}
+
+export function cloudBackupBadgeVariant(state: CloudBackupState): BadgeVariant {
+  switch (state) {
+    case "recording":
+      return "success";
+    case "idle":
+      return "neutral";
+    case "failed":
+      return "danger";
+    case "unavailable":
+      return "muted";
+  }
+}
+
+/** Any backlog is informational; it only turns cautionary past the same threshold deriveParticipantHealth uses. */
+export function uploadBacklogBadgeVariant(pendingUploadParts: number): BadgeVariant {
+  if (pendingUploadParts === 0) return "success";
+  if (pendingUploadParts > UPLOAD_BACKLOG_WARNING_THRESHOLD) return "warning";
+  return "neutral";
 }

@@ -36,6 +36,11 @@ const config: Config = {
           border: "#C0E040",
           fg: "#5D7A16",
         },
+        warning: {
+          bg: "#FCEFD3",
+          border: "#E3A63D",
+          fg: "#8A5A12",
+        },
       },
       fontFamily: {
         sans: ["var(--font-source-sans)", "Helvetica", "Arial", "sans-serif"],
