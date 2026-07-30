@@ -50,6 +50,17 @@ const config: Config = {
       borderRadius: {
         DEFAULT: "4px",
       },
+      keyframes: {
+        "al-pulse": { "0%, 100%": { opacity: "1" }, "50%": { opacity: ".35" } },
+        "al-indeterminate": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(250%)" },
+        },
+      },
+      animation: {
+        "al-pulse": "al-pulse 1.1s ease-in-out infinite",
+        "al-indeterminate": "al-indeterminate 1.1s ease-in-out infinite",
+      },
     },
   },
   plugins: [],
