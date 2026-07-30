@@ -434,9 +434,14 @@ configured separately and deliberately.
 No further processing is applied, ever: no noise reduction, gating, EQ,
 compression, enhancement, or restoration. Producers master downstream.
 
-Video may be carried for the conversation, but recorded video is not a v1
-requirement and must never be allowed to compromise audio reliability. If it
-threatens to, it is deferred.
+Video may be carried for the conversation. **Locally-recorded video is out of
+scope entirely** — not "deferred, maybe later" but a deliberately different
+and much larger engineering problem than this tool's WAV pipeline (video-sized
+OPFS storage, chunked upload, in-browser video encoding all scale far past the
+audio bandwidth arithmetic above). If video is captured at all, it is captured
+only through Daily's cloud-backup raw-tracks recording — see Phase 5 in §7 —
+and it must never be allowed to compromise audio reliability. If it threatens
+to, it is disabled.
 
 ### Local buffering, upload, and recovery
 
@@ -606,21 +611,22 @@ question for the prototype — see the technical assessment.
 
 ### What's deliberately _not_ in the architecture
 
-| Implied/expected                                                       | Recommended instead                                                   | Why                                                                                                                                                             |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Self-hosted SFU (mediasoup, Janus, self-hosted LiveKit)                | Daily                                                                 | Running one means a media service, Redis, TURN, and a recording worker. Disproportionate for a small newsroom; revive only if procurement blocks a SaaS vendor. |
-| Cloud recording as the primary source                                  | Local master, cloud as backup only                                    | Recording what survived the network is the problem this tool exists to solve.                                                                                   |
-| Lossy Opus masters                                                     | Lossless WAV                                                          | Reversed from the first draft; the brief is right that a production master should not be a lossy codec.                                                         |
-| Any capture-time processing (NR, gating, EQ, compression, enhancement) | Nothing, and AGC/NS/AEC off on the recorded stream                    | Destructive and irreversible. Producers master downstream.                                                                                                      |
-| In-memory buffering until the call ends                                | OPFS-first, delete-after-ack                                          | The largest data-loss risk in this class of tool.                                                                                                               |
-| One resumable (TUS) upload per track                                   | Independent per-part objects                                          | A stream being produced as it uploads has no file to resume.                                                                                                    |
-| A job queue for assembly                                               | Route handler with status columns and retry                           | One async step per session; the Transcription Workspace reached the same conclusion. Introducing the repo's first queue for this is not justified.              |
-| A generic media/asset table                                            | `ri_*` owns recording; `tw_projects` stays the canonical worked asset | The canonical audio table the brief assumes does not exist (assessment, Part 1); inventing one for a second consumer would be speculative.                      |
-| Transcode or normalize on assembly                                     | Concatenate and fix the header only                                   | Minimal, non-destructive, and fast.                                                                                                                             |
-| Daily Prebuilt (the vendor's drop-in call UI)                          | Purpose-built studio UI on existing primitives                        | It is a video-conferencing product's interface; this tool needs calm operational status, where recording health is primary and the video grid is incidental.    |
-| Guest accounts                                                         | Anonymous auth bound to a join token                                  | Any account a guest must create is a reason the interview doesn't happen.                                                                                       |
-| Sample-accurate alignment                                              | Tens of milliseconds                                                  | Inaudible for speech; removes an entire class of machinery.                                                                                                     |
-| Live mixing, switching, streaming, video layouts                       | Nothing — record and hand off                                         | That's a broadcast product.                                                                                                                                     |
+| Implied/expected                                                       | Recommended instead                                                   | Why                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Self-hosted SFU (mediasoup, Janus, self-hosted LiveKit)                | Daily                                                                 | Running one means a media service, Redis, TURN, and a recording worker. Disproportionate for a small newsroom; revive only if procurement blocks a SaaS vendor.                                                                                                |
+| Cloud recording as the primary source                                  | Local master, cloud as backup only                                    | Recording what survived the network is the problem this tool exists to solve.                                                                                                                                                                                  |
+| Lossy Opus masters                                                     | Lossless WAV                                                          | Reversed from the first draft; the brief is right that a production master should not be a lossy codec.                                                                                                                                                        |
+| Any capture-time processing (NR, gating, EQ, compression, enhancement) | Nothing, and AGC/NS/AEC off on the recorded stream                    | Destructive and irreversible. Producers master downstream.                                                                                                                                                                                                     |
+| In-memory buffering until the call ends                                | OPFS-first, delete-after-ack                                          | The largest data-loss risk in this class of tool.                                                                                                                                                                                                              |
+| One resumable (TUS) upload per track                                   | Independent per-part objects                                          | A stream being produced as it uploads has no file to resume.                                                                                                                                                                                                   |
+| A job queue for assembly                                               | Route handler with status columns and retry                           | One async step per session; the Transcription Workspace reached the same conclusion. Introducing the repo's first queue for this is not justified.                                                                                                             |
+| A generic media/asset table                                            | `ri_*` owns recording; `tw_projects` stays the canonical worked asset | The canonical audio table the brief assumes does not exist (assessment, Part 1); inventing one for a second consumer would be speculative.                                                                                                                     |
+| Transcode or normalize on assembly                                     | Concatenate and fix the header only                                   | Minimal, non-destructive, and fast.                                                                                                                                                                                                                            |
+| Daily Prebuilt (the vendor's drop-in call UI)                          | Purpose-built studio UI on existing primitives                        | It is a video-conferencing product's interface; this tool needs calm operational status, where recording health is primary and the video grid is incidental.                                                                                                   |
+| Guest accounts                                                         | Anonymous auth bound to a join token                                  | Any account a guest must create is a reason the interview doesn't happen.                                                                                                                                                                                      |
+| Sample-accurate alignment                                              | Tens of milliseconds                                                  | Inaudible for speech; removes an entire class of machinery.                                                                                                                                                                                                    |
+| Live mixing, switching, streaming, video layouts                       | Nothing — record and hand off                                         | That's a broadcast product.                                                                                                                                                                                                                                    |
+| Locally-recorded video, full Riverside-style video parity              | Cloud-only video via Daily raw-tracks, if any (Phase 5)               | A different, much larger engineering problem than lossless local audio. Cloud video inherits ordinary real-time call quality and has none of the local pipeline's reliability guarantee — an explicit, permanent tradeoff, not a temporary gap to close later. |
 
 ## 7. Phased implementation plan
 
@@ -666,6 +672,44 @@ vertical slice before any breadth:
 Deliberately deferred until the above is dependable: decorative dashboards,
 scheduling infrastructure, advanced administration, video layouts, recorded
 video, and any further integration.
+
+**Phase 5 — Cloud-backup video (optional, after Phase 4 is dependable, not
+started without an explicit instruction — same guardrail as Audience
+Listening).** Decided but not built: adds video to the call and, through that
+same channel, to the cloud backup — deliberately **not** local video capture,
+per the "Capture" section above and the architecture table's new row. The
+shape of it:
+
+- Publish a camera track in the Daily call, host and guest both, and render it
+  in the existing studio/call tiles alongside the level meter already there —
+  the same event model (`track-started`/`track-stopped`,
+  `participant-updated`) the audio tiles already use.
+- Add a camera permission/device check to preflight (§3B), mirroring the
+  microphone one.
+- Recording needs no new machinery **if** raw-tracks already captures whatever
+  tracks are published — the existing `ri_tracks` source='cloud' rows and
+  "cloud backup active/failed" status would simply cover a file that happens
+  to carry video too. This is the working assumption, not a confirmed fact:
+  verify it against a live Daily account before relying on it, same as the
+  other Daily specifics slice 3 flagged as unverified (`docs.daily.co` blocks
+  automated fetches; this repo still has no Daily account).
+
+Two things to make explicit to users, not just to build honestly around:
+
+- **Video is never rescued the way local audio is.** There is no local video
+  capture, so cloud-video reliability is capped by the same "cloud backup
+  active/failed" signal already surfacing recording health, and its quality is
+  whatever Daily's SFU actually received from that participant in real time —
+  a guest on bad wifi gets choppy, dropped-frame video _in the recording_, not
+  just on the live call. The reliability guarantee this whole tool exists to
+  provide for audio does not extend to video, ever, under this design.
+- **Turning video on reintroduces a named cost risk.** The Cost section above
+  is explicit that carrying video, not audio, is what threatens a recording
+  egress/allowance cap — recheck actual Daily pricing and caps before enabling
+  this broadly, not just at prototype scale.
+
+Not this phase, still out of scope: locally-recorded video, multi-cam layouts,
+live mixing/switching/streaming — see the architecture table above.
 
 ---
 
