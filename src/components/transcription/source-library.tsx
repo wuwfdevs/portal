@@ -27,11 +27,14 @@ const KIND_LABEL: Record<SwSourceKind, string> = {
  * project (docs/sourcework-design.md §7.2) — for "we already have this
  * recording" instead of re-uploading it into a second project.
  *
- * Search and the type filter are client-side: the source library is one
+ * The filter and the type chip are client-side: the source library is one
  * flat, RLS-scoped table read once, not worth a server round trip per
- * keystroke. The type chip is inert with the one source kind that exists
- * today (audio) — present so this isn't rebuilt the day Phase 3b adds a
- * second kind (document).
+ * keystroke. This is a *filter* over this tab's already-loaded rows
+ * (title only), not the archive-wide *search* bar above the tabs — same
+ * pattern as ProjectTable's and ClipLibrary's tab-local filters. The type
+ * chip is inert with the one source kind that exists today (audio) —
+ * present so this isn't rebuilt the day Phase 3b adds a second kind
+ * (document).
  */
 export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
   const [query, setQuery] = useState("");
@@ -55,7 +58,7 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Input
           type="search"
-          placeholder="Search sources by title…"
+          placeholder="Filter sources by title…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="max-w-xs"

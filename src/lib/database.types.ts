@@ -963,6 +963,7 @@ export interface Database {
           kind: string;
           result_id: string;
           project_id: string;
+          source_id: string | null;
           project_title: string;
           project_description: string | null;
           interview_date: string | null;
