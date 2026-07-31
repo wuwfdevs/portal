@@ -303,6 +303,35 @@ every path must keep working without it (chunks still build, keyword search stil
 write that triggered them. The `stale` / `embedding_stale` flags are maintained by
 database triggers, so a re-embed pass is always safe to re-run.
 
+**Capability layer and MCP server (Phases A–C landed; D–E not started — see
+`docs/agent-capabilities-design.md`):** important write paths are being pulled out of
+Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
+aggregated in `src/lib/capabilities/registry.ts`, so they're callable identically from a
+`<form action>` adapter, an MCP tool handler, or a test — never `redirect()`, never
+`FormData`. Phase A extracted Editorial Planning's; Phase B added one capability per
+remaining tool (`sourcework.project.search`, `remote-interview.session.create`,
+`audience-listening.answer.sendToSourcework`) so the registry has real entries from all
+four tools. **Phase C has landed**: `src/app/api/mcp/route.ts` stands up the official
+`@modelcontextprotocol/sdk`'s Streamable HTTP transport over that registry
+(`src/lib/mcp/server.ts` — one capability = one MCP tool, named after the capability's
+own id), authenticated by the same cookie-based Supabase session every page/action
+uses — this phase is the in-portal case only (design doc §7/§8), no external-client
+token story yet. A `confirmation: "required"` capability's MCP tool gets an added
+`confirmed` boolean field (`src/lib/mcp/tool-schema.ts`), not part of the capability's
+own domain schema. Every MCP invocation — success or failure, gated or not — logs
+exactly one `audit_events` row under the `mcp.<capability.id>` action namespace
+(`src/lib/mcp/audit.ts`'s `buildMcpAuditEvent`), independent of whatever tool-specific
+audit event the capability's own handler additionally logs, so agent-originated writes
+stay distinguishable from UI-originated ones (design doc §11 risk 3). That required a
+migration (`20260731160000_mcp_server_audit_rls.sql`, applied to both projects): the
+existing `audit_events` insert policies are scoped to administrators, Editorial Planning
+editors, and Audience Listening members only, and an MCP call from a Sourcework- or
+Remote-Interview-only user would otherwise have its audit insert silently dropped by RLS
+— the new `audit_events_insert_mcp` policy is scoped to the `mcp.` action prefix
+specifically, so it doesn't become a general bypass of the per-tool policies. **Phase D
+(the in-portal agent) is next — do not start it without an explicit instruction**, and
+Phase E (external Claude/ChatGPT clients) needs its own auth design first (design doc §8).
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
@@ -360,6 +389,9 @@ src/app/join/[token]/      Remote Interview's guest-facing join link — deliber
 src/app/listen/[publicId]/ Audience Listening's public participation page, and /embed for
                             the Grove iframe. Outside (portal)/(auth) for the same reason
                             as /join, and listed in the middleware's PUBLIC_PATHS
+src/app/api/mcp/           the internal MCP server's route handler (Phase C, see above) —
+                            in middleware's default-gated set (not PUBLIC_PATHS), same
+                            cookie session as everything else
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
@@ -383,6 +415,13 @@ src/lib/audience-listening/  Audience Listening's data access + pure logic (publ
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
+src/lib/capabilities/      the capability layer: define.ts's defineCapability() shape,
+                           registry.ts's cross-tool aggregation + invoke() (see above and
+                           docs/agent-capabilities-design.md) — each tool's own
+                           capabilities.ts lives beside its other lib/<tool>/ code, not here
+src/lib/mcp/               the MCP server's tool-building logic (server.ts, "server-only"),
+                           plus its pure, tested pieces (tool-schema.ts, audit.ts) — the
+                           route handler at src/app/api/mcp/ is the thin part
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
 supabase/seed.sql          local/preview-only sample data — never run against production
