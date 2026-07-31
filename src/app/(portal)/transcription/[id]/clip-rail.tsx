@@ -78,7 +78,7 @@ export function ClipRail({
       const response = await fetch(`/api/transcription/projects/${projectId}/clips.zip`);
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setErrorMessage(body?.error ?? "Could not export these clips. Please try again.");
+        setErrorMessage(body?.error ?? "Could not export these excerpts. Please try again.");
         return;
       }
       // A signed-out request is redirected to /login, which fetch follows and
@@ -104,14 +104,14 @@ export function ClipRail({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
-          Clips{clips.length > 0 && ` (${clips.length})`}
+          Excerpts{clips.length > 0 && ` (${clips.length})`}
         </h2>
         {clips.length > 0 && (
           <button
             type="button"
             onClick={handleExportAll}
             disabled={status === "preparing"}
-            title="Download every clip in this project as a zip"
+            title="Download every excerpt in this project as a zip"
             className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
           >
             {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
@@ -121,7 +121,7 @@ export function ClipRail({
 
       {status === "preparing" && pendingCount > 0 && (
         <p className="text-xs text-ink-400">
-          Rendering {pendingCount} clip{pendingCount === 1 ? "" : "s"} that{" "}
+          Rendering {pendingCount} excerpt{pendingCount === 1 ? "" : "s"} that{" "}
           {pendingCount === 1 ? "hasn't" : "haven't"} been exported yet — this can take a minute.
         </p>
       )}
@@ -129,7 +129,7 @@ export function ClipRail({
 
       {clips.length === 0 ? (
         <p className="rounded border border-dashed border-line p-3 text-xs leading-relaxed text-ink-400">
-          Select some transcript text to make your first clip.
+          Select some transcript text to make your first excerpt.
         </p>
       ) : (
         clips.map((clip) => (
@@ -321,14 +321,14 @@ function ClipCard({
             }
           }}
           autoFocus
-          aria-label="Clip title"
+          aria-label="Excerpt title"
           className="text-sm font-semibold"
         />
       ) : (
         <button
           type="button"
           onClick={() => setIsRenaming(true)}
-          title="Rename this clip"
+          title="Rename this excerpt"
           className="block w-full text-left text-sm font-semibold text-ink-900 hover:text-brand-link"
         >
           {title}
@@ -351,8 +351,8 @@ function ClipCard({
         <button
           type="button"
           onClick={() => onPreview(startMs, endMs)}
-          aria-label="Preview this clip"
-          title="Preview this clip"
+          aria-label="Preview this excerpt"
+          title="Preview this excerpt"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface"
         >
           <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
@@ -381,7 +381,7 @@ function ClipCard({
       <div className="mt-2">
         {confirmDelete ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-ink-700">Delete this clip?</span>
+            <span className="text-ink-700">Delete this excerpt?</span>
             <button
               type="button"
               onClick={handleDelete}

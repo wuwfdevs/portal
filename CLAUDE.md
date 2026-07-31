@@ -9,7 +9,7 @@ fixed set of internal WUWF tools — not a general-purpose newsroom platform. It
 authentication, invitation/approval-based access, role-based authorization, a tool
 registry, a dashboard, and admin screens for user/tool management.
 
-Each tool (Editorial Planning, Transcription Workspace, Remote Interview, Audience
+Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
 Listening) is its own focused application area with its own schema. The portal's job ends
 at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
 integrations. When in doubt, keep scope narrow.
@@ -208,8 +208,8 @@ tools call one place — there is no second ASR pipeline, webhook, or transcript
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
-**Exception: the Transcription Workspace** (`src/app/(portal)/transcription/`,
-`tw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
+**Exception: Sourcework** (`src/app/(portal)/transcription/`,
+`tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
@@ -239,6 +239,18 @@ type-checked composable graph — don't build a pipeline planner without a
 concrete need for one; and cross-tool project unification (Editorial
 Planning, Audience Listening) is deliberately deferred to Phase 6, a security
 review of those tools' RLS models, not a mechanical rename.
+
+**The tool's user-facing name is now "Sourcework"** (as of 2026-07-31) — the
+registry row's `name` (`supabase/migrations/20260731140000_sourcework_tool_rename.sql`)
+and the "Clip" → "Excerpt" copy throughout the transcription UI were updated to match
+the data model's framing, following mockups reviewed for a broader source/project UI
+direction (see `docs/sourcework-design.md`'s Phase 3 entry for what's still only
+proposed, not built). The tool `key` (`'transcription'`), its route (`/transcription`),
+and every directory/file/doc name deliberately did not move — same precedent as
+`docs/transcription-workspace-design.md` keeping its name through the Phase 1-2 data
+model rename. Internal identifiers (`ClipRail`, `clip-actions.ts`, `listLibraryClips`,
+the `?tab=clips`/`?clip=` query params, the `kind = 'clip'` search-result value) are
+untouched too — only strings a user actually reads changed.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names

@@ -37,12 +37,12 @@ export async function createClip(input: {
   const { profile } = await assertToolAccess("transcription");
   const title = input.title.trim();
 
-  if (!title) return { error: "Give the clip a title." };
+  if (!title) return { error: "Give the excerpt a title." };
   if (input.endMs - input.startMs < MIN_CLIP_DURATION_MS) {
-    return { error: "That selection is too short to make a clip." };
+    return { error: "That selection is too short to make an excerpt." };
   }
   if (input.endMs - input.startMs > MAX_CLIP_DURATION_MS) {
-    return { error: "That selection is too long for a single clip — try a shorter excerpt." };
+    return { error: "That selection is too long for a single excerpt — try a shorter one." };
   }
 
   const supabase = await createClient();
@@ -63,7 +63,7 @@ export async function createClip(input: {
     .select("id")
     .single();
 
-  if (error || !data) return { error: "Could not create the clip. Please try again." };
+  if (error || !data) return { error: "Could not create the excerpt. Please try again." };
 
   // Embeds as soon as the clip is created, so it is semantically searchable
   // immediately rather than at the next reindex — a clip's title is exactly
@@ -94,7 +94,7 @@ export async function updateClipTrim(input: {
     .select("source_id")
     .eq("id", input.clipId)
     .maybeSingle();
-  if (!clip) return { error: "That clip no longer exists." };
+  if (!clip) return { error: "That excerpt no longer exists." };
 
   const { data: source } = await supabase
     .from("sw_sources")
@@ -123,7 +123,7 @@ export async function renameClip(input: {
 }): Promise<{ error?: string }> {
   await assertToolAccess("transcription");
   const title = input.title.trim();
-  if (!title) return { error: "Give the clip a title." };
+  if (!title) return { error: "Give the excerpt a title." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -133,8 +133,8 @@ export async function renameClip(input: {
     .select("source_id")
     .maybeSingle();
 
-  if (error) return { error: "Could not rename the clip." };
-  if (!data) return { error: "That clip no longer exists." };
+  if (error) return { error: "Could not rename the excerpt." };
+  if (!data) return { error: "That excerpt no longer exists." };
 
   const projectId = await getPrimaryProjectIdForSource(supabase, data.source_id);
   if (projectId) {
@@ -159,7 +159,7 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
     .select("id, source_id, export_storage_path")
     .eq("id", clipId)
     .maybeSingle();
-  if (!clip) return { error: "That clip no longer exists." };
+  if (!clip) return { error: "That excerpt no longer exists." };
 
   if (clip.export_storage_path) {
     const { error: storageError } = await supabase.storage
@@ -169,7 +169,7 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
   }
 
   const { error } = await supabase.from("sw_source_excerpts").delete().eq("id", clipId);
-  if (error) return { error: "Could not delete the clip." };
+  if (error) return { error: "Could not delete the excerpt." };
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
   if (projectId) revalidateProject(projectId);
@@ -193,7 +193,7 @@ export async function getClipDownloadUrl(
     .eq("id", clipId)
     .maybeSingle();
   if (!clip?.export_storage_path) {
-    return { error: "This clip hasn't been exported yet." };
+    return { error: "This excerpt hasn't been exported yet." };
   }
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
@@ -228,7 +228,7 @@ export async function exportClip(
     .select("id, source_id, title, start_ms, end_ms")
     .eq("id", clipId)
     .maybeSingle();
-  if (!clip) return { error: "That clip no longer exists." };
+  if (!clip) return { error: "That excerpt no longer exists." };
 
   const { data: source } = await supabase
     .from("sw_sources")
@@ -244,14 +244,14 @@ export async function exportClip(
   try {
     wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms);
   } catch {
-    return { error: "Could not export this clip. Please try again." };
+    return { error: "Could not export this excerpt. Please try again." };
   }
 
   const exportPath = excerptExportObjectPath(clip.source_id, clip.id);
   const { error: uploadError } = await supabase.storage
     .from(TRANSCRIPTION_MEDIA_BUCKET)
     .upload(exportPath, wav, { contentType: "audio/wav", upsert: true });
-  if (uploadError) return { error: "Could not save the exported clip." };
+  if (uploadError) return { error: "Could not save the exported excerpt." };
 
   await supabase
     .from("sw_source_excerpts")

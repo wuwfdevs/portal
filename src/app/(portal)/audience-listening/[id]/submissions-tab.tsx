@@ -119,7 +119,7 @@ export function SubmissionsTab({
       {linkedProjects.size > 0 && (
         <Alert variant="note">
           {linkedProjects.size} answer{linkedProjects.size === 1 ? " has" : "s have"} a
-          Transcription Workspace project. Transcript editing, speaker naming, and clipping all
+          Sourcework project. Transcript editing, speaker naming, and excerpting all
           happen there — this screen only tracks the handoff.
         </Alert>
       )}

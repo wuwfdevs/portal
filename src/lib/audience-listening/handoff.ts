@@ -50,7 +50,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     return {
       ok: false,
       message:
-        "Sending an answer to transcription needs Transcription Workspace access as well. Ask an administrator to grant it.",
+        "Sending an answer to transcription needs Sourcework access as well. Ask an administrator to grant it.",
     };
   }
 

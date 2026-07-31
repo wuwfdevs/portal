@@ -2,7 +2,10 @@
 
 Status: **Phases 1–2 shipped. Phases 3–6 are a roadmap, not a spec** — each needs
 its own design doc (this one included) reviewed before implementation starts,
-the same way Remote Interview and Audience Listening each got one.
+the same way Remote Interview and Audience Listening each got one. **Phase 3
+has been split into 3a and 3b** (§5) — 3a (Source Library and a multi-source
+Project UI) is designed in §7 below, proposed and awaiting review; 3b
+(document source kind, OCR, translation) is still unstarted and unscoped.
 
 This document generalizes the Transcription Workspace's data model into
 Sourcework: a provenance-preserving foundation for turning source material
@@ -122,13 +125,25 @@ a data rewrite.
 reshape, not a parallel legacy table
 (`20260731130000_sourcework_source_excerpts.sql`).
 
-**Phase 3 (not started — needs its own design doc)** — new source kind
-`document` (PDF), an OCR pipeline, a translation pipeline operating on any
-text-kind representation, and the "reference an existing source" / browse-
-sources UI that makes the many-to-many shape from Phase 1 actually reachable.
-OCR/translation vendor choice is unpicked — research and choose deliberately,
-the same way AssemblyAI and Daily were chosen elsewhere in this repo, don't
-assume one.
+**Phase 3 has been split into two independently-shippable slices** — the
+original single Phase 3 bundled a UI problem (browsing/reusing sources) with
+a vendor-research problem (OCR/translation), and the two don't need to land
+together. Splitting them lets the UI half ship against Phases 1–2's
+already-built data model without waiting on a document pipeline decision.
+
+**Phase 3a (design proposed in §7, awaiting review — not yet authorized to
+build)** — the Source Library and Source Detail screens, and the "reference
+an existing source" / multi-source Project UI that makes the many-to-many
+shape from Phase 1 actually reachable, for the one source kind that exists
+today (`audio`). No new source kind, pipeline, or vendor dependency.
+
+**Phase 3b (not started — needs its own design doc)** — new source kind
+`document` (PDF), an OCR pipeline, and a translation pipeline operating on
+any text-kind representation. OCR/translation vendor choice is unpicked —
+research and choose deliberately, the same way AssemblyAI and Daily were
+chosen elsewhere in this repo, don't assume one. Once this ships, Phase 3a's
+Source Library and representation-chain UI should already have room for it
+(see §7's "Representation chain" notes on why it's drawn generically).
 
 **Phase 4 (not started)** — `sw_source_excerpts` gains company: `research_
 questions` (project-scoped), `sw_data_points`, `sw_data_point_excerpts` as a
@@ -161,3 +176,139 @@ have shipped and been used on at least one real investigation.
 - Audience Listening's per-answer handoff shape (`sendAnswerToTranscription`
   still creates one project + one source per answer) — Phase 6's concern, not
   this one's.
+
+## 7. Phase 3a design — Source Library and multi-source Project UI (proposed)
+
+Status: **proposed, awaiting review.** Written from four mockup screens
+(Source Library, Source Detail, multi-source Project, Research Workspace)
+reviewed against this doc and the current implementation on 2026-07-31. The
+mockups' Research Workspace screen (data points → themes → synthesis) is
+**out of scope here** — that's Phase 4/5, unchanged by this section. This
+section covers only the two screens' worth of UI Phase 3a actually needs:
+a source-centric library, and a project that can hold more than one source.
+
+This is a design, not an implementation — nothing in this section is
+authorized to build until it's been reviewed, per this doc's own governance
+(§0/top status line). It's scoped to ship with **zero new source kinds,
+pipelines, or vendor dependencies** — everything it needs (`sw_sources`,
+`sw_representations`, `sw_project_sources`, `sw_source_excerpts`) already
+shipped in Phases 1–2.
+
+### 7.1 What's actually missing today
+
+Phases 1–2 built the data model; nothing built on top of it yet lets a
+reporter *use* the many-to-many shape. Concretely, today:
+
+- There's no way to attach an existing source to a second project — every
+  project's source comes from `new-project-form.tsx`'s upload flow, which
+  always creates a brand-new `sw_sources` row.
+- There's no page that shows a source on its own, independent of a project —
+  `sw_sources` is only ever read through whichever `tw_projects` row
+  references it (`getProjectById`/`getPrimarySourceForProject`).
+- `sw_source_excerpts` already carries `source_id`, decoupled from any one
+  project — but the only place excerpts are shown is the per-project rail
+  (`clip-rail.tsx`) and the cross-project flat list at `/transcription`
+  (`ClipLibrary`, `?tab=clips`), never scoped to "every excerpt of this one
+  source across every project it's used in."
+- `lib/transcription/projects.ts`'s `getPrimarySourceForProject` /
+  `getPrimaryProjectIdForSource` and `computeProjectStatus()` all assume
+  "the" one source a project has — true today, not true the moment a second
+  source can be attached.
+
+### 7.2 New screens
+
+**Source Library** — a new tab at `/transcription` (see §7.4), or a new
+route; card grid of every `sw_sources` row the caller has tool access to.
+Each card: type badge (today, always "Audio"), title, uploaded date,
+duration, which representations exist (today, always "Transcript" once
+ready), and "Used in N projects" from `sw_project_sources`. Search and a
+type filter chip row, matching the existing search bar's affordance at
+`/transcription` — the filter chips are close to inert with one source kind,
+but the UI shouldn't have to be rebuilt when Phase 3b adds more.
+
+**Source Detail** (`/transcription/sources/[id]`, a new route — see open
+question in §7.5) — one source, independent of any project:
+- Representation chain: today always a fixed three-node shape (Original
+  Audio → Transcription + Diarization → Transcript), rendered generically
+  (a list of representation rows plus the pipeline that produced each) so
+  Phase 3b's OCR/translation chains extend it without a rewrite. No new
+  data is needed — `sw_representations` already has `parent_representation_
+  id` for exactly this.
+- "Used in projects" — every `tw_projects` row joined through
+  `sw_project_sources`, linking out to `/transcription/[projectId]`.
+- "Source excerpts here" — every `sw_source_excerpts` row for this
+  `source_id`, across every project that made one. This is new: nothing
+  today shows a source's excerpts independent of the project that made
+  them, even though the data has always supported it since Phase 2.
+- The mockup's word-level "alignment" hover demo (excerpt text ↔ a
+  timestamp or bounding box, highlighting as you hover a word) is **not
+  included** — it's a nice interaction idea with no concrete need behind it
+  yet (clip creation's existing word-highlight-while-selecting already
+  covers the "which words am I selecting" problem `segment-row.tsx` solves).
+  Leave it out unless a real use case shows up.
+
+**Project workspace gains multi-source.** The existing `/transcription/[id]`
+page and `TranscriptWorkspace` stay the primary editing surface — this
+isn't a rebuild, it's addition:
+- A "This project's sources" pill row above the workspace, one pill per
+  attached source (today, always exactly one — the row is inert but
+  present, same reasoning as the filter chips above).
+- "+ Reference another source" opens a picker (search/select from Source
+  Library, excluding sources already attached to this project) and calls a
+  new `attachSourceToProject` action.
+- Clicking a pill switches which source's media/transcript the workspace
+  shows — the existing `TranscriptWorkspace`/`ClipRail`/`ClipComposer`
+  already operate on one source's worth of data (`source_id`-scoped
+  excerpts), so switching pills is a data swap, not a new component.
+
+### 7.3 New server-side work
+
+- `attachSourceToProject(projectId, sourceId)` — insert into
+  `sw_project_sources`; needs both project and source tool access (both are
+  already the same `transcription` tool access check, so no new RLS
+  predicate — just a new insert policy on `sw_project_sources` scoped the
+  same way the existing `select` policy is, if one doesn't already allow
+  authenticated tool members to insert).
+- `listAttachableSources(projectId, query)` — sources the caller can see
+  that aren't already attached to `projectId`.
+- `getExcerptsForSource(sourceId)` — new read, parallel to the existing
+  `listClipsForProject`, for Source Detail's "excerpts here" list.
+- `getPrimarySourceForProject`/`getPrimaryProjectIdForSource` in
+  `lib/transcription/projects.ts` need to stop assuming singularity. Call
+  sites that create/trim/export an excerpt already know which source they're
+  acting on from the active pill — they should take `sourceId` explicitly
+  rather than asking "the" project's source, so a two-source project doesn't
+  silently act on the wrong one.
+
+### 7.4 Open questions (resolve before implementation starts)
+
+1. **Where does Source Library live?** `/transcription` today has
+   "Projects" / "Excerpts" tabs. Does it become "Projects" / "Sources" /
+   "Excerpts" (three tabs), or does "Sources" replace "Excerpts" as the
+   primary browse surface, since Source Detail already shows a source's
+   excerpts inline? The mockup treats the library as the landing screen —
+   worth deciding deliberately rather than defaulting to "just add a tab."
+2. **Multi-source project status.** `computeProjectStatus()` derives one
+   badge (`uploading`/`processing`/`ready`/`failed`) from one source. With
+   two+ sources independently progressing, is the project's badge the
+   worst-case status across all of them, or does the single project-level
+   badge stop making sense in favor of per-source status shown on each pill?
+3. **Route shape for Source Detail.** `/transcription/sources/[id]` (new
+   segment) vs. some other shape — needs to not collide with
+   `/transcription/[id]`'s existing project-id semantics or `/transcription/
+   new`.
+4. **Any confirmation UX for reusing a source?** Attaching an existing
+   source to a second project doesn't touch RLS or data risk (tool access is
+   shared and flat), but it does mean two stories now share one source's
+   excerpts/transcript edits. Worth a one-line confirmation ("this source is
+   already used in *N* other projects") or not worth the friction — a
+   product call, not an engineering one.
+
+### 7.5 Explicitly out of scope for Phase 3a
+
+- Any new source kind (document/PDF, image, text) or its upload flow — that
+  stays Phase 3b.
+- OCR, translation, or any other transformation pipeline.
+- The Research Workspace (data points, themes, meta-themes, synthesis) —
+  Phase 4/5, needs its own design doc as already scoped in §5.
+- The word-level alignment hover demo (§7.2).
