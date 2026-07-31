@@ -14,7 +14,9 @@ import {
   validateQuestionInput,
 } from "@/lib/audience-listening/query-state";
 import { listQuestions } from "@/lib/audience-listening/queries";
-import { sendAnswerToTranscription, sendQueuedAnswers } from "@/lib/audience-listening/handoff";
+import { sendQueuedAnswers } from "@/lib/audience-listening/handoff";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import { sendAnswerToSourcework } from "@/lib/audience-listening/capabilities";
 import type { AlFieldMode, AlQueryStatus, AlReviewState } from "@/lib/database.types";
 
 const LIST_PATH = "/audience-listening";
@@ -523,23 +525,21 @@ export async function saveAnswerNote(formData: FormData): Promise<void> {
 
 // Transcription -------------------------------------------------------------------
 
+/**
+ * Thin adapter over the audience-listening.answer.sendToSourcework
+ * capability: parse FormData, call it (confirmed: true — the button that
+ * posts this form is itself the confirmation), map the typed result back to
+ * failWith()/redirect() exactly as this action did before the capability
+ * was extracted.
+ */
 export async function sendAnswerToTranscriptionAction(formData: FormData): Promise<void> {
-  const { profile } = await assertToolAccess("audience-listening");
   const queryId = field(formData, "query_id");
   const submissionId = field(formData, "submission_id");
   const answerId = field(formData, "answer_id");
   const path = `${LIST_PATH}/${queryId}/submissions/${submissionId}`;
 
-  const result = await sendAnswerToTranscription(answerId);
+  const result = await invokeCapability(sendAnswerToSourcework, { answerId }, { confirmed: true });
   if (!result.ok) failWith(path, result.message);
-
-  await logAuditEvent({
-    actorId: profile.id,
-    action: "al.answer.sent_to_transcription",
-    targetType: "al_answer",
-    targetId: answerId,
-    metadata: { query_id: queryId, project_id: result.projectId },
-  });
 
   redirect(path);
 }

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import { createSession as createSessionCapability } from "@/lib/remote-interview/capabilities";
 import {
   defaultTokenExpiry,
   generateJoinToken,
@@ -17,63 +19,25 @@ import { assembleLocalTrack } from "@/lib/remote-interview/assembly";
 const SESSIONS_PATH = "/remote-interview";
 
 /**
- * Creates a session and its host participant row together. The host is a
- * participant like any guest (design doc §2), just one that's already
- * authenticated through the portal and admitted immediately — no waiting
- * room, no token expiry, since profile_id (not the join token) is how a host
- * proves who they are.
+ * Thin adapter over the remote-interview.session.create capability: parse
+ * FormData, call it, map the typed result back to failWith()/redirect()
+ * exactly as this action did before the capability was extracted.
  */
 export async function createSession(formData: FormData): Promise<void> {
-  const { profile } = await assertToolAccess("remote-interview");
-
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) {
-    failWith(`${SESSIONS_PATH}/new`, "Give the session a title.");
-  }
   const notes = String(formData.get("notes") ?? "").trim();
   const scheduledAt = String(formData.get("scheduled_at") ?? "").trim();
 
-  const supabase = await createClient();
-  const { data: session, error: sessionError } = await supabase
-    .from("ri_sessions")
-    .insert({
-      title,
-      notes: notes || null,
-      scheduled_at: scheduledAt || null,
-      created_by: profile.id,
-    })
-    .select("id")
-    .single();
-  failIfError(sessionError, `${SESSIONS_PATH}/new`, "Could not create the session");
-  if (!session)
-    failWith(`${SESSIONS_PATH}/new`, "Could not create the session — no row was created.");
-
-  const hostId = randomUUID();
-  const { error: hostError } = await supabase.from("ri_participants").insert({
-    id: hostId,
-    session_id: session.id,
-    display_name: profile.display_name,
-    role: "host",
-    profile_id: profile.id,
-    join_token: generateJoinToken(),
-    storage_prefix: storagePrefixFor(session.id, hostId),
-    admitted_at: new Date().toISOString(),
+  const result = await invokeCapability(createSessionCapability, {
+    title,
+    notes: notes || undefined,
+    scheduledAt: scheduledAt || undefined,
   });
-  failIfError(
-    hostError,
-    `${SESSIONS_PATH}/new`,
-    "Created the session, but could not add you as host",
-  );
+  if (!result.ok) {
+    failWith(`${SESSIONS_PATH}/new`, result.message);
+  }
 
-  await logAuditEvent({
-    actorId: profile.id,
-    action: "ri.session.created",
-    targetType: "ri_session",
-    targetId: session.id,
-    metadata: { title },
-  });
-
-  redirect(`${SESSIONS_PATH}/${session.id}`);
+  redirect(`${SESSIONS_PATH}/${result.sessionId}`);
 }
 
 /** Only the session's creator can add a guest link (design doc §3A) — checked here for a clear message, and enforced independently by ri_participants' RLS insert policy. */
