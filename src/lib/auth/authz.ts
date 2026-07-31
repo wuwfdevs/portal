@@ -27,6 +27,20 @@ export async function requireActiveProfile(): Promise<Profile> {
   return profile;
 }
 
+/**
+ * Requires an active account; throws ForbiddenError otherwise. For use in
+ * contexts where a redirect would be the wrong response (route handlers) —
+ * mirrors assertAdministrator/assertToolAccess's shape. requireActiveProfile
+ * above stays the one pages use.
+ */
+export async function assertActiveProfile(): Promise<Profile> {
+  const profile = await getCurrentProfile();
+  if (!isActive(profile)) {
+    throw new ForbiddenError();
+  }
+  return profile;
+}
+
 /** Requires an active administrator; redirects to /dashboard otherwise. For use in pages. */
 export async function requireAdministrator(): Promise<Profile> {
   const profile = await requireActiveProfile();
