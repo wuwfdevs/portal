@@ -265,3 +265,23 @@ export async function embedPendingForProject(supabase: Client, projectId: string
     console.error("[transcription] re-embed after edit failed", { projectId, error });
   }
 }
+
+/**
+ * Best-effort re-embed for one representation and its source's excerpts —
+ * for callers that already know which representation they just wrote to.
+ * Unlike embedPendingForProject, this never guesses "the project's primary
+ * source": that guess re-embeds the wrong representation whenever the write
+ * landed on a project's non-primary source (or a source reached directly,
+ * outside any one project, via Source Detail).
+ */
+export async function embedPendingForRepresentation(
+  supabase: Client,
+  representationId: string,
+): Promise<void> {
+  try {
+    const context = await resolveEmbeddingContext(supabase, representationId);
+    if (context) await embedPending(supabase, context);
+  } catch (error) {
+    console.error("[transcription] re-embed after edit failed", { representationId, error });
+  }
+}

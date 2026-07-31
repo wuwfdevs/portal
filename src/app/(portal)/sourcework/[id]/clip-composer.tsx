@@ -16,7 +16,6 @@ import { createClip } from "./clip-actions";
  * screens, part of the sticky clips rail on wide ones.
  */
 export function ClipComposer({
-  projectId,
   sourceId,
   representationId,
   selection,
@@ -24,7 +23,6 @@ export function ClipComposer({
   onCancel,
   onCreated,
 }: {
-  projectId: string;
   sourceId: string;
   representationId: string | null;
   selection: SelectionRange;
@@ -44,7 +42,6 @@ export function ClipComposer({
     setIsPending(true);
     setError(null);
     const result = await createClip({
-      projectId,
       sourceId,
       representationId,
       startMs: selection.startMs,
