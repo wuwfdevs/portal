@@ -5,6 +5,7 @@ import { getToolByKey } from "@/lib/tools";
 import { getSiteUrl } from "@/lib/site-url";
 import { TRANSCRIPTION_MEDIA_BUCKET, sourceObjectPath } from "@/lib/transcription/media";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
+import { getSourceRef } from "@/lib/transcription/projects";
 import {
   AUDIENCE_LISTENING_MEDIA_BUCKET,
   normalizeContentType,
@@ -149,10 +150,13 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     return { ok: false, message: `Could not save the media details: ${updateError.message}` };
   }
 
-  const started = await startTranscriptionForProject(supabase, {
-    projectId,
-    storagePath: destinationPath,
-  });
+  const ref = await getSourceRef(supabase, sourceId);
+  const started = ref.representationId
+    ? await startTranscriptionForProject(supabase, {
+        representationId: ref.representationId,
+        storagePath: destinationPath,
+      })
+    : { error: "This project has no transcript representation yet." };
 
   // The project exists and holds the audio either way, so the link is worth
   // keeping even when the ASR kickoff itself failed — the Transcription

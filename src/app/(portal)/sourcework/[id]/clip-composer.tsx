@@ -17,12 +17,16 @@ import { createClip } from "./clip-actions";
  */
 export function ClipComposer({
   projectId,
+  sourceId,
+  representationId,
   selection,
   onPreview,
   onCancel,
   onCreated,
 }: {
   projectId: string;
+  sourceId: string;
+  representationId: string | null;
   selection: SelectionRange;
   onPreview: (startMs: number, endMs: number) => void;
   onCancel: () => void;
@@ -41,6 +45,8 @@ export function ClipComposer({
     setError(null);
     const result = await createClip({
       projectId,
+      sourceId,
+      representationId,
       startMs: selection.startMs,
       endMs: selection.endMs,
       title,

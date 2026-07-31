@@ -42,6 +42,8 @@ const SKIP_MS = 5000;
  */
 export function TranscriptWorkspace({
   projectId,
+  sourceId,
+  representationId,
   projectTitle,
   interviewDate,
   exportDate,
@@ -54,6 +56,9 @@ export function TranscriptWorkspace({
   highlightClipId = null,
 }: {
   projectId: string;
+  /** The source (pill) this workspace is currently showing — a new excerpt belongs to this one, not necessarily the project's first-added source. */
+  sourceId: string;
+  representationId: string | null;
   projectTitle: string;
   interviewDate: string | null;
   /** Interview date, falling back to the project's creation date — the date every export filename carries. */
@@ -464,6 +469,8 @@ export function TranscriptWorkspace({
         {selection && (
           <ClipComposer
             projectId={projectId}
+            sourceId={sourceId}
+            representationId={representationId}
             selection={selection}
             onPreview={previewRange}
             onCancel={clearSelection}

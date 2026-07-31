@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById, getTranscriptForRepresentation } from "@/lib/transcription/projects";
-import { listClipsForProject } from "@/lib/transcription/clips";
+import { listExcerptsForSource } from "@/lib/transcription/clips";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
@@ -13,17 +13,18 @@ import { TranscriptWorkspace } from "./transcript-workspace";
 import { ProcessingPoller } from "./processing-poller";
 import { ProjectDetails } from "./project-details";
 import { ReindexButton } from "./reindex-button";
+import { SourcePillRow } from "./source-pill-row";
 
 export default async function TranscriptionProjectPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ t?: string; clip?: string }>;
+  searchParams: Promise<{ t?: string; clip?: string; source?: string }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { t, clip } = await searchParams;
+  const { t, clip, source: sourceParam } = await searchParams;
   // ?t= arrives from a search result or a clip in the library; anything that
   // isn't a plain number is ignored rather than trusted into a seek.
   const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
@@ -31,16 +32,26 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  const source = project.source;
+  // ?source= picks which pill is showing; absent (or unknown) falls back to
+  // the earliest-attached source — same "primary" this project always had
+  // before a second source could be attached (docs/sourcework-design.md §7).
+  const activeSourceSummary =
+    project.sources.find((s) => s.sourceId === sourceParam) ?? project.sources[0] ?? null;
+  const source = activeSourceSummary?.source ?? null;
+  const transcriptRepresentation = activeSourceSummary?.transcript ?? null;
+  const activeStatus = activeSourceSummary?.status ?? "uploading";
   const hasMedia = Boolean(source?.original_storage_path);
+
   const [signedUrl, transcript, clips] = await Promise.all([
-    project.status === "ready" && source?.original_storage_path
+    activeStatus === "ready" && source?.original_storage_path
       ? getSignedMediaUrl(source.original_storage_path)
       : Promise.resolve(null),
-    project.status === "ready" && project.transcript
-      ? getTranscriptForRepresentation(project.transcript.id)
+    activeStatus === "ready" && transcriptRepresentation
+      ? getTranscriptForRepresentation(transcriptRepresentation.id)
       : Promise.resolve({ segments: [], speakers: [] }),
-    project.status === "ready" ? listClipsForProject(project.id) : Promise.resolve([]),
+    activeStatus === "ready" && activeSourceSummary
+      ? listExcerptsForSource(activeSourceSummary.sourceId)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -72,11 +83,21 @@ export default async function TranscriptionProjectPage({
         <StatusBadge status={project.status} />
       </div>
 
-      {project.status === "ready" && (
+      {project.sources.length > 0 && (
+        <SourcePillRow
+          projectId={project.id}
+          sources={project.sources}
+          activeSourceId={activeSourceSummary?.sourceId ?? null}
+        />
+      )}
+
+      {activeStatus === "ready" && (
         <div className="rounded border border-line bg-white p-5">
-          {signedUrl ? (
+          {signedUrl && activeSourceSummary ? (
             <TranscriptWorkspace
               projectId={project.id}
+              sourceId={activeSourceSummary.sourceId}
+              representationId={transcriptRepresentation?.id ?? null}
               projectTitle={project.title}
               interviewDate={source?.interview_date ?? null}
               exportDate={source?.interview_date ?? project.createdAt}
@@ -114,7 +135,7 @@ export default async function TranscriptionProjectPage({
         </div>
       )}
 
-      {project.status === "uploading" && (
+      {activeStatus === "uploading" && (
         <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
           This project doesn&apos;t have any media yet — either an upload is still running in
           another tab, or it was interrupted.
@@ -127,7 +148,7 @@ export default async function TranscriptionProjectPage({
         </div>
       )}
 
-      {project.status === "processing" && (
+      {activeStatus === "processing" && (
         <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
           Transcribing — this can take a few minutes for a long recording. This page will show the
           transcript as soon as it&apos;s ready; you can also leave and come back.
@@ -135,12 +156,16 @@ export default async function TranscriptionProjectPage({
         </div>
       )}
 
-      {project.status === "failed" && (
+      {activeStatus === "failed" && (
         <div className="max-w-lg rounded border border-line bg-white p-5">
           <p className="text-sm text-ink-700">
-            {source?.error_message ?? project.transcript?.error_message ?? "Something went wrong with this project."}
+            {source?.error_message ??
+              transcriptRepresentation?.error_message ??
+              "Something went wrong with this project."}
           </p>
-          {hasMedia && <RetryForm projectId={project.id} />}
+          {hasMedia && (
+            <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
+          )}
           {canDelete && (
             <DeleteProjectButton
               projectId={project.id}
@@ -165,10 +190,11 @@ function StatusBadge({ status }: { status: "uploading" | "processing" | "ready" 
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-function RetryForm({ projectId }: { projectId: string }) {
+function RetryForm({ projectId, sourceId }: { projectId: string; sourceId: string | null }) {
   return (
     <form action={retryTranscription} className="mt-4">
       <input type="hidden" name="project_id" value={projectId} />
+      {sourceId && <input type="hidden" name="source_id" value={sourceId} />}
       <Button type="submit" variant="secondary">
         Retry transcription
       </Button>

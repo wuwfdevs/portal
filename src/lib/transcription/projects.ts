@@ -35,6 +35,90 @@ export interface ProjectSourceRef {
   representationId: string | null;
 }
 
+/** One source a project references, with its own status — see listSourcesForProject. */
+export interface ProjectSourceSummary {
+  sourceId: string;
+  source: SwSource;
+  transcript: SwRepresentation | null;
+  status: ProjectStatus;
+  addedAt: string;
+}
+
+const STATUS_SEVERITY: Record<ProjectStatus, number> = {
+  failed: 3,
+  uploading: 2,
+  processing: 1,
+  ready: 0,
+};
+
+/**
+ * Collapses several sources' independent statuses into the one badge a
+ * multi-source project's header shows — worst case wins, so a project isn't
+ * reported "ready" while one of its sources is still failing or uploading.
+ */
+export function computeAggregateProjectStatus(statuses: ProjectStatus[]): ProjectStatus {
+  if (statuses.length === 0) return "uploading";
+  return statuses.reduce((worst, status) =>
+    STATUS_SEVERITY[status] > STATUS_SEVERITY[worst] ? status : worst,
+  );
+}
+
+/**
+ * Every source a project references, oldest-attached first (so index 0 is
+ * always the same "primary" source getPrimarySourceForProject picks) — what
+ * the workspace's source pill row and the project detail header are built
+ * from.
+ */
+export async function listSourcesForProject(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+): Promise<ProjectSourceSummary[]> {
+  const links =
+    unwrapRead(
+      await supabase
+        .from("sw_project_sources")
+        .select("source_id, added_at")
+        .eq("project_id", projectId)
+        .order("added_at"),
+      "this project's sources",
+    ) ?? [];
+  if (links.length === 0) return [];
+
+  const sourceIds = links.map((link) => link.source_id);
+  const sources =
+    unwrapRead(
+      await supabase.from("sw_sources").select("*").in("id", sourceIds),
+      "this project's sources",
+    ) ?? [];
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+
+  const transcripts =
+    unwrapRead(
+      await supabase
+        .from("sw_representations")
+        .select("*")
+        .in("source_id", sourceIds)
+        .eq("kind", "transcript"),
+      "this project's transcripts",
+    ) ?? [];
+  const transcriptBySourceId = new Map(transcripts.map((t) => [t.source_id, t]));
+
+  const summaries: ProjectSourceSummary[] = [];
+  for (const link of links) {
+    const source = sourceById.get(link.source_id);
+    if (!source) continue; // RLS-invisible or mid-delete; skip rather than throw
+    const transcript = transcriptBySourceId.get(link.source_id) ?? null;
+    summaries.push({
+      sourceId: link.source_id,
+      source,
+      transcript,
+      status: computeProjectStatus(source, transcript),
+      addedAt: link.added_at,
+    });
+  }
+  return summaries;
+}
+
 /**
  * The source a project's workspace screens actually operate on. Every
  * project created through this tool's UI references exactly one source
@@ -53,15 +137,22 @@ export async function getPrimarySourceForProject(
     .limit(1)
     .maybeSingle();
   if (!link) return null;
+  return getSourceRef(supabase, link.source_id);
+}
 
+/** Resolves a specific source's transcript representation — the explicit-id counterpart to getPrimarySourceForProject, for call sites (like retrying a non-primary source) that already know which source they mean. */
+export async function getSourceRef(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sourceId: string,
+): Promise<ProjectSourceRef> {
   const { data: representation } = await supabase
     .from("sw_representations")
     .select("id")
-    .eq("source_id", link.source_id)
+    .eq("source_id", sourceId)
     .eq("kind", "transcript")
     .maybeSingle();
 
-  return { sourceId: link.source_id, representationId: representation?.id ?? null };
+  return { sourceId, representationId: representation?.id ?? null };
 }
 
 export interface ProjectDetail {
@@ -70,8 +161,9 @@ export interface ProjectDetail {
   description: string | null;
   createdBy: string;
   createdAt: string;
-  source: SwSource | null;
-  transcript: SwRepresentation | null;
+  /** Every source this project references, oldest first. Almost always one — see docs/sourcework-design.md §7. */
+  sources: ProjectSourceSummary[];
+  /** Worst-case status across every attached source — see computeAggregateProjectStatus. */
   status: ProjectStatus;
 }
 
@@ -206,23 +298,7 @@ export async function getProjectById(id: string): Promise<ProjectDetail | null> 
   );
   if (!project) return null;
 
-  const ref = await getPrimarySourceForProject(supabase, id);
-  const source = ref
-    ? unwrapRead(
-        await supabase.from("sw_sources").select("*").eq("id", ref.sourceId).maybeSingle(),
-        "this project's source",
-      )
-    : null;
-  const transcript = ref?.representationId
-    ? unwrapRead(
-        await supabase
-          .from("sw_representations")
-          .select("*")
-          .eq("id", ref.representationId)
-          .maybeSingle(),
-        "this project's transcript",
-      )
-    : null;
+  const sources = await listSourcesForProject(supabase, id);
 
   return {
     id: project.id,
@@ -230,9 +306,8 @@ export async function getProjectById(id: string): Promise<ProjectDetail | null> 
     description: project.description,
     createdBy: project.created_by,
     createdAt: project.created_at,
-    source,
-    transcript,
-    status: computeProjectStatus(source, transcript),
+    sources,
+    status: computeAggregateProjectStatus(sources.map((s) => s.status)),
   };
 }
 
@@ -249,6 +324,146 @@ export async function getPrimaryProjectIdForSource(
     .limit(1)
     .maybeSingle();
   return data?.project_id ?? null;
+}
+
+export interface SourceLibraryRow {
+  id: string;
+  kind: SwSource["kind"];
+  title: string;
+  createdAt: string;
+  interviewDate: string | null;
+  durationMs: number | null;
+  status: ProjectStatus;
+  /** How many projects reference this source — see sw_project_sources. */
+  projectCount: number;
+}
+
+/**
+ * Every source visible to the caller, newest first — the Source Library's
+ * browse surface (docs/sourcework-design.md §7.2). Independent of any one
+ * project: a source shows up here whether it's attached to zero, one, or
+ * several projects.
+ */
+export async function listSources(): Promise<SourceLibraryRow[]> {
+  const supabase = await createClient();
+
+  const sources =
+    unwrapRead(
+      await supabase
+        .from("sw_sources")
+        .select("id, kind, title, interview_date, status, original_duration_ms, created_at")
+        .order("created_at", { ascending: false }),
+      "the source library",
+    ) ?? [];
+  if (sources.length === 0) return [];
+
+  const sourceIds = sources.map((s) => s.id);
+  const [transcriptResult, linkResult] = await Promise.all([
+    supabase
+      .from("sw_representations")
+      .select("source_id, status")
+      .in("source_id", sourceIds)
+      .eq("kind", "transcript"),
+    supabase.from("sw_project_sources").select("source_id").in("source_id", sourceIds),
+  ]);
+  const transcripts = unwrapRead(transcriptResult, "the source library's transcripts") ?? [];
+  const transcriptStatusBySourceId = new Map(transcripts.map((t) => [t.source_id, t.status]));
+
+  const links = unwrapRead(linkResult, "the source library's project counts") ?? [];
+  const projectCountBySourceId = new Map<string, number>();
+  for (const link of links) {
+    projectCountBySourceId.set(
+      link.source_id,
+      (projectCountBySourceId.get(link.source_id) ?? 0) + 1,
+    );
+  }
+
+  return sources.map((source) => {
+    const transcriptStatus = transcriptStatusBySourceId.get(source.id);
+    return {
+      id: source.id,
+      kind: source.kind,
+      title: source.title,
+      createdAt: source.created_at,
+      interviewDate: source.interview_date,
+      durationMs: source.original_duration_ms,
+      status: computeProjectStatus(
+        { status: source.status },
+        transcriptStatus ? { status: transcriptStatus } : null,
+      ),
+      projectCount: projectCountBySourceId.get(source.id) ?? 0,
+    };
+  });
+}
+
+export interface SourceDetail {
+  id: string;
+  kind: SwSource["kind"];
+  title: string;
+  interviewDate: string | null;
+  status: SwSource["status"];
+  errorMessage: string | null;
+  durationMs: number | null;
+  sizeBytes: number | null;
+  createdAt: string;
+  /** Every representation derived from this source, oldest first — the chain the detail screen renders. */
+  representations: SwRepresentation[];
+  /** Every project that references this source. */
+  projects: { id: string; title: string }[];
+}
+
+/**
+ * One source, independent of any project — Source Detail's data
+ * (docs/sourcework-design.md §7.2). Excerpts for this source are fetched
+ * separately via listExcerptsForSource, matching how the project workspace
+ * already keeps clips separate from project/transcript reads.
+ */
+export async function getSourceDetail(sourceId: string): Promise<SourceDetail | null> {
+  const supabase = await createClient();
+
+  const source = unwrapRead(
+    await supabase.from("sw_sources").select("*").eq("id", sourceId).maybeSingle(),
+    "this source",
+  );
+  if (!source) return null;
+
+  const representations =
+    unwrapRead(
+      await supabase
+        .from("sw_representations")
+        .select("*")
+        .eq("source_id", sourceId)
+        .order("created_at"),
+      "this source's representations",
+    ) ?? [];
+
+  const links =
+    unwrapRead(
+      await supabase.from("sw_project_sources").select("project_id").eq("source_id", sourceId),
+      "this source's projects",
+    ) ?? [];
+  const projectIds = [...new Set(links.map((l) => l.project_id))];
+  const projects =
+    projectIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("tw_projects").select("id, title").in("id", projectIds),
+          "this source's projects",
+        ) ?? []);
+
+  return {
+    id: source.id,
+    kind: source.kind,
+    title: source.title,
+    interviewDate: source.interview_date,
+    status: source.status,
+    errorMessage: source.error_message,
+    durationMs: source.original_duration_ms,
+    sizeBytes: source.original_size_bytes,
+    createdAt: source.created_at,
+    representations,
+    projects,
+  };
 }
 
 /**
