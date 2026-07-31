@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
+import { getRoleCatalog } from "@/lib/tool-roles";
 import { updateUserAccess } from "../../actions";
 
 export default async function EditUserAccessPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,7 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
               {(tools ?? []).map((tool) => {
                 const currentRole = grantByToolId.get(tool.id);
                 const hasAccess = grantByToolId.has(tool.id);
+                const roleOptions = getRoleCatalog(tool.key);
                 return (
                   <label key={tool.id} className="flex items-center justify-between gap-2.5 text-sm text-ink-900">
                     <span className="flex items-center gap-2">
@@ -65,13 +67,20 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
                       />
                       {tool.name}
                     </span>
-                    <input
-                      type="text"
-                      name={`tool_role_${tool.id}`}
-                      defaultValue={currentRole ?? ""}
-                      placeholder="Role (optional)"
-                      className="w-36 rounded border border-line px-2 py-1 text-xs text-ink-900"
-                    />
+                    {roleOptions && (
+                      <select
+                        name={`tool_role_${tool.id}`}
+                        defaultValue={currentRole ?? ""}
+                        className="w-56 rounded border border-line px-2 py-1 text-xs text-ink-900"
+                      >
+                        <option value="">No specific role (defaults to {roleOptions[0]!.label})</option>
+                        {roleOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label} — {option.description}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </label>
                 );
               })}
