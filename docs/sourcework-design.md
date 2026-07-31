@@ -207,7 +207,7 @@ reporter *use* the many-to-many shape. Concretely, today:
   references it (`getProjectById`/`getPrimarySourceForProject`).
 - `sw_source_excerpts` already carries `source_id`, decoupled from any one
   project — but the only place excerpts are shown is the per-project rail
-  (`clip-rail.tsx`) and the cross-project flat list at `/transcription`
+  (`clip-rail.tsx`) and the cross-project flat list at `/sourcework`
   (`ClipLibrary`, `?tab=clips`), never scoped to "every excerpt of this one
   source across every project it's used in."
 - `lib/transcription/projects.ts`'s `getPrimarySourceForProject` /
@@ -217,16 +217,16 @@ reporter *use* the many-to-many shape. Concretely, today:
 
 ### 7.2 New screens
 
-**Source Library** — a new tab at `/transcription` (see §7.4), or a new
+**Source Library** — a new tab at `/sourcework` (see §7.4), or a new
 route; card grid of every `sw_sources` row the caller has tool access to.
 Each card: type badge (today, always "Audio"), title, uploaded date,
 duration, which representations exist (today, always "Transcript" once
 ready), and "Used in N projects" from `sw_project_sources`. Search and a
 type filter chip row, matching the existing search bar's affordance at
-`/transcription` — the filter chips are close to inert with one source kind,
+`/sourcework` — the filter chips are close to inert with one source kind,
 but the UI shouldn't have to be rebuilt when Phase 3b adds more.
 
-**Source Detail** (`/transcription/sources/[id]`, a new route — see open
+**Source Detail** (`/sourcework/sources/[id]`, a new route — see open
 question in §7.5) — one source, independent of any project:
 - Representation chain: today always a fixed three-node shape (Original
   Audio → Transcription + Diarization → Transcript), rendered generically
@@ -235,7 +235,7 @@ question in §7.5) — one source, independent of any project:
   data is needed — `sw_representations` already has `parent_representation_
   id` for exactly this.
 - "Used in projects" — every `tw_projects` row joined through
-  `sw_project_sources`, linking out to `/transcription/[projectId]`.
+  `sw_project_sources`, linking out to `/sourcework/[projectId]`.
 - "Source excerpts here" — every `sw_source_excerpts` row for this
   `source_id`, across every project that made one. This is new: nothing
   today shows a source's excerpts independent of the project that made
@@ -247,7 +247,7 @@ question in §7.5) — one source, independent of any project:
   covers the "which words am I selecting" problem `segment-row.tsx` solves).
   Leave it out unless a real use case shows up.
 
-**Project workspace gains multi-source.** The existing `/transcription/[id]`
+**Project workspace gains multi-source.** The existing `/sourcework/[id]`
 page and `TranscriptWorkspace` stay the primary editing surface — this
 isn't a rebuild, it's addition:
 - A "This project's sources" pill row above the workspace, one pill per
@@ -282,7 +282,7 @@ isn't a rebuild, it's addition:
 
 ### 7.4 Open questions (resolve before implementation starts)
 
-1. **Where does Source Library live?** `/transcription` today has
+1. **Where does Source Library live?** `/sourcework` today has
    "Projects" / "Excerpts" tabs. Does it become "Projects" / "Sources" /
    "Excerpts" (three tabs), or does "Sources" replace "Excerpts" as the
    primary browse surface, since Source Detail already shows a source's
@@ -293,9 +293,9 @@ isn't a rebuild, it's addition:
    two+ sources independently progressing, is the project's badge the
    worst-case status across all of them, or does the single project-level
    badge stop making sense in favor of per-source status shown on each pill?
-3. **Route shape for Source Detail.** `/transcription/sources/[id]` (new
+3. **Route shape for Source Detail.** `/sourcework/sources/[id]` (new
    segment) vs. some other shape — needs to not collide with
-   `/transcription/[id]`'s existing project-id semantics or `/transcription/
+   `/sourcework/[id]`'s existing project-id semantics or `/sourcework/
    new`.
 4. **Any confirmation UX for reusing a source?** Attaching an existing
    source to a second project doesn't touch RLS or data risk (tool access is

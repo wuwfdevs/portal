@@ -100,8 +100,8 @@ export async function updateProjectDetails(input: {
 
   await embedPendingForProject(supabase, input.projectId);
 
-  revalidatePath(`/transcription/${input.projectId}`);
-  revalidatePath("/transcription");
+  revalidatePath(`/sourcework/${input.projectId}`);
+  revalidatePath("/sourcework");
   return {};
 }
 
@@ -125,8 +125,8 @@ export async function reindexProjectSearch(projectId: string): Promise<{
   const supabase = await createClient();
   try {
     const result = await reindexProject(supabase, projectId);
-    revalidatePath(`/transcription/${projectId}`);
-    revalidatePath("/transcription");
+    revalidatePath(`/sourcework/${projectId}`);
+    revalidatePath("/sourcework");
     return result;
   } catch (error) {
     console.error("[transcription] reindex failed", { projectId, error });
@@ -210,7 +210,7 @@ export async function retryTranscription(formData: FormData): Promise<void> {
     });
   }
 
-  redirect(`/transcription/${projectId}`);
+  redirect(`/sourcework/${projectId}`);
 }
 
 /** Marks a project's source failed after a client-side upload error, with a reason a reporter can act on. */
@@ -253,7 +253,7 @@ export async function deleteProject(formData: FormData): Promise<void> {
     .maybeSingle();
 
   if (!project || project.created_by !== profile.id) {
-    redirect("/transcription");
+    redirect("/sourcework");
   }
 
   const ref = await getPrimarySourceForProject(supabase, projectId);
@@ -292,6 +292,6 @@ export async function deleteProject(formData: FormData): Promise<void> {
 
   await supabase.from("tw_projects").delete().eq("id", projectId);
 
-  revalidatePath("/transcription");
-  redirect("/transcription");
+  revalidatePath("/sourcework");
+  redirect("/sourcework");
 }

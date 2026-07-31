@@ -203,12 +203,12 @@ Three things about it are load-bearing and easy to break by accident:
    embed.
 
 The handoff reuses `startTranscriptionForProject()`, which moved out of
-`src/app/(portal)/transcription/actions.ts` into `src/lib/transcription/ingest.ts` so both
+`src/app/(portal)/sourcework/actions.ts` into `src/lib/transcription/ingest.ts` so both
 tools call one place — there is no second ASR pipeline, webhook, or transcript table.
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
-**Exception: Sourcework** (`src/app/(portal)/transcription/`,
+**Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
 product design and phased plan before extending it; check that plan's phase
@@ -245,12 +245,19 @@ registry row's `name` (`supabase/migrations/20260731140000_sourcework_tool_renam
 and the "Clip" → "Excerpt" copy throughout the transcription UI were updated to match
 the data model's framing, following mockups reviewed for a broader source/project UI
 direction (see `docs/sourcework-design.md`'s Phase 3 entry for what's still only
-proposed, not built). The tool `key` (`'transcription'`), its route (`/transcription`),
-and every directory/file/doc name deliberately did not move — same precedent as
-`docs/transcription-workspace-design.md` keeping its name through the Phase 1-2 data
-model rename. Internal identifiers (`ClipRail`, `clip-actions.ts`, `listLibraryClips`,
-the `?tab=clips`/`?clip=` query params, the `kind = 'clip'` search-result value) are
-untouched too — only strings a user actually reads changed.
+proposed, not built). **The route moved too** (as of the same date, once it was clear
+no bookmarks or real users depended on the old one): `/transcription` →
+`/sourcework`, meaning `src/app/(portal)/transcription/` is now
+`src/app/(portal)/sourcework/` (`supabase/migrations/20260731150000_sourcework_route_
+rename.sql` updated the registry row's `route`). The tool `key` (still `'transcription'`
+— it's the authorization identifier `requireToolAccess`/`assertToolAccess`/RLS
+predicates key off, not a URL) and every other directory/file/doc name deliberately did
+not move — same precedent as `docs/transcription-workspace-design.md` keeping its name
+through the Phase 1-2 data model rename. `src/lib/transcription/`, `src/components/
+transcription/`, and their imports are untouched; so are internal identifiers
+(`ClipRail`, `clip-actions.ts`, `listLibraryClips`, the `?tab=clips`/`?clip=` query
+params, the `kind = 'clip'` search-result value) — only strings a user actually reads,
+plus the URL they navigate to, changed.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
@@ -310,8 +317,10 @@ src/app/(portal)/admin/    everything behind requireAdministrator()
 src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
                            gated by requireEditorialAccess() from lib/editorial/access.ts
 src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
-src/app/(portal)/transcription/  Transcription Workspace — its own route segment, gated by
-                            requireToolAccess("transcription")
+src/app/(portal)/sourcework/  Sourcework (route: /sourcework) — its own route segment,
+                            gated by requireToolAccess("transcription"); data access
+                            lives in lib/transcription/ (name kept, see "Sourcework"
+                            above) and components in components/transcription/
 src/app/(portal)/remote-interview/  Remote Interview — its own route segment, gated by
                             requireToolAccess("remote-interview")
 src/app/(portal)/audience-listening/  Audience Listening — its own route segment, gated by

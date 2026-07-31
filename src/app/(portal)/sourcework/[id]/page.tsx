@@ -46,7 +46,7 @@ export default async function TranscriptionProjectPage({
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <div className="mb-5">
-        <Link href="/transcription" className="text-xs font-semibold text-brand-link">
+        <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
           ← Back to projects
         </Link>
       </div>

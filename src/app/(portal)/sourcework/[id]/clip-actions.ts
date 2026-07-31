@@ -22,9 +22,9 @@ import {
 const MIN_CLIP_DURATION_MS = 500;
 
 function revalidateProject(projectId: string) {
-  revalidatePath(`/transcription/${projectId}`);
+  revalidatePath(`/sourcework/${projectId}`);
   // A clip is a result in the cross-project library and search list too.
-  revalidatePath("/transcription");
+  revalidatePath("/sourcework");
 }
 
 export async function createClip(input: {
