@@ -18,18 +18,24 @@ const KIND_BADGE: Record<
 };
 
 /**
- * A result's link into the workspace. `t` is what makes a hit a place rather
- * than a citation — the workspace seeks there on load; `clip` additionally
- * opens that clip in the rail so it can be re-trimmed or re-exported without
- * a second hunt.
+ * A result's link into the workspace. `source` picks the right pill for a
+ * multi-source project (Phase 3a) — without it the workspace falls back to
+ * the project's earliest-attached source, which for a hit against a later
+ * one means the wrong media, a `t` seek that lands nowhere meaningful, and a
+ * `clip` that can't be found in that pill's excerpt list. `t` is what makes
+ * a hit a place rather than a citation — the workspace seeks there on load;
+ * `clip` additionally opens that clip in the rail so it can be re-trimmed or
+ * re-exported without a second hunt.
  */
 export function resultHref(result: {
   kind: SearchResultKind;
   id: string;
   projectId: string;
+  sourceId: string | null;
   startMs: number | null;
 }): string {
   const params = new URLSearchParams();
+  if (result.sourceId) params.set("source", result.sourceId);
   if (result.startMs !== null) params.set("t", String(result.startMs));
   if (result.kind === "clip") params.set("clip", result.id);
 

@@ -1,40 +1,16 @@
 import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
-import {
-  listProjects,
-  listSources,
-  type ProjectListRow,
-  type ProjectStatus,
-} from "@/lib/transcription/projects";
+import { listProjects, listSources } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
 import { searchArchive, isSemanticSearchConfigured } from "@/lib/transcription/search";
-import { formatBytes, formatDuration } from "@/lib/transcription/media";
 import { SearchResults } from "@/components/transcription/search-results";
 import { ClipLibrary } from "@/components/transcription/clip-library";
 import { SourceLibrary } from "@/components/transcription/source-library";
-import { Badge } from "@/components/ui/badge";
+import { ProjectTable } from "@/components/transcription/project-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const STATUS_BADGE: Record<
-  ProjectStatus,
-  { label: string; variant: "accent" | "neutral" | "muted" | "danger" }
-> = {
-  ready: { label: "Ready", variant: "accent" },
-  uploading: { label: "Uploading", variant: "neutral" },
-  processing: { label: "Transcribing", variant: "neutral" },
-  failed: { label: "Failed", variant: "danger" },
-};
-
 type Tab = "projects" | "sources" | "clips";
-
-function formatInterviewDate(project: ProjectListRow): string {
-  return new Date(project.interviewDate ?? project.createdAt).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export default async function TranscriptionListPage({
   searchParams,
@@ -134,66 +110,5 @@ function TabLink({ tab, activeTab, label }: { tab: Tab; activeTab: Tab; label: s
     >
       {label}
     </Link>
-  );
-}
-
-function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
-  if (projects.length === 0) {
-    return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No interviews yet. Upload one to get started.
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto rounded border border-line">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead>
-          <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-            <th className="px-4 py-2.5">Title</th>
-            <th className="px-4 py-2.5">Interview date</th>
-            <th className="px-4 py-2.5">Duration</th>
-            <th className="px-4 py-2.5">Size</th>
-            <th className="px-4 py-2.5">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((project) => {
-            const badge = STATUS_BADGE[project.status];
-            return (
-              <tr
-                key={project.id}
-                className="border-b border-line last:border-b-0 hover:bg-panel-50"
-              >
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/sourcework/${project.id}`}
-                    className="font-semibold text-brand-link"
-                  >
-                    {project.title}
-                  </Link>
-                  {project.description && (
-                    <p className="mt-0.5 max-w-md truncate text-xs text-ink-400">
-                      {project.description}
-                    </p>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-ink-500">{formatInterviewDate(project)}</td>
-                <td className="px-4 py-3 text-ink-500">
-                  {project.durationMs ? formatDuration(project.durationMs) : "—"}
-                </td>
-                <td className="px-4 py-3 text-ink-500">
-                  {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
-                </td>
-                <td className="px-4 py-3">
-                  <Badge variant={badge.variant}>{badge.label}</Badge>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }

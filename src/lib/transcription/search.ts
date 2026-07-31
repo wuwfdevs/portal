@@ -20,6 +20,8 @@ export interface SearchResult {
   kind: SearchResultKind;
   id: string;
   projectId: string;
+  /** Which of the project's (possibly several, since Phase 3a) sources this hit belongs to — null for a project-kind hit. Needed to deep-link to the right source pill. */
+  sourceId: string | null;
   projectTitle: string;
   /** The project's background text — the context a stranger to this recording needs (§3G). */
   projectDescription: string | null;
@@ -60,6 +62,7 @@ export async function searchArchive(query: string, limit = DEFAULT_LIMIT): Promi
     kind: row.kind as SearchResultKind,
     id: row.result_id,
     projectId: row.project_id,
+    sourceId: row.source_id,
     projectTitle: row.project_title,
     projectDescription: row.project_description,
     interviewDate: row.interview_date,
