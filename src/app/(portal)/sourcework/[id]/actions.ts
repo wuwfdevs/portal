@@ -30,7 +30,7 @@ async function assertTranscriptionAccess() {
 }
 
 function revalidateProject(projectId: string) {
-  revalidatePath(`/transcription/${projectId}`);
+  revalidatePath(`/sourcework/${projectId}`);
 }
 
 export async function renameSpeaker(input: {

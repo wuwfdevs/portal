@@ -62,7 +62,7 @@ export default async function TranscriptionListPage({
             a quote, or start a new one.
           </p>
         </div>
-        <Link href="/transcription/new">
+        <Link href="/sourcework/new">
           <Button>New project</Button>
         </Link>
       </div>
@@ -87,7 +87,7 @@ export default async function TranscriptionListPage({
             <span>
               {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
             </span>
-            <Link href="/transcription" className="text-xs font-semibold text-brand-link">
+            <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
               Clear search
             </Link>
           </div>
@@ -115,7 +115,7 @@ function TabLink({ tab, activeTab, label }: { tab: Tab; activeTab: Tab; label: s
   const isActive = tab === activeTab;
   return (
     <Link
-      href={tab === "projects" ? "/transcription" : `/transcription?tab=${tab}`}
+      href={tab === "projects" ? "/sourcework" : `/sourcework?tab=${tab}`}
       className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${
         isActive
           ? "border-brand-primary text-ink-900"
@@ -158,7 +158,7 @@ function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
               >
                 <td className="px-4 py-3">
                   <Link
-                    href={`/transcription/${project.id}`}
+                    href={`/sourcework/${project.id}`}
                     className="font-semibold text-brand-link"
                   >
                     {project.title}

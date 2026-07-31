@@ -87,7 +87,7 @@ export function NewProjectForm() {
 
     if (uploadError) {
       await failProjectUpload({ projectId, message: uploadError.message });
-      router.push(`/transcription/${projectId}`);
+      router.push(`/sourcework/${projectId}`);
       return;
     }
 
@@ -102,7 +102,7 @@ export function NewProjectForm() {
     if (result.error) {
       await failProjectUpload({ projectId, message: result.error });
     }
-    router.push(`/transcription/${projectId}`);
+    router.push(`/sourcework/${projectId}`);
   }
 
   return (

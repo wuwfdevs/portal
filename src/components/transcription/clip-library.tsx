@@ -27,7 +27,7 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
         <li key={clip.id} className="rounded border border-line bg-white p-4">
           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
             <Link
-              href={`/transcription/${clip.projectId}?t=${clip.startMs}&clip=${clip.id}`}
+              href={`/sourcework/${clip.projectId}?t=${clip.startMs}&clip=${clip.id}`}
               className="font-semibold text-brand-link"
             >
               {clip.title}
@@ -41,7 +41,7 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
           {clip.excerpt && <p className="mb-2 line-clamp-2 text-sm text-ink-700">{clip.excerpt}</p>}
 
           <p className="text-xs text-ink-500">
-            <Link href={`/transcription/${clip.projectId}`} className="text-brand-link">
+            <Link href={`/sourcework/${clip.projectId}`} className="text-brand-link">
               {clip.projectTitle}
             </Link>
             {" · "}

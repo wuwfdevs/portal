@@ -34,7 +34,7 @@ export function resultHref(result: {
   if (result.kind === "clip") params.set("clip", result.id);
 
   const query = params.toString();
-  return `/transcription/${result.projectId}${query ? `?${query}` : ""}`;
+  return `/sourcework/${result.projectId}${query ? `?${query}` : ""}`;
 }
 
 export function SearchResults({ results, query }: { results: SearchResult[]; query: string }) {

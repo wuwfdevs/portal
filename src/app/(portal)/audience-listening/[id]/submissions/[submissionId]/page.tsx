@@ -301,7 +301,7 @@ export default async function SubmissionDetailPage({
                       )}
                       {action === "open" && answer.transcription_project_id && (
                         <Link
-                          href={`/transcription/${answer.transcription_project_id}`}
+                          href={`/sourcework/${answer.transcription_project_id}`}
                           className="text-xs font-semibold text-brand-link hover:underline"
                         >
                           Open in Sourcework
