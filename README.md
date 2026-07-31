@@ -136,6 +136,9 @@ through automation and need a human in each dashboard once:
      "not configured" status. See `.env.example` for the caveat about whether Supabase
      Storage's S3-compatible endpoint actually works as this destination — unverified, and
      the first thing to test once Daily access exists.
+   - `ANTHROPIC_API_KEY` — the in-portal agent's chat widget (**sensitive** — mark
+     encrypted). Without it, the chat panel still opens but every message returns a clear
+     "not configured" error rather than crashing. Get it from the Anthropic Console.
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
 **Supabase Auth** (each project's dashboard → Authentication):

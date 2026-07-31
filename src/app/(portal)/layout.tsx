@@ -1,5 +1,6 @@
 import { requireActiveProfile } from "@/lib/auth/authz";
 import { PortalNav } from "@/components/portal-nav";
+import { AgentChatWidget } from "@/components/agent-chat-widget";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireActiveProfile();
@@ -8,6 +9,7 @@ export default async function PortalLayout({ children }: { children: React.React
     <div className="min-h-screen bg-white">
       <PortalNav profile={profile} />
       {children}
+      <AgentChatWidget />
     </div>
   );
 }

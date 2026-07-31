@@ -19,6 +19,7 @@
     "db:check": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@daily-co/daily-js": "^0.91.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/ssr": "^0.7.0",
