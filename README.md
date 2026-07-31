@@ -2,7 +2,7 @@
 
 Internal tools portal for WUWF Public Media — shared authentication, navigation, user
 approval/invitation, and access control for a small set of purpose-built internal tools
-(Editorial Planning, Transcription Workspace, Remote Interview, and Audience Listening).
+(Editorial Planning, Sourcework, Remote Interview, and Audience Listening).
 
 This repository contains the **portal foundation** (application shell, auth, the tool
 registry, and admin screens) plus the tools built on it:
@@ -10,13 +10,13 @@ registry, and admin screens) plus the tools built on it:
 - **Editorial Planning** — a pitch backlog, a configurable submission form and scoring
   rubric, and weekly planning meetings with independent reviewer scoring, ranked agendas,
   and recorded decisions (`docs/editorial-planning-design.md`).
-- **Transcription Workspace** — upload, transcribe, correct, clip, and search interview
-  audio (`docs/transcription-workspace-design.md`).
+- **Sourcework** — upload, transcribe, correct, excerpt, and search interview audio
+  (`docs/transcription-workspace-design.md`, `docs/sourcework-design.md`).
 - **Remote Interview** — record a remote guest at full quality from their own browser
   (`docs/remote-interview-design.md`, `docs/remote-interview-technical-assessment.md`).
 - **Audience Listening** — publish a short set of questions as a public page or a Grove
   embed, collect recorded answers from listeners, review them, and hand individual
-  answers to the Transcription Workspace (`docs/audience-listening-design.md`). This is
+  answers to Sourcework (`docs/audience-listening-design.md`). This is
   the only tool with a public, account-less write surface; that document's §6 explains
   the security model it needs as a result.
 
@@ -124,8 +124,8 @@ through automation and need a human in each dashboard once:
      encrypted env var)
    - `NEXT_PUBLIC_SITE_URL` — the deployment's own URL (`https://tools.wuwf.org` in
      Production)
-   - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Transcription Workspace's
-     ASR provider (**sensitive** — mark both encrypted); see `.env.example` for details
+   - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Sourcework's ASR provider
+     (**sensitive** — mark both encrypted); see `.env.example` for details
    - `DAILY_API_KEY` — Remote Interview's call provider (**sensitive** — mark encrypted).
      Required for the studio and guest call to work at all; without it, room creation and
      meeting tokens fail outright. Get it from the Daily dashboard for the account this

@@ -304,7 +304,7 @@ export default async function SubmissionDetailPage({
                           href={`/transcription/${answer.transcription_project_id}`}
                           className="text-xs font-semibold text-brand-link hover:underline"
                         >
-                          Open in Transcription Workspace
+                          Open in Sourcework
                           {project ? ` (${project.status})` : ""}
                         </Link>
                       )}

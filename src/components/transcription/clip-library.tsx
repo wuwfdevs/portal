@@ -15,8 +15,8 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
   if (clips.length === 0) {
     return (
       <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No clips yet. Open an interview, select a passage in the transcript, and save it as a clip —
-        it will show up here for everyone.
+        No excerpts yet. Open an interview, select a passage in the transcript, and save it as an
+        excerpt — it will show up here for everyone.
       </div>
     );
   }

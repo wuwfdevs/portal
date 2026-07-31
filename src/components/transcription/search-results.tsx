@@ -12,7 +12,7 @@ const KIND_BADGE: Record<
   SearchResultKind,
   { label: string; variant: "accent" | "neutral" | "muted" }
 > = {
-  clip: { label: "Clip", variant: "accent" },
+  clip: { label: "Excerpt", variant: "accent" },
   transcript: { label: "In transcript", variant: "neutral" },
   project: { label: "Project", variant: "muted" },
 };

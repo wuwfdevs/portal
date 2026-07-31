@@ -13,7 +13,7 @@ import { deleteProject } from "./actions";
 export function DeleteProjectButton({
   projectId,
   label = "Delete this project",
-  warning = "This permanently deletes the recording, its transcript, and every clip made from it.",
+  warning = "This permanently deletes the recording, its transcript, and every excerpt made from it.",
 }: {
   projectId: string;
   label?: string;

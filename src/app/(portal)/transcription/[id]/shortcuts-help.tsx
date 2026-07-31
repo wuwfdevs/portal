@@ -8,7 +8,7 @@ const SHORTCUTS: [string, string][] = [
   ["K", "Pause"],
   ["↑ / ↓", "Previous / next line"],
   ["E", "Edit the current line"],
-  ["C", "Name the clip you just selected"],
+  ["C", "Name the excerpt you just selected"],
 ];
 
 /** Keyboard shortcuts are only useful if they're discoverable. */

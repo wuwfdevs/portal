@@ -55,7 +55,7 @@ export default async function TranscriptionListPage({
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="mb-1.5 font-serif text-[28px] font-bold text-ink-900">
-            Transcription Workspace
+            Sourcework
           </h1>
           <p className="max-w-xl text-[15px] text-ink-500">
             Every interview here is shared with the rest of the team — search past projects to reuse
@@ -71,7 +71,7 @@ export default async function TranscriptionListPage({
         <Input
           type="search"
           name="q"
-          placeholder="Search transcripts, clips, and interviews…"
+          placeholder="Search transcripts, excerpts, and interviews…"
           defaultValue={query}
         />
         <p className="mt-1.5 text-xs text-ink-400">
@@ -97,7 +97,7 @@ export default async function TranscriptionListPage({
         <>
           <nav className="mb-5 flex gap-1 border-b border-line">
             <TabLink tab="projects" activeTab={activeTab} label="Projects" />
-            <TabLink tab="clips" activeTab={activeTab} label="Clips" />
+            <TabLink tab="clips" activeTab={activeTab} label="Excerpts" />
           </nav>
 
           {activeTab === "clips" ? (
