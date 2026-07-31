@@ -1,12 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { assertEditorialRole } from "@/lib/editorial/access";
-import { failIfError } from "@/lib/editorial/action-result";
-import { listPitchFormFields, unwrapRead } from "@/lib/editorial/data";
-import { validatePitchValues } from "@/lib/editorial/form";
-import { logAuditEvent } from "@/lib/audit";
+import { failWith } from "@/lib/editorial/action-result";
+import { listPitchFormFields } from "@/lib/editorial/data";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import {
+  archivePitch as archivePitchCapability,
+  archiveSelectedPitches as archiveSelectedPitchesCapability,
+  savePitch as savePitchCapability,
+  unarchivePitch as unarchivePitchCapability,
+} from "@/lib/editorial/capabilities";
 import type { EpFieldValue } from "@/lib/database.types";
 
 export type PitchFormState =
@@ -20,18 +23,14 @@ export type PitchFormState =
     };
 
 /**
- * Create or update a pitch (update when pitch_id is present). Submitter edit
- * rights (own pitch, still open, not on an active slate) are enforced by RLS;
- * the app-side check exists to fail with a readable message instead of a
- * silent no-op write.
+ * Create or update a pitch (update when pitch_id is present). Thin adapter
+ * over the editorial.pitch.save capability: parses FormData, calls it, maps
+ * the typed result back to the form state / redirect this screen expects.
  */
 export async function savePitch(
   _prev: PitchFormState,
   formData: FormData,
 ): Promise<PitchFormState> {
-  const { profile, role } = await assertEditorialRole("contributor");
-  const supabase = await createClient();
-
   const pitchId = String(formData.get("pitch_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const fields = await listPitchFormFields();
@@ -44,178 +43,65 @@ export async function savePitch(
         : String(formData.get(`field_${field.key}`) ?? "");
   }
 
-  const { values, errors } = validatePitchValues(fields, raw);
-  if (!title) errors.title = "Give the pitch a title.";
-  if (Object.keys(errors).length > 0) {
-    return { status: "error", message: null, fieldErrors: errors, title, values: raw };
-  }
-
-  const errorState = (message: string): PitchFormState => ({
-    status: "error",
-    message,
-    fieldErrors: {},
+  const result = await invokeCapability(savePitchCapability, {
+    pitchId: pitchId || undefined,
     title,
-    values: raw,
+    fieldValues: raw,
   });
 
-  if (pitchId) {
-    const pitch = unwrapRead(
-      await supabase
-        .from("ep_pitches")
-        .select("id, submitted_by, status")
-        .eq("id", pitchId)
-        .maybeSingle(),
-      "the pitch",
-    );
-    if (!pitch) return errorState("This pitch no longer exists.");
-    const isOwn = pitch.submitted_by === profile.id;
-    if (!isOwn && role !== "editor") return errorState("You can only edit your own pitches.");
-    if (pitch.status !== "open" && role !== "editor") {
-      return errorState("This pitch has been decided and can no longer be edited.");
+  if (!result.ok) {
+    if (result.kind === "invalid") {
+      return {
+        status: "error",
+        message: null,
+        fieldErrors: result.fieldErrors,
+        title,
+        values: raw,
+      };
     }
-
-    const { error: updateError } = await supabase
-      .from("ep_pitches")
-      .update({ title })
-      .eq("id", pitchId);
-    if (updateError) {
-      console.error("Could not update the pitch:", updateError);
-      return errorState("Could not save the pitch — it may be under review right now.");
-    }
-
-    // Replace-all, so a field the writer cleared actually goes away. If the
-    // insert half fails the pitch would silently lose its details, so report it.
-    const { error: clearError } = await supabase
-      .from("ep_pitch_values")
-      .delete()
-      .eq("pitch_id", pitchId);
-    if (clearError) {
-      console.error("Could not clear the pitch's details:", clearError);
-      return errorState("Could not save the pitch's details. Try again.");
-    }
-    if (values.length > 0) {
-      const { error: valuesError } = await supabase
-        .from("ep_pitch_values")
-        .insert(
-          values.map(({ fieldId, value }) => ({ pitch_id: pitchId, field_id: fieldId, value })),
-        );
-      if (valuesError) {
-        console.error("Could not save the pitch's details:", valuesError);
-        return errorState("Could not save the pitch's details. Try again.");
-      }
-    }
-    redirect(`/editorial/pitches/${pitchId}`);
+    return { status: "error", message: result.message, fieldErrors: {}, title, values: raw };
   }
 
-  const { data: created, error: insertError } = await supabase
-    .from("ep_pitches")
-    .insert({ title, submitted_by: profile.id })
-    .select("id")
-    .single();
-  if (insertError || !created) {
-    console.error("Could not create the pitch:", insertError);
-    return errorState(
-      insertError
-        ? `Could not submit the pitch: ${insertError.message}`
-        : "Could not submit the pitch. Try again.",
-    );
-  }
-
-  if (values.length > 0) {
-    const { error: valuesError } = await supabase
-      .from("ep_pitch_values")
-      .insert(
-        values.map(({ fieldId, value }) => ({ pitch_id: created.id, field_id: fieldId, value })),
-      );
-    if (valuesError) {
-      console.error("Could not save the new pitch's details:", valuesError);
-      return errorState(
-        "The pitch was created but its details could not be saved. Edit it to retry.",
-      );
-    }
-  }
-  redirect(`/editorial/pitches/${created.id}`);
+  redirect(`/editorial/pitches/${result.pitchId}`);
 }
 
 export async function archivePitch(formData: FormData): Promise<void> {
-  const editor = await assertEditorialRole("editor");
   const pitchId = String(formData.get("pitch_id") ?? "");
   const pitchPath = `/editorial/pitches/${pitchId}`;
-  const reason = String(formData.get("reason") ?? "").trim() || null;
+  const reason = String(formData.get("reason") ?? "").trim() || undefined;
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("ep_pitches")
-    .update({
-      status: "archived",
-      archived_reason: reason,
-      archived_by: editor.profile.id,
-      archived_at: new Date().toISOString(),
-    })
-    .eq("id", pitchId)
-    .eq("status", "open");
-  failIfError(error, pitchPath, "Could not archive the pitch");
-
-  await logAuditEvent({
-    actorId: editor.profile.id,
-    action: "ep.pitch.archived",
-    targetType: "ep_pitch",
-    targetId: pitchId,
-    metadata: reason ? { reason } : {},
-  });
+  const result = await invokeCapability(
+    archivePitchCapability,
+    { pitchId, reason },
+    { confirmed: true },
+  );
+  if (!result.ok) failWith(pitchPath, result.message);
 
   redirect(pitchPath);
 }
 
 export async function unarchivePitch(formData: FormData): Promise<void> {
-  const editor = await assertEditorialRole("editor");
   const pitchId = String(formData.get("pitch_id") ?? "");
   const pitchPath = `/editorial/pitches/${pitchId}`;
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("ep_pitches")
-    .update({ status: "open", archived_reason: null, archived_by: null, archived_at: null })
-    .eq("id", pitchId)
-    .eq("status", "archived");
-  failIfError(error, pitchPath, "Could not restore the pitch");
-
-  await logAuditEvent({
-    actorId: editor.profile.id,
-    action: "ep.pitch.reopened",
-    targetType: "ep_pitch",
-    targetId: pitchId,
-  });
+  const result = await invokeCapability(unarchivePitchCapability, { pitchId }, { confirmed: true });
+  if (!result.ok) failWith(pitchPath, result.message);
 
   redirect(pitchPath);
 }
 
 /** Bulk archive from the backlog's stale view. */
 export async function archiveSelectedPitches(formData: FormData): Promise<void> {
-  const editor = await assertEditorialRole("editor");
   const pitchIds = formData.getAll("pitch_id").map(String).filter(Boolean);
   if (pitchIds.length === 0) redirect("/editorial?view=stale");
-  const reason = String(formData.get("reason") ?? "").trim() || "Archived in a backlog review.";
+  const reason = String(formData.get("reason") ?? "").trim() || undefined;
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("ep_pitches")
-    .update({
-      status: "archived",
-      archived_reason: reason,
-      archived_by: editor.profile.id,
-      archived_at: new Date().toISOString(),
-    })
-    .in("id", pitchIds)
-    .eq("status", "open");
-  failIfError(error, "/editorial?view=stale", "Could not archive the selected pitches");
-
-  await logAuditEvent({
-    actorId: editor.profile.id,
-    action: "ep.pitch.bulk_archived",
-    targetType: "ep_pitch",
-    metadata: { pitch_ids: pitchIds, reason },
-  });
+  const result = await invokeCapability(
+    archiveSelectedPitchesCapability,
+    { pitchIds, reason },
+    { confirmed: true },
+  );
+  if (!result.ok) failWith("/editorial?view=stale", result.message);
 
   redirect("/editorial?view=stale");
 }
