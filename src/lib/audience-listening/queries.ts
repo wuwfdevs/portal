@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { computeProjectStatus } from "@/lib/transcription/projects";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -152,7 +153,13 @@ export async function getAnswerById(id: string): Promise<AlAnswer | null> {
   );
 }
 
-/** Project status/title for the answers already handed to the Transcription Workspace. */
+/**
+ * Project status/title for the answers already handed to the Transcription
+ * Workspace. Status is now derived from the project's source and transcript
+ * representation (Sourcework split tw_projects.status out into those two —
+ * see lib/transcription/projects.ts) rather than read off tw_projects
+ * directly.
+ */
 export async function getLinkedProjects(
   projectIds: string[],
 ): Promise<Map<string, { id: string; title: string; status: string }>> {
@@ -163,14 +170,48 @@ export async function getLinkedProjects(
   // and tw_projects' RLS will hand them nothing if they aren't. That is a
   // normal state (the link still renders, it just can't show live status), not
   // an outage — so this read defaults rather than throwing.
-  const { data, error } = await supabase
+  const { data: projects, error } = await supabase
     .from("tw_projects")
-    .select("id, title, status")
+    .select("id, title")
     .in("id", projectIds);
 
   if (error) {
     console.error("Could not read linked transcription projects:", error);
     return new Map();
   }
-  return new Map((data ?? []).map((project) => [project.id, project]));
+  if (!projects || projects.length === 0) return new Map();
+
+  const { data: links } = await supabase
+    .from("sw_project_sources")
+    .select("project_id, source_id, added_at")
+    .in("project_id", projectIds)
+    .order("added_at");
+  const sourceIdByProject = new Map<string, string>();
+  for (const link of links ?? []) {
+    if (!sourceIdByProject.has(link.project_id)) sourceIdByProject.set(link.project_id, link.source_id);
+  }
+
+  const sourceIds = [...new Set(sourceIdByProject.values())];
+  const [{ data: sources }, { data: transcripts }] = await Promise.all([
+    sourceIds.length === 0
+      ? Promise.resolve({ data: [] })
+      : supabase.from("sw_sources").select("id, status").in("id", sourceIds),
+    sourceIds.length === 0
+      ? Promise.resolve({ data: [] })
+      : supabase.from("sw_representations").select("source_id, status").in("source_id", sourceIds).eq("kind", "transcript"),
+  ]);
+  const sourceById = new Map((sources ?? []).map((s) => [s.id, s]));
+  const transcriptBySourceId = new Map((transcripts ?? []).map((t) => [t.source_id, t]));
+
+  return new Map(
+    projects.map((project) => {
+      const sourceId = sourceIdByProject.get(project.id) ?? null;
+      const source = sourceId ? (sourceById.get(sourceId) ?? null) : null;
+      const transcript = sourceId ? (transcriptBySourceId.get(sourceId) ?? null) : null;
+      return [
+        project.id,
+        { id: project.id, title: project.title, status: computeProjectStatus(source, transcript) },
+      ];
+    }),
+  );
 }

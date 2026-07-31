@@ -36,14 +36,14 @@ export function isVideoContentType(contentType: string): boolean {
   return contentType.startsWith("video/");
 }
 
-/** Every source file lives at `<project id>/source.<ext>` — one file per project. */
-export function sourceObjectPath(projectId: string, contentType: string): string {
-  return `${projectId}/source.${extensionForContentType(contentType)}`;
+/** Every source file lives at `<source id>/source.<ext>` — one file per source. */
+export function sourceObjectPath(sourceId: string, contentType: string): string {
+  return `${sourceId}/source.${extensionForContentType(contentType)}`;
 }
 
-/** Every clip export lives at `<project id>/clips/<clip id>.wav`. */
-export function clipExportObjectPath(projectId: string, clipId: string): string {
-  return `${projectId}/clips/${clipId}.wav`;
+/** Every excerpt export lives at `<source id>/excerpts/<excerpt id>.wav`. */
+export function excerptExportObjectPath(sourceId: string, excerptId: string): string {
+  return `${sourceId}/excerpts/${excerptId}.wav`;
 }
 
 // A clip is an excerpt, not a re-upload of the whole interview — this bounds

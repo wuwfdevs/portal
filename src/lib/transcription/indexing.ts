@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
   buildChunks,
   buildEmbeddingInput,
@@ -13,10 +14,11 @@ import { getEmbeddingProvider, toVectorLiteral } from "./embeddings";
 // places: the ASR webhook (fresh transcript), the reindex action (backfill,
 // and re-embedding after edits settle), and clip writes.
 //
-// Takes its Supabase client as an argument rather than creating one, because
-// the webhook runs as the admin client (no user session for RLS to apply
-// against — see that route's comment) while everything else runs as the
-// signed-in member. Both are SupabaseClient<Database>; neither is assumed.
+// Chunks are keyed by representation_id (a transcript is one representation
+// of a source) and excerpts by source_id — see docs/sourcework-design.md.
+// Most callers only know a projectId, though, so the project-scoped
+// functions below resolve the project's (one, today) source/representation
+// first and delegate to the representation-scoped ones.
 
 type Client = SupabaseClient<Database>;
 
@@ -30,39 +32,98 @@ export interface IndexResult {
   embeddingError?: string;
 }
 
+interface EmbeddingContext {
+  representationId: string;
+  sourceId: string;
+  projectContext: ChunkProjectContext;
+}
+
 /**
- * Rebuilds a project's chunks from its current segments, then embeds whatever
- * is stale.
+ * The embedding-header context for a representation: the source's own
+ * interview date (a fact about the recording) plus the title/description of
+ * whichever project references that source — the first, in every case this
+ * ships with, since a source is only ever referenced by a second project
+ * once the "reference an existing source" UI exists (see
+ * docs/sourcework-design.md).
+ */
+async function resolveEmbeddingContext(
+  supabase: Client,
+  representationId: string,
+): Promise<EmbeddingContext | null> {
+  const { data: representation, error: representationError } = await supabase
+    .from("sw_representations")
+    .select("id, source_id")
+    .eq("id", representationId)
+    .maybeSingle();
+  if (representationError) throw new Error(representationError.message);
+  if (!representation) return null;
+
+  const { data: source, error: sourceError } = await supabase
+    .from("sw_sources")
+    .select("interview_date")
+    .eq("id", representation.source_id)
+    .maybeSingle();
+  if (sourceError) throw new Error(sourceError.message);
+
+  const { data: link } = await supabase
+    .from("sw_project_sources")
+    .select("project_id")
+    .eq("source_id", representation.source_id)
+    .order("added_at")
+    .limit(1)
+    .maybeSingle();
+
+  let project: { title: string; description: string | null } | null = null;
+  if (link) {
+    const { data, error } = await supabase
+      .from("tw_projects")
+      .select("title, description")
+      .eq("id", link.project_id)
+      .maybeSingle();
+    if (!error) project = data;
+  }
+
+  return {
+    representationId: representation.id,
+    sourceId: representation.source_id,
+    projectContext: {
+      title: project?.title ?? "",
+      description: project?.description ?? null,
+      interviewDate: source?.interview_date ?? null,
+    },
+  };
+}
+
+/**
+ * Rebuilds a transcript representation's chunks from its current segments,
+ * then embeds whatever is stale (both the representation's chunks and its
+ * source's excerpts).
  *
  * Chunks are derived data, so this replaces rather than reconciles: cheaper
  * and simpler than diffing windows, and the only cost is re-embedding a
- * project's worth of text (fractions of a cent). Embedding failures are
- * deliberately not fatal — a transcript that is chunked but unembedded is
+ * representation's worth of text (fractions of a cent). Embedding failures
+ * are deliberately not fatal — a transcript that is chunked but unembedded is
  * fully keyword-searchable, which is a far better outcome than a webhook that
- * marks the project failed because a third-party API had a bad minute.
+ * marks the representation failed because a third-party API had a bad minute.
  */
-export async function reindexProject(supabase: Client, projectId: string): Promise<IndexResult> {
-  const { data: project, error: projectError } = await supabase
-    .from("tw_projects")
-    .select("id, title, description, interview_date")
-    .eq("id", projectId)
-    .maybeSingle();
-
-  if (projectError || !project) {
-    throw new Error(projectError?.message ?? "Project not found");
-  }
+export async function reindexRepresentation(
+  supabase: Client,
+  representationId: string,
+): Promise<IndexResult> {
+  const context = await resolveEmbeddingContext(supabase, representationId);
+  if (!context) throw new Error("Representation not found");
 
   const [{ data: segments, error: segmentError }, { data: speakers, error: speakerError }] =
     await Promise.all([
       supabase
         .from("tw_segments")
         .select("start_ms, end_ms, text, speaker_id")
-        .eq("project_id", projectId)
+        .eq("representation_id", representationId)
         .order("position"),
       supabase
         .from("tw_speakers")
         .select("id, diarization_label, display_name")
-        .eq("project_id", projectId),
+        .eq("representation_id", representationId),
     ]);
 
   if (segmentError) throw new Error(segmentError.message);
@@ -85,13 +146,13 @@ export async function reindexProject(supabase: Client, projectId: string): Promi
   const { error: deleteError } = await supabase
     .from("tw_chunks")
     .delete()
-    .eq("project_id", projectId);
+    .eq("representation_id", representationId);
   if (deleteError) throw new Error(deleteError.message);
 
   if (chunks.length > 0) {
     const { error: insertError } = await supabase.from("tw_chunks").insert(
       chunks.map((chunk) => ({
-        project_id: projectId,
+        representation_id: representationId,
         start_ms: chunk.startMs,
         end_ms: chunk.endMs,
         text: chunk.text,
@@ -101,24 +162,26 @@ export async function reindexProject(supabase: Client, projectId: string): Promi
     if (insertError) throw new Error(insertError.message);
   }
 
-  const embedded = await embedPending(supabase, projectId, {
-    title: project.title,
-    description: project.description,
-    interviewDate: project.interview_date,
-  });
-
+  const embedded = await embedPending(supabase, context);
   return { chunks: chunks.length, ...embedded };
 }
 
+/** Same as reindexRepresentation, for callers that only have a project id. */
+export async function reindexProject(supabase: Client, projectId: string): Promise<IndexResult> {
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  if (!ref?.representationId) throw new Error("This project has no transcript yet.");
+  return reindexRepresentation(supabase, ref.representationId);
+}
+
 /**
- * Embeds this project's stale chunks and clips. Safe to call repeatedly — it
- * is driven entirely by the `stale` / `embedding_stale` flags the migration's
- * triggers maintain, so a no-op costs two indexed reads.
+ * Embeds a representation's stale chunks and its source's stale excerpts.
+ * Safe to call repeatedly — it is driven entirely by the `stale` /
+ * `embedding_stale` flags the migration's triggers maintain, so a no-op
+ * costs two indexed reads.
  */
 export async function embedPending(
   supabase: Client,
-  projectId: string,
-  context: ChunkProjectContext,
+  context: EmbeddingContext,
 ): Promise<{ embedded: number; embeddingError?: string }> {
   const provider = getEmbeddingProvider();
   if (!provider) return { embedded: 0 };
@@ -128,13 +191,13 @@ export async function embedPending(
       supabase
         .from("tw_chunks")
         .select("id, text")
-        .eq("project_id", projectId)
+        .eq("representation_id", context.representationId)
         .eq("stale", true)
         .limit(MAX_EMBEDS_PER_PASS),
       supabase
-        .from("tw_clips")
-        .select("id, title, excerpt")
-        .eq("project_id", projectId)
+        .from("sw_source_excerpts")
+        .select("id, title, excerpt_text")
+        .eq("source_id", context.sourceId)
         .eq("embedding_stale", true)
         .limit(MAX_EMBEDS_PER_PASS),
     ]);
@@ -146,9 +209,9 @@ export async function embedPending(
     // One request covers both kinds — they share a model and a rate limit,
     // and splitting them would double the round trips for no benefit.
     const inputs = [
-      ...chunkRows.map((row) => buildEmbeddingInput(context, row.text)),
+      ...chunkRows.map((row) => buildEmbeddingInput(context.projectContext, row.text)),
       ...clipRows.map((row) =>
-        buildClipEmbeddingInput(context, { title: row.title, excerpt: row.excerpt }),
+        buildClipEmbeddingInput(context.projectContext, { title: row.title, excerpt: row.excerpt_text }),
       ),
     ];
     const vectors = await provider.embed(inputs);
@@ -162,7 +225,7 @@ export async function embedPending(
       ),
       ...clipRows.map((row, index) =>
         supabase
-          .from("tw_clips")
+          .from("sw_source_excerpts")
           .update({
             embedding: toVectorLiteral(vectors[chunkRows.length + index]!),
             embedding_stale: false,
@@ -173,26 +236,32 @@ export async function embedPending(
 
     return { embedded: chunkRows.length + clipRows.length };
   } catch (error) {
-    // Never fatal: see reindexProject's comment. Logged, reported to the
-    // caller, and retried on the next pass — the rows stay flagged stale.
+    // Never fatal: see reindexRepresentation's comment. Logged, reported to
+    // the caller, and retried on the next pass — the rows stay flagged stale.
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[transcription] embedding pass failed", { projectId, error: message });
+    console.error("[transcription] embedding pass failed", {
+      representationId: context.representationId,
+      error: message,
+    });
     return { embedded: 0, embeddingError: message };
   }
 }
 
-/** Project context for the embedding header, read fresh so an edited background is picked up. */
-export async function getProjectContext(
-  supabase: Client,
-  projectId: string,
-): Promise<ChunkProjectContext | null> {
-  const { data } = await supabase
-    .from("tw_projects")
-    .select("title, description, interview_date")
-    .eq("id", projectId)
-    .maybeSingle();
-
-  return data
-    ? { title: data.title, description: data.description, interviewDate: data.interview_date }
-    : null;
+/**
+ * Best-effort re-embed for a project's transcript and excerpts after an edit.
+ * Never throws: the rows stay flagged stale, so the next reindex or edit
+ * picks them up, and in the meantime the stale embedding still points at
+ * substantially the same passage (design doc §6, "staleness over eagerness").
+ * Replaces what used to be duplicated as a private helper in both
+ * transcription/actions.ts and [id]/clip-actions.ts.
+ */
+export async function embedPendingForProject(supabase: Client, projectId: string): Promise<void> {
+  try {
+    const ref = await getPrimarySourceForProject(supabase, projectId);
+    if (!ref?.representationId) return;
+    const context = await resolveEmbeddingContext(supabase, ref.representationId);
+    if (context) await embedPending(supabase, context);
+  } catch (error) {
+    console.error("[transcription] re-embed after edit failed", { projectId, error });
+  }
 }

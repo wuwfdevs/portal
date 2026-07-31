@@ -4,7 +4,7 @@ import { hasToolAccess } from "@/lib/auth/authz";
 import { getToolByKey } from "@/lib/tools";
 import { getSiteUrl } from "@/lib/site-url";
 import { TRANSCRIPTION_MEDIA_BUCKET, sourceObjectPath } from "@/lib/transcription/media";
-import { startTranscriptionForProject } from "@/lib/transcription/ingest";
+import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import {
   AUDIENCE_LISTENING_MEDIA_BUCKET,
   normalizeContentType,
@@ -82,43 +82,40 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
 
   const contentType = normalizeContentType(answer.content_type);
 
-  const { data: project, error: projectError } = await supabase
-    .from("tw_projects")
-    .insert({
-      title: buildProjectTitle({ query, submission, answer }),
-      description: buildProvenance({
-        query,
-        submission,
-        answer,
-        questionCount: questionCount ?? 0,
-        siteUrl: getSiteUrl(),
-      }),
-      interview_date: submission.submitted_at?.slice(0, 10) ?? null,
-      created_by: user.id,
-    })
-    .select("id")
-    .single();
+  const created = await createProjectWithSource(supabase, {
+    title: buildProjectTitle({ query, submission, answer }),
+    description: buildProvenance({
+      query,
+      submission,
+      answer,
+      questionCount: questionCount ?? 0,
+      siteUrl: getSiteUrl(),
+    }),
+    interviewDate: submission.submitted_at?.slice(0, 10) ?? null,
+    createdBy: user.id,
+  });
 
-  if (projectError || !project) {
-    console.error("Could not create the transcription project:", projectError);
+  if ("error" in created) {
+    console.error("Could not create the transcription project:", created.error);
     return {
       ok: false,
-      message: `Could not create the transcription project: ${projectError?.message ?? "no row was created"}`,
+      message: `Could not create the transcription project: ${created.error}`,
     };
   }
+  const { projectId, sourceId } = created;
 
   // Copy, never move: the participant's original stays in
   // audience-listening-media untouched (design doc §2, constraint 4). Done as
   // download-then-upload rather than storage copy() with destinationBucket —
   // that API would avoid the round trip but is unverified against this
   // project's storage version, and an answer is at most a few megabytes.
-  const destinationPath = sourceObjectPath(project.id, contentType);
+  const destinationPath = sourceObjectPath(sourceId, contentType);
   const { data: file, error: downloadError } = await supabase.storage
     .from(AUDIENCE_LISTENING_MEDIA_BUCKET)
     .download(answer.storage_path);
 
   if (downloadError || !file) {
-    await failProject(supabase, project.id, "Could not read the participant's audio.");
+    await failSource(supabase, sourceId, "Could not read the participant's audio.");
     return { ok: false, message: "Could not read the participant's audio file." };
   }
 
@@ -127,33 +124,33 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     .upload(destinationPath, file, { contentType, upsert: true });
 
   if (uploadError) {
-    await failProject(supabase, project.id, `Could not copy the audio: ${uploadError.message}`);
+    await failSource(supabase, sourceId, `Could not copy the audio: ${uploadError.message}`);
     return { ok: false, message: `Could not copy the audio: ${uploadError.message}` };
   }
 
   const { error: updateError } = await supabase
-    .from("tw_projects")
+    .from("sw_sources")
     .update({
-      media_storage_path: destinationPath,
-      media_content_type: contentType,
-      media_size_bytes: answer.size_bytes,
-      media_duration_ms: answer.duration_ms,
-      status: "processing",
+      original_storage_path: destinationPath,
+      original_content_type: contentType,
+      original_size_bytes: answer.size_bytes,
+      original_duration_ms: answer.duration_ms,
+      status: "ready",
       error_message: null,
     })
-    .eq("id", project.id);
+    .eq("id", sourceId);
 
   if (updateError) {
-    await failProject(
+    await failSource(
       supabase,
-      project.id,
+      sourceId,
       `Could not save the media details: ${updateError.message}`,
     );
     return { ok: false, message: `Could not save the media details: ${updateError.message}` };
   }
 
   const started = await startTranscriptionForProject(supabase, {
-    projectId: project.id,
+    projectId,
     storagePath: destinationPath,
   });
 
@@ -164,7 +161,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     .from("al_answers")
     .update({
       transcription_state: started.error ? "failed" : "sent",
-      transcription_project_id: project.id,
+      transcription_project_id: projectId,
       transcription_error: started.error ?? null,
     })
     .eq("id", answerId);
@@ -174,18 +171,18 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
   }
 
   if (started.error) return { ok: false, message: started.error };
-  return { ok: true, projectId: project.id };
+  return { ok: true, projectId };
 }
 
-async function failProject(
+async function failSource(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  projectId: string,
+  sourceId: string,
   message: string,
 ): Promise<void> {
   await supabase
-    .from("tw_projects")
+    .from("sw_sources")
     .update({ status: "failed", error_message: message })
-    .eq("id", projectId);
+    .eq("id", sourceId);
 }
 
 /**

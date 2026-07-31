@@ -119,7 +119,7 @@ export async function splitSegment(input: {
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, project_id, position, start_ms, end_ms, text, text_edited, speaker_id, words")
+    .select("id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words")
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };
@@ -143,14 +143,14 @@ export async function splitSegment(input: {
   }
 
   const { error: shiftError } = await supabase.rpc("tw_shift_segment_positions", {
-    p_project_id: segment.project_id,
+    p_representation_id: segment.representation_id,
     after_position: segment.position,
     delta: 1,
   });
   if (shiftError) return { error: "Could not split this line. Please try again." };
 
   const { error: insertError } = await supabase.from("tw_segments").insert({
-    project_id: segment.project_id,
+    representation_id: segment.representation_id,
     speaker_id: segment.speaker_id,
     position: segment.position + 1,
     start_ms: timing.secondStartMs,
@@ -185,7 +185,7 @@ export async function mergeSegmentWithNext(input: {
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, project_id, position, end_ms, text, text_edited, words")
+    .select("id, representation_id, position, end_ms, text, text_edited, words")
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };
@@ -193,7 +193,7 @@ export async function mergeSegmentWithNext(input: {
   const { data: nextSegment } = await supabase
     .from("tw_segments")
     .select("id, end_ms, text, text_edited, words")
-    .eq("project_id", segment.project_id)
+    .eq("representation_id", segment.representation_id)
     .gt("position", segment.position)
     .order("position")
     .limit(1)

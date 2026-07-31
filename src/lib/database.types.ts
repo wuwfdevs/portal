@@ -1,6 +1,10 @@
 // Hand-written to match supabase/migrations/*, verified field-by-field
 // against `supabase gen types` output from the live preview project
-// (2026-07-25) — accurate as of that check. Kept hand-written rather than
+// (2026-07-25) — accurate as of that check. Hand-reconciled again on
+// 2026-07-31 for the Sourcework migrations (sw_sources/sw_representations/
+// sw_project_sources/sw_source_excerpts, tw_projects shrunk, tw_segments/
+// tw_speakers/tw_chunks rekeyed to representation_id) — no local instance was
+// running to regenerate against. Kept hand-written rather than
 // swapped for the generator's raw output on purpose: the generator emits a
 // differently-shaped module (generic Tables<>/TablesInsert<>/Enums<>
 // helpers, no named exports) that every existing import of PlatformRole,
@@ -14,7 +18,13 @@ export type AccountStatus = "invited" | "pending" | "active" | "disabled";
 export type ToolStatus = "available" | "in_development" | "planned";
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
-export type TwProjectStatus = "uploading" | "processing" | "ready" | "failed";
+
+// Sourcework (sw_*) — see supabase/migrations/20260731120000_sourcework_sources_representations.sql
+// and 20260731130000_sourcework_source_excerpts.sql.
+export type SwSourceKind = "audio_video";
+export type SwSourceStatus = "uploading" | "ready" | "failed";
+export type SwRepresentationKind = "transcript" | "ocr_text" | "translated_text";
+export type SwRepresentationStatus = "pending" | "processing" | "ready" | "failed";
 
 // Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql
 // and supabase/migrations/20260730130000_editorial_strategic_refinement.sql.
@@ -219,17 +229,8 @@ export interface Database {
           id: string;
           title: string;
           description: string | null;
-          interview_date: string | null;
-          status: TwProjectStatus;
           /** Generated column (title + description) — read-only. */
           search: string;
-          media_storage_path: string | null;
-          media_content_type: string | null;
-          media_size_bytes: number | null;
-          media_duration_ms: number | null;
-          transcription_provider_job_id: string | null;
-          error_message: string | null;
-          transcribed_at: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -241,17 +242,76 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tw_projects"]["Row"]>;
         Relationships: [];
       };
+      sw_sources: {
+        Row: {
+          id: string;
+          kind: SwSourceKind;
+          title: string;
+          interview_date: string | null;
+          status: SwSourceStatus;
+          error_message: string | null;
+          original_storage_path: string | null;
+          original_content_type: string | null;
+          original_size_bytes: number | null;
+          original_duration_ms: number | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_sources"]["Row"]> & {
+          title: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_sources"]["Row"]>;
+        Relationships: [];
+      };
+      sw_representations: {
+        Row: {
+          id: string;
+          source_id: string;
+          parent_representation_id: string | null;
+          kind: SwRepresentationKind;
+          produced_by: string | null;
+          config: unknown;
+          status: SwRepresentationStatus;
+          error_message: string | null;
+          provider_job_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_representations"]["Row"]> & {
+          source_id: string;
+          kind: SwRepresentationKind;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_representations"]["Row"]>;
+        Relationships: [];
+      };
+      sw_project_sources: {
+        Row: {
+          project_id: string;
+          source_id: string;
+          added_by: string;
+          added_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_project_sources"]["Row"]> & {
+          project_id: string;
+          source_id: string;
+          added_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_project_sources"]["Row"]>;
+        Relationships: [];
+      };
       tw_speakers: {
         Row: {
           id: string;
-          project_id: string;
+          representation_id: string;
           diarization_label: string;
           display_name: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["tw_speakers"]["Row"]> & {
-          project_id: string;
+          representation_id: string;
           diarization_label: string;
         };
         Update: Partial<Database["public"]["Tables"]["tw_speakers"]["Row"]>;
@@ -260,7 +320,7 @@ export interface Database {
       tw_segments: {
         Row: {
           id: string;
-          project_id: string;
+          representation_id: string;
           speaker_id: string | null;
           position: number;
           start_ms: number;
@@ -273,7 +333,7 @@ export interface Database {
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["tw_segments"]["Row"]> & {
-          project_id: string;
+          representation_id: string;
           position: number;
           start_ms: number;
           end_ms: number;
@@ -281,15 +341,16 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tw_segments"]["Row"]>;
         Relationships: [];
       };
-      tw_clips: {
+      sw_source_excerpts: {
         Row: {
           id: string;
-          project_id: string;
+          source_id: string;
+          representation_id: string | null;
           title: string;
           start_ms: number;
           end_ms: number;
-          excerpt: string;
-          /** Generated column (title + excerpt) — read-only. */
+          excerpt_text: string;
+          /** Generated column (title + excerpt_text) — read-only. */
           search: string;
           /** pgvector column; written as a "[0.1,...]" literal, never read back into JS. */
           embedding: string | null;
@@ -300,20 +361,20 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["tw_clips"]["Row"]> & {
-          project_id: string;
+        Insert: Partial<Database["public"]["Tables"]["sw_source_excerpts"]["Row"]> & {
+          source_id: string;
           title: string;
           start_ms: number;
           end_ms: number;
           created_by: string;
         };
-        Update: Partial<Database["public"]["Tables"]["tw_clips"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["sw_source_excerpts"]["Row"]>;
         Relationships: [];
       };
       tw_chunks: {
         Row: {
           id: string;
-          project_id: string;
+          representation_id: string;
           start_ms: number;
           end_ms: number;
           text: string;
@@ -326,7 +387,7 @@ export interface Database {
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["tw_chunks"]["Row"]> & {
-          project_id: string;
+          representation_id: string;
           start_ms: number;
           end_ms: number;
           text: string;
@@ -885,7 +946,7 @@ export interface Database {
         Returns: Database["public"]["Tables"]["ri_participants"]["Row"] | null;
       };
       tw_shift_segment_positions: {
-        Args: { p_project_id: string; after_position: number; delta: number };
+        Args: { p_representation_id: string; after_position: number; delta: number };
         Returns: undefined;
       };
       /**
@@ -919,7 +980,10 @@ export interface Database {
       account_status: AccountStatus;
       tool_status: ToolStatus;
       access_request_status: AccessRequestStatus;
-      tw_project_status: TwProjectStatus;
+      sw_source_kind: SwSourceKind;
+      sw_source_status: SwSourceStatus;
+      sw_representation_kind: SwRepresentationKind;
+      sw_representation_status: SwRepresentationStatus;
       ri_session_status: RiSessionStatus;
       ri_participant_role: RiParticipantRole;
       ri_track_source: RiTrackSource;

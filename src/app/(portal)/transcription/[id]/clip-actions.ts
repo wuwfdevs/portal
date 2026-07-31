@@ -5,18 +5,19 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
-import { embedPending, getProjectContext } from "@/lib/transcription/indexing";
+import { embedPendingForProject } from "@/lib/transcription/indexing";
+import { getPrimaryProjectIdForSource, getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
   buildClipExportFilename,
-  clipExportObjectPath,
+  excerptExportObjectPath,
 } from "@/lib/transcription/media";
 
-// Clip creation, trim, and export — see
-// docs/transcription-workspace-design.md Phase 4. Same shared-workspace
-// trust model as transcript correction: any tool member can create, adjust,
-// or export any clip in a project they have access to.
+// Clip (source excerpt) creation, trim, and export — see
+// docs/transcription-workspace-design.md Phase 4 and docs/sourcework-design.md.
+// Same shared-workspace trust model as transcript correction: any tool member
+// can create, adjust, or export any clip for a source they have access to.
 
 const MIN_CLIP_DURATION_MS = 500;
 
@@ -24,27 +25,6 @@ function revalidateProject(projectId: string) {
   revalidatePath(`/transcription/${projectId}`);
   // A clip is a result in the cross-project library and search list too.
   revalidatePath("/transcription");
-}
-
-/**
- * Embeds a clip as soon as it is created or retitled, so it is semantically
- * searchable immediately rather than at the next reindex — a clip's title is
- * exactly the editorial summary semantic search is best at (design doc §6),
- * and it's one short embedding request.
- *
- * Best-effort by design: the row is already flagged embedding_stale by a
- * trigger, so a failure here just defers the work. Never blocks the write.
- */
-async function embedClipQuietly(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  projectId: string,
-): Promise<void> {
-  try {
-    const context = await getProjectContext(supabase, projectId);
-    if (context) await embedPending(supabase, projectId, context);
-  } catch (error) {
-    console.error("[transcription] clip embedding failed", { projectId, error });
-  }
 }
 
 export async function createClip(input: {
@@ -66,21 +46,31 @@ export async function createClip(input: {
   }
 
   const supabase = await createClient();
+  const ref = await getPrimarySourceForProject(supabase, input.projectId);
+  if (!ref) return { error: "This project has no source yet." };
+
   const { data, error } = await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .insert({
-      project_id: input.projectId,
+      source_id: ref.sourceId,
+      representation_id: ref.representationId,
       title,
       start_ms: input.startMs,
       end_ms: input.endMs,
-      excerpt: input.excerpt.trim(),
+      excerpt_text: input.excerpt.trim(),
       created_by: profile.id,
     })
     .select("id")
     .single();
 
   if (error || !data) return { error: "Could not create the clip. Please try again." };
-  await embedClipQuietly(supabase, input.projectId);
+
+  // Embeds as soon as the clip is created, so it is semantically searchable
+  // immediately rather than at the next reindex — a clip's title is exactly
+  // the editorial summary semantic search is best at (design doc §6), and
+  // it's one short embedding request. Best-effort: the row is already
+  // flagged embedding_stale by a trigger, so a failure here just defers it.
+  await embedPendingForProject(supabase, input.projectId);
   revalidateProject(input.projectId);
   return { id: data.id };
 }
@@ -100,29 +90,30 @@ export async function updateClipTrim(input: {
   const supabase = await createClient();
 
   const { data: clip } = await supabase
-    .from("tw_clips")
-    .select("project_id")
+    .from("sw_source_excerpts")
+    .select("source_id")
     .eq("id", input.clipId)
     .maybeSingle();
   if (!clip) return { error: "That clip no longer exists." };
 
-  const { data: project } = await supabase
-    .from("tw_projects")
-    .select("media_duration_ms")
-    .eq("id", clip.project_id)
+  const { data: source } = await supabase
+    .from("sw_sources")
+    .select("original_duration_ms")
+    .eq("id", clip.source_id)
     .maybeSingle();
 
-  const upperBound = project?.media_duration_ms ?? Number.MAX_SAFE_INTEGER;
+  const upperBound = source?.original_duration_ms ?? Number.MAX_SAFE_INTEGER;
   const startMs = Math.max(0, Math.min(input.startMs, upperBound - MIN_CLIP_DURATION_MS));
   const endMs = Math.min(upperBound, Math.max(input.endMs, startMs + MIN_CLIP_DURATION_MS));
 
   const { error } = await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .update({ start_ms: startMs, end_ms: endMs })
     .eq("id", input.clipId);
 
   if (error) return { error: "Could not save the trim. Please try again." };
-  revalidateProject(clip.project_id);
+  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
+  if (projectId) revalidateProject(projectId);
   return { startMs, endMs };
 }
 
@@ -136,17 +127,20 @@ export async function renameClip(input: {
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .update({ title })
     .eq("id", input.clipId)
-    .select("project_id")
+    .select("source_id")
     .maybeSingle();
 
   if (error) return { error: "Could not rename the clip." };
   if (!data) return { error: "That clip no longer exists." };
 
-  await embedClipQuietly(supabase, data.project_id);
-  revalidateProject(data.project_id);
+  const projectId = await getPrimaryProjectIdForSource(supabase, data.source_id);
+  if (projectId) {
+    await embedPendingForProject(supabase, projectId);
+    revalidateProject(projectId);
+  }
   return {};
 }
 
@@ -161,8 +155,8 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
 
   const { data: clip } = await supabase
-    .from("tw_clips")
-    .select("id, project_id, export_storage_path")
+    .from("sw_source_excerpts")
+    .select("id, source_id, export_storage_path")
     .eq("id", clipId)
     .maybeSingle();
   if (!clip) return { error: "That clip no longer exists." };
@@ -174,10 +168,11 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
     if (storageError) return { error: "Could not remove the exported audio. Please try again." };
   }
 
-  const { error } = await supabase.from("tw_clips").delete().eq("id", clipId);
+  const { error } = await supabase.from("sw_source_excerpts").delete().eq("id", clipId);
   if (error) return { error: "Could not delete the clip." };
 
-  revalidateProject(clip.project_id);
+  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
+  if (projectId) revalidateProject(projectId);
   return {};
 }
 
@@ -193,24 +188,26 @@ export async function getClipDownloadUrl(
   const supabase = await createClient();
 
   const { data: clip } = await supabase
-    .from("tw_clips")
-    .select("title, project_id, export_storage_path")
+    .from("sw_source_excerpts")
+    .select("title, source_id, export_storage_path")
     .eq("id", clipId)
     .maybeSingle();
   if (!clip?.export_storage_path) {
     return { error: "This clip hasn't been exported yet." };
   }
 
-  const { data: project } = await supabase
-    .from("tw_projects")
-    .select("title, interview_date, created_at")
-    .eq("id", clip.project_id)
-    .maybeSingle();
+  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
+  const [{ data: project }, { data: source }] = await Promise.all([
+    projectId
+      ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("sw_sources").select("interview_date, created_at").eq("id", clip.source_id).maybeSingle(),
+  ]);
 
   const downloadUrl = await getSignedMediaUrl(
     clip.export_storage_path,
     buildClipExportFilename(
-      project?.interview_date ?? project?.created_at ?? new Date().toISOString(),
+      source?.interview_date ?? source?.created_at ?? new Date().toISOString(),
       project?.title ?? "interview",
       clip.title,
     ),
@@ -227,20 +224,20 @@ export async function exportClip(
   const supabase = await createClient();
 
   const { data: clip } = await supabase
-    .from("tw_clips")
-    .select("id, project_id, title, start_ms, end_ms")
+    .from("sw_source_excerpts")
+    .select("id, source_id, title, start_ms, end_ms")
     .eq("id", clipId)
     .maybeSingle();
   if (!clip) return { error: "That clip no longer exists." };
 
-  const { data: project } = await supabase
-    .from("tw_projects")
-    .select("media_storage_path, title, interview_date, created_at")
-    .eq("id", clip.project_id)
+  const { data: source } = await supabase
+    .from("sw_sources")
+    .select("original_storage_path, interview_date, created_at")
+    .eq("id", clip.source_id)
     .maybeSingle();
-  if (!project?.media_storage_path) return { error: "The source media isn't available." };
+  if (!source?.original_storage_path) return { error: "The source media isn't available." };
 
-  const sourceUrl = await getSignedMediaUrl(project.media_storage_path);
+  const sourceUrl = await getSignedMediaUrl(source.original_storage_path);
   if (!sourceUrl) return { error: "Could not access the source media." };
 
   let wav: Buffer;
@@ -250,26 +247,31 @@ export async function exportClip(
     return { error: "Could not export this clip. Please try again." };
   }
 
-  const exportPath = clipExportObjectPath(clip.project_id, clip.id);
+  const exportPath = excerptExportObjectPath(clip.source_id, clip.id);
   const { error: uploadError } = await supabase.storage
     .from(TRANSCRIPTION_MEDIA_BUCKET)
     .upload(exportPath, wav, { contentType: "audio/wav", upsert: true });
   if (uploadError) return { error: "Could not save the exported clip." };
 
   await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .update({ export_storage_path: exportPath, exported_at: new Date().toISOString() })
     .eq("id", clip.id);
 
+  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
+  const { data: project } = projectId
+    ? await supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
+    : { data: null };
+
   const downloadFilename = buildClipExportFilename(
-    project.interview_date ?? project.created_at,
-    project.title,
+    source.interview_date ?? source.created_at,
+    project?.title ?? "interview",
     clip.title,
   );
   const downloadUrl = await getSignedMediaUrl(exportPath, downloadFilename);
   if (!downloadUrl)
     return { error: "Exported, but couldn't create a download link. Reload and try again." };
 
-  revalidateProject(clip.project_id);
+  if (projectId) revalidateProject(projectId);
   return { downloadUrl };
 }
