@@ -10,17 +10,15 @@ function tool(overrides: Partial<McpToolSummary> & { name: string }): McpToolSum
 }
 
 describe("buildAgentToolBridge", () => {
-  it("sanitizes dotted capability ids into Anthropic-safe tool names", () => {
+  it("sanitizes dotted capability ids into model-safe tool names", () => {
     const bridge = buildAgentToolBridge([tool({ name: "editorial.pitch.search" })]);
-    expect(bridge.anthropicTools).toHaveLength(1);
-    const [anthropicTool] = bridge.anthropicTools;
-    expect(anthropicTool?.name).toBe("editorial__pitch__search");
-    expect(bridge.mcpNameByAnthropicName.get("editorial__pitch__search")).toBe(
-      "editorial.pitch.search",
-    );
+    expect(bridge.agentTools).toHaveLength(1);
+    const [agentTool] = bridge.agentTools;
+    expect(agentTool?.name).toBe("editorial__pitch__search");
+    expect(bridge.mcpNameByToolName.get("editorial__pitch__search")).toBe("editorial.pitch.search");
   });
 
-  it("marks a tool gated when its schema carries a confirmed property, and strips it from what Claude sees", () => {
+  it("marks a tool gated when its schema carries a confirmed property, and strips it from what the model sees", () => {
     const bridge = buildAgentToolBridge([
       tool({
         name: "editorial.pitch.archive",
@@ -36,9 +34,9 @@ describe("buildAgentToolBridge", () => {
     ]);
 
     expect(bridge.gatedToolNames.has("editorial.pitch.archive")).toBe(true);
-    const [anthropicTool] = bridge.anthropicTools;
-    expect(anthropicTool?.input_schema.properties).not.toHaveProperty("confirmed");
-    expect(anthropicTool?.input_schema.properties).toHaveProperty("pitchId");
+    const [agentTool] = bridge.agentTools;
+    expect(agentTool?.parameters.properties).not.toHaveProperty("confirmed");
+    expect(agentTool?.parameters.properties).toHaveProperty("pitchId");
   });
 
   it("does not mark a tool gated when its schema has no confirmed property", () => {
@@ -64,11 +62,11 @@ describe("buildAgentToolBridge", () => {
       }),
     ]);
 
-    expect(bridge.anthropicTools[0]?.input_schema.required).toEqual(["email"]);
+    expect(bridge.agentTools[0]?.parameters.required).toEqual(["email"]);
   });
 
   it("falls back to the tool name when no description is provided", () => {
     const bridge = buildAgentToolBridge([tool({ name: "audience-listening.query.list", description: undefined })]);
-    expect(bridge.anthropicTools[0]?.description).toBe("audience-listening.query.list");
+    expect(bridge.agentTools[0]?.description).toBe("audience-listening.query.list");
   });
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import { assertActiveProfile, ForbiddenError } from "@/lib/auth/authz";
 import { runAgentTurn } from "@/lib/agent/chat";
 
@@ -22,13 +22,18 @@ import { runAgentTurn } from "@/lib/agent/chat";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const messageSchema = z.object({
-  role: z.enum(["user", "assistant"]),
-  content: z.union([z.string(), z.array(z.record(z.string(), z.unknown()))]),
-});
+// OpenAI's Responses API history is a flat mix of item shapes — plain
+// message items (`{role, content}`), `function_call` items, and
+// `function_call_output` items (see lib/agent/chat.ts) — not one uniform
+// shape. This route only echoes that array back to itself between requests,
+// so a loose per-item object shape is the right amount of validation here:
+// the real shape check happens when openai.responses.create() parses it,
+// same trust boundary as everywhere else this repo treats a capability's
+// own zod schema as the deep check.
+const historyItemSchema = z.record(z.string(), z.unknown());
 
 const bodySchema = z.object({
-  history: z.array(messageSchema).max(200),
+  history: z.array(historyItemSchema).max(400),
   input: z.string().trim().min(1).max(4000).optional(),
   confirmation: z.object({ toolUseId: z.string().min(1), approved: z.boolean() }).optional(),
 });
@@ -57,7 +62,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await runAgentTurn(profile, {
-      history: history as Anthropic.MessageParam[],
+      history: history as unknown as OpenAI.Responses.ResponseInputItem[],
       input,
       confirmation,
     });

@@ -8,25 +8,28 @@ import { Textarea } from "@/components/ui/input";
 
 // The in-portal agent's chat surface (Phase D, docs/agent-capabilities-design.md
 // §7) — a persistent bubble that toggles a right-side panel, available on
-// every portal page (mounted once in src/app/(portal)/layout.tsx). It talks
-// only to src/app/api/agent/chat/route.ts; there is no separate client
-// credential and no local persistence — the full Anthropic-shaped message
-// history round-trips through this component's state and the route on every
-// call, matching the rest of this repo's "no job queue" posture. Message
-// content blocks are typed loosely here on purpose: importing the Anthropic
-// SDK's types (or the SDK itself, via lib/agent/chat.ts) into a Client
-// Component would pull a Node-oriented package into the browser bundle for
-// no benefit — this widget only needs to render text/tool_use/tool_result
-// blocks, not construct API requests.
+// every portal page (mounted once in src/app/(portal)/layout.tsx, as a flex
+// sibling of the page content so opening it pushes that content over rather
+// than covering it). It talks only to src/app/api/agent/chat/route.ts; there
+// is no separate client credential and no local persistence — the full
+// OpenAI Responses-shaped item history round-trips through this component's
+// state and the route on every call, matching the rest of this repo's "no
+// job queue" posture. History items are typed loosely here on purpose:
+// importing the OpenAI SDK's types (or the SDK itself, via lib/agent/chat.ts)
+// into a Client Component would pull a Node-oriented package into the
+// browser bundle for no benefit — this widget only needs to render
+// message/function_call/function_call_output items, not construct API
+// requests.
 
-interface ContentBlock {
-  type: string;
+const PANEL_WIDTH = "24rem"; // keep in sync with the w-96 classes below
+
+interface ChatItem {
+  type?: string;
+  role?: string;
+  content?: unknown;
+  name?: string;
+  output?: unknown;
   [key: string]: unknown;
-}
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string | ContentBlock[];
 }
 
 interface PendingConfirmation {
@@ -37,7 +40,7 @@ interface PendingConfirmation {
 }
 
 interface ChatResponse {
-  history: ChatMessage[];
+  history: ChatItem[];
   pendingConfirmation: PendingConfirmation | null;
   error?: string;
 }
@@ -48,7 +51,7 @@ function prettifyCapabilityId(id: string): string {
 
 export function AgentChatWidget() {
   const [open, setOpen] = useState(false);
-  const [history, setHistory] = useState<ChatMessage[]>([]);
+  const [history, setHistory] = useState<ChatItem[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +113,11 @@ export function AgentChatWidget() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? "Close assistant" : "Open assistant"}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-transform hover:scale-105 hover:bg-[#2278B8]"
+        style={open ? { right: `calc(${PANEL_WIDTH} + 1.5rem)` } : undefined}
+        className={cn(
+          "fixed bottom-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right] duration-200 hover:scale-105 hover:bg-[#2278B8]",
+          !open && "right-6",
+        )}
       >
         {open ? (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -127,121 +134,134 @@ export function AgentChatWidget() {
         )}
       </button>
 
+      {/* A real (non-fixed) flex item, sized 0 when closed — opening it pushes
+          the portal's main content left instead of overlaying it. The inner
+          div stays a fixed w-96 so its content doesn't squash mid-transition;
+          the outer's overflow-hidden clips it down to width 0. */}
       <aside
         className={cn(
-          "fixed inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-line bg-white shadow-xl transition-transform duration-200",
-          open ? "translate-x-0" : "translate-x-full",
+          "sticky top-16 z-30 h-[calc(100vh-4rem)] shrink-0 overflow-hidden border-l border-line bg-white transition-[width] duration-200",
+          open ? "w-96" : "w-0",
         )}
         aria-hidden={!open}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
-          <span className="text-sm font-bold text-ink-900">Assistant</span>
-          <span className="text-xs text-ink-400">Beta</span>
-        </div>
+        <div className="flex h-full w-96 flex-col">
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
+            <span className="text-sm font-bold text-ink-900">Assistant</span>
+            <span className="text-xs text-ink-400">Beta</span>
+          </div>
 
-        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-          {history.length === 0 && (
-            <p className="text-sm leading-relaxed text-ink-400">
-              Ask about pitches, sources, sessions, or queries across the tools you have access to.
-            </p>
-          )}
-          {history.map((message, index) => (
-            <ChatEntry key={index} message={message} />
-          ))}
-          {loading && <p className="text-xs text-ink-400">Thinking…</p>}
-        </div>
-
-        {pending && (
-          <div className="border-t border-line bg-panel-50 px-4 py-3">
-            <p className="text-xs font-semibold text-ink-700">{prettifyCapabilityId(pending.capabilityId)}</p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-500">{pending.description}</p>
-            {Object.keys(pending.input).length > 0 && (
-              <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-line bg-white px-2 py-1.5 text-[11px] leading-relaxed text-ink-500">
-                {JSON.stringify(pending.input, null, 2)}
-              </pre>
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            {history.length === 0 && (
+              <p className="text-sm leading-relaxed text-ink-400">
+                Ask about pitches, sources, sessions, or queries across the tools you have access to.
+              </p>
             )}
-            <div className="mt-2.5 flex gap-2">
+            {history.map((item, index) => (
+              <ChatEntry key={index} item={item} />
+            ))}
+            {loading && <p className="text-xs text-ink-400">Thinking…</p>}
+          </div>
+
+          {pending && (
+            <div className="border-t border-line bg-panel-50 px-4 py-3">
+              <p className="text-xs font-semibold text-ink-700">{prettifyCapabilityId(pending.capabilityId)}</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-500">{pending.description}</p>
+              {Object.keys(pending.input).length > 0 && (
+                <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-line bg-white px-2 py-1.5 text-[11px] leading-relaxed text-ink-500">
+                  {JSON.stringify(pending.input, null, 2)}
+                </pre>
+              )}
+              <div className="mt-2.5 flex gap-2">
+                <Button
+                  type="button"
+                  onClick={() => resolveConfirmation(true)}
+                  disabled={loading}
+                  className="px-3 py-1.5 text-xs"
+                >
+                  Approve
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => resolveConfirmation(false)}
+                  disabled={loading}
+                  className="px-3 py-1.5 text-xs"
+                >
+                  Decline
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="px-4 pt-3">
+              <Alert variant="danger">{error}</Alert>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="shrink-0 border-t border-line px-4 py-3">
+            <Textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={pending ? "Resolve the pending action above first…" : "Ask the assistant…"}
+              disabled={loading || Boolean(pending)}
+              rows={2}
+              className="resize-none text-sm"
+            />
+            <div className="mt-2 flex justify-end">
               <Button
-                type="button"
-                onClick={() => resolveConfirmation(true)}
-                disabled={loading}
-                className="px-3 py-1.5 text-xs"
+                type="submit"
+                disabled={loading || Boolean(pending) || !draft.trim()}
+                className="px-4 py-1.5 text-xs"
               >
-                Approve
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => resolveConfirmation(false)}
-                disabled={loading}
-                className="px-3 py-1.5 text-xs"
-              >
-                Decline
+                Send
               </Button>
             </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="px-4 pt-3">
-            <Alert variant="danger">{error}</Alert>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="shrink-0 border-t border-line px-4 py-3">
-          <Textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={pending ? "Resolve the pending action above first…" : "Ask the assistant…"}
-            disabled={loading || Boolean(pending)}
-            rows={2}
-            className="resize-none text-sm"
-          />
-          <div className="mt-2 flex justify-end">
-            <Button type="submit" disabled={loading || Boolean(pending) || !draft.trim()} className="px-4 py-1.5 text-xs">
-              Send
-            </Button>
-          </div>
-        </form>
+          </form>
+        </div>
       </aside>
     </>
   );
 }
 
-function ChatEntry({ message }: { message: ChatMessage }) {
-  if (typeof message.content === "string") {
-    if (message.role !== "user") return null;
-    return <Bubble align="right">{message.content}</Bubble>;
+function ChatEntry({ item }: { item: ChatItem }) {
+  // A plain user-authored turn: { role: "user", content: "..." }.
+  if (item.role === "user" && typeof item.content === "string") {
+    return <Bubble align="right">{item.content}</Bubble>;
   }
 
-  if (message.role === "assistant") {
-    const text = message.content
-      .filter((block) => block.type === "text" && typeof block.text === "string")
-      .map((block) => block.text as string)
+  // The model's own text/refusal turn: { type: "message", role: "assistant",
+  // content: [{type: "output_text", text} | {type: "refusal", refusal}] }.
+  if (item.type === "message" && Array.isArray(item.content)) {
+    const text = item.content
+      .filter(
+        (block): block is { type: string; text?: string; refusal?: string } =>
+          Boolean(block) && typeof block === "object",
+      )
+      .map((block) => block.text ?? block.refusal ?? "")
       .join("\n")
       .trim();
-    const toolUse = message.content.find((block) => block.type === "tool_use");
+    return text ? <Bubble align="left">{text}</Bubble> : null;
+  }
 
+  // A tool call the model made: { type: "function_call", name, arguments, call_id }.
+  if (item.type === "function_call" && typeof item.name === "string") {
     return (
-      <>
-        {text && <Bubble align="left">{text}</Bubble>}
-        {toolUse && typeof toolUse.name === "string" && (
-          <p className="pl-1 text-[11px] text-ink-400">
-            {/* Reverses lib/agent/tool-bridge.ts's sanitizeToolName — keep in sync. */}
-            Called {prettifyCapabilityId(String(toolUse.name).replace(/__/g, "."))}
-          </p>
-        )}
-      </>
+      <p className="pl-1 text-[11px] text-ink-400">
+        {/* Reverses lib/agent/tool-bridge.ts's sanitizeToolName — keep in sync. */}
+        Called {prettifyCapabilityId(item.name.replace(/__/g, "."))}
+      </p>
     );
   }
 
-  // A user-role message whose content is an array is a tool_result we
-  // synthesized after calling (or declining) a capability — not something
-  // the person typed. Show it as a small system-style note.
-  const toolResult = message.content.find((block) => block.type === "tool_result");
-  if (!toolResult || typeof toolResult.content !== "string") return null;
-  return <p className="pl-1 text-[11px] italic text-ink-400">{toolResult.content}</p>;
+  // The result we (or a decline) fed back for that call: { type: "function_call_output", output }.
+  if (item.type === "function_call_output" && typeof item.output === "string") {
+    return <p className="pl-1 text-[11px] italic text-ink-400">{item.output}</p>;
+  }
+
+  return null;
 }
 
 function Bubble({ align, children }: { align: "left" | "right"; children: string }) {
