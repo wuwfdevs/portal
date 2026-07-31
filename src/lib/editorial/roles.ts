@@ -21,3 +21,10 @@ export function normalizeToolRole(toolRole: string | null): EditorialRole {
 export function roleAtLeast(role: EditorialRole, minimum: EditorialRole): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[minimum];
 }
+
+/** What each recognized tool_role value means, for the admin grant UI's dropdown. */
+export const ROLE_OPTIONS: { value: EditorialRole; label: string; description: string }[] = [
+  { value: "contributor", label: "Contributor", description: "Submit and edit their own pitches" },
+  { value: "reviewer", label: "Reviewer", description: "Score pitches in weekly meetings" },
+  { value: "editor", label: "Editor", description: "Decide pitches, edit the rubric and submission form" },
+];
