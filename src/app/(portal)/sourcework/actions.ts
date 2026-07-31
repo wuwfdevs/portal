@@ -7,7 +7,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
 import { reindexProject, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
-import { getPrimarySourceForProject } from "@/lib/transcription/projects";
+import { getPrimarySourceForProject, getSourceRef } from "@/lib/transcription/projects";
 
 export type CreateProjectResult = { id: string; sourceId: string } | { error: string };
 
@@ -172,9 +172,12 @@ export async function completeProjectUpload(input: {
   if (error) {
     return { error: "The upload finished, but we couldn't save the project. Please try again." };
   }
+  if (!ref.representationId) {
+    return { error: "This project has no transcript representation yet." };
+  }
 
   return startTranscriptionForProject(supabase, {
-    projectId: input.projectId,
+    representationId: ref.representationId,
     storagePath: input.storagePath,
   });
 }
@@ -184,13 +187,22 @@ export async function completeProjectUpload(input: {
  * already uploaded, so this is distinct from re-uploading). Any tool member
  * can retry, not just the uploader — matches the shared-workspace CRUD model
  * used for speakers/segments/clips.
+ *
+ * source_id is which pill the reporter was looking at when they hit Retry —
+ * it defaults to the project's primary source for a plain single-source
+ * project, but must be honored explicitly once a project can reference more
+ * than one source, or a retry on a failed second source would silently
+ * re-kick the first one instead.
  */
 export async function retryTranscription(formData: FormData): Promise<void> {
   await assertToolAccess("transcription");
   const projectId = String(formData.get("project_id") ?? "");
+  const requestedSourceId = formData.get("source_id");
 
   const supabase = await createClient();
-  const ref = await getPrimarySourceForProject(supabase, projectId);
+  const ref = requestedSourceId
+    ? await getSourceRef(supabase, String(requestedSourceId))
+    : await getPrimarySourceForProject(supabase, projectId);
   const { data: source } = ref
     ? await supabase
         .from("sw_sources")
@@ -205,7 +217,7 @@ export async function retryTranscription(formData: FormData): Promise<void> {
       .update({ status: "processing", error_message: null })
       .eq("id", ref.representationId);
     await startTranscriptionForProject(supabase, {
-      projectId,
+      representationId: ref.representationId,
       storagePath: source.original_storage_path,
     });
   }

@@ -214,7 +214,7 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
-**Sourcework (Phases 1–2 landed; Phases 3–6 are a roadmap, not authorized to
+**Sourcework (Phases 1–3a landed; Phases 3b–6 are a roadmap, not authorized to
 start without their own design doc first — see below):** the Transcription
 Workspace's data model has been generalized underneath its unchanged UI. Read
 `docs/sourcework-design.md` before touching any of `sw_*` or the transcription
@@ -240,12 +240,40 @@ concrete need for one; and cross-tool project unification (Editorial
 Planning, Audience Listening) is deliberately deferred to Phase 6, a security
 review of those tools' RLS models, not a mechanical rename.
 
+**Phase 3a (Source Library and multi-source Project UI) has landed** — the
+design in `docs/sourcework-design.md` §7 is now built, not just proposed. A
+**Source Library** tab at `/sourcework?tab=sources` (`lib/transcription/
+projects.ts`'s `listSources()`, `components/transcription/source-library.tsx`)
+browses every `sw_sources` row independent of any project, and **Source
+Detail** (`/sourcework/sources/[id]`, `getSourceDetail()`) shows one source's
+representation chain, the projects that reference it, and its excerpts — the
+first place any of that was reachable without going through a project. The
+project workspace (`/sourcework/[id]`) gained a **source pill row**
+(`[id]/source-pill-row.tsx`) above the transcript: one pill per attached
+source (inert with the one source every project has today), a
+"+ Reference another source" picker (`[id]/attach-source-modal.tsx`,
+`[id]/source-actions.ts`'s `attachSourceToProject`/`listAttachableSources`,
+no confirmation step — a deliberate product call, not an oversight), and
+`?source=<id>` to switch which pill's transcript/media/excerpts the
+workspace shows. `sw_project_sources`'s Phase 1 RLS policy (`for all` for
+any tool member) already covered the new insert, so **no migration shipped
+with this phase**. Two correctness fixes rode along, both about acting on
+the *active* source rather than always "the" project's primary one: clip
+creation now takes an explicit `sourceId`/`representationId`
+(`[id]/clip-actions.ts`'s `createClip`), and `startTranscriptionForProject`
+(`lib/transcription/ingest.ts`) now takes a `representationId` directly
+instead of re-deriving the primary source's — retrying a failed *second*
+source used to silently re-kick the first one instead. Project-wide actions
+that don't (yet) need per-source targeting — upload completion, reindex, the
+clips.zip export, project deletion's cascade check — were deliberately left
+on `getPrimarySourceForProject`, unchanged.
+
 **The tool's user-facing name is now "Sourcework"** (as of 2026-07-31) — the
 registry row's `name` (`supabase/migrations/20260731140000_sourcework_tool_rename.sql`)
 and the "Clip" → "Excerpt" copy throughout the transcription UI were updated to match
 the data model's framing, following mockups reviewed for a broader source/project UI
-direction (see `docs/sourcework-design.md`'s Phase 3 entry for what's still only
-proposed, not built). **The route moved too** (as of the same date, once it was clear
+direction (see `docs/sourcework-design.md`'s Phase 3 entry for what shipped as
+3a and what's still only scoped for 3b). **The route moved too** (as of the same date, once it was clear
 no bookmarks or real users depended on the old one): `/transcription` →
 `/sourcework`, meaning `src/app/(portal)/transcription/` is now
 `src/app/(portal)/sourcework/` (`supabase/migrations/20260731150000_sourcework_route_

@@ -6,7 +6,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForProject } from "@/lib/transcription/indexing";
-import { getPrimaryProjectIdForSource, getPrimarySourceForProject } from "@/lib/transcription/projects";
+import { getPrimaryProjectIdForSource } from "@/lib/transcription/projects";
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -29,6 +29,9 @@ function revalidateProject(projectId: string) {
 
 export async function createClip(input: {
   projectId: string;
+  /** Which of the project's sources this excerpt belongs to — the active pill, not necessarily the primary one. */
+  sourceId: string;
+  representationId: string | null;
   startMs: number;
   endMs: number;
   title: string;
@@ -46,14 +49,12 @@ export async function createClip(input: {
   }
 
   const supabase = await createClient();
-  const ref = await getPrimarySourceForProject(supabase, input.projectId);
-  if (!ref) return { error: "This project has no source yet." };
 
   const { data, error } = await supabase
     .from("sw_source_excerpts")
     .insert({
-      source_id: ref.sourceId,
-      representation_id: ref.representationId,
+      source_id: input.sourceId,
+      representation_id: input.representationId,
       title,
       start_ms: input.startMs,
       end_ms: input.endMs,

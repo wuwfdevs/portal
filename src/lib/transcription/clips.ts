@@ -22,18 +22,17 @@ export interface ProjectClip {
  * open long enough hands the reporter a Download link that 400s. The clip
  * rail calls getClipDownloadUrl() at click time instead.
  */
-export async function listClipsForProject(projectId: string): Promise<ProjectClip[]> {
-  const supabase = await createClient();
-  const ref = await getPrimarySourceForProject(supabase, projectId);
-  if (!ref) return [];
-
+async function fetchExcerptsForSource(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sourceId: string,
+): Promise<ProjectClip[]> {
   const clips = unwrapRead(
     await supabase
       .from("sw_source_excerpts")
       .select("id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at")
-      .eq("source_id", ref.sourceId)
+      .eq("source_id", sourceId)
       .order("created_at"),
-    "this project's clips",
+    "this source's excerpts",
   );
 
   return (clips ?? []).map((clip) => ({
@@ -45,6 +44,24 @@ export async function listClipsForProject(projectId: string): Promise<ProjectCli
     exportedAt: clip.exported_at,
     hasExport: Boolean(clip.export_storage_path),
   }));
+}
+
+/**
+ * A source's excerpts directly, independent of which project is open —
+ * what the workspace's active source pill uses (a project's "primary"
+ * source is just the pill that happens to be selected by default) and what
+ * Source Detail's "excerpts here" list uses.
+ */
+export async function listExcerptsForSource(sourceId: string): Promise<ProjectClip[]> {
+  const supabase = await createClient();
+  return fetchExcerptsForSource(supabase, sourceId);
+}
+
+export async function listClipsForProject(projectId: string): Promise<ProjectClip[]> {
+  const supabase = await createClient();
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  if (!ref) return [];
+  return fetchExcerptsForSource(supabase, ref.sourceId);
 }
 
 /** A clip as it appears outside its own project — carrying the recording it came from. */

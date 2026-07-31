@@ -1,6 +1,5 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { getSiteUrl } from "@/lib/site-url";
@@ -101,20 +100,19 @@ export async function createProjectWithSource(
 }
 
 /**
- * Starts transcription for a project whose source media is already in
- * Storage, and updates the transcript representation row accordingly.
- * Callers already know the source has a valid original_storage_path/
- * original_content_type before calling this.
+ * Starts transcription for a source whose media is already in Storage, and
+ * updates the given transcript representation row accordingly. Callers
+ * already know the source has a valid original_storage_path/
+ * original_content_type before calling this, and already know which
+ * representation they mean — this used to re-derive it from "the" project's
+ * primary source, which silently retried the wrong source once a project
+ * could reference more than one (see docs/sourcework-design.md §7).
  */
 export async function startTranscriptionForProject(
   supabase: Client,
-  params: { projectId: string; storagePath: string },
+  params: { representationId: string; storagePath: string },
 ): Promise<{ error?: string }> {
-  const ref = await getPrimarySourceForProject(supabase, params.projectId);
-  if (!ref?.representationId) {
-    return { error: "This project has no transcript representation yet." };
-  }
-  const representationId = ref.representationId;
+  const representationId = params.representationId;
 
   const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
   const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
@@ -171,7 +169,7 @@ export async function startTranscriptionForProject(
     const message = `Could not start transcription: ${reason}`;
 
     console.error("[transcription] startTranscription failed", {
-      projectId: params.projectId,
+      representationId,
       error: reason,
     });
 

@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { listProjects, type ProjectListRow, type ProjectStatus } from "@/lib/transcription/projects";
+import {
+  listProjects,
+  listSources,
+  type ProjectListRow,
+  type ProjectStatus,
+} from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
 import { searchArchive, isSemanticSearchConfigured } from "@/lib/transcription/search";
 import { formatBytes, formatDuration } from "@/lib/transcription/media";
 import { SearchResults } from "@/components/transcription/search-results";
 import { ClipLibrary } from "@/components/transcription/clip-library";
+import { SourceLibrary } from "@/components/transcription/source-library";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +26,7 @@ const STATUS_BADGE: Record<
   failed: { label: "Failed", variant: "danger" },
 };
 
-type Tab = "projects" | "clips";
+type Tab = "projects" | "sources" | "clips";
 
 function formatInterviewDate(project: ProjectListRow): string {
   return new Date(project.interviewDate ?? project.createdAt).toLocaleDateString("en-US", {
@@ -38,15 +44,16 @@ export default async function TranscriptionListPage({
   await requireToolAccess("transcription");
   const { q, tab } = await searchParams;
   const query = q?.trim() ?? "";
-  const activeTab: Tab = tab === "clips" ? "clips" : "projects";
+  const activeTab: Tab = tab === "clips" ? "clips" : tab === "sources" ? "sources" : "projects";
 
   // A query searches the whole archive at once — transcripts, clips, and
   // project metadata in one ranked list (design doc §3F) — so it replaces the
   // tab content rather than filtering it. Without a query, the tabs are the
   // browse surface.
-  const [results, projects, clips] = await Promise.all([
+  const [results, projects, sources, clips] = await Promise.all([
     query ? searchArchive(query) : Promise.resolve([]),
     !query && activeTab === "projects" ? listProjects() : Promise.resolve([]),
+    !query && activeTab === "sources" ? listSources() : Promise.resolve([]),
     !query && activeTab === "clips" ? listLibraryClips() : Promise.resolve([]),
   ]);
 
@@ -97,11 +104,14 @@ export default async function TranscriptionListPage({
         <>
           <nav className="mb-5 flex gap-1 border-b border-line">
             <TabLink tab="projects" activeTab={activeTab} label="Projects" />
+            <TabLink tab="sources" activeTab={activeTab} label="Sources" />
             <TabLink tab="clips" activeTab={activeTab} label="Excerpts" />
           </nav>
 
           {activeTab === "clips" ? (
             <ClipLibrary clips={clips} />
+          ) : activeTab === "sources" ? (
+            <SourceLibrary sources={sources} />
           ) : (
             <ProjectTable projects={projects} />
           )}

@@ -1,11 +1,11 @@
 # Sourcework — Design and Phased Plan
 
-Status: **Phases 1–2 shipped. Phases 3–6 are a roadmap, not a spec** — each needs
-its own design doc (this one included) reviewed before implementation starts,
-the same way Remote Interview and Audience Listening each got one. **Phase 3
-has been split into 3a and 3b** (§5) — 3a (Source Library and a multi-source
-Project UI) is designed in §7 below, proposed and awaiting review; 3b
-(document source kind, OCR, translation) is still unstarted and unscoped.
+Status: **Phases 1–3a shipped. Phases 3b–6 are a roadmap, not a spec** — each
+needs its own design doc (this one included) reviewed before implementation
+starts, the same way Remote Interview and Audience Listening each got one.
+**Phase 3 has been split into 3a and 3b** (§5) — 3a (Source Library and a
+multi-source Project UI) is designed and shipped, see §7; 3b (document source
+kind, OCR, translation) is still unstarted and unscoped.
 
 This document generalizes the Transcription Workspace's data model into
 Sourcework: a provenance-preserving foundation for turning source material
@@ -131,11 +131,11 @@ a vendor-research problem (OCR/translation), and the two don't need to land
 together. Splitting them lets the UI half ship against Phases 1–2's
 already-built data model without waiting on a document pipeline decision.
 
-**Phase 3a (design proposed in §7, awaiting review — not yet authorized to
-build)** — the Source Library and Source Detail screens, and the "reference
-an existing source" / multi-source Project UI that makes the many-to-many
-shape from Phase 1 actually reachable, for the one source kind that exists
-today (`audio`). No new source kind, pipeline, or vendor dependency.
+**Phase 3a (shipped — see §7)** — the Source Library and Source Detail
+screens, and the "reference an existing source" / multi-source Project UI
+that makes the many-to-many shape from Phase 1 actually reachable, for the
+one source kind that exists today (`audio_video`). No new source kind,
+pipeline, or vendor dependency.
 
 **Phase 3b (not started — needs its own design doc)** — new source kind
 `document` (PDF), an OCR pipeline, and a translation pipeline operating on
@@ -177,22 +177,23 @@ have shipped and been used on at least one real investigation.
   still creates one project + one source per answer) — Phase 6's concern, not
   this one's.
 
-## 7. Phase 3a design — Source Library and multi-source Project UI (proposed)
+## 7. Phase 3a design — Source Library and multi-source Project UI (shipped)
 
-Status: **proposed, awaiting review.** Written from four mockup screens
-(Source Library, Source Detail, multi-source Project, Research Workspace)
-reviewed against this doc and the current implementation on 2026-07-31. The
-mockups' Research Workspace screen (data points → themes → synthesis) is
-**out of scope here** — that's Phase 4/5, unchanged by this section. This
-section covers only the two screens' worth of UI Phase 3a actually needs:
-a source-centric library, and a project that can hold more than one source.
+Status: **shipped 2026-07-31.** Written from four mockup screens (Source
+Library, Source Detail, multi-source Project, Research Workspace) reviewed
+against this doc and the current implementation, then reviewed with the
+product owner (§7.4's open questions were answered before implementation
+started) and built the same day. The mockups' Research Workspace screen
+(data points → themes → synthesis) is **out of scope here** — that's Phase
+4/5, unchanged by this section. This section covers only the two screens'
+worth of UI Phase 3a actually needed: a source-centric library, and a
+project that can hold more than one source.
 
-This is a design, not an implementation — nothing in this section is
-authorized to build until it's been reviewed, per this doc's own governance
-(§0/top status line). It's scoped to ship with **zero new source kinds,
-pipelines, or vendor dependencies** — everything it needs (`sw_sources`,
-`sw_representations`, `sw_project_sources`, `sw_source_excerpts`) already
-shipped in Phases 1–2.
+It shipped with **zero new source kinds, pipelines, or vendor
+dependencies** — everything it needed (`sw_sources`, `sw_representations`,
+`sw_project_sources`, `sw_source_excerpts`) already shipped in Phases 1–2,
+and `sw_project_sources`'s existing `for all` RLS policy already covered the
+new insert, so no migration was needed either.
 
 ### 7.1 What's actually missing today
 
@@ -217,17 +218,17 @@ reporter *use* the many-to-many shape. Concretely, today:
 
 ### 7.2 New screens
 
-**Source Library** — a new tab at `/sourcework` (see §7.4), or a new
-route; card grid of every `sw_sources` row the caller has tool access to.
-Each card: type badge (today, always "Audio"), title, uploaded date,
-duration, which representations exist (today, always "Transcript" once
-ready), and "Used in N projects" from `sw_project_sources`. Search and a
-type filter chip row, matching the existing search bar's affordance at
-`/sourcework` — the filter chips are close to inert with one source kind,
-but the UI shouldn't have to be rebuilt when Phase 3b adds more.
+**Source Library** — a third tab at `/sourcework` (`?tab=sources`,
+alongside Projects and Excerpts); card grid of every `sw_sources` row the
+caller has tool access to. Each card: type badge (today, always "Audio"),
+title, uploaded date, duration, and "Used in N projects" from
+`sw_project_sources`. Search and a type filter chip row, matching the
+existing search bar's affordance at `/sourcework` — the filter chips are
+close to inert with one source kind, but the UI shouldn't have to be
+rebuilt when Phase 3b adds more.
 
-**Source Detail** (`/sourcework/sources/[id]`, a new route — see open
-question in §7.5) — one source, independent of any project:
+**Source Detail** (`/sourcework/sources/[id]`, a new route) — one source,
+independent of any project:
 - Representation chain: today always a fixed three-node shape (Original
   Audio → Transcription + Diarization → Transcript), rendered generically
   (a list of representation rows plus the pipeline that produced each) so
@@ -261,48 +262,53 @@ isn't a rebuild, it's addition:
   already operate on one source's worth of data (`source_id`-scoped
   excerpts), so switching pills is a data swap, not a new component.
 
-### 7.3 New server-side work
+### 7.3 New server-side work (as built)
 
-- `attachSourceToProject(projectId, sourceId)` — insert into
-  `sw_project_sources`; needs both project and source tool access (both are
-  already the same `transcription` tool access check, so no new RLS
-  predicate — just a new insert policy on `sw_project_sources` scoped the
-  same way the existing `select` policy is, if one doesn't already allow
-  authenticated tool members to insert).
-- `listAttachableSources(projectId, query)` — sources the caller can see
-  that aren't already attached to `projectId`.
-- `getExcerptsForSource(sourceId)` — new read, parallel to the existing
-  `listClipsForProject`, for Source Detail's "excerpts here" list.
-- `getPrimarySourceForProject`/`getPrimaryProjectIdForSource` in
-  `lib/transcription/projects.ts` need to stop assuming singularity. Call
-  sites that create/trim/export an excerpt already know which source they're
-  acting on from the active pill — they should take `sourceId` explicitly
-  rather than asking "the" project's source, so a two-source project doesn't
-  silently act on the wrong one.
+- `attachSourceToProject(projectId, sourceId)` (`[id]/source-actions.ts`) —
+  insert into `sw_project_sources`. No new RLS was needed:
+  `sw_project_sources_member_all` (Phase 1 migration) is already `for all`
+  for any tool member, so the insert this needed was already covered.
+- `listAttachableSources(projectId, query)` (`[id]/source-actions.ts`) —
+  sources the caller can see that aren't already attached to `projectId`.
+- `listExcerptsForSource(sourceId)` (`lib/transcription/clips.ts`) — new
+  read, factored out of the existing `listClipsForProject` (which now calls
+  it after resolving the primary source), for Source Detail's "excerpts
+  here" list and for the workspace's active (non-primary) pill.
+- `listSourcesForProject(supabase, projectId)` and
+  `computeAggregateProjectStatus(statuses)` (`lib/transcription/projects.ts`)
+  — every source a project references plus the worst-case badge, feeding
+  `getProjectById`'s new `sources`/`status` shape.
+- `listSources()` and `getSourceDetail(sourceId)`
+  (`lib/transcription/projects.ts`) — the Source Library and Source Detail
+  reads.
+- `getPrimarySourceForProject`/`getPrimaryProjectIdForSource` were **kept
+  as-is**, not removed — they still back every project-wide action that
+  doesn't (yet) need per-source targeting (upload completion, reindex, the
+  clips.zip export, project deletion's cascade check). What changed instead:
+  call sites that act on *whichever source the reporter is currently
+  looking at* — clip creation, and transcription retry — now take an
+  explicit `sourceId`/`representationId` rather than asking "the" project's
+  source, so acting on a non-primary pill can't silently land on the wrong
+  one. `startTranscriptionForProject` itself was narrowed to take a
+  `representationId` directly instead of re-deriving "the" project's
+  primary one, which was a real correctness gap: retrying a failed
+  *second* source would otherwise have re-kicked the first one.
 
-### 7.4 Open questions (resolve before implementation starts)
+### 7.4 Open questions — resolved before implementation
 
-1. **Where does Source Library live?** `/sourcework` today has
-   "Projects" / "Excerpts" tabs. Does it become "Projects" / "Sources" /
-   "Excerpts" (three tabs), or does "Sources" replace "Excerpts" as the
-   primary browse surface, since Source Detail already shows a source's
-   excerpts inline? The mockup treats the library as the landing screen —
-   worth deciding deliberately rather than defaulting to "just add a tab."
-2. **Multi-source project status.** `computeProjectStatus()` derives one
-   badge (`uploading`/`processing`/`ready`/`failed`) from one source. With
-   two+ sources independently progressing, is the project's badge the
-   worst-case status across all of them, or does the single project-level
-   badge stop making sense in favor of per-source status shown on each pill?
-3. **Route shape for Source Detail.** `/sourcework/sources/[id]` (new
-   segment) vs. some other shape — needs to not collide with
-   `/sourcework/[id]`'s existing project-id semantics or `/sourcework/
-   new`.
-4. **Any confirmation UX for reusing a source?** Attaching an existing
-   source to a second project doesn't touch RLS or data risk (tool access is
-   shared and flat), but it does mean two stories now share one source's
-   excerpts/transcript edits. Worth a one-line confirmation ("this source is
-   already used in *N* other projects") or not worth the friction — a
-   product call, not an engineering one.
+1. **Where does Source Library live?** Resolved: a third tab —
+   "Projects" / "Sources" / "Excerpts" — keeping Excerpts as its own
+   browse surface rather than folding it into Source Detail.
+2. **Multi-source project status.** Resolved: worst-case status across all
+   attached sources, shown as the one project-level badge
+   (`computeAggregateProjectStatus`); each pill also carries its own status
+   dot for the sources beneath that badge.
+3. **Route shape for Source Detail.** Resolved: `/sourcework/sources/[id]`,
+   as proposed — confirmed at build time not to collide with
+   `/sourcework/[id]` or `/sourcework/new` (distinct path segment count).
+4. **Confirmation UX for reusing a source?** Resolved: no confirmation —
+   attach is a single click, matching the "no RLS/data risk" reasoning in
+   the original open question.
 
 ### 7.5 Explicitly out of scope for Phase 3a
 
