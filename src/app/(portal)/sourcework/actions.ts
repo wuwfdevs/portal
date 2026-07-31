@@ -198,6 +198,14 @@ export async function retryTranscription(formData: FormData): Promise<void> {
   await assertToolAccess("transcription");
   const projectId = String(formData.get("project_id") ?? "");
   const requestedSourceId = formData.get("source_id");
+  // Source Detail retries from its own page rather than the project's — only
+  // ever a same-tool path we rendered ourselves, but still checked against
+  // an open redirect since it rides in on a form field.
+  const returnTo = formData.get("return_to");
+  const redirectTo =
+    typeof returnTo === "string" && returnTo.startsWith("/sourcework/")
+      ? returnTo
+      : `/sourcework/${projectId}`;
 
   const supabase = await createClient();
   const ref = requestedSourceId
@@ -222,7 +230,7 @@ export async function retryTranscription(formData: FormData): Promise<void> {
     });
   }
 
-  redirect(`/sourcework/${projectId}`);
+  redirect(redirectTo);
 }
 
 /** Marks a project's source failed after a client-side upload error, with a reason a reporter can act on. */

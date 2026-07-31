@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
-import { embedPendingForProject } from "@/lib/transcription/indexing";
-import { getPrimaryProjectIdForSource } from "@/lib/transcription/projects";
+import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
+import { getPrimaryProjectIdForSource, listProjectIdsForSource } from "@/lib/transcription/projects";
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -21,15 +21,27 @@ import {
 
 const MIN_CLIP_DURATION_MS = 500;
 
-function revalidateProject(projectId: string) {
-  revalidatePath(`/sourcework/${projectId}`);
-  // A clip is a result in the cross-project library and search list too.
+/**
+ * Revalidates every screen a source-scoped write (an excerpt, here) can show
+ * up on: the Source Detail page itself, the cross-project library/search
+ * list, and every project that references this source — not just the one
+ * a caller happened to be looking at. A source can be attached to more than
+ * one project, and each one shows the same clip list via
+ * listExcerptsForSource, so revalidating only "the" project (a guess at
+ * which one) left the others stale.
+ */
+async function revalidateSource(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sourceId: string,
+) {
+  revalidatePath(`/sourcework/sources/${sourceId}`);
   revalidatePath("/sourcework");
+  const projectIds = await listProjectIdsForSource(supabase, sourceId);
+  for (const projectId of projectIds) revalidatePath(`/sourcework/${projectId}`);
 }
 
 export async function createClip(input: {
-  projectId: string;
-  /** Which of the project's sources this excerpt belongs to — the active pill, not necessarily the primary one. */
+  /** Which source this excerpt belongs to — the active pill, not necessarily a project's primary one. */
   sourceId: string;
   representationId: string | null;
   startMs: number;
@@ -71,8 +83,10 @@ export async function createClip(input: {
   // the editorial summary semantic search is best at (design doc §6), and
   // it's one short embedding request. Best-effort: the row is already
   // flagged embedding_stale by a trigger, so a failure here just defers it.
-  await embedPendingForProject(supabase, input.projectId);
-  revalidateProject(input.projectId);
+  if (input.representationId) {
+    await embedPendingForRepresentation(supabase, input.representationId);
+  }
+  await revalidateSource(supabase, input.sourceId);
   return { id: data.id };
 }
 
@@ -113,8 +127,7 @@ export async function updateClipTrim(input: {
     .eq("id", input.clipId);
 
   if (error) return { error: "Could not save the trim. Please try again." };
-  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  if (projectId) revalidateProject(projectId);
+  await revalidateSource(supabase, clip.source_id);
   return { startMs, endMs };
 }
 
@@ -131,17 +144,16 @@ export async function renameClip(input: {
     .from("sw_source_excerpts")
     .update({ title })
     .eq("id", input.clipId)
-    .select("source_id")
+    .select("source_id, representation_id")
     .maybeSingle();
 
   if (error) return { error: "Could not rename the excerpt." };
   if (!data) return { error: "That excerpt no longer exists." };
 
-  const projectId = await getPrimaryProjectIdForSource(supabase, data.source_id);
-  if (projectId) {
-    await embedPendingForProject(supabase, projectId);
-    revalidateProject(projectId);
+  if (data.representation_id) {
+    await embedPendingForRepresentation(supabase, data.representation_id);
   }
+  await revalidateSource(supabase, data.source_id);
   return {};
 }
 
@@ -172,8 +184,7 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
   const { error } = await supabase.from("sw_source_excerpts").delete().eq("id", clipId);
   if (error) return { error: "Could not delete the excerpt." };
 
-  const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  if (projectId) revalidateProject(projectId);
+  await revalidateSource(supabase, clip.source_id);
   return {};
 }
 
@@ -273,6 +284,6 @@ export async function exportClip(
   if (!downloadUrl)
     return { error: "Exported, but couldn't create a download link. Reload and try again." };
 
-  if (projectId) revalidateProject(projectId);
+  await revalidateSource(supabase, clip.source_id);
   return { downloadUrl };
 }
