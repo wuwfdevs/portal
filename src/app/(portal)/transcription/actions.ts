@@ -5,17 +5,20 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
-import { reindexProject, embedPending, getProjectContext } from "@/lib/transcription/indexing";
-import { startTranscriptionForProject } from "@/lib/transcription/ingest";
+import { reindexProject, embedPendingForProject } from "@/lib/transcription/indexing";
+import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
+import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 
-export type CreateProjectResult = { id: string } | { error: string };
+export type CreateProjectResult = { id: string; sourceId: string } | { error: string };
 
 /**
- * Creates the project row before any upload starts, with status='uploading'
- * — so an abandoned upload is a visible, cleanable row rather than an
- * orphaned storage object (see design doc §6). Called directly from the
- * client upload form (not a <form action>), because the caller needs the
- * new id back to know where to put the file next.
+ * Creates the project, its source, and its (not-yet-started) transcript
+ * representation before any upload starts — the source is created with
+ * status='uploading' so an abandoned upload is a visible, cleanable row
+ * rather than an orphaned storage object (see design doc §6). Called
+ * directly from the client upload form (not a <form action>), because the
+ * caller needs the new ids back to know where to put the file next
+ * (sourceObjectPath is keyed by source id, not project id).
  */
 export async function createProject(input: {
   title: string;
@@ -30,25 +33,24 @@ export async function createProject(input: {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("tw_projects")
-    .insert({
-      title,
-      description: input.description.trim() || null,
-      interview_date: input.interviewDate || null,
-      created_by: profile.id,
-    })
-    .select("id")
-    .single();
+  const created = await createProjectWithSource(supabase, {
+    title,
+    description: input.description.trim() || null,
+    interviewDate: input.interviewDate || null,
+    createdBy: profile.id,
+  });
 
-  if (error || !data) {
+  if ("error" in created) {
     return { error: "Could not create the project. Please try again." };
   }
-  return { id: data.id };
+  return { id: created.projectId, sourceId: created.sourceId };
 }
 
 /**
- * Edits a project's title, interview date, and background text after the fact.
+ * Edits a project's title and background text after the fact (interview
+ * date now lives on the source, not the project (see
+ * docs/sourcework-design.md) — two tables, one action, since this is still
+ * one form the reporter fills in once.
  *
  * The background is the tool's whole context story (design doc §3G): it is
  * what tells a reporter who finds a quote eighteen months from now what the
@@ -79,11 +81,7 @@ export async function updateProjectDetails(input: {
   const supabase = await createClient();
   const { error } = await supabase
     .from("tw_projects")
-    .update({
-      title,
-      description: input.description.trim() || null,
-      interview_date: input.interviewDate || null,
-    })
+    .update({ title, description: input.description.trim() || null })
     .eq("id", input.projectId);
 
   if (error) {
@@ -91,7 +89,16 @@ export async function updateProjectDetails(input: {
     return { error: `Could not save the project details: ${error.message}` };
   }
 
-  await reembedProjectQuietly(supabase, input.projectId);
+  const ref = await getPrimarySourceForProject(supabase, input.projectId);
+  if (ref) {
+    const { error: sourceError } = await supabase
+      .from("sw_sources")
+      .update({ interview_date: input.interviewDate || null })
+      .eq("id", ref.sourceId);
+    if (sourceError) console.error("Could not save the interview date:", sourceError);
+  }
+
+  await embedPendingForProject(supabase, input.projectId);
 
   revalidatePath(`/transcription/${input.projectId}`);
   revalidatePath("/transcription");
@@ -128,24 +135,6 @@ export async function reindexProjectSearch(projectId: string): Promise<{
 }
 
 /**
- * Best-effort re-embed after an edit. Never blocks or fails the write that
- * triggered it: the rows stay flagged stale, so the next reindex or edit
- * picks them up, and in the meantime the stale embedding still points at
- * substantially the same passage (design doc §6, "staleness over eagerness").
- */
-async function reembedProjectQuietly(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  projectId: string,
-): Promise<void> {
-  try {
-    const context = await getProjectContext(supabase, projectId);
-    if (context) await embedPending(supabase, projectId, context);
-  } catch (error) {
-    console.error("[transcription] re-embed after edit failed", { projectId, error });
-  }
-}
-
-/**
  * Finalizes a project after the browser has uploaded its source file
  * directly to Storage (never through this server), then kicks off
  * transcription automatically — there's no scenario where a reporter
@@ -165,17 +154,20 @@ export async function completeProjectUpload(input: {
   }
 
   const supabase = await createClient();
+  const ref = await getPrimarySourceForProject(supabase, input.projectId);
+  if (!ref) return { error: "This project has no source to attach media to." };
+
   const { error } = await supabase
-    .from("tw_projects")
+    .from("sw_sources")
     .update({
-      media_storage_path: input.storagePath,
-      media_content_type: input.contentType,
-      media_size_bytes: input.sizeBytes,
-      media_duration_ms: input.durationMs,
-      status: "processing",
+      original_storage_path: input.storagePath,
+      original_content_type: input.contentType,
+      original_size_bytes: input.sizeBytes,
+      original_duration_ms: input.durationMs,
+      status: "ready",
       error_message: null,
     })
-    .eq("id", input.projectId);
+    .eq("id", ref.sourceId);
 
   if (error) {
     return { error: "The upload finished, but we couldn't save the project. Please try again." };
@@ -198,27 +190,30 @@ export async function retryTranscription(formData: FormData): Promise<void> {
   const projectId = String(formData.get("project_id") ?? "");
 
   const supabase = await createClient();
-  const { data: project } = await supabase
-    .from("tw_projects")
-    .select("media_storage_path")
-    .eq("id", projectId)
-    .maybeSingle();
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  const { data: source } = ref
+    ? await supabase
+        .from("sw_sources")
+        .select("original_storage_path")
+        .eq("id", ref.sourceId)
+        .maybeSingle()
+    : { data: null };
 
-  if (project?.media_storage_path) {
+  if (ref?.representationId && source?.original_storage_path) {
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({ status: "processing", error_message: null })
-      .eq("id", projectId);
+      .eq("id", ref.representationId);
     await startTranscriptionForProject(supabase, {
       projectId,
-      storagePath: project.media_storage_path,
+      storagePath: source.original_storage_path,
     });
   }
 
   redirect(`/transcription/${projectId}`);
 }
 
-/** Marks a project failed after a client-side upload error, with a reason a reporter can act on. */
+/** Marks a project's source failed after a client-side upload error, with a reason a reporter can act on. */
 export async function failProjectUpload(input: {
   projectId: string;
   message: string;
@@ -226,20 +221,25 @@ export async function failProjectUpload(input: {
   await assertToolAccess("transcription");
 
   const supabase = await createClient();
-  await supabase
-    .from("tw_projects")
-    .update({ status: "failed", error_message: input.message })
-    .eq("id", input.projectId);
+  const ref = await getPrimarySourceForProject(supabase, input.projectId);
+  if (ref) {
+    await supabase
+      .from("sw_sources")
+      .update({ status: "failed", error_message: input.message })
+      .eq("id", ref.sourceId);
+  }
 }
 
 /**
- * Deletes a project and its source media together. Only the uploader can do
- * this (matches the tw_projects RLS delete policy) — checked explicitly
- * here, not just left to RLS, because the storage bucket's own policies are
- * membership-wide by design (see the schema migration's tw_media_delete
- * policy comment): without this check a non-owner could strip the media
- * object while the row delete silently no-ops under RLS, leaving an
- * orphaned row.
+ * Deletes a project and, if no other project references its source, the
+ * source and everything derived from it (representations, segments,
+ * speakers, chunks, excerpts all cascade from sw_sources — see the Phase 1
+ * migration). Only the uploader can do this (matches the tw_projects RLS
+ * delete policy) — checked explicitly here, not just left to RLS, because
+ * the storage bucket's own policies are membership-wide by design (see the
+ * schema migration's tw_media_delete policy comment): without this check a
+ * non-owner could strip the media object while the row delete silently
+ * no-ops under RLS, leaving an orphaned row.
  */
 export async function deleteProject(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("transcription");
@@ -248,7 +248,7 @@ export async function deleteProject(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: project } = await supabase
     .from("tw_projects")
-    .select("media_storage_path, created_by")
+    .select("created_by")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -256,19 +256,38 @@ export async function deleteProject(formData: FormData): Promise<void> {
     redirect("/transcription");
   }
 
-  // Rendered clip exports live under <project id>/clips/ and are not
-  // reachable from the project row once it's gone, so they have to be swept
-  // here — deleting the row cascades tw_clips but tells storage nothing.
-  const { data: exportedClips } = await supabase.storage
-    .from(TRANSCRIPTION_MEDIA_BUCKET)
-    .list(`${projectId}/clips`);
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  if (ref) {
+    const { data: source } = await supabase
+      .from("sw_sources")
+      .select("original_storage_path")
+      .eq("id", ref.sourceId)
+      .maybeSingle();
 
-  const objectPaths = [
-    ...(project.media_storage_path ? [project.media_storage_path] : []),
-    ...(exportedClips ?? []).map((object) => `${projectId}/clips/${object.name}`),
-  ];
-  if (objectPaths.length > 0) {
-    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
+    const { count: otherReferences } = await supabase
+      .from("sw_project_sources")
+      .select("project_id", { count: "exact", head: true })
+      .eq("source_id", ref.sourceId)
+      .neq("project_id", projectId);
+
+    if (!otherReferences) {
+      // Rendered clip exports live under <source id>/excerpts/ and are not
+      // reachable from the source row once it's gone, so they have to be
+      // swept here — deleting the row cascades sw_source_excerpts but tells
+      // storage nothing.
+      const { data: exportedClips } = await supabase.storage
+        .from(TRANSCRIPTION_MEDIA_BUCKET)
+        .list(`${ref.sourceId}/excerpts`);
+
+      const objectPaths = [
+        ...(source?.original_storage_path ? [source.original_storage_path] : []),
+        ...(exportedClips ?? []).map((object) => `${ref.sourceId}/excerpts/${object.name}`),
+      ];
+      if (objectPaths.length > 0) {
+        await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
+      }
+      await supabase.from("sw_sources").delete().eq("id", ref.sourceId);
+    }
   }
 
   await supabase.from("tw_projects").delete().eq("id", projectId);

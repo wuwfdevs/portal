@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getProjectById, getTranscriptForProject } from "@/lib/transcription/projects";
+import { getProjectById, getTranscriptForRepresentation } from "@/lib/transcription/projects";
 import { listClipsForProject } from "@/lib/transcription/clips";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
@@ -30,14 +30,15 @@ export default async function TranscriptionProjectPage({
   const project = await getProjectById(id);
   if (!project) notFound();
 
-  const canDelete = project.created_by === profile.id;
-  const hasMedia = Boolean(project.media_storage_path);
+  const canDelete = project.createdBy === profile.id;
+  const source = project.source;
+  const hasMedia = Boolean(source?.original_storage_path);
   const [signedUrl, transcript, clips] = await Promise.all([
-    project.status === "ready" && project.media_storage_path
-      ? getSignedMediaUrl(project.media_storage_path)
+    project.status === "ready" && source?.original_storage_path
+      ? getSignedMediaUrl(source.original_storage_path)
       : Promise.resolve(null),
-    project.status === "ready"
-      ? getTranscriptForProject(project.id)
+    project.status === "ready" && project.transcript
+      ? getTranscriptForRepresentation(project.transcript.id)
       : Promise.resolve({ segments: [], speakers: [] }),
     project.status === "ready" ? listClipsForProject(project.id) : Promise.resolve([]),
   ]);
@@ -65,7 +66,7 @@ export default async function TranscriptionProjectPage({
             projectId={project.id}
             title={project.title}
             description={project.description}
-            interviewDate={project.interview_date}
+            interviewDate={source?.interview_date ?? null}
           />
         </div>
         <StatusBadge status={project.status} />
@@ -77,10 +78,10 @@ export default async function TranscriptionProjectPage({
             <TranscriptWorkspace
               projectId={project.id}
               projectTitle={project.title}
-              interviewDate={project.interview_date}
-              exportDate={project.interview_date ?? project.created_at}
+              interviewDate={source?.interview_date ?? null}
+              exportDate={source?.interview_date ?? project.createdAt}
               mediaUrl={signedUrl}
-              isVideo={isVideoContentType(project.media_content_type ?? "")}
+              isVideo={isVideoContentType(source?.original_content_type ?? "")}
               segments={transcript.segments}
               speakers={transcript.speakers}
               clips={clips}
@@ -93,16 +94,16 @@ export default async function TranscriptionProjectPage({
             </p>
           )}
           <dl className="mt-4 flex gap-6 text-xs text-ink-500">
-            {project.media_duration_ms && (
+            {source?.original_duration_ms && (
               <div>
                 <dt className="font-semibold text-ink-700">Duration</dt>
-                <dd>{formatDuration(project.media_duration_ms)}</dd>
+                <dd>{formatDuration(source.original_duration_ms)}</dd>
               </div>
             )}
-            {project.media_size_bytes && (
+            {source?.original_size_bytes && (
               <div>
                 <dt className="font-semibold text-ink-700">File size</dt>
-                <dd>{formatBytes(project.media_size_bytes)}</dd>
+                <dd>{formatBytes(source.original_size_bytes)}</dd>
               </div>
             )}
           </dl>
@@ -137,7 +138,7 @@ export default async function TranscriptionProjectPage({
       {project.status === "failed" && (
         <div className="max-w-lg rounded border border-line bg-white p-5">
           <p className="text-sm text-ink-700">
-            {project.error_message ?? "Something went wrong with this project."}
+            {source?.error_message ?? project.transcript?.error_message ?? "Something went wrong with this project."}
           </p>
           {hasMedia && <RetryForm projectId={project.id} />}
           {canDelete && (

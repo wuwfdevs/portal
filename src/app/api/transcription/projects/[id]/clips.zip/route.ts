@@ -4,12 +4,13 @@ import { assertToolAccess, ForbiddenError } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { createZipStream, uniqueEntryName, type ZipEntry } from "@/lib/transcription/zip";
+import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
   MAX_CLIPS_ZIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
   buildClipExportFilename,
   buildClipsZipFilename,
-  clipExportObjectPath,
+  excerptExportObjectPath,
   formatDuration,
 } from "@/lib/transcription/media";
 
@@ -56,7 +57,7 @@ export async function GET(
 
   const { data: project, error: projectError } = await supabase
     .from("tw_projects")
-    .select("id, title, interview_date, created_at, media_storage_path")
+    .select("id, title")
     .eq("id", projectId)
     .maybeSingle();
   if (projectError) {
@@ -67,10 +68,26 @@ export async function GET(
     return NextResponse.json({ error: "That project no longer exists." }, { status: 404 });
   }
 
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  const { data: source, error: sourceError } = ref
+    ? await supabase
+        .from("sw_sources")
+        .select("id, interview_date, created_at, original_storage_path")
+        .eq("id", ref.sourceId)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (sourceError) {
+    console.error("Read failed (this project's source, for a clip archive):", sourceError);
+    return NextResponse.json({ error: "Could not load this project's source." }, { status: 500 });
+  }
+  if (!source) {
+    return NextResponse.json({ error: "This project doesn't have any clips yet." }, { status: 400 });
+  }
+
   const { data: clips, error: clipsError } = await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .select("id, title, start_ms, end_ms, export_storage_path")
-    .eq("project_id", projectId)
+    .eq("source_id", source.id)
     .order("created_at");
   if (clipsError) {
     console.error("Read failed (this project's clips, for a clip archive):", clipsError);
@@ -96,17 +113,18 @@ export async function GET(
   // Everything predictable is checked before a single byte goes out: once the
   // stream starts, a failure can only abort a partly-sent response.
   const needsRender = clips.some((clip) => !clip.export_storage_path);
-  if (needsRender && !project.media_storage_path) {
+  if (needsRender && !source.original_storage_path) {
     return NextResponse.json({ error: "The source media isn't available." }, { status: 409 });
   }
 
-  const sourceUrl = needsRender ? await getSignedMediaUrl(project.media_storage_path!) : null;
+  const sourceUrl = needsRender ? await getSignedMediaUrl(source.original_storage_path!) : null;
   if (needsRender && !sourceUrl) {
     return NextResponse.json({ error: "Could not access the source media." }, { status: 502 });
   }
 
-  const dateIso = project.interview_date ?? project.created_at;
+  const dateIso = source.interview_date ?? source.created_at;
   const projectTitle = project.title;
+  const sourceId = source.id;
   const clipRows = clips;
 
   async function* entries(): AsyncGenerator<ZipEntry> {
@@ -114,7 +132,7 @@ export async function GET(
     for (const clip of clipRows) {
       yield {
         name: uniqueEntryName(buildClipExportFilename(dateIso, projectTitle, clip.title), taken),
-        data: await clipAudio(supabase, projectId, clip, sourceUrl),
+        data: await clipAudio(supabase, sourceId, clip, sourceUrl),
       };
     }
   }
@@ -141,7 +159,7 @@ export async function GET(
  */
 async function clipAudio(
   supabase: SupabaseClient,
-  projectId: string,
+  sourceId: string,
   clip: { id: string; start_ms: number; end_ms: number; export_storage_path: string | null },
   sourceUrl: string | null,
 ): Promise<Uint8Array> {
@@ -161,17 +179,17 @@ async function clipAudio(
   }
 
   const wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms);
-  await storeRenderedClip(supabase, projectId, clip.id, wav);
+  await storeRenderedClip(supabase, sourceId, clip.id, wav);
   return wav;
 }
 
 async function storeRenderedClip(
   supabase: SupabaseClient,
-  projectId: string,
+  sourceId: string,
   clipId: string,
   wav: Buffer,
 ): Promise<void> {
-  const exportPath = clipExportObjectPath(projectId, clipId);
+  const exportPath = excerptExportObjectPath(sourceId, clipId);
   const { error: uploadError } = await supabase.storage
     .from(TRANSCRIPTION_MEDIA_BUCKET)
     .upload(exportPath, wav, { contentType: "audio/wav", upsert: true });
@@ -181,7 +199,7 @@ async function storeRenderedClip(
   }
 
   const { error } = await supabase
-    .from("tw_clips")
+    .from("sw_source_excerpts")
     .update({ export_storage_path: exportPath, exported_at: new Date().toISOString() })
     .eq("id", clipId);
   if (error) console.error(`Could not record the export for clip ${clipId}:`, error);

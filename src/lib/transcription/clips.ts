@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 
 export interface ProjectClip {
   id: string;
@@ -14,7 +15,7 @@ export interface ProjectClip {
 }
 
 /**
- * A project's clips, oldest first.
+ * A project's clips (source excerpts), oldest first.
  *
  * Deliberately does not resolve signed download URLs here. Signing at
  * render time bakes a short-lived URL into the page, so a workspace left
@@ -23,11 +24,14 @@ export interface ProjectClip {
  */
 export async function listClipsForProject(projectId: string): Promise<ProjectClip[]> {
   const supabase = await createClient();
+  const ref = await getPrimarySourceForProject(supabase, projectId);
+  if (!ref) return [];
+
   const clips = unwrapRead(
     await supabase
-      .from("tw_clips")
-      .select("id, title, start_ms, end_ms, excerpt, export_storage_path, exported_at")
-      .eq("project_id", projectId)
+      .from("sw_source_excerpts")
+      .select("id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at")
+      .eq("source_id", ref.sourceId)
       .order("created_at"),
     "this project's clips",
   );
@@ -37,7 +41,7 @@ export async function listClipsForProject(projectId: string): Promise<ProjectCli
     title: clip.title,
     startMs: clip.start_ms,
     endMs: clip.end_ms,
-    excerpt: clip.excerpt,
+    excerpt: clip.excerpt_text,
     exportedAt: clip.exported_at,
     hasExport: Boolean(clip.export_storage_path),
   }));
@@ -57,46 +61,78 @@ export interface LibraryClip extends ProjectClip {
  * library (design doc §3F), for "I know we have the mayor saying this"
  * when a search query isn't the right way to ask.
  *
- * Two queries rather than an embedded select, for the same reason
- * getTranscriptForProject uses two: database.types.ts is hand-written with
+ * Flat queries rather than an embedded select, same reason as
+ * getTranscriptForRepresentation: database.types.ts is hand-written with
  * empty Relationships, so PostgREST embedding doesn't type reliably.
  */
 export async function listLibraryClips(projectId?: string): Promise<LibraryClip[]> {
   const supabase = await createClient();
 
+  let sourceIdFilter: string[] | null = null;
+  if (projectId) {
+    const ref = await getPrimarySourceForProject(supabase, projectId);
+    if (!ref) return [];
+    sourceIdFilter = [ref.sourceId];
+  }
+
   let query = supabase
-    .from("tw_clips")
-    .select("id, project_id, title, start_ms, end_ms, excerpt, export_storage_path, exported_at")
+    .from("sw_source_excerpts")
+    .select("id, source_id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at")
     .order("created_at", { ascending: false });
-  if (projectId) query = query.eq("project_id", projectId);
+  if (sourceIdFilter) query = query.in("source_id", sourceIdFilter);
 
   const clips = unwrapRead(await query, "the clip library") ?? [];
   if (clips.length === 0) return [];
 
-  const projects =
+  const sourceIds = [...new Set(clips.map((clip) => clip.source_id))];
+  const links =
     unwrapRead(
       await supabase
-        .from("tw_projects")
-        .select("id, title, description, interview_date")
-        .in("id", [...new Set(clips.map((clip) => clip.project_id))]),
+        .from("sw_project_sources")
+        .select("project_id, source_id, added_at")
+        .in("source_id", sourceIds)
+        .order("added_at"),
       "the projects these clips came from",
     ) ?? [];
+  const projectIdBySourceId = new Map<string, string>();
+  for (const link of links) {
+    if (!projectIdBySourceId.has(link.source_id)) {
+      projectIdBySourceId.set(link.source_id, link.project_id);
+    }
+  }
+
+  const sources =
+    unwrapRead(
+      await supabase.from("sw_sources").select("id, interview_date").in("id", sourceIds),
+      "the sources these clips came from",
+    ) ?? [];
+  const sourceById = new Map(sources.map((s) => [s.id, s]));
+
+  const projectIds = [...new Set(projectIdBySourceId.values())];
+  const projects =
+    projectIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("tw_projects").select("id, title, description").in("id", projectIds),
+          "the projects these clips came from",
+        ) ?? []);
   const projectById = new Map(projects.map((project) => [project.id, project]));
 
   return clips.map((clip) => {
-    const project = projectById.get(clip.project_id);
+    const projectId = projectIdBySourceId.get(clip.source_id) ?? null;
+    const project = projectId ? projectById.get(projectId) : undefined;
     return {
       id: clip.id,
       title: clip.title,
       startMs: clip.start_ms,
       endMs: clip.end_ms,
-      excerpt: clip.excerpt,
+      excerpt: clip.excerpt_text,
       exportedAt: clip.exported_at,
       hasExport: Boolean(clip.export_storage_path),
-      projectId: clip.project_id,
+      projectId: projectId ?? "",
       projectTitle: project?.title ?? "Unknown project",
       projectDescription: project?.description ?? null,
-      interviewDate: project?.interview_date ?? null,
+      interviewDate: sourceById.get(clip.source_id)?.interview_date ?? null,
     };
   });
 }

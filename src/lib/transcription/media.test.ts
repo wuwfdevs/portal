@@ -3,7 +3,7 @@ import {
   buildClipExportFilename,
   buildClipsZipFilename,
   buildTranscriptExportFilename,
-  clipExportObjectPath,
+  excerptExportObjectPath,
   extensionForContentType,
   formatBytes,
   formatDuration,
@@ -44,7 +44,7 @@ describe("isVideoContentType", () => {
 });
 
 describe("sourceObjectPath", () => {
-  it("places a project's source file at <project id>/source.<ext>", () => {
+  it("places a source's file at <source id>/source.<ext>", () => {
     expect(sourceObjectPath("abc-123", "audio/wav")).toBe("abc-123/source.wav");
   });
 });
@@ -69,9 +69,9 @@ describe("formatDuration", () => {
   });
 });
 
-describe("clipExportObjectPath", () => {
-  it("places a clip export at <project id>/clips/<clip id>.wav", () => {
-    expect(clipExportObjectPath("proj-1", "clip-2")).toBe("proj-1/clips/clip-2.wav");
+describe("excerptExportObjectPath", () => {
+  it("places a clip export at <source id>/excerpts/<excerpt id>.wav", () => {
+    expect(excerptExportObjectPath("src-1", "clip-2")).toBe("src-1/excerpts/clip-2.wav");
   });
 });
 

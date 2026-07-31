@@ -79,7 +79,7 @@ export function NewProjectForm() {
 
     setStage("uploading");
     const durationMs = await probeDurationMs(file);
-    const storagePath = sourceObjectPath(projectId, file.type);
+    const storagePath = sourceObjectPath(created.sourceId, file.type);
     const supabase = createClient();
     const { error: uploadError } = await supabase.storage
       .from(TRANSCRIPTION_MEDIA_BUCKET)

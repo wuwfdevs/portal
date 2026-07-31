@@ -1,18 +1,22 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
+import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { getSiteUrl } from "@/lib/site-url";
 
 /**
- * Kicking a project's source media into the ASR pipeline.
+ * Creating a project and kicking its source media into the ASR pipeline.
  *
  * Extracted from src/app/(portal)/transcription/actions.ts, where it lived as a
  * private helper shared by upload-completion and manual retry. It moved here
  * when Audience Listening needed the same thing for its transcription handoff:
  * "reuse or extend the existing transcription-ingest logic rather than
  * duplicating provider calls" is only meaningful if there is one place the
- * provider is actually called from. Behaviour is unchanged.
+ * provider is actually called from. Behaviour is unchanged by the Source/
+ * Representation split — this is still the one place a tw_projects row (now
+ * with its sw_sources + sw_representations siblings) gets created and the one
+ * place the provider gets invoked from.
  */
 
 /** The RLS-scoped server client, exactly as its callers already hold it. */
@@ -29,15 +33,89 @@ export function redactUrls(message: string): string {
   return message.replace(/https?:\/\/\S+/gi, "[url]");
 }
 
+export interface CreateProjectWithSourceInput {
+  title: string;
+  description: string | null;
+  interviewDate: string | null;
+  createdBy: string;
+}
+
+export interface CreatedProjectSource {
+  projectId: string;
+  sourceId: string;
+}
+
 /**
- * Starts transcription for a project whose source media is already in Storage,
- * and updates the row accordingly. Callers already know the project has a valid
- * media_storage_path/media_content_type before calling this.
+ * Creates the project, its source, and the (nullable-until-ready) transcript
+ * representation together — the three rows Sourcework split the old
+ * tw_projects 1:1 model into. Best-effort cleanup on a partial failure: there
+ * is no cross-table transaction available here, so a later insert failing
+ * removes the rows already created rather than leaving an orphan.
+ */
+export async function createProjectWithSource(
+  supabase: Client,
+  input: CreateProjectWithSourceInput,
+): Promise<CreatedProjectSource | { error: string }> {
+  const { data: project, error: projectError } = await supabase
+    .from("tw_projects")
+    .insert({ title: input.title, description: input.description, created_by: input.createdBy })
+    .select("id")
+    .single();
+  if (projectError || !project) {
+    return { error: projectError?.message ?? "Could not create the project." };
+  }
+
+  const { data: source, error: sourceError } = await supabase
+    .from("sw_sources")
+    .insert({
+      title: input.title,
+      interview_date: input.interviewDate,
+      created_by: input.createdBy,
+    })
+    .select("id")
+    .single();
+  if (sourceError || !source) {
+    await supabase.from("tw_projects").delete().eq("id", project.id);
+    return { error: sourceError?.message ?? "Could not create the source." };
+  }
+
+  const { error: linkError } = await supabase
+    .from("sw_project_sources")
+    .insert({ project_id: project.id, source_id: source.id, added_by: input.createdBy });
+  if (linkError) {
+    await supabase.from("sw_sources").delete().eq("id", source.id);
+    await supabase.from("tw_projects").delete().eq("id", project.id);
+    return { error: linkError.message };
+  }
+
+  const { error: representationError } = await supabase
+    .from("sw_representations")
+    .insert({ source_id: source.id, kind: "transcript", status: "pending" });
+  if (representationError) {
+    await supabase.from("sw_sources").delete().eq("id", source.id);
+    await supabase.from("tw_projects").delete().eq("id", project.id);
+    return { error: representationError.message };
+  }
+
+  return { projectId: project.id, sourceId: source.id };
+}
+
+/**
+ * Starts transcription for a project whose source media is already in
+ * Storage, and updates the transcript representation row accordingly.
+ * Callers already know the source has a valid original_storage_path/
+ * original_content_type before calling this.
  */
 export async function startTranscriptionForProject(
   supabase: Client,
   params: { projectId: string; storagePath: string },
 ): Promise<{ error?: string }> {
+  const ref = await getPrimarySourceForProject(supabase, params.projectId);
+  if (!ref?.representationId) {
+    return { error: "This project has no transcript representation yet." };
+  }
+  const representationId = ref.representationId;
+
   const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
   const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
 
@@ -52,18 +130,18 @@ export async function startTranscriptionForProject(
     ].filter((name): name is string => Boolean(name));
     const message = `Transcription isn't configured yet (missing ${missing.join(" and ")}).`;
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
+      .eq("id", representationId);
     return { error: message };
   }
 
   if (!mediaUrl) {
     const message = "Couldn't read the uploaded media file. Please re-upload.";
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
+      .eq("id", representationId);
     return { error: message };
   }
 
@@ -75,13 +153,13 @@ export async function startTranscriptionForProject(
     });
 
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({
         status: "processing",
-        transcription_provider_job_id: providerJobId,
+        provider_job_id: providerJobId,
         error_message: null,
       })
-      .eq("id", params.projectId);
+      .eq("id", representationId);
 
     return {};
   } catch (error) {
@@ -98,9 +176,9 @@ export async function startTranscriptionForProject(
     });
 
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({ status: "failed", error_message: message })
-      .eq("id", params.projectId);
+      .eq("id", representationId);
     return { error: message };
   }
 }

@@ -214,6 +214,32 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
+**Sourcework (Phases 1–2 landed; Phases 3–6 are a roadmap, not authorized to
+start without their own design doc first — see below):** the Transcription
+Workspace's data model has been generalized underneath its unchanged UI. Read
+`docs/sourcework-design.md` before touching any of `sw_*` or the transcription
+tables it rekeyed. In short: **Source** (`sw_sources` — immutable original
+media, one recording per row) and **Project** (`tw_projects` — the work that
+references sources, many-to-many via `sw_project_sources`) are now different
+objects with different lifetimes, closing a real gap the old 1:1
+`tw_projects` model had (the same interview mattering to more than one story
+over time). The transcript generalized into **Representation**
+(`sw_representations`, kind=`transcript` today) — `tw_segments`/`tw_speakers`/
+`tw_chunks` are keyed by `representation_id`, not `project_id`. `tw_clips`
+was folded directly into `sw_source_excerpts` (adds `source_id`, nullable
+`representation_id`) — not kept as a parallel legacy table. `tw_projects`
+itself shrank to `title`/`description`/`created_by` — no `status` or
+`media_*` columns; `lib/transcription/projects.ts`'s `computeProjectStatus()`
+derives the same four UI states from a source's upload status and its
+transcript representation's status instead. `interview_date` moved to
+`sw_sources` (a fact about the recording, not the project). Two design calls
+worth knowing before extending this: transformations (OCR, translation) are
+**developer-authored pipelines a user invokes in sequence**, not a declarative
+type-checked composable graph — don't build a pipeline planner without a
+concrete need for one; and cross-tool project unification (Editorial
+Planning, Audience Listening) is deliberately deferred to Phase 6, a security
+review of those tools' RLS models, not a mechanical rename.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current
@@ -292,7 +318,10 @@ src/components/            portal-specific components (nav, tool card, etc.)
 src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
 src/lib/auth/              session lookup + authorization checks
-src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema)
+src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema),
+                           now also the home of Sourcework's sw_* data access (see
+                           docs/sourcework-design.md) — Source/Representation/Excerpt
+                           access lives alongside the transcript/clip code it generalized
 src/lib/remote-interview/  Remote Interview's data access + pure logic (tokens, storage
                            prefixes) — not portal-schema
 src/lib/audience-listening/  Audience Listening's data access + pure logic (public ids,

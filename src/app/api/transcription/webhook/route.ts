@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
-import { reindexProject } from "@/lib/transcription/indexing";
+import { reindexRepresentation } from "@/lib/transcription/indexing";
 import { WEBHOOK_AUTH_HEADER_NAME } from "@/lib/transcription/providers/assemblyai";
 
 // Called by the ASR provider (never by a signed-in user) when a
@@ -35,15 +35,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const supabase = createAdminClient();
-  const { data: project } = await supabase
-    .from("tw_projects")
+  const { data: representation } = await supabase
+    .from("sw_representations")
     .select("id")
-    .eq("transcription_provider_job_id", providerJobId)
+    .eq("provider_job_id", providerJobId)
     .maybeSingle();
 
   // Nothing to do — an unrecognized or already-processed job id. Acknowledge
   // rather than error, so the provider doesn't keep retrying the callback.
-  if (!project) {
+  if (!representation) {
     return NextResponse.json({ ok: true });
   }
 
@@ -51,12 +51,12 @@ export async function POST(request: Request): Promise<Response> {
     const result = await getTranscriptionProvider().fetchResult(providerJobId);
     const validUtterances = result.utterances.filter((u) => u.endMs > u.startMs);
 
-    // Clean slate for this project's transcript. Acceptable for Phase 2:
-    // a retry always means starting fresh, and nothing downstream (speaker
-    // naming, transcript edits, clips) exists yet to lose — see design doc's
-    // phased plan.
-    await supabase.from("tw_segments").delete().eq("project_id", project.id);
-    await supabase.from("tw_speakers").delete().eq("project_id", project.id);
+    // Clean slate for this representation's transcript. Acceptable for
+    // Phase 2: a retry always means starting fresh, and nothing downstream
+    // (speaker naming, transcript edits, clips) exists yet to lose — see
+    // design doc's phased plan.
+    await supabase.from("tw_segments").delete().eq("representation_id", representation.id);
+    await supabase.from("tw_speakers").delete().eq("representation_id", representation.id);
 
     const speakerLabels = [...new Set(validUtterances.map((u) => u.speakerLabel))];
     const speakerIdByLabel = new Map<string, string>();
@@ -64,7 +64,10 @@ export async function POST(request: Request): Promise<Response> {
       const { data: speakers } = await supabase
         .from("tw_speakers")
         .insert(
-          speakerLabels.map((diarization_label) => ({ project_id: project.id, diarization_label })),
+          speakerLabels.map((diarization_label) => ({
+            representation_id: representation.id,
+            diarization_label,
+          })),
         )
         .select("id, diarization_label");
       for (const speaker of speakers ?? []) {
@@ -75,7 +78,7 @@ export async function POST(request: Request): Promise<Response> {
     if (validUtterances.length > 0) {
       await supabase.from("tw_segments").insert(
         validUtterances.map((u, index) => ({
-          project_id: project.id,
+          representation_id: representation.id,
           speaker_id: speakerIdByLabel.get(u.speakerLabel) ?? null,
           position: index,
           start_ms: u.startMs,
@@ -87,32 +90,33 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     await supabase
-      .from("tw_projects")
-      .update({ status: "ready", transcribed_at: new Date().toISOString(), error_message: null })
-      .eq("id", project.id);
+      .from("sw_representations")
+      .update({ status: "ready", error_message: null })
+      .eq("id", representation.id);
 
     // Build the search index while the transcript is fresh, so a project is
     // findable the moment it's ready rather than after someone remembers to
     // reindex it. Deliberately after the status flip and deliberately
     // swallowed: a chunking or embeddings failure must not turn a transcript
-    // that landed perfectly well into a failed project. The rows stay flagged
-    // stale and the workspace's "Rebuild search index" action picks them up.
+    // that landed perfectly well into a failed representation. The rows stay
+    // flagged stale and the workspace's "Rebuild search index" action picks
+    // them up.
     try {
-      await reindexProject(supabase, project.id);
+      await reindexRepresentation(supabase, representation.id);
     } catch (indexError) {
       console.error("[transcription] indexing after webhook failed", {
-        projectId: project.id,
+        representationId: representation.id,
         error: indexError,
       });
     }
   } catch (error) {
     await supabase
-      .from("tw_projects")
+      .from("sw_representations")
       .update({
         status: "failed",
         error_message: error instanceof Error ? error.message : "Transcription failed.",
       })
-      .eq("id", project.id);
+      .eq("id", representation.id);
   }
 
   return NextResponse.json({ ok: true });

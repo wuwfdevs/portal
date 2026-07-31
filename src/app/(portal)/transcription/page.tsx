@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { listProjects, type TwProject } from "@/lib/transcription/projects";
+import { listProjects, type ProjectListRow, type ProjectStatus } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
 import { searchArchive, isSemanticSearchConfigured } from "@/lib/transcription/search";
 import { formatBytes, formatDuration } from "@/lib/transcription/media";
@@ -9,10 +9,9 @@ import { ClipLibrary } from "@/components/transcription/clip-library";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { TwProjectStatus } from "@/lib/database.types";
 
 const STATUS_BADGE: Record<
-  TwProjectStatus,
+  ProjectStatus,
   { label: string; variant: "accent" | "neutral" | "muted" | "danger" }
 > = {
   ready: { label: "Ready", variant: "accent" },
@@ -23,9 +22,8 @@ const STATUS_BADGE: Record<
 
 type Tab = "projects" | "clips";
 
-function formatInterviewDate(project: TwProject): string {
-  const source = project.interview_date ?? project.created_at;
-  return new Date(source).toLocaleDateString("en-US", {
+function formatInterviewDate(project: ProjectListRow): string {
+  return new Date(project.interviewDate ?? project.createdAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -129,7 +127,7 @@ function TabLink({ tab, activeTab, label }: { tab: Tab; activeTab: Tab; label: s
   );
 }
 
-function ProjectTable({ projects }: { projects: TwProject[] }) {
+function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
   if (projects.length === 0) {
     return (
       <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
@@ -173,10 +171,10 @@ function ProjectTable({ projects }: { projects: TwProject[] }) {
                 </td>
                 <td className="px-4 py-3 text-ink-500">{formatInterviewDate(project)}</td>
                 <td className="px-4 py-3 text-ink-500">
-                  {project.media_duration_ms ? formatDuration(project.media_duration_ms) : "—"}
+                  {project.durationMs ? formatDuration(project.durationMs) : "—"}
                 </td>
                 <td className="px-4 py-3 text-ink-500">
-                  {project.media_size_bytes ? formatBytes(project.media_size_bytes) : "—"}
+                  {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
