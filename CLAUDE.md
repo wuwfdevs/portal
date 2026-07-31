@@ -303,7 +303,7 @@ every path must keep working without it (chunks still build, keyword search stil
 write that triggered them. The `stale` / `embedding_stale` flags are maintained by
 database triggers, so a re-embed pass is always safe to re-run.
 
-**Capability layer and MCP server (Phases A–C landed; D–E not started — see
+**Capability layer and MCP server (Phases A–D landed; E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
 aggregated in `src/lib/capabilities/registry.ts`, so they're callable identically from a
@@ -329,8 +329,48 @@ editors, and Audience Listening members only, and an MCP call from a Sourcework-
 Remote-Interview-only user would otherwise have its audit insert silently dropped by RLS
 — the new `audit_events_insert_mcp` policy is scoped to the `mcp.` action prefix
 specifically, so it doesn't become a general bypass of the per-tool policies. **Phase D
-(the in-portal agent) is next — do not start it without an explicit instruction**, and
-Phase E (external Claude/ChatGPT clients) needs its own auth design first (design doc §8).
+(the in-portal agent) has landed**: a persistent chat bubble
+(`src/components/agent-chat-widget.tsx`, mounted in `(portal)/layout.tsx` so it's
+available on every portal page) toggles a right-side panel that talks to
+`src/app/api/agent/chat/route.ts` — a server route that is, per design doc §7, "just
+another MCP client": `src/lib/agent/mcp-client.ts` connects an MCP `Client` to a fresh
+`buildMcpServer(actor)` over the SDK's `InMemoryTransport.createLinkedPair()`, in-process,
+rather than looping the request back through HTTP or calling `registry.invoke()` directly
+— same tool set, same confirmation gating, same `mcp.*` audit event per call as an
+external MCP client would get, with none of a self-HTTP-call's cookie-forwarding
+complexity. The panel itself is a real flex sibling of the page content in
+`(portal)/layout.tsx`, not a `position: fixed` overlay — opening it pushes the portal's
+main content left instead of covering it.
+`src/lib/agent/chat.ts` drives the turn against OpenAI's Responses API (`openai`, a new
+dependency — justified the same way `@modelcontextprotocol/sdk` was: this is a stateful
+tool-calling loop against a still-evolving API surface, not the single flat POST that
+`lib/transcription/embeddings.ts` deliberately hand-rolls instead of taking a dependency
+for). Model is `gpt-5.4-mini`, reusing `OPENAI_API_KEY` — already configured for
+Sourcework's embeddings, so this is the repo's second OpenAI integration rather than a
+second provider; see `.env.example` for both uses of that key. `parallel_tool_calls: false`
+means a turn never produces more than one `function_call` item (keeps the confirmation flow
+below from having to reconcile a mixed batch of gated and non-gated calls), and up to six
+tool-call rounds are handled server-side before giving up and asking the user to continue.
+The `confirmed` field `tool-schema.ts` adds to a gated capability's MCP schema is stripped
+back out before the tool definition ever reaches the model
+(`src/lib/agent/tool-bridge.ts` — pure, tested) — the model is never given a way to
+self-approve. When the model calls a capability whose tool requires confirmation, the route
+pauses and returns a `pendingConfirmation` (capability id, description, input) instead of
+executing; the widget renders an Approve/Decline card, and only an explicit Approve click
+resumes the loop with `confirmed: true` set by the route itself, never by whatever the
+model's own function-call arguments contained (design doc §5, §11 risk 2). Conversation
+state is not persisted anywhere — the client echoes the full OpenAI Responses-shaped
+`history` (a flat array of message/`function_call`/`function_call_output` items) back on
+every call, same "no job queue, no server-held state beyond one request" posture as the
+rest of this repo (`store: false` on every `responses.create()` call, so OpenAI isn't
+asked to retain a second copy of the transcript either); the widget is a Client Component,
+so it round-trips that history as loosely-typed JSON rather than importing the OpenAI
+SDK's types (or `lib/agent/chat.ts`, which is `"server-only"`) into the browser bundle.
+Requires `OPENAI_API_KEY` (`.env.example`) — unset, the route returns a clear "not
+configured" error rather than crashing, same pattern as Remote Interview's Daily
+cloud-backup env vars.
+Phase E (external Claude/ChatGPT clients) needs its own auth design first (design doc §8)
+and has not been started.
 
 ## Architecture
 
@@ -392,6 +432,9 @@ src/app/listen/[publicId]/ Audience Listening's public participation page, and /
 src/app/api/mcp/           the internal MCP server's route handler (Phase C, see above) —
                             in middleware's default-gated set (not PUBLIC_PATHS), same
                             cookie session as everything else
+src/app/api/agent/chat/    the in-portal agent's chat route (Phase D, see above) — same
+                            auth/middleware posture as src/app/api/mcp/, since it's the
+                            same kind of caller
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
                            control/table class strings inline
@@ -422,6 +465,12 @@ src/lib/capabilities/      the capability layer: define.ts's defineCapability() 
 src/lib/mcp/               the MCP server's tool-building logic (server.ts, "server-only"),
                            plus its pure, tested pieces (tool-schema.ts, audit.ts) — the
                            route handler at src/app/api/mcp/ is the thin part
+src/lib/agent/             the in-portal agent's turn loop (chat.ts, "server-only", calls
+                           OpenAI's Responses API) and its MCP client connector
+                           (mcp-client.ts, "server-only"), plus the pure, tested piece that
+                           bridges an MCP tool list to the model's function-tool shape
+                           (tool-bridge.ts) — see Phase D above; components/agent-chat-widget.tsx
+                           is the Client Component side
 src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
 supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
 supabase/seed.sql          local/preview-only sample data — never run against production

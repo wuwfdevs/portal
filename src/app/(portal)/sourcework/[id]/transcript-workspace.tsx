@@ -468,7 +468,6 @@ export function TranscriptWorkspace({
       <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
         {selection && (
           <ClipComposer
-            projectId={projectId}
             sourceId={sourceId}
             representationId={representationId}
             selection={selection}

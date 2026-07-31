@@ -326,6 +326,23 @@ export async function getPrimaryProjectIdForSource(
   return data?.project_id ?? null;
 }
 
+/**
+ * Every project that references a source, not just the earliest-attached
+ * one — what a source-scoped write (an excerpt, a correction) needs to
+ * revalidate, since a shared source's clips/transcript are reachable from
+ * every project that attached it, not only the first.
+ */
+export async function listProjectIdsForSource(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sourceId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("sw_project_sources")
+    .select("project_id")
+    .eq("source_id", sourceId);
+  return (data ?? []).map((row) => row.project_id);
+}
+
 export interface SourceLibraryRow {
   id: string;
   kind: SwSource["kind"];
@@ -401,13 +418,16 @@ export interface SourceDetail {
   kind: SwSource["kind"];
   title: string;
   interviewDate: string | null;
-  status: SwSource["status"];
+  /** The same four states the project workspace shows, derived from the source plus its transcript — see computeProjectStatus. */
+  status: ProjectStatus;
   errorMessage: string | null;
   durationMs: number | null;
   sizeBytes: number | null;
   createdAt: string;
-  /** Every representation derived from this source, oldest first — the chain the detail screen renders. */
-  representations: SwRepresentation[];
+  originalStoragePath: string | null;
+  originalContentType: string | null;
+  /** This source's transcript representation, if transcription has started — the workspace's media/transcript pane keys off its id and status. */
+  transcript: SwRepresentation | null;
   /** Every project that references this source. */
   projects: { id: string; title: string }[];
 }
@@ -427,15 +447,16 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
   );
   if (!source) return null;
 
-  const representations =
+  const transcript =
     unwrapRead(
       await supabase
         .from("sw_representations")
         .select("*")
         .eq("source_id", sourceId)
-        .order("created_at"),
-      "this source's representations",
-    ) ?? [];
+        .eq("kind", "transcript")
+        .maybeSingle(),
+      "this source's transcript",
+    ) ?? null;
 
   const links =
     unwrapRead(
@@ -456,12 +477,14 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
     kind: source.kind,
     title: source.title,
     interviewDate: source.interview_date,
-    status: source.status,
+    status: computeProjectStatus(source, transcript),
     errorMessage: source.error_message,
     durationMs: source.original_duration_ms,
     sizeBytes: source.original_size_bytes,
     createdAt: source.created_at,
-    representations,
+    originalStoragePath: source.original_storage_path,
+    originalContentType: source.original_content_type,
+    transcript,
     projects,
   };
 }

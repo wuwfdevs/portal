@@ -66,6 +66,8 @@ export async function listClipsForProject(projectId: string): Promise<ProjectCli
 
 /** A clip as it appears outside its own project — carrying the recording it came from. */
 export interface LibraryClip extends ProjectClip {
+  /** The source this clip belongs to — a project can reference more than one (Phase 3a), so a link into the project also needs this to land on the right pill. */
+  sourceId: string;
   projectId: string;
   projectTitle: string;
   /** The project's background text: what this recording was (design doc §3G). */
@@ -146,6 +148,7 @@ export async function listLibraryClips(projectId?: string): Promise<LibraryClip[
       excerpt: clip.excerpt_text,
       exportedAt: clip.exported_at,
       hasExport: Boolean(clip.export_storage_path),
+      sourceId: clip.source_id,
       projectId: projectId ?? "",
       projectTitle: project?.title ?? "Unknown project",
       projectDescription: project?.description ?? null,
