@@ -1,21 +1,37 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import * as editorialCapabilities from "@/lib/editorial/capabilities";
+import * as transcriptionCapabilities from "@/lib/transcription/capabilities";
+import * as remoteInterviewCapabilities from "@/lib/remote-interview/capabilities";
+import * as audienceListeningCapabilities from "@/lib/audience-listening/capabilities";
 import type { CapabilityDefinition } from "./define";
 
 // The one place all of a tool's capabilities are aggregated — the thing an
 // MCP server and, later, the portal agent import from (see design doc §4).
-// Phase A (docs/agent-capabilities-design.md §10) only populates Editorial
-// Planning's entries; each later tool adds its own module here in Phase B.
+// Phase A (docs/agent-capabilities-design.md §10) populated Editorial
+// Planning's entries; Phase B adds one high-value capability per remaining
+// tool (Sourcework project search, Remote Interview session create,
+// Audience Listening's send-to-Sourcework handoff) so the registry has real
+// entries from all four tools before anything (Phase C's MCP server) reads
+// from it.
 
 // A capability's Input/Output are specific to itself; the registry only
 // needs to move them around, not know their shapes.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyCapability = CapabilityDefinition<any, any>;
 
-const ALL_CAPABILITIES: AnyCapability[] = Object.values(editorialCapabilities).filter(
-  (value): value is AnyCapability =>
-    typeof value === "object" && value !== null && "id" in value && "handler" in value,
+const CAPABILITY_MODULES = [
+  editorialCapabilities,
+  transcriptionCapabilities,
+  remoteInterviewCapabilities,
+  audienceListeningCapabilities,
+];
+
+const ALL_CAPABILITIES: AnyCapability[] = CAPABILITY_MODULES.flatMap((module) =>
+  Object.values(module).filter(
+    (value): value is AnyCapability =>
+      typeof value === "object" && value !== null && "id" in value && "handler" in value,
+  ),
 );
 
 const REGISTRY = new Map<string, AnyCapability>(
