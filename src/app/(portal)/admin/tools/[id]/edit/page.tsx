@@ -48,10 +48,15 @@ export default async function EditToolPage({
           <div>
             <Label htmlFor="status">Status</Label>
             <Select id="status" name="status" defaultValue={tool.status}>
+              <option value="proposed">Proposed (an idea, not on the dashboard)</option>
               <option value="planned">Planned</option>
               <option value="in_development">In development</option>
               <option value="available">Available</option>
             </Select>
+            <p className="mt-1 text-xs text-ink-400">
+              Moving a proposed tool off Proposed is how an idea becomes a real registry entry.
+              Roadmap posts already pointing at it keep pointing at it.
+            </p>
           </div>
           <div>
             <Label htmlFor="default_access">Default access</Label>

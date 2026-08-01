@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, type Profile } from "@/lib/auth/session";
 import { isActive, isActiveAdministrator } from "@/lib/auth/predicates";
 import { getToolByKey, type Tool } from "@/lib/tools";
+import { grantRequiredForTool } from "@/lib/tool-access-rules";
 
 /**
  * Single source of truth for "is this user allowed to do X". Every
@@ -77,26 +78,40 @@ export async function hasToolAccess(userId: string, toolId: string): Promise<boo
 }
 
 /**
- * Requires an active profile with a grant for the given tool (looked up by
- * its `tools.key`); redirects to /dashboard otherwise. For use in pages of
- * tools beyond the placeholder stage — mirrors requireAdministrator's shape.
- * Platform administrators are not special-cased: like every other user,
- * they need an explicit tool_access grant (see how dana_id in seed.sql only
- * has editorial-planning access, not every tool).
+ * Whether this user may open this tool: an active grant, or a registry row
+ * whose `default_access` opens it to every active staff member. The second
+ * branch is `grantRequiredForTool` in lib/tool-access-rules.ts — see that
+ * file, and docs/roadmap-design.md §6, for why the column is read rather than
+ * a tool key special-cased. RLS is still the real boundary; the matching
+ * predicate in SQL is each tool's own `private.has_*_access`.
+ */
+async function canOpenTool(userId: string, tool: Tool): Promise<boolean> {
+  if (!grantRequiredForTool(tool)) return tool.enabled;
+  return hasToolAccess(userId, tool.id);
+}
+
+/**
+ * Requires an active profile allowed to open the given tool (looked up by its
+ * `tools.key`); redirects to /dashboard otherwise. For use in pages of tools
+ * beyond the placeholder stage — mirrors requireAdministrator's shape.
+ * Platform administrators are not special-cased: like every other user, they
+ * need an explicit tool_access grant (see how dana_id in seed.sql only has
+ * editorial-planning access, not every tool) unless the tool itself is open to
+ * all active staff.
  */
 export async function requireToolAccess(
   toolKey: string,
 ): Promise<{ profile: Profile; tool: Tool }> {
   const profile = await requireActiveProfile();
   const tool = await getToolByKey(toolKey);
-  if (!tool || !(await hasToolAccess(profile.id, tool.id))) {
+  if (!tool || !(await canOpenTool(profile.id, tool))) {
     redirect("/dashboard");
   }
   return { profile, tool };
 }
 
 /**
- * Requires an active profile with a grant for the given tool; throws
+ * Requires an active profile allowed to open the given tool; throws
  * ForbiddenError otherwise. For use in that tool's server actions, where a
  * redirect would be the wrong response — mirrors assertAdministrator.
  */
@@ -106,7 +121,7 @@ export async function assertToolAccess(toolKey: string): Promise<{ profile: Prof
     throw new ForbiddenError();
   }
   const tool = await getToolByKey(toolKey);
-  if (!tool || !(await hasToolAccess(profile.id, tool.id))) {
+  if (!tool || !(await canOpenTool(profile.id, tool))) {
     throw new ForbiddenError();
   }
   return { profile, tool };

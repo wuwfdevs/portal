@@ -5,6 +5,7 @@
 // binary access (granted or not); the admin UI should show a role dropdown
 // only for tools that actually branch on it.
 import { ROLE_OPTIONS as EDITORIAL_ROLE_OPTIONS } from "@/lib/editorial/roles";
+import { ROLE_OPTIONS as ROADMAP_ROLE_OPTIONS } from "@/lib/roadmap/roles";
 
 export interface RoleOption {
   value: string;
@@ -14,6 +15,9 @@ export interface RoleOption {
 
 const ROLE_CATALOG: Record<string, RoleOption[]> = {
   "editorial-planning": EDITORIAL_ROLE_OPTIONS,
+  // Roadmap is open to every active staff member without a grant, so a grant
+  // here only ever means "curator" — see lib/roadmap/roles.ts.
+  roadmap: ROADMAP_ROLE_OPTIONS,
 };
 
 /** The role options for a tool (by `tools.key`), or null if it has none. */

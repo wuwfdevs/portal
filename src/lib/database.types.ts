@@ -16,7 +16,11 @@
 // improvement over the generator's raw output is nullability on
 // `returns table` RPC columns like tw_search's, which the generator doesn't
 // express but this file states explicitly — see docs/sourcework-design.md
-// §8.8). Kept hand-written rather than swapped for the generator's raw
+// §8.8). Hand-reconciled again on 2026-08-01 for the Roadmap tool
+// (rd_posts/rd_votes/rd_comments, the new rd_post_kind/rd_post_status enums,
+// and 'proposed' on tool_status) against
+// supabase/migrations/20260801120000_tool_status_proposed.sql and
+// 20260801121000_roadmap.sql. Kept hand-written rather than swapped for the generator's raw
 // output on purpose: the generator emits a differently-shaped module
 // (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
 // every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
@@ -27,7 +31,11 @@
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
-export type ToolStatus = "available" | "in_development" | "planned";
+// 'proposed' is a tool that only exists as an idea on the Roadmap tool — see
+// supabase/migrations/20260801120000_tool_status_proposed.sql and
+// docs/roadmap-design.md §6. Excluded from the dashboard and from the admin
+// grant pickers; visible to Roadmap members so a post can target it.
+export type ToolStatus = "available" | "in_development" | "planned" | "proposed";
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
 
@@ -127,6 +135,16 @@ export type AlAnswerStatus = "pending" | "uploaded" | "failed";
 export type AlTranscriptionState = "none" | "queued" | "sent" | "failed";
 /** Whether the public route may accept a submission right now. */
 export type AlPublicState = "open" | "not_yet_open" | "closed";
+
+// Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
+export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
+export type RdPostStatus =
+  | "open"
+  | "under_review"
+  | "planned"
+  | "in_progress"
+  | "shipped"
+  | "declined";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -885,6 +903,62 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["al_answers"]["Row"]>;
         Relationships: [];
       };
+      rd_posts: {
+        Row: {
+          id: string;
+          title: string;
+          /** ProseMirror JSON — see lib/roadmap/rich-text.ts for the whitelist. */
+          body: unknown;
+          body_text: string;
+          kind: RdPostKind;
+          status: RdPostStatus;
+          tool_id: string | null;
+          proposed_tool_name: string | null;
+          author_id: string;
+          status_note: string | null;
+          status_changed_at: string | null;
+          status_changed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rd_posts"]["Row"]> & {
+          title: string;
+          author_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rd_posts"]["Row"]>;
+        Relationships: [];
+      };
+      rd_votes: {
+        Row: {
+          post_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rd_votes"]["Row"]> & {
+          post_id: string;
+          user_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rd_votes"]["Row"]>;
+        Relationships: [];
+      };
+      rd_comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          author_id: string;
+          body: unknown;
+          body_text: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rd_comments"]["Row"]> & {
+          post_id: string;
+          author_id: string;
+          body: unknown;
+        };
+        Update: Partial<Database["public"]["Tables"]["rd_comments"]["Row"]>;
+        Relationships: [];
+      };
       ri_sessions: {
         Row: {
           id: string;
@@ -1127,6 +1201,8 @@ export interface Database {
       al_review_state: AlReviewState;
       al_answer_status: AlAnswerStatus;
       al_transcription_state: AlTranscriptionState;
+      rd_post_kind: RdPostKind;
+      rd_post_status: RdPostStatus;
     };
     CompositeTypes: Record<string, never>;
   };

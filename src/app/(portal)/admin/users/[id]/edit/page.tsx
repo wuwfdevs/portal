@@ -12,7 +12,8 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
 
   const [{ data: profile }, { data: tools }, { data: grants }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
-    supabase.from("tools").select("*").order("sort_order"),
+    // Proposed tools are ideas on the Roadmap, not software — nothing to grant.
+    supabase.from("tools").select("*").neq("status", "proposed").order("sort_order"),
     supabase.from("tool_access").select("tool_id, tool_role").eq("user_id", id).is("revoked_at", null),
   ]);
 

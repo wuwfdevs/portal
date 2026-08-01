@@ -12,7 +12,12 @@ export default async function InviteUserPage({
 }) {
   const { error, email, name } = await searchParams;
   const supabase = await createClient();
-  const { data: tools } = await supabase.from("tools").select("*").order("sort_order");
+  // Proposed tools are ideas on the Roadmap, not software — nothing to grant.
+  const { data: tools } = await supabase
+    .from("tools")
+    .select("*")
+    .neq("status", "proposed")
+    .order("sort_order");
 
   return (
     <div className="max-w-lg">
