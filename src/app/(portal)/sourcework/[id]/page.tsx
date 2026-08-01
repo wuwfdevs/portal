@@ -16,7 +16,7 @@ import { DocumentWorkspace } from "./document-workspace";
 import { ProcessingPoller } from "./processing-poller";
 import { ProjectDetails } from "./project-details";
 import { ReindexButton } from "./reindex-button";
-import { SourcePillRow } from "./source-pill-row";
+import { SourceCardGrid } from "./source-card-grid";
 
 // See new/page.tsx's comment on why this lives on the page rather than in
 // actions.ts, and docs/sourcework-design.md §8.6 on why it's needed at all:
@@ -100,7 +100,7 @@ export default async function TranscriptionProjectPage({
       </div>
 
       {project.sources.length > 0 && (
-        <SourcePillRow
+        <SourceCardGrid
           projectId={project.id}
           sources={project.sources}
           activeSourceId={activeSourceSummary?.sourceId ?? null}

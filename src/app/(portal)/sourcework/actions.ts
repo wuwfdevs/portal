@@ -4,15 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
-import {
-  TRANSCRIPTION_MEDIA_BUCKET,
-  isAllowedDocumentType,
-  isAllowedMediaType,
-  isDocumentContentType,
-} from "@/lib/transcription/media";
+import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 import { reindexProject, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
+import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
 import { getPrimarySourceForProject, getSourceRef } from "@/lib/transcription/projects";
 import type { SwSourceKind } from "@/lib/database.types";
 
@@ -163,48 +159,20 @@ export async function completeProjectUpload(input: {
 }): Promise<{ error?: string }> {
   await assertToolAccess("transcription");
 
-  const isDocument = isDocumentContentType(input.contentType);
-  if (!isDocument && !isAllowedMediaType(input.contentType)) {
-    return { error: "That file type isn't supported." };
-  }
-  if (isDocument && !isAllowedDocumentType(input.contentType)) {
-    return { error: "That file type isn't supported." };
-  }
-
   const supabase = await createClient();
   const ref = await getPrimarySourceForProject(supabase, input.projectId);
   if (!ref) return { error: "This project has no source to attach media to." };
-
-  const { error } = await supabase
-    .from("sw_sources")
-    .update({
-      original_storage_path: input.storagePath,
-      original_content_type: input.contentType,
-      original_size_bytes: input.sizeBytes,
-      original_duration_ms: isDocument ? null : input.durationMs,
-      status: "ready",
-      error_message: null,
-    })
-    .eq("id", ref.sourceId);
-
-  if (error) {
-    return { error: "The upload finished, but we couldn't save the project. Please try again." };
-  }
   if (!ref.representationId) {
     return { error: "This project has no representation to process yet." };
   }
 
-  if (isDocument) {
-    return startDocumentProcessing(supabase, {
-      representationId: ref.representationId,
-      sourceId: ref.sourceId,
-      storagePath: input.storagePath,
-    });
-  }
-
-  return startTranscriptionForProject(supabase, {
+  return finalizeSourceUpload(supabase, {
+    sourceId: ref.sourceId,
     representationId: ref.representationId,
+    contentType: input.contentType,
     storagePath: input.storagePath,
+    sizeBytes: input.sizeBytes,
+    durationMs: input.durationMs,
   });
 }
 

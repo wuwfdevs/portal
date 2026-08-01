@@ -110,6 +110,72 @@ export async function createProjectWithSource(
   return { projectId: project.id, sourceId: source.id };
 }
 
+export interface CreateSourceForExistingProjectInput {
+  projectId: string;
+  title: string;
+  interviewDate: string | null;
+  createdBy: string;
+  kind?: SwSourceKind;
+}
+
+export interface CreatedSource {
+  sourceId: string;
+}
+
+/**
+ * Creates a new source (and its primary representation) and attaches it to
+ * an already-existing project — the upload counterpart to "+ Reference
+ * another source", which only ever attaches a source that already exists.
+ * Same row shape as createProjectWithSource minus the tw_projects insert;
+ * left as a parallel function rather than sharing code with it, since the
+ * row order and rollback scope differ (that one also owns the tw_projects
+ * row) and the overlap is small. Rollback here is just `delete from
+ * sw_sources` — both sw_representations.source_id and
+ * sw_project_sources.source_id are `on delete cascade` from sw_sources (see
+ * 20260731120000_sourcework_sources_representations.sql), so one delete
+ * cleans up whatever was already inserted.
+ */
+export async function createSourceForExistingProject(
+  supabase: Client,
+  input: CreateSourceForExistingProjectInput,
+): Promise<CreatedSource | { error: string }> {
+  const kind = input.kind ?? "audio_video";
+
+  const { data: source, error: sourceError } = await supabase
+    .from("sw_sources")
+    .insert({
+      title: input.title,
+      kind,
+      interview_date: kind === "document" ? null : input.interviewDate,
+      created_by: input.createdBy,
+    })
+    .select("id")
+    .single();
+  if (sourceError || !source) {
+    return { error: sourceError?.message ?? "Could not create the source." };
+  }
+
+  const { error: representationError } = await supabase.from("sw_representations").insert({
+    source_id: source.id,
+    kind: kind === "document" ? "document_text" : "transcript",
+    status: "pending",
+  });
+  if (representationError) {
+    await supabase.from("sw_sources").delete().eq("id", source.id);
+    return { error: representationError.message };
+  }
+
+  const { error: linkError } = await supabase
+    .from("sw_project_sources")
+    .insert({ project_id: input.projectId, source_id: source.id, added_by: input.createdBy });
+  if (linkError) {
+    await supabase.from("sw_sources").delete().eq("id", source.id);
+    return { error: linkError.message };
+  }
+
+  return { sourceId: source.id };
+}
+
 /**
  * Starts transcription for a source whose media is already in Storage, and
  * updates the given transcript representation row accordingly. Callers
