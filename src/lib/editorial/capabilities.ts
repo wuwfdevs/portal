@@ -52,6 +52,45 @@ async function getMeeting(
 
 // --- Pitches ---------------------------------------------------------------
 
+export interface PitchFormFieldSummary {
+  key: string;
+  label: string;
+  helpText: string | null;
+  fieldType: string;
+  /** Exact allowed values for select/multi_select fields (e.g. pillar, format, urgency); null otherwise. */
+  options: string[] | null;
+  required: boolean;
+}
+
+// Exists so a caller building a pitch submission (the in-portal agent, an
+// external MCP client) can look up the form's real fields and option labels
+// instead of guessing — primary_pillar's options in particular are
+// admin-configured (Settings -> Pillars) and have no fixed vocabulary. See
+// listPitchFormFields's own comment: it's the same live-merged field list
+// the submission form itself renders and validatePitchValues checks against.
+export const getPitchFormFields = defineCapability({
+  id: "editorial.pitchForm.get",
+  summary:
+    "Get the pitch submission form's current fields and, for select/multi-select fields (pillar, format, urgency, etc.), the exact allowed option labels. Call this before editorial.pitch.save so submitted values match what the form actually accepts.",
+  input: z.object({}),
+  requires: { tool: "editorial-planning", role: "contributor" },
+  confirmation: "none",
+  async handler(): Promise<{ fields: PitchFormFieldSummary[] }> {
+    await assertEditorialRole("contributor");
+    const fields = await listPitchFormFields();
+    return {
+      fields: fields.map((field) => ({
+        key: field.key,
+        label: field.label,
+        helpText: field.help_text,
+        fieldType: field.field_type,
+        options: field.options,
+        required: field.required,
+      })),
+    };
+  },
+});
+
 export type SavePitchResult =
   | { ok: true; pitchId: string }
   | { ok: false; kind: "invalid"; fieldErrors: Record<string, string> }

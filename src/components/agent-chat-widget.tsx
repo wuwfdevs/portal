@@ -260,7 +260,7 @@ export function AgentChatWidget() {
               }
               disabled={loading || Boolean(pending)}
               rows={2}
-              className="resize-none text-sm"
+              className="resize-none"
             />
             <div className="mt-2 flex justify-end">
               <Button

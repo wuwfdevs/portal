@@ -121,7 +121,8 @@ export function validatePitchValues(
         continue;
       }
       if (selected.some((option) => !(field.options ?? []).includes(option))) {
-        errors[field.key] = `${field.label} has an unrecognized option.`;
+        errors[field.key] =
+          `${field.label} has an unrecognized option. Allowed: ${(field.options ?? []).join(", ")}.`;
         continue;
       }
       values.push({ fieldId: field.id, value: selected });
@@ -140,7 +141,8 @@ export function validatePitchValues(
     }
 
     if (field.field_type === "select" && !(field.options ?? []).includes(text)) {
-      errors[field.key] = `${field.label} has an unrecognized option.`;
+      errors[field.key] =
+        `${field.label} has an unrecognized option. Allowed: ${(field.options ?? []).join(", ")}.`;
       continue;
     }
     if (field.field_type === "url" && !URL_PATTERN.test(text)) {
