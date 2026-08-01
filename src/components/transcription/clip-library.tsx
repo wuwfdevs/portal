@@ -57,46 +57,53 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
         <p className="text-sm text-ink-500">No excerpts match &ldquo;{query}&rdquo;.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {filtered.map((clip) => (
-            <li key={clip.id} className="rounded border border-line bg-white p-4">
-              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                <Link
-                  href={`/sourcework/${clip.projectId}?source=${clip.sourceId}&t=${clip.startMs}&clip=${clip.id}`}
-                  className="font-semibold text-brand-link"
-                >
-                  {clip.title}
-                </Link>
-                <span className="text-xs text-ink-400">
-                  {formatDuration(clip.endMs - clip.startMs)}
-                  {clip.hasExport && " · exported"}
-                </span>
-              </div>
+          {filtered.map((clip) => {
+            const isDocument = clip.locatorKind === "document";
+            const openParams = isDocument
+              ? `page=${clip.pageNumber ?? 1}`
+              : `t=${clip.startMs}&clip=${clip.id}`;
+            return (
+              <li key={clip.id} className="rounded border border-line bg-white p-4">
+                <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                  <Link
+                    href={`/sourcework/${clip.projectId}?source=${clip.sourceId}&${openParams}`}
+                    className="font-semibold text-brand-link"
+                  >
+                    {clip.title}
+                  </Link>
+                  <span className="text-xs text-ink-400">
+                    {isDocument
+                      ? clip.pageNumber && `p. ${clip.pageNumber}`
+                      : formatDuration(clip.endMs! - clip.startMs!)}
+                    {clip.hasExport && " · exported"}
+                  </span>
+                </div>
 
-              {clip.excerpt && (
-                <p className="mb-2 line-clamp-2 text-sm text-ink-700">{clip.excerpt}</p>
-              )}
+                {clip.excerpt && (
+                  <p className="mb-2 line-clamp-2 text-sm text-ink-700">{clip.excerpt}</p>
+                )}
 
-              <p className="text-xs text-ink-500">
-                <Link href={`/sourcework/${clip.projectId}?source=${clip.sourceId}`} className="text-brand-link">
-                  {clip.projectTitle}
-                </Link>
-                {" · "}
-                {formatDuration(clip.startMs)}
-                {clip.interviewDate &&
-                  ` · ${new Date(clip.interviewDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}`}
-              </p>
-
-              {clip.projectDescription && (
-                <p className="mt-1.5 line-clamp-2 text-xs italic text-ink-400">
-                  {clip.projectDescription}
+                <p className="text-xs text-ink-500">
+                  <Link href={`/sourcework/${clip.projectId}?source=${clip.sourceId}`} className="text-brand-link">
+                    {clip.projectTitle}
+                  </Link>
+                  {!isDocument && ` · ${formatDuration(clip.startMs!)}`}
+                  {clip.interviewDate &&
+                    ` · ${new Date(clip.interviewDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}`}
                 </p>
-              )}
-            </li>
-          ))}
+
+                {clip.projectDescription && (
+                  <p className="mt-1.5 line-clamp-2 text-xs italic text-ink-400">
+                    {clip.projectDescription}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

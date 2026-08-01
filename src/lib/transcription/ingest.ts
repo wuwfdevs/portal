@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { getSiteUrl } from "@/lib/site-url";
+import type { SwSourceKind } from "@/lib/database.types";
 
 /**
  * Creating a project and kicking its source media into the ASR pipeline.
@@ -37,6 +38,8 @@ export interface CreateProjectWithSourceInput {
   description: string | null;
   interviewDate: string | null;
   createdBy: string;
+  /** 'audio_video' (default) or 'document' — see docs/sourcework-design.md §8.2. Determines which representation kind gets created below. */
+  kind?: SwSourceKind;
 }
 
 export interface CreatedProjectSource {
@@ -45,7 +48,7 @@ export interface CreatedProjectSource {
 }
 
 /**
- * Creates the project, its source, and the (nullable-until-ready) transcript
+ * Creates the project, its source, and the (nullable-until-ready) primary
  * representation together — the three rows Sourcework split the old
  * tw_projects 1:1 model into. Best-effort cleanup on a partial failure: there
  * is no cross-table transaction available here, so a later insert failing
@@ -55,6 +58,8 @@ export async function createProjectWithSource(
   supabase: Client,
   input: CreateProjectWithSourceInput,
 ): Promise<CreatedProjectSource | { error: string }> {
+  const kind = input.kind ?? "audio_video";
+
   const { data: project, error: projectError } = await supabase
     .from("tw_projects")
     .insert({ title: input.title, description: input.description, created_by: input.createdBy })
@@ -68,7 +73,11 @@ export async function createProjectWithSource(
     .from("sw_sources")
     .insert({
       title: input.title,
-      interview_date: input.interviewDate,
+      kind,
+      // interview_date doesn't apply to a document source (§8.2) — the
+      // upload form never sends one for a PDF, but this stays defensive
+      // rather than trusting the client to omit it.
+      interview_date: kind === "document" ? null : input.interviewDate,
       created_by: input.createdBy,
     })
     .select("id")
@@ -87,9 +96,11 @@ export async function createProjectWithSource(
     return { error: linkError.message };
   }
 
-  const { error: representationError } = await supabase
-    .from("sw_representations")
-    .insert({ source_id: source.id, kind: "transcript", status: "pending" });
+  const { error: representationError } = await supabase.from("sw_representations").insert({
+    source_id: source.id,
+    kind: kind === "document" ? "document_text" : "transcript",
+    status: "pending",
+  });
   if (representationError) {
     await supabase.from("sw_sources").delete().eq("id", source.id);
     await supabase.from("tw_projects").delete().eq("id", project.id);

@@ -3,32 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { parseWords } from "@/lib/transcription/transcript";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
-import type { Database } from "@/lib/database.types";
+import type { Database, SwSourceKind } from "@/lib/database.types";
+import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
 export type SwSource = Database["public"]["Tables"]["sw_sources"]["Row"];
 export type SwRepresentation = Database["public"]["Tables"]["sw_representations"]["Row"];
 
-/** The same four states tw_projects.status used to carry, now derived from a source + its transcript representation. */
-export type ProjectStatus = "uploading" | "processing" | "ready" | "failed";
-
-/**
- * Collapses a source's upload status and its transcript representation's
- * status into the one status the workspace UI has always shown. A project
- * can (eventually) reference more than one source, but every screen that
- * shows a single status is still looking at one source's worth of work —
- * see docs/sourcework-design.md.
- */
-export function computeProjectStatus(
-  source: Pick<SwSource, "status"> | null,
-  transcript: Pick<SwRepresentation, "status"> | null,
-): ProjectStatus {
-  if (!source || source.status === "uploading") return "uploading";
-  if (source.status === "failed") return "failed";
-  if (!transcript || transcript.status === "pending") return "processing";
-  if (transcript.status === "processing") return "processing";
-  return transcript.status; // 'ready' | 'failed'
-}
+// computeProjectStatus/processingLabel/ProjectStatus live in ./status (pure,
+// no "server-only") so client components can import them without pulling in
+// this module's server-only data access — see that file's header comment.
+// Re-exported here so every existing server-side import of these three from
+// "@/lib/transcription/projects" keeps working unchanged.
+export { computeProjectStatus, processingLabel, type ProjectStatus } from "@/lib/transcription/status";
 
 export interface ProjectSourceRef {
   sourceId: string;
@@ -92,16 +79,20 @@ export async function listSourcesForProject(
     ) ?? [];
   const sourceById = new Map(sources.map((source) => [source.id, source]));
 
-  const transcripts =
+  // A source's *primary* representation — its transcript if audio/video,
+  // its document_text extraction if a document (docs/sourcework-design.md
+  // §8.9). A source only ever has one of these today; Phase 6+ chains
+  // (translation, etc.) are a later representation, not this one.
+  const representations =
     unwrapRead(
       await supabase
         .from("sw_representations")
         .select("*")
         .in("source_id", sourceIds)
-        .eq("kind", "transcript"),
+        .in("kind", ["transcript", "document_text"]),
       "this project's transcripts",
     ) ?? [];
-  const transcriptBySourceId = new Map(transcripts.map((t) => [t.source_id, t]));
+  const transcriptBySourceId = new Map(representations.map((r) => [r.source_id, r]));
 
   const summaries: ProjectSourceSummary[] = [];
   for (const link of links) {
@@ -140,7 +131,7 @@ export async function getPrimarySourceForProject(
   return getSourceRef(supabase, link.source_id);
 }
 
-/** Resolves a specific source's transcript representation — the explicit-id counterpart to getPrimarySourceForProject, for call sites (like retrying a non-primary source) that already know which source they mean. */
+/** Resolves a specific source's primary representation (transcript, or document_text — see docs/sourcework-design.md §8.9) — the explicit-id counterpart to getPrimarySourceForProject, for call sites (like retrying a non-primary source) that already know which source they mean. */
 export async function getSourceRef(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
@@ -149,7 +140,7 @@ export async function getSourceRef(
     .from("sw_representations")
     .select("id")
     .eq("source_id", sourceId)
-    .eq("kind", "transcript")
+    .in("kind", ["transcript", "document_text"])
     .maybeSingle();
 
   return { sourceId, representationId: representation?.id ?? null };
@@ -172,9 +163,12 @@ export interface ProjectListRow {
   title: string;
   description: string | null;
   createdAt: string;
+  /** The primary source's kind — audio/video card fields vs. document ones (page count, not duration) key off this. */
+  sourceKind: SwSourceKind | null;
   interviewDate: string | null;
   durationMs: number | null;
   sizeBytes: number | null;
+  pageCount: number | null;
   status: ProjectStatus;
 }
 
@@ -250,7 +244,7 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       : (unwrapRead(
           await supabase
             .from("sw_sources")
-            .select("id, interview_date, status, original_size_bytes, original_duration_ms")
+            .select("id, kind, interview_date, status, original_size_bytes, original_duration_ms, page_count")
             .in("id", sourceIds),
           "the project list's sources",
         ) ?? []);
@@ -264,7 +258,7 @@ export async function listProjects(): Promise<ProjectListRow[]> {
             .from("sw_representations")
             .select("id, source_id, status")
             .in("source_id", sourceIds)
-            .eq("kind", "transcript"),
+            .in("kind", ["transcript", "document_text"]),
           "the project list's transcripts",
         ) ?? []);
   const transcriptBySourceId = new Map(transcripts.map((t) => [t.source_id, t]));
@@ -278,9 +272,11 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       title: project.title,
       description: project.description,
       createdAt: project.created_at,
+      sourceKind: source?.kind ?? null,
       interviewDate: source?.interview_date ?? null,
       durationMs: source?.original_duration_ms ?? null,
       sizeBytes: source?.original_size_bytes ?? null,
+      pageCount: source?.page_count ?? null,
       status: computeProjectStatus(source, transcript),
     };
   });
@@ -350,6 +346,7 @@ export interface SourceLibraryRow {
   createdAt: string;
   interviewDate: string | null;
   durationMs: number | null;
+  pageCount: number | null;
   status: ProjectStatus;
   /** How many projects reference this source — see sw_project_sources. */
   projectCount: number;
@@ -368,7 +365,7 @@ export async function listSources(): Promise<SourceLibraryRow[]> {
     unwrapRead(
       await supabase
         .from("sw_sources")
-        .select("id, kind, title, interview_date, status, original_duration_ms, created_at")
+        .select("id, kind, title, interview_date, status, original_duration_ms, page_count, created_at")
         .order("created_at", { ascending: false }),
       "the source library",
     ) ?? [];
@@ -380,7 +377,7 @@ export async function listSources(): Promise<SourceLibraryRow[]> {
       .from("sw_representations")
       .select("source_id, status")
       .in("source_id", sourceIds)
-      .eq("kind", "transcript"),
+      .in("kind", ["transcript", "document_text"]),
     supabase.from("sw_project_sources").select("source_id").in("source_id", sourceIds),
   ]);
   const transcripts = unwrapRead(transcriptResult, "the source library's transcripts") ?? [];
@@ -404,6 +401,7 @@ export async function listSources(): Promise<SourceLibraryRow[]> {
       createdAt: source.created_at,
       interviewDate: source.interview_date,
       durationMs: source.original_duration_ms,
+      pageCount: source.page_count,
       status: computeProjectStatus(
         { status: source.status },
         transcriptStatus ? { status: transcriptStatus } : null,
@@ -423,10 +421,11 @@ export interface SourceDetail {
   errorMessage: string | null;
   durationMs: number | null;
   sizeBytes: number | null;
+  pageCount: number | null;
   createdAt: string;
   originalStoragePath: string | null;
   originalContentType: string | null;
-  /** This source's transcript representation, if transcription has started — the workspace's media/transcript pane keys off its id and status. */
+  /** This source's primary representation (transcript, or document_text), if processing has started — the workspace pane keys off its id and status. */
   transcript: SwRepresentation | null;
   /** Every project that references this source. */
   projects: { id: string; title: string }[];
@@ -453,7 +452,7 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
         .from("sw_representations")
         .select("*")
         .eq("source_id", sourceId)
-        .eq("kind", "transcript")
+        .in("kind", ["transcript", "document_text"])
         .maybeSingle(),
       "this source's transcript",
     ) ?? null;
@@ -481,6 +480,7 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
     errorMessage: source.error_message,
     durationMs: source.original_duration_ms,
     sizeBytes: source.original_size_bytes,
+    pageCount: source.page_count,
     createdAt: source.created_at,
     originalStoragePath: source.original_storage_path,
     originalContentType: source.original_content_type,

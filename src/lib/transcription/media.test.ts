@@ -7,7 +7,9 @@ import {
   extensionForContentType,
   formatBytes,
   formatDuration,
+  isAllowedDocumentType,
   isAllowedMediaType,
+  isDocumentContentType,
   isVideoContentType,
   slugify,
   sourceObjectPath,
@@ -23,12 +25,27 @@ describe("isAllowedMediaType", () => {
     expect(isAllowedMediaType("application/octet-stream")).toBe(false);
     expect(isAllowedMediaType("video/x-msvideo")).toBe(false);
   });
+
+  it("rejects PDF — that's a document upload, not a media one", () => {
+    expect(isAllowedMediaType("application/pdf")).toBe(false);
+  });
+});
+
+describe("isAllowedDocumentType", () => {
+  it("accepts PDF", () => {
+    expect(isAllowedDocumentType("application/pdf")).toBe(true);
+  });
+
+  it("rejects audio/video types — that's a media upload, not a document one", () => {
+    expect(isAllowedDocumentType("audio/wav")).toBe(false);
+  });
 });
 
 describe("extensionForContentType", () => {
   it("maps known content types to their extension", () => {
     expect(extensionForContentType("audio/mpeg")).toBe("mp3");
     expect(extensionForContentType("video/quicktime")).toBe("mov");
+    expect(extensionForContentType("application/pdf")).toBe("pdf");
   });
 
   it("falls back to a generic extension for unknown types", () => {
@@ -40,6 +57,13 @@ describe("isVideoContentType", () => {
   it("distinguishes video from audio content types", () => {
     expect(isVideoContentType("video/mp4")).toBe(true);
     expect(isVideoContentType("audio/wav")).toBe(false);
+  });
+});
+
+describe("isDocumentContentType", () => {
+  it("recognizes PDF and nothing else", () => {
+    expect(isDocumentContentType("application/pdf")).toBe(true);
+    expect(isDocumentContentType("audio/wav")).toBe(false);
   });
 });
 

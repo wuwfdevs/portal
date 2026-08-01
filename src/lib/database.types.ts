@@ -4,14 +4,26 @@
 // 2026-07-31 for the Sourcework migrations (sw_sources/sw_representations/
 // sw_project_sources/sw_source_excerpts, tw_projects shrunk, tw_segments/
 // tw_speakers/tw_chunks rekeyed to representation_id) — no local instance was
-// running to regenerate against. Kept hand-written rather than
-// swapped for the generator's raw output on purpose: the generator emits a
-// differently-shaped module (generic Tables<>/TablesInsert<>/Enums<>
-// helpers, no named exports) that every existing import of PlatformRole,
-// ToolStatus, EpFieldType, etc. across both tools would break against.
-// Re-run `npm run db:types` to re-verify after a schema change, but
-// reconcile its output into this file's existing shape rather than
-// replacing it outright.
+// running to regenerate against. Verified again on 2026-08-01 for Sourcework
+// Phase 3b (sw_document_pages/sw_document_blocks/
+// sw_document_processing_runs/sw_excerpt_document_locations, sw_sources.
+// page_count, sw_source_excerpts.locator_kind + nullable start_ms/end_ms,
+// tw_chunks.page_start/page_end/anchor_block_id, tw_search()'s page_number
+// column, new sw_source_kind/sw_representation_kind enum values, new
+// sw_document_block_type enum) — this time against the Supabase MCP
+// server's `generate_typescript_types` output for the live preview project,
+// field-by-field diffed; every field matched (the one deliberate
+// improvement over the generator's raw output is nullability on
+// `returns table` RPC columns like tw_search's, which the generator doesn't
+// express but this file states explicitly — see docs/sourcework-design.md
+// §8.8). Kept hand-written rather than swapped for the generator's raw
+// output on purpose: the generator emits a differently-shaped module
+// (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
+// every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
+// across both tools would break against. Re-run `npm run db:types` (or the
+// Supabase MCP server's `generate_typescript_types`, as this pass did) to
+// re-verify after a schema change, but reconcile its output into this
+// file's existing shape rather than replacing it outright.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -19,12 +31,37 @@ export type ToolStatus = "available" | "in_development" | "planned";
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type ToolDefaultAccess = "invite_only" | "approved_staff" | "open";
 
-// Sourcework (sw_*) — see supabase/migrations/20260731120000_sourcework_sources_representations.sql
-// and 20260731130000_sourcework_source_excerpts.sql.
-export type SwSourceKind = "audio_video";
+// Sourcework (sw_*) — see supabase/migrations/20260731120000_sourcework_sources_representations.sql,
+// 20260731130000_sourcework_source_excerpts.sql, and 20260731180000_sourcework_documents.sql.
+export type SwSourceKind = "audio_video" | "document";
 export type SwSourceStatus = "uploading" | "ready" | "failed";
-export type SwRepresentationKind = "transcript" | "ocr_text" | "translated_text";
+// 'ocr_text'/'translated_text' are unused placeholder values from Phase 1 — no
+// code path reads or writes them. 'document_text' is the kind Phase 3b
+// actually uses, for both native-extraction and OCR-produced text — see
+// docs/sourcework-design.md §8.3 on why it isn't 'ocr_text'.
+export type SwRepresentationKind = "transcript" | "ocr_text" | "translated_text" | "document_text";
 export type SwRepresentationStatus = "pending" | "processing" | "ready" | "failed";
+export type SwDocumentBlockType =
+  | "heading"
+  | "paragraph"
+  | "list_item"
+  | "table"
+  | "table_cell"
+  | "figure"
+  | "caption"
+  | "header"
+  | "footer"
+  | "other";
+/** A block's stored location, fractional (0..1) of page width/height — resolution-independent. */
+export interface SwDocumentBlockBbox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+export type SwExcerptLocatorKind = "temporal" | "document";
+export type SwDocumentProcessingMethod = "native" | "ocr";
+export type SwDocumentProcessingRunStatus = "processing" | "ready" | "failed";
 
 // Editorial Planning (ep_*) — see supabase/migrations/20260722130000_editorial_planning.sql
 // and supabase/migrations/20260730130000_editorial_strategic_refinement.sql.
@@ -254,6 +291,8 @@ export interface Database {
           original_content_type: string | null;
           original_size_bytes: number | null;
           original_duration_ms: number | null;
+          /** Paginated sources only (documents today). Null for audio/video — see docs/sourcework-design.md §8.2. */
+          page_count: number | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -347,8 +386,10 @@ export interface Database {
           source_id: string;
           representation_id: string | null;
           title: string;
-          start_ms: number;
-          end_ms: number;
+          /** 'temporal' (start_ms/end_ms) or 'document' (sw_excerpt_document_locations) — see docs/sourcework-design.md §8.7. */
+          locator_kind: SwExcerptLocatorKind;
+          start_ms: number | null;
+          end_ms: number | null;
           excerpt_text: string;
           /** Generated column (title + excerpt_text) — read-only. */
           search: string;
@@ -364,8 +405,6 @@ export interface Database {
         Insert: Partial<Database["public"]["Tables"]["sw_source_excerpts"]["Row"]> & {
           source_id: string;
           title: string;
-          start_ms: number;
-          end_ms: number;
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["sw_source_excerpts"]["Row"]>;
@@ -375,8 +414,12 @@ export interface Database {
         Row: {
           id: string;
           representation_id: string;
-          start_ms: number;
-          end_ms: number;
+          start_ms: number | null;
+          end_ms: number | null;
+          /** Document chunks only — see docs/sourcework-design.md §8.8. */
+          page_start: number | null;
+          page_end: number | null;
+          anchor_block_id: string | null;
           text: string;
           /** pgvector column; written as a "[0.1,...]" literal, never read back into JS. */
           embedding: string | null;
@@ -388,11 +431,96 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["tw_chunks"]["Row"]> & {
           representation_id: string;
-          start_ms: number;
-          end_ms: number;
           text: string;
         };
         Update: Partial<Database["public"]["Tables"]["tw_chunks"]["Row"]>;
+        Relationships: [];
+      };
+      sw_document_pages: {
+        Row: {
+          id: string;
+          representation_id: string;
+          page_number: number;
+          width_pt: number | null;
+          height_pt: number | null;
+          rotation_degrees: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_document_pages"]["Row"]> & {
+          representation_id: string;
+          page_number: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_document_pages"]["Row"]>;
+        Relationships: [];
+      };
+      sw_document_blocks: {
+        Row: {
+          id: string;
+          representation_id: string;
+          page_id: string;
+          page_number: number;
+          reading_order: number;
+          block_type: SwDocumentBlockType;
+          text: string;
+          /** Fractional {x0,y0,x1,y1} of page width/height, or null — see docs/sourcework-design.md §8.4. */
+          bbox: SwDocumentBlockBbox | null;
+          /** OCR only (0..1); null for native extraction. */
+          confidence: number | null;
+          source: "native" | "ocr";
+          extra: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_document_blocks"]["Row"]> & {
+          representation_id: string;
+          page_id: string;
+          page_number: number;
+          reading_order: number;
+          source: "native" | "ocr";
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_document_blocks"]["Row"]>;
+        Relationships: [];
+      };
+      sw_document_processing_runs: {
+        Row: {
+          id: string;
+          representation_id: string;
+          attempt: number;
+          method: SwDocumentProcessingMethod;
+          provider: string | null;
+          provider_model: string | null;
+          options: Record<string, unknown>;
+          status: SwDocumentProcessingRunStatus;
+          error_message: string | null;
+          /** Provider's raw payload (OCR only) — diagnostics, never the primary read path. */
+          raw_response: unknown;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_document_processing_runs"]["Row"]> & {
+          representation_id: string;
+          attempt: number;
+          method: SwDocumentProcessingMethod;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_document_processing_runs"]["Row"]>;
+        Relationships: [];
+      };
+      sw_excerpt_document_locations: {
+        Row: {
+          id: string;
+          excerpt_id: string;
+          sequence: number;
+          page_number: number;
+          block_id: string | null;
+          start_offset: number | null;
+          end_offset: number | null;
+          bbox: SwDocumentBlockBbox | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_excerpt_document_locations"]["Row"]> & {
+          excerpt_id: string;
+          sequence: number;
+          page_number: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_excerpt_document_locations"]["Row"]>;
         Relationships: [];
       };
       ep_form_fields: {
@@ -969,6 +1097,8 @@ export interface Database {
           interview_date: string | null;
           start_ms: number | null;
           end_ms: number | null;
+          /** Document hits only (chunk or excerpt) — see docs/sourcework-design.md §8.8. */
+          page_number: number | null;
           title: string | null;
           snippet: string;
           speaker_label: string | null;
@@ -985,6 +1115,7 @@ export interface Database {
       sw_source_status: SwSourceStatus;
       sw_representation_kind: SwRepresentationKind;
       sw_representation_status: SwRepresentationStatus;
+      sw_document_block_type: SwDocumentBlockType;
       ri_session_status: RiSessionStatus;
       ri_participant_role: RiParticipantRole;
       ri_track_source: RiTrackSource;

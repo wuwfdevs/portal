@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getProjectById, getTranscriptForRepresentation } from "@/lib/transcription/projects";
+import { getProjectById, getTranscriptForRepresentation, processingLabel } from "@/lib/transcription/projects";
 import { listExcerptsForSource } from "@/lib/transcription/clips";
+import { listDocumentExcerptsForSource } from "@/lib/transcription/document-excerpts";
+import { getDocumentContentForRepresentation } from "@/lib/transcription/document-content";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
 import { Badge } from "@/components/ui/badge";
@@ -10,24 +12,31 @@ import { Button } from "@/components/ui/button";
 import { retryTranscription } from "../actions";
 import { DeleteProjectButton } from "../delete-project-button";
 import { TranscriptWorkspace } from "./transcript-workspace";
+import { DocumentWorkspace } from "./document-workspace";
 import { ProcessingPoller } from "./processing-poller";
 import { ProjectDetails } from "./project-details";
 import { ReindexButton } from "./reindex-button";
 import { SourcePillRow } from "./source-pill-row";
+
+// See new/page.tsx's comment on why this lives on the page rather than in
+// actions.ts, and docs/sourcework-design.md §8.6 on why it's needed at all:
+// the retry action here can kick off a Mistral OCR call via after().
+export const maxDuration = 300;
 
 export default async function TranscriptionProjectPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ t?: string; clip?: string; source?: string }>;
+  searchParams: Promise<{ t?: string; clip?: string; source?: string; page?: string }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { t, clip, source: sourceParam } = await searchParams;
+  const { t, clip, source: sourceParam, page } = await searchParams;
   // ?t= arrives from a search result or a clip in the library; anything that
   // isn't a plain number is ignored rather than trusted into a seek.
   const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
+  const initialPage = page !== undefined && /^\d+$/.test(page) ? Number(page) : null;
   const project = await getProjectById(id);
   if (!project) notFound();
 
@@ -41,16 +50,23 @@ export default async function TranscriptionProjectPage({
   const transcriptRepresentation = activeSourceSummary?.transcript ?? null;
   const activeStatus = activeSourceSummary?.status ?? "uploading";
   const hasMedia = Boolean(source?.original_storage_path);
+  const isDocument = source?.kind === "document";
 
-  const [signedUrl, transcript, clips] = await Promise.all([
+  const [signedUrl, transcript, clips, documentContent, documentExcerpts] = await Promise.all([
     activeStatus === "ready" && source?.original_storage_path
       ? getSignedMediaUrl(source.original_storage_path)
       : Promise.resolve(null),
-    activeStatus === "ready" && transcriptRepresentation
+    !isDocument && activeStatus === "ready" && transcriptRepresentation
       ? getTranscriptForRepresentation(transcriptRepresentation.id)
       : Promise.resolve({ segments: [], speakers: [] }),
-    activeStatus === "ready" && activeSourceSummary
+    !isDocument && activeStatus === "ready" && activeSourceSummary
       ? listExcerptsForSource(activeSourceSummary.sourceId)
+      : Promise.resolve([]),
+    isDocument && activeStatus === "ready" && transcriptRepresentation
+      ? getDocumentContentForRepresentation(transcriptRepresentation.id)
+      : Promise.resolve({ pages: [], blocks: [] }),
+    isDocument && activeStatus === "ready" && activeSourceSummary
+      ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
       : Promise.resolve([]),
   ]);
 
@@ -80,7 +96,7 @@ export default async function TranscriptionProjectPage({
             interviewDate={source?.interview_date ?? null}
           />
         </div>
-        <StatusBadge status={project.status} />
+        <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
       </div>
 
       {project.sources.length > 0 && (
@@ -91,7 +107,44 @@ export default async function TranscriptionProjectPage({
         />
       )}
 
-      {activeStatus === "ready" && (
+      {activeStatus === "ready" && isDocument && (
+        <div className="rounded border border-line bg-white p-5">
+          {signedUrl && activeSourceSummary ? (
+            <DocumentWorkspace
+              sourceId={activeSourceSummary.sourceId}
+              representationId={transcriptRepresentation?.id ?? null}
+              fileUrl={signedUrl}
+              pages={documentContent.pages}
+              blocks={documentContent.blocks}
+              excerpts={documentExcerpts}
+              initialPage={initialPage}
+            />
+          ) : (
+            <p className="text-sm text-ink-500">
+              Couldn&apos;t load the document right now. Reload the page to try again.
+            </p>
+          )}
+          {source?.page_count && (
+            <dl className="mt-4 flex gap-6 text-xs text-ink-500">
+              <div>
+                <dt className="font-semibold text-ink-700">Pages</dt>
+                <dd>{source.page_count}</dd>
+              </div>
+              {source.original_size_bytes && (
+                <div>
+                  <dt className="font-semibold text-ink-700">File size</dt>
+                  <dd>{formatBytes(source.original_size_bytes)}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            {canDelete && <DeleteProjectButton projectId={project.id} />}
+          </div>
+        </div>
+      )}
+
+      {activeStatus === "ready" && !isDocument && (
         <div className="rounded border border-line bg-white p-5">
           {signedUrl && activeSourceSummary ? (
             <TranscriptWorkspace
@@ -137,8 +190,8 @@ export default async function TranscriptionProjectPage({
 
       {activeStatus === "uploading" && (
         <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
-          This project doesn&apos;t have any media yet — either an upload is still running in
-          another tab, or it was interrupted.
+          This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
+          upload is still running in another tab, or it was interrupted.
           {canDelete && (
             <DeleteProjectButton
               projectId={project.id}
@@ -150,8 +203,9 @@ export default async function TranscriptionProjectPage({
 
       {activeStatus === "processing" && (
         <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-          Transcribing — this can take a few minutes for a long recording. This page will show the
-          transcript as soon as it&apos;s ready; you can also leave and come back.
+          {processingLabel(source?.kind ?? "audio_video")} — this can take a few minutes for a{" "}
+          {isDocument ? "large document" : "long recording"}. This page will show the result as
+          soon as it&apos;s ready; you can also leave and come back.
           <ProcessingPoller />
         </div>
       )}
@@ -179,11 +233,17 @@ export default async function TranscriptionProjectPage({
   );
 }
 
-function StatusBadge({ status }: { status: "uploading" | "processing" | "ready" | "failed" }) {
+function StatusBadge({
+  status,
+  kind,
+}: {
+  status: "uploading" | "processing" | "ready" | "failed";
+  kind: "audio_video" | "document";
+}) {
   const map = {
     ready: { label: "Ready", variant: "accent" as const },
     uploading: { label: "Uploading", variant: "neutral" as const },
-    processing: { label: "Transcribing", variant: "neutral" as const },
+    processing: { label: processingLabel(kind), variant: "neutral" as const },
     failed: { label: "Failed", variant: "danger" as const },
   };
   const { label, variant } = map[status];
@@ -196,7 +256,7 @@ function RetryForm({ projectId, sourceId }: { projectId: string; sourceId: strin
       <input type="hidden" name="project_id" value={projectId} />
       {sourceId && <input type="hidden" name="source_id" value={sourceId} />}
       <Button type="submit" variant="secondary">
-        Retry transcription
+        Retry
       </Button>
     </form>
   );

@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
+import type { SwSourceKind } from "@/lib/database.types";
 import { listAttachableSources, attachSourceToProject, type AttachableSource } from "./source-actions";
+
+const KIND_LABEL: Record<SwSourceKind, string> = {
+  audio_video: "Audio",
+  document: "PDF",
+};
 
 /**
  * Search/select picker for "+ Reference another source". No confirmation
@@ -101,7 +107,12 @@ export function AttachSourceModal({
                   className="flex items-center justify-between gap-3 rounded border border-line px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink-900">{source.title}</p>
+                    <p className="truncate text-sm font-semibold text-ink-900">
+                      <span className="mr-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-400">
+                        {KIND_LABEL[source.kind]}
+                      </span>
+                      {source.title}
+                    </p>
                     <p className="text-xs text-ink-500">
                       {source.interviewDate &&
                         new Date(source.interviewDate).toLocaleDateString("en-US", {
@@ -109,7 +120,13 @@ export function AttachSourceModal({
                           day: "numeric",
                           year: "numeric",
                         })}
-                      {source.durationMs ? ` · ${formatDuration(source.durationMs)}` : ""}
+                      {source.kind === "document"
+                        ? source.pageCount
+                          ? ` · ${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
+                          : ""
+                        : source.durationMs
+                          ? ` · ${formatDuration(source.durationMs)}`
+                          : ""}
                     </p>
                   </div>
                   <Button

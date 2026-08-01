@@ -61,6 +61,8 @@ repo and a project's history, not the version number.
 | `20260731150000_sourcework_route_rename.sql`                | 2026-07-31 | 2026-07-31 |
 | `20260731160000_mcp_server_audit_rls.sql`                   | 2026-07-31 | 2026-07-31 |
 | `20260731170000_tw_search_source_id.sql`                     | 2026-07-31 | 2026-07-31 |
+| `20260731180000_sourcework_documents.sql`                    | 2026-08-01 | 2026-08-01 |
+| `20260731181000_sourcework_documents_search.sql`             | 2026-08-01 | 2026-08-01 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

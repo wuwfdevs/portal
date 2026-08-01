@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
 import {
   TRANSCRIPTION_MEDIA_BUCKET,
+  isAllowedDocumentType,
   isAllowedMediaType,
+  isDocumentContentType,
   isVideoContentType,
   sourceObjectPath,
 } from "@/lib/transcription/media";
@@ -47,6 +49,7 @@ export function NewProjectForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [selectedIsDocument, setSelectedIsDocument] = useState(false);
   const isPending = stage !== "idle";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -60,16 +63,26 @@ export function NewProjectForm() {
     const file = fileInputRef.current?.files?.[0];
 
     if (!file) {
-      setError("Choose an audio or video file to upload.");
+      setError("Choose an audio/video file or a PDF to upload.");
       return;
     }
-    if (!isAllowedMediaType(file.type)) {
-      setError("That file type isn't supported. Use WAV, MP3, M4A/AAC, MP4, MOV, or WebM.");
+    const isDocument = isDocumentContentType(file.type);
+    if (!isDocument && !isAllowedMediaType(file.type)) {
+      setError("That file type isn't supported. Use WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.");
+      return;
+    }
+    if (isDocument && !isAllowedDocumentType(file.type)) {
+      setError("That file type isn't supported.");
       return;
     }
 
     setStage("creating");
-    const created = await createProject({ title, description, interviewDate });
+    const created = await createProject({
+      title,
+      description,
+      interviewDate: isDocument ? "" : interviewDate,
+      kind: isDocument ? "document" : "audio_video",
+    });
     if ("error" in created) {
       setError(created.error);
       setStage("idle");
@@ -78,7 +91,7 @@ export function NewProjectForm() {
     const projectId = created.id;
 
     setStage("uploading");
-    const durationMs = await probeDurationMs(file);
+    const durationMs = isDocument ? null : await probeDurationMs(file);
     const storagePath = sourceObjectPath(created.sourceId, file.type);
     const supabase = createClient();
     const { error: uploadError } = await supabase.storage
@@ -117,34 +130,43 @@ export function NewProjectForm() {
           disabled={isPending}
         />
       </div>
-      <div>
-        <Label htmlFor="interview_date">Interview date</Label>
-        <Input id="interview_date" name="interview_date" type="date" disabled={isPending} />
-        <FieldHint>Optional — defaults to today if left blank.</FieldHint>
-      </div>
+      {!selectedIsDocument && (
+        <div>
+          <Label htmlFor="interview_date">Interview date</Label>
+          <Input id="interview_date" name="interview_date" type="date" disabled={isPending} />
+          <FieldHint>Optional — defaults to today if left blank.</FieldHint>
+        </div>
+      )}
       <div>
         <Label htmlFor="description">Notes (optional)</Label>
         <textarea
           id="description"
           name="description"
           rows={3}
-          placeholder="Context for this interview — where, why, who set it up"
+          placeholder={
+            selectedIsDocument
+              ? "Context for this document — where it's from, why it matters"
+              : "Context for this interview — where, why, who set it up"
+          }
           disabled={isPending}
           className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50"
         />
       </div>
       <div>
-        <Label htmlFor="media">Audio or video file</Label>
+        <Label htmlFor="media">Audio/video file, or PDF</Label>
         <input
           ref={fileInputRef}
           id="media"
           name="media"
           type="file"
-          accept="audio/*,video/*"
+          accept="audio/*,video/*,application/pdf"
           disabled={isPending}
+          onChange={(event) =>
+            setSelectedIsDocument(isDocumentContentType(event.currentTarget.files?.[0]?.type ?? ""))
+          }
           className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
         />
-        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, or WebM.</FieldHint>
+        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
       </div>
 
       {error && <FieldError>{error}</FieldError>}

@@ -241,6 +241,9 @@ export async function exportClip(
     .eq("id", clipId)
     .maybeSingle();
   if (!clip) return { error: "That excerpt no longer exists." };
+  if (clip.start_ms == null || clip.end_ms == null) {
+    return { error: "Only audio/video excerpts can be exported as WAV." };
+  }
 
   const { data: source } = await supabase
     .from("sw_sources")

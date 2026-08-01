@@ -11,7 +11,7 @@ export const TRANSCRIPTION_MEDIA_BUCKET = "transcription-media";
 // same file that gets uploaded is played back natively and, later, ingested
 // directly by the ASR provider. Keep this in sync with the bucket's
 // allowed_mime_types in the schema migration.
-const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
+const AUDIO_VIDEO_EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
   "audio/wav": "wav",
   "audio/x-wav": "wav",
   "audio/mpeg": "mp3",
@@ -24,8 +24,24 @@ const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
   "audio/webm": "webm",
 };
 
+// Document sources (docs/sourcework-design.md §8.2) — PDF only for now.
+// Keep in sync with the bucket's allowed_mime_types
+// (20260731180000_sourcework_documents.sql).
+const DOCUMENT_EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
+  "application/pdf": "pdf",
+};
+
+const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
+  ...AUDIO_VIDEO_EXTENSION_BY_CONTENT_TYPE,
+  ...DOCUMENT_EXTENSION_BY_CONTENT_TYPE,
+};
+
 export function isAllowedMediaType(contentType: string): boolean {
-  return contentType in EXTENSION_BY_CONTENT_TYPE;
+  return contentType in AUDIO_VIDEO_EXTENSION_BY_CONTENT_TYPE;
+}
+
+export function isAllowedDocumentType(contentType: string): boolean {
+  return contentType in DOCUMENT_EXTENSION_BY_CONTENT_TYPE;
 }
 
 export function extensionForContentType(contentType: string): string {
@@ -34,6 +50,10 @@ export function extensionForContentType(contentType: string): string {
 
 export function isVideoContentType(contentType: string): boolean {
   return contentType.startsWith("video/");
+}
+
+export function isDocumentContentType(contentType: string): boolean {
+  return contentType in DOCUMENT_EXTENSION_BY_CONTENT_TYPE;
 }
 
 /** Every source file lives at `<source id>/source.<ext>` — one file per source. */

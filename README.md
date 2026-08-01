@@ -126,6 +126,10 @@ through automation and need a human in each dashboard once:
      Production)
    - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Sourcework's ASR provider
      (**sensitive** — mark both encrypted); see `.env.example` for details
+   - `MISTRAL_API_KEY` — Sourcework's document OCR fallback for PDFs whose own embedded
+     text isn't adequate (**sensitive** — mark encrypted); native PDF text extraction needs
+     no key and handles most PDFs without it — see `.env.example` and
+     `docs/sourcework-design.md` §8.6
    - `DAILY_API_KEY` — Remote Interview's call provider (**sensitive** — mark encrypted).
      Required for the studio and guest call to work at all; without it, room creation and
      meeting tokens fail outright. Get it from the Daily dashboard for the account this
