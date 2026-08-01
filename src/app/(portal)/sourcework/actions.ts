@@ -4,32 +4,45 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
-import { TRANSCRIPTION_MEDIA_BUCKET, isAllowedMediaType } from "@/lib/transcription/media";
+import {
+  TRANSCRIPTION_MEDIA_BUCKET,
+  isAllowedDocumentType,
+  isAllowedMediaType,
+  isDocumentContentType,
+} from "@/lib/transcription/media";
 import { reindexProject, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
+import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
 import { getPrimarySourceForProject, getSourceRef } from "@/lib/transcription/projects";
+import type { SwSourceKind } from "@/lib/database.types";
 
 export type CreateProjectResult = { id: string; sourceId: string } | { error: string };
 
 /**
- * Creates the project, its source, and its (not-yet-started) transcript
+ * Creates the project, its source, and its (not-yet-started) primary
  * representation before any upload starts — the source is created with
  * status='uploading' so an abandoned upload is a visible, cleanable row
  * rather than an orphaned storage object (see design doc §6). Called
  * directly from the client upload form (not a <form action>), because the
  * caller needs the new ids back to know where to put the file next
  * (sourceObjectPath is keyed by source id, not project id).
+ *
+ * `kind` is the reporter's chosen file's source kind (docs/sourcework-design.md
+ * §8.2) — audio_video (default) or document. It only decides which
+ * representation kind gets created; the upload itself is still validated
+ * against the actual file's content type in completeProjectUpload.
  */
 export async function createProject(input: {
   title: string;
   description: string;
   interviewDate: string;
+  kind?: SwSourceKind;
 }): Promise<CreateProjectResult> {
   const { profile } = await assertToolAccess("transcription");
 
   const title = input.title.trim();
   if (!title) {
-    return { error: "Give the interview a title." };
+    return { error: input.kind === "document" ? "Give the document a title." : "Give the interview a title." };
   }
 
   const supabase = await createClient();
@@ -38,6 +51,7 @@ export async function createProject(input: {
     description: input.description.trim() || null,
     interviewDate: input.interviewDate || null,
     createdBy: profile.id,
+    kind: input.kind,
   });
 
   if ("error" in created) {
@@ -149,7 +163,11 @@ export async function completeProjectUpload(input: {
 }): Promise<{ error?: string }> {
   await assertToolAccess("transcription");
 
-  if (!isAllowedMediaType(input.contentType)) {
+  const isDocument = isDocumentContentType(input.contentType);
+  if (!isDocument && !isAllowedMediaType(input.contentType)) {
+    return { error: "That file type isn't supported." };
+  }
+  if (isDocument && !isAllowedDocumentType(input.contentType)) {
     return { error: "That file type isn't supported." };
   }
 
@@ -163,7 +181,7 @@ export async function completeProjectUpload(input: {
       original_storage_path: input.storagePath,
       original_content_type: input.contentType,
       original_size_bytes: input.sizeBytes,
-      original_duration_ms: input.durationMs,
+      original_duration_ms: isDocument ? null : input.durationMs,
       status: "ready",
       error_message: null,
     })
@@ -173,7 +191,15 @@ export async function completeProjectUpload(input: {
     return { error: "The upload finished, but we couldn't save the project. Please try again." };
   }
   if (!ref.representationId) {
-    return { error: "This project has no transcript representation yet." };
+    return { error: "This project has no representation to process yet." };
+  }
+
+  if (isDocument) {
+    return startDocumentProcessing(supabase, {
+      representationId: ref.representationId,
+      sourceId: ref.sourceId,
+      storagePath: input.storagePath,
+    });
   }
 
   return startTranscriptionForProject(supabase, {
@@ -214,20 +240,32 @@ export async function retryTranscription(formData: FormData): Promise<void> {
   const { data: source } = ref
     ? await supabase
         .from("sw_sources")
-        .select("original_storage_path")
+        .select("kind, original_storage_path")
         .eq("id", ref.sourceId)
         .maybeSingle()
     : { data: null };
 
   if (ref?.representationId && source?.original_storage_path) {
-    await supabase
-      .from("sw_representations")
-      .update({ status: "processing", error_message: null })
-      .eq("id", ref.representationId);
-    await startTranscriptionForProject(supabase, {
-      representationId: ref.representationId,
-      storagePath: source.original_storage_path,
-    });
+    if (source.kind === "document") {
+      // startDocumentProcessing does its own status flip (and its own
+      // stuck-run recovery, see docs/sourcework-design.md §8.6) — unlike
+      // the transcription path below, it must decide that itself rather
+      // than being told "processing" unconditionally.
+      await startDocumentProcessing(supabase, {
+        representationId: ref.representationId,
+        sourceId: ref.sourceId,
+        storagePath: source.original_storage_path,
+      });
+    } else {
+      await supabase
+        .from("sw_representations")
+        .update({ status: "processing", error_message: null })
+        .eq("id", ref.representationId);
+      await startTranscriptionForProject(supabase, {
+        representationId: ref.representationId,
+        storagePath: source.original_storage_path,
+      });
+    }
   }
 
   redirect(redirectTo);

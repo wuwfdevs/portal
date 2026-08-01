@@ -3,9 +3,12 @@ import {
   buildChunks,
   buildEmbeddingInput,
   buildClipEmbeddingInput,
+  buildDocumentChunks,
+  DOCUMENT_CHUNK_TARGET_CHARS,
   CHUNK_TARGET_MS,
   CHUNK_OVERLAP_MS,
   type ChunkSourceSegment,
+  type ChunkSourceBlock,
 } from "./chunking";
 
 const speakers = [
@@ -140,5 +143,73 @@ describe("buildEmbeddingInput", () => {
 
     expect(input).toContain("Escambia County Commission");
     expect(input).toContain("Reeves on bridge funding\nWe cannot keep patching it.");
+  });
+});
+
+function block(
+  id: string,
+  pageNumber: number,
+  readingOrder: number,
+  text: string,
+): ChunkSourceBlock {
+  return { id, pageNumber, readingOrder, text };
+}
+
+describe("buildDocumentChunks", () => {
+  it("returns nothing for no blocks, or blocks with only blank text", () => {
+    expect(buildDocumentChunks([])).toEqual([]);
+    expect(buildDocumentChunks([block("b1", 1, 0, "   ")])).toEqual([]);
+  });
+
+  it("groups small blocks into one window", () => {
+    const blocks = [
+      block("b1", 1, 0, "First paragraph."),
+      block("b2", 1, 1, "Second paragraph."),
+      block("b3", 2, 2, "Third paragraph, on the next page."),
+    ];
+    const chunks = buildDocumentChunks(blocks);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toEqual({
+      pageStart: 1,
+      pageEnd: 2,
+      anchorBlockId: "b1",
+      text: "First paragraph.\n\nSecond paragraph.\n\nThird paragraph, on the next page.",
+    });
+  });
+
+  it("splits into multiple windows once the character target is exceeded, with overlap", () => {
+    const big = "x".repeat(DOCUMENT_CHUNK_TARGET_CHARS);
+    const blocks = [
+      block("b1", 1, 0, big),
+      block("b2", 2, 1, big),
+      block("b3", 3, 2, "short tail"),
+    ];
+    const chunks = buildDocumentChunks(blocks);
+    expect(chunks.length).toBeGreaterThan(1);
+    // Overlap: the block that closed the first window also opens the next.
+    expect(chunks[0]!.anchorBlockId).toBe("b1");
+    expect(chunks[1]!.anchorBlockId).toBe("b2");
+  });
+
+  it("always progresses at least one block even if a single block exceeds the target", () => {
+    const huge = "x".repeat(DOCUMENT_CHUNK_TARGET_CHARS * 3);
+    const blocks = [block("b1", 1, 0, huge), block("b2", 2, 1, "next block")];
+    const chunks = buildDocumentChunks(blocks);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]!.anchorBlockId).toBe("b1");
+    expect(chunks[1]!.anchorBlockId).toBe("b2");
+  });
+
+  it("sorts by reading_order regardless of input order", () => {
+    const blocks = [block("b2", 1, 1, "second"), block("b1", 1, 0, "first")];
+    const chunks = buildDocumentChunks(blocks);
+    expect(chunks[0]!.text).toBe("first\n\nsecond");
+  });
+
+  it("skips blank blocks", () => {
+    const blocks = [block("b1", 1, 0, "real text"), block("b2", 1, 1, "   ")];
+    const chunks = buildDocumentChunks(blocks);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]!.text).toBe("real text");
   });
 });

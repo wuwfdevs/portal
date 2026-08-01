@@ -14,6 +14,7 @@ const KIND_BADGE: Record<
 > = {
   clip: { label: "Excerpt", variant: "accent" },
   transcript: { label: "In transcript", variant: "neutral" },
+  document: { label: "In document", variant: "neutral" },
   project: { label: "Project", variant: "muted" },
 };
 
@@ -21,11 +22,12 @@ const KIND_BADGE: Record<
  * A result's link into the workspace. `source` picks the right pill for a
  * multi-source project (Phase 3a) — without it the workspace falls back to
  * the project's earliest-attached source, which for a hit against a later
- * one means the wrong media, a `t` seek that lands nowhere meaningful, and a
- * `clip` that can't be found in that pill's excerpt list. `t` is what makes
- * a hit a place rather than a citation — the workspace seeks there on load;
- * `clip` additionally opens that clip in the rail so it can be re-trimmed or
- * re-exported without a second hunt.
+ * one means the wrong media, a `t`/`page` that lands nowhere meaningful, and
+ * a `clip` that can't be found in that pill's excerpt list. `t` (audio) or
+ * `page` (document) is what makes a hit a place rather than a citation — the
+ * workspace seeks/navigates there on load; `clip` additionally opens that
+ * clip in the rail so it can be re-trimmed or re-exported without a second
+ * hunt (document excerpts don't have an analogous rail to open into yet).
  */
 export function resultHref(result: {
   kind: SearchResultKind;
@@ -33,11 +35,13 @@ export function resultHref(result: {
   projectId: string;
   sourceId: string | null;
   startMs: number | null;
+  pageNumber: number | null;
 }): string {
   const params = new URLSearchParams();
   if (result.sourceId) params.set("source", result.sourceId);
   if (result.startMs !== null) params.set("t", String(result.startMs));
-  if (result.kind === "clip") params.set("clip", result.id);
+  else if (result.pageNumber !== null) params.set("page", String(result.pageNumber));
+  if (result.kind === "clip" && result.startMs !== null) params.set("clip", result.id);
 
   const query = params.toString();
   return `/sourcework/${result.projectId}${query ? `?${query}` : ""}`;
@@ -84,7 +88,11 @@ function ResultCard({ result }: { result: SearchResult }) {
       <p className="text-xs text-ink-500">
         {[
           result.speakerLabel,
-          result.startMs !== null ? formatDuration(result.startMs) : null,
+          result.startMs !== null
+            ? formatDuration(result.startMs)
+            : result.pageNumber !== null
+              ? `p. ${result.pageNumber}`
+              : null,
           // A clip already shows its own title above, so name the recording
           // here instead — "what else did they say about this?" is the next
           // question every time.

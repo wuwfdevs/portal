@@ -10,11 +10,13 @@ import { getEmbeddingProvider, toVectorLiteral } from "./embeddings";
 
 /**
  * What a hit actually is. "transcript" means a window of transcript nobody
- * has clipped — just a place in the audio where the query comes up; "clip"
- * means someone saved and titled that passage; "project" means nothing in
- * the audio matched but the recording's own title or background did.
+ * has clipped — just a place in the audio where the query comes up;
+ * "document" is the same idea for a window of extracted document text
+ * (docs/sourcework-design.md §8.8); "clip" means someone saved and titled a
+ * passage (audio or document); "project" means nothing in the source
+ * matched but the recording/document's own title or background did.
  */
-export type SearchResultKind = "clip" | "transcript" | "project";
+export type SearchResultKind = "clip" | "transcript" | "document" | "project";
 
 export interface SearchResult {
   kind: SearchResultKind;
@@ -28,6 +30,8 @@ export interface SearchResult {
   interviewDate: string | null;
   startMs: number | null;
   endMs: number | null;
+  /** Document hits only (chunk or excerpt) — see docs/sourcework-design.md §8.8. */
+  pageNumber: number | null;
   /** A clip's editorial title; null for the other kinds. */
   title: string | null;
   snippet: string;
@@ -68,6 +72,7 @@ export async function searchArchive(query: string, limit = DEFAULT_LIMIT): Promi
     interviewDate: row.interview_date,
     startMs: row.start_ms,
     endMs: row.end_ms,
+    pageNumber: row.page_number,
     title: row.title,
     snippet: row.snippet,
     speakerLabel: row.speaker_label,

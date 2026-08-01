@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
+import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
 // §7.3) — the "+ Reference another source" picker's server half. No
@@ -12,15 +13,19 @@ import { assertToolAccess } from "@/lib/auth/authz";
 
 export interface AttachableSource {
   id: string;
+  kind: SwSourceKind;
   title: string;
   interviewDate: string | null;
   durationMs: number | null;
+  pageCount: number | null;
 }
 
 /**
  * Sources the caller can see that aren't already attached to `projectId` —
  * feeds the picker. RLS already scopes sw_sources to tool members; this just
  * excludes what's already on the project and applies the search box's query.
+ * Both source kinds are returned (docs/sourcework-design.md §8.10) — a
+ * project mixing an interview and a PDF is exactly the point.
  */
 export async function listAttachableSources(
   projectId: string,
@@ -37,7 +42,7 @@ export async function listAttachableSources(
 
   let sourceQuery = supabase
     .from("sw_sources")
-    .select("id, title, interview_date, original_duration_ms")
+    .select("id, kind, title, interview_date, original_duration_ms, page_count")
     .order("created_at", { ascending: false })
     .limit(50);
   const trimmed = query.trim();
@@ -50,9 +55,11 @@ export async function listAttachableSources(
     .filter((source) => !attachedIds.has(source.id))
     .map((source) => ({
       id: source.id,
+      kind: source.kind,
       title: source.title,
       interviewDate: source.interview_date,
       durationMs: source.original_duration_ms,
+      pageCount: source.page_count,
     }));
 }
 

@@ -214,7 +214,7 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
-**Sourcework (Phases 1–3a landed; Phases 3b–6 are a roadmap, not authorized to
+**Sourcework (Phases 1–3b landed; Phases 4–6 are a roadmap, not authorized to
 start without their own design doc first — see below):** the Transcription
 Workspace's data model has been generalized underneath its unchanged UI. Read
 `docs/sourcework-design.md` before touching any of `sw_*` or the transcription
@@ -245,9 +245,12 @@ design in `docs/sourcework-design.md` §7 is now built, not just proposed. A
 **Source Library** tab at `/sourcework?tab=sources` (`lib/transcription/
 projects.ts`'s `listSources()`, `components/transcription/source-library.tsx`)
 browses every `sw_sources` row independent of any project, and **Source
-Detail** (`/sourcework/sources/[id]`, `getSourceDetail()`) shows one source's
-representation chain, the projects that reference it, and its excerpts — the
-first place any of that was reachable without going through a project. The
+Detail** (`/sourcework/sources/[id]`, `getSourceDetail()`) renders the same
+working surface (player/transcript/clip rail, or — since Phase 3b — a PDF
+viewer/text pane) the project workspace shows for that source, plus the
+projects that reference it — the first place any of that was reachable
+without going through a project. There is no representation-chain diagram;
+see `docs/sourcework-design.md` §7.2's correction and §8.5. The
 project workspace (`/sourcework/[id]`) gained a **source pill row**
 (`[id]/source-pill-row.tsx`) above the transcript: one pill per attached
 source (inert with the one source every project has today), a
@@ -267,6 +270,57 @@ source used to silently re-kick the first one instead. Project-wide actions
 that don't (yet) need per-source targeting — upload completion, reindex, the
 clips.zip export, project deletion's cascade check — were deliberately left
 on `getPrimarySourceForProject`, unchanged.
+
+**Phase 3b (PDF documents and a document-processing pipeline) has landed** —
+`docs/sourcework-design.md` §8 is the design, now built. A new source kind
+`document` (`sw_sources.kind`) and representation kind `document_text`
+(`sw_representations.kind` — deliberately not `ocr_text`, see §8.3) join the
+existing audio/video ones; PDFs upload to the same `transcription-media`
+bucket at the same `sourceObjectPath` convention as audio, no new bucket.
+Processing (`lib/transcription/document-ingest.ts`'s
+`startDocumentProcessing`) tries native PDF text extraction first
+(`lib/transcription/providers/native-pdf.ts`, via `pdfjs-dist`'s
+Node-compatible legacy build — no rendering, just the embedded text layer)
+and falls back to Mistral OCR (`lib/transcription/providers/mistral-ocr.ts`,
+via the official `@mistralai/mistralai` SDK) only when
+`isNativeTextAdequate()` (`lib/transcription/document-normalization.ts`)
+says the native text isn't usable prose — a reporter never picks between
+the two. Both paths write into the same normalized
+`sw_document_pages`/`sw_document_blocks` schema (one row per page, one
+ordered/typed row per text block, fractional `bbox` so a viewer maps it at
+any zoom — see §8.4), never the provider's raw response, which is retained
+separately in `sw_document_processing_runs` (an attempt-by-attempt audit
+log, not a job queue — its partial unique index is what makes a stuck
+in-flight run recoverable via `isStaleProcessingRun` rather than
+permanently blocking retry). **Mistral OCR runs inside Next's `after()`**
+(`next/server`), not the request that kicked it off — Mistral's OCR
+endpoint has no native webhook, so this is the closest equivalent to the
+AssemblyAI kickoff-then-webhook pattern available; `maxDuration` is raised
+to 300s on the three pages that can trigger it
+(`sourcework/new/page.tsx`, `sourcework/[id]/page.tsx`,
+`sourcework/sources/[id]/page.tsx`), **not** in `actions.ts` itself — a
+bare `export const maxDuration` inside that `"use server"` file broke
+Turbopack's Server Actions compilation outright, confirmed while building
+this. Document excerpts (`sw_source_excerpts.locator_kind = 'document'`,
+new `sw_excerpt_document_locations` table) exist alongside the unchanged
+temporal ones — `start_ms`/`end_ms` are now nullable but a check constraint
+still enforces exactly one locator shape per excerpt; `lib/transcription/
+clips.ts`'s audio-only `ProjectClip`/`listExcerptsForSource` are unchanged
+(now filtered to `locator_kind = 'temporal'`), and the document counterpart
+lives in `lib/transcription/document-excerpts.ts`. Search
+(`tw_search()`, fifth revision of that function) gained a `document`
+hit-kind and a `page_number` column alongside the existing
+`start_ms`/`end_ms`; `tw_chunks` gained nullable `page_start`/`page_end`/
+`anchor_block_id` rather than a parallel document-chunk table, and
+`lib/transcription/chunking.ts`'s `buildDocumentChunks()` windows blocks by
+character count (documents have no time axis) the way `buildChunks()`
+windows segments by duration. `computeProjectStatus()`/`processingLabel()`
+moved to `lib/transcription/status.ts` (pure, no `"server-only"`) so client
+components (source cards, project rows) can import the kind-aware
+`processingLabel()` without pulling in `projects.ts`'s server-only data
+access — that exact mistake broke the production build once, confirmed
+while building this phase. Translation, bundled into the original single
+Phase 3, is explicitly deferred — not part of 3b.
 
 **The tool's user-facing name is now "Sourcework"** (as of 2026-07-31) — the
 registry row's `name` (`supabase/migrations/20260731140000_sourcework_tool_rename.sql`)

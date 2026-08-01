@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { ProjectSourceSummary, ProjectStatus } from "@/lib/transcription/projects";
+import type { SwSourceKind } from "@/lib/database.types";
 import { AttachSourceModal } from "./attach-source-modal";
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
@@ -14,11 +15,17 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   failed: "bg-danger",
 };
 
+const KIND_LABEL: Record<SwSourceKind, string> = {
+  audio_video: "Audio",
+  document: "PDF",
+};
+
 /**
  * One pill per source this project references, plus a way to attach another
- * (docs/sourcework-design.md §7.2). Inert-looking with the one source every
- * project has today — that's deliberate, so this doesn't need to be rebuilt
- * the day a second source gets attached.
+ * (docs/sourcework-design.md §7.2). A multi-source project's pill row can
+ * now genuinely mix kinds (§8.10), so each pill carries a small kind label
+ * alongside its status dot — inert-looking with one source of one kind,
+ * same "not rebuilt the day it matters" reasoning as before.
  */
 export function SourcePillRow({
   projectId,
@@ -47,6 +54,9 @@ export function SourcePillRow({
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[s.status]}`} />
+            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-400">
+              {KIND_LABEL[s.source.kind]}
+            </span>
             {s.source.title}
           </Link>
         );

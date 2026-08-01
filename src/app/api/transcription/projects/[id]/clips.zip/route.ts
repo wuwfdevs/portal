@@ -84,21 +84,32 @@ export async function GET(
     return NextResponse.json({ error: "This project doesn't have any clips yet." }, { status: 400 });
   }
 
-  const { data: clips, error: clipsError } = await supabase
+  // This route only ever renders WAV audio, so it's scoped to temporal
+  // (audio/video) excerpts — a document excerpt has no start_ms/end_ms to
+  // render and isn't reachable from this button in the first place, but the
+  // filter (not just the caller's own UI) is what actually guarantees it.
+  const { data: rawClips, error: clipsError } = await supabase
     .from("sw_source_excerpts")
     .select("id, title, start_ms, end_ms, export_storage_path")
     .eq("source_id", source.id)
+    .eq("locator_kind", "temporal")
     .order("created_at");
   if (clipsError) {
     console.error("Read failed (this project's clips, for a clip archive):", clipsError);
     return NextResponse.json({ error: "Could not load this project's clips." }, { status: 500 });
   }
-  if (!clips || clips.length === 0) {
+  if (!rawClips || rawClips.length === 0) {
     return NextResponse.json(
       { error: "This project doesn't have any clips yet." },
       { status: 400 },
     );
   }
+  // Guaranteed non-null by the locator_kind = 'temporal' filter above and
+  // the sw_source_excerpts_locator_check constraint that enforces it.
+  const clips = rawClips as (Omit<(typeof rawClips)[number], "start_ms" | "end_ms"> & {
+    start_ms: number;
+    end_ms: number;
+  })[];
 
   const totalDurationMs = clips.reduce((total, clip) => total + (clip.end_ms - clip.start_ms), 0);
   if (totalDurationMs > MAX_CLIPS_ZIP_DURATION_MS) {

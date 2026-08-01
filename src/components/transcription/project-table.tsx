@@ -5,17 +5,23 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { formatBytes, formatDuration } from "@/lib/transcription/media";
-import type { ProjectListRow, ProjectStatus } from "@/lib/transcription/projects";
+import type { ProjectListRow } from "@/lib/transcription/projects";
+import { processingLabel } from "@/lib/transcription/status";
 
-const STATUS_BADGE: Record<
-  ProjectStatus,
-  { label: string; variant: "accent" | "neutral" | "muted" | "danger" }
-> = {
-  ready: { label: "Ready", variant: "accent" },
-  uploading: { label: "Uploading", variant: "neutral" },
-  processing: { label: "Transcribing", variant: "neutral" },
-  failed: { label: "Failed", variant: "danger" },
-};
+function statusBadge(
+  project: ProjectListRow,
+): { label: string; variant: "accent" | "neutral" | "muted" | "danger" } {
+  switch (project.status) {
+    case "ready":
+      return { label: "Ready", variant: "accent" };
+    case "uploading":
+      return { label: "Uploading", variant: "neutral" };
+    case "processing":
+      return { label: processingLabel(project.sourceKind ?? "audio_video"), variant: "neutral" };
+    case "failed":
+      return { label: "Failed", variant: "danger" };
+  }
+}
 
 function formatInterviewDate(project: ProjectListRow): string {
   return new Date(project.interviewDate ?? project.createdAt).toLocaleDateString("en-US", {
@@ -23,6 +29,13 @@ function formatInterviewDate(project: ProjectListRow): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatSize(project: ProjectListRow): string {
+  if (project.sourceKind === "document") {
+    return project.pageCount ? `${project.pageCount} page${project.pageCount === 1 ? "" : "s"}` : "—";
+  }
+  return project.durationMs ? formatDuration(project.durationMs) : "—";
 }
 
 /**
@@ -71,15 +84,15 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
             <thead>
               <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
                 <th className="px-4 py-2.5">Title</th>
-                <th className="px-4 py-2.5">Interview date</th>
-                <th className="px-4 py-2.5">Duration</th>
+                <th className="px-4 py-2.5">Date</th>
+                <th className="px-4 py-2.5">Duration / pages</th>
                 <th className="px-4 py-2.5">Size</th>
                 <th className="px-4 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((project) => {
-                const badge = STATUS_BADGE[project.status];
+                const badge = statusBadge(project);
                 return (
                   <tr
                     key={project.id}
@@ -98,10 +111,10 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink-500">{formatInterviewDate(project)}</td>
                     <td className="px-4 py-3 text-ink-500">
-                      {project.durationMs ? formatDuration(project.durationMs) : "—"}
+                      {project.sourceKind === "document" ? "—" : formatInterviewDate(project)}
                     </td>
+                    <td className="px-4 py-3 text-ink-500">{formatSize(project)}</td>
                     <td className="px-4 py-3 text-ink-500">
                       {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
                     </td>

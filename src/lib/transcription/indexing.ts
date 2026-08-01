@@ -4,6 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
   buildChunks,
+  buildDocumentChunks,
   buildEmbeddingInput,
   buildClipEmbeddingInput,
   type ChunkProjectContext,
@@ -35,6 +36,7 @@ export interface IndexResult {
 interface EmbeddingContext {
   representationId: string;
   sourceId: string;
+  kind: Database["public"]["Enums"]["sw_representation_kind"];
   projectContext: ChunkProjectContext;
 }
 
@@ -52,7 +54,7 @@ async function resolveEmbeddingContext(
 ): Promise<EmbeddingContext | null> {
   const { data: representation, error: representationError } = await supabase
     .from("sw_representations")
-    .select("id, source_id")
+    .select("id, source_id, kind")
     .eq("id", representationId)
     .maybeSingle();
   if (representationError) throw new Error(representationError.message);
@@ -86,6 +88,7 @@ async function resolveEmbeddingContext(
   return {
     representationId: representation.id,
     sourceId: representation.source_id,
+    kind: representation.kind,
     projectContext: {
       title: project?.title ?? "",
       description: project?.description ?? null,
@@ -95,16 +98,21 @@ async function resolveEmbeddingContext(
 }
 
 /**
- * Rebuilds a transcript representation's chunks from its current segments,
- * then embeds whatever is stale (both the representation's chunks and its
- * source's excerpts).
+ * Rebuilds a representation's chunks from its current content, then embeds
+ * whatever is stale (both the representation's chunks and its source's
+ * excerpts). Branches on the representation's kind (docs/sourcework-design.md
+ * §8.8): a transcript chunks its segments into time-windowed retrieval
+ * units (unchanged since Phase 5); a document_text representation chunks
+ * its blocks into character-windowed ones instead. Both write into the same
+ * tw_chunks table.
  *
  * Chunks are derived data, so this replaces rather than reconciles: cheaper
  * and simpler than diffing windows, and the only cost is re-embedding a
  * representation's worth of text (fractions of a cent). Embedding failures
- * are deliberately not fatal — a transcript that is chunked but unembedded is
- * fully keyword-searchable, which is a far better outcome than a webhook that
- * marks the representation failed because a third-party API had a bad minute.
+ * are deliberately not fatal — a transcript or document that is chunked but
+ * unembedded is fully keyword-searchable, which is a far better outcome
+ * than a webhook that marks the representation failed because a third-party
+ * API had a bad minute.
  */
 export async function reindexRepresentation(
   supabase: Client,
@@ -113,6 +121,22 @@ export async function reindexRepresentation(
   const context = await resolveEmbeddingContext(supabase, representationId);
   if (!context) throw new Error("Representation not found");
 
+  const { error: deleteError } = await supabase
+    .from("tw_chunks")
+    .delete()
+    .eq("representation_id", representationId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  const chunkCount =
+    context.kind === "document_text"
+      ? await insertDocumentChunks(supabase, representationId)
+      : await insertTranscriptChunks(supabase, representationId);
+
+  const embedded = await embedPending(supabase, context);
+  return { chunks: chunkCount, ...embedded };
+}
+
+async function insertTranscriptChunks(supabase: Client, representationId: string): Promise<number> {
   const [{ data: segments, error: segmentError }, { data: speakers, error: speakerError }] =
     await Promise.all([
       supabase
@@ -143,12 +167,6 @@ export async function reindexRepresentation(
     })),
   );
 
-  const { error: deleteError } = await supabase
-    .from("tw_chunks")
-    .delete()
-    .eq("representation_id", representationId);
-  if (deleteError) throw new Error(deleteError.message);
-
   if (chunks.length > 0) {
     const { error: insertError } = await supabase.from("tw_chunks").insert(
       chunks.map((chunk) => ({
@@ -162,8 +180,41 @@ export async function reindexRepresentation(
     if (insertError) throw new Error(insertError.message);
   }
 
-  const embedded = await embedPending(supabase, context);
-  return { chunks: chunks.length, ...embedded };
+  return chunks.length;
+}
+
+async function insertDocumentChunks(supabase: Client, representationId: string): Promise<number> {
+  const { data: blocks, error: blockError } = await supabase
+    .from("sw_document_blocks")
+    .select("id, page_number, reading_order, text")
+    .eq("representation_id", representationId)
+    .order("reading_order");
+  if (blockError) throw new Error(blockError.message);
+
+  const chunks = buildDocumentChunks(
+    (blocks ?? []).map((row) => ({
+      id: row.id,
+      pageNumber: row.page_number,
+      readingOrder: row.reading_order,
+      text: row.text,
+    })),
+  );
+
+  if (chunks.length > 0) {
+    const { error: insertError } = await supabase.from("tw_chunks").insert(
+      chunks.map((chunk) => ({
+        representation_id: representationId,
+        page_start: chunk.pageStart,
+        page_end: chunk.pageEnd,
+        anchor_block_id: chunk.anchorBlockId,
+        text: chunk.text,
+        stale: true,
+      })),
+    );
+    if (insertError) throw new Error(insertError.message);
+  }
+
+  return chunks.length;
 }
 
 /** Same as reindexRepresentation, for callers that only have a project id. */
