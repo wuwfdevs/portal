@@ -35,7 +35,7 @@ export default async function AdminUsersPage({
   const [{ data: profiles }, { data: grants }, { data: tools }, { data: pendingRequests }] = await Promise.all([
     supabase.from("profiles").select("*").order("display_name"),
     supabase.from("tool_access").select("user_id, tool_id").is("revoked_at", null),
-    supabase.from("tools").select("id, name"),
+    supabase.from("tools").select("id, name").neq("status", "proposed"),
     supabase.from("access_requests").select("*").eq("status", "pending").order("requested_at", { ascending: false }),
   ]);
 

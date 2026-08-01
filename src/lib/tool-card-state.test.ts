@@ -27,4 +27,13 @@ describe("getToolCardState", () => {
     expect(inDevelopment.actionLabel).toBe("Learn more");
     expect(planned.statusLabel).not.toBe(inDevelopment.statusLabel);
   });
+
+  it("hides a proposed tool rather than passing it off as in development", () => {
+    for (const hasAccess of [true, false]) {
+      const state = getToolCardState("proposed", hasAccess);
+      expect(state.mode).toBe("hidden");
+      expect(state.statusLabel).toBe("Proposed");
+      expect(state.actionLabel).toBeNull();
+    }
+  });
 });

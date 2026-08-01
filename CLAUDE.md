@@ -10,9 +10,15 @@ authentication, invitation/approval-based access, role-based authorization, a to
 registry, a dashboard, and admin screens for user/tool management.
 
 Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
-Listening) is its own focused application area with its own schema. The portal's job ends
-at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or speculative
-integrations. When in doubt, keep scope narrow.
+Listening, Roadmap) is its own focused application area with its own schema. The portal's
+job ends at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or
+speculative integrations. When in doubt, keep scope narrow.
+
+The registry also carries rows for tools that don't exist: `status = 'proposed'` means an
+idea somebody filed on the Roadmap, so requests can gather under it. That is **not** a
+plugin system or a way to register a tool without writing one — a proposed row has no
+route, no schema, and no access to grant. Real registry rows still come from a migration
+alongside the code that implements them.
 
 The registry once also carried a **Shared Clip Library** row. It has been retired: the
 Transcription Workspace absorbed it, since its cross-project clip and search views _are_
@@ -357,6 +363,58 @@ every path must keep working without it (chunks still build, keyword search stil
 write that triggered them. The `stale` / `embedding_stale` flags are maintained by
 database triggers, so a re-embed pass is always safe to re-run.
 
+**Roadmap: milestone 1 has landed** — the fifth tool, and the first one about the portal
+itself. Read `docs/roadmap-design.md` before touching any of it. Any active staff member
+files a **request** (rich text, one of four kinds), votes on other people's, and comments;
+a **curator** moves a request through six statuses whose grouped view is the roadmap tab.
+Tables are `rd_posts`/`rd_votes`/`rd_comments` (`20260801121000_roadmap.sql`), the route
+segment is `src/app/(portal)/roadmap/` gated by `requireRoadmapAccess()` from
+`lib/roadmap/access.ts`.
+
+Five things about it are load-bearing and easy to break by accident:
+
+1. **`tools.default_access = 'approved_staff'` now means something.** The column has
+   documented it as "any active user may open it" since the platform schema was written
+   with nothing enforcing it; Roadmap is the first row to use it, so
+   `requireToolAccess`/`assertToolAccess` and `listToolsForCurrentUser` now read it
+   through the pure `grantRequiredForTool()` in `src/lib/tool-access-rules.ts`, and
+   `private.has_roadmap_access` reads the same column in SQL. Every other tool is
+   `invite_only`, so nothing else changed. Don't hard-code "everyone" anywhere — reading
+   the column is what lets an administrator tighten the tool from the registry screen.
+2. **A `tool_access` grant on Roadmap is the *elevation*, not the ticket in.** Everyone
+   is already a member; a grant carrying `tool_role = 'curator'` adds curation
+   (`private.is_roadmap_curator`, `lib/roadmap/roles.ts`). Granting someone plain access
+   does nothing.
+3. **`tools.status = 'proposed'`** (`20260801120000_tool_status_proposed.sql`) is a
+   registry row for something nobody has built, so a request has something to point at.
+   It is excluded from the dashboard (`isListedOnDashboard()`), from the three admin
+   grant pickers, and from `getToolCardState` (a `hidden` mode); it is visible to Roadmap
+   members through one additive policy, `tools_select_proposed_for_roadmap`. Administrators
+   create these at **`/admin/tools/new`** — the only screen in the portal that creates a
+   `tools` row outside a migration, and it can only create proposed ones.
+4. **`rd_posts` has a `before update` guard trigger, and it is the boundary.** The update
+   policy admits the post's author so they can edit their own words; RLS is row-level and
+   cannot stop them setting their own `status` through PostgREST. `rd_guard_post_curation()`
+   raises unless a curator or administrator is the one changing `status`/`status_note`/
+   `kind`/`tool_id`. Hiding the curator panel is a courtesy on top of it.
+5. **Audit events are scoped to curation, and so is the policy.** `audit_events_insert_
+   roadmap_curator` admits curators only — "member" here is every active staff member, and
+   a member-scoped policy would let anyone in the portal write audit rows. Filing a post
+   and commenting are ordinary writes and are deliberately not audited.
+
+Rich text (post and comment bodies) is this repository's first: Tiptap
+(`@tiptap/react`/`starter-kit`/`pm`) writing **ProseMirror JSON into `jsonb`, never
+HTML**. There is no sanitizer because there is no markup — `src/lib/roadmap/rich-text.ts`
+holds the node/mark whitelist and validates on the way in, and
+`src/components/ui/rich-text.tsx` walks the document into React elements on the way out.
+Nothing in this codebase calls `dangerouslySetInnerHTML`; keep it that way. The editor
+(`components/ui/rich-text-editor.tsx`) is reached only through
+`components/ui/rich-text-field.tsx`'s `next/dynamic({ ssr: false })` wrapper so ProseMirror
+stays out of the server bundle, and it posts its document through a hidden input so the
+surrounding form stays the repo's ordinary `<form action={serverAction}>`. Screenshot/image
+attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
+design doc §7 before adding them.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -436,6 +494,10 @@ src/app/(portal)/remote-interview/  Remote Interview — its own route segment, 
                             requireToolAccess("remote-interview")
 src/app/(portal)/audience-listening/  Audience Listening — its own route segment, gated by
                             requireToolAccess("audience-listening")
+src/app/(portal)/roadmap/  Roadmap (wishlist + product roadmap) — its own route segment,
+                            gated by requireRoadmapAccess() from lib/roadmap/access.ts.
+                            Open to every active staff member, not to grant holders
+                            (tools.default_access = 'approved_staff')
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -448,7 +510,10 @@ src/app/api/mcp/           the internal MCP server's route handler (Phase C, see
                             cookie session as everything else
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
-                           control/table class strings inline
+                           control/table class strings inline. Also the rich-text trio:
+                           rich-text.tsx (server renderer), rich-text-editor.tsx (Tiptap,
+                           client), rich-text-field.tsx (the ssr:false wrapper every caller
+                           uses) — see "Roadmap" above before importing the editor directly
 src/components/            portal-specific components (nav, tool card, etc.)
 src/components/editorial/  Editorial Planning display components
 src/lib/supabase/          the two Supabase client factories — see above
@@ -466,6 +531,11 @@ src/lib/audience-listening/  Audience Listening's data access + pure logic (publ
                            of the public reaches — see public-client.ts's comment
                            for why the public flow gets its own, non-cookie
                            Supabase client
+src/lib/roadmap/           Roadmap's access gate + role (access.ts, roles.ts), data reads
+                           (queries.ts), capabilities.ts, plus pure, tested modules — the
+                           status machine and validation (posts.ts) and the rich-text
+                           whitelist (rich-text.ts), which is the security boundary for
+                           every body stored by this tool
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

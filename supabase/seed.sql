@@ -18,6 +18,7 @@ declare
   tool_remote uuid;
   tool_transcription uuid;
   tool_audience uuid;
+  tool_roadmap uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -100,6 +101,12 @@ begin
   -- here — this just looks it up to seed local tool_access grants.
   select id into tool_transcription from public.tools where key = 'transcription';
   select id into tool_audience from public.tools where key = 'audience-listening';
+  -- Roadmap's registry row comes from 20260801121000_roadmap.sql. There is no
+  -- seed row for it at all: unlike the others it is default_access =
+  -- 'approved_staff', and a seed row inserted with different values would win
+  -- over the migration's via `on conflict do nothing` and quietly close the
+  -- tool to everyone without a grant.
+  select id into tool_roadmap from public.tools where key = 'roadmap';
 
   -- Editorial tool roles use the canonical lowercase set the tool interprets:
   -- 'contributor' < 'reviewer' < 'editor' (anything else falls back to contributor).
@@ -115,7 +122,11 @@ begin
     -- and any member can do everything. Dana holds transcription access too,
     -- which is what the per-answer handoff needs.
     (dana_id, tool_audience, null, dana_id),
-    (marcus_id, tool_audience, null, dana_id)
+    (marcus_id, tool_audience, null, dana_id),
+    -- Roadmap inverts the usual meaning of a grant: everyone already has
+    -- access, so this row exists only to make Dana a curator. Nobody else
+    -- needs one to post, vote, or comment.
+    (dana_id, tool_roadmap, 'curator', dana_id)
   on conflict do nothing;
 
   insert into public.access_requests (email, display_name, note, status)

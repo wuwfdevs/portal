@@ -3,7 +3,12 @@ import { ToolIcon } from "@/components/tool-icon";
 import type { Tool } from "@/lib/tools";
 
 export function ToolPlaceholder({ tool }: { tool: Tool }) {
-  const statusCopy = tool.status === "planned" ? "planned" : "in development";
+  const statusCopy =
+    tool.status === "proposed"
+      ? "an idea, not a tool yet"
+      : tool.status === "planned"
+        ? "planned"
+        : "in development";
 
   return (
     <div className="flex min-h-[340px] items-center justify-center px-6 py-16">
@@ -14,8 +19,12 @@ export function ToolPlaceholder({ tool }: { tool: Tool }) {
         <h1 className="mb-2 font-serif text-[22px] font-bold text-ink-900">
           {tool.name} is {statusCopy}
         </h1>
-        <p className="mb-5 text-sm leading-relaxed text-ink-500">{tool.description} It isn&apos;t
-          available yet — check back, or contact an administrator with questions.</p>
+        <p className="mb-5 text-sm leading-relaxed text-ink-500">
+          {tool.description}{" "}
+          {tool.status === "proposed"
+            ? "Nobody has built it — it exists so requests on the Roadmap have something to point at."
+            : "It isn't available yet — check back, or contact an administrator with questions."}
+        </p>
         <Link href="/dashboard" className="text-sm font-semibold text-brand-link">
           ← Back to Dashboard
         </Link>

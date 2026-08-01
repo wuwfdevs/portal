@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { grantRequiredForTool, isListedOnDashboard } from "@/lib/tool-access-rules";
 import type { Database } from "@/lib/database.types";
 
 export type Tool = Database["public"]["Tables"]["tools"]["Row"];
@@ -25,9 +26,13 @@ export async function listToolsForCurrentUser(userId: string): Promise<ToolWithA
 
   const accessByToolId = new Map((access ?? []).map((row) => [row.tool_id, row.tool_role]));
 
-  return (tools ?? []).map((tool) => ({
+  // A 'proposed' tool is an idea filed on the Roadmap, not software — RLS
+  // shows it to Roadmap members so a post can target it, and it must not
+  // become a dashboard card. `hasAccess` additionally honors a registry row
+  // that is open to all active staff; both rules live in tool-access-rules.ts.
+  return (tools ?? []).filter(isListedOnDashboard).map((tool) => ({
     tool,
-    hasAccess: accessByToolId.has(tool.id),
+    hasAccess: accessByToolId.has(tool.id) || !grantRequiredForTool(tool),
     toolRole: accessByToolId.get(tool.id) ?? null,
   }));
 }
