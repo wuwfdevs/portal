@@ -308,7 +308,12 @@ export function SegmentRow({
         </div>
 
         {!isEditing && (
-          <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          // Hidden below sm rather than just opacity-0: hover (the only thing
+          // that reveals it) doesn't exist on touch, so on a phone this row
+          // was invisible AND unreachable while still reserving its width in
+          // the flex row — squeezing the transcript text into a sliver next
+          // to controls nobody could tap. sm and up keeps the hover reveal.
+          <div className="hidden shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 sm:flex">
             {status === "saving" && <span className="text-[11px] text-ink-400">Saving…</span>}
             {status === "saved" && <span className="text-[11px] text-ink-400">Saved</span>}
             <select
