@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { getRoleCatalog } from "@/lib/tool-roles";
 import { inviteUser } from "../actions";
 
@@ -37,17 +37,12 @@ export default async function InviteUserPage({
           </div>
           <div>
             <Label htmlFor="platform_role">Platform role</Label>
-            <select
-              id="platform_role"
-              name="platform_role"
-              defaultValue="staff"
-              className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900"
-            >
+            <Select id="platform_role" name="platform_role" defaultValue="staff">
               <option value="staff">Staff</option>
               <option value="student">Student</option>
               <option value="faculty_partner">Faculty / partner</option>
               <option value="administrator">Administrator</option>
-            </select>
+            </Select>
           </div>
           <div>
             <Label>Authorized tools</Label>

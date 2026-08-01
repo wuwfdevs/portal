@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { getRoleCatalog } from "@/lib/tool-roles";
 import { updateUserAccess } from "../../actions";
 
@@ -36,17 +36,12 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
           <input type="hidden" name="user_id" value={profile.id} />
           <div>
             <Label htmlFor="platform_role">Platform role</Label>
-            <select
-              id="platform_role"
-              name="platform_role"
-              defaultValue={profile.platform_role}
-              className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900"
-            >
+            <Select id="platform_role" name="platform_role" defaultValue={profile.platform_role}>
               <option value="staff">Staff</option>
               <option value="student">Student</option>
               <option value="faculty_partner">Faculty / partner</option>
               <option value="administrator">Administrator</option>
-            </select>
+            </Select>
           </div>
           <div>
             <Label>Authorized tools</Label>

@@ -105,7 +105,7 @@ function SpeakerRow({
         }}
         onBlur={handleBlur}
         placeholder={`Speaker ${speaker.diarizationLabel}`}
-        className="w-48 rounded border border-line bg-white px-2.5 py-1.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface"
+        className="w-48 rounded border border-line bg-white px-2.5 py-1.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
       />
       {snippet && (
         <button

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { updateTool } from "../../actions";
 
 export default async function EditToolPage({
@@ -47,29 +47,19 @@ export default async function EditToolPage({
           </div>
           <div>
             <Label htmlFor="status">Status</Label>
-            <select
-              id="status"
-              name="status"
-              defaultValue={tool.status}
-              className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900"
-            >
+            <Select id="status" name="status" defaultValue={tool.status}>
               <option value="planned">Planned</option>
               <option value="in_development">In development</option>
               <option value="available">Available</option>
-            </select>
+            </Select>
           </div>
           <div>
             <Label htmlFor="default_access">Default access</Label>
-            <select
-              id="default_access"
-              name="default_access"
-              defaultValue={tool.default_access}
-              className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900"
-            >
+            <Select id="default_access" name="default_access" defaultValue={tool.default_access}>
               <option value="invite_only">Invite only</option>
               <option value="approved_staff">Open to approved staff</option>
               <option value="open">Open</option>
-            </select>
+            </Select>
           </div>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
             <Link href="/admin/tools">

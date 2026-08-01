@@ -168,7 +168,7 @@ export function DocumentWorkspace({
                 const next = Number(event.target.value);
                 if (Number.isFinite(next)) setCurrentPage(Math.min(Math.max(next, 1), pageCount));
               }}
-              className="w-12 rounded border border-line px-1 py-0.5 text-center text-sm"
+              className="w-12 rounded border border-line px-1 py-0.5 text-center text-base sm:text-sm"
             />{" "}
             of {pageCount}
           </span>
