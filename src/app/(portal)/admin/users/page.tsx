@@ -62,9 +62,9 @@ export default async function AdminUsersPage({
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between">
-        <form className="flex items-center gap-2 rounded-full border border-line px-3.5 py-1.5">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9099" strokeWidth={2}>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <form className="flex flex-1 items-center gap-2 rounded-full border border-line px-3.5 py-1.5 sm:flex-initial">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9099" strokeWidth={2} className="shrink-0">
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3-3" />
           </svg>
@@ -73,10 +73,10 @@ export default async function AdminUsersPage({
             name="q"
             defaultValue={q}
             placeholder="Search by name or email"
-            className="w-64 border-0 text-base text-ink-900 outline-none placeholder:text-ink-400 sm:text-sm"
+            className="w-full min-w-0 border-0 text-base text-ink-900 outline-none placeholder:text-ink-400 sm:w-64 sm:text-sm"
           />
         </form>
-        <Link href="/admin/users/invite">
+        <Link href="/admin/users/invite" className="shrink-0">
           <Button>+ Invite user</Button>
         </Link>
       </div>
