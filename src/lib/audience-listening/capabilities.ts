@@ -15,6 +15,8 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { logAuditEvent } from "@/lib/audit";
 import { sendAnswerToTranscription, type HandoffResult } from "./handoff";
 
+export type SendToSourceworkResult = HandoffResult | { ok: true; projectId: string; url: string };
+
 /**
  * Handing one answer to Sourcework — a one-way, billable-ASR-triggering
  * action, so it's confirmation-gated (design doc §6's confirmation-required
@@ -28,7 +30,7 @@ export const sendAnswerToSourcework = defineCapability({
   input: z.object({ answerId: z.string() }),
   requires: { tool: "audience-listening" },
   confirmation: "required",
-  async handler({ supabase }, input): Promise<HandoffResult> {
+  async handler({ supabase }, input): Promise<SendToSourceworkResult> {
     const { profile } = await assertToolAccess("audience-listening");
     const result = await sendAnswerToTranscription(input.answerId);
     if (!result.ok) return result;
@@ -46,6 +48,6 @@ export const sendAnswerToSourcework = defineCapability({
       targetId: input.answerId,
       metadata: { query_id: answer?.query_id, project_id: result.projectId },
     });
-    return result;
+    return { ...result, url: `/sourcework/${result.projectId}` };
   },
 });

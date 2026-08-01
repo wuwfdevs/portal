@@ -15,7 +15,7 @@ import { generateJoinToken, storagePrefixFor } from "./tokens";
 import { logAuditEvent } from "@/lib/audit";
 
 export type CreateSessionResult =
-  | { ok: true; sessionId: string }
+  | { ok: true; sessionId: string; url: string }
   | { ok: false; message: string };
 
 /**
@@ -83,6 +83,6 @@ export const createSession = defineCapability({
       targetId: session.id,
       metadata: { title: input.title },
     });
-    return { ok: true, sessionId: session.id };
+    return { ok: true, sessionId: session.id, url: `/remote-interview/${session.id}` };
   },
 });

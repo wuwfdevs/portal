@@ -25,6 +25,20 @@ import type { Profile } from "@/lib/auth/session";
 // server-side state (`previous_response_id`/`store`) — `store: false` below
 // keeps OpenAI from retaining a second copy of the transcript we don't
 // control.
+//
+// streamAgentTurn is an async generator, not a single Promise: each round
+// calls openai.responses.stream() (the SDK's ResponseStream helper — an
+// async-iterable of ResponseStreamEvents plus a finalResponse() that
+// resolves to the same Response shape create() used to return) so text
+// tokens reach src/app/api/agent/chat/route.ts, and the browser, as the
+// model produces them instead of only after the whole turn — including any
+// tool-call rounds — finishes. Only "delta" events (model-authored reply
+// text) are surfaced this way; a function_call's name/arguments are never
+// yielded, so the widget has nothing tool-shaped to accidentally render (see
+// agent-chat-widget.tsx's ChatEntry, which now only renders plain message
+// items). The final authoritative `history` — including the function_call/
+// function_call_output items the next turn needs — still only appears once,
+// on the terminal "pendingConfirmation" or "done" event.
 
 const MODEL = "gpt-5.4-mini";
 const MAX_OUTPUT_TOKENS = 4096;
@@ -36,6 +50,8 @@ You help staff work across Editorial Planning, Sourcework, Remote Interview, and
 - Only call a tool when it's needed to answer the current request.
 - Each person's tool access is enforced independently of this conversation. If a tool call fails with a permission error, tell the user plainly rather than retrying it.
 - Some tools require the user to confirm a pending action before they run — when that happens, wait for the outcome; don't repeat the call.
+- Before submitting a field with a fixed set of options (e.g. a pitch's pillar, format, or urgency), look up the real allowed values with a schema/lookup tool rather than guessing at plausible-sounding ones.
+- When a tool result includes a "url" field, share it as a markdown link, e.g. [Pitch title](url), so the person can open what you found or created — never report a bare id on its own.
 - Keep responses concise and specific to what was asked.`;
 
 let openaiClient: OpenAI | null = null;
@@ -63,13 +79,20 @@ export interface AgentTurnInput {
   confirmation?: { toolUseId: string; approved: boolean };
 }
 
-export interface AgentTurnResult {
-  history: OpenAI.Responses.ResponseInputItem[];
-  reply: string | null;
-  pendingConfirmation: PendingConfirmation | null;
-}
+export type AgentStreamEvent =
+  | { type: "delta"; text: string }
+  | {
+      type: "pendingConfirmation";
+      history: OpenAI.Responses.ResponseInputItem[];
+      pendingConfirmation: PendingConfirmation;
+    }
+  | { type: "done"; history: OpenAI.Responses.ResponseInputItem[] }
+  | { type: "error"; message: string };
 
-export async function runAgentTurn(actor: Profile, turn: AgentTurnInput): Promise<AgentTurnResult> {
+export async function* streamAgentTurn(
+  actor: Profile,
+  turn: AgentTurnInput,
+): AsyncGenerator<AgentStreamEvent> {
   const openai = getOpenAIClient();
   const { client: mcp, close } = await connectAgentMcpClient(actor);
 
@@ -83,11 +106,12 @@ export async function runAgentTurn(actor: Profile, turn: AgentTurnInput): Promis
     } else if (turn.input) {
       history = [...turn.history, { role: "user", content: turn.input }];
     } else {
-      throw new Error("Provide either input or confirmation.");
+      yield { type: "error", message: "Provide either input or confirmation." };
+      return;
     }
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await openai.responses.create({
+      const stream = openai.responses.stream({
         model: MODEL,
         instructions: INSTRUCTIONS,
         input: history,
@@ -99,28 +123,48 @@ export async function runAgentTurn(actor: Profile, turn: AgentTurnInput): Promis
         store: false,
       });
 
-      if (response.status === "failed") {
-        throw new Error(response.error?.message ?? "The assistant failed to respond.");
+      for await (const event of stream) {
+        if (event.type === "response.output_text.delta") {
+          yield { type: "delta", text: event.delta };
+        }
       }
 
-      // response.output items (ResponseOutputItem) are the same items the API
-      // expects back as input on the next turn — the standard "manual state"
-      // pattern for the Responses API — but a couple of output-only variants
-      // (e.g. computer-call results) carry a slightly wider status union than
-      // the input side accepts, which the type system can't reconcile across
-      // the whole union. Runtime shape is correct; only the type needs help.
-      history = [
-        ...history,
-        ...(response.output as unknown as OpenAI.Responses.ResponseInputItem[]),
-      ];
+      const response = await stream.finalResponse();
 
-      const functionCall = response.output.find(
+      if (response.status === "failed") {
+        yield {
+          type: "error",
+          message: response.error?.message ?? "The assistant failed to respond.",
+        };
+        return;
+      }
+
+      // response.output's static type is ResponseStream's ParsedResponseOutputItem<null>[]
+      // (it supports .parse()-based structured outputs, which this loop never
+      // uses) rather than the plain ResponseOutputItem[] the non-streaming
+      // create() call returned — a couple of output-only variants (e.g.
+      // computer-call results, file-search calls) carry a wider/narrower
+      // shape than the input side or this loop's own narrowing expects,
+      // which the type system can't reconcile across the whole union.
+      // Runtime shape is unaffected; only the type needs help.
+      const output = response.output as unknown as OpenAI.Responses.ResponseOutputItem[];
+
+      history = [...history, ...(output as unknown as OpenAI.Responses.ResponseInputItem[])];
+
+      const functionCall = output.find(
         (item): item is OpenAI.Responses.ResponseFunctionToolCall => item.type === "function_call",
       );
 
       if (!functionCall) {
-        const reply = response.output_text || extractRefusal(response.output) || null;
-        return { history, reply, pendingConfirmation: null };
+        // output_text was already streamed as "delta" events above; a
+        // refusal isn't output_text, so it never streamed and needs
+        // surfacing here instead.
+        if (!response.output_text) {
+          const refusal = extractRefusal(output);
+          if (refusal) yield { type: "delta", text: refusal };
+        }
+        yield { type: "done", history };
+        return;
       }
 
       const mcpName = bridge.mcpNameByToolName.get(functionCall.name);
@@ -132,9 +176,9 @@ export async function runAgentTurn(actor: Profile, turn: AgentTurnInput): Promis
       }
 
       if (bridge.gatedToolNames.has(mcpName)) {
-        return {
+        yield {
+          type: "pendingConfirmation",
           history,
-          reply: null,
           pendingConfirmation: {
             toolUseId: functionCall.call_id,
             capabilityId: mcpName,
@@ -143,17 +187,18 @@ export async function runAgentTurn(actor: Profile, turn: AgentTurnInput): Promis
             input,
           },
         };
+        return;
       }
 
       const result = await callMcpTool(mcp, mcpName, input);
       history = appendFunctionCallOutput(history, functionCall.call_id, result.text);
     }
 
-    return {
-      history,
-      reply: "I've made several tool calls without finishing — ask again to continue.",
-      pendingConfirmation: null,
+    yield {
+      type: "delta",
+      text: "I've made several tool calls without finishing — ask again to continue.",
     };
+    yield { type: "done", history };
   } finally {
     await close();
   }

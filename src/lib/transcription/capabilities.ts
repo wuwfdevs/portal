@@ -11,11 +11,17 @@ import { listProjects, type ProjectListRow } from "./projects";
 
 const PROJECT_STATUSES = ["uploading", "processing", "ready", "failed"] as const;
 
+export interface ProjectSearchResult extends ProjectListRow {
+  url: string;
+}
+
 /**
  * Find projects by title and/or status. `listProjects()` is already RLS-
  * scoped to transcription tool members and cheap (one project list per
  * workspace) — no separate indexed search path, same tradeoff the read
- * side already makes elsewhere in this module.
+ * side already makes elsewhere in this module. Each result carries the
+ * portal path to its project page, not just its id, so a caller (the
+ * in-portal agent in particular) can hand the person an actual link.
  */
 export const searchProjects = defineCapability({
   id: "sourcework.project.search",
@@ -26,14 +32,16 @@ export const searchProjects = defineCapability({
   }),
   requires: { tool: "transcription" },
   confirmation: "none",
-  async handler(_ctx, input): Promise<ProjectListRow[]> {
+  async handler(_ctx, input): Promise<ProjectSearchResult[]> {
     await assertToolAccess("transcription");
     const projects = await listProjects();
     const query = input.query?.toLowerCase();
-    return projects.filter((project) => {
-      if (input.status && project.status !== input.status) return false;
-      if (query && !project.title.toLowerCase().includes(query)) return false;
-      return true;
-    });
+    return projects
+      .filter((project) => {
+        if (input.status && project.status !== input.status) return false;
+        if (query && !project.title.toLowerCase().includes(query)) return false;
+        return true;
+      })
+      .map((project) => ({ ...project, url: `/sourcework/${project.id}` }));
   },
 });

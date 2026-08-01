@@ -92,7 +92,7 @@ export const getPitchFormFields = defineCapability({
 });
 
 export type SavePitchResult =
-  | { ok: true; pitchId: string }
+  | { ok: true; pitchId: string; url: string }
   | { ok: false; kind: "invalid"; fieldErrors: Record<string, string> }
   | { ok: false; kind: "error"; message: string };
 
@@ -190,7 +190,7 @@ export const savePitch = defineCapability({
           };
         }
       }
-      return { ok: true, pitchId };
+      return { ok: true, pitchId, url: `/editorial/pitches/${pitchId}` };
     }
 
     const { data: created, error: insertError } = await supabase
@@ -224,7 +224,7 @@ export const savePitch = defineCapability({
         };
       }
     }
-    return { ok: true, pitchId: created.id };
+    return { ok: true, pitchId: created.id, url: `/editorial/pitches/${created.id}` };
   },
 });
 
@@ -334,7 +334,9 @@ export const archiveSelectedPitches = defineCapability({
 
 // --- Meetings ----------------------------------------------------------------
 
-export type CreateMeetingResult = { ok: true; meetingId: string } | { ok: false; message: string };
+export type CreateMeetingResult =
+  | { ok: true; meetingId: string; url: string }
+  | { ok: false; message: string };
 
 export const createMeeting = defineCapability({
   id: "editorial.meeting.create",
@@ -377,7 +379,7 @@ export const createMeeting = defineCapability({
       targetId: meeting.id,
       metadata: { meeting_date: input.meetingDate, rubric_profile_id: profile.id },
     });
-    return { ok: true, meetingId: meeting.id };
+    return { ok: true, meetingId: meeting.id, url: `/editorial/meetings/${meeting.id}` };
   },
 });
 

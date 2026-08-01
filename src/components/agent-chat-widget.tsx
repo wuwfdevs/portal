@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -18,9 +25,15 @@ import { Textarea } from "@/components/ui/input";
 // job queue" posture. History items are typed loosely here on purpose:
 // importing the OpenAI SDK's types (or the SDK itself, via lib/agent/chat.ts)
 // into a Client Component would pull a Node-oriented package into the
-// browser bundle for no benefit — this widget only needs to render
-// message/function_call/function_call_output items, not construct API
-// requests.
+// browser bundle for no benefit.
+//
+// Only plain user/assistant message text ever renders — see ChatEntry below.
+// function_call and function_call_output items still travel through
+// `history` (the next turn needs them), but are deliberately never shown:
+// a reporter using this panel should see an answer, not the tool-call
+// machinery behind it. The route streams the reply as Server-Sent Events
+// (see lib/agent/chat.ts's streamAgentTurn) so the assistant's bubble fills
+// in as the model generates it instead of appearing all at once at the end.
 
 interface ChatItem {
   type?: string;
@@ -38,14 +51,55 @@ interface PendingConfirmation {
   input: Record<string, unknown>;
 }
 
-interface ChatResponse {
-  history: ChatItem[];
-  pendingConfirmation: PendingConfirmation | null;
-  error?: string;
+// Mirrors lib/agent/chat.ts's AgentStreamEvent — kept as a local, loosely
+// typed mirror rather than an import for the same reason ChatItem is: this
+// is a Client Component and that module is server-only.
+interface AgentStreamEvent {
+  type: "delta" | "pendingConfirmation" | "done" | "error";
+  text?: string;
+  history?: ChatItem[];
+  pendingConfirmation?: PendingConfirmation | null;
+  message?: string;
 }
 
 function prettifyCapabilityId(id: string): string {
   return id.split(".").join(" › ");
+}
+
+// A small, dependency-free markdown-link renderer — not a general markdown
+// parser. The assistant is instructed (see chat.ts's INSTRUCTIONS) to share
+// a capability's "url" output as [label](url) rather than a bare id; this is
+// what turns that into an actual clickable link instead of literal text.
+// Parses into React nodes (never dangerouslySetInnerHTML) so there's no HTML
+// injection surface regardless of what the model outputs.
+const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\((\/[^\s)]+|https?:\/\/[^\s)]+)\)/g;
+
+function renderRichText(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+  MARKDOWN_LINK_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = MARKDOWN_LINK_PATTERN.exec(text))) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+    const full = match[0];
+    const label = match[1] ?? "";
+    const href = match[2] ?? "";
+    const external = !href.startsWith("/");
+    nodes.push(
+      <a
+        key={key++}
+        href={href}
+        className="underline underline-offset-2 hover:opacity-80"
+        {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+      >
+        {label}
+      </a>,
+    );
+    lastIndex = match.index + full.length;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
 }
 
 export function AgentChatWidget() {
@@ -55,31 +109,80 @@ export function AgentChatWidget() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingConfirmation | null>(null);
+  // The in-progress assistant reply, filled in token-by-token as "delta"
+  // events arrive; null when nothing is streaming. Rendered as its own live
+  // bubble below `history`, then folded away once the terminal event lands
+  // and `history` (from the server, already including the finished message
+  // item) takes over rendering it.
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [history, pending, loading]);
+  }, [history, pending, loading, streamingText]);
 
   async function postChat(body: Record<string, unknown>): Promise<void> {
     setLoading(true);
     setError(null);
+    setStreamingText("");
     try {
       const response = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await response.json()) as ChatResponse;
-      if (!response.ok) {
-        setError(data.error ?? "Something went wrong.");
+      if (!response.ok || !response.body) {
+        const data = await response.json().catch(() => null);
+        setError((data as { error?: string } | null)?.error ?? "Something went wrong.");
         return;
       }
-      setHistory(data.history);
-      setPending(data.pendingConfirmation);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawTerminalEvent = false;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.trim();
+          if (!line.startsWith("data:")) continue;
+          let event: AgentStreamEvent;
+          try {
+            event = JSON.parse(line.slice("data:".length).trim()) as AgentStreamEvent;
+          } catch {
+            continue;
+          }
+          if (event.type === "delta") {
+            setStreamingText((text) => (text ?? "") + (event.text ?? ""));
+          } else if (event.type === "pendingConfirmation") {
+            sawTerminalEvent = true;
+            if (event.history) setHistory(event.history);
+            setPending(event.pendingConfirmation ?? null);
+            setStreamingText(null);
+          } else if (event.type === "done") {
+            sawTerminalEvent = true;
+            if (event.history) setHistory(event.history);
+            setStreamingText(null);
+          } else if (event.type === "error") {
+            sawTerminalEvent = true;
+            setError(event.message ?? "Something went wrong.");
+            setStreamingText(null);
+          }
+        }
+      }
+
+      if (!sawTerminalEvent) {
+        setError("The assistant stopped responding unexpectedly.");
+      }
     } catch {
       setError("Couldn't reach the assistant. Try again.");
     } finally {
+      setStreamingText(null);
       setLoading(false);
     }
   }
@@ -208,7 +311,11 @@ export function AgentChatWidget() {
             {history.map((item, index) => (
               <ChatEntry key={index} item={item} />
             ))}
-            {loading && <p className="text-xs text-ink-400">Thinking…</p>}
+            {streamingText ? (
+              <Bubble align="left">{streamingText}</Bubble>
+            ) : (
+              loading && <p className="text-xs text-ink-400">Thinking…</p>
+            )}
           </div>
 
           {pending && (
@@ -298,21 +405,10 @@ function ChatEntry({ item }: { item: ChatItem }) {
     return text ? <Bubble align="left">{text}</Bubble> : null;
   }
 
-  // A tool call the model made: { type: "function_call", name, arguments, call_id }.
-  if (item.type === "function_call" && typeof item.name === "string") {
-    return (
-      <p className="pl-1 text-[11px] text-ink-400">
-        {/* Reverses lib/agent/tool-bridge.ts's sanitizeToolName — keep in sync. */}
-        Called {prettifyCapabilityId(item.name.replace(/__/g, "."))}
-      </p>
-    );
-  }
-
-  // The result we (or a decline) fed back for that call: { type: "function_call_output", output }.
-  if (item.type === "function_call_output" && typeof item.output === "string") {
-    return <p className="pl-1 text-[11px] italic text-ink-400">{item.output}</p>;
-  }
-
+  // { type: "function_call", ... } and { type: "function_call_output", ... }
+  // items stay in history for the next request but are never shown — this
+  // panel surfaces answers, not the tool calls behind them (see the file's
+  // top comment).
   return null;
 }
 
@@ -325,7 +421,7 @@ function Bubble({ align, children }: { align: "left" | "right"; children: string
           align === "right" ? "bg-brand-primary text-white" : "bg-panel-50 text-ink-900",
         )}
       >
-        {children}
+        {renderRichText(children)}
       </div>
     </div>
   );
