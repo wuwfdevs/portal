@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import { getProjectById, getTranscriptForRepresentation, processingLabel } from "@/lib/transcription/projects";
+import {
+  getProjectById,
+  getTranscriptForRepresentation,
+  processingLabel,
+} from "@/lib/transcription/projects";
 import { listExcerptsForSource } from "@/lib/transcription/clips";
 import { listDocumentExcerptsForSource } from "@/lib/transcription/document-excerpts";
 import { getDocumentContentForRepresentation } from "@/lib/transcription/document-content";
@@ -99,136 +103,134 @@ export default async function TranscriptionProjectPage({
         <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
       </div>
 
-      {project.sources.length > 0 && (
-        <SourceCardGrid
-          projectId={project.id}
-          sources={project.sources}
-          activeSourceId={activeSourceSummary?.sourceId ?? null}
-        />
-      )}
+      <SourceCardGrid
+        projectId={project.id}
+        sources={project.sources}
+        activeSourceId={activeSourceSummary?.sourceId ?? null}
+      >
+        {activeStatus === "ready" && isDocument && (
+          <div className="rounded border border-line bg-white p-5">
+            {signedUrl && activeSourceSummary ? (
+              <DocumentWorkspace
+                sourceId={activeSourceSummary.sourceId}
+                representationId={transcriptRepresentation?.id ?? null}
+                fileUrl={signedUrl}
+                pages={documentContent.pages}
+                blocks={documentContent.blocks}
+                excerpts={documentExcerpts}
+                initialPage={initialPage}
+              />
+            ) : (
+              <p className="text-sm text-ink-500">
+                Couldn&apos;t load the document right now. Reload the page to try again.
+              </p>
+            )}
+            {source?.page_count && (
+              <dl className="mt-4 flex gap-6 text-xs text-ink-500">
+                <div>
+                  <dt className="font-semibold text-ink-700">Pages</dt>
+                  <dd>{source.page_count}</dd>
+                </div>
+                {source.original_size_bytes && (
+                  <div>
+                    <dt className="font-semibold text-ink-700">File size</dt>
+                    <dd>{formatBytes(source.original_size_bytes)}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              {canDelete && <DeleteProjectButton projectId={project.id} />}
+            </div>
+          </div>
+        )}
 
-      {activeStatus === "ready" && isDocument && (
-        <div className="rounded border border-line bg-white p-5">
-          {signedUrl && activeSourceSummary ? (
-            <DocumentWorkspace
-              sourceId={activeSourceSummary.sourceId}
-              representationId={transcriptRepresentation?.id ?? null}
-              fileUrl={signedUrl}
-              pages={documentContent.pages}
-              blocks={documentContent.blocks}
-              excerpts={documentExcerpts}
-              initialPage={initialPage}
-            />
-          ) : (
-            <p className="text-sm text-ink-500">
-              Couldn&apos;t load the document right now. Reload the page to try again.
-            </p>
-          )}
-          {source?.page_count && (
+        {activeStatus === "ready" && !isDocument && (
+          <div className="rounded border border-line bg-white p-5">
+            {signedUrl && activeSourceSummary ? (
+              <TranscriptWorkspace
+                projectId={project.id}
+                sourceId={activeSourceSummary.sourceId}
+                representationId={transcriptRepresentation?.id ?? null}
+                projectTitle={project.title}
+                interviewDate={source?.interview_date ?? null}
+                exportDate={source?.interview_date ?? project.createdAt}
+                mediaUrl={signedUrl}
+                isVideo={isVideoContentType(source?.original_content_type ?? "")}
+                segments={transcript.segments}
+                speakers={transcript.speakers}
+                clips={clips}
+                initialSeekMs={initialSeekMs}
+                highlightClipId={clip ?? null}
+              />
+            ) : (
+              <p className="text-sm text-ink-500">
+                Couldn&apos;t load the media right now. Reload the page to try again.
+              </p>
+            )}
             <dl className="mt-4 flex gap-6 text-xs text-ink-500">
-              <div>
-                <dt className="font-semibold text-ink-700">Pages</dt>
-                <dd>{source.page_count}</dd>
-              </div>
-              {source.original_size_bytes && (
+              {source?.original_duration_ms && (
+                <div>
+                  <dt className="font-semibold text-ink-700">Duration</dt>
+                  <dd>{formatDuration(source.original_duration_ms)}</dd>
+                </div>
+              )}
+              {source?.original_size_bytes && (
                 <div>
                   <dt className="font-semibold text-ink-700">File size</dt>
                   <dd>{formatBytes(source.original_size_bytes)}</dd>
                 </div>
               )}
             </dl>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            {canDelete && <DeleteProjectButton projectId={project.id} />}
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <ReindexButton projectId={project.id} />
+              {canDelete && <DeleteProjectButton projectId={project.id} />}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeStatus === "ready" && !isDocument && (
-        <div className="rounded border border-line bg-white p-5">
-          {signedUrl && activeSourceSummary ? (
-            <TranscriptWorkspace
-              projectId={project.id}
-              sourceId={activeSourceSummary.sourceId}
-              representationId={transcriptRepresentation?.id ?? null}
-              projectTitle={project.title}
-              interviewDate={source?.interview_date ?? null}
-              exportDate={source?.interview_date ?? project.createdAt}
-              mediaUrl={signedUrl}
-              isVideo={isVideoContentType(source?.original_content_type ?? "")}
-              segments={transcript.segments}
-              speakers={transcript.speakers}
-              clips={clips}
-              initialSeekMs={initialSeekMs}
-              highlightClipId={clip ?? null}
-            />
-          ) : (
-            <p className="text-sm text-ink-500">
-              Couldn&apos;t load the media right now. Reload the page to try again.
+        {activeStatus === "uploading" && (
+          <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
+            This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
+            upload is still running in another tab, or it was interrupted.
+            {canDelete && (
+              <DeleteProjectButton
+                projectId={project.id}
+                warning="This removes the project and anything already uploaded for it."
+              />
+            )}
+          </div>
+        )}
+
+        {activeStatus === "processing" && (
+          <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
+            {processingLabel(source?.kind ?? "audio_video")} — this can take a few minutes for a{" "}
+            {isDocument ? "large document" : "long recording"}. This page will show the result as
+            soon as it&apos;s ready; you can also leave and come back.
+            <ProcessingPoller />
+          </div>
+        )}
+
+        {activeStatus === "failed" && (
+          <div className="max-w-lg rounded border border-line bg-white p-5">
+            <p className="text-sm text-ink-700">
+              {source?.error_message ??
+                transcriptRepresentation?.error_message ??
+                "Something went wrong with this project."}
             </p>
-          )}
-          <dl className="mt-4 flex gap-6 text-xs text-ink-500">
-            {source?.original_duration_ms && (
-              <div>
-                <dt className="font-semibold text-ink-700">Duration</dt>
-                <dd>{formatDuration(source.original_duration_ms)}</dd>
-              </div>
+            {hasMedia && (
+              <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
             )}
-            {source?.original_size_bytes && (
-              <div>
-                <dt className="font-semibold text-ink-700">File size</dt>
-                <dd>{formatBytes(source.original_size_bytes)}</dd>
-              </div>
+            {canDelete && (
+              <DeleteProjectButton
+                projectId={project.id}
+                label={hasMedia ? "Delete this project" : "Delete and try again"}
+                warning="This removes the project and anything already uploaded for it."
+              />
             )}
-          </dl>
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            <ReindexButton projectId={project.id} />
-            {canDelete && <DeleteProjectButton projectId={project.id} />}
           </div>
-        </div>
-      )}
-
-      {activeStatus === "uploading" && (
-        <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
-          This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
-          upload is still running in another tab, or it was interrupted.
-          {canDelete && (
-            <DeleteProjectButton
-              projectId={project.id}
-              warning="This removes the project and anything already uploaded for it."
-            />
-          )}
-        </div>
-      )}
-
-      {activeStatus === "processing" && (
-        <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-          {processingLabel(source?.kind ?? "audio_video")} — this can take a few minutes for a{" "}
-          {isDocument ? "large document" : "long recording"}. This page will show the result as
-          soon as it&apos;s ready; you can also leave and come back.
-          <ProcessingPoller />
-        </div>
-      )}
-
-      {activeStatus === "failed" && (
-        <div className="max-w-lg rounded border border-line bg-white p-5">
-          <p className="text-sm text-ink-700">
-            {source?.error_message ??
-              transcriptRepresentation?.error_message ??
-              "Something went wrong with this project."}
-          </p>
-          {hasMedia && (
-            <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
-          )}
-          {canDelete && (
-            <DeleteProjectButton
-              projectId={project.id}
-              label={hasMedia ? "Delete this project" : "Delete and try again"}
-              warning="This removes the project and anything already uploaded for it."
-            />
-          )}
-        </div>
-      )}
+        )}
+      </SourceCardGrid>
     </div>
   );
 }

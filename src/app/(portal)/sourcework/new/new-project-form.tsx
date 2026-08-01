@@ -149,7 +149,7 @@ export function NewProjectForm() {
               : "Context for this interview — where, why, who set it up"
           }
           disabled={isPending}
-          className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50"
+          className="w-full rounded border border-line px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50 sm:text-sm"
         />
       </div>
       <div>

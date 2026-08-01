@@ -12,8 +12,12 @@ import type {
  * Exported so the few client components that build their own inputs stay in
  * step instead of re-typing the class list.
  */
+// text-base below the sm breakpoint, dropping to text-sm at sm: and up —
+// iOS Safari auto-zooms on focus for any input with a computed font-size
+// under 16px, so this keeps mobile at 16px while preserving the existing
+// 14px look everywhere the viewport is wide enough that zoom isn't a risk.
 export const controlClasses = cn(
-  "w-full rounded border border-line bg-white px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400",
+  "w-full rounded border border-line bg-white px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 sm:text-sm",
   "focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface",
   "disabled:cursor-not-allowed disabled:bg-panel-50 disabled:text-ink-400",
 );

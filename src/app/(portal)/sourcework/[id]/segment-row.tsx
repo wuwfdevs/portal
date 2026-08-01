@@ -245,7 +245,7 @@ export function SegmentRow({
                 }}
                 autoFocus
                 rows={3}
-                className="w-full rounded border border-brand-primary px-2 py-1.5 text-sm leading-relaxed text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-surface"
+                className="w-full rounded border border-brand-primary px-2 py-1.5 text-base leading-relaxed text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
               />
 
               {canSplit && <SplitPreview text={text} caret={caret} />}
