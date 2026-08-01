@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type OpenAI from "openai";
 import { assertActiveProfile, ForbiddenError } from "@/lib/auth/authz";
-import { runAgentTurn } from "@/lib/agent/chat";
+import { streamAgentTurn, type AgentStreamEvent } from "@/lib/agent/chat";
 
 /**
  * Phase D's chat endpoint (docs/agent-capabilities-design.md §7): the portal
@@ -17,6 +17,12 @@ import { runAgentTurn } from "@/lib/agent/chat";
  * still no job queue or chat-history table in this repo, so nothing here
  * persists a transcript beyond the mcp.* audit event each tool call already
  * writes.
+ *
+ * The response body is a text/event-stream of JSON-encoded AgentStreamEvent
+ * values (one `data: ...` line per event, blank-line delimited — plain SSE,
+ * no library needed for either side) so the widget can render the model's
+ * reply as it's generated instead of waiting for the whole turn, including
+ * any tool-call rounds, to finish.
  */
 
 export const runtime = "nodejs";
@@ -60,15 +66,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Provide a message or a confirmation." }, { status: 400 });
   }
 
-  try {
-    const result = await runAgentTurn(profile, {
-      history: history as unknown as OpenAI.Responses.ResponseInputItem[],
-      input,
-      confirmation,
-    });
-    return NextResponse.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Something went wrong.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: AgentStreamEvent) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      };
+      try {
+        for await (const event of streamAgentTurn(profile, {
+          history: history as unknown as OpenAI.Responses.ResponseInputItem[],
+          input,
+          confirmation,
+        })) {
+          send(event);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Something went wrong.";
+        send({ type: "error", message });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
 }
