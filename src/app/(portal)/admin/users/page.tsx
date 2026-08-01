@@ -73,7 +73,7 @@ export default async function AdminUsersPage({
             name="q"
             defaultValue={q}
             placeholder="Search by name or email"
-            className="w-64 border-0 text-sm text-ink-900 outline-none placeholder:text-ink-400"
+            className="w-64 border-0 text-base text-ink-900 outline-none placeholder:text-ink-400 sm:text-sm"
           />
         </form>
         <Link href="/admin/users/invite">

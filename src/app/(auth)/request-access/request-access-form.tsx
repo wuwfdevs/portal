@@ -49,7 +49,7 @@ export function RequestAccessForm({ initialEmail }: { initialEmail?: string }) {
           name="note"
           rows={3}
           placeholder="e.g. Newsroom intern — need Editorial Planning access"
-          className="w-full rounded border border-line px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface"
+          className="w-full rounded border border-line px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
         />
       </div>
       {state.status === "error" && <p className="text-xs text-danger">{state.message}</p>}
