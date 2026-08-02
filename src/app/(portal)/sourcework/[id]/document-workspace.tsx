@@ -54,9 +54,14 @@ export function DocumentWorkspace({
   initialPage?: number | null;
 }) {
   const router = useRouter();
-  const pageCount = pages.length;
+  // Normally the extracted pages are the page count. When extraction failed
+  // or hasn't run there are none, and the PDF itself is the only thing that
+  // knows how long it is — the viewer reports that back once it loads, so
+  // paging still works over a document with no text behind it.
+  const [pdfPageCount, setPdfPageCount] = useState(0);
+  const pageCount = pages.length || pdfPageCount;
   const [currentPage, setCurrentPage] = useState(
-    Math.min(Math.max(initialPage ?? 1, 1), Math.max(pageCount, 1)),
+    Math.min(Math.max(initialPage ?? 1, 1), Math.max(pages.length, 1)),
   );
   const [zoom, setZoom] = useState(1);
   const [pendingSelection, setPendingSelection] = useState<{
@@ -204,7 +209,12 @@ export function DocumentWorkspace({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="max-h-[75vh] overflow-auto rounded border border-line bg-panel-50">
-          <PdfPageViewer fileUrl={fileUrl} pageNumber={currentPage} scale={zoom} />
+          <PdfPageViewer
+            fileUrl={fileUrl}
+            pageNumber={currentPage}
+            scale={zoom}
+            onLoadPageCount={setPdfPageCount}
+          />
         </div>
 
         <div className="flex max-h-[75vh] flex-col gap-4 overflow-auto">
@@ -213,6 +223,16 @@ export function DocumentWorkspace({
             onMouseUp={handleMouseUp}
             className="select-text rounded border border-line bg-white p-4 text-sm leading-relaxed text-ink-800"
           >
+            {orderedPages.length === 0 && (
+              // Not necessarily an error: text extraction may have failed
+              // (the banner above says so) or may still be running. Either
+              // way the pages render fine to the left, so say what's missing
+              // rather than leaving an empty panel.
+              <p className="text-sm text-ink-500">
+                No text for this document yet — you can read and page through it on the left, but
+                there&apos;s nothing to select or excerpt until extraction finishes.
+              </p>
+            )}
             {orderedPages.map((page) => (
               <div key={page.id} className="mb-4">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink-400">

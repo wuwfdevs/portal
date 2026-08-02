@@ -17,8 +17,8 @@ import { retryTranscription } from "../actions";
 import { DeleteProjectButton } from "../delete-project-button";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { DocumentWorkspace } from "./document-workspace";
-import { ProcessingPoller } from "./processing-poller";
 import { ProjectDetails } from "./project-details";
+import { RepresentationStatusBanner } from "./representation-status-banner";
 import { ReindexButton } from "./reindex-button";
 import { SourceCardGrid } from "./source-card-grid";
 
@@ -55,21 +55,28 @@ export default async function TranscriptionProjectPage({
   const activeStatus = activeSourceSummary?.status ?? "uploading";
   const hasMedia = Boolean(source?.original_storage_path);
   const isDocument = source?.kind === "document";
+  // The uploaded file and the text extracted from it succeed or fail
+  // independently, so they gate different things: the file decides whether
+  // there's a workspace to show at all, the representation only decides what
+  // goes in its text pane. See RepresentationStatusBanner.
+  const fileReady = source?.status === "ready" && hasMedia;
+  const representationStatus = transcriptRepresentation?.status ?? "pending";
+  const contentReady = fileReady && representationStatus === "ready";
 
   const [signedUrl, transcript, clips, documentContent, documentExcerpts] = await Promise.all([
-    activeStatus === "ready" && source?.original_storage_path
+    fileReady && source?.original_storage_path
       ? getSignedMediaUrl(source.original_storage_path)
       : Promise.resolve(null),
-    !isDocument && activeStatus === "ready" && transcriptRepresentation
+    !isDocument && contentReady && transcriptRepresentation
       ? getTranscriptForRepresentation(transcriptRepresentation.id)
       : Promise.resolve({ segments: [], speakers: [] }),
-    !isDocument && activeStatus === "ready" && activeSourceSummary
+    !isDocument && fileReady && activeSourceSummary
       ? listExcerptsForSource(activeSourceSummary.sourceId)
       : Promise.resolve([]),
-    isDocument && activeStatus === "ready" && transcriptRepresentation
+    isDocument && contentReady && transcriptRepresentation
       ? getDocumentContentForRepresentation(transcriptRepresentation.id)
       : Promise.resolve({ pages: [], blocks: [] }),
-    isDocument && activeStatus === "ready" && activeSourceSummary
+    isDocument && fileReady && activeSourceSummary
       ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
       : Promise.resolve([]),
   ]);
@@ -107,8 +114,15 @@ export default async function TranscriptionProjectPage({
         sources={project.sources}
         activeSourceId={activeSourceSummary?.sourceId ?? null}
       >
-        {activeStatus === "ready" && isDocument && (
+        {fileReady && isDocument && (
           <div className="rounded border border-line bg-white p-5">
+            <RepresentationStatusBanner
+              status={representationStatus}
+              kind="document"
+              errorMessage={transcriptRepresentation?.error_message ?? null}
+              projectId={project.id}
+              sourceId={activeSourceSummary?.sourceId ?? null}
+            />
             {signedUrl && activeSourceSummary ? (
               <DocumentWorkspace
                 sourceId={activeSourceSummary.sourceId}
@@ -144,8 +158,15 @@ export default async function TranscriptionProjectPage({
           </div>
         )}
 
-        {activeStatus === "ready" && !isDocument && (
+        {fileReady && !isDocument && (
           <div className="rounded border border-line bg-white p-5">
+            <RepresentationStatusBanner
+              status={representationStatus}
+              kind="audio_video"
+              errorMessage={transcriptRepresentation?.error_message ?? null}
+              projectId={project.id}
+              sourceId={activeSourceSummary?.sourceId ?? null}
+            />
             {signedUrl && activeSourceSummary ? (
               <TranscriptWorkspace
                 projectId={project.id}
@@ -188,7 +209,11 @@ export default async function TranscriptionProjectPage({
           </div>
         )}
 
-        {activeStatus === "uploading" && (
+        {/* Below here the *file* isn't available, so there is no workspace to
+            show — the upload is still running, or it failed outright. A
+            failure in the text extracted from an uploaded file is not one of
+            these states; it rides above the workspace as a banner. */}
+        {!fileReady && activeStatus === "uploading" && (
           <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
             This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
             upload is still running in another tab, or it was interrupted.
@@ -201,16 +226,7 @@ export default async function TranscriptionProjectPage({
           </div>
         )}
 
-        {activeStatus === "processing" && (
-          <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-            {processingLabel(source?.kind ?? "audio_video")} — this can take a few minutes for a{" "}
-            {isDocument ? "large document" : "long recording"}. This page will show the result as
-            soon as it&apos;s ready; you can also leave and come back.
-            <ProcessingPoller />
-          </div>
-        )}
-
-        {activeStatus === "failed" && (
+        {!fileReady && activeStatus !== "uploading" && (
           <div className="max-w-lg rounded border border-line bg-white p-5">
             <p className="text-sm text-ink-700">
               {source?.error_message ??

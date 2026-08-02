@@ -32,11 +32,14 @@ export function PdfPageViewer({
   pageNumber,
   scale,
   onLoadError,
+  onLoadPageCount,
 }: {
   fileUrl: string;
   pageNumber: number;
   scale: number;
   onLoadError?: (message: string) => void;
+  /** The PDF's own page count. The workspace normally paginates by the extracted sw_document_pages rows, but when extraction failed there are none — this is the only page count available. */
+  onLoadPageCount?: (pageCount: number) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +47,7 @@ export function PdfPageViewer({
     <Document
       file={fileUrl}
       loading={<p className="p-4 text-sm text-ink-500">Loading page…</p>}
+      onLoadSuccess={(doc) => onLoadPageCount?.(doc.numPages)}
       onLoadError={(err) => {
         const message = "Could not display this PDF.";
         setError(message);

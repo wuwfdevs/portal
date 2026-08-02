@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { retryTranscription } from "../../actions";
 import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
-import { ProcessingPoller } from "../../[id]/processing-poller";
+import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -58,16 +58,22 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
   const primaryProjectId = source.projects[0]?.id ?? null;
   const hasMedia = Boolean(source.originalStoragePath);
   const isDocument = source.kind === "document";
+  // See ../../[id]/representation-status-banner.tsx: the file and the text
+  // extracted from it fail independently, so the viewer is gated on the file
+  // and the representation's state is reported over it.
+  const fileReady = source.fileStatus === "ready" && hasMedia;
+  const representationStatus = source.transcript?.status ?? "pending";
+  const contentReady = fileReady && representationStatus === "ready";
 
   const [signedUrl, transcript, excerpts, documentContent, documentExcerpts] = await Promise.all([
-    source.status === "ready" && source.originalStoragePath
+    fileReady && source.originalStoragePath
       ? getSignedMediaUrl(source.originalStoragePath)
       : Promise.resolve(null),
-    !isDocument && source.status === "ready" && source.transcript
+    !isDocument && contentReady && source.transcript
       ? getTranscriptForRepresentation(source.transcript.id)
       : Promise.resolve({ segments: [], speakers: [] }),
     isDocument ? Promise.resolve([]) : listExcerptsForSource(id),
-    isDocument && source.status === "ready" && source.transcript
+    isDocument && contentReady && source.transcript
       ? getDocumentContentForRepresentation(source.transcript.id)
       : Promise.resolve({ pages: [], blocks: [] }),
     isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
@@ -127,8 +133,16 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         )}
       </section>
 
-      {source.status === "ready" && isDocument && (
+      {fileReady && isDocument && (
         <div className="rounded border border-line bg-white p-5">
+          <RepresentationStatusBanner
+            status={representationStatus}
+            kind="document"
+            errorMessage={source.transcript?.error_message ?? null}
+            projectId={primaryProjectId}
+            sourceId={id}
+            returnTo={`/sourcework/sources/${id}`}
+          />
           {signedUrl ? (
             <DocumentWorkspace
               sourceId={id}
@@ -146,8 +160,16 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      {source.status === "ready" && !isDocument && (
+      {fileReady && !isDocument && (
         <div className="rounded border border-line bg-white p-5">
+          <RepresentationStatusBanner
+            status={representationStatus}
+            kind="audio_video"
+            errorMessage={source.transcript?.error_message ?? null}
+            projectId={primaryProjectId}
+            sourceId={id}
+            returnTo={`/sourcework/sources/${id}`}
+          />
           {signedUrl && primaryProjectId ? (
             <TranscriptWorkspace
               projectId={primaryProjectId}
@@ -172,23 +194,17 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      {source.status === "uploading" && (
+      {/* Only reached when the *file* isn't available — see the project
+          workspace's equivalent comment. A failed extraction over a
+          perfectly good file is a banner, not one of these. */}
+      {!fileReady && source.fileStatus === "uploading" && (
         <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
           This source doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
           upload is still running in another tab, or it was interrupted.
         </div>
       )}
 
-      {source.status === "processing" && (
-        <div className="max-w-lg rounded border border-line bg-panel-50 p-5 text-sm text-ink-500">
-          {processingLabel(source.kind)} — this can take a few minutes for a{" "}
-          {isDocument ? "large document" : "long recording"}. This page will show the result as
-          soon as it&apos;s ready; you can also leave and come back.
-          <ProcessingPoller />
-        </div>
-      )}
-
-      {source.status === "failed" && (
+      {!fileReady && source.fileStatus !== "uploading" && (
         <div className="max-w-lg rounded border border-line bg-white p-5">
           <p className="text-sm text-ink-700">
             {source.errorMessage ??
@@ -207,7 +223,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
           before a re-transcription attempt that's since failed. Document
           excerpts always show inside DocumentWorkspace itself once ready;
           this fallback covers the same not-ready states for a document. */}
-      {source.status !== "ready" && !isDocument && excerpts.length > 0 && (
+      {!fileReady && !isDocument && excerpts.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-500">
             Excerpts from this source
@@ -231,7 +247,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         </section>
       )}
 
-      {source.status !== "ready" && isDocument && documentExcerpts.length > 0 && (
+      {!fileReady && isDocument && documentExcerpts.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-500">
             Excerpts from this source
