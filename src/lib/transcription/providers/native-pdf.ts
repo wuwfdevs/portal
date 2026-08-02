@@ -42,6 +42,39 @@ function ensureCanvaslessGlobals(): void {
 }
 
 /**
+ * Makes pdf.mjs able to find its own worker on a server where it isn't
+ * sitting next to `pdf.worker.mjs` on disk.
+ *
+ * Under Node, pdf.mjs runs a "fake worker" (parsing in-process, no real
+ * Worker thread) rather than fail outright, but it still needs the worker
+ * module's exports to do it — so on first use it evaluates `import("./pdf.worker.mjs")`,
+ * a *relative* specifier resolved against pdf.mjs's own location. That's a
+ * runtime string, not a literal a bundler can trace, so Next's server bundle
+ * doesn't carry pdf.worker.mjs to wherever pdf.mjs ends up as a chunk on
+ * Vercel, and the relative import 404s with "Cannot find module
+ * '.../pdf.worker.mjs' imported from '.../pdf.mjs'".
+ *
+ * pdf.mjs checks `globalThis.pdfjsWorker?.WorkerMessageHandler` first and
+ * skips the broken import entirely if it's already set (confirmed by reading
+ * PDFWorker's #initialize/#mainThreadWorkerMessageHandler in the installed
+ * package) — this is exactly that hook. Our import here uses a literal
+ * specifier, which Next's tracer does follow and bundle correctly, same as
+ * the pdf.mjs import below it.
+ */
+async function ensurePdfWorkerGlobal(): Promise<void> {
+  const globals = globalThis as unknown as { pdfjsWorker?: unknown };
+  if (globals.pdfjsWorker === undefined) {
+    // pdfjs-dist ships no declaration file for this entry point (only the
+    // main pdf.mjs one has a .d.mts) — imported purely for the
+    // WorkerMessageHandler side effect below. Kept as a literal specifier
+    // (not hoisted into a variable) so bundlers can trace and include it —
+    // that's the entire fix; see this function's doc comment above.
+    // @ts-expect-error — pdfjs-dist ships no types for this entry point.
+    globals.pdfjsWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  }
+}
+
+/**
  * Extracts every page's text + geometry from a PDF's own embedded text
  * layer. Purely local — no network call, no external provider — so the
  * document-processing pipeline runs this synchronously before deciding
@@ -49,6 +82,7 @@ function ensureCanvaslessGlobals(): void {
  */
 export async function extractNativeDocumentText(pdfBytes: Uint8Array): Promise<NativeExtractionResult> {
   ensureCanvaslessGlobals();
+  await ensurePdfWorkerGlobal();
   // Dynamic import: pdfjs-dist's legacy build is ESM-only and pulls in a
   // meaningful chunk of parsing code that only the document pipeline needs —
   // no reason to load it into every server bundle that imports this module's
