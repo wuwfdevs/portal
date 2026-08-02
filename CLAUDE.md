@@ -148,7 +148,7 @@ and a "Download all" zip (`/api/remote-interview/sessions/[id]/tracks.zip`, a ro
 for the same file-vs-data reason as the Transcription Workspace's `clips.zip`, reusing its
 generic zip writer directly). One RLS migration
 (`20260730160000_remote_interview_assembly_rls.sql`, applied to both projects) was needed
-alongside this: assembly is host-triggered but writes into *the participant's* storage
+alongside this: assembly is host-triggered but writes into _the participant's_ storage
 prefix, so `ri_media_insert`/`update` needed the same host-of-session broadening slice 3
 already gave `ri_tracks`.
 
@@ -192,7 +192,7 @@ Three things about it are load-bearing and easy to break by accident:
    `question_required` are copied onto `al_answers` by `al_reserve_answer()` from
    `al_questions` — never supplied by the client. Wording stays editable after submissions
    exist; removal and reordering do not.
-3. **"Automatic" transcription is automatic *eligibility*, not background processing.**
+3. **"Automatic" transcription is automatic _eligibility_, not background processing.**
    There is still no job queue in this repo, so finalizing a submission on an `automatic`
    query marks its answers `queued` and a staff member drains them in one click. Don't
    describe it as unattended.
@@ -267,11 +267,11 @@ no confirmation step — a deliberate product call, not an oversight), and
 workspace shows. `sw_project_sources`'s Phase 1 RLS policy (`for all` for
 any tool member) already covered the new insert, so **no migration shipped
 with this phase**. Two correctness fixes rode along, both about acting on
-the *active* source rather than always "the" project's primary one: clip
+the _active_ source rather than always "the" project's primary one: clip
 creation now takes an explicit `sourceId`/`representationId`
 (`[id]/clip-actions.ts`'s `createClip`), and `startTranscriptionForProject`
 (`lib/transcription/ingest.ts`) now takes a `representationId` directly
-instead of re-deriving the primary source's — retrying a failed *second*
+instead of re-deriving the primary source's — retrying a failed _second_
 source used to silently re-kick the first one instead. Project-wide actions
 that don't (yet) need per-source targeting — upload completion, reindex, the
 clips.zip export, project deletion's cascade check — were deliberately left
@@ -381,7 +381,7 @@ Five things about it are load-bearing and easy to break by accident:
    `private.has_roadmap_access` reads the same column in SQL. Every other tool is
    `invite_only`, so nothing else changed. Don't hard-code "everyone" anywhere — reading
    the column is what lets an administrator tighten the tool from the registry screen.
-2. **A `tool_access` grant on Roadmap is the *elevation*, not the ticket in.** Everyone
+2. **A `tool_access` grant on Roadmap is the _elevation_, not the ticket in.** Everyone
    is already a member; a grant carrying `tool_role = 'curator'` adds curation
    (`private.is_roadmap_curator`, `lib/roadmap/roles.ts`). Granting someone plain access
    does nothing.
@@ -398,7 +398,7 @@ Five things about it are load-bearing and easy to break by accident:
    raises unless a curator or administrator is the one changing `status`/`status_note`/
    `kind`/`tool_id`. Hiding the curator panel is a courtesy on top of it.
 5. **Audit events are scoped to curation, and so is the policy.** `audit_events_insert_
-   roadmap_curator` admits curators only — "member" here is every active staff member, and
+roadmap_curator` admits curators only — "member" here is every active staff member, and
    a member-scoped policy would let anyone in the portal write audit rows. Filing a post
    and commenting are ordinary writes and are deliberately not audited.
 
@@ -644,6 +644,14 @@ make explicitly, not by default.
   settings aren't configurable". Reads go through `unwrapRead()` (throws, caught by the
   route's `error.tsx`); writes go through `failIfError()` / `failWith()` from
   `lib/editorial/action-result.ts`, which bounce back with `?error=` for the screen to show.
+- Any new focusable text surface (input, textarea, select, or a custom `contenteditable`/
+  rich-text editor) must resolve to at least 16px font-size on mobile — iOS Safari
+  auto-zooms the viewport on focus below that. Use `controlClasses` from
+  `components/ui/input.tsx` for native `Input`/`Select`/`Textarea`; for anything else, use
+  the exported `MOBILE_SAFE_TEXT_SIZE` constant from the same file — never hand-type
+  `text-sm` on a focusable surface. This exact bug has recurred five times now, each time
+  on a different _kind_ of control than the last fix covered (`30464b3`, `90747aa`,
+  `af42f2b`, `f9fe609`, and `rich-text-editor.tsx`) — check this before adding any new one.
 - Migrations in `supabase/migrations/` are not self-applying, and no build or deploy will
   apply them. Adding one is not the end of the job: apply it to preview, then production,
   confirm the tables exist, record both dates in `supabase/migrations/APPLIED.md`, and run

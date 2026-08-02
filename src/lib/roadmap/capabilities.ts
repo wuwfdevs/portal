@@ -1,14 +1,19 @@
 // The Roadmap tool's capability layer (docs/agent-capabilities-design.md §4).
-// Two entries: filing a request, and reading the list back. Both are the same
-// logic the screens use, shaped as a typed result instead of a redirect, so an
-// agent asked "has anyone already asked for this?" can answer before someone
-// files a duplicate.
+// Four entries: filing a request, reading the list back, voting, and
+// commenting — all member-level and confirmation: "none", each mirroring what
+// an author can already do to their own content or to the shared vote/comment
+// surface unprompted. Reversible, visible immediately, author-attributed.
 //
-// Neither is confirmation-gated: filing a request is reversible by its author,
-// costs nothing, and is visible to everyone the moment it lands. Curation —
-// moving a post's status, promoting a proposal — is deliberately NOT exposed
-// here; those are decisions, and a decision should be made by a person on the
-// screen that shows the discussion.
+// Curation (setPostStatus, setPostTool) and the administrator-only
+// promoteToProposedTool are deliberately not exposed here — reconsidered
+// explicitly, not just left over by default: moving a post's status, or
+// turning a free-text new-tool request into a real registry row, is a
+// judgment call meant to be made by a person on the screen that shows the
+// full discussion, not delegated to an agent even behind this repo's
+// confirmation-required gate. Editing or deleting an existing post/comment
+// (updatePost, deletePost, updateComment, deleteComment) isn't exposed yet
+// either — voting and commenting cover "let an agent participate in the
+// roadmap" without touching content someone else authored or is relying on.
 
 import "server-only";
 import { z } from "zod";
@@ -16,7 +21,12 @@ import { defineCapability } from "@/lib/capabilities/define";
 import { assertRoadmapAccess } from "./access";
 import { listPosts } from "./queries";
 import { normalizeSort, validatePostInput } from "./posts";
-import { parseRichText, richTextToPlainText } from "./rich-text";
+import {
+  isEmptyRichText,
+  parseRichText,
+  plainTextToRichTextDoc,
+  richTextToPlainText,
+} from "./rich-text";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 
 const POST_KIND = z.enum(["feature", "improvement", "bug", "new_tool"]);
@@ -35,8 +45,8 @@ export type CreateRoadmapPostResult =
 /**
  * `body` is plain text here rather than a ProseMirror document: an agent has
  * no editor, and asking one to hand-assemble ProseMirror JSON would be a way
- * to get malformed documents into the column. The paragraphs it writes are
- * wrapped into a document by this handler, through the same whitelist every
+ * to get malformed documents into the column. `plainTextToRichTextDoc` wraps
+ * it into a document, which still goes through the same whitelist every
  * other write goes through.
  */
 export const createRoadmapPost = defineCapability({
@@ -56,18 +66,7 @@ export const createRoadmapPost = defineCapability({
   async handler({ supabase }, input): Promise<CreateRoadmapPostResult> {
     const { profile } = await assertRoadmapAccess();
 
-    const body = {
-      type: "doc" as const,
-      content: input.body
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean)
-        .map((paragraph) => ({
-          type: "paragraph",
-          content: [{ type: "text", text: paragraph }],
-        })),
-    };
-    const parsed = parseRichText(body);
+    const parsed = parseRichText(plainTextToRichTextDoc(input.body));
     if (!parsed) return { ok: false, message: "Could not read that description." };
     const bodyText = richTextToPlainText(parsed);
 
@@ -152,5 +151,90 @@ export const listRoadmapPosts = defineCapability({
         url: `/roadmap/${post.id}`,
       })),
     };
+  },
+});
+
+export type VoteOnRoadmapPostResult =
+  { ok: true; voted: boolean; voteCount: number } | { ok: false; message: string };
+
+/**
+ * Reads the current vote before acting rather than blindly toggling: an
+ * agent, unlike the UI, has no guarantee it last rendered this post's vote
+ * state, so `action` says what the caller wants and this makes getting there
+ * idempotent regardless of where the vote actually stood.
+ */
+export const voteOnRoadmapPost = defineCapability({
+  id: "roadmap.post.vote",
+  summary:
+    "Vote or remove your vote on a Roadmap request. Specify which explicitly — this does not blindly toggle, since an agent has no guarantee it knows the current vote state.",
+  input: z.object({
+    postId: z.string(),
+    action: z.enum(["vote", "unvote"]),
+  }),
+  requires: { tool: "roadmap" },
+  confirmation: "none",
+  async handler({ supabase }, input): Promise<VoteOnRoadmapPostResult> {
+    const { profile } = await assertRoadmapAccess();
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("rd_votes")
+      .select("post_id")
+      .eq("post_id", input.postId)
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    if (lookupError) {
+      return { ok: false, message: `Could not check your vote: ${lookupError.message}` };
+    }
+
+    if (input.action === "vote" && !existing) {
+      const { error } = await supabase
+        .from("rd_votes")
+        .insert({ post_id: input.postId, user_id: profile.id });
+      if (error) return { ok: false, message: `Could not record your vote: ${error.message}` };
+    } else if (input.action === "unvote" && existing) {
+      const { error } = await supabase
+        .from("rd_votes")
+        .delete()
+        .eq("post_id", input.postId)
+        .eq("user_id", profile.id);
+      if (error) return { ok: false, message: `Could not remove your vote: ${error.message}` };
+    }
+
+    const { count } = await supabase
+      .from("rd_votes")
+      .select("post_id", { count: "exact", head: true })
+      .eq("post_id", input.postId);
+
+    return { ok: true, voted: input.action === "vote", voteCount: count ?? 0 };
+  },
+});
+
+export type AddRoadmapCommentResult =
+  { ok: true; commentId: string } | { ok: false; message: string };
+
+export const addRoadmapComment = defineCapability({
+  id: "roadmap.comment.add",
+  summary: "Post a comment on a Roadmap request. Plain text — it will be wrapped into paragraphs.",
+  input: z.object({ postId: z.string(), body: z.string() }),
+  requires: { tool: "roadmap" },
+  confirmation: "none",
+  async handler({ supabase }, input): Promise<AddRoadmapCommentResult> {
+    const { profile } = await assertRoadmapAccess();
+
+    const parsed = parseRichText(plainTextToRichTextDoc(input.body));
+    if (!parsed || isEmptyRichText(parsed)) {
+      return { ok: false, message: "Write something before posting a comment." };
+    }
+    const bodyText = richTextToPlainText(parsed);
+
+    const { data, error } = await supabase
+      .from("rd_comments")
+      .insert({ post_id: input.postId, author_id: profile.id, body: parsed, body_text: bodyText })
+      .select("id")
+      .single();
+    if (error) return { ok: false, message: `Could not post the comment: ${error.message}` };
+    if (!data) return { ok: false, message: "Could not post the comment — no row was created." };
+
+    return { ok: true, commentId: data.id };
   },
 });
