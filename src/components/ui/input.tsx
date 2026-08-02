@@ -12,12 +12,18 @@ import type {
  * Exported so the few client components that build their own inputs stay in
  * step instead of re-typing the class list.
  */
-// text-base below the sm breakpoint, dropping to text-sm at sm: and up —
-// iOS Safari auto-zooms on focus for any input with a computed font-size
-// under 16px, so this keeps mobile at 16px while preserving the existing
-// 14px look everywhere the viewport is wide enough that zoom isn't a risk.
+// iOS Safari auto-zooms the viewport on focus for any focusable text surface
+// under 16px effective font-size. Single source of truth for staying above
+// that line — reach for this on any custom focusable surface (a
+// contenteditable div, a custom widget), not just Input/Select/Textarea
+// below. This bug has recurred multiple times, each time on a different kind
+// of control; see CLAUDE.md's "Rules for making changes."
+export const MOBILE_SAFE_TEXT_SIZE = "text-base sm:text-sm";
+
 export const controlClasses = cn(
-  "w-full rounded border border-line bg-white px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 sm:text-sm",
+  "w-full rounded border border-line bg-white px-3 py-2.5",
+  MOBILE_SAFE_TEXT_SIZE,
+  "text-ink-900 placeholder:text-ink-400",
   "focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface",
   "disabled:cursor-not-allowed disabled:bg-panel-50 disabled:text-ink-400",
 );

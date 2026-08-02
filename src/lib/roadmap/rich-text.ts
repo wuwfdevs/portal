@@ -221,3 +221,23 @@ export function richTextToPlainText(doc: RichTextDoc): string {
 export function isEmptyRichText(doc: RichTextDoc): boolean {
   return richTextToPlainText(doc) === "";
 }
+
+/**
+ * Wraps plain text — what an MCP caller without an editor sends — into a
+ * minimal ProseMirror document, one paragraph per blank-line-separated block.
+ * Still re-validated by parseRichText() by every caller; this only builds the
+ * candidate, it doesn't bypass the whitelist.
+ */
+export function plainTextToRichTextDoc(text: string): RichTextDoc {
+  return {
+    type: "doc",
+    content: text
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => ({
+        type: "paragraph" as const,
+        content: [{ type: "text" as const, text: paragraph, marks: [] }],
+      })),
+  };
+}

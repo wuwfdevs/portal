@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isEmptyRichText, parseRichText, richTextToPlainText, type RichTextDoc } from "./rich-text";
+import {
+  isEmptyRichText,
+  parseRichText,
+  plainTextToRichTextDoc,
+  richTextToPlainText,
+  type RichTextDoc,
+} from "./rich-text";
 
 function doc(...content: unknown[]) {
   return { type: "doc", content };
@@ -154,5 +160,32 @@ describe("isEmptyRichText", () => {
 
   it("is false as soon as there are words", () => {
     expect(isEmptyRichText(parseRichText(doc(paragraph(text("a")))) as RichTextDoc)).toBe(false);
+  });
+});
+
+describe("plainTextToRichTextDoc", () => {
+  it("wraps blank-line-separated text into one paragraph per block", () => {
+    const built = plainTextToRichTextDoc("First paragraph.\n\nSecond paragraph.");
+    const parsed = parseRichText(built) as RichTextDoc;
+    expect(parsed.content).toHaveLength(2);
+    expect(richTextToPlainText(parsed)).toBe("First paragraph.\nSecond paragraph.");
+  });
+
+  it("collapses runs of blank lines and trims each block", () => {
+    const built = plainTextToRichTextDoc("  one  \n\n\n\n  two  ");
+    const parsed = parseRichText(built) as RichTextDoc;
+    expect(richTextToPlainText(parsed)).toBe("one\ntwo");
+  });
+
+  it("produces an empty document for blank input", () => {
+    const built = plainTextToRichTextDoc("   \n\n  ");
+    expect(parseRichText(built)?.content).toEqual([]);
+  });
+
+  it("still validates against the whitelist, like every other caller", () => {
+    // Not a bypass — the result is only ever used after another
+    // parseRichText() pass, exactly like a client-supplied document.
+    const built = plainTextToRichTextDoc("hello");
+    expect(parseRichText(built)).toEqual(built);
   });
 });

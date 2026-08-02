@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cn } from "@/lib/cn";
+import { MOBILE_SAFE_TEXT_SIZE } from "@/components/ui/input";
 import { EMPTY_RICH_TEXT, parseRichText, type RichTextDoc } from "@/lib/roadmap/rich-text";
 
 // The compose surface for rich-text bodies. Two things about its shape are
@@ -20,6 +21,21 @@ import { EMPTY_RICH_TEXT, parseRichText, type RichTextDoc } from "@/lib/roadmap/
 // The extension set is configured down to the whitelist in
 // lib/roadmap/rich-text.ts. That is a courtesy to the writer, not the boundary:
 // the server re-parses whatever arrives.
+
+// Exported so a colocated test can assert on it directly without mounting a
+// Tiptap/ProseMirror instance (which needs real-DOM layout APIs jsdom
+// doesn't implement). This div is a contenteditable, not a native form
+// element, so it never went through controlClasses — MOBILE_SAFE_TEXT_SIZE
+// is what keeps it from reintroducing the mobile-zoom bug.
+export const EDITOR_CONTENT_BASE_CLASS = cn(
+  "px-3 py-2.5 text-ink-900 outline-none",
+  MOBILE_SAFE_TEXT_SIZE,
+  "[&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5",
+  "[&_h2]:font-serif [&_h2]:text-[17px] [&_h2]:font-bold [&_h3]:text-[15px] [&_h3]:font-bold",
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-500",
+  "[&_pre]:rounded [&_pre]:bg-panel-50 [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs",
+  "[&_a]:text-brand-link [&_a]:underline",
+);
 
 const EDITOR_EXTENSIONS = [
   StarterKit.configure({
@@ -145,15 +161,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,
-        class: cn(
-          "px-3 py-2.5 text-sm text-ink-900 outline-none",
-          "[&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5",
-          "[&_h2]:font-serif [&_h2]:text-[17px] [&_h2]:font-bold [&_h3]:text-[15px] [&_h3]:font-bold",
-          "[&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-500",
-          "[&_pre]:rounded [&_pre]:bg-panel-50 [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs",
-          "[&_a]:text-brand-link [&_a]:underline",
-          minHeightClassName,
-        ),
+        class: cn(EDITOR_CONTENT_BASE_CLASS, minHeightClassName),
       },
     },
     onUpdate: ({ editor: current }) => setSerialized(JSON.stringify(current.getJSON())),
