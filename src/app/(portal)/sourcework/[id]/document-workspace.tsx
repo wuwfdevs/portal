@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,28 @@ export function DocumentWorkspace({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
+  // Below lg:, the PDF and its extracted text stack in one column, which on
+  // a phone means scrolling through a whole page of one before ever seeing
+  // the other. A tab toggle shows one at a time instead; at lg: and up both
+  // stay visible side by side as before, regardless of this.
+  const [activeTab, setActiveTab] = useState<"document" | "text">("document");
+
+  // The viewer container's own width, so the PDF can render to fit it
+  // instead of at its native point size (~816px for a Letter page — wider
+  // than any phone, which forced sideways scrolling just to read a page).
+  // See PdfPageViewer's fitWidth comment.
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
+  const [fitWidth, setFitWidth] = useState(0);
+  useEffect(() => {
+    const el = viewerContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setFitWidth(Math.floor(width));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const blocksByPage = useMemo(() => {
     const map = new Map<number, DocumentBlockSummary[]>();
@@ -207,21 +229,36 @@ export function DocumentWorkspace({
         </div>
       </div>
 
+      <div className="flex gap-1.5 lg:hidden">
+        <DocumentTab label="Document" active={activeTab === "document"} onClick={() => setActiveTab("document")} />
+        <DocumentTab label="Text" active={activeTab === "text"} onClick={() => setActiveTab("text")} />
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="max-h-[75vh] overflow-auto rounded border border-line bg-panel-50">
+        <div
+          ref={viewerContainerRef}
+          className={`min-w-0 max-h-[75vh] overflow-auto rounded border border-line bg-panel-50 ${
+            activeTab === "document" ? "block" : "hidden"
+          } lg:block`}
+        >
           <PdfPageViewer
             fileUrl={fileUrl}
             pageNumber={currentPage}
             scale={zoom}
+            fitWidth={fitWidth}
             onLoadPageCount={setPdfPageCount}
           />
         </div>
 
-        <div className="flex max-h-[75vh] flex-col gap-4 overflow-auto">
+        <div
+          className={`min-w-0 max-h-[75vh] flex-col gap-4 overflow-auto ${
+            activeTab === "text" ? "flex" : "hidden"
+          } lg:flex`}
+        >
           <div
             ref={paneRef}
             onMouseUp={handleMouseUp}
-            className="select-text rounded border border-line bg-white p-4 text-sm leading-relaxed text-ink-800"
+            className="min-w-0 select-text break-words rounded border border-line bg-white p-4 text-sm leading-relaxed text-ink-800"
           >
             {orderedPages.length === 0 && (
               // Not necessarily an error: text extraction may have failed
@@ -323,6 +360,22 @@ export function DocumentWorkspace({
         </div>
       </div>
     </div>
+  );
+}
+
+function DocumentTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+        active
+          ? "border-brand-primary bg-brand-surface text-brand-link"
+          : "border-line text-ink-500 hover:text-ink-700"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
