@@ -114,16 +114,22 @@ export function NewProjectForm() {
     }
 
     setStage("finishing");
-    const result = await completeProjectUpload({
+    // No failProjectUpload here on error: the file is already in Storage at
+    // this point (that's the branch above), so the source's own upload
+    // genuinely succeeded. A completeProjectUpload error means processing
+    // couldn't be kicked off (or failed synchronously) — finalizeSourceUpload
+    // already recorded that on the *representation* via startDocumentProcessing/
+    // startTranscriptionForProject. Marking the source itself failed too used
+    // to overwrite a perfectly good upload with a stale error that a later
+    // successful retry of the representation never cleared, since retry only
+    // ever touches the representation — see representation-status-banner.tsx.
+    await completeProjectUpload({
       projectId,
       contentType: file.type,
       storagePath,
       sizeBytes: file.size,
       durationMs,
     });
-    if (result.error) {
-      await failProjectUpload({ projectId, message: result.error });
-    }
     router.push(`/sourcework/${projectId}`);
   }
 
