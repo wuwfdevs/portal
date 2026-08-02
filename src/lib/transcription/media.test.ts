@@ -13,6 +13,7 @@ import {
   isVideoContentType,
   slugify,
   sourceObjectPath,
+  titleFromFileName,
 } from "./media";
 
 describe("isAllowedMediaType", () => {
@@ -140,5 +141,33 @@ describe("buildClipsZipFilename", () => {
     expect(buildClipsZipFilename("2026-07-22T14:03:00.000Z", "Reeves interview")).toBe(
       "2026-07-22_reeves-interview_clips.zip",
     );
+  });
+});
+
+describe("titleFromFileName", () => {
+  it("drops the extension", () => {
+    expect(titleFromFileName("Reeves interview.wav")).toBe("Reeves interview");
+    expect(titleFromFileName("2026 budget packet.pdf")).toBe("2026 budget packet");
+  });
+
+  it("reads underscores as spaces and collapses runs of whitespace", () => {
+    expect(titleFromFileName("reeves_interview__part2.mp3")).toBe("reeves interview part2");
+  });
+
+  it("leaves a name that already reads like a title alone", () => {
+    expect(titleFromFileName("Reeves interview, 3-14.wav")).toBe("Reeves interview, 3-14");
+  });
+
+  it("drops only the final extension", () => {
+    expect(titleFromFileName("budget.final.pdf")).toBe("budget.final");
+  });
+
+  it("keeps a name with no extension at all", () => {
+    expect(titleFromFileName("county commission")).toBe("county commission");
+  });
+
+  it("returns an empty string when nothing is left to use as a title", () => {
+    expect(titleFromFileName(".pdf")).toBe("");
+    expect(titleFromFileName("   ")).toBe("");
   });
 });

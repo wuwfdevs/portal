@@ -12,6 +12,7 @@ import {
   isDocumentContentType,
   isVideoContentType,
   sourceObjectPath,
+  titleFromFileName,
 } from "@/lib/transcription/media";
 import type { SwSourceKind } from "@/lib/database.types";
 import {
@@ -250,16 +251,21 @@ function UploadNewPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [selectedIsDocument, setSelectedIsDocument] = useState(false);
+  const [title, setTitle] = useState("");
+  // See NewProjectForm — the suggested file-name title is replaced when the
+  // file changes, but anything the reporter typed is left alone.
+  const [titleIsSuggested, setTitleIsSuggested] = useState(true);
   const isPending = stage !== "idle";
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (file && titleIsSuggested) setTitle(titleFromFileName(file.name));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    const form = event.currentTarget;
-    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
-    const interviewDate = (form.elements.namedItem("interview_date") as HTMLInputElement | null)?.value ?? "";
     const file = fileInputRef.current?.files?.[0];
 
     if (!file) {
@@ -279,7 +285,6 @@ function UploadNewPanel({
     setStage("creating");
     const created = await createSourceForProject(projectId, {
       title,
-      interviewDate: isDocument ? "" : interviewDate,
       kind: isDocument ? "document" : "audio_video",
     });
     if ("error" in created) {
@@ -321,23 +326,6 @@ function UploadNewPanel({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <Label htmlFor="title">Title</Label>
-        <Input
-          id="title"
-          name="title"
-          placeholder="Mayor Reeves on bridge funding"
-          required
-          disabled={isPending}
-        />
-      </div>
-      {!selectedIsDocument && (
-        <div>
-          <Label htmlFor="interview_date">Interview date</Label>
-          <Input id="interview_date" name="interview_date" type="date" disabled={isPending} />
-          <FieldHint>Optional — defaults to today if left blank.</FieldHint>
-        </div>
-      )}
-      <div>
         <Label htmlFor="media">Audio/video file, or PDF</Label>
         <input
           ref={fileInputRef}
@@ -346,12 +334,26 @@ function UploadNewPanel({
           type="file"
           accept="audio/*,video/*,application/pdf"
           disabled={isPending}
-          onChange={(event) =>
-            setSelectedIsDocument(isDocumentContentType(event.currentTarget.files?.[0]?.type ?? ""))
-          }
+          onChange={handleFileChange}
           className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
         />
         <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
+      </div>
+      <div>
+        <Label htmlFor="title">Title</Label>
+        <Input
+          id="title"
+          name="title"
+          placeholder="Mayor Reeves on bridge funding"
+          required
+          disabled={isPending}
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setTitleIsSuggested(event.target.value.trim() === "");
+          }}
+        />
+        <FieldHint>Taken from the file name — change it to whatever you&rsquo;ll look for later.</FieldHint>
       </div>
 
       {error && <FieldError>{error}</FieldError>}

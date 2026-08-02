@@ -19,12 +19,36 @@ export interface NativeExtractionResult extends NormalizedDocumentResult {
 }
 
 /**
+ * Makes pdf.mjs importable on a server with no DOM and no canvas.
+ *
+ * pdf.mjs evaluates `new DOMMatrix()` at module scope (a constant belonging
+ * to its canvas renderer), and under Node it expects to have polyfilled that
+ * global from `@napi-rs/canvas` — an *optional* dependency of pdfjs-dist. On
+ * Vercel that package isn't resolvable from the bundled server output, so the
+ * polyfill silently warns, the module-scope constant throws, and every PDF
+ * upload failed at processing time with "DOMMatrix is not defined".
+ *
+ * Defining the global first makes pdfjs skip its own polyfill. Nothing here
+ * ever renders a page — this module calls `getViewport()` and
+ * `getTextContent()` and nothing else — so the stub is only ever constructed,
+ * never used, and pulling tens of megabytes of native canvas into the
+ * deployment to satisfy one unread constant would buy nothing.
+ */
+function ensureCanvaslessGlobals(): void {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  if (globals.DOMMatrix === undefined) {
+    globals.DOMMatrix = class DOMMatrix {};
+  }
+}
+
+/**
  * Extracts every page's text + geometry from a PDF's own embedded text
  * layer. Purely local — no network call, no external provider — so the
  * document-processing pipeline runs this synchronously before deciding
  * whether OCR is needed at all (see document-ingest.ts).
  */
 export async function extractNativeDocumentText(pdfBytes: Uint8Array): Promise<NativeExtractionResult> {
+  ensureCanvaslessGlobals();
   // Dynamic import: pdfjs-dist's legacy build is ESM-only and pulls in a
   // meaningful chunk of parsing code that only the document pipeline needs —
   // no reason to load it into every server bundle that imports this module's
