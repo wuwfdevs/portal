@@ -31,12 +31,24 @@ export function PdfPageViewer({
   fileUrl,
   pageNumber,
   scale,
+  fitWidth,
   onLoadError,
   onLoadPageCount,
 }: {
   fileUrl: string;
   pageNumber: number;
   scale: number;
+  /**
+   * The viewer container's measured width in CSS px, if known. react-pdf
+   * computes the rendered page's scale as `scale * (fitWidth / pageWidth)`
+   * when both are given (see its Page.js), so this is the "fit to
+   * container" baseline and `scale` is the zoom control's multiplier on top
+   * of it — 100% zoom means "fills the container," not "the PDF's native
+   * point size," which is what actually fits a phone screen. Without this a
+   * standard Letter page renders ~816px wide regardless of viewport, wider
+   * than any phone, forcing sideways scrolling just to read it.
+   */
+  fitWidth?: number;
   onLoadError?: (message: string) => void;
   /** The PDF's own page count. The workspace normally paginates by the extracted sw_document_pages rows, but when extraction failed there are none — this is the only page count available. */
   onLoadPageCount?: (pageCount: number) => void;
@@ -61,6 +73,7 @@ export function PdfPageViewer({
         <Page
           pageNumber={pageNumber}
           scale={scale}
+          width={fitWidth || undefined}
           renderTextLayer={false}
           renderAnnotationLayer={false}
           loading={<p className="p-4 text-sm text-ink-500">Loading page…</p>}
