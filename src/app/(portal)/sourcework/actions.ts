@@ -205,6 +205,17 @@ export async function retryTranscription(formData: FormData): Promise<void> {
     : { data: null };
 
   if (ref?.representationId && source?.original_storage_path) {
+    // Retry is only ever offered when the file itself is already in Storage
+    // (hasMedia — see representation-status-banner.tsx), so reaching this
+    // point means the source's own upload succeeded. Clear any stale
+    // status='failed'/error_message a source can be left carrying from
+    // before the fix that stopped completeProjectUpload/completeSourceUpload
+    // from marking the *source* failed on a processing-kickoff error that
+    // was really about the representation (new-project-form.tsx,
+    // add-source-modal.tsx) — without this, a source stuck that way stays
+    // stuck forever, since nothing else ever clears it once set.
+    await supabase.from("sw_sources").update({ status: "ready", error_message: null }).eq("id", ref.sourceId);
+
     if (source.kind === "document") {
       // startDocumentProcessing does its own status flip (and its own
       // stuck-run recovery, see docs/sourcework-design.md §8.6) — unlike

@@ -309,7 +309,13 @@ function UploadNewPanel({
     }
 
     setStage("finishing");
-    const result = await completeSourceUpload({
+    // See new-project-form.tsx's equivalent comment: the file is already in
+    // Storage by this point, so the source's own upload succeeded regardless
+    // of whether completeSourceUpload's processing kickoff did. Don't mark
+    // the source itself failed too — completeSourceUpload already recorded
+    // that on the representation, and it's the only thing a later retry
+    // clears.
+    await completeSourceUpload({
       projectId,
       sourceId,
       contentType: file.type,
@@ -317,9 +323,6 @@ function UploadNewPanel({
       sizeBytes: file.size,
       durationMs,
     });
-    if (result.error) {
-      await failSourceUpload({ projectId, sourceId, message: result.error });
-    }
     onDone(sourceId);
   }
 
