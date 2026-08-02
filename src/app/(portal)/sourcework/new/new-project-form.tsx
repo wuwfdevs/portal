@@ -12,6 +12,7 @@ import {
   isDocumentContentType,
   isVideoContentType,
   sourceObjectPath,
+  titleFromFileName,
 } from "@/lib/transcription/media";
 import { createProject, completeProjectUpload, failProjectUpload } from "../actions";
 
@@ -50,16 +51,25 @@ export function NewProjectForm() {
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
   const [selectedIsDocument, setSelectedIsDocument] = useState(false);
+  const [title, setTitle] = useState("");
+  // Whether the title box is still the file name we suggested (or empty), and
+  // so may be replaced when a different file is picked. Anything the reporter
+  // types is theirs and is never overwritten.
+  const [titleIsSuggested, setTitleIsSuggested] = useState(true);
   const isPending = stage !== "idle";
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    setSelectedIsDocument(isDocumentContentType(file?.type ?? ""));
+    if (file && titleIsSuggested) setTitle(titleFromFileName(file.name));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
     const form = event.currentTarget;
-    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
     const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
-    const interviewDate = (form.elements.namedItem("interview_date") as HTMLInputElement).value;
     const file = fileInputRef.current?.files?.[0];
 
     if (!file) {
@@ -80,7 +90,6 @@ export function NewProjectForm() {
     const created = await createProject({
       title,
       description,
-      interviewDate: isDocument ? "" : interviewDate,
       kind: isDocument ? "document" : "audio_video",
     });
     if ("error" in created) {
@@ -121,6 +130,20 @@ export function NewProjectForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
+        <Label htmlFor="media">Audio/video file, or PDF</Label>
+        <input
+          ref={fileInputRef}
+          id="media"
+          name="media"
+          type="file"
+          accept="audio/*,video/*,application/pdf"
+          disabled={isPending}
+          onChange={handleFileChange}
+          className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
+        />
+        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
+      </div>
+      <div>
         <Label htmlFor="title">Title</Label>
         <Input
           id="title"
@@ -128,15 +151,14 @@ export function NewProjectForm() {
           placeholder="Mayor Reeves on bridge funding"
           required
           disabled={isPending}
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setTitleIsSuggested(event.target.value.trim() === "");
+          }}
         />
+        <FieldHint>Taken from the file name — change it to whatever you&rsquo;ll look for later.</FieldHint>
       </div>
-      {!selectedIsDocument && (
-        <div>
-          <Label htmlFor="interview_date">Interview date</Label>
-          <Input id="interview_date" name="interview_date" type="date" disabled={isPending} />
-          <FieldHint>Optional — defaults to today if left blank.</FieldHint>
-        </div>
-      )}
       <div>
         <Label htmlFor="description">Notes (optional)</Label>
         <textarea
@@ -151,22 +173,6 @@ export function NewProjectForm() {
           disabled={isPending}
           className="w-full rounded border border-line px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50 sm:text-sm"
         />
-      </div>
-      <div>
-        <Label htmlFor="media">Audio/video file, or PDF</Label>
-        <input
-          ref={fileInputRef}
-          id="media"
-          name="media"
-          type="file"
-          accept="audio/*,video/*,application/pdf"
-          disabled={isPending}
-          onChange={(event) =>
-            setSelectedIsDocument(isDocumentContentType(event.currentTarget.files?.[0]?.type ?? ""))
-          }
-          className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
-        />
-        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
       </div>
 
       {error && <FieldError>{error}</FieldError>}

@@ -93,7 +93,7 @@ export type CreateSourceResult = { sourceId: string } | { error: string };
  */
 export async function createSourceForProject(
   projectId: string,
-  input: { title: string; interviewDate: string; kind?: SwSourceKind },
+  input: { title: string; kind?: SwSourceKind },
 ): Promise<CreateSourceResult> {
   const { profile } = await assertToolAccess("transcription");
 
@@ -106,7 +106,8 @@ export async function createSourceForProject(
   const created = await createSourceForExistingProject(supabase, {
     projectId,
     title,
-    interviewDate: input.interviewDate || null,
+    // See ../actions.ts's createProject — no date is collected at upload.
+    interviewDate: null,
     createdBy: profile.id,
     kind: input.kind,
   });

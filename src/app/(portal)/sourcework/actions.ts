@@ -31,7 +31,6 @@ export type CreateProjectResult = { id: string; sourceId: string } | { error: st
 export async function createProject(input: {
   title: string;
   description: string;
-  interviewDate: string;
   kind?: SwSourceKind;
 }): Promise<CreateProjectResult> {
   const { profile } = await assertToolAccess("transcription");
@@ -45,7 +44,12 @@ export async function createProject(input: {
   const created = await createProjectWithSource(supabase, {
     title,
     description: input.description.trim() || null,
-    interviewDate: input.interviewDate || null,
+    // Sourcework no longer asks for a date at upload: a date fits an
+    // interview and not a court filing or a records dump, and the one field
+    // had to serve every source kind. Sources ingested from another tool
+    // (audience-listening's handoff) still set it, so the column and
+    // createProjectWithSource's parameter stay.
+    interviewDate: null,
     createdBy: profile.id,
     kind: input.kind,
   });
@@ -57,10 +61,7 @@ export async function createProject(input: {
 }
 
 /**
- * Edits a project's title and background text after the fact (interview
- * date now lives on the source, not the project (see
- * docs/sourcework-design.md) — two tables, one action, since this is still
- * one form the reporter fills in once.
+ * Edits a project's title and background text after the fact.
  *
  * The background is the tool's whole context story (design doc §3G): it is
  * what tells a reporter who finds a quote eighteen months from now what the
@@ -79,7 +80,6 @@ export async function updateProjectDetails(input: {
   projectId: string;
   title: string;
   description: string;
-  interviewDate: string;
 }): Promise<{ error?: string }> {
   await assertToolAccess("transcription");
 
@@ -97,15 +97,6 @@ export async function updateProjectDetails(input: {
   if (error) {
     console.error("Could not save the project details:", error);
     return { error: `Could not save the project details: ${error.message}` };
-  }
-
-  const ref = await getPrimarySourceForProject(supabase, input.projectId);
-  if (ref) {
-    const { error: sourceError } = await supabase
-      .from("sw_sources")
-      .update({ interview_date: input.interviewDate || null })
-      .eq("id", ref.sourceId);
-    if (sourceError) console.error("Could not save the interview date:", sourceError);
   }
 
   await embedPendingForProject(supabase, input.projectId);

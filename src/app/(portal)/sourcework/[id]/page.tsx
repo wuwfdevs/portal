@@ -97,7 +97,6 @@ export default async function TranscriptionProjectPage({
             projectId={project.id}
             title={project.title}
             description={project.description}
-            interviewDate={source?.interview_date ?? null}
           />
         </div>
         <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />

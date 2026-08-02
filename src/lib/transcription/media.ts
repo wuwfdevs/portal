@@ -79,6 +79,21 @@ export const MAX_CLIP_DURATION_MS = 20 * 60 * 1000;
 // rather than tie up a request for minutes of ffmpeg work.
 export const MAX_CLIPS_ZIP_DURATION_MS = 60 * 60 * 1000;
 
+/**
+ * A source's default title, taken from the uploaded file's own name: the
+ * extension dropped, underscores read as spaces, whitespace collapsed.
+ *
+ * Deliberately light-handed — this is a suggestion the reporter can overwrite,
+ * not a normalization, so a filename that already reads like a title
+ * ("Reeves interview, 3-14.wav") survives intact. Returns "" for a name with
+ * nothing left after the extension, which leaves the field empty rather than
+ * prefilling something meaningless.
+ */
+export function titleFromFileName(fileName: string): string {
+  const withoutExtension = fileName.replace(/\.[A-Za-z0-9]{1,8}$/, "");
+  return withoutExtension.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 /** Lowercase, hyphenated, filesystem-safe. Falls back to "untitled" for a string with no alphanumeric characters. */
 export function slugify(text: string): string {
   const slug = text

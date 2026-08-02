@@ -7,7 +7,7 @@ import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
 import { updateProjectDetails } from "../actions";
 
 /**
- * The project's title, date, and background, editable in place.
+ * The project's title and background, editable in place.
  *
  * The background is the only context this tool carries about a recording
  * (design doc §3G), and it used to be writable exactly once — at upload,
@@ -22,12 +22,10 @@ export function ProjectDetails({
   projectId,
   title,
   description,
-  interviewDate,
 }: {
   projectId: string;
   title: string;
   description: string | null;
-  interviewDate: string | null;
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +42,6 @@ export function ProjectDetails({
       projectId,
       title: (form.elements.namedItem("title") as HTMLInputElement).value,
       description: (form.elements.namedItem("description") as HTMLTextAreaElement).value,
-      interviewDate: (form.elements.namedItem("interview_date") as HTMLInputElement).value,
     });
 
     setIsSaving(false);
@@ -73,16 +70,6 @@ export function ProjectDetails({
       <div>
         <Label htmlFor="title">Title</Label>
         <Input id="title" name="title" defaultValue={title} required disabled={isSaving} />
-      </div>
-      <div>
-        <Label htmlFor="interview_date">Interview date</Label>
-        <Input
-          id="interview_date"
-          name="interview_date"
-          type="date"
-          defaultValue={interviewDate ?? ""}
-          disabled={isSaving}
-        />
       </div>
       <div>
         <Label htmlFor="description">Background</Label>
