@@ -416,8 +416,10 @@ export interface SourceDetail {
   kind: SwSource["kind"];
   title: string;
   interviewDate: string | null;
-  /** The same four states the project workspace shows, derived from the source plus its transcript — see computeProjectStatus. */
+  /** The same four states the project workspace shows, derived from the source plus its transcript — see computeProjectStatus. Right for a status badge; wrong for deciding whether the file can be shown, since it also folds in the representation's state — use fileStatus for that. */
   status: ProjectStatus;
+  /** The uploaded file's own status, undiluted by whatever was (or wasn't) extracted from it. */
+  fileStatus: SwSource["status"];
   errorMessage: string | null;
   durationMs: number | null;
   sizeBytes: number | null;
@@ -477,6 +479,7 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
     title: source.title,
     interviewDate: source.interview_date,
     status: computeProjectStatus(source, transcript),
+    fileStatus: source.status,
     errorMessage: source.error_message,
     durationMs: source.original_duration_ms,
     sizeBytes: source.original_size_bytes,
