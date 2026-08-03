@@ -18,6 +18,8 @@ import { retryTranscription } from "../../actions";
 import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
+import { SourceActionsMenu } from "../../[id]/source-actions-menu";
+import { countOtherProjectsForSource } from "../../[id]/source-actions";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -65,19 +67,25 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
   const representationStatus = source.transcript?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  const [signedUrl, transcript, excerpts, documentContent, documentExcerpts] = await Promise.all([
-    fileReady && source.originalStoragePath
-      ? getSignedMediaUrl(source.originalStoragePath)
-      : Promise.resolve(null),
-    !isDocument && contentReady && source.transcript
-      ? getTranscriptForRepresentation(source.transcript.id)
-      : Promise.resolve({ segments: [], speakers: [] }),
-    isDocument ? Promise.resolve([]) : listExcerptsForSource(id),
-    isDocument && contentReady && source.transcript
-      ? getDocumentContentForRepresentation(source.transcript.id)
-      : Promise.resolve({ pages: [], blocks: [] }),
-    isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
-  ]);
+  const [signedUrl, transcript, excerpts, documentContent, documentExcerpts, otherProjectCount] =
+    await Promise.all([
+      fileReady && source.originalStoragePath
+        ? getSignedMediaUrl(source.originalStoragePath)
+        : Promise.resolve(null),
+      !isDocument && contentReady && source.transcript
+        ? getTranscriptForRepresentation(source.transcript.id)
+        : Promise.resolve({ segments: [], speakers: [] }),
+      isDocument ? Promise.resolve([]) : listExcerptsForSource(id),
+      isDocument && contentReady && source.transcript
+        ? getDocumentContentForRepresentation(source.transcript.id)
+        : Promise.resolve({ pages: [], blocks: [] }),
+      isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
+      // Feeds SourceActionsMenu's "Remove…" choice below, same as the project
+      // workspace's equivalent — see page.tsx there.
+      fileReady && primaryProjectId
+        ? countOtherProjectsForSource(id, primaryProjectId)
+        : Promise.resolve(0),
+    ]);
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -157,6 +165,16 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               Couldn&apos;t load the document right now. Reload the page to try again.
             </p>
           )}
+          {primaryProjectId && (
+            <div className="mt-4 flex justify-end">
+              <SourceActionsMenu
+                projectId={primaryProjectId}
+                sourceId={id}
+                sourceTitle={source.title}
+                otherProjectCount={otherProjectCount}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -190,6 +208,16 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
                 ? "Couldn't load the media right now. Reload the page to try again."
                 : "This source isn't attached to a project, so there's nothing to open here."}
             </p>
+          )}
+          {primaryProjectId && (
+            <div className="mt-4 flex justify-end">
+              <SourceActionsMenu
+                projectId={primaryProjectId}
+                sourceId={id}
+                sourceTitle={source.title}
+                otherProjectCount={otherProjectCount}
+              />
+            </div>
           )}
         </div>
       )}

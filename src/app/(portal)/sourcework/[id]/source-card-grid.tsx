@@ -161,7 +161,17 @@ export function SourceCardGrid({
         <>
           <button
             type="button"
-            onClick={() => setIsBrowsing(true)}
+            onClick={() => {
+              // Flip the local view immediately (instant, no flash while the
+              // navigation below is in flight), but also actually clear
+              // `?source=` from the URL — otherwise re-picking the very same
+              // source from the grid is a Link to the URL we're already on,
+              // which Next treats as a no-op: activeSourceId/startOnList
+              // never change, so the navigationKey effect above never fires
+              // and clicking the card does nothing.
+              setIsBrowsing(true);
+              router.push(`/sourcework/${projectId}`, { scroll: false });
+            }}
             className="mb-3 block text-xs font-semibold text-brand-link"
           >
             ← All sources in this project ({sources.length})
