@@ -40,6 +40,14 @@ export interface SearchResult {
 
 const DEFAULT_LIMIT = 30;
 
+export interface SearchScope {
+  limit?: number;
+  /** Narrows to one project's sources — the project workspace's own search box. */
+  projectId?: string;
+  /** Narrows to one source's own text + excerpts — the excerpt pane's search box, for a source with hundreds of excerpts. */
+  sourceId?: string;
+}
+
 /**
  * Hybrid search across transcripts, clips, and project metadata.
  *
@@ -47,8 +55,16 @@ const DEFAULT_LIMIT = 30;
  * if the provider is having a bad minute, this passes null and the RPC runs
  * its keyword half alone. Degrading to keyword-only search is a far better
  * failure than an error page over a search box.
+ *
+ * `projectId`/`sourceId` (docs/sourcework-design.md's search scoping —
+ * 20260803130000_tw_search_scoping.sql) narrow the same ranked query rather
+ * than standing up a separate function; the tool-wide search box (the only
+ * caller before this) simply never sets either.
  */
-export async function searchArchive(query: string, limit = DEFAULT_LIMIT): Promise<SearchResult[]> {
+export async function searchArchive(
+  query: string,
+  scope: SearchScope = {},
+): Promise<SearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
@@ -57,7 +73,9 @@ export async function searchArchive(query: string, limit = DEFAULT_LIMIT): Promi
     await supabase.rpc("tw_search", {
       query_text: trimmed,
       query_embedding: await embedQuery(trimmed),
-      match_limit: limit,
+      match_limit: scope.limit ?? DEFAULT_LIMIT,
+      project_id_filter: scope.projectId ?? null,
+      source_id_filter: scope.sourceId ?? null,
     }),
     "search results",
   );

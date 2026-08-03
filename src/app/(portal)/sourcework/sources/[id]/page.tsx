@@ -163,6 +163,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
           />
           {signedUrl ? (
             <DocumentWorkspace
+              projectId={primaryProjectId}
               sourceId={id}
               representationId={source.transcript?.id ?? null}
               fileUrl={signedUrl}

@@ -9,7 +9,11 @@ import { formatDuration } from "@/lib/transcription/media";
 import type { ProjectSourceSummary } from "@/lib/transcription/projects";
 import { processingLabel, type ProjectStatus } from "@/lib/transcription/status";
 import type { SwSourceKind } from "@/lib/database.types";
+import type { LibraryClip } from "@/lib/transcription/clips";
+import { ClipLibrary } from "@/components/transcription/clip-library";
+import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import { AddSourceModal } from "./add-source-modal";
+import { listProjectExcerptsAction, searchProjectAction } from "./workspace-search-actions";
 
 const KIND_LABEL: Record<SwSourceKind, string> = {
   audio_video: "Audio",
@@ -63,6 +67,15 @@ function statusBadge(
  * matching the standalone Source Detail page's header instead of leaving the
  * project's title pinned at the top regardless of which source is active.
  * Both are already rendered server-side by the page, same as `children`.
+ *
+ * The browsing view also carries a Sources/Excerpts tab pair (mirroring
+ * /sourcework's own tabs, one level down) and a search box scoped to this
+ * project's own sources (docs/sourcework-design.md's search scoping) —
+ * `ScopedSearchPanel` swaps the tabs out for ranked results while a query is
+ * active. The Excerpts tab's data is fetched lazily, on first click, via a
+ * Server Action rather than being SSR'd alongside `sources` — a project's
+ * sources can each carry hundreds of excerpts, and most visits to this page
+ * never open that tab at all.
  */
 export function SourceCardGrid({
   projectId,
@@ -85,7 +98,19 @@ export function SourceCardGrid({
   const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
   const [isBrowsing, setIsBrowsing] = useState(startOnList);
+  const [browseTab, setBrowseTab] = useState<"sources" | "excerpts">("sources");
+  const [excerpts, setExcerpts] = useState<LibraryClip[] | null>(null);
+  const [isLoadingExcerpts, setIsLoadingExcerpts] = useState(false);
   const activeSource = sources.find((s) => s.sourceId === activeSourceId) ?? null;
+
+  function handleShowExcerpts() {
+    setBrowseTab("excerpts");
+    if (excerpts !== null || isLoadingExcerpts) return;
+    setIsLoadingExcerpts(true);
+    listProjectExcerptsAction(projectId)
+      .then((rows) => setExcerpts(rows))
+      .finally(() => setIsLoadingExcerpts(false));
+  }
 
   // `children` is server-rendered for whichever source `activeSourceId`
   // names — it only updates once a navigation to a new `?source=` actually
@@ -130,45 +155,72 @@ export function SourceCardGrid({
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sources.map((s) => {
-              const isActive = s.sourceId === activeSourceId;
-              const badge = statusBadge(s.status, s.source.kind);
-              return (
-                <Link
-                  key={s.sourceId}
-                  href={`/sourcework/${projectId}?source=${s.sourceId}`}
-                  scroll={false}
-                  className={`flex flex-col gap-2 rounded border p-4 ${
-                    isActive
-                      ? "border-brand-primary bg-brand-surface"
-                      : "border-line bg-white hover:border-brand-primary"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                      {KIND_LABEL[s.source.kind]}
-                    </span>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                  </div>
-                  <p className="font-semibold text-ink-900">{s.source.title}</p>
-                  <p className="text-xs text-ink-500">
-                    {new Date(s.source.interview_date ?? s.source.created_at).toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric", year: "numeric" },
-                    )}
-                    {s.source.kind === "document"
-                      ? s.source.page_count
-                        ? ` · ${s.source.page_count} page${s.source.page_count === 1 ? "" : "s"}`
-                        : ""
-                      : s.source.original_duration_ms
-                        ? ` · ${formatDuration(s.source.original_duration_ms)}`
-                        : ""}
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
+          <ScopedSearchPanel
+            placeholder="Search this project's transcripts, documents, and excerpts…"
+            onSearch={(query) => searchProjectAction(projectId, query)}
+          >
+            <nav className="mb-4 flex gap-1 border-b border-line">
+              <BrowseTabButton
+                label="Sources"
+                active={browseTab === "sources"}
+                onClick={() => setBrowseTab("sources")}
+              />
+              <BrowseTabButton
+                label={`Excerpts${excerpts ? ` (${excerpts.length})` : ""}`}
+                active={browseTab === "excerpts"}
+                onClick={handleShowExcerpts}
+              />
+            </nav>
+
+            {browseTab === "sources" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {sources.map((s) => {
+                  const isActive = s.sourceId === activeSourceId;
+                  const badge = statusBadge(s.status, s.source.kind);
+                  return (
+                    <Link
+                      key={s.sourceId}
+                      href={`/sourcework/${projectId}?source=${s.sourceId}`}
+                      scroll={false}
+                      className={`flex flex-col gap-2 rounded border p-4 ${
+                        isActive
+                          ? "border-brand-primary bg-brand-surface"
+                          : "border-line bg-white hover:border-brand-primary"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                          {KIND_LABEL[s.source.kind]}
+                        </span>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </div>
+                      <p className="font-semibold text-ink-900">{s.source.title}</p>
+                      <p className="text-xs text-ink-500">
+                        {new Date(
+                          s.source.interview_date ?? s.source.created_at,
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                        {s.source.kind === "document"
+                          ? s.source.page_count
+                            ? ` · ${s.source.page_count} page${s.source.page_count === 1 ? "" : "s"}`
+                            : ""
+                          : s.source.original_duration_ms
+                            ? ` · ${formatDuration(s.source.original_duration_ms)}`
+                            : ""}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : isLoadingExcerpts || excerpts === null ? (
+              <p className="text-sm text-ink-500">Loading excerpts…</p>
+            ) : (
+              <ClipLibrary clips={excerpts} showProjectMeta={false} />
+            )}
+          </ScopedSearchPanel>
         </>
       ) : (
         <>
@@ -205,5 +257,29 @@ export function SourceCardGrid({
         />
       )}
     </div>
+  );
+}
+
+function BrowseTabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${
+        active
+          ? "border-brand-primary text-ink-900"
+          : "border-transparent text-ink-500 hover:text-ink-700"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, FieldError } from "@/components/ui/input";
+import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import {
   bboxForOffsetRange,
   buildExcerptRuns,
@@ -15,12 +16,13 @@ import {
   type ExcerptCharRange,
   type SelectableBlock,
 } from "@/lib/transcription/document-selection";
-import type { DocumentBlockSummary, DocumentPageSummary } from "@/lib/transcription/document-content";
+import type {
+  DocumentBlockSummary,
+  DocumentPageSummary,
+} from "@/lib/transcription/document-content";
 import type { DocumentExcerptSummary } from "@/lib/transcription/document-excerpts";
-import {
-  createDocumentExcerpt,
-  deleteDocumentExcerpt,
-} from "./document-excerpt-actions";
+import { createDocumentExcerpt, deleteDocumentExcerpt } from "./document-excerpt-actions";
+import { searchSourceAction } from "./workspace-search-actions";
 
 const PdfPageViewer = dynamic(() => import("./pdf-page-viewer").then((mod) => mod.PdfPageViewer), {
   ssr: false,
@@ -41,6 +43,7 @@ const MAX_ZOOM = 2.5;
 const ZOOM_STEP = 0.25;
 
 export function DocumentWorkspace({
+  projectId,
   sourceId,
   representationId,
   fileUrl,
@@ -49,6 +52,14 @@ export function DocumentWorkspace({
   excerpts,
   initialPage,
 }: {
+  /**
+   * Scopes the excerpt search box below to this project + source. Nullable
+   * because Source Detail (sourcework/sources/[id]/page.tsx) renders this
+   * workspace for a document source even when it isn't attached to any
+   * project — createDocumentExcerpt itself is source-scoped, not
+   * project-scoped, so that's a real, supported state, not an oversight.
+   */
+  projectId: string | null;
   sourceId: string;
   representationId: string | null;
   fileUrl: string;
@@ -124,7 +135,13 @@ export function DocumentWorkspace({
   }, [blocks]);
 
   const selectableBlocks: SelectableBlock[] = useMemo(
-    () => blocks.map((b) => ({ id: b.id, pageNumber: b.pageNumber, readingOrder: b.readingOrder, text: b.text })),
+    () =>
+      blocks.map((b) => ({
+        id: b.id,
+        pageNumber: b.pageNumber,
+        readingOrder: b.readingOrder,
+        text: b.text,
+      })),
     [blocks],
   );
 
@@ -135,9 +152,14 @@ export function DocumentWorkspace({
     const map = new Map<string, ExcerptCharRange[]>();
     for (const excerpt of excerpts) {
       for (const location of excerpt.locations) {
-        if (!location.blockId || location.startOffset === null || location.endOffset === null) continue;
+        if (!location.blockId || location.startOffset === null || location.endOffset === null)
+          continue;
         const list = map.get(location.blockId) ?? [];
-        list.push({ excerptId: excerpt.id, startOffset: location.startOffset, endOffset: location.endOffset });
+        list.push({
+          excerptId: excerpt.id,
+          startOffset: location.startOffset,
+          endOffset: location.endOffset,
+        });
         map.set(location.blockId, list);
       }
     }
@@ -156,12 +178,17 @@ export function DocumentWorkspace({
       const anchor = resolveAnchor(selection.anchorNode, selection.anchorOffset);
       setHighlightedBlockId(anchor?.blockId ?? null);
       setSelectedExcerptId(
-        anchor ? excerptAtOffset(excerptRangesByBlock.get(anchor.blockId) ?? [], anchor.offset) : null,
+        anchor
+          ? excerptAtOffset(excerptRangesByBlock.get(anchor.blockId) ?? [], anchor.offset)
+          : null,
       );
       return;
     }
 
-    if (!paneRef.current.contains(selection.anchorNode) || !paneRef.current.contains(selection.focusNode)) {
+    if (
+      !paneRef.current.contains(selection.anchorNode) ||
+      !paneRef.current.contains(selection.focusNode)
+    ) {
       return;
     }
 
@@ -307,7 +334,11 @@ export function DocumentWorkspace({
             badge={activeTab !== "document" && activeHighlightedBlock?.bbox != null}
             onClick={() => setActiveTab("document")}
           />
-          <DocumentTab label="Text" active={activeTab === "text"} onClick={() => setActiveTab("text")} />
+          <DocumentTab
+            label="Text"
+            active={activeTab === "text"}
+            onClick={() => setActiveTab("text")}
+          />
         </div>
 
         <div
@@ -340,8 +371,8 @@ export function DocumentWorkspace({
               // way the page renders fine on the Document tab, so say what's
               // missing rather than leaving an empty panel.
               <p className="text-sm text-ink-500">
-                No text for this document yet — you can read and page through it on the Document tab, but
-                there&apos;s nothing to select or excerpt until extraction finishes.
+                No text for this document yet — you can read and page through it on the Document
+                tab, but there&apos;s nothing to select or excerpt until extraction finishes.
               </p>
             )}
             {currentPageData &&
@@ -403,69 +434,80 @@ export function DocumentWorkspace({
           </div>
         )}
 
-        <div>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
-            Excerpts from this document
-          </h2>
-          {excerpts.length === 0 ? (
-            <p className="text-sm text-ink-500">
-              Select text above and save it as an excerpt to see it here.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {excerpts.map((excerpt) => (
-                <li
-                  key={excerpt.id}
-                  // Clicking anywhere on the card marks this excerpt without
-                  // switching tabs — same "the whole card is the control"
-                  // reasoning as ClipCard (a nested Delete button rules out
-                  // making this a button). Whichever tab is already open
-                  // shows the result immediately: staying on Document
-                  // outlines the excerpt's block right away (no forced
-                  // switch to Text just to reveal it), and staying on Text
-                  // tints its underline and turns to the right page.
-                  onClick={() => {
-                    setSelectedExcerptId(excerpt.id);
-                    const bboxLocation = excerpt.locations.find((l) => l.bbox && l.blockId);
-                    setHighlightedBlockId(bboxLocation?.blockId ?? null);
-                    setCurrentPage(bboxLocation?.pageNumber ?? excerpt.pages[0] ?? currentPage);
-                  }}
-                  onMouseEnter={() => setHoveredExcerptId(excerpt.id)}
-                  onMouseLeave={() => setHoveredExcerptId(null)}
-                  onFocus={() => setHoveredExcerptId(excerpt.id)}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      setHoveredExcerptId(null);
-                    }
-                  }}
-                  className={`rounded border bg-white p-3 ${
-                    selectedExcerptId === excerpt.id ? "border-brand-primary ring-2 ring-brand-surface" : "border-line"
-                  }`}
-                >
-                  <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-left font-semibold text-brand-link">{excerpt.title}</span>
-                    <span className="text-xs text-ink-400">
-                      {excerpt.pages.length === 1 ? `p. ${excerpt.pages[0]}` : `pp. ${excerpt.pages.join(", ")}`}
-                    </span>
-                  </div>
-                  {excerpt.excerpt && (
-                    <p className="line-clamp-2 text-sm text-ink-700">{excerpt.excerpt}</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleDeleteExcerpt(excerpt.id);
+        <ScopedSearchPanel
+          placeholder="Search this document's text and excerpts…"
+          onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
+        >
+          <div>
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
+              Excerpts from this document
+            </h2>
+            {excerpts.length === 0 ? (
+              <p className="text-sm text-ink-500">
+                Select text above and save it as an excerpt to see it here.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {excerpts.map((excerpt) => (
+                  <li
+                    key={excerpt.id}
+                    // Clicking anywhere on the card marks this excerpt without
+                    // switching tabs — same "the whole card is the control"
+                    // reasoning as ClipCard (a nested Delete button rules out
+                    // making this a button). Whichever tab is already open
+                    // shows the result immediately: staying on Document
+                    // outlines the excerpt's block right away (no forced
+                    // switch to Text just to reveal it), and staying on Text
+                    // tints its underline and turns to the right page.
+                    onClick={() => {
+                      setSelectedExcerptId(excerpt.id);
+                      const bboxLocation = excerpt.locations.find((l) => l.bbox && l.blockId);
+                      setHighlightedBlockId(bboxLocation?.blockId ?? null);
+                      setCurrentPage(bboxLocation?.pageNumber ?? excerpt.pages[0] ?? currentPage);
                     }}
-                    className="mt-1 text-xs text-ink-400 hover:text-danger"
+                    onMouseEnter={() => setHoveredExcerptId(excerpt.id)}
+                    onMouseLeave={() => setHoveredExcerptId(null)}
+                    onFocus={() => setHoveredExcerptId(excerpt.id)}
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                        setHoveredExcerptId(null);
+                      }
+                    }}
+                    className={`rounded border bg-white p-3 ${
+                      selectedExcerptId === excerpt.id
+                        ? "border-brand-primary ring-2 ring-brand-surface"
+                        : "border-line"
+                    }`}
                   >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-left font-semibold text-brand-link">
+                        {excerpt.title}
+                      </span>
+                      <span className="text-xs text-ink-400">
+                        {excerpt.pages.length === 1
+                          ? `p. ${excerpt.pages[0]}`
+                          : `pp. ${excerpt.pages.join(", ")}`}
+                      </span>
+                    </div>
+                    {excerpt.excerpt && (
+                      <p className="line-clamp-2 text-sm text-ink-700">{excerpt.excerpt}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDeleteExcerpt(excerpt.id);
+                      }}
+                      className="mt-1 text-xs text-ink-400 hover:text-danger"
+                    >
+                      Delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </ScopedSearchPanel>
       </div>
     </div>
   );
@@ -497,7 +539,10 @@ function DocumentTab({
     >
       {label}
       {badge && (
-        <span className="absolute -right-2 top-0 h-2 w-2 rounded-full bg-brand-primary" aria-hidden="true" />
+        <span
+          className="absolute -right-2 top-0 h-2 w-2 rounded-full bg-brand-primary"
+          aria-hidden="true"
+        />
       )}
     </button>
   );
