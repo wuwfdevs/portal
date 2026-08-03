@@ -6,6 +6,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { createSourceForExistingProject } from "@/lib/transcription/ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
 import { getSourceRef } from "@/lib/transcription/projects";
+import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
@@ -80,6 +81,97 @@ export async function attachSourceToProject(
   if (error) return { error: "Could not attach that source. Please try again." };
 
   revalidatePath(`/sourcework/${projectId}`);
+  return {};
+}
+
+/**
+ * Detaches a source from a project — the inverse of attachSourceToProject,
+ * and the non-destructive half of a source's own "remove" action (see
+ * SourceActionsMenu's detach-vs-delete-entirely choice): the source itself,
+ * and whatever other projects also reference it, are untouched. Safe to
+ * offer even when this is the project's only source — that just leaves the
+ * project with none, the same empty state a brand-new project starts in.
+ */
+export async function removeSourceFromProject(
+  projectId: string,
+  sourceId: string,
+): Promise<{ error?: string }> {
+  await assertToolAccess("transcription");
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sw_project_sources")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("source_id", sourceId);
+  if (error) return { error: "Could not remove that source from the project." };
+
+  revalidatePath(`/sourcework/${projectId}`);
+  revalidatePath("/sourcework");
+  return {};
+}
+
+/**
+ * How many *other* projects reference this source — feeds the "remove"
+ * choice's warning text so deleting entirely doesn't silently pull the
+ * ground out from under someone else's project.
+ */
+export async function countOtherProjectsForSource(
+  sourceId: string,
+  excludingProjectId: string,
+): Promise<number> {
+  await assertToolAccess("transcription");
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from("sw_project_sources")
+    .select("project_id", { count: "exact", head: true })
+    .eq("source_id", sourceId)
+    .neq("project_id", excludingProjectId);
+
+  return count ?? 0;
+}
+
+/**
+ * Permanently deletes a source — the destructive half of a source's "remove"
+ * choice. Unlike detaching, this affects every project that references it:
+ * sw_project_sources/sw_representations (and everything keyed off a
+ * representation) cascade-delete in the database, so this only has to sweep
+ * what the database can't reach — the original file and any rendered
+ * excerpt exports in Storage — same cleanup deleteProject already does for
+ * a project's primary source. Restricted to the uploader, same ownership
+ * check (and RLS policy) as deleteProject.
+ */
+export async function deleteSourceEntirely(sourceId: string): Promise<{ error?: string }> {
+  const { profile } = await assertToolAccess("transcription");
+  const supabase = await createClient();
+
+  const { data: source } = await supabase
+    .from("sw_sources")
+    .select("created_by, original_storage_path")
+    .eq("id", sourceId)
+    .maybeSingle();
+
+  if (!source || source.created_by !== profile.id) {
+    return { error: "You can only delete a source you uploaded." };
+  }
+
+  const { data: exportedClips } = await supabase.storage
+    .from(TRANSCRIPTION_MEDIA_BUCKET)
+    .list(`${sourceId}/excerpts`);
+
+  const objectPaths = [
+    ...(source.original_storage_path ? [source.original_storage_path] : []),
+    ...(exportedClips ?? []).map((object) => `${sourceId}/excerpts/${object.name}`),
+  ];
+  if (objectPaths.length > 0) {
+    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
+  }
+
+  const { error } = await supabase.from("sw_sources").delete().eq("id", sourceId);
+  if (error) return { error: "Could not delete this source." };
+
+  revalidatePath("/sourcework");
   return {};
 }
 

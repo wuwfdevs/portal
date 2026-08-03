@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
-import { reindexProject, embedPendingForProject } from "@/lib/transcription/indexing";
+import { reindexRepresentation, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
@@ -107,15 +107,21 @@ export async function updateProjectDetails(input: {
 }
 
 /**
- * Rebuilds a project's search index from its current transcript.
+ * Rebuilds one source's search index from its current transcript/document
+ * text.
  *
  * Serves two jobs deliberately kept as one action: the Phase 5 backfill for
- * projects transcribed before search existed, and a manual re-run when a
+ * sources transcribed before search existed, and a manual re-run when a
  * reporter has finished a round of corrections. Both are "make the index
- * match the transcript", and a second entry point would only be a second
- * thing to keep in step.
+ * match the content", and a second entry point would only be a second thing
+ * to keep in step.
+ *
+ * Takes an explicit sourceId rather than re-deriving the project's primary
+ * source — same fix Phase 3a already made for clip creation and
+ * transcription retry (docs/sourcework-design.md §7): reindexing whichever
+ * source is actually on screen, not always the first one attached.
  */
-export async function reindexProjectSearch(projectId: string): Promise<{
+export async function reindexProjectSearch(projectId: string, sourceId: string): Promise<{
   error?: string;
   chunks?: number;
   embedded?: number;
@@ -125,13 +131,17 @@ export async function reindexProjectSearch(projectId: string): Promise<{
 
   const supabase = await createClient();
   try {
-    const result = await reindexProject(supabase, projectId);
+    const ref = await getSourceRef(supabase, sourceId);
+    if (!ref.representationId) {
+      return { error: "This source has no representation to index yet." };
+    }
+    const result = await reindexRepresentation(supabase, ref.representationId);
     revalidatePath(`/sourcework/${projectId}`);
     revalidatePath("/sourcework");
     return result;
   } catch (error) {
-    console.error("[transcription] reindex failed", { projectId, error });
-    return { error: "Could not rebuild the search index for this project." };
+    console.error("[transcription] reindex failed", { projectId, sourceId, error });
+    return { error: "Could not rebuild the search index for this source." };
   }
 }
 

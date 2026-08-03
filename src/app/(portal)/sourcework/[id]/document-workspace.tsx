@@ -288,7 +288,7 @@ export function DocumentWorkspace({
           </div>
         </div>
 
-        <div className="flex gap-1.5">
+        <div role="tablist" className="flex gap-5 border-b border-line">
           <DocumentTab
             label="Document"
             active={activeTab === "document"}
@@ -404,15 +404,19 @@ export function DocumentWorkspace({
               {excerpts.map((excerpt) => (
                 <li
                   key={excerpt.id}
-                  // Clicking anywhere on the card marks its underlined text
-                  // in the reading pane and jumps to its first page — same
-                  // "the whole card is the control" reasoning as ClipCard
-                  // (a nested Delete button rules out making this a button).
+                  // Clicking anywhere on the card marks this excerpt without
+                  // switching tabs — same "the whole card is the control"
+                  // reasoning as ClipCard (a nested Delete button rules out
+                  // making this a button). Whichever tab is already open
+                  // shows the result immediately: staying on Document
+                  // outlines the excerpt's block right away (no forced
+                  // switch to Text just to reveal it), and staying on Text
+                  // tints its underline and turns to the right page.
                   onClick={() => {
                     setSelectedExcerptId(excerpt.id);
-                    setHighlightedBlockId(null);
-                    setActiveTab("text");
-                    setCurrentPage(excerpt.pages[0] ?? currentPage);
+                    const bboxLocation = excerpt.locations.find((l) => l.bbox && l.blockId);
+                    setHighlightedBlockId(bboxLocation?.blockId ?? null);
+                    setCurrentPage(bboxLocation?.pageNumber ?? excerpt.pages[0] ?? currentPage);
                   }}
                   onMouseEnter={() => setHoveredExcerptId(excerpt.id)}
                   onMouseLeave={() => setHoveredExcerptId(null)}
@@ -470,16 +474,18 @@ function DocumentTab({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`relative rounded-full border px-3 py-1 text-xs font-semibold ${
+      className={`relative -mb-px border-b-2 px-1 pb-2 text-sm font-semibold transition-colors ${
         active
-          ? "border-brand-primary bg-brand-surface text-brand-link"
-          : "border-line text-ink-500 hover:text-ink-700"
+          ? "border-brand-primary text-brand-link"
+          : "border-transparent text-ink-500 hover:text-ink-700"
       }`}
     >
       {label}
       {badge && (
-        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand-primary" aria-hidden="true" />
+        <span className="absolute -right-2 top-0 h-2 w-2 rounded-full bg-brand-primary" aria-hidden="true" />
       )}
     </button>
   );
