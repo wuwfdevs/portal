@@ -80,11 +80,11 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         ? getDocumentContentForRepresentation(source.transcript.id)
         : Promise.resolve({ pages: [], blocks: [] }),
       isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
-      // Feeds SourceActionsMenu's "Remove…" choice below, same as the project
-      // workspace's equivalent — see page.tsx there.
-      fileReady && primaryProjectId
-        ? countOtherProjectsForSource(id, primaryProjectId)
-        : Promise.resolve(0),
+      // Feeds SourceActionsMenu's "Remove…" choice in the header below, same
+      // as the project workspace's equivalent — see page.tsx there. Not
+      // gated on fileReady — the menu shows whether or not the file itself
+      // is ready.
+      primaryProjectId ? countOtherProjectsForSource(id, primaryProjectId) : Promise.resolve(0),
     ]);
 
   return (
@@ -116,7 +116,17 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
             {source.sizeBytes ? ` · ${formatBytes(source.sizeBytes)}` : ""}
           </p>
         </div>
-        <StatusBadge status={source.status} kind={source.kind} />
+        <div className="flex items-start gap-3">
+          <StatusBadge status={source.status} kind={source.kind} />
+          {primaryProjectId && (
+            <SourceActionsMenu
+              projectId={primaryProjectId}
+              sourceId={id}
+              sourceTitle={source.title}
+              otherProjectCount={otherProjectCount}
+            />
+          )}
+        </div>
       </div>
 
       <section className="mb-6">
@@ -165,16 +175,6 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               Couldn&apos;t load the document right now. Reload the page to try again.
             </p>
           )}
-          {primaryProjectId && (
-            <div className="mt-4 flex justify-end">
-              <SourceActionsMenu
-                projectId={primaryProjectId}
-                sourceId={id}
-                sourceTitle={source.title}
-                otherProjectCount={otherProjectCount}
-              />
-            </div>
-          )}
         </div>
       )}
 
@@ -208,16 +208,6 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
                 ? "Couldn't load the media right now. Reload the page to try again."
                 : "This source isn't attached to a project, so there's nothing to open here."}
             </p>
-          )}
-          {primaryProjectId && (
-            <div className="mt-4 flex justify-end">
-              <SourceActionsMenu
-                projectId={primaryProjectId}
-                sourceId={id}
-                sourceTitle={source.title}
-                otherProjectCount={otherProjectCount}
-              />
-            </div>
           )}
         </div>
       )}

@@ -55,12 +55,22 @@ function statusBadge(
  * a list of projects rather than jumping straight into one — while an
  * explicit ?source= (a card just clicked, a link from search, a deep link)
  * starts straight on that source's workspace.
+ *
+ * The title bar switches with it: `projectHeader` (title/description edit/
+ * "Delete this project") only makes sense while looking at the project as a
+ * whole, so it shows on the grid; `sourceHeader` (that source's own title,
+ * status, and its Rebuild-index/Remove menu) shows over the workspace,
+ * matching the standalone Source Detail page's header instead of leaving the
+ * project's title pinned at the top regardless of which source is active.
+ * Both are already rendered server-side by the page, same as `children`.
  */
 export function SourceCardGrid({
   projectId,
   sources,
   activeSourceId,
   startOnList,
+  projectHeader,
+  sourceHeader,
   children,
 }: {
   projectId: string;
@@ -68,6 +78,8 @@ export function SourceCardGrid({
   activeSourceId: string | null;
   /** True when the URL didn't name a specific source (or named one that no longer exists) — see the comment above. */
   startOnList: boolean;
+  projectHeader: ReactNode;
+  sourceHeader: ReactNode;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -95,6 +107,7 @@ export function SourceCardGrid({
     <div className="mb-4">
       {isBrowsing ? (
         <>
+          {projectHeader}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             {activeSource ? (
               <button
@@ -176,6 +189,7 @@ export function SourceCardGrid({
           >
             ← All sources in this project ({sources.length})
           </button>
+          {sourceHeader}
           {children}
         </>
       )}

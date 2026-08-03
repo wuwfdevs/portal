@@ -95,10 +95,82 @@ export default async function TranscriptionProjectPage({
       : Promise.resolve([]),
     // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
     // say how many other projects a "delete entirely" would also affect.
-    fileReady && activeSourceSummary
+    // Not gated on fileReady — the menu (in sourceHeader below) shows
+    // whether or not the file itself is ready.
+    activeSourceSummary
       ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
       : Promise.resolve(0),
   ]);
+
+  // Shown on the browsing grid — a project-level title bar (edit, delete)
+  // makes sense while looking at the project as a whole. See SourceCardGrid's
+  // comment on why this and sourceHeader below are two separate slots rather
+  // than one header that's always the project's.
+  const projectHeader = (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{project.title}</h1>
+        {project.description ? (
+          <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
+        ) : (
+          <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
+            No background yet — a note here is what tells someone finding a quote from this
+            recording in two years what it was.
+          </p>
+        )}
+        <ProjectDetails
+          projectId={project.id}
+          title={project.title}
+          description={project.description}
+        />
+      </div>
+      <div className="flex items-start gap-3">
+        <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
+        {canDelete && (
+          <ProjectActionsMenu projectId={project.id} label={deleteLabel} warning={deleteWarning} />
+        )}
+      </div>
+    </div>
+  );
+
+  // Shown over the active source's workspace instead — this source's own
+  // title, its own status (not the project's), and its own Rebuild-index/
+  // Remove menu, the same information the standalone Source Detail page
+  // leads with. Null only when the project has no sources at all, the same
+  // case SourceCardGrid's grid would render empty.
+  const sourceHeader = activeSourceSummary && source ? (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
+          {isDocument ? "PDF" : "Audio"}
+        </span>
+        <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{source.title}</h1>
+        <p className="text-xs text-ink-500">
+          {isDocument
+            ? source.page_count
+              ? `${source.page_count} page${source.page_count === 1 ? "" : "s"}`
+              : ""
+            : source.interview_date &&
+              new Date(source.interview_date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+          {!isDocument && source.original_duration_ms ? ` · ${formatDuration(source.original_duration_ms)}` : ""}
+          {source.original_size_bytes ? ` · ${formatBytes(source.original_size_bytes)}` : ""}
+        </p>
+      </div>
+      <div className="flex items-start gap-3">
+        <StatusBadge status={activeStatus} kind={isDocument ? "document" : "audio_video"} />
+        <SourceActionsMenu
+          projectId={project.id}
+          sourceId={activeSourceSummary.sourceId}
+          sourceTitle={source.title}
+          otherProjectCount={otherProjectCount}
+        />
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -108,36 +180,13 @@ export default async function TranscriptionProjectPage({
         </Link>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{project.title}</h1>
-          {project.description ? (
-            <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
-          ) : (
-            <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
-              No background yet — a note here is what tells someone finding a quote from this
-              recording in two years what it was.
-            </p>
-          )}
-          <ProjectDetails
-            projectId={project.id}
-            title={project.title}
-            description={project.description}
-          />
-        </div>
-        <div className="flex items-start gap-3">
-          <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
-          {canDelete && (
-            <ProjectActionsMenu projectId={project.id} label={deleteLabel} warning={deleteWarning} />
-          )}
-        </div>
-      </div>
-
       <SourceCardGrid
         projectId={project.id}
         sources={project.sources}
         activeSourceId={activeSourceSummary?.sourceId ?? null}
         startOnList={!project.sources.some((s) => s.sourceId === sourceParam)}
+        projectHeader={projectHeader}
+        sourceHeader={sourceHeader}
       >
         {fileReady && isDocument && (
           <div className="rounded border border-line bg-white p-5">
@@ -176,16 +225,6 @@ export default async function TranscriptionProjectPage({
                   </div>
                 )}
               </dl>
-            )}
-            {activeSourceSummary && (
-              <div className="mt-4 flex justify-end">
-                <SourceActionsMenu
-                  projectId={project.id}
-                  sourceId={activeSourceSummary.sourceId}
-                  sourceTitle={source?.title ?? "this source"}
-                  otherProjectCount={otherProjectCount}
-                />
-              </div>
             )}
           </div>
         )}
@@ -234,25 +273,15 @@ export default async function TranscriptionProjectPage({
                 </div>
               )}
             </dl>
-            {activeSourceSummary && (
-              <div className="mt-4 flex justify-end">
-                <SourceActionsMenu
-                  projectId={project.id}
-                  sourceId={activeSourceSummary.sourceId}
-                  sourceTitle={source?.title ?? "this source"}
-                  otherProjectCount={otherProjectCount}
-                />
-              </div>
-            )}
           </div>
         )}
 
         {/* Below here the *file* isn't available, so there is no workspace to
             show — the upload is still running, or it failed outright. A
             failure in the text extracted from an uploaded file is not one of
-            these states; it rides above the workspace as a banner. Deleting
-            the project either way is the header's ProjectActionsMenu, not
-            repeated inline here. */}
+            these states; it rides above the workspace as a banner. sourceHeader
+            still shows above this (Remove… covers a stuck source too); only
+            the retry itself is repeated inline here. */}
         {!fileReady && activeStatus === "uploading" && (
           <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
             This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
