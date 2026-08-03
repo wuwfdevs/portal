@@ -13,6 +13,13 @@ export interface NormalizedDocumentPage {
   rotationDegrees: number;
 }
 
+export interface NormalizedDocumentBlockLine {
+  /** Offsets into this block's own `text` (not document-wide) — same block-relative convention sw_excerpt_document_locations.start_offset/end_offset use. */
+  startOffset: number;
+  endOffset: number;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
 export interface NormalizedDocumentBlock {
   pageNumber: number;
   /** 0-based position within the whole document, spanning pages — see sw_document_blocks.reading_order. */
@@ -21,6 +28,16 @@ export interface NormalizedDocumentBlock {
   text: string;
   /** Fractional {x0,y0,x1,y1} of page width/height, or null when not recoverable. */
   bbox: { x0: number; y0: number; x1: number; y1: number } | null;
+  /**
+   * Native extraction only: per-line offset ranges + bbox within this block,
+   * finer than the block's own aggregate bbox — lets an excerpt spanning
+   * only part of a paragraph highlight/clip just the lines it actually
+   * covers instead of the whole paragraph (see document-selection.ts's
+   * bboxForOffsetRange). Empty for OCR blocks (Mistral only reports
+   * block-level coordinates — see providers/mistral-ocr-mapping.ts) and for
+   * native blocks with no recoverable page dimensions.
+   */
+  lines: NormalizedDocumentBlockLine[];
   /** 0..1, null when not applicable (native extraction) or not available. */
   confidence: number | null;
   source: "native" | "ocr";

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  bboxForOffsetRange,
   buildExcerptRuns,
   excerptAtOffset,
   resolveDocumentSelection,
+  type DocumentBlockLine,
   type ExcerptCharRange,
   type SelectableBlock,
 } from "./document-selection";
@@ -128,5 +130,34 @@ describe("excerptAtOffset", () => {
 
   it("treats endOffset as exclusive", () => {
     expect(excerptAtOffset(ranges, 20)).toBeNull();
+  });
+});
+
+describe("bboxForOffsetRange", () => {
+  const lines: DocumentBlockLine[] = [
+    { startOffset: 0, endOffset: 10, bbox: { x0: 0.1, y0: 0.1, x1: 0.5, y1: 0.15 } },
+    { startOffset: 11, endOffset: 22, bbox: { x0: 0.1, y0: 0.16, x1: 0.6, y1: 0.21 } },
+    { startOffset: 23, endOffset: 30, bbox: { x0: 0.1, y0: 0.22, x1: 0.3, y1: 0.27 } },
+  ];
+
+  it("returns null when there are no lines to draw from", () => {
+    expect(bboxForOffsetRange([], 0, 10)).toBeNull();
+  });
+
+  it("returns a single line's own bbox when the range only touches that line", () => {
+    expect(bboxForOffsetRange(lines, 2, 8)).toEqual(lines[0]!.bbox);
+  });
+
+  it("unions the bboxes of every line the range overlaps", () => {
+    expect(bboxForOffsetRange(lines, 5, 15)).toEqual({ x0: 0.1, y0: 0.1, x1: 0.6, y1: 0.21 });
+  });
+
+  it("excludes a line only touched at its exact boundary", () => {
+    // [11, 22) starts exactly where line 0 ends, so line 0 is not "overlapped".
+    expect(bboxForOffsetRange(lines, 11, 22)).toEqual(lines[1]!.bbox);
+  });
+
+  it("unions all three lines when the range spans the whole block", () => {
+    expect(bboxForOffsetRange(lines, 0, 30)).toEqual({ x0: 0.1, y0: 0.1, x1: 0.6, y1: 0.27 });
   });
 });

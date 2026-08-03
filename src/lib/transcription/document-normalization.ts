@@ -4,7 +4,7 @@
 // under Vitest without mocking a PDF parser, per this repo's testing
 // conventions. See docs/sourcework-design.md §8.6.
 
-import type { NormalizedDocumentBlock } from "./document-provider";
+import type { NormalizedDocumentBlock, NormalizedDocumentBlockLine } from "./document-provider";
 
 export interface NativeExtractionPageSummary {
   pageNumber: number;
@@ -148,6 +148,24 @@ function lineFromItems(items: NativeTextItem[]) {
   return { items, y, fontSize };
 }
 
+/** The same fractional top-left-origin bbox buildBlockFromLines always computed, pulled out so a single line's items can be boxed the same way as a whole block's. Null when the page has no usable dimensions — matches the block-level bbox's own null case. */
+function boxFromItems(
+  items: NativeTextItem[],
+  page: NativeTextPage,
+): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (!(page.widthPt > 0 && page.heightPt > 0)) return null;
+  const left = Math.min(...items.map((item) => item.x));
+  const right = Math.max(...items.map((item) => item.x + item.width));
+  const bottom = Math.min(...items.map((item) => item.y));
+  const top = Math.max(...items.map((item) => item.y + item.height));
+  return {
+    x0: left / page.widthPt,
+    y0: (page.heightPt - top) / page.heightPt,
+    x1: right / page.widthPt,
+    y1: (page.heightPt - bottom) / page.heightPt,
+  };
+}
+
 function buildBlockFromLines(
   lines: { items: NativeTextItem[]; y: number; fontSize: number }[],
   page: NativeTextPage,
@@ -155,30 +173,35 @@ function buildBlockFromLines(
   medianFontSize: number,
 ): NormalizedDocumentBlock {
   const allItems = lines.flatMap((line) => line.items);
-  const text = lines.map((line) => line.items.map((item) => item.str).join("")).join("\n");
-
-  const left = Math.min(...allItems.map((item) => item.x));
-  const right = Math.max(...allItems.map((item) => item.x + item.width));
-  const bottom = Math.min(...allItems.map((item) => item.y));
-  const top = Math.max(...allItems.map((item) => item.y + item.height));
+  const lineTexts = lines.map((line) => line.items.map((item) => item.str).join(""));
+  const text = lineTexts.join("\n");
 
   const avgFontSize = lines.reduce((sum, line) => sum + line.fontSize, 0) / lines.length;
   const isHeading = medianFontSize > 0 && avgFontSize / medianFontSize >= HEADING_FONT_SIZE_MULTIPLIER;
+
+  // Block-relative offsets matching how `text` was joined above (a "\n"
+  // between each line) — the same convention document-selection.ts's
+  // resolveDocumentSelection already relies on for this block's overall
+  // text, so a line's [startOffset, endOffset) lines up with the DOM
+  // offsets a browser selection over the rendered block produces.
+  let offset = 0;
+  const blockLines: NormalizedDocumentBlockLine[] = [];
+  for (const [index, line] of lines.entries()) {
+    const lineText = lineTexts[index]!;
+    const startOffset = offset;
+    const endOffset = startOffset + lineText.length;
+    offset = endOffset + 1; // the joining "\n"
+    const bbox = boxFromItems(line.items, page);
+    if (bbox) blockLines.push({ startOffset, endOffset, bbox });
+  }
 
   return {
     pageNumber: page.pageNumber,
     readingOrder,
     blockType: isHeading ? "heading" : "paragraph",
     text,
-    bbox:
-      page.widthPt > 0 && page.heightPt > 0
-        ? {
-            x0: left / page.widthPt,
-            y0: (page.heightPt - top) / page.heightPt,
-            x1: right / page.widthPt,
-            y1: (page.heightPt - bottom) / page.heightPt,
-          }
-        : null,
+    bbox: boxFromItems(allItems, page),
+    lines: blockLines,
     confidence: null,
     source: "native",
   };

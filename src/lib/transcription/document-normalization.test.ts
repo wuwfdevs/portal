@@ -138,6 +138,44 @@ describe("buildNativeBlocksForPage", () => {
     expect(block!.bbox!.y0).toBeLessThan(block!.bbox!.y1);
   });
 
+  it("computes per-line offsets and bbox alongside the block's own aggregate bbox", () => {
+    const page: NativeTextPage = {
+      ...basePage,
+      items: [
+        item({ str: "First line", x: 72, y: 700, width: 100, height: 12, hasEOL: true }),
+        item({ str: "second line", x: 72, y: 688, width: 90, height: 12, hasEOL: true }),
+      ],
+    };
+    const [block] = buildNativeBlocksForPage(page, 0);
+    expect(block!.lines).toHaveLength(2);
+
+    const firstLen = "First line".length;
+    expect(block!.lines[0]).toEqual({
+      startOffset: 0,
+      endOffset: firstLen,
+      bbox: { x0: 72 / 612, y0: (792 - 712) / 792, x1: 172 / 612, y1: (792 - 700) / 792 },
+    });
+    // +1 accounts for the "\n" joining the two lines in the block's own text
+    // (see resolveDocumentSelection's block-relative offset convention).
+    expect(block!.lines[1]).toEqual({
+      startOffset: firstLen + 1,
+      endOffset: block!.text.length,
+      bbox: { x0: 72 / 612, y0: (792 - 700) / 792, x1: 162 / 612, y1: (792 - 688) / 792 },
+    });
+  });
+
+  it("returns no lines (and no bbox) when the page has no usable dimensions", () => {
+    const page: NativeTextPage = {
+      pageNumber: 3,
+      widthPt: 0,
+      heightPt: 0,
+      items: [item({ str: "hi", hasEOL: true })],
+    };
+    const [block] = buildNativeBlocksForPage(page, 0);
+    expect(block!.bbox).toBeNull();
+    expect(block!.lines).toEqual([]);
+  });
+
   it("skips whitespace-only items", () => {
     const page: NativeTextPage = {
       ...basePage,

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, FieldError } from "@/components/ui/input";
 import {
+  bboxForOffsetRange,
   buildExcerptRuns,
   excerptAtOffset,
   resolveDocumentSelection,
@@ -196,13 +197,24 @@ export function DocumentWorkspace({
       representationId,
       title,
       excerptText: pendingSelection.excerpt,
-      locations: pendingSelection.locations.map((location) => ({
-        pageNumber: location.pageNumber,
-        blockId: location.blockId,
-        startOffset: location.startOffset,
-        endOffset: location.endOffset,
-        bbox: blockById.get(location.blockId)?.bbox ?? null,
-      })),
+      locations: pendingSelection.locations.map((location) => {
+        const block = blockById.get(location.blockId);
+        // Prefer a tight box around just the selected lines; fall back to
+        // the whole block's own bbox when there's no finer geometry (an
+        // OCR block, or a native block with no recoverable page
+        // dimensions) — see bboxForOffsetRange's comment.
+        const bbox =
+          bboxForOffsetRange(block?.lines ?? [], location.startOffset, location.endOffset) ??
+          block?.bbox ??
+          null;
+        return {
+          pageNumber: location.pageNumber,
+          blockId: location.blockId,
+          startOffset: location.startOffset,
+          endOffset: location.endOffset,
+          bbox,
+        };
+      }),
     });
     setSaving(false);
 
