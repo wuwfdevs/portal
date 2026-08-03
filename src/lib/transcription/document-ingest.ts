@@ -233,6 +233,7 @@ async function finishProcessing(
         block_type: block.blockType,
         text: block.text,
         bbox: block.bbox,
+        lines: block.lines,
         confidence: block.confidence,
         source: block.source,
         extra: block.extra ?? {},

@@ -77,6 +77,7 @@ export function mapMistralResponseToDocument(response: OCRResponse): NormalizedD
         blockType: "paragraph",
         text: page.markdown,
         bbox: null,
+        lines: [],
         confidence: pageConfidence,
         source: "ocr",
         extra: { mistralFallback: "page-markdown" },
@@ -124,6 +125,9 @@ function mapBlock(
     blockType,
     text,
     bbox,
+    // Mistral's block response is block-level only — no line/word
+    // sub-geometry to draw from (see NormalizedDocumentBlock.lines' comment).
+    lines: [],
     confidence: pageConfidence,
     source: "ocr",
     extra,

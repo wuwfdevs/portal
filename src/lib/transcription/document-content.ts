@@ -15,6 +15,12 @@ export interface DocumentPageSummary {
   rotationDegrees: number;
 }
 
+export interface DocumentBlockLineSummary {
+  startOffset: number;
+  endOffset: number;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
 export interface DocumentBlockSummary {
   id: string;
   pageNumber: number;
@@ -22,6 +28,8 @@ export interface DocumentBlockSummary {
   blockType: SwDocumentBlockType;
   text: string;
   bbox: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** Native extraction only: per-line offset ranges + bbox, finer than this block's own bbox. Empty for OCR blocks — see NormalizedDocumentBlock.lines. */
+  lines: DocumentBlockLineSummary[];
   confidence: number | null;
 }
 
@@ -42,7 +50,7 @@ export async function getDocumentContentForRepresentation(
       .order("page_number"),
     supabase
       .from("sw_document_blocks")
-      .select("id, page_number, reading_order, block_type, text, bbox, confidence")
+      .select("id, page_number, reading_order, block_type, text, bbox, lines, confidence")
       .eq("representation_id", representationId)
       .order("reading_order"),
   ]);
@@ -65,6 +73,7 @@ export async function getDocumentContentForRepresentation(
       blockType: row.block_type,
       text: row.text,
       bbox: row.bbox,
+      lines: row.lines,
       confidence: row.confidence,
     })),
   };

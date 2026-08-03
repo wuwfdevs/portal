@@ -20,7 +20,12 @@
 // (rd_posts/rd_votes/rd_comments, the new rd_post_kind/rd_post_status enums,
 // and 'proposed' on tool_status) against
 // supabase/migrations/20260801120000_tool_status_proposed.sql and
-// 20260801121000_roadmap.sql. Kept hand-written rather than swapped for the generator's raw
+// 20260801121000_roadmap.sql. Hand-updated again on 2026-08-03 for
+// sw_document_blocks.lines (supabase/migrations/
+// 20260803120000_sourcework_document_block_lines.sql) — no local instance
+// running to regenerate against; a plain jsonb column, added by hand
+// following the same SwDocumentBlockBbox-shaped-type pattern already used
+// for bbox. Kept hand-written rather than swapped for the generator's raw
 // output on purpose: the generator emits a differently-shaped module
 // (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
 // every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
@@ -66,6 +71,12 @@ export interface SwDocumentBlockBbox {
   y0: number;
   x1: number;
   y1: number;
+}
+/** Native extraction only: one line's block-relative offset range + bbox — see sw_document_blocks.lines. */
+export interface SwDocumentBlockLine {
+  startOffset: number;
+  endOffset: number;
+  bbox: SwDocumentBlockBbox;
 }
 export type SwExcerptLocatorKind = "temporal" | "document";
 export type SwDocumentProcessingMethod = "native" | "ocr";
@@ -482,6 +493,8 @@ export interface Database {
           text: string;
           /** Fractional {x0,y0,x1,y1} of page width/height, or null — see docs/sourcework-design.md §8.4. */
           bbox: SwDocumentBlockBbox | null;
+          /** Native extraction only: per-line offset ranges + bbox, finer than this block's own aggregate bbox. Empty for OCR blocks. */
+          lines: SwDocumentBlockLine[];
           /** OCR only (0..1); null for native extraction. */
           confidence: number | null;
           source: "native" | "ocr";

@@ -147,3 +147,39 @@ export function excerptAtOffset(ranges: ExcerptCharRange[], offset: number): str
 
   return best?.excerptId ?? null;
 }
+
+/** A block-relative line, in the same shape NormalizedDocumentBlock.lines/DocumentBlockSummary.lines already use. */
+export interface DocumentBlockLine {
+  startOffset: number;
+  endOffset: number;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
+/**
+ * Unions the bboxes of every line overlapping [startOffset, endOffset) —
+ * a tight box around just the selected span, instead of the whole
+ * containing block's own aggregate bbox. Returns null when there's no
+ * line-level geometry to draw from (an OCR block, or a native block with no
+ * recoverable page dimensions), so the caller can fall back to the block's
+ * own bbox — see document-workspace.tsx's handleSaveExcerpt.
+ */
+export function bboxForOffsetRange(
+  lines: DocumentBlockLine[],
+  startOffset: number,
+  endOffset: number,
+): { x0: number; y0: number; x1: number; y1: number } | null {
+  const overlapping = lines.filter(
+    (line) => line.startOffset < endOffset && line.endOffset > startOffset,
+  );
+  if (overlapping.length === 0) return null;
+
+  return overlapping.reduce(
+    (union, line) => ({
+      x0: Math.min(union.x0, line.bbox.x0),
+      y0: Math.min(union.y0, line.bbox.y0),
+      x1: Math.max(union.x1, line.bbox.x1),
+      y1: Math.max(union.y1, line.bbox.y1),
+    }),
+    overlapping[0]!.bbox,
+  );
+}
