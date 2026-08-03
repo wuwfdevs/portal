@@ -48,21 +48,31 @@ function statusBadge(
  * grid, and the workspace instead gets the same breadcrumb-style "back"
  * link the standalone Source Detail page already uses to return to a list
  * (sourcework/sources/[id]/page.tsx's "← Back to sources").
+ *
+ * Which one you land on is driven by the URL, not a client default: opening
+ * a project plain (no ?source=) starts on the list — a project is a
+ * collection of sources first, the same reason /sourcework itself opens on
+ * a list of projects rather than jumping straight into one — while an
+ * explicit ?source= (a card just clicked, a link from search, a deep link)
+ * starts straight on that source's workspace.
  */
 export function SourceCardGrid({
   projectId,
   sources,
   activeSourceId,
+  startOnList,
   children,
 }: {
   projectId: string;
   sources: ProjectSourceSummary[];
   activeSourceId: string | null;
+  /** True when the URL didn't name a specific source (or named one that no longer exists) — see the comment above. */
+  startOnList: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
-  const [isBrowsing, setIsBrowsing] = useState(false);
+  const [isBrowsing, setIsBrowsing] = useState(startOnList);
   const activeSource = sources.find((s) => s.sourceId === activeSourceId) ?? null;
 
   return (

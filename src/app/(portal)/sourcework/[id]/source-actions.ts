@@ -83,6 +83,33 @@ export async function attachSourceToProject(
   return {};
 }
 
+/**
+ * Detaches a source from a project — the inverse of attachSourceToProject,
+ * and the correctly-scoped "remove" action for a source's own detail view
+ * (as opposed to deleting the whole project): the source itself, and
+ * whatever other projects also reference it, are untouched. Only meaningful
+ * when a project has more than one source — removing a project's only
+ * source would leave it empty, which is what deleting the project is for.
+ */
+export async function removeSourceFromProject(
+  projectId: string,
+  sourceId: string,
+): Promise<{ error?: string }> {
+  await assertToolAccess("transcription");
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sw_project_sources")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("source_id", sourceId);
+  if (error) return { error: "Could not remove that source from the project." };
+
+  revalidatePath(`/sourcework/${projectId}`);
+  revalidatePath("/sourcework");
+  return {};
+}
+
 export type CreateSourceResult = { sourceId: string } | { error: string };
 
 /**

@@ -14,12 +14,12 @@ import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcrip
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { retryTranscription } from "../actions";
-import { DeleteProjectButton } from "../delete-project-button";
+import { ProjectActionsMenu } from "../project-actions-menu";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { DocumentWorkspace } from "./document-workspace";
 import { ProjectDetails } from "./project-details";
 import { RepresentationStatusBanner } from "./representation-status-banner";
-import { ReindexButton } from "./reindex-button";
+import { SourceActionsMenu } from "./source-actions-menu";
 import { SourceCardGrid } from "./source-card-grid";
 
 // See new/page.tsx's comment on why this lives on the page rather than in
@@ -51,15 +51,23 @@ export default async function TranscriptionProjectPage({
   // overwhelmingly common single-source project that's the same recording
   // the reporter is looking at, so "Delete this source" is accurate; once a
   // second source is attached, deleting the project leaves the others
-  // untouched, so it has to stay framed as deleting the project.
-  const deleteLabel = project.sources.length === 1 ? "Delete this source" : "Delete this project";
+  // untouched, so it has to stay framed as deleting the project. This is a
+  // project-level action (see ProjectActionsMenu in the header below) —
+  // deliberately not scoped to whichever source happens to be on screen.
+  const hasAnyMedia = project.sources.some((s) => Boolean(s.source.original_storage_path));
+  const deleteLabel =
+    project.sources.length > 1 ? "Delete this project" : hasAnyMedia ? "Delete this source" : "Delete and start over";
   const deleteWarning =
-    project.sources.length === 1
-      ? "This permanently deletes the recording, its transcript, and every excerpt made from it."
-      : "This deletes the project. Its primary source is removed too, unless another project still references it — any other attached sources stay in the library.";
-  // ?source= picks which pill is showing; absent (or unknown) falls back to
-  // the earliest-attached source — same "primary" this project always had
-  // before a second source could be attached (docs/sourcework-design.md §7).
+    project.sources.length > 1
+      ? "This deletes the project. Its primary source is removed too, unless another project still references it — any other attached sources stay in the library."
+      : hasAnyMedia
+        ? "This permanently deletes the recording, its transcript, and every excerpt made from it."
+        : "This removes the project and anything already uploaded for it.";
+  // ?source= picks which source is showing; absent (or unknown) falls back
+  // to the earliest-attached source — same "primary" this project always
+  // had before a second source could be attached (docs/sourcework-design.md
+  // §7). SourceCardGrid separately decides whether to start on the list or
+  // straight on this source, based on whether ?source= was actually given.
   const activeSourceSummary =
     project.sources.find((s) => s.sourceId === sourceParam) ?? project.sources[0] ?? null;
   const source = activeSourceSummary?.source ?? null;
@@ -118,13 +126,19 @@ export default async function TranscriptionProjectPage({
             description={project.description}
           />
         </div>
-        <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
+        <div className="flex items-start gap-3">
+          <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
+          {canDelete && (
+            <ProjectActionsMenu projectId={project.id} label={deleteLabel} warning={deleteWarning} />
+          )}
+        </div>
       </div>
 
       <SourceCardGrid
         projectId={project.id}
         sources={project.sources}
         activeSourceId={activeSourceSummary?.sourceId ?? null}
+        startOnList={!project.sources.some((s) => s.sourceId === sourceParam)}
       >
         {fileReady && isDocument && (
           <div className="rounded border border-line bg-white p-5">
@@ -164,11 +178,16 @@ export default async function TranscriptionProjectPage({
                 )}
               </dl>
             )}
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              {canDelete && (
-                <DeleteProjectButton projectId={project.id} label={deleteLabel} warning={deleteWarning} />
-              )}
-            </div>
+            {activeSourceSummary && (
+              <div className="mt-4 flex justify-end">
+                <SourceActionsMenu
+                  projectId={project.id}
+                  sourceId={activeSourceSummary.sourceId}
+                  sourceTitle={source?.title ?? "this source"}
+                  canRemove={project.sources.length > 1}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -216,29 +235,29 @@ export default async function TranscriptionProjectPage({
                 </div>
               )}
             </dl>
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <ReindexButton projectId={project.id} />
-              {canDelete && (
-                <DeleteProjectButton projectId={project.id} label={deleteLabel} warning={deleteWarning} />
-              )}
-            </div>
+            {activeSourceSummary && (
+              <div className="mt-4 flex justify-end">
+                <SourceActionsMenu
+                  projectId={project.id}
+                  sourceId={activeSourceSummary.sourceId}
+                  sourceTitle={source?.title ?? "this source"}
+                  canRemove={project.sources.length > 1}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {/* Below here the *file* isn't available, so there is no workspace to
             show — the upload is still running, or it failed outright. A
             failure in the text extracted from an uploaded file is not one of
-            these states; it rides above the workspace as a banner. */}
+            these states; it rides above the workspace as a banner. Deleting
+            the project either way is the header's ProjectActionsMenu, not
+            repeated inline here. */}
         {!fileReady && activeStatus === "uploading" && (
           <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
             This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
             upload is still running in another tab, or it was interrupted.
-            {canDelete && (
-              <DeleteProjectButton
-                projectId={project.id}
-                warning="This removes the project and anything already uploaded for it."
-              />
-            )}
           </div>
         )}
 
@@ -251,13 +270,6 @@ export default async function TranscriptionProjectPage({
             </p>
             {hasMedia && (
               <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
-            )}
-            {canDelete && (
-              <DeleteProjectButton
-                projectId={project.id}
-                label={hasMedia ? "Delete this project" : "Delete and try again"}
-                warning="This removes the project and anything already uploaded for it."
-              />
             )}
           </div>
         )}
