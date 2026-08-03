@@ -45,6 +45,18 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
+  // deleteProject only ever removes the project's *primary* (earliest-
+  // attached) source, and only if no other project still references it —
+  // see actions.ts's deleteProject and docs/sourcework-design.md §7. For the
+  // overwhelmingly common single-source project that's the same recording
+  // the reporter is looking at, so "Delete this source" is accurate; once a
+  // second source is attached, deleting the project leaves the others
+  // untouched, so it has to stay framed as deleting the project.
+  const deleteLabel = project.sources.length === 1 ? "Delete this source" : "Delete this project";
+  const deleteWarning =
+    project.sources.length === 1
+      ? "This permanently deletes the recording, its transcript, and every excerpt made from it."
+      : "This deletes the project. Its primary source is removed too, unless another project still references it — any other attached sources stay in the library.";
   // ?source= picks which pill is showing; absent (or unknown) falls back to
   // the earliest-attached source — same "primary" this project always had
   // before a second source could be attached (docs/sourcework-design.md §7).
@@ -153,7 +165,9 @@ export default async function TranscriptionProjectPage({
               </dl>
             )}
             <div className="mt-4 flex flex-wrap items-center gap-4">
-              {canDelete && <DeleteProjectButton projectId={project.id} />}
+              {canDelete && (
+                <DeleteProjectButton projectId={project.id} label={deleteLabel} warning={deleteWarning} />
+              )}
             </div>
           </div>
         )}
@@ -204,7 +218,9 @@ export default async function TranscriptionProjectPage({
             </dl>
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <ReindexButton projectId={project.id} />
-              {canDelete && <DeleteProjectButton projectId={project.id} />}
+              {canDelete && (
+                <DeleteProjectButton projectId={project.id} label={deleteLabel} warning={deleteWarning} />
+              )}
             </div>
           </div>
         )}
