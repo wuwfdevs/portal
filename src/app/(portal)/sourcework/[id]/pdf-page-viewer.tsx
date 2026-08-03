@@ -32,6 +32,7 @@ export function PdfPageViewer({
   pageNumber,
   scale,
   fitWidth,
+  highlightBbox,
   onLoadError,
   onLoadPageCount,
 }: {
@@ -49,6 +50,14 @@ export function PdfPageViewer({
    * than any phone, forcing sideways scrolling just to read it.
    */
   fitWidth?: number;
+  /**
+   * A block's location on this page, fractional to the page's own
+   * width/height (see document-normalization.ts) — outlined on top of the
+   * rendered page when the reading pane's text is clicked. Fractional
+   * rather than pixel-based so the outline stays aligned at any zoom
+   * without recomputation. Null/undefined hides it.
+   */
+  highlightBbox?: { x0: number; y0: number; x1: number; y1: number } | null;
   onLoadError?: (message: string) => void;
   /** The PDF's own page count. The workspace normally paginates by the extracted sw_document_pages rows, but when extraction failed there are none — this is the only page count available. */
   onLoadPageCount?: (pageCount: number) => void;
@@ -70,14 +79,30 @@ export function PdfPageViewer({
       {error ? (
         <p className="p-4 text-sm text-ink-500">{error}</p>
       ) : (
-        <Page
-          pageNumber={pageNumber}
-          scale={scale}
-          width={fitWidth || undefined}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          loading={<p className="p-4 text-sm text-ink-500">Loading page…</p>}
-        />
+        // inline-block so this wrapper shrink-wraps to the rendered page's
+        // own size, which is what makes the highlight's percentage-based
+        // positioning below line up with the canvas underneath it.
+        <div className="relative inline-block">
+          <Page
+            pageNumber={pageNumber}
+            scale={scale}
+            width={fitWidth || undefined}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            loading={<p className="p-4 text-sm text-ink-500">Loading page…</p>}
+          />
+          {highlightBbox && (
+            <div
+              className="pointer-events-none absolute border-2 border-brand-primary bg-brand-primary/20"
+              style={{
+                left: `${highlightBbox.x0 * 100}%`,
+                top: `${highlightBbox.y0 * 100}%`,
+                width: `${Math.max(0, (highlightBbox.x1 - highlightBbox.x0) * 100)}%`,
+                height: `${Math.max(0, (highlightBbox.y1 - highlightBbox.y0) * 100)}%`,
+              }}
+            />
+          )}
+        </div>
       )}
     </Document>
   );
