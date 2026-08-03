@@ -144,20 +144,20 @@ export function SourceCardGrid({
             </Link>
           </div>
           {projectHeader}
-          <div className="mb-3 flex justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsAdding(true)}
-              className="px-3 py-1.5 text-xs"
-            >
-              + Add source
-            </Button>
-          </div>
 
           <ScopedSearchPanel
             placeholder="Search this project's transcripts, documents, and excerpts…"
             onSearch={(query) => searchProjectAction(projectId, query)}
+            actions={
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsAdding(true)}
+                className="shrink-0 px-3 py-1.5 text-xs"
+              >
+                + Add source
+              </Button>
+            }
           >
             <nav className="mb-4 flex gap-1 border-b border-line">
               <BrowseTabButton

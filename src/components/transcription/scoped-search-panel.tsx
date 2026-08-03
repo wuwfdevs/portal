@@ -28,10 +28,13 @@ const DEBOUNCE_MS = 250;
 export function ScopedSearchPanel({
   placeholder,
   onSearch,
+  actions,
   children,
 }: {
   placeholder: string;
   onSearch: (query: string) => Promise<SearchResult[]>;
+  /** Rendered alongside the search input on the same row (e.g. "+ Add source") — optional, since the source/excerpt-pane callers have nothing to put there. */
+  actions?: ReactNode;
   /** The default (no-query) view — a tab switcher, an excerpt list, whatever this panel stands in front of. */
   children: ReactNode;
 }) {
@@ -76,13 +79,16 @@ export function ScopedSearchPanel({
 
   return (
     <div>
-      <Input
-        type="search"
-        placeholder={placeholder}
-        value={query}
-        onChange={(event) => handleQueryChange(event.target.value)}
-        className="mb-4 max-w-sm"
-      />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Input
+          type="search"
+          placeholder={placeholder}
+          value={query}
+          onChange={(event) => handleQueryChange(event.target.value)}
+          className="max-w-sm"
+        />
+        {actions}
+      </div>
 
       {trimmed ? (
         <>
