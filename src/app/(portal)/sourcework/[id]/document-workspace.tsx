@@ -170,7 +170,7 @@ export function DocumentWorkspace({
     router.refresh();
   }
 
-  const orderedPages = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
+  const currentPageData = pages.find((page) => page.pageNumber === currentPage) ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -260,32 +260,26 @@ export function DocumentWorkspace({
             onMouseUp={handleMouseUp}
             className="min-w-0 select-text break-words rounded border border-line bg-white p-4 text-sm leading-relaxed text-ink-800"
           >
-            {orderedPages.length === 0 && (
+            {pages.length === 0 && (
               // Not necessarily an error: text extraction may have failed
               // (the banner above says so) or may still be running. Either
-              // way the pages render fine to the left, so say what's missing
+              // way the page renders fine to the left, so say what's missing
               // rather than leaving an empty panel.
               <p className="text-sm text-ink-500">
                 No text for this document yet — you can read and page through it on the left, but
                 there&apos;s nothing to select or excerpt until extraction finishes.
               </p>
             )}
-            {orderedPages.map((page) => (
-              <div key={page.id} className="mb-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                  Page {page.pageNumber}
+            {currentPageData &&
+              (blocksByPage.get(currentPageData.pageNumber) ?? []).map((block) => (
+                <p
+                  key={block.id}
+                  data-block-id={block.id}
+                  className={`mb-2 ${BLOCK_TYPE_CLASS[block.blockType] ?? ""}`}
+                >
+                  {block.text}
                 </p>
-                {(blocksByPage.get(page.pageNumber) ?? []).map((block) => (
-                  <p
-                    key={block.id}
-                    data-block-id={block.id}
-                    className={`mb-2 ${BLOCK_TYPE_CLASS[block.blockType] ?? ""}`}
-                  >
-                    {block.text}
-                  </p>
-                ))}
-              </div>
-            ))}
+              ))}
           </div>
 
           {pendingSelection && (
