@@ -84,3 +84,66 @@ export function resolveDocumentSelection(
 
   return { excerpt, locations };
 }
+
+/** One excerpt's coverage of a single block, in the same character-offset terms `resolveDocumentSelection` produces. */
+export interface ExcerptCharRange {
+  excerptId: string;
+  startOffset: number;
+  endOffset: number;
+}
+
+/** A run of a block's text and every excerpt (zero or more) that covers it. */
+export interface DocumentTextRun {
+  text: string;
+  excerptIds: string[];
+}
+
+/**
+ * Splits a block's text into ordered runs at every excerpt-range boundary,
+ * so the reading pane can underline "this is already excerpted" the same
+ * way the transcript underlines a clipped word (see segment-row.tsx's
+ * markClass and the "two channels, not two shades" comment there). A run
+ * lists every excerpt covering it, so two overlapping excerpts still draw
+ * as one unbroken underline rather than doubling up — the document
+ * counterpart to resolveClipCoverage.
+ */
+export function buildExcerptRuns(text: string, ranges: ExcerptCharRange[]): DocumentTextRun[] {
+  if (ranges.length === 0 || text.length === 0) {
+    return [{ text, excerptIds: [] }];
+  }
+
+  const boundaries = new Set<number>([0, text.length]);
+  for (const range of ranges) {
+    boundaries.add(Math.max(0, Math.min(range.startOffset, text.length)));
+    boundaries.add(Math.max(0, Math.min(range.endOffset, text.length)));
+  }
+  const sorted = [...boundaries].sort((a, b) => a - b);
+
+  const runs: DocumentTextRun[] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const start = sorted[i]!;
+    const end = sorted[i + 1]!;
+    if (start >= end) continue;
+    const excerptIds = ranges
+      .filter((range) => range.startOffset <= start && range.endOffset >= end)
+      .map((range) => range.excerptId);
+    runs.push({ text: text.slice(start, end), excerptIds });
+  }
+  return runs;
+}
+
+/**
+ * Which excerpt a click at a single character offset means, out of however
+ * many cover it — the document counterpart to clipAtToken(). The shortest
+ * (most specific) excerpt wins ties, same rationale as clipAtToken.
+ */
+export function excerptAtOffset(ranges: ExcerptCharRange[], offset: number): string | null {
+  let best: ExcerptCharRange | null = null;
+
+  for (const range of ranges) {
+    if (offset < range.startOffset || offset >= range.endOffset) continue;
+    if (!best || range.endOffset - range.startOffset < best.endOffset - best.startOffset) best = range;
+  }
+
+  return best?.excerptId ?? null;
+}
