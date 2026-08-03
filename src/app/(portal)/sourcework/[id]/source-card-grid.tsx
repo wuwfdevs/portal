@@ -75,6 +75,22 @@ export function SourceCardGrid({
   const [isBrowsing, setIsBrowsing] = useState(startOnList);
   const activeSource = sources.find((s) => s.sourceId === activeSourceId) ?? null;
 
+  // `children` is server-rendered for whichever source `activeSourceId`
+  // names — it only updates once a navigation to a new `?source=` actually
+  // completes. Adjusting `isBrowsing` here during render (React's documented
+  // pattern for deriving state from a prop change, rather than an effect —
+  // see "You Might Not Need an Effect"), keyed on the props that change when
+  // that navigation lands, means we never show `false` while `children` is
+  // still the previous source's workspace: flipping it eagerly in the
+  // card's onClick instead was a flash of the old source before the new one
+  // replaced it.
+  const navigationKey = `${activeSourceId ?? ""}:${startOnList}`;
+  const [prevNavigationKey, setPrevNavigationKey] = useState(navigationKey);
+  if (navigationKey !== prevNavigationKey) {
+    setPrevNavigationKey(navigationKey);
+    setIsBrowsing(startOnList);
+  }
+
   return (
     <div className="mb-4">
       {isBrowsing ? (
@@ -110,7 +126,6 @@ export function SourceCardGrid({
                   key={s.sourceId}
                   href={`/sourcework/${projectId}?source=${s.sourceId}`}
                   scroll={false}
-                  onClick={() => setIsBrowsing(false)}
                   className={`flex flex-col gap-2 rounded border p-4 ${
                     isActive
                       ? "border-brand-primary bg-brand-surface"
@@ -161,7 +176,6 @@ export function SourceCardGrid({
           onClose={() => setIsAdding(false)}
           onDone={(sourceId) => {
             setIsAdding(false);
-            setIsBrowsing(false);
             router.push(`/sourcework/${projectId}?source=${sourceId}`);
           }}
         />
