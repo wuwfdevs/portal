@@ -18,19 +18,28 @@ import type { LibraryClip } from "@/lib/transcription/clips";
  * The filter below is client-side over the already-loaded list, same
  * reasoning as SourceLibrary's and ProjectTable's — it narrows this tab's
  * rows by title/excerpt/project name, and is not a substitute for the
- * archive-wide search bar above the tabs.
+ * archive-wide search bar above the tabs. `showFilter` turns it off for the
+ * one caller that already sits behind a stronger, RPC-backed search box of
+ * its own (the project workspace's Excerpts tab, wrapped in
+ * ScopedSearchPanel) — showing both was two search boxes doing overlapping
+ * jobs at different scopes, which read as redundant rather than as two
+ * genuinely different tools.
  */
 export function ClipLibrary({
   clips,
   showProjectMeta = true,
+  showFilter = true,
 }: {
   clips: LibraryClip[];
   /** False when every row is already known to belong to the same project (the project workspace's own Excerpts tab) — the per-row project link/description would just repeat itself. */
   showProjectMeta?: boolean;
+  /** False when a caller already wraps this in its own (stronger) search box — see the comment above. */
+  showFilter?: boolean;
 }) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
+    if (!showFilter) return clips;
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return clips;
     return clips.filter(
@@ -40,7 +49,7 @@ export function ClipLibrary({
         clip.projectTitle.toLowerCase().includes(trimmed) ||
         clip.sourceTitle.toLowerCase().includes(trimmed),
     );
-  }, [clips, query]);
+  }, [clips, query, showFilter]);
 
   if (clips.length === 0) {
     return (
@@ -53,13 +62,15 @@ export function ClipLibrary({
 
   return (
     <div>
-      <Input
-        type="search"
-        placeholder="Filter excerpts by title…"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        className="mb-4 max-w-xs"
-      />
+      {showFilter && (
+        <Input
+          type="search"
+          placeholder="Filter excerpts by title…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className="mb-4 max-w-xs"
+        />
+      )}
 
       {filtered.length === 0 ? (
         <p className="text-sm text-ink-500">No excerpts match &ldquo;{query}&rdquo;.</p>

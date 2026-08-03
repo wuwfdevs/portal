@@ -51,7 +51,12 @@ function statusBadge(
  * list only make sense while actually picking a source, so they live on the
  * grid, and the workspace instead gets the same breadcrumb-style "back"
  * link the standalone Source Detail page already uses to return to a list
- * (sourcework/sources/[id]/page.tsx's "← Back to sources").
+ * (sourcework/sources/[id]/page.tsx's "← Back to sources"). "← Back to
+ * projects" (the level above this one) lives only on the grid for the same
+ * reason — the page used to show it unconditionally above this component,
+ * which stacked two back links while looking at a single source's workspace
+ * ("← Back to projects" then "← All sources in this project"); one level of
+ * breadcrumb at a time reads better than both at once.
  *
  * Which one you land on is driven by the URL, not a client default: opening
  * a project plain (no ?source=) starts on the list — a project is a
@@ -75,7 +80,9 @@ function statusBadge(
  * active. The Excerpts tab's data is fetched lazily, on first click, via a
  * Server Action rather than being SSR'd alongside `sources` — a project's
  * sources can each carry hundreds of excerpts, and most visits to this page
- * never open that tab at all.
+ * never open that tab at all. `ClipLibrary`'s own client-side filter box is
+ * turned off here (`showFilter={false}`) — it would just be a second, weaker
+ * search box stacked under the ScopedSearchPanel one above it.
  */
 export function SourceCardGrid({
   projectId,
@@ -132,6 +139,11 @@ export function SourceCardGrid({
     <div className="mb-4">
       {isBrowsing ? (
         <>
+          <div className="mb-5">
+            <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
+              ← Back to projects
+            </Link>
+          </div>
           {projectHeader}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             {activeSource ? (
@@ -218,7 +230,7 @@ export function SourceCardGrid({
             ) : isLoadingExcerpts || excerpts === null ? (
               <p className="text-sm text-ink-500">Loading excerpts…</p>
             ) : (
-              <ClipLibrary clips={excerpts} showProjectMeta={false} />
+              <ClipLibrary clips={excerpts} showProjectMeta={false} showFilter={false} />
             )}
           </ScopedSearchPanel>
         </>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import {
@@ -77,30 +76,31 @@ export default async function TranscriptionProjectPage({
   const representationStatus = transcriptRepresentation?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  const [signedUrl, transcript, clips, documentContent, documentExcerpts, otherProjectCount] = await Promise.all([
-    fileReady && source?.original_storage_path
-      ? getSignedMediaUrl(source.original_storage_path)
-      : Promise.resolve(null),
-    !isDocument && contentReady && transcriptRepresentation
-      ? getTranscriptForRepresentation(transcriptRepresentation.id)
-      : Promise.resolve({ segments: [], speakers: [] }),
-    !isDocument && fileReady && activeSourceSummary
-      ? listExcerptsForSource(activeSourceSummary.sourceId)
-      : Promise.resolve([]),
-    isDocument && contentReady && transcriptRepresentation
-      ? getDocumentContentForRepresentation(transcriptRepresentation.id)
-      : Promise.resolve({ pages: [], blocks: [] }),
-    isDocument && fileReady && activeSourceSummary
-      ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
-      : Promise.resolve([]),
-    // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
-    // say how many other projects a "delete entirely" would also affect.
-    // Not gated on fileReady — the menu (in sourceHeader below) shows
-    // whether or not the file itself is ready.
-    activeSourceSummary
-      ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
-      : Promise.resolve(0),
-  ]);
+  const [signedUrl, transcript, clips, documentContent, documentExcerpts, otherProjectCount] =
+    await Promise.all([
+      fileReady && source?.original_storage_path
+        ? getSignedMediaUrl(source.original_storage_path)
+        : Promise.resolve(null),
+      !isDocument && contentReady && transcriptRepresentation
+        ? getTranscriptForRepresentation(transcriptRepresentation.id)
+        : Promise.resolve({ segments: [], speakers: [] }),
+      !isDocument && fileReady && activeSourceSummary
+        ? listExcerptsForSource(activeSourceSummary.sourceId)
+        : Promise.resolve([]),
+      isDocument && contentReady && transcriptRepresentation
+        ? getDocumentContentForRepresentation(transcriptRepresentation.id)
+        : Promise.resolve({ pages: [], blocks: [] }),
+      isDocument && fileReady && activeSourceSummary
+        ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
+        : Promise.resolve([]),
+      // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
+      // say how many other projects a "delete entirely" would also affect.
+      // Not gated on fileReady — the menu (in sourceHeader below) shows
+      // whether or not the file itself is ready.
+      activeSourceSummary
+        ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
+        : Promise.resolve(0),
+    ]);
 
   // Shown on the browsing grid — a project-level title bar (edit, delete)
   // makes sense while looking at the project as a whole. See SourceCardGrid's
@@ -138,48 +138,45 @@ export default async function TranscriptionProjectPage({
   // Remove menu, the same information the standalone Source Detail page
   // leads with. Null only when the project has no sources at all, the same
   // case SourceCardGrid's grid would render empty.
-  const sourceHeader = activeSourceSummary && source ? (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
-          {isDocument ? "PDF" : "Audio"}
-        </span>
-        <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{source.title}</h1>
-        <p className="text-xs text-ink-500">
-          {isDocument
-            ? source.page_count
-              ? `${source.page_count} page${source.page_count === 1 ? "" : "s"}`
-              : ""
-            : source.interview_date &&
-              new Date(source.interview_date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-          {!isDocument && source.original_duration_ms ? ` · ${formatDuration(source.original_duration_ms)}` : ""}
-          {source.original_size_bytes ? ` · ${formatBytes(source.original_size_bytes)}` : ""}
-        </p>
+  const sourceHeader =
+    activeSourceSummary && source ? (
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
+            {isDocument ? "PDF" : "Audio"}
+          </span>
+          <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{source.title}</h1>
+          <p className="text-xs text-ink-500">
+            {isDocument
+              ? source.page_count
+                ? `${source.page_count} page${source.page_count === 1 ? "" : "s"}`
+                : ""
+              : source.interview_date &&
+                new Date(source.interview_date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+            {!isDocument && source.original_duration_ms
+              ? ` · ${formatDuration(source.original_duration_ms)}`
+              : ""}
+            {source.original_size_bytes ? ` · ${formatBytes(source.original_size_bytes)}` : ""}
+          </p>
+        </div>
+        <div className="flex items-start gap-3">
+          <StatusBadge status={activeStatus} kind={isDocument ? "document" : "audio_video"} />
+          <SourceActionsMenu
+            projectId={project.id}
+            sourceId={activeSourceSummary.sourceId}
+            sourceTitle={source.title}
+            otherProjectCount={otherProjectCount}
+          />
+        </div>
       </div>
-      <div className="flex items-start gap-3">
-        <StatusBadge status={activeStatus} kind={isDocument ? "document" : "audio_video"} />
-        <SourceActionsMenu
-          projectId={project.id}
-          sourceId={activeSourceSummary.sourceId}
-          sourceTitle={source.title}
-          otherProjectCount={otherProjectCount}
-        />
-      </div>
-    </div>
-  ) : null;
+    ) : null;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-5">
-        <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
-          ← Back to projects
-        </Link>
-      </div>
-
       <SourceCardGrid
         projectId={project.id}
         sources={project.sources}
@@ -199,6 +196,14 @@ export default async function TranscriptionProjectPage({
             />
             {signedUrl && activeSourceSummary ? (
               <DocumentWorkspace
+                // A fresh mount per distinct ?page= target — this component
+                // only reads initialPage in a useState initializer, so a
+                // search result that only changes ?page= while staying on
+                // this same source (e.g. this workspace's own embedded
+                // per-source search box) would otherwise leave the viewer on
+                // whatever page it already had open. See the analogous
+                // TranscriptWorkspace key below for the audio counterpart.
+                key={`${activeSourceSummary.sourceId}:${initialPage ?? ""}`}
                 projectId={project.id}
                 sourceId={activeSourceSummary.sourceId}
                 representationId={transcriptRepresentation?.id ?? null}
@@ -241,6 +246,14 @@ export default async function TranscriptionProjectPage({
             />
             {signedUrl && activeSourceSummary ? (
               <TranscriptWorkspace
+                // A fresh mount per distinct ?t=/?clip= target. Both only
+                // ever seed a useState/ref once (initialSeekAppliedRef,
+                // selectedClip's initializer), so a search result that only
+                // changes ?t= or ?clip= while staying on this same source —
+                // e.g. this workspace's own embedded per-source search box —
+                // would otherwise leave the player and highlighted clip
+                // exactly where they were instead of jumping to the new hit.
+                key={`${activeSourceSummary.sourceId}:${initialSeekMs ?? ""}:${clip ?? ""}`}
                 projectId={project.id}
                 sourceId={activeSourceSummary.sourceId}
                 representationId={transcriptRepresentation?.id ?? null}
