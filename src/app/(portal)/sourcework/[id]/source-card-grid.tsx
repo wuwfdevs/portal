@@ -108,7 +108,6 @@ export function SourceCardGrid({
   const [browseTab, setBrowseTab] = useState<"sources" | "excerpts">("sources");
   const [excerpts, setExcerpts] = useState<LibraryClip[] | null>(null);
   const [isLoadingExcerpts, setIsLoadingExcerpts] = useState(false);
-  const activeSource = sources.find((s) => s.sourceId === activeSourceId) ?? null;
 
   function handleShowExcerpts() {
     setBrowseTab("excerpts");
@@ -145,18 +144,7 @@ export function SourceCardGrid({
             </Link>
           </div>
           {projectHeader}
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            {activeSource ? (
-              <button
-                type="button"
-                onClick={() => setIsBrowsing(false)}
-                className="text-xs font-semibold text-brand-link"
-              >
-                ← Back to {activeSource.source.title}
-              </button>
-            ) : (
-              <span />
-            )}
+          <div className="mb-3 flex justify-end">
             <Button
               type="button"
               variant="secondary"
