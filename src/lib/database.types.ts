@@ -25,7 +25,10 @@
 // 20260803120000_sourcework_document_block_lines.sql) — no local instance
 // running to regenerate against; a plain jsonb column, added by hand
 // following the same SwDocumentBlockBbox-shaped-type pattern already used
-// for bbox. Kept hand-written rather than swapped for the generator's raw
+// for bbox. Hand-updated again the same day for tw_search()'s two new
+// optional filter args (20260803130000_tw_search_scoping.sql) — no output
+// shape change, just two more optional Args fields. Kept hand-written
+// rather than swapped for the generator's raw
 // output on purpose: the generator emits a differently-shaped module
 // (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
 // every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
@@ -1167,12 +1170,17 @@ export interface Database {
       /**
        * Hybrid keyword + semantic search (20260728120000_transcription_search.sql).
        * query_embedding is a pgvector literal string, or null for keyword-only.
+       * project_id_filter/source_id_filter (20260803130000_tw_search_scoping.sql)
+       * narrow the search to one project's sources or one source; both null runs
+       * the tool-wide search.
        */
       tw_search: {
         Args: {
           query_text: string;
           query_embedding?: string | null;
           match_limit?: number;
+          project_id_filter?: string | null;
+          source_id_filter?: string | null;
         };
         Returns: {
           kind: string;

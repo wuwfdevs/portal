@@ -20,7 +20,14 @@ import type { LibraryClip } from "@/lib/transcription/clips";
  * rows by title/excerpt/project name, and is not a substitute for the
  * archive-wide search bar above the tabs.
  */
-export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
+export function ClipLibrary({
+  clips,
+  showProjectMeta = true,
+}: {
+  clips: LibraryClip[];
+  /** False when every row is already known to belong to the same project (the project workspace's own Excerpts tab) — the per-row project link/description would just repeat itself. */
+  showProjectMeta?: boolean;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -30,7 +37,8 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
       (clip) =>
         clip.title.toLowerCase().includes(trimmed) ||
         clip.excerpt.toLowerCase().includes(trimmed) ||
-        clip.projectTitle.toLowerCase().includes(trimmed),
+        clip.projectTitle.toLowerCase().includes(trimmed) ||
+        clip.sourceTitle.toLowerCase().includes(trimmed),
     );
   }, [clips, query]);
 
@@ -84,8 +92,11 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
                 )}
 
                 <p className="text-xs text-ink-500">
-                  <Link href={`/sourcework/${clip.projectId}?source=${clip.sourceId}`} className="text-brand-link">
-                    {clip.projectTitle}
+                  <Link
+                    href={`/sourcework/${clip.projectId}?source=${clip.sourceId}`}
+                    className="text-brand-link"
+                  >
+                    {showProjectMeta ? clip.projectTitle : clip.sourceTitle}
                   </Link>
                   {!isDocument && ` · ${formatDuration(clip.startMs!)}`}
                   {clip.interviewDate &&
@@ -96,7 +107,7 @@ export function ClipLibrary({ clips }: { clips: LibraryClip[] }) {
                     })}`}
                 </p>
 
-                {clip.projectDescription && (
+                {showProjectMeta && clip.projectDescription && (
                   <p className="mt-1.5 line-clamp-2 text-xs italic text-ink-400">
                     {clip.projectDescription}
                   </p>

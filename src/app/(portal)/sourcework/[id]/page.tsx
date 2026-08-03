@@ -199,6 +199,7 @@ export default async function TranscriptionProjectPage({
             />
             {signedUrl && activeSourceSummary ? (
               <DocumentWorkspace
+                projectId={project.id}
                 sourceId={activeSourceSummary.sourceId}
                 representationId={transcriptRepresentation?.id ?? null}
                 fileUrl={signedUrl}

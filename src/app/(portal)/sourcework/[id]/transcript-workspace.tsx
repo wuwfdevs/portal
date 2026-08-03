@@ -481,6 +481,7 @@ export function TranscriptWorkspace({
         )}
         <ClipRail
           projectId={projectId}
+          sourceId={sourceId}
           projectTitle={projectTitle}
           exportDate={exportDate}
           clips={clips}

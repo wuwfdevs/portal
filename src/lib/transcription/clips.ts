@@ -89,6 +89,7 @@ export interface LibraryClip {
   /** The source this clip belongs to — a project can reference more than one (Phase 3a), so a link into the project also needs this to land on the right pill. */
   sourceId: string;
   sourceKind: SwSourceKind;
+  sourceTitle: string;
   projectId: string;
   projectTitle: string;
   /** The project's background text: what this recording was (design doc §3G). */
@@ -103,6 +104,11 @@ export interface LibraryClip {
  * search query isn't the right way to ask. Both temporal (audio/video) and
  * document excerpts are returned — see locatorKind.
  *
+ * With `projectId`, scoped to every source that project references (Phase
+ * 3a's many-to-many sw_project_sources), not just its primary one — this
+ * feeds the project workspace's own cross-source Excerpts tab, so a
+ * multi-source project's excerpts from a non-primary pill show up too.
+ *
  * Flat queries rather than an embedded select, same reason as
  * getTranscriptForRepresentation: database.types.ts is hand-written with
  * empty Relationships, so PostgREST embedding doesn't type reliably.
@@ -112,9 +118,12 @@ export async function listLibraryClips(projectId?: string): Promise<LibraryClip[
 
   let sourceIdFilter: string[] | null = null;
   if (projectId) {
-    const ref = await getPrimarySourceForProject(supabase, projectId);
-    if (!ref) return [];
-    sourceIdFilter = [ref.sourceId];
+    const links = unwrapRead(
+      await supabase.from("sw_project_sources").select("source_id").eq("project_id", projectId),
+      "this project's sources",
+    );
+    sourceIdFilter = (links ?? []).map((link) => link.source_id);
+    if (sourceIdFilter.length === 0) return [];
   }
 
   let query = supabase
@@ -134,12 +143,18 @@ export async function listLibraryClips(projectId?: string): Promise<LibraryClip[
     .map((clip) => clip.id);
 
   const [linkResult, sourceResult, locationResult] = await Promise.all([
-    supabase
-      .from("sw_project_sources")
-      .select("project_id, source_id, added_at")
-      .in("source_id", sourceIds)
-      .order("added_at"),
-    supabase.from("sw_sources").select("id, kind, interview_date").in("id", sourceIds),
+    // Only needed to resolve "which project does this source belong to" for
+    // the tool-wide library (projectId undefined) — when projectId is given
+    // every one of these sources is already known to be one of *its*
+    // sources (see sourceIdFilter above), so skip the extra read.
+    projectId
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("sw_project_sources")
+          .select("project_id, source_id, added_at")
+          .in("source_id", sourceIds)
+          .order("added_at"),
+    supabase.from("sw_sources").select("id, kind, title, interview_date").in("id", sourceIds),
     documentExcerptIds.length === 0
       ? Promise.resolve({ data: [], error: null })
       : supabase
@@ -152,10 +167,18 @@ export async function listLibraryClips(projectId?: string): Promise<LibraryClip[
   const sources = unwrapRead(sourceResult, "the sources these clips came from");
   const locations = unwrapRead(locationResult, "these excerpts' page locations");
 
+  // When scoped to one project, every clip's project is simply that project
+  // — no resolution needed, and no "earliest referencing project" ambiguity
+  // for a source shared across more than one (see tw_search's own comment on
+  // the same issue, 20260803130000_tw_search_scoping.sql).
   const projectIdBySourceId = new Map<string, string>();
-  for (const link of links ?? []) {
-    if (!projectIdBySourceId.has(link.source_id)) {
-      projectIdBySourceId.set(link.source_id, link.project_id);
+  if (projectId) {
+    for (const id of sourceIdFilter ?? []) projectIdBySourceId.set(id, projectId);
+  } else {
+    for (const link of links ?? []) {
+      if (!projectIdBySourceId.has(link.source_id)) {
+        projectIdBySourceId.set(link.source_id, link.project_id);
+      }
     }
   }
 
@@ -193,6 +216,7 @@ export async function listLibraryClips(projectId?: string): Promise<LibraryClip[
       pageNumber: firstPageByExcerptId.get(clip.id) ?? null,
       sourceId: clip.source_id,
       sourceKind: sourceById.get(clip.source_id)?.kind ?? "audio_video",
+      sourceTitle: sourceById.get(clip.source_id)?.title ?? "",
       projectId: projectId ?? "",
       projectTitle: project?.title ?? "Unknown project",
       projectDescription: project?.description ?? null,

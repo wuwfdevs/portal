@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import { buildClipsZipFilename, formatDuration } from "@/lib/transcription/media";
 import {
   deleteClip,
@@ -13,6 +14,7 @@ import {
   renameClip,
   updateClipTrim,
 } from "./clip-actions";
+import { searchSourceAction } from "./workspace-search-actions";
 import { downloadBlob } from "./download-blob";
 import { PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
@@ -34,6 +36,7 @@ export type ClipSelectionOrigin = "deep-link" | "transcript" | "rail";
 
 export function ClipRail({
   projectId,
+  sourceId,
   projectTitle,
   exportDate,
   clips,
@@ -45,6 +48,8 @@ export function ClipRail({
   onPreview,
 }: {
   projectId: string;
+  /** The active source this rail's clips belong to — scopes the search box below. */
+  sourceId: string;
   projectTitle: string;
   /** Interview date, falling back to the project's creation date — the date every export filename carries. */
   exportDate: string;
@@ -101,51 +106,56 @@ export function ClipRail({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
-          Excerpts{clips.length > 0 && ` (${clips.length})`}
-        </h2>
-        {clips.length > 0 && (
-          <button
-            type="button"
-            onClick={handleExportAll}
-            disabled={status === "preparing"}
-            title="Download every excerpt in this project as a zip"
-            className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
-          >
-            {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
-          </button>
+    <ScopedSearchPanel
+      placeholder="Search this source's transcript and excerpts…"
+      onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
+            Excerpts{clips.length > 0 && ` (${clips.length})`}
+          </h2>
+          {clips.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportAll}
+              disabled={status === "preparing"}
+              title="Download every excerpt in this project as a zip"
+              className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
+            >
+              {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
+            </button>
+          )}
+        </div>
+
+        {status === "preparing" && pendingCount > 0 && (
+          <p className="text-xs text-ink-400">
+            Rendering {pendingCount} excerpt{pendingCount === 1 ? "" : "s"} that{" "}
+            {pendingCount === 1 ? "hasn't" : "haven't"} been exported yet — this can take a minute.
+          </p>
+        )}
+        {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
+
+        {clips.length === 0 ? (
+          <p className="rounded border border-dashed border-line p-3 text-xs leading-relaxed text-ink-400">
+            Select some transcript text to make your first excerpt.
+          </p>
+        ) : (
+          clips.map((clip) => (
+            <ClipCard
+              key={clip.id}
+              clip={clip}
+              isSelected={clip.id === selectedClipId}
+              selectionOrigin={selectionOrigin ?? null}
+              onSelect={() => onSelect(clip.id)}
+              onHover={onHover}
+              onTrimPreview={onTrimPreview}
+              onPreview={onPreview}
+            />
+          ))
         )}
       </div>
-
-      {status === "preparing" && pendingCount > 0 && (
-        <p className="text-xs text-ink-400">
-          Rendering {pendingCount} excerpt{pendingCount === 1 ? "" : "s"} that{" "}
-          {pendingCount === 1 ? "hasn't" : "haven't"} been exported yet — this can take a minute.
-        </p>
-      )}
-      {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
-
-      {clips.length === 0 ? (
-        <p className="rounded border border-dashed border-line p-3 text-xs leading-relaxed text-ink-400">
-          Select some transcript text to make your first excerpt.
-        </p>
-      ) : (
-        clips.map((clip) => (
-          <ClipCard
-            key={clip.id}
-            clip={clip}
-            isSelected={clip.id === selectedClipId}
-            selectionOrigin={selectionOrigin ?? null}
-            onSelect={() => onSelect(clip.id)}
-            onHover={onHover}
-            onTrimPreview={onTrimPreview}
-            onPreview={onPreview}
-          />
-        ))
-      )}
-    </div>
+    </ScopedSearchPanel>
   );
 }
 
