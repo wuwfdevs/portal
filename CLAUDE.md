@@ -441,8 +441,24 @@ editors, and Audience Listening members only, and an MCP call from a Sourcework-
 Remote-Interview-only user would otherwise have its audit insert silently dropped by RLS
 — the new `audit_events_insert_mcp` policy is scoped to the `mcp.` action prefix
 specifically, so it doesn't become a general bypass of the per-tool policies. **Phase D
-(the in-portal agent) is next — do not start it without an explicit instruction**, and
-Phase E (external Claude/ChatGPT clients) needs its own auth design first (design doc §8).
+(the in-portal agent) has landed**: `src/components/agent-chat-widget.tsx` renders a chat
+panel mounted in the portal layout (`src/app/(portal)/layout.tsx`) for every signed-in
+user, backed by `src/app/api/agent/chat/route.ts` and `src/lib/agent/chat.ts`'s
+`streamAgentTurn()`, driven by OpenAI's Responses API (`OPENAI_API_KEY`, the same key
+already configured for Sourcework's embeddings) and streamed over SSE so replies render
+as the model generates them rather than only after a whole tool-calling turn finishes.
+The agent is deliberately "just another MCP client": `src/lib/agent/mcp-client.ts`
+connects to a fresh in-process instance of the same `buildMcpServer()` Phase C built, over
+a linked in-memory transport, instead of calling `registry.invoke()` directly — same tool
+set, same confirmation gating, same `mcp.*` audit event per call an external MCP client
+would get. A `confirmation: "required"` capability's `confirmed` field is stripped from
+what the model ever sees (`src/lib/agent/tool-bridge.ts`) and is only ever set after an
+explicit approve/decline round-trip with the signed-in user in the widget — never trusted
+from the model's own output. There is still no chat-history table or job queue: the full
+conversation round-trips through the client on every request. **Phase E (external
+Claude/ChatGPT clients) is next — do not start it without an explicit instruction**, and
+still needs its own auth design first (design doc §8) — Phase D's cookie-based session
+auth doesn't extend to a client with no browser session.
 
 ## Architecture
 
