@@ -20,6 +20,7 @@ import { DocumentWorkspace } from "./document-workspace";
 import { ProjectDetails } from "./project-details";
 import { RepresentationStatusBanner } from "./representation-status-banner";
 import { SourceActionsMenu } from "./source-actions-menu";
+import { countOtherProjectsForSource } from "./source-actions";
 import { SourceCardGrid } from "./source-card-grid";
 
 // See new/page.tsx's comment on why this lives on the page rather than in
@@ -45,24 +46,17 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  // deleteProject only ever removes the project's *primary* (earliest-
-  // attached) source, and only if no other project still references it —
-  // see actions.ts's deleteProject and docs/sourcework-design.md §7. For the
-  // overwhelmingly common single-source project that's the same recording
-  // the reporter is looking at, so "Delete this source" is accurate; once a
-  // second source is attached, deleting the project leaves the others
-  // untouched, so it has to stay framed as deleting the project. This is a
-  // project-level action (see ProjectActionsMenu in the header below) —
-  // deliberately not scoped to whichever source happens to be on screen.
+  // A project-level action (see ProjectActionsMenu in the header below),
+  // deliberately not scoped to whichever source happens to be on screen —
+  // deleting *a* source precisely is SourceActionsMenu's "Remove…" choice
+  // now, so this stays simply about the project itself. deleteProject still
+  // only cascades the project's *primary* (earliest-attached) source, and
+  // only if no other project references it — see actions.ts's deleteProject.
   const hasAnyMedia = project.sources.some((s) => Boolean(s.source.original_storage_path));
-  const deleteLabel =
-    project.sources.length > 1 ? "Delete this project" : hasAnyMedia ? "Delete this source" : "Delete and start over";
-  const deleteWarning =
-    project.sources.length > 1
-      ? "This deletes the project. Its primary source is removed too, unless another project still references it — any other attached sources stay in the library."
-      : hasAnyMedia
-        ? "This permanently deletes the recording, its transcript, and every excerpt made from it."
-        : "This removes the project and anything already uploaded for it.";
+  const deleteLabel = "Delete this project";
+  const deleteWarning = hasAnyMedia
+    ? "This permanently deletes the project. Its primary source is removed too, unless another project still references it — anything else attached stays in the library."
+    : "This removes the project and anything already uploaded for it.";
   // ?source= picks which source is showing; absent (or unknown) falls back
   // to the earliest-attached source — same "primary" this project always
   // had before a second source could be attached (docs/sourcework-design.md
@@ -83,7 +77,7 @@ export default async function TranscriptionProjectPage({
   const representationStatus = transcriptRepresentation?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  const [signedUrl, transcript, clips, documentContent, documentExcerpts] = await Promise.all([
+  const [signedUrl, transcript, clips, documentContent, documentExcerpts, otherProjectCount] = await Promise.all([
     fileReady && source?.original_storage_path
       ? getSignedMediaUrl(source.original_storage_path)
       : Promise.resolve(null),
@@ -99,6 +93,11 @@ export default async function TranscriptionProjectPage({
     isDocument && fileReady && activeSourceSummary
       ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
       : Promise.resolve([]),
+    // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
+    // say how many other projects a "delete entirely" would also affect.
+    fileReady && activeSourceSummary
+      ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
+      : Promise.resolve(0),
   ]);
 
   return (
@@ -184,7 +183,7 @@ export default async function TranscriptionProjectPage({
                   projectId={project.id}
                   sourceId={activeSourceSummary.sourceId}
                   sourceTitle={source?.title ?? "this source"}
-                  canRemove={project.sources.length > 1}
+                  otherProjectCount={otherProjectCount}
                 />
               </div>
             )}
@@ -241,7 +240,7 @@ export default async function TranscriptionProjectPage({
                   projectId={project.id}
                   sourceId={activeSourceSummary.sourceId}
                   sourceTitle={source?.title ?? "this source"}
-                  canRemove={project.sources.length > 1}
+                  otherProjectCount={otherProjectCount}
                 />
               </div>
             )}
