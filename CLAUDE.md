@@ -483,9 +483,16 @@ one collaboration track, with the research-fields requirement and the enabled-ty
 in `ap_submit_inquiry()` updated to check array membership; `enrollment_estimate` was
 renamed `estimated_students_reached`, asked once up front rather than per course. The
 public form (`src/app/partner/partner-form.tsx`) became a guided multi-step wizard —
-conditional steps per chosen track, each field's `<div>` toggled via `hidden` rather than
-unmounted so Back/Next never lose a value, with a plain-language description next to each
-track's checkbox. **Its "Next"/"Submit" button is deliberately always `type="button"`,
+conditional steps per chosen track, each step's `<div>` shown/hidden via a single
+conditional `className` (`cn("flex-col gap-4", stepId === "x" ? "flex" : "hidden")`, never
+mounted/unmounted) so Back/Next never lose a value, with a plain-language description next
+to each track's checkbox. **Never pair the native `hidden` attribute with a Tailwind
+`display` utility (`flex`, etc.) on the same element** — author-stylesheet rules always
+beat the UA stylesheet's `[hidden]{display:none}` regardless of specificity, so a step div
+with both `hidden={...}` and a static `className="flex ..."` rendered every step at once
+(confirmed with Playwright after a real bug report: the form showed every question,
+extended past the viewport, and Next appeared to do nothing). **Its "Next"/"Submit" button
+is deliberately always `type="button"`,
 never a conditionally-rendered `type="submit"` at the same position** — mutating a
 just-clicked, still-focused button's `type` live turned out to fire a real premature
 submission that wiped the form, confirmed by a stray POST under Playwright; the final
@@ -500,7 +507,15 @@ rather than silently no-op'ing), used by this tool's `sendInquiryEmail()` action
 manual mailto:/copy path from milestone 1 stays available via an explicit toggle. A KPI
 dashboard (`/academic-partnerships/dashboard`, `lib/academic-partnerships/dashboard.ts`)
 aggregates `listAllSubmissions({})`'s existing read in application code — no new SQL
-aggregate function, appropriate at this tool's current scale.
+aggregate function, appropriate at this tool's current scale. A follow-up migration
+(`20260805130000_academic_partnerships_field_trim.sql`) dropped four public-form fields
+that turned out to duplicate another field once the wizard made the overlap visible:
+`research_dates` (duplicated `relevant_dates`, now relabeled "Relevant dates, deadlines,
+or embargoes" and asked once regardless of track), `learning_objectives` (duplicated
+`student_experience`), `research_summary` (duplicated `description` — `research_topic`
+alone is now what `ap_submit_inquiry()` requires for the `faculty_research` track), and
+`research_links` (not duplicative, just lower-priority triage detail better collected
+during Reviewing). See design doc §9.7.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

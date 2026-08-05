@@ -65,7 +65,6 @@ export async function submitInquiry(
     description: field(formData, "description"),
     partnershipTypes,
     researchTopic: field(formData, "research_topic"),
-    researchSummary: field(formData, "research_summary"),
     honeypot: field(formData, "website"),
     renderedAtMs,
     nowMs: Date.now(),
@@ -104,7 +103,6 @@ export async function submitInquiry(
     course_number: includeCourseFields ? field(formData, "course_number") : "",
     timeframe: field(formData, "timeframe"),
     estimated_students_reached: field(formData, "estimated_students_reached"),
-    learning_objectives: field(formData, "learning_objectives"),
     description: field(formData, "description"),
     student_experience: field(formData, "student_experience"),
     support_requested: field(formData, "support_requested"),
@@ -113,11 +111,8 @@ export async function submitInquiry(
     may_publish: formData.get("may_publish") === "on",
     additional_context: field(formData, "additional_context"),
     research_topic: includeResearchFields ? field(formData, "research_topic") : "",
-    research_summary: includeResearchFields ? field(formData, "research_summary") : "",
     research_relevance: includeResearchFields ? field(formData, "research_relevance") : "",
     research_status: includeResearchFields ? field(formData, "research_status") : "",
-    research_links: includeResearchFields ? field(formData, "research_links") : "",
-    research_dates: includeResearchFields ? field(formData, "research_dates") : "",
     research_availability: includeResearchFields ? field(formData, "research_availability") : "",
   };
 

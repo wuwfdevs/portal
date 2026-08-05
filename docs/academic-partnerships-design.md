@@ -278,16 +278,18 @@ with sensible defaults by the migration; editable from Settings.
 ### `ap_submissions`
 
 Public fields (written once, by `ap_submit_inquiry`, never by staff):
-`faculty_name`, `email`, `department`, `phone`, `partnership_type`,
-`course_title`, `course_number`, `timeframe`, `enrollment_estimate`,
-`learning_objectives`, `description`, `student_experience`,
-`support_requested`, `deliverables`, `relevant_dates`, `may_publish`,
-`additional_context`, plus the research-only fields (`research_topic`,
-`research_summary`, `research_relevance`, `research_status`,
-`research_links`, `research_dates`, `research_availability`) — populated
-only when `partnership_type = 'faculty_research'`, left null otherwise, and
+`faculty_name`, `email`, `department`, `phone`, `partnership_types`
+(`ap_partnership_type[]`, non-empty — see §9.1), `course_title`,
+`course_number`, `timeframe`, `estimated_students_reached` (see §9.1),
+`description`, `student_experience`, `support_requested`, `deliverables`,
+`relevant_dates`, `may_publish`, `additional_context`, plus the
+research-only fields (`research_topic`, `research_relevance`,
+`research_status`, `research_availability`) — populated only when
+`faculty_research` is among the chosen tracks, left null otherwise, and
 never re-derived or hidden: the brief's conditional fields are a form-UX
-concern, not a schema concern.
+concern, not a schema concern. (`learning_objectives`, `research_summary`,
+and `research_links` existed in Milestone 1 and were cut as duplicative —
+see §9.7.)
 
 Internal fields (staff-only, written by Server Actions): `stage`,
 `stage_changed_at`, `stage_changed_by`, `disposition`, `disposition_reason`,
@@ -414,12 +416,30 @@ and finding real problems:
    look like (conditional: any non-research track chosen) → research &
    expertise (conditional: `faculty_research` chosen) → a few more details.
    Every field from every step stays mounted in the DOM the whole time —
-   only `hidden` toggles per step — so Back/Next never lose a value the way
-   unmounting-and-remounting would. Per-step validation happens in JS
+   only which step is visible changes — so Back/Next never lose a value the
+   way unmounting-and-remounting would. Per-step validation happens in JS
    (`goNext()` walks `[required]` elements within the current step's own
    ref and calls `reportValidity()`), not native whole-form validation,
-   because most required fields are `hidden` (and therefore exempt from
+   because most required fields are hidden (and therefore exempt from
    constraint validation) at any given moment.
+
+   **A second genuine bug, same "confirmed with Playwright, not by reading
+   the code" category, found right after this section first shipped:** each
+   step's wrapper set both the native `hidden` attribute *and* a static
+   `className` containing `"flex"` (`hidden={stepId !== "about"} className="flex flex-col gap-4"`).
+   Author-stylesheet `display` rules — Tailwind's `.flex { display: flex }`
+   — always win over the User-Agent stylesheet's `[hidden] { display: none }`
+   regardless of selector specificity, so every step rendered simultaneously
+   the whole time: the form showed every question at once, extended far past
+   the viewport, and Next appeared to do nothing (the state was changing —
+   `stepId` — but every step was already visible, so nothing looked
+   different). Fixed by replacing the `hidden` attribute with a single
+   conditional `className` via `cn()` (`@/lib/cn`), so `flex`/`hidden` are
+   mutually exclusive on the same element:
+   `className={cn("flex-col gap-4", stepId === "about" ? "flex" : "hidden")}`.
+   The lesson generalizes: never pair the native `hidden` attribute with a
+   Tailwind (or any author-stylesheet) `display` utility on the same
+   element — one of them will silently lose.
 
    **A genuine bug, caught only by driving the form with Playwright and
    watching network traffic, not by reading the code:** the first
@@ -500,3 +520,38 @@ and finding real problems:
    volume ever makes that reduce slow). A submission naming two tracks
    counts toward both in the track breakdown, labeled as instances rather
    than submissions so the numbers don't quietly stop summing to the total.
+
+7. **Four duplicate public-form fields were cut**, once the wizard put every
+   step in front of a reviewer rather than one long scrolling page made the
+   overlap obvious. Migration
+   `20260805130000_academic_partnerships_field_trim.sql` drops the columns
+   directly (still zero real submissions in either project, so nothing to
+   preserve):
+   - `research_dates` ("Relevant dates or embargoes") duplicated
+     `relevant_dates` ("Relevant dates or deadlines") for anyone who chose
+     Faculty Research alongside another track. `relevant_dates` now covers
+     both, relabeled "Relevant dates, deadlines, or embargoes" and asked
+     once, in the details step, regardless of track.
+   - `learning_objectives` duplicated `student_experience` — both asked
+     what a class gets out of the engagement, just worded differently
+     (pedagogical framing vs. experiential). `student_experience` stays;
+     `learning_objectives` is gone.
+   - `research_summary` ("Plain-language summary") duplicated `description`
+     ("Briefly describe the proposed partnership") for the research track —
+     `description` is always shown and already required, so a research
+     submitter was writing the same plain-language summary twice.
+     `research_summary` is gone; `research_topic` alone is now what
+     `ap_submit_inquiry()` requires for the `faculty_research` track.
+   - `research_links` ("Supporting links or materials") wasn't duplicative,
+     but was judged lower-priority triage detail better collected during
+     the Reviewing conversation than asked of every research inquiry up
+     front — cut rather than deferred, bringing the research step down to
+     four fields (`research_topic`, `research_relevance`, `research_status`,
+     `research_availability`), matching every other step's "fits the
+     viewport" limit instead of the seven it started with.
+
+   `ap_submit_inquiry()` was updated in the same migration (insert list and
+   the faculty_research required-field check); `partner-form.tsx`,
+   `partner/actions.ts`, `partnership-types.ts`'s `InquiryInput`/
+   `validateInquiryInput`, the submission detail screen (`[id]/page.tsx`),
+   and `database.types.ts` all dropped the four fields to match.

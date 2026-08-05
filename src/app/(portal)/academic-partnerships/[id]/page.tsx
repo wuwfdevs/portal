@@ -121,14 +121,13 @@ function OriginalResponse({ submission }: { submission: SubmissionDetail }) {
       </dl>
       <div className="mt-3 flex flex-col gap-3">
         <LongField label="Description" value={submission.description} />
-        <LongField label="Learning objectives" value={submission.learning_objectives} />
         <LongField
           label="What students should experience, practice, or produce"
           value={submission.student_experience}
         />
         <LongField label="Support requested from WUWF" value={submission.support_requested} />
         <LongField label="Anticipated deliverables" value={submission.deliverables} />
-        <LongField label="Relevant dates or deadlines" value={submission.relevant_dates} />
+        <LongField label="Relevant dates, deadlines, or embargoes" value={submission.relevant_dates} />
         <LongField label="Additional context" value={submission.additional_context} />
         {research && (
           <>
@@ -136,11 +135,8 @@ function OriginalResponse({ submission }: { submission: SubmissionDetail }) {
               Research &amp; expertise
             </h3>
             <LongField label="Topic or area of expertise" value={submission.research_topic} />
-            <LongField label="Plain-language summary" value={submission.research_summary} />
             <LongField label="Regional or public relevance" value={submission.research_relevance} />
             <LongField label="Status of the work" value={submission.research_status} />
-            <LongField label="Supporting links or materials" value={submission.research_links} />
-            <LongField label="Relevant dates or embargoes" value={submission.research_dates} />
             <LongField label="Availability" value={submission.research_availability} />
           </>
         )}
