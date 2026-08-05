@@ -4,6 +4,7 @@ import { useActionState, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { cn } from "@/lib/cn";
 import {
   PARTNERSHIP_TYPE_DESCRIPTION,
   PARTNERSHIP_TYPE_LABEL,
@@ -133,8 +134,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.about = el;
           }}
-          hidden={stepId !== "about"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "about" ? "flex" : "hidden")}
         >
           <Field label="Your name" htmlFor="faculty_name">
             <Input id="faculty_name" name="faculty_name" required autoComplete="name" />
@@ -156,8 +156,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.reach = el;
           }}
-          hidden={stepId !== "reach"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "reach" ? "flex" : "hidden")}
         >
           <Field label="Semester or anticipated timeframe" htmlFor="timeframe" optional>
             <Input id="timeframe" name="timeframe" placeholder="e.g. Spring 2027" />
@@ -180,8 +179,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.tracks = el;
           }}
-          hidden={stepId !== "tracks"}
-          className="flex flex-col gap-3"
+          className={cn("flex-col gap-3", stepId === "tracks" ? "flex" : "hidden")}
         >
           <p className="text-[13px] leading-relaxed text-ink-500">
             Choose everything that fits — you can select more than one.
@@ -216,8 +214,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.details = el;
           }}
-          hidden={stepId !== "details"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "details" ? "flex" : "hidden")}
         >
           <Field label="Briefly describe the proposed partnership" htmlFor="description">
             <Textarea id="description" name="description" rows={4} required />
@@ -241,8 +238,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.engagement = el;
           }}
-          hidden={stepId !== "engagement"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "engagement" ? "flex" : "hidden")}
         >
           <Field
             label="What do you want students to experience, practice, or produce?"
@@ -266,8 +262,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.research = el;
           }}
-          hidden={stepId !== "research"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "research" ? "flex" : "hidden")}
         >
           <Field label="Topic or area of expertise" htmlFor="research_topic">
             <Input id="research_topic" name="research_topic" required={hasResearchTrack(selectedTypes)} />
@@ -314,8 +309,7 @@ export function PartnerForm({
           ref={(el) => {
             stepRefs.current.wrapup = el;
           }}
-          hidden={stepId !== "wrapup"}
-          className="flex flex-col gap-4"
+          className={cn("flex-col gap-4", stepId === "wrapup" ? "flex" : "hidden")}
         >
           <Field label="Additional context" htmlFor="additional_context" optional>
             <Textarea id="additional_context" name="additional_context" rows={3} />
