@@ -10,9 +10,9 @@ authentication, invitation/approval-based access, role-based authorization, a to
 registry, a dashboard, and admin screens for user/tool management.
 
 Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
-Listening, Roadmap) is its own focused application area with its own schema. The portal's
-job ends at "Open Tool" — do not build cross-tool abstractions, a plugin framework, or
-speculative integrations. When in doubt, keep scope narrow.
+Listening, Roadmap, Academic Partnerships) is its own focused application area with its
+own schema. The portal's job ends at "Open Tool" — do not build cross-tool abstractions,
+a plugin framework, or speculative integrations. When in doubt, keep scope narrow.
 
 The registry also carries rows for tools that don't exist: `status = 'proposed'` means an
 idea somebody filed on the Roadmap, so requests can gather under it. That is **not** a
@@ -415,6 +415,68 @@ surrounding form stays the repo's ordinary `<form action={serverAction}>`. Scree
 attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
 design doc §7 before adding them.
 
+**Academic Partnerships: milestone 1 has landed.** Read
+`docs/academic-partnerships-design.md` before touching any of it. A public inquiry form
+at `/partner` (and `/partner/embed` for a Grove iframe) feeds a staff-run pipeline —
+New → Reviewing → Meeting Requested → Scoping → Approved → Active → Completed — at
+`src/app/(portal)/academic-partnerships/`, gated by
+`requireToolAccess("academic-partnerships")`. Tables are `ap_*`
+(`20260803140000_academic_partnerships.sql`).
+
+Four things about it are load-bearing and easy to break by accident:
+
+1. **The public form needs no session at all, not even an anonymous one** — the one real
+   architectural difference from Audience Listening, whose public surface this one is
+   otherwise modeled on. Because the whole interaction is a single page load and one
+   submit (no multi-step recording flow, no row ever read back by the public), a plain
+   `<form action={submitInquiry}>` Server Action calling the ordinary cookie-based
+   `lib/supabase/server.ts` client is enough — there is no later request that needs to
+   recover an earlier session from a cookie, which is specifically the failure mode that
+   forced Audience Listening off that client. `signInAnonymously()` is not called
+   anywhere in this tool, and it does not need "Anonymous sign-ins" enabled to work.
+2. **`ap_submissions` table RLS is staff-only, full stop**, same as Audience Listening's
+   `al_*` tables and for the same reason (design doc §3): the public surface is exactly
+   two enumerable `security definer` functions, `ap_public_form_config()` (read) and
+   `ap_submit_inquiry()` (the only way a row is ever written from outside the portal —
+   validates required fields, the enabled-type list, email shape, and per-submitter rate
+   limits in the same transaction as the insert). There is no participant-facing RLS
+   policy on any `ap_*` table; extend those two functions instead.
+3. **`stage` and `disposition` are separate columns, not one status enum.** Deferred /
+   Declined / Withdrawn / Archived are dispositions that take a submission out of the
+   active kanban board (`ap_submissions.disposition is null` is what the pipeline query
+   filters on) without erasing which of the seven primary stages it had reached — the
+   same shape `ep_pitches`' `archived_at`/`archived_reason`/`archived_by` uses, widened to
+   four values and renamed to the brief's own vocabulary.
+4. **`ap_submission_events` is this tool's own staff-visible activity log, not
+   `audit_events`.** `audit_events` is select-restricted to administrators only
+   (`audit_events_select_admin_only`), so it cannot serve as the per-submission timeline
+   the detail screen shows every tool member. Privileged actions still also call
+   `logAuditEvent()` per the usual convention (`ap.submission.stage_changed`, etc.), so
+   administrators keep their portal-wide view — the two are complementary, not
+   duplicative, and a new `audit_events_insert_academic_partnerships` policy admits this
+   tool's members the same way every other tool's does.
+
+The kanban board (`src/app/(portal)/academic-partnerships/kanban-board.tsx`) is the one
+new dependency this module adds: `@dnd-kit/core`. Nothing else in this repository does
+drag-and-drop — Editorial Planning's and Audience Listening's own reordering both use
+plain up/down `<button>` forms — but a real kanban board is the one part of this tool's
+UI a button-based alternative would make substantially worse, and `@dnd-kit/core` alone
+(no `@dnd-kit/sortable`) is enough because cards move *between* columns, not to a
+position within one. Every card also carries a plain "Move to…" `<select>`, always
+present, never a fallback bolted on for compliance — it is how a keyboard or
+screen-reader user, or anyone on a touch device, moves a card at all. A `tool_access`
+grant carrying `tool_role = 'coordinator'` (mirroring Roadmap's `'curator'`) is the
+elevation that unlocks Settings' write actions (copy, email templates, enabled
+partnership types, open/closed, the Google Appointments URL); every other member can
+view Settings read-only. There is no file/attachment upload in this milestone — "supporting
+links or materials" on the research path is a plain text field — and no generic tagging
+system, since none existed elsewhere in the portal to reuse and the brief's own
+instruction was to skip tags rather than build a system for one tool's benefit. Email
+actions (Invite to Meet plus six other templates) prepare a `mailto:` draft and a
+copy-to-clipboard button, same as everywhere else in this repository that needs to "send"
+something without a transactional email sender — "I sent this email" records that staff
+prepared and confirmed sending, never that it was delivered.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -514,6 +576,9 @@ src/app/(portal)/roadmap/  Roadmap (wishlist + product roadmap) — its own rout
                             gated by requireRoadmapAccess() from lib/roadmap/access.ts.
                             Open to every active staff member, not to grant holders
                             (tools.default_access = 'approved_staff')
+src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all submissions,
+                            settings) — its own route segment, gated by
+                            requireToolAccess("academic-partnerships")
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -521,6 +586,11 @@ src/app/join/[token]/      Remote Interview's guest-facing join link — deliber
 src/app/listen/[publicId]/ Audience Listening's public participation page, and /embed for
                             the Grove iframe. Outside (portal)/(auth) for the same reason
                             as /join, and listed in the middleware's PUBLIC_PATHS
+src/app/partner/           Academic Partnerships' public inquiry form, and /embed for the
+                            Grove iframe. Outside (portal)/(auth) for the same reason as
+                            /join and /listen, and listed in the middleware's
+                            PUBLIC_PATHS — but unlike those two, needs no session at all,
+                            not even an anonymous one (see the milestone note above)
 src/app/api/mcp/           the internal MCP server's route handler (Phase C, see above) —
                             in middleware's default-gated set (not PUBLIC_PATHS), same
                             cookie session as everything else
@@ -552,6 +622,14 @@ src/lib/roadmap/           Roadmap's access gate + role (access.ts, roles.ts), d
                            status machine and validation (posts.ts) and the rich-text
                            whitelist (rich-text.ts), which is the security boundary for
                            every body stored by this tool
+src/lib/academic-partnerships/  Academic Partnerships' access gate + role (access.ts,
+                           roles.ts), staff data reads (queries.ts), the domain activity
+                           log (activity.ts), the public route's read (public.ts) and
+                           IP-hash rate-limit helper (rate-limit.ts, server-only), plus
+                           pure, tested modules — pipeline/disposition state (pipeline.ts),
+                           partnership types + public-form validation
+                           (partnership-types.ts), embed code (embed.ts), and email
+                           template interpolation (email.ts)
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

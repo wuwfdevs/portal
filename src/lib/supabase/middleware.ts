@@ -22,6 +22,11 @@ const PUBLIC_PATHS = [
   // itself, and only when they press Begin (see
   // src/lib/audience-listening/participant.ts).
   "/listen",
+  // Academic Partnerships' public inquiry form and its iframe variant. A
+  // faculty submitter has no profile and never signs in at all — unlike
+  // /join and /listen, there is no session here to establish, not even an
+  // anonymous one (see docs/academic-partnerships-design.md §3).
+  "/partner",
 ];
 
 function isPublicPath(pathname: string): boolean {

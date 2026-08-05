@@ -27,8 +27,15 @@
 // following the same SwDocumentBlockBbox-shaped-type pattern already used
 // for bbox. Hand-updated again the same day for tw_search()'s two new
 // optional filter args (20260803130000_tw_search_scoping.sql) — no output
-// shape change, just two more optional Args fields. Kept hand-written
-// rather than swapped for the generator's raw
+// shape change, just two more optional Args fields. Hand-reconciled again
+// the same day for the Academic Partnerships tool (ap_settings/
+// ap_email_templates/ap_submissions/ap_submission_events, the new
+// ap_partnership_type/ap_stage/ap_disposition/ap_fit/ap_capacity/ap_timing/
+// ap_event_type enums, and the ap_public_form_config()/ap_submit_inquiry()
+// RPC functions) against the Supabase MCP server's `generate_typescript_types`
+// output for the live preview project, field-by-field diffed against
+// supabase/migrations/20260803140000_academic_partnerships.sql; every field
+// matched. Kept hand-written rather than swapped for the generator's raw
 // output on purpose: the generator emits a differently-shaped module
 // (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
 // every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
@@ -149,6 +156,45 @@ export type AlAnswerStatus = "pending" | "uploaded" | "failed";
 export type AlTranscriptionState = "none" | "queued" | "sent" | "failed";
 /** Whether the public route may accept a submission right now. */
 export type AlPublicState = "open" | "not_yet_open" | "closed";
+
+// Academic Partnerships (ap_*) — see
+// supabase/migrations/20260803140000_academic_partnerships.sql.
+export type ApPartnershipType =
+  | "classroom_visit"
+  | "station_immersion"
+  | "applied_project"
+  | "internship_practicum"
+  | "faculty_research"
+  | "other";
+export type ApStage =
+  | "new"
+  | "reviewing"
+  | "meeting_requested"
+  | "scoping"
+  | "approved"
+  | "active"
+  | "completed";
+export type ApDisposition = "deferred" | "declined" | "withdrawn" | "archived";
+export type ApFit = "strong" | "possible" | "weak";
+export type ApCapacity = "available" | "uncertain" | "unavailable";
+export type ApTiming = "feasible" | "requires_adjustment" | "not_feasible";
+export type ApEventType =
+  | "received"
+  | "owner_changed"
+  | "stage_changed"
+  | "note"
+  | "email_action"
+  | "appointment_shared"
+  | "disposition_changed"
+  | "assessment_updated"
+  | "next_action_updated"
+  | "completed";
+/** Exactly what ap_public_form_config() returns — the public view of settings. */
+export interface ApPublicFormConfig {
+  is_open: boolean;
+  intro_copy: string;
+  enabled_partnership_types: ApPartnershipType[];
+}
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1088,6 +1134,119 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ri_session_events"]["Row"]>;
         Relationships: [];
       };
+      ap_settings: {
+        Row: {
+          id: boolean;
+          is_open: boolean;
+          intro_copy: string;
+          confirmation_copy: string;
+          enabled_partnership_types: ApPartnershipType[];
+          google_appointments_url: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ap_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["ap_settings"]["Row"]>;
+        Relationships: [];
+      };
+      ap_email_templates: {
+        Row: {
+          id: string;
+          key: string;
+          label: string;
+          subject: string;
+          body: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ap_email_templates"]["Row"]> & {
+          key: string;
+          label: string;
+          subject: string;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ap_email_templates"]["Row"]>;
+        Relationships: [];
+      };
+      // Insert grant does not exist for authenticated — rows are created only
+      // by ap_submit_inquiry(). The Row/Update shapes below are what staff
+      // Server Actions read and write.
+      ap_submissions: {
+        Row: {
+          id: string;
+          faculty_name: string;
+          email: string;
+          department: string;
+          phone: string | null;
+          partnership_type: ApPartnershipType;
+          course_title: string | null;
+          course_number: string | null;
+          timeframe: string | null;
+          enrollment_estimate: number | null;
+          learning_objectives: string | null;
+          description: string;
+          student_experience: string | null;
+          support_requested: string | null;
+          deliverables: string | null;
+          relevant_dates: string | null;
+          may_publish: boolean;
+          additional_context: string | null;
+          research_topic: string | null;
+          research_summary: string | null;
+          research_relevance: string | null;
+          research_status: string | null;
+          research_links: string | null;
+          research_dates: string | null;
+          research_availability: string | null;
+          stage: ApStage;
+          stage_changed_at: string;
+          stage_changed_by: string | null;
+          disposition: ApDisposition | null;
+          disposition_reason: string | null;
+          disposition_by: string | null;
+          disposition_at: string | null;
+          owner_id: string | null;
+          fit: ApFit | null;
+          capacity: ApCapacity | null;
+          timing: ApTiming | null;
+          primary_function: string | null;
+          potential_staff_lead: string | null;
+          key_considerations: string | null;
+          next_action: string | null;
+          next_action_date: string | null;
+          submitted_ip_hash: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Insert-only via ap_submit_inquiry(); no insert grant exists for
+        // `authenticated`. Kept for completeness of the Row/Update shape.
+        Insert: Partial<Database["public"]["Tables"]["ap_submissions"]["Row"]> & {
+          faculty_name: string;
+          email: string;
+          department: string;
+          partnership_type: ApPartnershipType;
+          description: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ap_submissions"]["Row"]>;
+        Relationships: [];
+      };
+      ap_submission_events: {
+        Row: {
+          id: string;
+          submission_id: string;
+          actor_id: string | null;
+          event_type: ApEventType;
+          note: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ap_submission_events"]["Row"]> & {
+          submission_id: string;
+          event_type: ApEventType;
+        };
+        Update: Partial<Database["public"]["Tables"]["ap_submission_events"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1200,6 +1359,21 @@ export interface Database {
           score: number;
         }[];
       };
+      /**
+       * The two-function public surface of Academic Partnerships
+       * (20260803140000_academic_partnerships.sql). ap_* table RLS is
+       * staff-only; these are the only public entry points — see design doc §3.
+       */
+      ap_public_form_config: {
+        Args: Record<string, never>;
+        Returns: ApPublicFormConfig;
+      };
+      ap_submit_inquiry: {
+        Args: { p_payload: Record<string, unknown>; p_ip_hash: string | null };
+        Returns:
+          | { ok: true; confirmation_copy: string }
+          | { error: string };
+      };
     };
     Enums: {
       platform_role: PlatformRole;
@@ -1224,6 +1398,13 @@ export interface Database {
       al_transcription_state: AlTranscriptionState;
       rd_post_kind: RdPostKind;
       rd_post_status: RdPostStatus;
+      ap_partnership_type: ApPartnershipType;
+      ap_stage: ApStage;
+      ap_disposition: ApDisposition;
+      ap_fit: ApFit;
+      ap_capacity: ApCapacity;
+      ap_timing: ApTiming;
+      ap_event_type: ApEventType;
     };
     CompositeTypes: Record<string, never>;
   };
