@@ -23,7 +23,11 @@ export function SubmissionCard({ submission }: { submission: SubmissionListItem 
         {submission.course_title ? ` · ${submission.course_title}` : ""}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <Badge variant="accent">{PARTNERSHIP_TYPE_LABEL[submission.partnership_type]}</Badge>
+        {submission.partnership_types.map((type) => (
+          <Badge key={type} variant="accent">
+            {PARTNERSHIP_TYPE_LABEL[type]}
+          </Badge>
+        ))}
         {submission.timeframe && <Badge variant="neutral">{submission.timeframe}</Badge>}
       </div>
       <div className="mt-2 flex items-center justify-between text-[11px] text-ink-400">

@@ -25,13 +25,13 @@ function escapeAttribute(value: string): string {
 /**
  * A fixed height, no resizer script — same call Audience Listening's design
  * doc §6 makes ("shipping a script into someone else's page means a
- * postMessage contract with a host we cannot test from here"). This form is
- * long and, unlike that one, does not break into one-question-at-a-time
- * steps, so the number is generous rather than tight: it fits the full
- * teaching-path form on a typical viewport, and the research path (which
- * shows more fields) scrolls within the frame rather than being cut off.
+ * postMessage contract with a host we cannot test from here"). The public
+ * form is a multi-step wizard (one short screen at a time, per the brief),
+ * so unlike a single long page this only has to fit the *tallest single
+ * step* — the "choose your track(s)" step, with six labeled checkboxes and
+ * their descriptions — not the whole form at once.
  */
-export const EMBED_HEIGHT = 2600;
+export const EMBED_HEIGHT = 780;
 
 /**
  * The snippet for a Grove Responsive Embed element. A coordinator should

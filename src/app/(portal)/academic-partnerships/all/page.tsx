@@ -160,7 +160,9 @@ export default async function AllSubmissionsPage({
                     </Link>
                   </Cell>
                   <Cell>{submission.department}</Cell>
-                  <Cell>{PARTNERSHIP_TYPE_LABEL[submission.partnership_type]}</Cell>
+                  <Cell>
+                    {submission.partnership_types.map((type) => PARTNERSHIP_TYPE_LABEL[type]).join(", ")}
+                  </Cell>
                   <Cell>
                     {submission.disposition ? (
                       <Badge variant={DISPOSITION_BADGE[submission.disposition]}>

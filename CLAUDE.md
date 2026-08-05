@@ -473,9 +473,34 @@ links or materials" on the research path is a plain text field — and no generi
 system, since none existed elsewhere in the portal to reuse and the brief's own
 instruction was to skip tags rather than build a system for one tool's benefit. Email
 actions (Invite to Meet plus six other templates) prepare a `mailto:` draft and a
-copy-to-clipboard button, same as everywhere else in this repository that needs to "send"
-something without a transactional email sender — "I sent this email" records that staff
-prepared and confirmed sending, never that it was delivered.
+copy-to-clipboard button — the manual fallback, still available today.
+
+**Academic Partnerships revision (2026-08-05) — see
+`docs/academic-partnerships-design.md` §9 for the full account:**
+`partnership_type` (one enum) became `partnership_types` (a non-empty array, migration
+`20260805120000_academic_partnerships_multi_track.sql`) so one inquiry can name more than
+one collaboration track, with the research-fields requirement and the enabled-type check
+in `ap_submit_inquiry()` updated to check array membership; `enrollment_estimate` was
+renamed `estimated_students_reached`, asked once up front rather than per course. The
+public form (`src/app/partner/partner-form.tsx`) became a guided multi-step wizard —
+conditional steps per chosen track, each field's `<div>` toggled via `hidden` rather than
+unmounted so Back/Next never lose a value, with a plain-language description next to each
+track's checkbox. **Its "Next"/"Submit" button is deliberately always `type="button"`,
+never a conditionally-rendered `type="submit"` at the same position** — mutating a
+just-clicked, still-focused button's `type` live turned out to fire a real premature
+submission that wiped the form, confirmed by a stray POST under Playwright; the final
+step calls `formRef.current?.requestSubmit()` instead. The kanban board's cards are now
+draggable from anywhere on the card (not just a small handle), and load via
+`next/dynamic({ ssr: false })` (`kanban-board-field.tsx`, mirroring `rich-text-field.tsx`'s
+reason: `@dnd-kit` generates ids from a counter that isn't SSR/client-synchronized,
+producing a real hydration mismatch otherwise). `src/lib/email.ts` is this **portal's
+first real transactional email sender** (Resend; `RESEND_API_KEY`/`RESEND_FROM_EMAIL`,
+optional like `DAILY_API_KEY`/`MISTRAL_API_KEY` — unset, `sendEmail()` fails clearly
+rather than silently no-op'ing), used by this tool's `sendInquiryEmail()` action; the
+manual mailto:/copy path from milestone 1 stays available via an explicit toggle. A KPI
+dashboard (`/academic-partnerships/dashboard`, `lib/academic-partnerships/dashboard.ts`)
+aggregates `listAllSubmissions({})`'s existing read in application code — no new SQL
+aggregate function, appropriate at this tool's current scale.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

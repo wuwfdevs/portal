@@ -35,10 +35,17 @@
 // RPC functions) against the Supabase MCP server's `generate_typescript_types`
 // output for the live preview project, field-by-field diffed against
 // supabase/migrations/20260803140000_academic_partnerships.sql; every field
-// matched. Kept hand-written rather than swapped for the generator's raw
-// output on purpose: the generator emits a differently-shaped module
-// (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports) that
-// every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
+// matched. Hand-updated again on 2026-08-05
+// (supabase/migrations/20260805120000_academic_partnerships_multi_track.sql):
+// ap_submissions.partnership_type (single ApPartnershipType) became
+// partnership_types (ApPartnershipType[], non-empty), and
+// enrollment_estimate was renamed estimated_students_reached — both
+// verified directly against a live SQL check on the preview project (select
+// against the renamed/retyped columns) rather than the generator, which
+// wasn't re-run this pass. Kept hand-written rather than swapped for the
+// generator's raw output on purpose: the generator emits a differently-shaped
+// module (generic Tables<>/TablesInsert<>/Enums<> helpers, no named exports)
+// that every existing import of PlatformRole, ToolStatus, EpFieldType, etc.
 // across both tools would break against. Re-run `npm run db:types` (or the
 // Supabase MCP server's `generate_typescript_types`, as this pass did) to
 // re-verify after a schema change, but reconcile its output into this
@@ -1178,11 +1185,11 @@ export interface Database {
           email: string;
           department: string;
           phone: string | null;
-          partnership_type: ApPartnershipType;
+          partnership_types: ApPartnershipType[];
           course_title: string | null;
           course_number: string | null;
           timeframe: string | null;
-          enrollment_estimate: number | null;
+          estimated_students_reached: number | null;
           learning_objectives: string | null;
           description: string;
           student_experience: string | null;
@@ -1224,7 +1231,7 @@ export interface Database {
           faculty_name: string;
           email: string;
           department: string;
-          partnership_type: ApPartnershipType;
+          partnership_types: ApPartnershipType[];
           description: string;
         };
         Update: Partial<Database["public"]["Tables"]["ap_submissions"]["Row"]>;

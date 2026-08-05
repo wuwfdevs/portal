@@ -381,3 +381,122 @@ management, project task management, facility reservations, equipment
 checkout, formal agreements/e-signatures, cost-recovery calculations, a
 general-purpose form builder, automated acceptance decisions, a public
 faculty-expertise directory.
+
+## 9. Revision (2026-08-05): multi-track wizard, a KPI dashboard, real email
+
+Five changes landed together, in response to using the shipped Milestone 1
+and finding real problems:
+
+1. **`partnership_type` (one enum) became `partnership_types` (a non-empty
+   array).** A faculty member proposing both a classroom visit and an
+   applied project was previously forced to pick one. Migration
+   `20260805120000_academic_partnerships_multi_track.sql` altered the
+   column directly — safe because both projects still had zero real
+   submissions — added a GIN index for the array-membership filter the
+   kanban/table screens now use (`.contains()`), and rewrote
+   `ap_submit_inquiry()` to validate a JSON array element-by-element rather
+   than a single value. The research-fields requirement now checks
+   `'faculty_research' = any(...)` instead of equality — a submission can
+   name research alongside a teaching track and still get both question
+   sets. `enrollment_estimate` was renamed `estimated_students_reached` in
+   the same migration: the brief's "gather an estimate of students reached
+   at the outset... to evaluate impact" is an overall, once-per-inquiry
+   figure, not a single course's roster, so it moved out of the
+   course-conditional fields into its own early step.
+
+2. **The public form became a guided, multi-step wizard** (`partner-form.tsx`),
+   not the single long page Milestone 1 shipped. Steps: about you → reach &
+   timing (the students-reached estimate, asked early) → choose your
+   track(s) (multi-select checkboxes, each with a plain-language description
+   — `PARTNERSHIP_TYPE_DESCRIPTION` in `partnership-types.ts` — satisfying
+   "present minimal contextual information... what the different
+   collaborative tracks are") → about the partnership → what this could
+   look like (conditional: any non-research track chosen) → research &
+   expertise (conditional: `faculty_research` chosen) → a few more details.
+   Every field from every step stays mounted in the DOM the whole time —
+   only `hidden` toggles per step — so Back/Next never lose a value the way
+   unmounting-and-remounting would. Per-step validation happens in JS
+   (`goNext()` walks `[required]` elements within the current step's own
+   ref and calls `reportValidity()`), not native whole-form validation,
+   because most required fields are `hidden` (and therefore exempt from
+   constraint validation) at any given moment.
+
+   **A genuine bug, caught only by driving the form with Playwright and
+   watching network traffic, not by reading the code:** the first
+   implementation rendered the last step's button as `type="submit"` and
+   every other step's as `type="button"`, switching via a ternary at the
+   same JSX position. React patches that DOM node's `type` attribute in
+   place rather than remounting it — and mutating a *just-clicked, still
+   focused* button's type from `"button"` to `"submit"` mid-click fired a
+   real, premature form submission (confirmed by a stray `POST` on the
+   exact click that reached the final step), wiping every field. The fix:
+   the button is now always `type="button"`; the final step's click handler
+   calls `formRef.current?.requestSubmit()` instead, which submits through
+   the exact same `useActionState` path a real submit click would, without
+   ever putting `type="submit"` where `type="button"` sat a moment earlier.
+   Worth remembering for any future step-based form in this portal.
+
+3. **The kanban board's drag-and-drop didn't work**, for two compounding
+   reasons found the same way (a stub page + Playwright, since the DB-backed
+   route can't be driven in this sandbox — see the environment's egress
+   policy). First, only a small "⠿" glyph was draggable, not the card
+   itself — technically functional but not what "drag the box" means to
+   someone using it; `kanban-board.tsx`'s `DraggableCard` now spreads
+   `@dnd-kit`'s `listeners`/`attributes` on the whole card, relying on
+   `PointerSensor`'s `activationConstraint: { distance: 6 }` to still let a
+   plain click reach `SubmissionCard`'s `<Link>` underneath (confirmed both
+   ways under test: a real drag moves the card and never navigates, a plain
+   click navigates and never drags). Second, `@dnd-kit` generates internal
+   ids (`aria-describedby`) from a module-level counter that isn't
+   synchronized between the server render and the client's first render,
+   producing a real hydration mismatch on every load. `kanban-board-field.tsx`
+   now loads the board via `next/dynamic({ ssr: false })` — the same wrapper
+   pattern `rich-text-field.tsx` uses for ProseMirror, for the same reason
+   (no SEO/no-JS value in server-rendering a drag-and-drop widget, and it
+   fully eliminates the mismatch rather than papering over it).
+
+4. **The Settings embed preview was taller than its content.** Cause:
+   `PartnerShell`'s embedded branch used `min-h-screen` — inside an iframe,
+   `100vh` resolves to the iframe's own declared `height` attribute, not the
+   content's actual height, so the wrapper always inflated to fill whatever
+   number the embed snippet guessed, leaving a gap below short content.
+   Fixed by dropping that `min-h-screen` (the wrapper now sizes to content,
+   full stop) and, separately, making the Settings preview iframe
+   self-measuring (`share-panel.tsx`'s `LivePreviewFrame`, a `ResizeObserver`
+   on `iframe.contentDocument.body` — possible only because that preview is
+   same-origin; the real Grove embed is cross-origin and still needs the
+   static guess in `embed.ts`'s `EMBED_HEIGHT`, now `780` rather than the
+   original single-page guess of `2600`, sized for the tallest *step*
+   — "choose your track(s)" — now that the form is a wizard instead of one
+   long page).
+
+5. **Real email sending, via Resend** (`src/lib/email.ts`) — this portal's
+   first transactional email sender, not just Academic Partnerships'.
+   `RESEND_API_KEY`/`RESEND_FROM_EMAIL` (`.env.example`); unset,
+   `sendEmail()` returns a clear "not configured" failure rather than
+   throwing or silently no-op'ing, following the same optional-external-
+   service pattern as `DAILY_API_KEY`/`MISTRAL_API_KEY`. `email-panel.tsx`
+   shows a primary "Send email" action (→ `sendInquiryEmail()` in
+   `actions.ts`) whenever `isEmailSendingConfigured()`, and the manual
+   mailto:/copy-to-clipboard path from Milestone 1 stays available
+   regardless — via an explicit "I sent this myself instead" toggle when
+   sending is configured, as the default (only) path when it isn't. Both
+   paths converge on the same `afterEmailAction()` tail (activity log,
+   `logAuditEvent()`, the Meeting-Requested stage offer), factored out so
+   "how the email left this system" doesn't change what gets recorded
+   afterward. What "I sent this email" records was never a delivery claim
+   even before this change (see §3); `sendInquiryEmail()`'s failure path
+   (a `failWith()` bounce with Resend's own error message) is the one place
+   in this tool that now *can* speak to real delivery, and does — a failed
+   Resend call is reported as a failure, never recorded as sent.
+
+6. **A KPI dashboard** (`/academic-partnerships/dashboard`,
+   `lib/academic-partnerships/dashboard.ts`) — stat tiles (total inquiries,
+   active in pipeline, completed, estimated students reached — both
+   all-time and active-only) plus bar breakdowns by stage, disposition,
+   track, and department. Aggregation happens in application code over
+   `listAllSubmissions({})`'s existing full read, not a new SQL aggregate
+   function — appropriate at this tool's scale (revisit if submission
+   volume ever makes that reduce slow). A submission naming two tracks
+   counts toward both in the track breakdown, labeled as instances rather
+   than submissions so the numbers don't quietly stop summing to the total.

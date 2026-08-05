@@ -68,6 +68,7 @@ repo and a project's history, not the version number.
 | `20260803120000_sourcework_document_block_lines.sql`         | 2026-08-03 | 2026-08-03 |
 | `20260803130000_tw_search_scoping.sql`                        | 2026-08-03 | 2026-08-03 |
 | `20260803140000_academic_partnerships.sql`                     | 2026-08-03 | 2026-08-03 |
+| `20260805120000_academic_partnerships_multi_track.sql`         | 2026-08-05 | 2026-08-05 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

@@ -16,8 +16,13 @@ export function PartnerShell({ embedded, children }: { embedded: boolean; childr
   );
 
   if (embedded) {
+    // Deliberately no min-h-screen here: inside an iframe, 100vh resolves to
+    // whatever height the embed snippet declared, not the content's actual
+    // height — so a min-height would force this wrapper to fill that whole
+    // number regardless of how short the real content is, which is exactly
+    // the "preview taller than its content" bug. Size to content instead.
     return (
-      <div className="min-h-screen bg-white px-4 py-5 sm:px-6">
+      <div className="bg-white px-4 py-5 sm:px-6">
         <div className="mx-auto w-full max-w-2xl">{card}</div>
       </div>
     );

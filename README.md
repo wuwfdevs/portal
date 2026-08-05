@@ -149,6 +149,12 @@ through automation and need a human in each dashboard once:
      "not configured" status. See `.env.example` for the caveat about whether Supabase
      Storage's S3-compatible endpoint actually works as this destination — unverified, and
      the first thing to test once Daily access exists.
+   - `RESEND_API_KEY` and `RESEND_FROM_EMAIL` — the portal's transactional email sender
+     (`src/lib/email.ts`), currently used only by Academic Partnerships' email actions
+     (**sensitive** — mark `RESEND_API_KEY` encrypted). Optional: unset, sending fails
+     clearly and the tool falls back to its mailto:/copy-to-clipboard draft, the same as
+     before this was added. `RESEND_FROM_EMAIL` must be a verified sender/domain in the
+     Resend account this deployment uses.
 3. Point the `tools.wuwf.org` domain at the Production environment.
 
 **Supabase Auth** (each project's dashboard → Authentication):

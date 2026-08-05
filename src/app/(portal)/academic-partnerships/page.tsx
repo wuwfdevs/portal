@@ -1,5 +1,5 @@
 import { listPipelineSubmissions } from "@/lib/academic-partnerships/queries";
-import { KanbanBoard } from "./kanban-board";
+import { KanbanBoardField } from "./kanban-board-field";
 
 export default async function AcademicPartnershipsPipelinePage() {
   const submissions = await listPipelineSubmissions();
@@ -12,5 +12,5 @@ export default async function AcademicPartnershipsPipelinePage() {
     );
   }
 
-  return <KanbanBoard submissions={submissions} />;
+  return <KanbanBoardField submissions={submissions} />;
 }

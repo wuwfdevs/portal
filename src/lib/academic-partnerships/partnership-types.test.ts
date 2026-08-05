@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasCourseBasedTrack,
+  hasNonResearchTrack,
+  hasResearchTrack,
   isCourseBasedType,
   isResearchType,
   MIN_SUBMIT_ELAPSED_MS,
+  PARTNERSHIP_TYPES,
+  PARTNERSHIP_TYPE_DESCRIPTION,
   validateInquiryInput,
   type InquiryInput,
 } from "./partnership-types";
@@ -13,7 +18,7 @@ function baseInput(overrides: Partial<InquiryInput> = {}): InquiryInput {
     email: "rivera@uwf.edu",
     department: "Communication",
     description: "A guest lecture on local news coverage.",
-    partnershipType: "classroom_visit",
+    partnershipTypes: ["classroom_visit"],
     researchTopic: "",
     researchSummary: "",
     honeypot: "",
@@ -39,6 +44,33 @@ describe("isResearchType / isCourseBasedType", () => {
   });
 });
 
+describe("hasResearchTrack / hasCourseBasedTrack / hasNonResearchTrack", () => {
+  it("detects research among several chosen tracks", () => {
+    expect(hasResearchTrack(["classroom_visit", "faculty_research"])).toBe(true);
+    expect(hasResearchTrack(["classroom_visit", "other"])).toBe(false);
+    expect(hasResearchTrack([])).toBe(false);
+  });
+
+  it("detects a course-based track among several chosen", () => {
+    expect(hasCourseBasedTrack(["faculty_research", "applied_project"])).toBe(true);
+    expect(hasCourseBasedTrack(["faculty_research", "internship_practicum"])).toBe(false);
+  });
+
+  it("is false only when every chosen track is research", () => {
+    expect(hasNonResearchTrack(["faculty_research"])).toBe(false);
+    expect(hasNonResearchTrack(["faculty_research", "other"])).toBe(true);
+    expect(hasNonResearchTrack([])).toBe(false);
+  });
+});
+
+describe("PARTNERSHIP_TYPE_DESCRIPTION", () => {
+  it("has a non-empty description for every track", () => {
+    for (const type of PARTNERSHIP_TYPES) {
+      expect(PARTNERSHIP_TYPE_DESCRIPTION[type].length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("validateInquiryInput", () => {
   it("accepts a complete, well-timed submission", () => {
     expect(validateInquiryInput(baseInput())).toBeNull();
@@ -59,21 +91,31 @@ describe("validateInquiryInput", () => {
     expect(validateInquiryInput(baseInput({ description: "" }))).not.toBeNull();
   });
 
-  it("requires topic and summary on the research path, but not the teaching path", () => {
+  it("requires at least one track to be chosen", () => {
+    expect(validateInquiryInput(baseInput({ partnershipTypes: [] }))).not.toBeNull();
+  });
+
+  it("accepts more than one chosen track", () => {
     expect(
-      validateInquiryInput(baseInput({ partnershipType: "faculty_research" })),
+      validateInquiryInput(baseInput({ partnershipTypes: ["classroom_visit", "applied_project"] })),
+    ).toBeNull();
+  });
+
+  it("requires topic and summary when faculty_research is among the chosen tracks", () => {
+    expect(
+      validateInquiryInput(baseInput({ partnershipTypes: ["faculty_research"] })),
     ).not.toBeNull();
     expect(
       validateInquiryInput(
         baseInput({
-          partnershipType: "faculty_research",
+          partnershipTypes: ["classroom_visit", "faculty_research"],
           researchTopic: "Coastal erosion",
           researchSummary: "A study of shoreline change over 20 years.",
         }),
       ),
     ).toBeNull();
     expect(
-      validateInquiryInput(baseInput({ partnershipType: "classroom_visit" })),
+      validateInquiryInput(baseInput({ partnershipTypes: ["classroom_visit"] })),
     ).toBeNull();
   });
 });

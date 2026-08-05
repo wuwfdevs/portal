@@ -35,8 +35,8 @@ describe("buildGroveEmbedCode", () => {
     expect(code).toContain("max-width:100%");
   });
 
-  it("uses a generous fixed height, no resizer script", () => {
-    expect(code).toContain('height="2600"');
+  it("uses a fixed height sized for one wizard step, no resizer script", () => {
+    expect(code).toContain('height="780"');
   });
 
   it("escapes a title that would otherwise break out of the attribute", () => {
