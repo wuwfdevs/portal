@@ -6,28 +6,33 @@ import { Button } from "@/components/ui/button";
 import { Label, Select, Textarea } from "@/components/ui/input";
 import { buildMailtoUrl, interpolateTemplate } from "@/lib/academic-partnerships/email";
 import type { ApEmailTemplateRow } from "@/lib/academic-partnerships/queries";
-import { recordEmailAction } from "../actions";
+import { recordEmailAction, sendInquiryEmail } from "../actions";
 
 /**
- * There is no transactional email sender in this repository (see design doc
- * §3 "Email"), so every action here prepares a draft — a mailto: link and a
- * copy-to-clipboard button — and "I sent this email" only records that the
- * draft was prepared and confirmed sent, never that it was delivered.
- * "Invite to meet" additionally offers to move the record to Meeting
- * Requested, per the brief.
+ * Two ways an email leaves this system, both logged identically afterward
+ * (see actions.ts's afterEmailAction()): sendInquiryEmail() actually sends
+ * via Resend when lib/email.ts is configured, and recordEmailAction() is the
+ * manual fallback — a mailto: draft or copied text the coordinator sends
+ * themselves, then confirms. The manual path stays available even when
+ * sending is configured: CC'ing someone, personalizing beyond what the
+ * template does, or simply preferring to send from their own mail client are
+ * all reasons to not force the automatic path.
  */
 export function EmailPanel({
   submission,
   templates,
   appointmentsUrl,
+  sendingConfigured,
 }: {
   submission: { id: string; faculty_name: string; email: string };
   templates: ApEmailTemplateRow[];
   appointmentsUrl: string | null;
+  sendingConfigured: boolean;
 }) {
   const [templateKey, setTemplateKey] = useState(templates[0]?.key ?? "");
   const [staffContext, setStaffContext] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showManual, setShowManual] = useState(!sendingConfigured);
 
   const template = templates.find((candidate) => candidate.key === templateKey) ?? null;
   const interpolated = useMemo(
@@ -98,7 +103,33 @@ export function EmailPanel({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        {sendingConfigured && interpolated && (
+          <form action={sendInquiryEmail} className="flex flex-col gap-2 border-t border-line pt-3">
+            <input type="hidden" name="submission_id" value={submission.id} />
+            <input type="hidden" name="template_key" value={templateKey} />
+            <input type="hidden" name="template_label" value={template?.label ?? ""} />
+            <input type="hidden" name="to" value={submission.email} />
+            <input type="hidden" name="subject" value={interpolated.subject} />
+            <input type="hidden" name="body" value={interpolated.body} />
+            {isMeetingInvite && (
+              <>
+                <label className="flex items-start gap-2 text-xs text-ink-700">
+                  <input type="checkbox" name="move_to_meeting_requested" defaultChecked className="mt-0.5" />
+                  Move this submission to Meeting Requested
+                </label>
+                <label className="flex items-start gap-2 text-xs text-ink-700">
+                  <input type="checkbox" name="appointment_link_shared" defaultChecked className="mt-0.5" />
+                  Record that the appointments link was included
+                </label>
+              </>
+            )}
+            <Button type="submit" className="self-start">
+              Send email to {submission.email}
+            </Button>
+          </form>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="secondary"
@@ -109,28 +140,39 @@ export function EmailPanel({
           <Button type="button" variant="secondary" onClick={copyDraft}>
             {copied ? "Copied" : "Copy draft"}
           </Button>
+          {sendingConfigured && !showManual && (
+            <button
+              type="button"
+              onClick={() => setShowManual(true)}
+              className="text-xs font-semibold text-brand-link hover:underline"
+            >
+              I sent this myself instead
+            </button>
+          )}
         </div>
 
-        <form action={recordEmailAction} className="flex flex-col gap-2 border-t border-line pt-3">
-          <input type="hidden" name="submission_id" value={submission.id} />
-          <input type="hidden" name="template_key" value={templateKey} />
-          <input type="hidden" name="template_label" value={template?.label ?? ""} />
-          {isMeetingInvite && (
-            <>
-              <label className="flex items-start gap-2 text-xs text-ink-700">
-                <input type="checkbox" name="move_to_meeting_requested" defaultChecked className="mt-0.5" />
-                Move this submission to Meeting Requested
-              </label>
-              <label className="flex items-start gap-2 text-xs text-ink-700">
-                <input type="checkbox" name="appointment_link_shared" defaultChecked className="mt-0.5" />
-                Record that the appointments link was included
-              </label>
-            </>
-          )}
-          <Button type="submit" className="self-start">
-            I sent this email
-          </Button>
-        </form>
+        {showManual && (
+          <form action={recordEmailAction} className="flex flex-col gap-2 border-t border-line pt-3">
+            <input type="hidden" name="submission_id" value={submission.id} />
+            <input type="hidden" name="template_key" value={templateKey} />
+            <input type="hidden" name="template_label" value={template?.label ?? ""} />
+            {isMeetingInvite && (
+              <>
+                <label className="flex items-start gap-2 text-xs text-ink-700">
+                  <input type="checkbox" name="move_to_meeting_requested" defaultChecked className="mt-0.5" />
+                  Move this submission to Meeting Requested
+                </label>
+                <label className="flex items-start gap-2 text-xs text-ink-700">
+                  <input type="checkbox" name="appointment_link_shared" defaultChecked className="mt-0.5" />
+                  Record that the appointments link was included
+                </label>
+              </>
+            )}
+            <Button type="submit" variant={sendingConfigured ? "secondary" : "primary"} className="self-start">
+              I sent this email
+            </Button>
+          </form>
+        )}
       </div>
     </section>
   );

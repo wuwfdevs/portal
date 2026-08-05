@@ -2,7 +2,11 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { validateInquiryInput } from "@/lib/academic-partnerships/partnership-types";
+import {
+  hasCourseBasedTrack,
+  hasResearchTrack,
+  validateInquiryInput,
+} from "@/lib/academic-partnerships/partnership-types";
 import { clientIpFromHeaders, hashIpAddress } from "@/lib/academic-partnerships/rate-limit";
 import type { ApPartnershipType } from "@/lib/database.types";
 
@@ -13,10 +17,10 @@ export type SubmitInquiryState =
 
 const ERROR_MESSAGES: Record<string, string> = {
   closed: "This form is not currently accepting submissions.",
-  invalid_partnership_type: "Choose one of the listed partnership types.",
+  invalid_partnership_type: "Choose at least one of the listed collaboration tracks.",
   invalid_email: "Enter a valid email address.",
   missing_required_field: "Fill in the required fields before submitting.",
-  invalid_enrollment_estimate: "Enter a number for approximate enrollment.",
+  invalid_estimated_students_reached: "Enter a number for estimated students reached.",
   rate_limited: "A number of inquiries have come from you recently — please wait a bit and try again.",
 };
 
@@ -27,9 +31,18 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
+const PARTNERSHIP_TYPE_VALUES: ApPartnershipType[] = [
+  "classroom_visit",
+  "station_immersion",
+  "applied_project",
+  "internship_practicum",
+  "faculty_research",
+  "other",
+];
+
 /**
  * The one write this public route makes. Every real check (open/closed,
- * required fields by partnership type, email shape, rate limits) happens
+ * required fields by the chosen track(s), email shape, rate limits) happens
  * inside ap_submit_inquiry() itself, in one transaction — this only adds the
  * two things only the server can see: the honeypot/timing check (client-side
  * so a genuine visitor gets a sentence instead of a round trip) and the
@@ -39,7 +52,10 @@ export async function submitInquiry(
   _prevState: SubmitInquiryState,
   formData: FormData,
 ): Promise<SubmitInquiryState> {
-  const partnershipType = field(formData, "partnership_type") as ApPartnershipType;
+  const partnershipTypes = formData
+    .getAll("partnership_types")
+    .map((value) => String(value))
+    .filter((value): value is ApPartnershipType => PARTNERSHIP_TYPE_VALUES.includes(value as ApPartnershipType));
   const renderedAtMs = Number(field(formData, "rendered_at")) || 0;
 
   const problem = validateInquiryInput({
@@ -47,7 +63,7 @@ export async function submitInquiry(
     email: field(formData, "email"),
     department: field(formData, "department"),
     description: field(formData, "description"),
-    partnershipType,
+    partnershipTypes,
     researchTopic: field(formData, "research_topic"),
     researchSummary: field(formData, "research_summary"),
     honeypot: field(formData, "website"),
@@ -70,16 +86,24 @@ export async function submitInquiry(
   const ip = clientIpFromHeaders(headerList);
   const ipHash = ip ? hashIpAddress(ip) : null;
 
+  // Fields tied to a track the submitter ultimately unchecked (e.g. they
+  // picked "faculty research", filled some of it in, then went back and
+  // deselected it) are dropped here rather than sent — the multi-step form
+  // keeps every field mounted across steps so values survive Back/Next, but
+  // a stale value from an abandoned track shouldn't end up on the record.
+  const includeCourseFields = hasCourseBasedTrack(partnershipTypes);
+  const includeResearchFields = hasResearchTrack(partnershipTypes);
+
   const payload = {
     faculty_name: field(formData, "faculty_name"),
     email: field(formData, "email"),
     department: field(formData, "department"),
     phone: field(formData, "phone"),
-    partnership_type: partnershipType,
-    course_title: field(formData, "course_title"),
-    course_number: field(formData, "course_number"),
+    partnership_types: partnershipTypes,
+    course_title: includeCourseFields ? field(formData, "course_title") : "",
+    course_number: includeCourseFields ? field(formData, "course_number") : "",
     timeframe: field(formData, "timeframe"),
-    enrollment_estimate: field(formData, "enrollment_estimate"),
+    estimated_students_reached: field(formData, "estimated_students_reached"),
     learning_objectives: field(formData, "learning_objectives"),
     description: field(formData, "description"),
     student_experience: field(formData, "student_experience"),
@@ -88,13 +112,13 @@ export async function submitInquiry(
     relevant_dates: field(formData, "relevant_dates"),
     may_publish: formData.get("may_publish") === "on",
     additional_context: field(formData, "additional_context"),
-    research_topic: field(formData, "research_topic"),
-    research_summary: field(formData, "research_summary"),
-    research_relevance: field(formData, "research_relevance"),
-    research_status: field(formData, "research_status"),
-    research_links: field(formData, "research_links"),
-    research_dates: field(formData, "research_dates"),
-    research_availability: field(formData, "research_availability"),
+    research_topic: includeResearchFields ? field(formData, "research_topic") : "",
+    research_summary: includeResearchFields ? field(formData, "research_summary") : "",
+    research_relevance: includeResearchFields ? field(formData, "research_relevance") : "",
+    research_status: includeResearchFields ? field(formData, "research_status") : "",
+    research_links: includeResearchFields ? field(formData, "research_links") : "",
+    research_dates: includeResearchFields ? field(formData, "research_dates") : "",
+    research_availability: includeResearchFields ? field(formData, "research_availability") : "",
   };
 
   const supabase = await createClient();

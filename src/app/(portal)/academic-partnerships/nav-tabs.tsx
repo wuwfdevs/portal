@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/academic-partnerships", label: "Pipeline" },
   { href: "/academic-partnerships/all", label: "All submissions" },
+  { href: "/academic-partnerships/dashboard", label: "Dashboard" },
 ] as const;
 
 export function NavTabs({ showSettings }: { showSettings: boolean }) {

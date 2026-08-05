@@ -128,18 +128,26 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
-      className={cn("rounded", isDragging && "opacity-50")}
+      {...attributes}
+      {...listeners}
+      aria-label={`${submission.faculty_name}'s submission. Press space to pick up and arrow keys to move between columns, or use the Move to menu below.`}
+      // Draggable from anywhere on the card, not just a handle —
+      // PointerSensor's activationConstraint (distance: 6, set in
+      // KanbanBoard) is what lets a plain click still reach the <Link>
+      // inside SubmissionCard: a pointerdown followed by only a few pixels
+      // of movement never crosses the threshold to become a drag, so the
+      // click passes through untouched. dnd-kit's own attributes make this
+      // div a second, standard keyboard-drag entry point (Space to pick up,
+      // arrow keys to move, Space to drop); the "Move to" select below is
+      // the primary accessible path regardless of whether that works for a
+      // given screen reader.
+      className={cn(
+        "touch-none rounded focus:outline-none focus:ring-2 focus:ring-brand-surface",
+        isDragging ? "cursor-grabbing opacity-50" : "cursor-grab",
+      )}
     >
-      <div className="flex items-center justify-between px-0.5 pb-1">
-        <button
-          type="button"
-          {...listeners}
-          {...attributes}
-          className="cursor-grab touch-none rounded px-1 text-ink-300 hover:text-ink-500 active:cursor-grabbing"
-          aria-label={`Drag to move ${submission.faculty_name}'s submission — or use the Move to menu`}
-        >
-          ⠿
-        </button>
+      <div aria-hidden="true" className="px-0.5 pb-1 text-ink-300">
+        ⠿
       </div>
       <SubmissionCard submission={submission} />
       <label className="mt-1.5 block">

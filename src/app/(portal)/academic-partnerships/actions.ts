@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
 import { logSubmissionEvent } from "@/lib/academic-partnerships/activity";
 import { logAuditEvent } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import {
   DISPOSITION_LABEL,
@@ -293,11 +294,64 @@ export async function reopenSubmission(formData: FormData): Promise<void> {
 }
 
 /**
- * Records that a staff member prepared and confirmed sending an email —
- * never that it was delivered, since this repository has no transactional
- * email sender. Optionally offers (and, if checked, performs) the
- * Meeting Requested stage transition — the brief's "when this action is
- * completed, move or offer to move the record to Meeting Requested."
+ * The activity-log/audit/stage-transition tail shared by both email
+ * actions below — the only difference between "I sent this email" (a
+ * manual confirmation) and "Send email" (an actual Resend send) is how the
+ * email itself left this system; what gets recorded afterward is identical.
+ */
+async function afterEmailAction(params: {
+  profileId: string;
+  submissionId: string;
+  templateKey: string;
+  auditAction: string;
+  moveToMeetingRequested: boolean;
+  appointmentLinkShared: boolean;
+}): Promise<void> {
+  await logAuditEvent({
+    actorId: params.profileId,
+    action: params.auditAction,
+    targetType: "ap_submission",
+    targetId: params.submissionId,
+    metadata: { template_key: params.templateKey },
+  });
+
+  if (params.templateKey === "meeting_invite" && params.moveToMeetingRequested) {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("ap_submissions")
+      .update({ stage: "meeting_requested", disposition: null })
+      .eq("id", params.submissionId);
+    if (!error) {
+      await logSubmissionEvent({
+        submissionId: params.submissionId,
+        actorId: params.profileId,
+        eventType: "stage_changed",
+        note: `Moved to ${STAGE_LABEL.meeting_requested}.`,
+        metadata: { to_stage: "meeting_requested" },
+      });
+    }
+  }
+
+  if (params.templateKey === "meeting_invite" && params.appointmentLinkShared) {
+    await logSubmissionEvent({
+      submissionId: params.submissionId,
+      actorId: params.profileId,
+      eventType: "appointment_shared",
+      note: "Included the Google Appointments link.",
+    });
+  }
+}
+
+/**
+ * Records that a staff member prepared and confirmed sending an email
+ * manually (a mailto: draft or a copied-and-pasted message) — never that it
+ * was delivered, since this system has no visibility into what happened
+ * after the draft left it. The counterpart to sendInquiryEmail() below, for
+ * when Resend isn't configured or a coordinator wants manual control (CC'ing
+ * someone, personalizing beyond the template). Optionally offers (and, if
+ * checked, performs) the Meeting Requested stage transition — the brief's
+ * "when this action is completed, move or offer to move the record to
+ * Meeting Requested."
  */
 export async function recordEmailAction(formData: FormData): Promise<void> {
   const { profile } = await assertAcademicPartnershipsAccess();
@@ -305,7 +359,6 @@ export async function recordEmailAction(formData: FormData): Promise<void> {
   const path = detailPath(submissionId);
   const templateKey = field(formData, "template_key");
   const templateLabel = field(formData, "template_label");
-  const moveToMeetingRequested = formData.get("move_to_meeting_requested") === "on";
 
   await logSubmissionEvent({
     submissionId,
@@ -314,39 +367,56 @@ export async function recordEmailAction(formData: FormData): Promise<void> {
     note: `Prepared and confirmed sending "${templateLabel}".`,
     metadata: { template_key: templateKey },
   });
-  await logAuditEvent({
-    actorId: profile.id,
-    action: "ap.submission.email_prepared",
-    targetType: "ap_submission",
-    targetId: submissionId,
-    metadata: { template_key: templateKey },
+  await afterEmailAction({
+    profileId: profile.id,
+    submissionId,
+    templateKey,
+    auditAction: "ap.submission.email_prepared",
+    moveToMeetingRequested: formData.get("move_to_meeting_requested") === "on",
+    appointmentLinkShared: formData.get("appointment_link_shared") === "on",
   });
 
-  if (templateKey === "meeting_invite" && moveToMeetingRequested) {
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("ap_submissions")
-      .update({ stage: "meeting_requested", disposition: null })
-      .eq("id", submissionId);
-    if (!error) {
-      await logSubmissionEvent({
-        submissionId,
-        actorId: profile.id,
-        eventType: "stage_changed",
-        note: `Moved to ${STAGE_LABEL.meeting_requested}.`,
-        metadata: { to_stage: "meeting_requested" },
-      });
-    }
+  revalidatePath(LIST_PATH);
+  redirect(path);
+}
+
+/**
+ * Actually sends the email via Resend (lib/email.ts) — the real counterpart
+ * to recordEmailAction()'s manual confirmation. Only reachable from the UI
+ * when isEmailSendingConfigured() is true; the form still validates on the
+ * server regardless; a send failure bounces back with the reason rather than
+ * silently recording success.
+ */
+export async function sendInquiryEmail(formData: FormData): Promise<void> {
+  const { profile } = await assertAcademicPartnershipsAccess();
+  const submissionId = field(formData, "submission_id");
+  const path = detailPath(submissionId);
+  const to = field(formData, "to");
+  const subject = field(formData, "subject");
+  const body = field(formData, "body");
+  const templateKey = field(formData, "template_key");
+  const templateLabel = field(formData, "template_label");
+
+  const result = await sendEmail({ to, subject, text: body, replyTo: profile.email });
+  if (!result.ok) {
+    failWith(path, `Could not send the email: ${result.error}`);
   }
 
-  if (templateKey === "meeting_invite" && formData.get("appointment_link_shared") === "on") {
-    await logSubmissionEvent({
-      submissionId,
-      actorId: profile.id,
-      eventType: "appointment_shared",
-      note: "Included the Google Appointments link.",
-    });
-  }
+  await logSubmissionEvent({
+    submissionId,
+    actorId: profile.id,
+    eventType: "email_action",
+    note: `Sent "${templateLabel}" to ${to}.`,
+    metadata: { template_key: templateKey, delivery: "sent" },
+  });
+  await afterEmailAction({
+    profileId: profile.id,
+    submissionId,
+    templateKey,
+    auditAction: "ap.submission.email_sent",
+    moveToMeetingRequested: formData.get("move_to_meeting_requested") === "on",
+    appointmentLinkShared: formData.get("appointment_link_shared") === "on",
+  });
 
   revalidatePath(LIST_PATH);
   redirect(path);

@@ -1,13 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  EMBED_HEIGHT,
-  buildGroveEmbedCode,
-  embedFormUrl,
-  publicFormUrl,
-} from "@/lib/academic-partnerships/embed";
+import { buildGroveEmbedCode, embedFormUrl, publicFormUrl } from "@/lib/academic-partnerships/embed";
 
 /** The public URL, the Grove embed snippet, and a live preview of it. Mirrors Audience Listening's Share tab. */
 export function SharePanel({ siteUrl }: { siteUrl: string }) {
@@ -43,16 +38,65 @@ export function SharePanel({ siteUrl }: { siteUrl: string }) {
       <Card className="p-5">
         <h2 className="mb-2 font-serif text-[17px] font-bold text-ink-900">Embed preview</h2>
         <p className="mb-3 text-xs leading-relaxed text-ink-400">
-          What appears inside the iframe, rendered live.
+          What appears inside the iframe, sized to its actual content — not the fixed height in
+          the snippet above. A Grove embed is cross-origin and has no way to read its own content
+          height, so that snippet uses a fixed guess; this preview can measure it exactly because
+          it&apos;s served from this same site.
         </p>
-        <iframe
-          src={embedSrc}
-          title="Embedded form preview"
-          style={{ height: EMBED_HEIGHT }}
-          className="w-full rounded border border-line"
-        />
+        <LivePreviewFrame src={embedSrc} />
       </Card>
     </div>
+  );
+}
+
+/**
+ * Auto-sized iframe preview. Only possible because this preview is
+ * same-origin (this Settings screen and /partner/embed are both served from
+ * this site) — a real Grove embed is cross-origin, where reading
+ * contentDocument is blocked by the browser, which is exactly why the actual
+ * embed snippet has to use a fixed height instead. See design doc §3 for why
+ * there is no postMessage-based resizer script bridging that gap.
+ */
+function LivePreviewFrame({ src }: { src: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(600);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    let observer: ResizeObserver | undefined;
+
+    function measure() {
+      const doc = iframe?.contentDocument;
+      if (!doc?.documentElement) return;
+      setHeight(doc.documentElement.scrollHeight);
+    }
+
+    function onLoad() {
+      measure();
+      const body = iframe?.contentDocument?.body;
+      if (!body) return;
+      observer?.disconnect();
+      observer = new ResizeObserver(measure);
+      observer.observe(body);
+    }
+
+    iframe.addEventListener("load", onLoad);
+    return () => {
+      iframe.removeEventListener("load", onLoad);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      src={src}
+      title="Embedded form preview"
+      style={{ height }}
+      className="w-full rounded border border-line"
+    />
   );
 }
 

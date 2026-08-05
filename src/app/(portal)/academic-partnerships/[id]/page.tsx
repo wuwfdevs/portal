@@ -11,7 +11,8 @@ import {
   type SubmissionDetail,
 } from "@/lib/academic-partnerships/queries";
 import { DISPOSITION_BADGE, DISPOSITION_LABEL, STAGE_LABEL } from "@/lib/academic-partnerships/pipeline";
-import { PARTNERSHIP_TYPE_LABEL, isResearchType } from "@/lib/academic-partnerships/partnership-types";
+import { PARTNERSHIP_TYPE_LABEL, hasResearchTrack } from "@/lib/academic-partnerships/partnership-types";
+import { isEmailSendingConfigured } from "@/lib/email";
 import { addNote } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { InternalPanel } from "./internal-panel";
@@ -60,6 +61,7 @@ export default async function SubmissionDetailPage({
           submission={submission}
           templates={templates}
           appointmentsUrl={settings.google_appointments_url}
+          sendingConfigured={isEmailSendingConfigured()}
         />
 
         <section>
@@ -90,7 +92,7 @@ export default async function SubmissionDetailPage({
 }
 
 function OriginalResponse({ submission }: { submission: SubmissionDetail }) {
-  const research = isResearchType(submission.partnership_type);
+  const research = hasResearchTrack(submission.partnership_types);
   return (
     <section className="rounded border border-line bg-panel-50 p-4">
       <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-400">
@@ -100,7 +102,10 @@ function OriginalResponse({ submission }: { submission: SubmissionDetail }) {
         <Field label="Email" value={submission.email} />
         <Field label="Phone" value={submission.phone} />
         <Field label="Department or program" value={submission.department} />
-        <Field label="Partnership type" value={PARTNERSHIP_TYPE_LABEL[submission.partnership_type]} />
+        <Field
+          label="Collaboration track(s)"
+          value={submission.partnership_types.map((type) => PARTNERSHIP_TYPE_LABEL[type]).join(", ")}
+        />
         {(submission.course_title || submission.course_number) && (
           <Field
             label="Course"
@@ -108,7 +113,10 @@ function OriginalResponse({ submission }: { submission: SubmissionDetail }) {
           />
         )}
         <Field label="Semester or timeframe" value={submission.timeframe} />
-        <Field label="Approximate enrollment" value={submission.enrollment_estimate?.toString() ?? null} />
+        <Field
+          label="Estimated students reached"
+          value={submission.estimated_students_reached?.toString() ?? null}
+        />
         <Field label="May WUWF publish or distribute resulting work?" value={submission.may_publish ? "Yes" : "No"} />
       </dl>
       <div className="mt-3 flex flex-col gap-3">

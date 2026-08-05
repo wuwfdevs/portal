@@ -80,7 +80,9 @@ export async function listAllSubmissions(filters: SubmissionFilters): Promise<Su
   }
   if (filters.ownerId) query = query.eq("owner_id", filters.ownerId);
   if (filters.department) query = query.eq("department", filters.department);
-  if (filters.partnershipType) query = query.eq("partnership_type", filters.partnershipType);
+  // partnership_types is an array (a submission may name more than one
+  // track); "filter to this type" means "this type is among them".
+  if (filters.partnershipType) query = query.contains("partnership_types", [filters.partnershipType]);
   if (filters.search?.trim()) {
     const term = filters.search.trim().replace(/[%,]/g, "");
     query = query.or(
