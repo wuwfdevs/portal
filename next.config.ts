@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
         source: "/listen/:path*",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
       },
+      {
+        // Academic Partnerships' public inquiry form, meant to be framed
+        // cross-origin the same way — see the /listen rule above for why this
+        // has to be explicit.
+        source: "/partner/:path*",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
     ];
   },
 };

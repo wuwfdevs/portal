@@ -2,7 +2,8 @@
 
 Internal tools portal for WUWF Public Media — shared authentication, navigation, user
 approval/invitation, and access control for a small set of purpose-built internal tools
-(Editorial Planning, Sourcework, Remote Interview, and Audience Listening).
+(Editorial Planning, Sourcework, Remote Interview, Audience Listening, Roadmap, and
+Academic Partnerships).
 
 This repository contains the **portal foundation** (application shell, auth, the tool
 registry, and admin screens) plus the tools built on it:
@@ -16,9 +17,17 @@ registry, and admin screens) plus the tools built on it:
   (`docs/remote-interview-design.md`, `docs/remote-interview-technical-assessment.md`).
 - **Audience Listening** — publish a short set of questions as a public page or a Grove
   embed, collect recorded answers from listeners, review them, and hand individual
-  answers to Sourcework (`docs/audience-listening-design.md`). This is
-  the only tool with a public, account-less write surface; that document's §6 explains
-  the security model it needs as a result.
+  answers to Sourcework (`docs/audience-listening-design.md`). One of two tools with a
+  public, account-less write surface; that document's §6 explains the security model it
+  needs as a result.
+- **Roadmap** — file a request, vote and comment on other people's, and follow a
+  curator-managed status through to shipped (`docs/roadmap-design.md`).
+- **Academic Partnerships** — a public inquiry form for the WUWF Applied Media Partnership
+  Program (`/partner`, also embeddable in Grove) feeding a staff-run kanban pipeline from
+  New through Active to Completed (`docs/academic-partnerships-design.md`). The other
+  tool with a public, account-less write surface — a narrower one than Audience
+  Listening's, with no session at all, not even an anonymous one; that document's §3
+  explains why.
 
 It is not, and is not meant to become, a general-purpose newsroom platform — see
 `CLAUDE.md` for the scope and architecture rules this project follows.
