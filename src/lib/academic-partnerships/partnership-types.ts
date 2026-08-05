@@ -75,7 +75,6 @@ export interface InquiryInput {
   description: string;
   partnershipTypes: ApPartnershipType[];
   researchTopic: string;
-  researchSummary: string;
   honeypot: string;
   renderedAtMs: number;
   nowMs: number;
@@ -105,7 +104,6 @@ export function validateInquiryInput(input: InquiryInput): string | null {
   if (input.description.trim() === "") return "Briefly describe the proposed partnership.";
   if (hasResearchTrack(input.partnershipTypes)) {
     if (input.researchTopic.trim() === "") return "Enter the topic or area of expertise.";
-    if (input.researchSummary.trim() === "") return "Give a plain-language summary of the work.";
   }
   return null;
 }

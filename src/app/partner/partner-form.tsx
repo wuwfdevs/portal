@@ -229,7 +229,7 @@ export function PartnerForm({
               </Field>
             </div>
           )}
-          <Field label="Relevant dates or deadlines" htmlFor="relevant_dates" optional>
+          <Field label="Relevant dates, deadlines, or embargoes" htmlFor="relevant_dates" optional>
             <Input id="relevant_dates" name="relevant_dates" />
           </Field>
         </div>
@@ -253,9 +253,6 @@ export function PartnerForm({
           <Field label="Anticipated deliverables" htmlFor="deliverables" optional>
             <Textarea id="deliverables" name="deliverables" rows={2} />
           </Field>
-          <Field label="Learning objectives" htmlFor="learning_objectives" optional>
-            <Textarea id="learning_objectives" name="learning_objectives" rows={2} />
-          </Field>
         </div>
 
         <div
@@ -267,14 +264,6 @@ export function PartnerForm({
           <Field label="Topic or area of expertise" htmlFor="research_topic">
             <Input id="research_topic" name="research_topic" required={hasResearchTrack(selectedTypes)} />
           </Field>
-          <Field label="Plain-language summary" htmlFor="research_summary">
-            <Textarea
-              id="research_summary"
-              name="research_summary"
-              rows={3}
-              required={hasResearchTrack(selectedTypes)}
-            />
-          </Field>
           <Field label="Regional or public relevance" htmlFor="research_relevance" optional>
             <Textarea id="research_relevance" name="research_relevance" rows={2} />
           </Field>
@@ -284,17 +273,6 @@ export function PartnerForm({
               name="research_status"
               placeholder="e.g. in progress, under review, published"
             />
-          </Field>
-          <Field label="Supporting links or materials" htmlFor="research_links" optional>
-            <Textarea
-              id="research_links"
-              name="research_links"
-              rows={2}
-              placeholder="One link or citation per line"
-            />
-          </Field>
-          <Field label="Relevant dates or embargoes" htmlFor="research_dates" optional>
-            <Input id="research_dates" name="research_dates" />
           </Field>
           <Field
             label="Your availability for interviews, consultation, or public programs"

@@ -1190,7 +1190,6 @@ export interface Database {
           course_number: string | null;
           timeframe: string | null;
           estimated_students_reached: number | null;
-          learning_objectives: string | null;
           description: string;
           student_experience: string | null;
           support_requested: string | null;
@@ -1199,11 +1198,8 @@ export interface Database {
           may_publish: boolean;
           additional_context: string | null;
           research_topic: string | null;
-          research_summary: string | null;
           research_relevance: string | null;
           research_status: string | null;
-          research_links: string | null;
-          research_dates: string | null;
           research_availability: string | null;
           stage: ApStage;
           stage_changed_at: string;

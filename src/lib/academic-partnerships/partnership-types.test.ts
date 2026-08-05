@@ -20,7 +20,6 @@ function baseInput(overrides: Partial<InquiryInput> = {}): InquiryInput {
     description: "A guest lecture on local news coverage.",
     partnershipTypes: ["classroom_visit"],
     researchTopic: "",
-    researchSummary: "",
     honeypot: "",
     renderedAtMs: 0,
     nowMs: MIN_SUBMIT_ELAPSED_MS + 1000,
@@ -101,7 +100,7 @@ describe("validateInquiryInput", () => {
     ).toBeNull();
   });
 
-  it("requires topic and summary when faculty_research is among the chosen tracks", () => {
+  it("requires a topic when faculty_research is among the chosen tracks", () => {
     expect(
       validateInquiryInput(baseInput({ partnershipTypes: ["faculty_research"] })),
     ).not.toBeNull();
@@ -110,7 +109,6 @@ describe("validateInquiryInput", () => {
         baseInput({
           partnershipTypes: ["classroom_visit", "faculty_research"],
           researchTopic: "Coastal erosion",
-          researchSummary: "A study of shoreline change over 20 years.",
         }),
       ),
     ).toBeNull();
