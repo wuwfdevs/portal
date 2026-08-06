@@ -23,11 +23,30 @@ export const POST_KIND_LABEL: Record<RdPostKind, string> = {
 };
 
 /**
- * The statuses the Roadmap tab groups by, in order. `open` and `under_review`
- * are deliberately absent: the roadmap is what has been decided, and everything
- * else lives on the Requests tab.
+ * The statuses the Roadmap tab's static (non-curator) view groups by, in
+ * order. `open` and `under_review` are deliberately absent there: for
+ * everyone except a curator, the roadmap is what has been decided, and
+ * everything else lives on the Requests tab. A curator's kanban board uses
+ * the wider KANBAN_STATUSES below instead — see its comment for why.
  */
 export const ROADMAP_STATUSES: RdPostStatus[] = ["planned", "in_progress", "shipped", "declined"];
+
+/**
+ * The curator kanban board's columns — every status, in state-machine
+ * order. Unlike ROADMAP_STATUSES, this includes `open` and `under_review`:
+ * a curator is the one who moves a request out of them, and a board that
+ * can't show a card can't be dragged from, so restricting the board to
+ * "already decided" would leave curators dropping back to the per-post
+ * curation panel for exactly the moves a kanban board exists to make fast.
+ */
+export const KANBAN_STATUSES: RdPostStatus[] = [
+  "open",
+  "under_review",
+  "planned",
+  "in_progress",
+  "shipped",
+  "declined",
+];
 
 /** The label on the button that moves a post *to* each status. */
 export const STATUS_ACTION_LABEL: Record<RdPostStatus, string> = {
@@ -135,16 +154,4 @@ export function groupForRoadmap<T extends { status: RdPostStatus }>(
     status,
     posts: posts.filter((post) => post.status === status),
   }));
-}
-
-/**
- * Where a post can move to by dragging within the Roadmap tab's kanban
- * board — the subset of availableStatusActions() that lands on one of this
- * board's own columns. A transition to `open` or `under_review` takes a
- * post off the roadmap entirely (back to the Requests tab); that is a
- * bigger decision than a card move, so it stays on the post detail page's
- * curation panel instead of being offered as a drop target here.
- */
-export function roadmapDropTargets(status: RdPostStatus): RdPostStatus[] {
-  return availableStatusActions(status).filter((next) => ROADMAP_STATUSES.includes(next));
 }

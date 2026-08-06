@@ -169,10 +169,15 @@ restricted to platform administrators. That boundary doesn't move for this tool.
 sort toggle; one row per post with its vote button, kind, target, status badge, and
 comment count.
 
-**`/roadmap?tab=roadmap`** — the same posts grouped under Planned / In progress /
-Shipped, with Declined collapsed below. `open` and `under_review` posts do not appear
-here; the roadmap is what has been decided, and the Requests tab is where everything
-else lives.
+**`/roadmap?tab=roadmap`** — for anyone who isn't a curator, the same posts grouped
+under Planned / In progress / Shipped, with Declined collapsed below; `open` and
+`under_review` posts do not appear, since for that audience the roadmap is what has
+been decided and the Requests tab is where everything else lives. A curator instead
+sees a drag-and-drop kanban board covering all six statuses (`KANBAN_STATUSES`,
+`src/app/(portal)/roadmap/kanban-board.tsx`) — added after milestone 1 (see §7) once
+it was clear a board that couldn't show an `open`/`under_review` post couldn't be
+dragged from either, leaving curators to fall back to the per-post curation panel for
+exactly the moves the board exists to speed up.
 
 **`/roadmap/[id]`** — the post, its rendered rich-text body, vote button, target
 badge, status, and — for a curator — the status controls. Below it, the comment
@@ -460,3 +465,14 @@ creates a proposed tool, which the portal has never had.
 3. **Duplicate merging**, if and when someone actually hits the problem.
 4. **Digest of recent status changes**, once there is any notification layer to
    attach it to.
+
+**Post-milestone-1 revision (2026-08-06): curator kanban board.** The Roadmap tab
+gained real drag-and-drop for curators, using `@dnd-kit/core` (already a dependency —
+see Academic Partnerships §3/§9). It initially shipped scoped to the same four
+"decided" statuses `ROADMAP_STATUSES`/§4 above describe, matching the static view
+everyone else sees — but a curator is the one who moves a request *out of* `open` or
+`under_review`, and a board that can't show a card can't be dragged from. It was
+widened the same day to all six statuses (`KANBAN_STATUSES`), for curators only; the
+non-curator static view is unchanged. Drops are validated against
+`availableStatusActions()` (illegal ones are a no-op) and a drop onto Declined opens a
+reason prompt, since `rd_posts` requires one either way.
