@@ -574,11 +574,11 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slice 2 (content library) is next — proceed with it
-without asking again**, followed by NPR+weather, rundown generation with the
-timing engine, the host console with mid-broadcast actions, then submission
-and the three MCP capabilities — see `docs/log-design.md` §7 for the full
-milestone list this is slicing through.
+schedule entries. **Slice 2 (content library) has since landed too — see
+below.** NPR+weather is next — proceed with it without asking again,
+followed by rundown generation with the timing engine, the host console with
+mid-broadcast actions, then submission and the three MCP capabilities — see
+`docs/log-design.md` §7 for the full milestone list this is slicing through.
 
 Two things about this slice are load-bearing:
 
@@ -629,6 +629,34 @@ rundown from. Both columns are populated on every seeded schedule row, and
 the create-schedule-entry form/action in `src/app/(portal)/log/programs/
 page.tsx`/`program-actions.ts` (written before this gap was found) were
 updated in the same pass to collect them.
+
+**Log: milestone 1 slice 2 (Content library) has landed** —
+`20260806160000_log_content_library.sql` adds `log_content_items` (news,
+station/program promos, membership messages, university announcements,
+PSAs, legal IDs, interview/feature, host-created) and `log_content_components`
+(a timed part of one — live intro, recorded audio, live outro, optional
+tag), plus the `/log/library` route segment (browse/filter, create, detail
+with components and an approval-status control). One thing about this
+slice cuts the other way from Slice 1's producer gate: **content
+authorship is open to any tool member, not producer-only** — the design
+doc is explicit that newsroom/promotions staff "neither need a producer
+role to do it," so `log_content_items`/`log_content_components` RLS keys
+off `private.has_log_access()` alone, with no `is_log_producer()` branch at
+all (confirmed directly against preview: a plain member with no
+`tool_role` can insert a content item). Retiring stale content is an
+ordinary update (`approval_status` → `'retired'`), the same
+deactivate-don't-delete lifecycle `ep_criteria`/`ep_form_fields` use — no
+delete policy is granted on either table. Audio uploads (`log-media`
+storage bucket, added in the same migration) copy Sourcework's established
+pattern exactly: browser-direct-to-Storage via `supabase.storage.from(...).upload()`
+(`src/app/(portal)/log/audio-upload.tsx`), never a Server Action payload for
+the file itself, with `upsert: true` against a fixed per-entity object path
+(`lib/log/content-library.ts`'s `contentItemAudioObjectPath`/
+`contentComponentAudioObjectPath`) so a corrected re-upload overwrites
+cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
+(same file, pure and tested) implements the design doc's "a 30-second promo
+with a required 8-second outro is a 38-second commitment, never displayed
+as 30" rule — optional components never count toward the total.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

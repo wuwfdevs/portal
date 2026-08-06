@@ -74,6 +74,7 @@ repo and a project's history, not the version number.
 | `20260806130000_log_foundation.sql`                              | 2026-08-06 | 2026-08-06 |
 | `20260806140000_log_clock_slot_windows_and_schedule_times.sql`   | 2026-08-06 | 2026-08-06 |
 | `20260806150000_log_seed_npr_clocks.sql`                         | 2026-08-06 | 2026-08-06 |
+| `20260806160000_log_content_library.sql`                         | 2026-08-06 | 2026-08-06 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

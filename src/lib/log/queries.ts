@@ -16,6 +16,8 @@ export type LogClockTemplateRow = Database["public"]["Tables"]["log_clock_templa
 export type LogClockVersionRow = Database["public"]["Tables"]["log_clock_versions"]["Row"];
 export type LogClockSlotRow = Database["public"]["Tables"]["log_clock_slots"]["Row"];
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
+export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
+export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
 
 export async function listPrograms(): Promise<LogProgramRow[]> {
   const supabase = await createClient();
@@ -140,4 +142,46 @@ export async function listScheduleEntriesForProgram(programId: string): Promise<
       "this program's schedule",
     ) ?? []
   );
+}
+
+export interface ContentLibraryFilters {
+  contentType?: LogContentItemRow["content_type"];
+  approvalStatus?: LogContentItemRow["approval_status"];
+}
+
+/** The content library browse list — every item matching the given filters, newest first. */
+export async function listContentItems(
+  filters: ContentLibraryFilters = {},
+): Promise<LogContentItemRow[]> {
+  const supabase = await createClient();
+  let query = supabase.from("log_content_items").select("*").order("created_at", { ascending: false });
+  if (filters.contentType) query = query.eq("content_type", filters.contentType);
+  if (filters.approvalStatus) query = query.eq("approval_status", filters.approvalStatus);
+  return unwrapRead(await query, "the content library") ?? [];
+}
+
+export interface ContentItemDetail extends LogContentItemRow {
+  components: LogContentComponentRow[];
+}
+
+/** One content item plus its components, in sequence order. */
+export async function getContentItemDetail(id: string): Promise<ContentItemDetail | null> {
+  const supabase = await createClient();
+  const item = unwrapRead(
+    await supabase.from("log_content_items").select("*").eq("id", id).maybeSingle(),
+    "this content item",
+  );
+  if (!item) return null;
+
+  const components =
+    unwrapRead(
+      await supabase
+        .from("log_content_components")
+        .select("*")
+        .eq("content_item_id", id)
+        .order("sequence"),
+      "this content item's components",
+    ) ?? [];
+
+  return { ...item, components };
 }
