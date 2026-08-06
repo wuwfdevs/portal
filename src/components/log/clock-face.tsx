@@ -52,7 +52,12 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Clock version diagram">
+      <svg
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        role="img"
+        aria-label="Clock version diagram"
+        className="h-auto w-full max-w-[320px]"
+      >
         <defs>
           <pattern
             id={floatPatternId}
