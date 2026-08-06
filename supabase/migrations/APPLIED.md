@@ -71,6 +71,7 @@ repo and a project's history, not the version number.
 | `20260805120000_academic_partnerships_multi_track.sql`         | 2026-08-05 | 2026-08-05 |
 | `20260805130000_academic_partnerships_field_trim.sql`           | 2026-08-05 | 2026-08-05 |
 | `20260806120000_academic_partnerships_delete.sql`                | 2026-08-06 | 2026-08-06 |
+| `20260806130000_log_foundation.sql`                              | 2026-08-06 | 2026-08-06 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

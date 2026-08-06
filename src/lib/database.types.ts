@@ -49,7 +49,16 @@
 // across both tools would break against. Re-run `npm run db:types` (or the
 // Supabase MCP server's `generate_typescript_types`, as this pass did) to
 // re-verify after a schema change, but reconcile its output into this
-// file's existing shape rather than replacing it outright.
+// file's existing shape rather than replacing it outright. Hand-updated
+// again on 2026-08-06 for Log's foundation slice (supabase/migrations/
+// 20260806130000_log_foundation.sql): log_programs/log_clock_templates/
+// log_clock_versions/log_clock_slots/log_schedule and the new
+// LogProgramKind/LogScheduleEntryType/LogClockVersionVariant/
+// LogSlotFillMode/LogSlotAssignmentMode/LogSlotTimingMode enums — no local
+// instance running to regenerate against; added by hand following the
+// ap_submissions block's Row/Insert/Update shape, insert-only tables
+// (log_clock_versions/log_clock_slots) noted the same way as
+// ap_submissions' insert-only comment.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -202,6 +211,23 @@ export interface ApPublicFormConfig {
   intro_copy: string;
   enabled_partnership_types: ApPartnershipType[];
 }
+
+// Log (log_*) — see supabase/migrations/20260806130000_log_foundation.sql.
+// Slice 1 (Foundation) only: programs, clock templates/versions/slots, and
+// the schedule — see docs/log-design.md and CLAUDE.md's Log section for the
+// remaining slices' tables (content library, NPR/weather, rundowns,
+// broadcast events), not yet in this file.
+export type LogProgramKind = "recurring" | "special";
+export type LogScheduleEntryType = "recurring" | "override" | "holiday";
+export type LogClockVersionVariant =
+  | "weekday"
+  | "weekend"
+  | "program_specific"
+  | "holiday"
+  | "special_event";
+export type LogSlotFillMode = "required" | "optional" | "host_fillable";
+export type LogSlotAssignmentMode = "automatic" | "preassigned" | "host_selected";
+export type LogSlotTimingMode = "fixed" | "float";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1248,6 +1274,104 @@ export interface Database {
           event_type: ApEventType;
         };
         Update: Partial<Database["public"]["Tables"]["ap_submission_events"]["Row"]>;
+        Relationships: [];
+      };
+      log_programs: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          kind: LogProgramKind;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_programs"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_programs"]["Row"]>;
+        Relationships: [];
+      };
+      log_clock_templates: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_templates"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_templates"]["Row"]>;
+        Relationships: [];
+      };
+      // Insert-only from the application — no update grant exists for
+      // `authenticated`. See the migration's file header for why.
+      log_clock_versions: {
+        Row: {
+          id: string;
+          clock_template_id: string;
+          variant: LogClockVersionVariant;
+          effective_from: string;
+          effective_to: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_versions"]["Row"]> & {
+          clock_template_id: string;
+          variant: LogClockVersionVariant;
+          effective_from: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_versions"]["Row"]>;
+        Relationships: [];
+      };
+      // Insert-only, same reasoning as log_clock_versions.
+      log_clock_slots: {
+        Row: {
+          id: string;
+          clock_version_id: string;
+          position: number;
+          start_offset_seconds: number | null;
+          duration_seconds: number;
+          permitted_content_types: string[];
+          fill_mode: LogSlotFillMode;
+          assignment_mode: LogSlotAssignmentMode;
+          replaceable: boolean;
+          shortenable: boolean;
+          allow_empty: boolean;
+          allow_multiple: boolean;
+          timing_mode: LogSlotTimingMode;
+          lock_on_air: boolean;
+          label: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]> & {
+          clock_version_id: string;
+          position: number;
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]>;
+        Relationships: [];
+      };
+      log_schedule: {
+        Row: {
+          id: string;
+          program_id: string;
+          clock_template_id: string;
+          entry_type: LogScheduleEntryType;
+          days_of_week: number[];
+          start_date: string;
+          end_date: string | null;
+          effective_from: string;
+          notes: string | null;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]> & {
+          program_id: string;
+          clock_template_id: string;
+          start_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]>;
         Relationships: [];
       };
     };

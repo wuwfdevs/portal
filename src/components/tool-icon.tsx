@@ -45,6 +45,12 @@ const ICONS: Record<string, React.ReactNode> = {
       <line x1="22" y1="9" x2="22" y2="15" />
     </>
   ),
+  log: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 16 14" />
+    </>
+  ),
 };
 
 const DEFAULT_ICON = (
