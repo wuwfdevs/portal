@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { requireAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
 import {
   getSettings,
   getSubmissionDetail,
@@ -17,6 +18,7 @@ import { addNote } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { InternalPanel } from "./internal-panel";
 import { EmailPanel } from "./email-panel";
+import { SubmissionActionsMenu } from "./submission-actions-menu";
 
 export default async function SubmissionDetailPage({
   params,
@@ -27,7 +29,8 @@ export default async function SubmissionDetailPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [submission, members, settings, templates] = await Promise.all([
+  const [{ isCoordinator }, submission, members, settings, templates] = await Promise.all([
+    requireAcademicPartnershipsAccess(),
     getSubmissionDetail(id),
     listToolMembers(),
     getSettings(),
@@ -39,20 +42,23 @@ export default async function SubmissionDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <header>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-serif text-xl font-bold text-ink-900">{submission.faculty_name}</h1>
-            {submission.disposition ? (
-              <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
-                {DISPOSITION_LABEL[submission.disposition]}
-              </Badge>
-            ) : (
-              <Badge variant="accent">{STAGE_LABEL[submission.stage]}</Badge>
-            )}
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-serif text-xl font-bold text-ink-900">{submission.faculty_name}</h1>
+              {submission.disposition ? (
+                <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
+                  {DISPOSITION_LABEL[submission.disposition]}
+                </Badge>
+              ) : (
+                <Badge variant="accent">{STAGE_LABEL[submission.stage]}</Badge>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-ink-400">
+              Submitted {new Date(submission.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+            </p>
           </div>
-          <p className="mt-1 text-xs text-ink-400">
-            Submitted {new Date(submission.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
-          </p>
+          {isCoordinator && <SubmissionActionsMenu submissionId={submission.id} />}
         </header>
 
         <OriginalResponse submission={submission} />

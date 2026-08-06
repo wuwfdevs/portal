@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { assertAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
+import {
+  assertAcademicPartnershipsAccess,
+  assertAcademicPartnershipsCoordinator,
+} from "@/lib/academic-partnerships/access";
 import { logSubmissionEvent } from "@/lib/academic-partnerships/activity";
 import { logAuditEvent } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
@@ -291,6 +294,42 @@ export async function reopenSubmission(formData: FormData): Promise<void> {
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/all`);
   redirect(path);
+}
+
+/**
+ * Permanently deletes an inquiry — unlike a disposition (Deferred/Declined/
+ * Withdrawn/Archived), which pulls a submission out of the active pipeline
+ * while keeping its record, this removes the row and its activity log for
+ * good (ap_submission_events cascades via its foreign key). Coordinator-only
+ * (see the delete migration's comment) since it can't be undone; the button
+ * that calls this is also gated on isCoordinator, but that's a courtesy —
+ * ap_submissions_delete's RLS policy is the actual boundary.
+ */
+export async function deleteSubmission(formData: FormData): Promise<void> {
+  const { profile } = await assertAcademicPartnershipsCoordinator();
+  const submissionId = field(formData, "submission_id");
+
+  const supabase = await createClient();
+  const { data: submission } = await supabase
+    .from("ap_submissions")
+    .select("faculty_name")
+    .eq("id", submissionId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("ap_submissions").delete().eq("id", submissionId);
+  failIfError(error, detailPath(submissionId), "Could not delete this submission");
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "ap.submission.deleted",
+    targetType: "ap_submission",
+    targetId: submissionId,
+    metadata: { faculty_name: submission?.faculty_name ?? null },
+  });
+
+  revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/all`);
+  redirect(LIST_PATH);
 }
 
 /**

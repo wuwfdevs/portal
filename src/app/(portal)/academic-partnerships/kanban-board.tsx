@@ -29,7 +29,12 @@ import { SubmissionCard } from "./submission-card";
  * fallback bolted on for compliance: it is how a keyboard or screen-reader
  * user, or anyone on a touch device where drag is unreliable, moves a card
  * at all. A native <select> needs no JavaScript sensor to work, so it stays
- * even though @dnd-kit's own keyboard sensor also supports dragging.
+ * even though @dnd-kit's own keyboard sensor also supports dragging. It's
+ * shrink-wrapped (the wrapping <label> is w-max, not the <select> itself —
+ * overriding the select's own w-full via a same-property className doesn't
+ * reliably win the cascade without tailwind-merge, which this repo doesn't
+ * use) so it reads as a small utility control rather than a full-width box
+ * repeated under every card.
  */
 export function KanbanBoard({ submissions }: { submissions: SubmissionListItem[] }) {
   const [items, setItems] = useState(submissions);
@@ -150,12 +155,11 @@ function DraggableCard({
         ⠿
       </div>
       <SubmissionCard submission={submission} />
-      <label className="mt-1.5 block">
+      <label className="mt-1 block w-max">
         <span className="sr-only">Move {submission.faculty_name}&apos;s submission to</span>
         <Select
           value={submission.stage}
           onChange={(event) => onMove(submission.id, event.target.value as ApStage)}
-          className="text-xs"
         >
           {STAGES.map((stage) => (
             <option key={stage} value={stage}>
