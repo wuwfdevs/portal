@@ -14,16 +14,20 @@ import {
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
-import { POST_STATUS_BADGE, ROADMAP_STATUSES, roadmapDropTargets } from "@/lib/roadmap/posts";
+import { availableStatusActions, KANBAN_STATUSES, POST_STATUS_BADGE } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
 import type { RdPostStatus } from "@/lib/database.types";
 import { movePostStatus } from "./actions";
 import { RoadmapCard } from "./roadmap-card";
 
 /**
- * The Roadmap tab's kanban board — cards move *between* the four decided
- * columns (a status change), not to a position within one, so plain
- * useDraggable/useDroppable is enough, same as
+ * The Roadmap tab's kanban board — curator-only, covers all six statuses
+ * (KANBAN_STATUSES), not just the four "decided" ones the tab shows
+ * everyone else: a curator is the one who moves a request out of Open or
+ * Under review, so a board that only showed already-decided posts would
+ * leave exactly that move stuck on the per-post curation panel. Cards move
+ * *between* columns (a status change), not to a position within one, so
+ * plain useDraggable/useDroppable is enough, same as
  * academic-partnerships/kanban-board.tsx (@dnd-kit/core is already a
  * dependency for that reason; this is the second use, not a new one).
  *
@@ -31,10 +35,10 @@ import { RoadmapCard } from "./roadmap-card";
  * because Roadmap's status changes follow a real state machine
  * (availableStatusActions) rather than free movement to any column:
  * dropping on a column that isn't a legal transition from the card's
- * current status is a no-op (see roadmapDropTargets), and dropping on
- * Declined opens a reason prompt instead of moving the card immediately —
- * rd_posts requires one (validateStatusChange), the same rule the post
- * detail page's curation panel enforces with its own decline form.
+ * current status is a no-op, and dropping on Declined opens a reason
+ * prompt instead of moving the card immediately — rd_posts requires one
+ * (validateStatusChange), the same rule the post detail page's curation
+ * panel enforces with its own decline form.
  *
  * Every card also carries a "Move to…" <select>, always visible, never a
  * fallback bolted on for compliance: it is how a keyboard or
@@ -70,7 +74,7 @@ export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
   function requestMove(id: string, status: RdPostStatus) {
     const post = items.find((item) => item.id === id);
     if (!post || post.status === status) return;
-    if (!roadmapDropTargets(post.status).includes(status)) return;
+    if (!availableStatusActions(post.status).includes(status)) return;
     if (status === "declined") {
       setDeclineError(null);
       setDeclineNote("");
@@ -105,7 +109,7 @@ export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
       )}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {ROADMAP_STATUSES.map((status) => (
+          {KANBAN_STATUSES.map((status) => (
             <Column
               key={status}
               status={status}
@@ -140,7 +144,12 @@ export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
             >
               Cancel
             </Button>
-            <Button type="button" variant="secondary" className="text-danger" onClick={confirmDecline}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="text-danger"
+              onClick={confirmDecline}
+            >
               Decline
             </Button>
           </div>
@@ -193,13 +202,17 @@ function DraggableCard({
   post: PostSummary;
   onMove: (id: string, status: RdPostStatus) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: post.id });
-  const targets = roadmapDropTargets(post.status);
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: post.id,
+  });
+  const targets = availableStatusActions(post.status);
 
   return (
     <div
       ref={setNodeRef}
-      style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
+      style={
+        transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+      }
       {...attributes}
       {...listeners}
       aria-label={`${post.title}. Press space to pick up and arrow keys to move between columns, or use the Move to menu below.`}

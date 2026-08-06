@@ -415,27 +415,32 @@ surrounding form stays the repo's ordinary `<form action={serverAction}>`. Scree
 attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
 design doc §7 before adding them.
 
-**Roadmap revision (2026-08-06):** the roadmap tab's four decided columns
-(`ROADMAP_STATUSES`) became a real drag-and-drop kanban board for curators
+**Roadmap revision (2026-08-06):** the roadmap tab gained a real
+drag-and-drop kanban board for curators
 (`src/app/(portal)/roadmap/kanban-board.tsx`, `kanban-board-field.tsx`'s
 `next/dynamic({ ssr: false })` wrapper) — `@dnd-kit/core`'s second use in
 this repo, not a new dependency; see Academic Partnerships' kanban board
-below for why it's the one library this codebase reaches for here. Unlike
-that board, Roadmap's status changes follow a real state machine
+below for why it's the one library this codebase reaches for here. Its
+columns are `KANBAN_STATUSES` — all six statuses, not just the four
+"decided" ones `ROADMAP_STATUSES` groups for the static view everyone else
+still sees: a curator is the one who moves a request out of `open` or
+`under_review`, and a board that can't show a card can't be dragged from
+(it briefly shipped scoped to the four decided statuses before this was
+caught and it was widened the same day — see `docs/roadmap-design.md`'s
+"Post-milestone-1 revision" for both steps). Unlike Academic Partnerships'
+board, Roadmap's status changes follow a real state machine
 (`availableStatusActions`), not free movement to any column, so dropping a
-card is validated against `roadmapDropTargets()` (a pure, tested filter of
-`availableStatusActions` to this board's own four columns — off-board
-destinations like reopening to `open`/`under_review` stay on the post
-detail page's curation panel) and a no-op if the target isn't legal.
-Dropping onto Declined opens an inline reason prompt instead of moving the
-card immediately, since `rd_posts` and `validateStatusChange` both require
-one. `setPostStatus` (the detail page's form action) now delegates to a new
-non-redirecting `movePostStatus()`, mirroring
-`academic-partnerships/actions.ts`'s `setSubmissionStage`/`setStageForm`
-split, so the board can update optimistically and roll back on error. A
-non-curator still sees the original static grouped list — the board and its
-drag affordances are curator-only, matching who `assertRoadmapCurator()`
-already let write a status.
+card is validated against it directly and is a no-op if the target isn't a
+legal transition. Dropping onto Declined opens an inline reason prompt
+instead of moving the card immediately, since `rd_posts` and
+`validateStatusChange` both require one. `setPostStatus` (the detail
+page's form action) now delegates to a new non-redirecting
+`movePostStatus()`, mirroring `academic-partnerships/actions.ts`'s
+`setSubmissionStage`/`setStageForm` split, so the board can update
+optimistically and roll back on error. A non-curator still sees the
+original static grouped list (still just the four decided statuses) — the
+board and its drag affordances are curator-only, matching who
+`assertRoadmapCurator()` already let write a status.
 
 **Academic Partnerships: milestone 1 has landed.** Read
 `docs/academic-partnerships-design.md` before touching any of it. A public inquiry form

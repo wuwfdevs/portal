@@ -16,7 +16,7 @@ const RoadmapKanban = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {[0, 1, 2, 3].map((column) => (
+        {[0, 1, 2, 3, 4, 5].map((column) => (
           <div
             key={column}
             className="h-64 w-64 shrink-0 animate-pulse rounded border border-line bg-panel-50"

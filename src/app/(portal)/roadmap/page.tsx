@@ -131,38 +131,39 @@ export default async function RoadmapPage({
             </div>
           )}
         </>
+      ) : isCurator ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-ink-500">
+            Every request, grouped by where it stands. Drag a card between columns to change its
+            status, or use its “Move to…” menu.
+          </p>
+          <RoadmapKanbanField posts={posts} />
+        </div>
       ) : (
         <div className="flex flex-col gap-6">
           <p className="text-[13px] text-ink-500">
             What has actually been decided. Requests nobody has ruled on yet live on the Requests
             tab.
-            {isCurator && " Drag a card between columns to change its status, or use its “Move to…” menu."}
           </p>
-          {isCurator ? (
-            <RoadmapKanbanField posts={posts} />
-          ) : (
-            groupForRoadmap(posts).map((column) => (
-              <section key={column.status}>
-                <h2 className="mb-2.5 font-serif text-[15px] font-bold text-ink-900">
-                  {POST_STATUS_BADGE[column.status].label}
-                  <span className="ml-2 text-xs font-normal text-ink-400">
-                    {column.posts.length}
-                  </span>
-                </h2>
-                {column.posts.length === 0 ? (
-                  <p className="rounded border border-dashed border-line px-4 py-3 text-xs text-ink-400">
-                    Nothing {POST_STATUS_BADGE[column.status].label.toLowerCase()} right now.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2.5">
-                    {column.posts.map((post) => (
-                      <PostRow key={post.id} post={post} returnTo={returnTo} />
-                    ))}
-                  </div>
-                )}
-              </section>
-            ))
-          )}
+          {groupForRoadmap(posts).map((column) => (
+            <section key={column.status}>
+              <h2 className="mb-2.5 font-serif text-[15px] font-bold text-ink-900">
+                {POST_STATUS_BADGE[column.status].label}
+                <span className="ml-2 text-xs font-normal text-ink-400">{column.posts.length}</span>
+              </h2>
+              {column.posts.length === 0 ? (
+                <p className="rounded border border-dashed border-line px-4 py-3 text-xs text-ink-400">
+                  Nothing {POST_STATUS_BADGE[column.status].label.toLowerCase()} right now.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {column.posts.map((post) => (
+                    <PostRow key={post.id} post={post} returnTo={returnTo} />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
         </div>
       )}
     </div>

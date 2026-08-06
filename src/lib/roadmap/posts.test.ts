@@ -3,9 +3,9 @@ import type { RdPostStatus } from "@/lib/database.types";
 import {
   availableStatusActions,
   groupForRoadmap,
+  KANBAN_STATUSES,
   normalizeSort,
   POST_STATUS_BADGE,
-  roadmapDropTargets,
   ROADMAP_STATUSES,
   sortPosts,
   STATUS_ACTION_LABEL,
@@ -167,27 +167,16 @@ describe("groupForRoadmap", () => {
   });
 });
 
-describe("roadmapDropTargets", () => {
-  it("only offers destinations that are themselves roadmap columns", () => {
-    for (const status of ROADMAP_STATUSES) {
-      for (const target of roadmapDropTargets(status)) {
-        expect(ROADMAP_STATUSES).toContain(target);
+describe("KANBAN_STATUSES", () => {
+  it("covers every status exactly once, so every card has a column", () => {
+    expect([...KANBAN_STATUSES].sort()).toEqual([...ALL_STATUSES].sort());
+  });
+
+  it("makes every availableStatusActions() destination a column on the board", () => {
+    for (const status of KANBAN_STATUSES) {
+      for (const target of availableStatusActions(status)) {
+        expect(KANBAN_STATUSES).toContain(target);
       }
     }
-  });
-
-  it("lets a planned post move to in progress or declined, but not back to review", () => {
-    expect(roadmapDropTargets("planned")).toEqual(
-      expect.arrayContaining(["in_progress", "declined"]),
-    );
-    expect(roadmapDropTargets("planned")).not.toContain("under_review");
-  });
-
-  it("leaves a declined post nowhere to drag on this board — reopening is a bigger decision", () => {
-    expect(roadmapDropTargets("declined")).toEqual([]);
-  });
-
-  it("lets shipped walk back to in progress", () => {
-    expect(roadmapDropTargets("shipped")).toEqual(["in_progress"]);
   });
 });
