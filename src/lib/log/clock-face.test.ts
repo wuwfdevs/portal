@@ -5,6 +5,7 @@ import {
   categorizeSlot,
   describeRingSegment,
   formatOffsetLabel,
+  radialLabelOrientation,
   slotRenderWindow,
 } from "./clock-face";
 
@@ -154,6 +155,28 @@ describe("formatOffsetLabel", () => {
 
   it("wraps an offset past the total back onto the face", () => {
     expect(formatOffsetLabel(3660, 3600)).toBe("1");
+  });
+});
+
+describe("radialLabelOrientation", () => {
+  it("never rotates past 90 degrees from horizontal, so text is never upside down", () => {
+    for (let angle = 0; angle < 360; angle += 5) {
+      const { rotationDeg } = radialLabelOrientation(angle);
+      expect(rotationDeg).toBeGreaterThanOrEqual(-90);
+      expect(rotationDeg).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it("points straight up at the top of the face, anchored to start reading outward", () => {
+    expect(radialLabelOrientation(0)).toEqual({ rotationDeg: -90, anchor: "start" });
+  });
+
+  it("reads horizontally at the right of the face", () => {
+    expect(radialLabelOrientation(90)).toEqual({ rotationDeg: 0, anchor: "start" });
+  });
+
+  it("flips to end-anchored on the left half, so the label still grows outward", () => {
+    expect(radialLabelOrientation(270)).toEqual({ rotationDeg: 0, anchor: "end" });
   });
 });
 

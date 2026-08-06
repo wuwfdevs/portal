@@ -191,6 +191,32 @@ export interface ClockFaceBoundaryLabel {
   text: string;
 }
 
+export interface RadialLabelOrientation {
+  rotationDeg: number;
+  anchor: "start" | "end";
+}
+
+/**
+ * How to rotate and anchor a text label sitting at angleDeg on the ring so
+ * it reads outward along its own radius — like the numerals around the
+ * source NPR clock PDFs — rather than horizontally. Horizontal labels
+ * overlap badly wherever two slot boundaries fall only a few seconds apart
+ * (a short newscast next to a short music bed, say); a radial label's
+ * footprint along the ring is just its line thickness, so tightly packed
+ * boundaries no longer collide. Never rotates past ±90° from horizontal,
+ * so the text itself never renders upside down.
+ */
+export function radialLabelOrientation(angleDeg: number): RadialLabelOrientation {
+  const normalized = ((angleDeg % 360) + 360) % 360;
+  let raw = normalized - 90;
+  if (raw > 180) raw -= 360;
+  if (raw < -180) raw += 360;
+  if (raw > 90 || raw < -90) {
+    return { rotationDeg: raw > 0 ? raw - 180 : raw + 180, anchor: "end" };
+  }
+  return { rotationDeg: raw, anchor: "start" };
+}
+
 /**
  * A minute-mark label at every slot boundary (start and end of each slot's
  * rendered window), the way the source NPR clock PDFs label each segment

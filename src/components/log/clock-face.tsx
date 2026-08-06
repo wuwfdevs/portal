@@ -2,6 +2,7 @@ import {
   buildBoundaryLabels,
   buildClockFaceSegments,
   categorizeSlot,
+  radialLabelOrientation,
   slotRenderWindow,
   CATEGORY_COLOR,
   CATEGORY_LABEL,
@@ -21,25 +22,17 @@ import type { LogClockSlotRow } from "@/lib/log/queries";
 // nested inside a larger segment) is drawn after it and so correctly
 // notches into it visually, without needing a separate overlay ring.
 
-const SIZE = 380;
+const SIZE = 360;
 const CENTER = SIZE / 2;
 const R_OUTER = 140;
 const R_INNER = 90;
-const R_LABEL = R_OUTER + 22;
+const R_LABEL = R_OUTER + 18;
 const TOTAL_SECONDS = 3600;
 
 function formatOffset(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
-}
-
-/** Horizontal text-anchor for a label at angleDeg (0 = top, clockwise), so labels read outward from the ring rather than centering over it. */
-function labelAnchor(angleDeg: number): "start" | "middle" | "end" {
-  const normalized = ((angleDeg % 360) + 360) % 360;
-  const nearTopOrBottom = normalized < 8 || normalized > 352 || (normalized > 172 && normalized < 188);
-  if (nearTopOrBottom) return "middle";
-  return normalized < 180 ? "start" : "end";
 }
 
 export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
@@ -94,19 +87,23 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
             </path>
           );
         })}
-        {boundaryLabels.map((boundaryLabel, index) => (
-          <text
-            key={index}
-            x={boundaryLabel.x}
-            y={boundaryLabel.y}
-            textAnchor={labelAnchor(boundaryLabel.angleDeg)}
-            dominantBaseline="middle"
-            fontSize={9.5}
-            className="fill-ink-500"
-          >
-            {boundaryLabel.text}
-          </text>
-        ))}
+        {boundaryLabels.map((boundaryLabel, index) => {
+          const { rotationDeg, anchor } = radialLabelOrientation(boundaryLabel.angleDeg);
+          return (
+            <text
+              key={index}
+              x={boundaryLabel.x}
+              y={boundaryLabel.y}
+              textAnchor={anchor}
+              dominantBaseline="middle"
+              fontSize={9.5}
+              className="fill-ink-500"
+              transform={`rotate(${rotationDeg} ${boundaryLabel.x} ${boundaryLabel.y})`}
+            >
+              {boundaryLabel.text}
+            </text>
+          );
+        })}
         <text x={CENTER} y={CENTER + 4} textAnchor="middle" fontSize={11} className="fill-ink-400">
           60 min
         </text>
