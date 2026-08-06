@@ -118,14 +118,12 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
         </div>
         <div className="flex items-start gap-3">
           <StatusBadge status={source.status} kind={source.kind} />
-          {primaryProjectId && (
-            <SourceActionsMenu
-              projectId={primaryProjectId}
-              sourceId={id}
-              sourceTitle={source.title}
-              otherProjectCount={otherProjectCount}
-            />
-          )}
+          <SourceActionsMenu
+            projectId={primaryProjectId}
+            sourceId={id}
+            sourceTitle={source.title}
+            otherProjectCount={otherProjectCount}
+          />
         </div>
       </div>
 
