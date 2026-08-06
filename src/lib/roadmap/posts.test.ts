@@ -5,6 +5,7 @@ import {
   groupForRoadmap,
   normalizeSort,
   POST_STATUS_BADGE,
+  roadmapDropTargets,
   ROADMAP_STATUSES,
   sortPosts,
   STATUS_ACTION_LABEL,
@@ -163,5 +164,30 @@ describe("groupForRoadmap", () => {
       { id: "b", status: "under_review" as const },
     ]);
     expect(grouped.every((column) => column.posts.length === 0)).toBe(true);
+  });
+});
+
+describe("roadmapDropTargets", () => {
+  it("only offers destinations that are themselves roadmap columns", () => {
+    for (const status of ROADMAP_STATUSES) {
+      for (const target of roadmapDropTargets(status)) {
+        expect(ROADMAP_STATUSES).toContain(target);
+      }
+    }
+  });
+
+  it("lets a planned post move to in progress or declined, but not back to review", () => {
+    expect(roadmapDropTargets("planned")).toEqual(
+      expect.arrayContaining(["in_progress", "declined"]),
+    );
+    expect(roadmapDropTargets("planned")).not.toContain("under_review");
+  });
+
+  it("leaves a declined post nowhere to drag on this board — reopening is a bigger decision", () => {
+    expect(roadmapDropTargets("declined")).toEqual([]);
+  });
+
+  it("lets shipped walk back to in progress", () => {
+    expect(roadmapDropTargets("shipped")).toEqual(["in_progress"]);
   });
 });

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { requireAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
 import {
   getSettings,
   getSubmissionDetail,
@@ -17,6 +18,7 @@ import { addNote } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { InternalPanel } from "./internal-panel";
 import { EmailPanel } from "./email-panel";
+import { DeleteSubmissionControl } from "./delete-submission-control";
 
 export default async function SubmissionDetailPage({
   params,
@@ -27,7 +29,8 @@ export default async function SubmissionDetailPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [submission, members, settings, templates] = await Promise.all([
+  const [{ isCoordinator }, submission, members, settings, templates] = await Promise.all([
+    requireAcademicPartnershipsAccess(),
     getSubmissionDetail(id),
     listToolMembers(),
     getSettings(),
@@ -83,9 +86,12 @@ export default async function SubmissionDetailPage({
         </section>
       </div>
 
-      <aside className="w-full shrink-0 lg:w-80">
+      <aside className="flex w-full shrink-0 flex-col gap-6 lg:w-80">
         {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
         <InternalPanel submission={submission} members={members} />
+        {isCoordinator && (
+          <DeleteSubmissionControl submissionId={submission.id} facultyName={submission.faculty_name} />
+        )}
       </aside>
     </div>
   );

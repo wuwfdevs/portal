@@ -415,6 +415,28 @@ surrounding form stays the repo's ordinary `<form action={serverAction}>`. Scree
 attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
 design doc §7 before adding them.
 
+**Roadmap revision (2026-08-06):** the roadmap tab's four decided columns
+(`ROADMAP_STATUSES`) became a real drag-and-drop kanban board for curators
+(`src/app/(portal)/roadmap/kanban-board.tsx`, `kanban-board-field.tsx`'s
+`next/dynamic({ ssr: false })` wrapper) — `@dnd-kit/core`'s second use in
+this repo, not a new dependency; see Academic Partnerships' kanban board
+below for why it's the one library this codebase reaches for here. Unlike
+that board, Roadmap's status changes follow a real state machine
+(`availableStatusActions`), not free movement to any column, so dropping a
+card is validated against `roadmapDropTargets()` (a pure, tested filter of
+`availableStatusActions` to this board's own four columns — off-board
+destinations like reopening to `open`/`under_review` stay on the post
+detail page's curation panel) and a no-op if the target isn't legal.
+Dropping onto Declined opens an inline reason prompt instead of moving the
+card immediately, since `rd_posts` and `validateStatusChange` both require
+one. `setPostStatus` (the detail page's form action) now delegates to a new
+non-redirecting `movePostStatus()`, mirroring
+`academic-partnerships/actions.ts`'s `setSubmissionStage`/`setStageForm`
+split, so the board can update optimistically and roll back on error. A
+non-curator still sees the original static grouped list — the board and its
+drag affordances are curator-only, matching who `assertRoadmapCurator()`
+already let write a status.
+
 **Academic Partnerships: milestone 1 has landed.** Read
 `docs/academic-partnerships-design.md` before touching any of it. A public inquiry form
 at `/partner` (and `/partner/embed` for a Grove iframe) feeds a staff-run pipeline —
@@ -516,6 +538,23 @@ or embargoes" and asked once regardless of track), `learning_objectives` (duplic
 alone is now what `ap_submit_inquiry()` requires for the `faculty_research` track), and
 `research_links` (not duplicative, just lower-priority triage detail better collected
 during Reviewing). See design doc §9.7.
+
+**Academic Partnerships revision (2026-08-06) — inquiry deletion.** A
+submission can now be permanently deleted, coordinator-only
+(`assertAcademicPartnershipsCoordinator()`), from a "Danger zone" section on
+the submission detail screen (`[id]/delete-submission-control.tsx`, a
+two-step confirm mirroring Sourcework's `SourceActionsMenu`) — deliberately
+not on the kanban card itself, since this is rarer and, unlike a
+disposition, not reversible, so it stays off a surface built for quick
+drags. `deleteSubmission()` in `actions.ts` needed a new migration,
+`20260806120000_academic_partnerships_delete.sql`: `ap_submissions` had
+`select`/`update` policies but no `delete` one, and the existing
+member-level `assertAcademicPartnershipsAccess()` write actions (stage,
+owner, disposition) don't need one. `ap_submission_events` cascades with
+its parent row (`on delete cascade`), so a submission's activity log
+disappears with it — the deletion itself is recorded in `audit_events`
+instead (action `ap.submission.deleted`), the only durable trace once RLS
+and the cascade have both finished.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
