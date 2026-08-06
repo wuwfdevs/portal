@@ -561,6 +561,51 @@ disappears with it — the deletion itself is recorded in `audit_events`
 instead (action `ap.submission.deleted`), the only durable trace once RLS
 and the cascade have both finished.
 
+**Log: milestone 1 slice 1 (Foundation) has landed — the guardrail against
+building it is lifted.** Log is the first of three tools splitting the WUWF
+Unified Broadcast Rundown and Traffic System spec; read
+`docs/broadcast-operations-strategy.md` (the three-tool split and schema
+ownership) and `docs/log-design.md` (this tool's own design, milestone 1 in
+full) before touching any of it. Milestone 1 is large — ten tables, eight
+user workflows, a live host console with offline resilience, a pure timing
+engine — so it's being built in slices, the same way Remote Interview was.
+**Slice 1 ships only what Workflows A (defining a clock) and B (scheduling
+programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
+`log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
+route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
+and producer-only create forms for templates/versions/slots/programs/
+schedule entries. **Slice 2 (content library) is next — proceed with it
+without asking again**, followed by NPR+weather, rundown generation with the
+timing engine, the host console with mid-broadcast actions, then submission
+and the three MCP capabilities — see `docs/log-design.md` §7 for the full
+milestone list this is slicing through.
+
+Two things about this slice are load-bearing:
+
+1. **Log is invite_only, like Academic Partnerships, not open like Roadmap.**
+   A `tool_access` grant is the ticket in, not an elevation on top of open
+   access. `private.has_log_access()` mirrors
+   `private.has_academic_partnerships_access()` exactly (a non-revoked grant
+   plus an active profile, no `default_access` branch). The elevation within
+   the tool — `private.is_log_producer()` — is the same member/coordinator
+   shape too: a grant carrying `tool_role = 'producer'`, OR'd with
+   `private.is_administrator()`. An administrator with no grant on Log can
+   therefore satisfy `is_log_producer()` but still can't open the tool at all
+   (`requireToolAccess` checks for an actual `tool_access` row, not this
+   predicate) — the same asymmetry Academic Partnerships already has, not a
+   new inconsistency introduced here.
+2. **`log_clock_versions` and `log_clock_slots` are insert-only, forever, by
+   design — not a gap to fill in later.** The design doc calls a clock
+   version immutable once created ("no update path on this table from the
+   application... a correction is a new version"), the same reasoning
+   Audience Listening's answers snapshot their question. RLS grants
+   producers `select`+`insert` only on both tables, no `update` policy at
+   all — confirmed directly against the preview database that an
+   `update` from a producer session silently matches zero rows (correct
+   Postgres RLS behavior for a command with no applicable policy), not a
+   permission error and not a successful write. A correction is always a new
+   version, never an edit to an old one.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -663,6 +708,8 @@ src/app/(portal)/roadmap/  Roadmap (wishlist + product roadmap) — its own rout
 src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all submissions,
                             settings) — its own route segment, gated by
                             requireToolAccess("academic-partnerships")
+src/app/(portal)/log/     Log (clocks, programs — slice 1 of its milestone 1; see above) —
+                            its own route segment, gated by requireToolAccess("log")
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -714,6 +761,11 @@ src/lib/academic-partnerships/  Academic Partnerships' access gate + role (acces
                            partnership types + public-form validation
                            (partnership-types.ts), embed code (embed.ts), and email
                            template interpolation (email.ts)
+src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff data reads
+                           (queries.ts), plus pure, tested modules — clock-version
+                           resolution (clock-versions.ts) and schedule-entry-active-on-a-date
+                           logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
+                           timing engine, content-eligibility filtering, etc. land here too
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
