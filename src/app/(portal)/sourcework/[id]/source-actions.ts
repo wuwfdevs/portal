@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { createSourceForExistingProject } from "@/lib/transcription/ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
+import { purgeSource } from "@/lib/transcription/source-deletion";
 import { getSourceRef } from "@/lib/transcription/projects";
-import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
@@ -136,11 +136,11 @@ export async function countOtherProjectsForSource(
  * Permanently deletes a source — the destructive half of a source's "remove"
  * choice. Unlike detaching, this affects every project that references it:
  * sw_project_sources/sw_representations (and everything keyed off a
- * representation) cascade-delete in the database, so this only has to sweep
+ * representation) cascade-delete in the database, and purgeSource sweeps
  * what the database can't reach — the original file and any rendered
- * excerpt exports in Storage — same cleanup deleteProject already does for
- * a project's primary source. Restricted to the uploader, same ownership
- * check (and RLS policy) as deleteProject.
+ * excerpt exports in Storage — same cleanup deleteProject's cascade uses for
+ * each source it purges. Restricted to the uploader, same ownership check
+ * (and RLS policy) as deleteProject.
  */
 export async function deleteSourceEntirely(sourceId: string): Promise<{ error?: string }> {
   const { profile } = await assertToolAccess("transcription");
@@ -148,7 +148,7 @@ export async function deleteSourceEntirely(sourceId: string): Promise<{ error?: 
 
   const { data: source } = await supabase
     .from("sw_sources")
-    .select("created_by, original_storage_path")
+    .select("created_by")
     .eq("id", sourceId)
     .maybeSingle();
 
@@ -156,22 +156,11 @@ export async function deleteSourceEntirely(sourceId: string): Promise<{ error?: 
     return { error: "You can only delete a source you uploaded." };
   }
 
-  const { data: exportedClips } = await supabase.storage
-    .from(TRANSCRIPTION_MEDIA_BUCKET)
-    .list(`${sourceId}/excerpts`);
-
-  const objectPaths = [
-    ...(source.original_storage_path ? [source.original_storage_path] : []),
-    ...(exportedClips ?? []).map((object) => `${sourceId}/excerpts/${object.name}`),
-  ];
-  if (objectPaths.length > 0) {
-    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
-  }
-
-  const { error } = await supabase.from("sw_sources").delete().eq("id", sourceId);
-  if (error) return { error: "Could not delete this source." };
+  const result = await purgeSource(supabase, sourceId);
+  if (result.error) return result;
 
   revalidatePath("/sourcework");
+  revalidatePath(`/sourcework/sources/${sourceId}`);
   return {};
 }
 

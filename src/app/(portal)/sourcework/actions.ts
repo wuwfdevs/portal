@@ -4,11 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
-import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 import { reindexRepresentation, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
+import { purgeSource } from "@/lib/transcription/source-deletion";
 import { getPrimarySourceForProject, getSourceRef } from "@/lib/transcription/projects";
 import type { SwSourceKind } from "@/lib/database.types";
 
@@ -121,7 +121,7 @@ export async function updateProjectDetails(input: {
  * transcription retry (docs/sourcework-design.md §7): reindexing whichever
  * source is actually on screen, not always the first one attached.
  */
-export async function reindexProjectSearch(projectId: string, sourceId: string): Promise<{
+export async function reindexProjectSearch(projectId: string | null, sourceId: string): Promise<{
   error?: string;
   chunks?: number;
   embedded?: number;
@@ -136,7 +136,11 @@ export async function reindexProjectSearch(projectId: string, sourceId: string):
       return { error: "This source has no representation to index yet." };
     }
     const result = await reindexRepresentation(supabase, ref.representationId);
-    revalidatePath(`/sourcework/${projectId}`);
+    // projectId is null when reindexing from the Source Detail screen for a
+    // source not attached to any project (SourceActionsMenu) — nothing to
+    // revalidate there beyond the source's own path.
+    if (projectId) revalidatePath(`/sourcework/${projectId}`);
+    revalidatePath(`/sourcework/sources/${sourceId}`);
     revalidatePath("/sourcework");
     return result;
   } catch (error) {
@@ -269,13 +273,17 @@ export async function failProjectUpload(input: {
 }
 
 /**
- * Deletes a project and, if no other project references its source, the
- * source and everything derived from it (representations, segments,
+ * Deletes a project and, for every source it references (not only the
+ * primary one — a project can reference more than one since Phase 3a, e.g.
+ * an audio interview plus a reference PDF, and each is deleted independently
+ * of the other's kind) that no *other* project still references, the source
+ * itself and everything derived from it (representations, segments,
  * speakers, chunks, excerpts all cascade from sw_sources — see the Phase 1
- * migration). Only the uploader can do this (matches the tw_projects RLS
- * delete policy) — checked explicitly here, not just left to RLS, because
- * the storage bucket's own policies are membership-wide by design (see the
- * schema migration's tw_media_delete policy comment): without this check a
+ * migration; purgeSource sweeps what the database can't reach, Storage).
+ * Only the uploader can do this (matches the tw_projects RLS delete policy)
+ * — checked explicitly here, not just left to RLS, because the storage
+ * bucket's own policies are membership-wide by design (see the schema
+ * migration's tw_media_delete policy comment): without this check a
  * non-owner could strip the media object while the row delete silently
  * no-ops under RLS, leaving an orphaned row.
  */
@@ -294,37 +302,20 @@ export async function deleteProject(formData: FormData): Promise<void> {
     redirect("/sourcework");
   }
 
-  const ref = await getPrimarySourceForProject(supabase, projectId);
-  if (ref) {
-    const { data: source } = await supabase
-      .from("sw_sources")
-      .select("original_storage_path")
-      .eq("id", ref.sourceId)
-      .maybeSingle();
+  const { data: projectSources } = await supabase
+    .from("sw_project_sources")
+    .select("source_id")
+    .eq("project_id", projectId);
 
+  for (const { source_id: sourceId } of projectSources ?? []) {
     const { count: otherReferences } = await supabase
       .from("sw_project_sources")
       .select("project_id", { count: "exact", head: true })
-      .eq("source_id", ref.sourceId)
+      .eq("source_id", sourceId)
       .neq("project_id", projectId);
 
     if (!otherReferences) {
-      // Rendered clip exports live under <source id>/excerpts/ and are not
-      // reachable from the source row once it's gone, so they have to be
-      // swept here — deleting the row cascades sw_source_excerpts but tells
-      // storage nothing.
-      const { data: exportedClips } = await supabase.storage
-        .from(TRANSCRIPTION_MEDIA_BUCKET)
-        .list(`${ref.sourceId}/excerpts`);
-
-      const objectPaths = [
-        ...(source?.original_storage_path ? [source.original_storage_path] : []),
-        ...(exportedClips ?? []).map((object) => `${ref.sourceId}/excerpts/${object.name}`),
-      ];
-      if (objectPaths.length > 0) {
-        await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
-      }
-      await supabase.from("sw_sources").delete().eq("id", ref.sourceId);
+      await purgeSource(supabase, sourceId);
     }
   }
 
