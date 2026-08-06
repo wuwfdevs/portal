@@ -117,8 +117,8 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
                 height={10}
                 rx={2}
                 fill={category === "float" ? `url(#${floatPatternId})` : CATEGORY_COLOR[category].fill}
-                stroke={category === "float" ? CATEGORY_COLOR.float.stroke : "none"}
-                strokeWidth={category === "float" ? 1 : 0}
+                stroke={category === "float" ? CATEGORY_COLOR.float.stroke : "#C7CBD1"}
+                strokeWidth={category === "float" ? 1 : 0.75}
                 strokeDasharray={category === "float" ? "2 1" : undefined}
               />
             </svg>
