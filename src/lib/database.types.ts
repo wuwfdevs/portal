@@ -64,7 +64,11 @@
 // latest_start_offset_seconds/segment_label, and log_schedule gained
 // air_time (not null) and duration_minutes (not null) — both tables were
 // still empty in both environments at the time, confirmed directly, so no
-// existing-row reconciliation was needed.
+// existing-row reconciliation was needed. Hand-updated again on 2026-08-06
+// for Log's Slice 2 (supabase/migrations/20260806160000_log_content_library.sql):
+// log_content_items/log_content_components and the new
+// LogContentType/LogApprovalStatus/LogComponentType enums, added by hand
+// following the same Row/Insert/Update shape as every other table here.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -234,6 +238,19 @@ export type LogClockVersionVariant =
 export type LogSlotFillMode = "required" | "optional" | "host_fillable";
 export type LogSlotAssignmentMode = "automatic" | "preassigned" | "host_selected";
 export type LogSlotTimingMode = "fixed" | "float";
+// Slice 2 (content library) — see supabase/migrations/20260806160000_log_content_library.sql.
+export type LogContentType =
+  | "news"
+  | "station_promo"
+  | "program_promo"
+  | "membership_message"
+  | "university_announcement"
+  | "psa"
+  | "legal_id"
+  | "interview_feature"
+  | "host_created";
+export type LogApprovalStatus = "draft" | "approved" | "retired";
+export type LogComponentType = "live_intro" | "recorded_audio" | "live_outro" | "optional_tag";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1389,6 +1406,58 @@ export interface Database {
           duration_minutes: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]>;
+        Relationships: [];
+      };
+      log_content_items: {
+        Row: {
+          id: string;
+          content_type: LogContentType;
+          title: string;
+          script: string | null;
+          audio_object_path: string | null;
+          summary: string | null;
+          expected_duration_seconds: number | null;
+          effective_from: string;
+          effective_to: string | null;
+          owner_id: string | null;
+          approval_status: LogApprovalStatus;
+          eligible_program_ids: string[];
+          priority: number | null;
+          frequency_guidance: string | null;
+          reusable: boolean;
+          geography_tags: string[];
+          subject_tags: string[];
+          community_issue_tags: string[];
+          reporter_or_editor: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_content_items"]["Row"]> & {
+          content_type: LogContentType;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_content_items"]["Row"]>;
+        Relationships: [];
+      };
+      log_content_components: {
+        Row: {
+          id: string;
+          content_item_id: string;
+          component_type: LogComponentType;
+          sequence: number;
+          duration_seconds: number;
+          required: boolean;
+          script: string | null;
+          audio_object_path: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]> & {
+          content_item_id: string;
+          component_type: LogComponentType;
+          sequence: number;
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]>;
         Relationships: [];
       };
     };

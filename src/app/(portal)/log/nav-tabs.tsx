@@ -7,6 +7,7 @@ const TABS = [
   { href: "/log", label: "Today" },
   { href: "/log/clocks", label: "Clocks" },
   { href: "/log/programs", label: "Programs" },
+  { href: "/log/library", label: "Library" },
 ] as const;
 
 export function NavTabs() {

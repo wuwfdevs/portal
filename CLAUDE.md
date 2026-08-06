@@ -574,11 +574,11 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slice 2 (content library) is next — proceed with it
-without asking again**, followed by NPR+weather, rundown generation with the
-timing engine, the host console with mid-broadcast actions, then submission
-and the three MCP capabilities — see `docs/log-design.md` §7 for the full
-milestone list this is slicing through.
+schedule entries. **Slice 2 (content library) has since landed too — see
+below.** NPR+weather is next — proceed with it without asking again,
+followed by rundown generation with the timing engine, the host console with
+mid-broadcast actions, then submission and the three MCP capabilities — see
+`docs/log-design.md` §7 for the full milestone list this is slicing through.
 
 Two things about this slice are load-bearing:
 
@@ -629,6 +629,69 @@ rundown from. Both columns are populated on every seeded schedule row, and
 the create-schedule-entry form/action in `src/app/(portal)/log/programs/
 page.tsx`/`program-actions.ts` (written before this gap was found) were
 updated in the same pass to collect them.
+
+**Log: schedule-completeness fixes (2026-08-06)** —
+`20260806170000_log_schedule_completeness_fixes.sql` closes three gaps found
+after the initial NPR seed, all discovered by cross-checking the seeded data
+against the actual 13 source clock PDFs and the station's real weekly
+schedule rather than only checking the seed script's own row counts for
+internal consistency (which is how the first gap shipped undetected in the
+first place): **Morning Edition's clock template/version/23 slots/program
+were missing entirely** — fully transcribed at the time but never added to
+the seed script's `CLOCKS` dict, so it silently never reached the SQL output;
+**`1A` and `Fresh Air` (weekday) had complete clock data but no
+`log_schedule` row** — both had templates/versions/slots/programs seeded
+correctly, but their `SCHEDULE` entries were left out of the same script, so
+neither would ever have appeared on the Today screen or a programs schedule
+list despite having a real clock behind them; and **every other program on
+the station's actual weekly schedule that this project hasn't yet been given
+a detailed clock PDF for now has a `log_programs` row and a `log_schedule`
+row anyway**, pointing at one new shared placeholder clock template ("Unspecified
+(awaiting network clock)", a single slot spanning the whole hour) rather than
+either 32 near-duplicate one-off templates or leaving those programs unable
+to be scheduled at all until their real clock arrives. Swapping a placeholder
+program onto its own real clock template later is a normal `log_schedule`
+update — that table, unlike `log_clock_versions`/`log_clock_slots`, is not
+insert-only — so no migration is required when the remaining clocks show up.
+
+**Log: clock version diagram.** The clock template detail screen
+(`/log/clocks/[id]`) now renders each version's slots as a circular ring
+diagram alongside the existing table, in the same visual spirit as the NPR
+network clock PDFs this data was transcribed from. `src/lib/log/clock-face.ts`
+is pure geometry/categorization (donut-segment SVG path construction,
+slot-to-visual-category mapping keyed off label text and
+`fill_mode`/`timing_mode` — there's no dedicated "kind of network element"
+column) with a colocated test file; `src/components/log/clock-face.tsx` is a
+plain server-rendered `<svg>` (no `"use client"` needed — each segment's
+native `<title>` tooltip is the only interactivity called for) consuming it.
+
+**Log: milestone 1 slice 2 (Content library) has landed** —
+`20260806160000_log_content_library.sql` adds `log_content_items` (news,
+station/program promos, membership messages, university announcements,
+PSAs, legal IDs, interview/feature, host-created) and `log_content_components`
+(a timed part of one — live intro, recorded audio, live outro, optional
+tag), plus the `/log/library` route segment (browse/filter, create, detail
+with components and an approval-status control). One thing about this
+slice cuts the other way from Slice 1's producer gate: **content
+authorship is open to any tool member, not producer-only** — the design
+doc is explicit that newsroom/promotions staff "neither need a producer
+role to do it," so `log_content_items`/`log_content_components` RLS keys
+off `private.has_log_access()` alone, with no `is_log_producer()` branch at
+all (confirmed directly against preview: a plain member with no
+`tool_role` can insert a content item). Retiring stale content is an
+ordinary update (`approval_status` → `'retired'`), the same
+deactivate-don't-delete lifecycle `ep_criteria`/`ep_form_fields` use — no
+delete policy is granted on either table. Audio uploads (`log-media`
+storage bucket, added in the same migration) copy Sourcework's established
+pattern exactly: browser-direct-to-Storage via `supabase.storage.from(...).upload()`
+(`src/app/(portal)/log/audio-upload.tsx`), never a Server Action payload for
+the file itself, with `upsert: true` against a fixed per-entity object path
+(`lib/log/content-library.ts`'s `contentItemAudioObjectPath`/
+`contentComponentAudioObjectPath`) so a corrected re-upload overwrites
+cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
+(same file, pure and tested) implements the design doc's "a 30-second promo
+with a required 8-second outro is a 38-second commitment, never displayed
+as 30" rule — optional components never count toward the total.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
