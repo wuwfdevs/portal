@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { assertAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
+import {
+  assertAcademicPartnershipsAccess,
+  assertAcademicPartnershipsCoordinator,
+} from "@/lib/academic-partnerships/access";
 import { logSubmissionEvent } from "@/lib/academic-partnerships/activity";
 import { logAuditEvent } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
@@ -291,6 +294,54 @@ export async function reopenSubmission(formData: FormData): Promise<void> {
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/all`);
   redirect(path);
+}
+
+/**
+ * Permanently deletes an inquiry — coordinator-only (see the migration this
+ * shipped with, 20260806120000_academic_partnerships_delete.sql):
+ * unlike a disposition, which just takes a submission off the active kanban
+ * board while keeping its record and its stage, this erases it. Called
+ * directly from the submission detail screen's client-side confirm control
+ * (mirroring sourcework's deleteSourceEntirely), not a <form action>, so the
+ * caller can hold a two-step "are you sure" state before committing. Fields
+ * are captured before the delete so the audit event — the only trace left
+ * once ap_submission_events cascades away with the row — still says whose
+ * inquiry it was.
+ */
+export async function deleteSubmission(submissionId: string): Promise<{ error?: string }> {
+  const { profile } = await assertAcademicPartnershipsCoordinator();
+
+  const supabase = await createClient();
+  const { data: submission } = await supabase
+    .from("ap_submissions")
+    .select("faculty_name, department")
+    .eq("id", submissionId)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from("ap_submissions")
+    .delete()
+    .eq("id", submissionId)
+    .select("id");
+  if (error) {
+    console.error("Could not delete submission", error);
+    return { error: "Could not delete this inquiry. Please try again." };
+  }
+  if (!data || data.length === 0) {
+    return { error: "This inquiry could not be deleted." };
+  }
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "ap.submission.deleted",
+    targetType: "ap_submission",
+    targetId: submissionId,
+    metadata: { faculty_name: submission?.faculty_name ?? null, department: submission?.department ?? null },
+  });
+
+  revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/all`);
+  return {};
 }
 
 /**

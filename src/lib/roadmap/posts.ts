@@ -136,3 +136,15 @@ export function groupForRoadmap<T extends { status: RdPostStatus }>(
     posts: posts.filter((post) => post.status === status),
   }));
 }
+
+/**
+ * Where a post can move to by dragging within the Roadmap tab's kanban
+ * board — the subset of availableStatusActions() that lands on one of this
+ * board's own columns. A transition to `open` or `under_review` takes a
+ * post off the roadmap entirely (back to the Requests tab); that is a
+ * bigger decision than a card move, so it stays on the post detail page's
+ * curation panel instead of being offered as a drop target here.
+ */
+export function roadmapDropTargets(status: RdPostStatus): RdPostStatus[] {
+  return availableStatusActions(status).filter((next) => ROADMAP_STATUSES.includes(next));
+}
