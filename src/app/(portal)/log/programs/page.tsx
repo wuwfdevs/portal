@@ -59,12 +59,13 @@ export default async function ProgramsPage({
                       {(entriesByProgram.get(program.id) ?? []).map((entry) => (
                         <li key={entry.id}>
                           <span className="font-semibold">{entry.clockTemplateName}</span> —{" "}
-                          {entry.entry_type}
+                          {entry.air_time} for {entry.duration_minutes}m, {entry.entry_type}
                           {entry.entry_type === "recurring" && entry.days_of_week.length > 0 && (
                             <> ({entry.days_of_week.map((day) => DAY_LABELS[day]).join(", ")})</>
                           )}
                           , from {entry.start_date}
                           {entry.end_date ? ` to ${entry.end_date}` : ""}
+                          {entry.notes && <span className="block text-ink-400">{entry.notes}</span>}
                         </li>
                       ))}
                     </ul>
@@ -168,6 +169,24 @@ export default async function ProgramsPage({
                   <div>
                     <Label htmlFor="end_date">End date</Label>
                     <Input id="end_date" name="end_date" type="date" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div>
+                    <Label htmlFor="air_time">Air time</Label>
+                    <Input id="air_time" name="air_time" type="time" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="duration_minutes">Duration (min)</Label>
+                    <Input
+                      id="duration_minutes"
+                      name="duration_minutes"
+                      type="number"
+                      required
+                      min={1}
+                      className="w-28"
+                    />
+                    <FieldHint>May span multiple hours — the clock template repeats each hour.</FieldHint>
                   </div>
                 </div>
                 <div>

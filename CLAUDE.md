@@ -606,6 +606,30 @@ Two things about this slice are load-bearing:
    permission error and not a successful write. A correction is always a new
    version, never an edit to an old one.
 
+**Log: seeded with the 13 real NPR-syndicated programs WUWF currently
+carries** (`20260806140000_log_clock_slot_windows_and_schedule_times.sql` +
+`20260806150000_log_seed_npr_clocks.sql`), transcribed from the station's own
+NPR network clock diagrams and scheduled per the station's corrected weekly
+schedule — read the second migration's header before touching any of this
+seed data; it documents fidelity caveats (a few hour-internal junctions are
+structurally-sound approximations, not exact transcriptions) and the
+Fresh Air Weekend / TED Radio Hour / Here & Now / World Cafe schedule
+quirks. Seeding this surfaced two real schema gaps, both closed by the first
+migration before the second one could run: **`log_clock_slots` gained
+`earliest_start_offset_seconds`/`latest_start_offset_seconds`/
+`segment_label`** — a "floating break" (a local avail whose exact position
+within a window is the station's call, not the network's) is a real,
+current feature of five of these clocks, not a hypothetical one, and the
+single-value `start_offset_seconds` couldn't express a range; and
+**`log_schedule` gained `air_time` (not null) and `duration_minutes` (not
+null)** — the original design doc listed `start_date`/`end_date`/
+`days_of_week` but nothing saying what time of day a program airs or for how
+long, an oversight rather than a deferral, and not enough to ever generate a
+rundown from. Both columns are populated on every seeded schedule row, and
+the create-schedule-entry form/action in `src/app/(portal)/log/programs/
+page.tsx`/`program-actions.ts` (written before this gap was found) were
+updated in the same pass to collect them.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
