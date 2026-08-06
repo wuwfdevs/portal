@@ -58,7 +58,13 @@
 // instance running to regenerate against; added by hand following the
 // ap_submissions block's Row/Insert/Update shape, insert-only tables
 // (log_clock_versions/log_clock_slots) noted the same way as
-// ap_submissions' insert-only comment.
+// ap_submissions' insert-only comment. Hand-updated again on 2026-08-06
+// (supabase/migrations/20260806140000_log_clock_slot_windows_and_schedule_
+// times.sql): log_clock_slots gained earliest_start_offset_seconds/
+// latest_start_offset_seconds/segment_label, and log_schedule gained
+// air_time (not null) and duration_minutes (not null) — both tables were
+// still empty in both environments at the time, confirmed directly, so no
+// existing-row reconciliation was needed.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1344,6 +1350,11 @@ export interface Database {
           timing_mode: LogSlotTimingMode;
           lock_on_air: boolean;
           label: string | null;
+          /** Set only when timing_mode = 'float' — see 20260806140000_log_clock_slot_windows_and_schedule_times.sql. */
+          earliest_start_offset_seconds: number | null;
+          latest_start_offset_seconds: number | null;
+          /** The network clock's own segment letter (A, B, ...), purely descriptive. */
+          segment_label: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]> & {
           clock_version_id: string;
@@ -1363,6 +1374,10 @@ export interface Database {
           start_date: string;
           end_date: string | null;
           effective_from: string;
+          /** Station-local time of day this air block starts. */
+          air_time: string;
+          /** Total block length in minutes — may span multiple hours, each repeating the clock template. */
+          duration_minutes: number;
           notes: string | null;
           created_by: string | null;
         };
@@ -1370,6 +1385,8 @@ export interface Database {
           program_id: string;
           clock_template_id: string;
           start_date: string;
+          air_time: string;
+          duration_minutes: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]>;
         Relationships: [];

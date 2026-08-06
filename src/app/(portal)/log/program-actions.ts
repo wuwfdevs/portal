@@ -54,6 +54,12 @@ export async function createScheduleEntry(formData: FormData): Promise<void> {
   if (!ENTRY_TYPES.includes(entryType)) failWith(LIST_PATH, "That is not a recognized entry type.");
   const startDate = field(formData, "start_date");
   if (startDate === "") failWith(LIST_PATH, "Give the entry a start date.");
+  const airTime = field(formData, "air_time");
+  if (airTime === "") failWith(LIST_PATH, "Give the entry an air time.");
+  const durationMinutes = Number.parseInt(field(formData, "duration_minutes"), 10);
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    failWith(LIST_PATH, "Give the entry a duration greater than zero.");
+  }
 
   const daysOfWeek = formData
     .getAll("days_of_week")
@@ -69,6 +75,8 @@ export async function createScheduleEntry(formData: FormData): Promise<void> {
     start_date: startDate,
     end_date: optionalField(formData, "end_date"),
     effective_from: optionalField(formData, "effective_from") ?? startDate,
+    air_time: airTime,
+    duration_minutes: durationMinutes,
     notes: optionalField(formData, "notes"),
     created_by: profile.id,
   });
