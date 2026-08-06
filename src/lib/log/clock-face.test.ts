@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBoundaryLabels,
   buildClockFaceSegments,
   categorizeSlot,
   describeRingSegment,
+  formatOffsetLabel,
+  radialLabelOrientation,
+  slotRenderWindow,
 } from "./clock-face";
+
+function fixedWindow(slot: { start_offset_seconds: number | null; duration_seconds: number }) {
+  return { start: slot.start_offset_seconds ?? 0, duration: slot.duration_seconds };
+}
 
 describe("categorizeSlot", () => {
   it("treats any float slot as a floating local break, regardless of label", () => {
@@ -71,13 +79,51 @@ describe("describeRingSegment", () => {
   });
 });
 
+describe("slotRenderWindow", () => {
+  it("uses start_offset_seconds/duration_seconds directly for a fixed slot", () => {
+    expect(
+      slotRenderWindow({
+        start_offset_seconds: 600,
+        duration_seconds: 30,
+        timing_mode: "fixed",
+        earliest_start_offset_seconds: null,
+        latest_start_offset_seconds: null,
+      }),
+    ).toEqual({ start: 600, duration: 30 });
+  });
+
+  it("spans earliest-start to latest-start-plus-duration for a float slot", () => {
+    expect(
+      slotRenderWindow({
+        start_offset_seconds: 1200,
+        duration_seconds: 60,
+        timing_mode: "float",
+        earliest_start_offset_seconds: 1200,
+        latest_start_offset_seconds: 1260,
+      }),
+    ).toEqual({ start: 1200, duration: 120 });
+  });
+
+  it("falls back to the fixed behavior if a float slot has no window bounds", () => {
+    expect(
+      slotRenderWindow({
+        start_offset_seconds: 900,
+        duration_seconds: 45,
+        timing_mode: "float",
+        earliest_start_offset_seconds: null,
+        latest_start_offset_seconds: null,
+      }),
+    ).toEqual({ start: 900, duration: 45 });
+  });
+});
+
 describe("buildClockFaceSegments", () => {
   it("places a slot's angles proportional to its offset/duration within the total", () => {
     const slots = [
       { start_offset_seconds: 0, duration_seconds: 900 }, // first quarter
       { start_offset_seconds: 2700, duration_seconds: 900 }, // last quarter
     ];
-    const segments = buildClockFaceSegments(slots, 3600, () => "segment", 100, 100, 90, 60);
+    const segments = buildClockFaceSegments(slots, 3600, () => "segment", fixedWindow, 100, 100, 90, 60);
     expect(segments).toHaveLength(2);
     // A quarter-turn sweep starting at the top should not need the large-arc flag.
     expect(segments[0]!.pathD).toContain(" A 90 90 0 0 1 ");
@@ -88,11 +134,59 @@ describe("buildClockFaceSegments", () => {
       [{ start_offset_seconds: 0, duration_seconds: 0 }],
       3600,
       () => "segment",
+      fixedWindow,
       100,
       100,
       90,
       60,
     );
     expect(segments).toHaveLength(0);
+  });
+});
+
+describe("formatOffsetLabel", () => {
+  it("formats a whole minute with no seconds", () => {
+    expect(formatOffsetLabel(1200, 3600)).toBe("20");
+  });
+
+  it("formats a partial minute as minutes:seconds", () => {
+    expect(formatOffsetLabel(90, 3600)).toBe("1:30");
+  });
+
+  it("wraps an offset past the total back onto the face", () => {
+    expect(formatOffsetLabel(3660, 3600)).toBe("1");
+  });
+});
+
+describe("radialLabelOrientation", () => {
+  it("never rotates past 90 degrees from horizontal, so text is never upside down", () => {
+    for (let angle = 0; angle < 360; angle += 5) {
+      const { rotationDeg } = radialLabelOrientation(angle);
+      expect(rotationDeg).toBeGreaterThanOrEqual(-90);
+      expect(rotationDeg).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it("points straight up at the top of the face, anchored to start reading outward", () => {
+    expect(radialLabelOrientation(0)).toEqual({ rotationDeg: -90, anchor: "start" });
+  });
+
+  it("reads horizontally at the right of the face", () => {
+    expect(radialLabelOrientation(90)).toEqual({ rotationDeg: 0, anchor: "start" });
+  });
+
+  it("flips to end-anchored on the left half, so the label still grows outward", () => {
+    expect(radialLabelOrientation(270)).toEqual({ rotationDeg: 0, anchor: "end" });
+  });
+});
+
+describe("buildBoundaryLabels", () => {
+  it("labels the start and end of every slot, deduped and sorted, including 0", () => {
+    const slots = [
+      { start_offset_seconds: 600, duration_seconds: 300 }, // 10:00 - 15:00
+      { start_offset_seconds: 900, duration_seconds: 300 }, // 15:00 - 20:00 (shares a boundary)
+    ];
+    const labels = buildBoundaryLabels(slots, 3600, fixedWindow, 100, 100, 90);
+    expect(labels.map((label) => label.text)).toEqual(["0", "10", "15", "20"]);
   });
 });

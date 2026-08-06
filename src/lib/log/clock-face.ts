@@ -109,6 +109,41 @@ export interface ClockFaceSegment<T> {
   pathD: string;
 }
 
+export interface ClockFaceWindow {
+  start: number;
+  duration: number;
+}
+
+export interface ClockFaceWindowLike {
+  start_offset_seconds: number | null;
+  duration_seconds: number;
+  timing_mode: LogSlotTimingMode;
+  earliest_start_offset_seconds: number | null;
+  latest_start_offset_seconds: number | null;
+}
+
+/**
+ * The offset/duration to actually render for a slot. A fixed slot renders at
+ * its own start/duration, same as before. A float slot renders across its
+ * full possible window — from the earliest it could start to the latest it
+ * could end (latest start + its duration) — since "somewhere in this range"
+ * is the honest picture, not the single nominal position seed data happens
+ * to store in start_offset_seconds. Falls back to the fixed behavior if a
+ * float slot is somehow missing its window bounds.
+ */
+export function slotRenderWindow(slot: ClockFaceWindowLike): ClockFaceWindow {
+  if (
+    slot.timing_mode === "float" &&
+    slot.earliest_start_offset_seconds != null &&
+    slot.latest_start_offset_seconds != null
+  ) {
+    const start = slot.earliest_start_offset_seconds;
+    const end = slot.latest_start_offset_seconds + slot.duration_seconds;
+    return { start, duration: end - start };
+  }
+  return { start: slot.start_offset_seconds ?? 0, duration: slot.duration_seconds };
+}
+
 /**
  * Lays out every slot as a ring segment around a face representing
  * totalDurationSeconds (typically 3600 — a full hour), in the slots'
@@ -116,12 +151,15 @@ export interface ClockFaceSegment<T> {
  * chronological order (true of every seeded clock — the "float"/"optional"
  * slots that do overlap their surrounding segment are deliberately excluded
  * from the main ring by the caller and rendered as an inner-ring overlay
- * instead; see clock-face.tsx).
+ * instead; see clock-face.tsx). `getWindow` decides each slot's rendered
+ * offset/duration — pass `slotRenderWindow` to draw a float slot across its
+ * full window rather than its single nominal position.
  */
-export function buildClockFaceSegments<T extends { start_offset_seconds: number | null; duration_seconds: number }>(
+export function buildClockFaceSegments<T>(
   slots: T[],
   totalDurationSeconds: number,
   categorize: (slot: T) => ClockFaceCategory,
+  getWindow: (slot: T) => ClockFaceWindow,
   cx: number,
   cy: number,
   rOuter: number,
@@ -129,11 +167,83 @@ export function buildClockFaceSegments<T extends { start_offset_seconds: number 
 ): ClockFaceSegment<T>[] {
   const segments: ClockFaceSegment<T>[] = [];
   for (const slot of slots) {
-    const start = slot.start_offset_seconds ?? 0;
+    const { start, duration } = getWindow(slot);
     const startAngle = (start / totalDurationSeconds) * 360;
-    const sweep = (slot.duration_seconds / totalDurationSeconds) * 360;
+    const sweep = (duration / totalDurationSeconds) * 360;
     const pathD = describeRingSegment(cx, cy, rOuter, rInner, startAngle, sweep);
     if (pathD) segments.push({ slot, category: categorize(slot), pathD });
   }
   return segments;
+}
+
+/** Formats an offset in seconds as a minute label ("20" or "20:30"), wrapping to within one lap of the face. */
+export function formatOffsetLabel(seconds: number, totalDurationSeconds: number): string {
+  const wrapped = ((seconds % totalDurationSeconds) + totalDurationSeconds) % totalDurationSeconds;
+  const minutes = Math.floor(wrapped / 60);
+  const remainderSeconds = Math.round(wrapped % 60);
+  return remainderSeconds === 0 ? `${minutes}` : `${minutes}:${String(remainderSeconds).padStart(2, "0")}`;
+}
+
+export interface ClockFaceBoundaryLabel {
+  x: number;
+  y: number;
+  angleDeg: number;
+  text: string;
+}
+
+export interface RadialLabelOrientation {
+  rotationDeg: number;
+  anchor: "start" | "end";
+}
+
+/**
+ * How to rotate and anchor a text label sitting at angleDeg on the ring so
+ * it reads outward along its own radius — like the numerals around the
+ * source NPR clock PDFs — rather than horizontally. Horizontal labels
+ * overlap badly wherever two slot boundaries fall only a few seconds apart
+ * (a short newscast next to a short music bed, say); a radial label's
+ * footprint along the ring is just its line thickness, so tightly packed
+ * boundaries no longer collide. Never rotates past ±90° from horizontal,
+ * so the text itself never renders upside down.
+ */
+export function radialLabelOrientation(angleDeg: number): RadialLabelOrientation {
+  const normalized = ((angleDeg % 360) + 360) % 360;
+  let raw = normalized - 90;
+  if (raw > 180) raw -= 360;
+  if (raw < -180) raw += 360;
+  if (raw > 90 || raw < -90) {
+    return { rotationDeg: raw > 0 ? raw - 180 : raw + 180, anchor: "end" };
+  }
+  return { rotationDeg: raw, anchor: "start" };
+}
+
+/**
+ * A minute-mark label at every slot boundary (start and end of each slot's
+ * rendered window), the way the source NPR clock PDFs label each segment
+ * transition around the ring rather than a fixed 5-minute grid. Offsets are
+ * deduped and sorted, and 0 is always included even if no slot starts there.
+ */
+export function buildBoundaryLabels<T>(
+  slots: T[],
+  totalDurationSeconds: number,
+  getWindow: (slot: T) => ClockFaceWindow,
+  cx: number,
+  cy: number,
+  radius: number,
+): ClockFaceBoundaryLabel[] {
+  const offsets = new Set<number>([0]);
+  for (const slot of slots) {
+    const { start, duration } = getWindow(slot);
+    const wrap = (value: number) => ((value % totalDurationSeconds) + totalDurationSeconds) % totalDurationSeconds;
+    offsets.add(wrap(start));
+    offsets.add(wrap(start + duration));
+  }
+
+  return Array.from(offsets)
+    .sort((a, b) => a - b)
+    .map((offset) => {
+      const angleDeg = (offset / totalDurationSeconds) * 360;
+      const { x, y } = pointOnCircle(cx, cy, radius, angleDeg);
+      return { x, y, angleDeg, text: formatOffsetLabel(offset, totalDurationSeconds) };
+    });
 }
