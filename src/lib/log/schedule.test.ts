@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "./schedule";
+import { computeEndTime, formatAirTime, isScheduleEntryActiveOn, type ScheduleEntryLike } from "./schedule";
 
 function entry(overrides: Partial<ScheduleEntryLike> = {}): ScheduleEntryLike {
   return {
@@ -34,5 +34,27 @@ describe("isScheduleEntryActiveOn", () => {
     expect(
       isScheduleEntryActiveOn(entry({ entry_type: "holiday", days_of_week: [1] }), "2026-08-06"),
     ).toBe(true);
+  });
+});
+
+describe("formatAirTime", () => {
+  it("formats midnight and noon as 12, not 0", () => {
+    expect(formatAirTime("00:00:00")).toBe("12:00 AM");
+    expect(formatAirTime("12:00:00")).toBe("12:00 PM");
+  });
+
+  it("formats morning and afternoon hours with AM/PM and zero-padded minutes", () => {
+    expect(formatAirTime("05:00:00")).toBe("5:00 AM");
+    expect(formatAirTime("17:04:00")).toBe("5:04 PM");
+  });
+});
+
+describe("computeEndTime", () => {
+  it("adds duration within the same day", () => {
+    expect(computeEndTime("05:00:00", 240)).toBe("9:00 AM");
+  });
+
+  it("wraps past midnight", () => {
+    expect(computeEndTime("23:00:00", 90)).toBe("12:30 AM");
   });
 });

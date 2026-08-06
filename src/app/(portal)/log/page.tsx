@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listPrograms, listScheduleEntries } from "@/lib/log/queries";
-import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { computeEndTime, formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -11,7 +11,9 @@ function todayISO(): string {
 export default async function LogTodayPage() {
   const [programs, scheduleEntries] = await Promise.all([listPrograms(), listScheduleEntries()]);
   const today = todayISO();
-  const activeToday = scheduleEntries.filter((entry) => isScheduleEntryActiveOn(entry, today));
+  const activeToday = scheduleEntries
+    .filter((entry) => isScheduleEntryActiveOn(entry, today))
+    .sort((a, b) => a.air_time.localeCompare(b.air_time));
 
   if (programs.length === 0) {
     return (
@@ -47,6 +49,7 @@ export default async function LogTodayPage() {
           <Table>
             <thead>
               <HeaderRow>
+                <Th>Time</Th>
                 <Th>Program</Th>
                 <Th>Clock</Th>
                 <Th>Rundown</Th>
@@ -55,6 +58,9 @@ export default async function LogTodayPage() {
             <tbody>
               {activeToday.map((entry) => (
                 <Row key={entry.id}>
+                  <Cell className="whitespace-nowrap text-ink-700">
+                    {formatAirTime(entry.air_time)} – {computeEndTime(entry.air_time, entry.duration_minutes)}
+                  </Cell>
                   <Cell className="font-semibold text-ink-900">{entry.programName}</Cell>
                   <Cell>{entry.clockTemplateName}</Cell>
                   <Cell>
