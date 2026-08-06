@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
+import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
 import { getClockTemplateDetail } from "@/lib/log/queries";
 import { addClockSlot, createClockVersion } from "../../clock-actions";
@@ -61,35 +62,40 @@ export default async function ClockTemplateDetailPage({
           {version.slots.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No slots yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <thead>
-                  <HeaderRow>
-                    <Th>#</Th>
-                    <Th>Label</Th>
-                    <Th>Duration</Th>
-                    <Th>Fill</Th>
-                    <Th>Assignment</Th>
-                    <Th>Content types</Th>
-                  </HeaderRow>
-                </thead>
-                <tbody>
-                  {version.slots.map((slot) => (
-                    <Row key={slot.id}>
-                      <Cell>{slot.position}</Cell>
-                      <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
-                      <Cell>{slot.duration_seconds}s</Cell>
-                      <Cell>{slot.fill_mode}</Cell>
-                      <Cell>{slot.assignment_mode}</Cell>
-                      <Cell className="text-ink-500">
-                        {slot.permitted_content_types.length > 0
-                          ? slot.permitted_content_types.join(", ")
-                          : "—"}
-                      </Cell>
-                    </Row>
-                  ))}
-                </tbody>
-              </Table>
+            <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
+              <div className="mx-auto shrink-0 lg:mx-0">
+                <ClockFace slots={version.slots} />
+              </div>
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <Table>
+                  <thead>
+                    <HeaderRow>
+                      <Th>#</Th>
+                      <Th>Label</Th>
+                      <Th>Duration</Th>
+                      <Th>Fill</Th>
+                      <Th>Assignment</Th>
+                      <Th>Content types</Th>
+                    </HeaderRow>
+                  </thead>
+                  <tbody>
+                    {version.slots.map((slot) => (
+                      <Row key={slot.id}>
+                        <Cell>{slot.position}</Cell>
+                        <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
+                        <Cell>{slot.duration_seconds}s</Cell>
+                        <Cell>{slot.fill_mode}</Cell>
+                        <Cell>{slot.assignment_mode}</Cell>
+                        <Cell className="text-ink-500">
+                          {slot.permitted_content_types.length > 0
+                            ? slot.permitted_content_types.join(", ")
+                            : "—"}
+                        </Cell>
+                      </Row>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
             </div>
           )}
 

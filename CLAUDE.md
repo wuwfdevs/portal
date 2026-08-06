@@ -630,6 +630,41 @@ the create-schedule-entry form/action in `src/app/(portal)/log/programs/
 page.tsx`/`program-actions.ts` (written before this gap was found) were
 updated in the same pass to collect them.
 
+**Log: schedule-completeness fixes (2026-08-06)** —
+`20260806170000_log_schedule_completeness_fixes.sql` closes three gaps found
+after the initial NPR seed, all discovered by cross-checking the seeded data
+against the actual 13 source clock PDFs and the station's real weekly
+schedule rather than only checking the seed script's own row counts for
+internal consistency (which is how the first gap shipped undetected in the
+first place): **Morning Edition's clock template/version/23 slots/program
+were missing entirely** — fully transcribed at the time but never added to
+the seed script's `CLOCKS` dict, so it silently never reached the SQL output;
+**`1A` and `Fresh Air` (weekday) had complete clock data but no
+`log_schedule` row** — both had templates/versions/slots/programs seeded
+correctly, but their `SCHEDULE` entries were left out of the same script, so
+neither would ever have appeared on the Today screen or a programs schedule
+list despite having a real clock behind them; and **every other program on
+the station's actual weekly schedule that this project hasn't yet been given
+a detailed clock PDF for now has a `log_programs` row and a `log_schedule`
+row anyway**, pointing at one new shared placeholder clock template ("Unspecified
+(awaiting network clock)", a single slot spanning the whole hour) rather than
+either 32 near-duplicate one-off templates or leaving those programs unable
+to be scheduled at all until their real clock arrives. Swapping a placeholder
+program onto its own real clock template later is a normal `log_schedule`
+update — that table, unlike `log_clock_versions`/`log_clock_slots`, is not
+insert-only — so no migration is required when the remaining clocks show up.
+
+**Log: clock version diagram.** The clock template detail screen
+(`/log/clocks/[id]`) now renders each version's slots as a circular ring
+diagram alongside the existing table, in the same visual spirit as the NPR
+network clock PDFs this data was transcribed from. `src/lib/log/clock-face.ts`
+is pure geometry/categorization (donut-segment SVG path construction,
+slot-to-visual-category mapping keyed off label text and
+`fill_mode`/`timing_mode` — there's no dedicated "kind of network element"
+column) with a colocated test file; `src/components/log/clock-face.tsx` is a
+plain server-rendered `<svg>` (no `"use client"` needed — each segment's
+native `<title>` tooltip is the only interactivity called for) consuming it.
+
 **Log: milestone 1 slice 2 (Content library) has landed** —
 `20260806160000_log_content_library.sql` adds `log_content_items` (news,
 station/program promos, membership messages, university announcements,
