@@ -49,7 +49,57 @@
 // across both tools would break against. Re-run `npm run db:types` (or the
 // Supabase MCP server's `generate_typescript_types`, as this pass did) to
 // re-verify after a schema change, but reconcile its output into this
-// file's existing shape rather than replacing it outright.
+// file's existing shape rather than replacing it outright. Hand-updated
+// again on 2026-08-06 for Log's foundation slice (supabase/migrations/
+// 20260806130000_log_foundation.sql): log_programs/log_clock_templates/
+// log_clock_versions/log_clock_slots/log_schedule and the new
+// LogProgramKind/LogScheduleEntryType/LogClockVersionVariant/
+// LogSlotFillMode/LogSlotAssignmentMode/LogSlotTimingMode enums — no local
+// instance running to regenerate against; added by hand following the
+// ap_submissions block's Row/Insert/Update shape, insert-only tables
+// (log_clock_versions/log_clock_slots) noted the same way as
+// ap_submissions' insert-only comment. Hand-updated again on 2026-08-06
+// (supabase/migrations/20260806140000_log_clock_slot_windows_and_schedule_
+// times.sql): log_clock_slots gained earliest_start_offset_seconds/
+// latest_start_offset_seconds/segment_label, and log_schedule gained
+// air_time (not null) and duration_minutes (not null) — both tables were
+// still empty in both environments at the time, confirmed directly, so no
+// existing-row reconciliation was needed. Hand-updated again on 2026-08-06
+// for Log's Slice 2 (supabase/migrations/20260806160000_log_content_library.sql):
+// log_content_items/log_content_components and the new
+// LogContentType/LogApprovalStatus/LogComponentType enums, added by hand
+// following the same Row/Insert/Update shape as every other table here.
+// Hand-updated again on 2026-08-07 for Log's Slice 3 (NPR + weather,
+// supabase/migrations/20260807130000_log_npr_weather.sql):
+// log_npr_rundown_cache/log_weather_reading and the new LogNprStatus enum —
+// no local instance running to regenerate against; added by hand following
+// the same shape as every table here. Like every log_ enum before it,
+// LogNprStatus was exported as a plain type alias rather than added to the
+// Enums map at the bottom of this file — that map already omits every other
+// log_ enum from Slices 1-2, so adding just this one would have been
+// inconsistent rather than fixing anything. Hand-updated again on
+// 2026-08-07 to correct Slice 3's NPR half to the real CDS model
+// (supabase/migrations/20260807140000_log_npr_cds_correction.sql — see
+// CLAUDE.md): log_npr_rundown_cache and LogNprStatus are gone entirely,
+// replaced by log_npr_episodes/log_npr_episode_items and the new
+// LogNprEpisodeStatus enum (also a plain type alias, same reasoning as
+// above); log_programs gained npr_collection_id. Verified against the
+// Supabase MCP server's generate_typescript_types output for the live
+// preview project after applying, field-by-field diffed. Hand-updated again
+// on 2026-08-07 for Log's rundown-generation slice
+// (supabase/migrations/20260807150000_log_rundowns.sql): log_rundowns/
+// log_rundown_items and the new LogRundownStatus/LogRequirementLevel/
+// LogPlacementStatus/LogItemWarning enums (plain type aliases, same as
+// every other log_ enum) — added by hand following the same Row/Insert/
+// Update shape as every table here, then verified against the Supabase MCP
+// server's generate_typescript_types output for the live preview project
+// after applying. Hand-updated again on 2026-08-07 for Log's host-console
+// slice (supabase/migrations/20260807160000_log_broadcast_events.sql):
+// log_broadcast_events and the new LogBroadcastOutcome/LogConfirmationSource/
+// LogMissReason enums (plain type aliases, same as every other log_ enum) —
+// added by hand, then verified against the Supabase MCP server's
+// generate_typescript_types output for the live preview project after
+// applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -202,6 +252,78 @@ export interface ApPublicFormConfig {
   intro_copy: string;
   enabled_partnership_types: ApPartnershipType[];
 }
+
+// Log (log_*) — see supabase/migrations/20260806130000_log_foundation.sql.
+// Slice 1 (Foundation) only: programs, clock templates/versions/slots, and
+// the schedule — see docs/log-design.md and CLAUDE.md's Log section for the
+// remaining slices' tables (content library, NPR/weather, rundowns,
+// broadcast events), not yet in this file.
+export type LogProgramKind = "recurring" | "special";
+export type LogScheduleEntryType = "recurring" | "override" | "holiday";
+export type LogClockVersionVariant =
+  | "weekday"
+  | "weekend"
+  | "program_specific"
+  | "holiday"
+  | "special_event";
+export type LogSlotFillMode = "required" | "optional" | "host_fillable";
+export type LogSlotAssignmentMode = "automatic" | "preassigned" | "host_selected";
+export type LogSlotTimingMode = "fixed" | "float";
+// Slice 2 (content library) — see supabase/migrations/20260806160000_log_content_library.sql.
+export type LogContentType =
+  | "news"
+  | "station_promo"
+  | "program_promo"
+  | "membership_message"
+  | "university_announcement"
+  | "psa"
+  | "legal_id"
+  | "interview_feature"
+  | "host_created";
+export type LogApprovalStatus = "draft" | "approved" | "retired";
+export type LogComponentType = "live_intro" | "recorded_audio" | "live_outro" | "optional_tag";
+// Slice 3 (NPR + weather) — see supabase/migrations/20260807130000_log_npr_weather.sql.
+// NPR CDS correction (2026-08-07) — see supabase/migrations/
+// 20260807140000_log_npr_cds_correction.sql and CLAUDE.md: replaced the
+// prototype's invented draft/edited/revised/withdrawn segment-status
+// vocabulary with the real CDS distinction between an episode CDS actually
+// returned and one it confirmed doesn't exist for that date.
+export type LogNprEpisodeStatus = "found" | "not_found";
+// Slice 4 (rundown generation + timing engine) — see
+// supabase/migrations/20260807150000_log_rundowns.sql. log_broadcast_events
+// and its outcome/reason vocabulary are not in this file yet — that table
+// belongs to the next slice (the host console with mid-broadcast actions).
+export type LogRundownStatus = "draft" | "generated" | "in_progress" | "submitted";
+export type LogRequirementLevel = "required" | "suggested" | "optional";
+export type LogPlacementStatus = "locked" | "movable" | "replaceable" | "editable";
+export type LogItemWarning = "timing_conflict" | "stale_content" | "none";
+// Slice 5 (the host console + mid-broadcast actions) — see
+// supabase/migrations/20260807160000_log_broadcast_events.sql. This slice's
+// own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
+// see that migration's file header for the rest of the vocabulary's status.
+export type LogBroadcastOutcome =
+  | "scheduled"
+  | "aired_as_scheduled"
+  | "aired_different_time"
+  | "partially_aired"
+  | "skipped"
+  | "missed"
+  | "replaced"
+  | "wrong_copy_aired"
+  | "unconfirmed"
+  | "pending_review"
+  | "makegood_scheduled"
+  | "makegood_aired"
+  | "waived";
+export type LogConfirmationSource = "automation" | "host" | "exception_report" | "management_correction";
+export type LogMissReason =
+  | "network_timing"
+  | "breaking_news"
+  | "segment_overrun"
+  | "technical_problem"
+  | "host_error"
+  | "unavailable_copy"
+  | "other";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1248,6 +1370,306 @@ export interface Database {
           event_type: ApEventType;
         };
         Update: Partial<Database["public"]["Tables"]["ap_submission_events"]["Row"]>;
+        Relationships: [];
+      };
+      log_programs: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          kind: LogProgramKind;
+          /** NPR Content Distribution Service collection id, if this is a mapped NPR network program — see supabase/migrations/20260807140000_log_npr_cds_correction.sql. */
+          npr_collection_id: number | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_programs"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_programs"]["Row"]>;
+        Relationships: [];
+      };
+      log_clock_templates: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_templates"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_templates"]["Row"]>;
+        Relationships: [];
+      };
+      // Insert-only from the application — no update grant exists for
+      // `authenticated`. See the migration's file header for why.
+      log_clock_versions: {
+        Row: {
+          id: string;
+          clock_template_id: string;
+          variant: LogClockVersionVariant;
+          effective_from: string;
+          effective_to: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_versions"]["Row"]> & {
+          clock_template_id: string;
+          variant: LogClockVersionVariant;
+          effective_from: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_versions"]["Row"]>;
+        Relationships: [];
+      };
+      // Insert-only, same reasoning as log_clock_versions.
+      log_clock_slots: {
+        Row: {
+          id: string;
+          clock_version_id: string;
+          position: number;
+          start_offset_seconds: number | null;
+          duration_seconds: number;
+          permitted_content_types: string[];
+          fill_mode: LogSlotFillMode;
+          assignment_mode: LogSlotAssignmentMode;
+          replaceable: boolean;
+          shortenable: boolean;
+          allow_empty: boolean;
+          allow_multiple: boolean;
+          timing_mode: LogSlotTimingMode;
+          lock_on_air: boolean;
+          label: string | null;
+          /** Set only when timing_mode = 'float' — see 20260806140000_log_clock_slot_windows_and_schedule_times.sql. */
+          earliest_start_offset_seconds: number | null;
+          latest_start_offset_seconds: number | null;
+          /** The network clock's own segment letter (A, B, ...), purely descriptive. */
+          segment_label: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]> & {
+          clock_version_id: string;
+          position: number;
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]>;
+        Relationships: [];
+      };
+      log_schedule: {
+        Row: {
+          id: string;
+          program_id: string;
+          clock_template_id: string;
+          entry_type: LogScheduleEntryType;
+          days_of_week: number[];
+          start_date: string;
+          end_date: string | null;
+          effective_from: string;
+          /** Station-local time of day this air block starts. */
+          air_time: string;
+          /** Total block length in minutes — may span multiple hours, each repeating the clock template. */
+          duration_minutes: number;
+          notes: string | null;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]> & {
+          program_id: string;
+          clock_template_id: string;
+          start_date: string;
+          air_time: string;
+          duration_minutes: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_schedule"]["Row"]>;
+        Relationships: [];
+      };
+      log_content_items: {
+        Row: {
+          id: string;
+          content_type: LogContentType;
+          title: string;
+          script: string | null;
+          audio_object_path: string | null;
+          summary: string | null;
+          expected_duration_seconds: number | null;
+          effective_from: string;
+          effective_to: string | null;
+          owner_id: string | null;
+          approval_status: LogApprovalStatus;
+          eligible_program_ids: string[];
+          priority: number | null;
+          frequency_guidance: string | null;
+          reusable: boolean;
+          geography_tags: string[];
+          subject_tags: string[];
+          community_issue_tags: string[];
+          reporter_or_editor: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_content_items"]["Row"]> & {
+          content_type: LogContentType;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_content_items"]["Row"]>;
+        Relationships: [];
+      };
+      log_content_components: {
+        Row: {
+          id: string;
+          content_item_id: string;
+          component_type: LogComponentType;
+          sequence: number;
+          duration_seconds: number;
+          required: boolean;
+          script: string | null;
+          audio_object_path: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]> & {
+          content_item_id: string;
+          component_type: LogComponentType;
+          sequence: number;
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]>;
+        Relationships: [];
+      };
+      log_npr_episodes: {
+        Row: {
+          id: string;
+          program_id: string;
+          show_date: string;
+          npr_collection_id: number;
+          status: LogNprEpisodeStatus;
+          npr_episode_id: string | null;
+          title: string | null;
+          raw: unknown;
+          retrieved_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_npr_episodes"]["Row"]> & {
+          program_id: string;
+          show_date: string;
+          npr_collection_id: number;
+          status: LogNprEpisodeStatus;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_npr_episodes"]["Row"]>;
+        Relationships: [];
+      };
+      log_npr_episode_items: {
+        Row: {
+          id: string;
+          episode_id: string;
+          position: number;
+          npr_item_id: string;
+          title: string;
+          teaser: string | null;
+          raw: unknown;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_npr_episode_items"]["Row"]> & {
+          episode_id: string;
+          position: number;
+          npr_item_id: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_npr_episode_items"]["Row"]>;
+        Relationships: [];
+      };
+      log_weather_reading: {
+        Row: {
+          id: string;
+          forecast_area: string;
+          source: string;
+          live_read_text: string;
+          condensed_text: string;
+          high_temp: number | null;
+          low_temp: number | null;
+          conditions_summary: string;
+          precipitation_notes: string | null;
+          hazards: string | null;
+          last_updated_at: string;
+          valid_through_at: string;
+          is_current: boolean;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]> & {
+          forecast_area: string;
+          source: string;
+          live_read_text: string;
+          condensed_text: string;
+          conditions_summary: string;
+          valid_through_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]>;
+        Relationships: [];
+      };
+      log_rundowns: {
+        Row: {
+          id: string;
+          program_id: string;
+          schedule_entry_id: string | null;
+          clock_version_id: string;
+          air_date: string;
+          shift_start_at: string;
+          shift_end_at: string;
+          status: LogRundownStatus;
+          generated_at: string | null;
+          submitted_at: string | null;
+          submitted_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]> & {
+          program_id: string;
+          clock_version_id: string;
+          air_date: string;
+          shift_start_at: string;
+          shift_end_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]>;
+        Relationships: [];
+      };
+      log_rundown_items: {
+        Row: {
+          id: string;
+          rundown_id: string;
+          clock_slot_id: string;
+          /** Null until a host (or a producer preparing ahead) fills the slot. */
+          content_item_id: string | null;
+          position: number;
+          scheduled_at: string;
+          planned_duration_seconds: number;
+          requirement_level: LogRequirementLevel;
+          placement_status: LogPlacementStatus;
+          current_warning: LogItemWarning | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
+          rundown_id: string;
+          clock_slot_id: string;
+          position: number;
+          scheduled_at: string;
+          planned_duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
+        Relationships: [];
+      };
+      // Append-only from the application — no update grant. See the
+      // migration's file header.
+      log_broadcast_events: {
+        Row: {
+          id: string;
+          rundown_item_id: string;
+          outcome: LogBroadcastOutcome;
+          actual_started_at: string | null;
+          actual_duration_seconds: number | null;
+          confirmation_source: LogConfirmationSource;
+          reason: LogMissReason | null;
+          notes: string | null;
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]> & {
+          rundown_item_id: string;
+          outcome: LogBroadcastOutcome;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]>;
         Relationships: [];
       };
     };

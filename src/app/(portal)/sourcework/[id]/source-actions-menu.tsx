@@ -9,22 +9,28 @@ import { removeSourceFromProject, deleteSourceEntirely } from "./source-actions"
 type RemoveStep = "closed" | "choice" | "confirmDelete";
 
 /**
- * A source's own actions within this project — the source-detail-view
- * counterpart to ProjectActionsMenu. Two jobs:
+ * A source's own actions — shared by the project workspace's source pill
+ * (always has a projectId) and the standalone Source Detail screen (which
+ * only has one when the source is attached to at least one project; an
+ * orphaned source detached from everything has none). The two views render
+ * the same working surface for a source (docs/sourcework-design.md §7.2), so
+ * a single menu with `projectId` nullable stays in sync automatically
+ * instead of drifting the way two near-identical copies would. Two jobs:
  *
  * - Rebuild search index: the Phase 5 backfill for sources transcribed
  *   before search existed, or a manual re-run after a round of corrections
  *   (see the old reindex-button.tsx, folded in here). Reports what actually
  *   happened, including the case that matters most — chunks built but
  *   embeddings skipped — since silence there would look identical to
- *   success.
- * - Remove: picking it doesn't act immediately, it asks *how* — detach this
- *   source from just this project (safe: the source and every other
- *   project referencing it are untouched), or delete it entirely (affects
- *   every project referencing it, so that path gets its own extra confirm
- *   on top of the choice itself). Offered regardless of how many sources
- *   this project has; detaching the last one just leaves the project
- *   empty, same state a brand-new project starts in.
+ *   success. Works with or without a projectId (reindexProjectSearch only
+ *   uses it to revalidate the project's own path).
+ * - Remove: with a projectId, picking it doesn't act immediately, it asks
+ *   *how* — detach this source from just this project (safe: the source and
+ *   every other project referencing it are untouched), or delete it
+ *   entirely (affects every project referencing it, so that path gets its
+ *   own extra confirm on top of the choice itself). Without a projectId
+ *   there's nothing to detach *from*, so it goes straight to the delete
+ *   confirmation.
  */
 export function SourceActionsMenu({
   projectId,
@@ -32,7 +38,8 @@ export function SourceActionsMenu({
   sourceTitle,
   otherProjectCount,
 }: {
-  projectId: string;
+  /** Null on the Source Detail screen when the source isn't attached to any project — see above. */
+  projectId: string | null;
   sourceId: string;
   sourceTitle: string;
   /** How many *other* projects also reference this source — shapes the choice's warning text. */
@@ -68,6 +75,7 @@ export function SourceActionsMenu({
   }
 
   async function handleDetach() {
+    if (!projectId) return; // only reachable from the choice step, which only renders with a projectId
     setBusy(true);
     const result = await removeSourceFromProject(projectId, sourceId);
     setBusy(false);
@@ -90,7 +98,7 @@ export function SourceActionsMenu({
       setMessage(result.error);
       return;
     }
-    router.push(`/sourcework/${projectId}`);
+    router.push(projectId ? `/sourcework/${projectId}` : "/sourcework?tab=sources");
   }
 
   return (
@@ -98,11 +106,15 @@ export function SourceActionsMenu({
       <ActionMenu
         items={[
           { label: "Rebuild search index", onClick: handleReindex },
-          { label: "Remove…", onClick: () => setStep("choice"), variant: "danger" },
+          {
+            label: projectId ? "Remove…" : "Delete…",
+            onClick: () => setStep(projectId ? "choice" : "confirmDelete"),
+            variant: "danger",
+          },
         ]}
       />
 
-      {step === "choice" && (
+      {step === "choice" && projectId && (
         <div className="w-full max-w-xs rounded border border-line bg-white p-3 shadow-sm">
           <p className="mb-2.5 text-left text-xs leading-relaxed text-ink-700">
             Remove &ldquo;{sourceTitle}&rdquo; how?
@@ -159,10 +171,10 @@ export function SourceActionsMenu({
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => setStep("choice")}
+              onClick={() => setStep(projectId ? "choice" : "closed")}
               className="rounded px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-panel-50"
             >
-              Back
+              {projectId ? "Back" : "Cancel"}
             </button>
             <button
               type="button"

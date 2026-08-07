@@ -18,7 +18,7 @@ import { addNote } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { InternalPanel } from "./internal-panel";
 import { EmailPanel } from "./email-panel";
-import { SubmissionActionsMenu } from "./submission-actions-menu";
+import { DeleteSubmissionControl } from "./delete-submission-control";
 
 export default async function SubmissionDetailPage({
   params,
@@ -58,7 +58,6 @@ export default async function SubmissionDetailPage({
               Submitted {new Date(submission.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
             </p>
           </div>
-          {isCoordinator && <SubmissionActionsMenu submissionId={submission.id} />}
         </header>
 
         <OriginalResponse submission={submission} />
@@ -89,9 +88,12 @@ export default async function SubmissionDetailPage({
         </section>
       </div>
 
-      <aside className="w-full shrink-0 lg:w-80">
+      <aside className="flex w-full shrink-0 flex-col gap-6 lg:w-80">
         {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
         <InternalPanel submission={submission} members={members} />
+        {isCoordinator && (
+          <DeleteSubmissionControl submissionId={submission.id} facultyName={submission.faculty_name} />
+        )}
       </aside>
     </div>
   );

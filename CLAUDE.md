@@ -415,6 +415,33 @@ surrounding form stays the repo's ordinary `<form action={serverAction}>`. Scree
 attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
 design doc §7 before adding them.
 
+**Roadmap revision (2026-08-06):** the roadmap tab gained a real
+drag-and-drop kanban board for curators
+(`src/app/(portal)/roadmap/kanban-board.tsx`, `kanban-board-field.tsx`'s
+`next/dynamic({ ssr: false })` wrapper) — `@dnd-kit/core`'s second use in
+this repo, not a new dependency; see Academic Partnerships' kanban board
+below for why it's the one library this codebase reaches for here. Its
+columns are `KANBAN_STATUSES` — all six statuses, not just the four
+"decided" ones `ROADMAP_STATUSES` groups for the static view everyone else
+still sees: a curator is the one who moves a request out of `open` or
+`under_review`, and a board that can't show a card can't be dragged from
+(it briefly shipped scoped to the four decided statuses before this was
+caught and it was widened the same day — see `docs/roadmap-design.md`'s
+"Post-milestone-1 revision" for both steps). Unlike Academic Partnerships'
+board, Roadmap's status changes follow a real state machine
+(`availableStatusActions`), not free movement to any column, so dropping a
+card is validated against it directly and is a no-op if the target isn't a
+legal transition. Dropping onto Declined opens an inline reason prompt
+instead of moving the card immediately, since `rd_posts` and
+`validateStatusChange` both require one. `setPostStatus` (the detail
+page's form action) now delegates to a new non-redirecting
+`movePostStatus()`, mirroring `academic-partnerships/actions.ts`'s
+`setSubmissionStage`/`setStageForm` split, so the board can update
+optimistically and roll back on error. A non-curator still sees the
+original static grouped list (still just the four decided statuses) — the
+board and its drag affordances are curator-only, matching who
+`assertRoadmapCurator()` already let write a status.
+
 **Academic Partnerships: milestone 1 has landed.** Read
 `docs/academic-partnerships-design.md` before touching any of it. A public inquiry form
 at `/partner` (and `/partner/embed` for a Grove iframe) feeds a staff-run pipeline —
@@ -516,6 +543,327 @@ or embargoes" and asked once regardless of track), `learning_objectives` (duplic
 alone is now what `ap_submit_inquiry()` requires for the `faculty_research` track), and
 `research_links` (not duplicative, just lower-priority triage detail better collected
 during Reviewing). See design doc §9.7.
+
+**Academic Partnerships revision (2026-08-06) — inquiry deletion.** A
+submission can now be permanently deleted, coordinator-only
+(`assertAcademicPartnershipsCoordinator()`), from a "Danger zone" section on
+the submission detail screen (`[id]/delete-submission-control.tsx`, a
+two-step confirm mirroring Sourcework's `SourceActionsMenu`) — deliberately
+not on the kanban card itself, since this is rarer and, unlike a
+disposition, not reversible, so it stays off a surface built for quick
+drags. `deleteSubmission()` in `actions.ts` needed a new migration,
+`20260806120000_academic_partnerships_delete.sql`: `ap_submissions` had
+`select`/`update` policies but no `delete` one, and the existing
+member-level `assertAcademicPartnershipsAccess()` write actions (stage,
+owner, disposition) don't need one. `ap_submission_events` cascades with
+its parent row (`on delete cascade`), so a submission's activity log
+disappears with it — the deletion itself is recorded in `audit_events`
+instead (action `ap.submission.deleted`), the only durable trace once RLS
+and the cascade have both finished.
+
+**Log: milestone 1 slice 1 (Foundation) has landed — the guardrail against
+building it is lifted.** Log is the first of three tools splitting the WUWF
+Unified Broadcast Rundown and Traffic System spec; read
+`docs/broadcast-operations-strategy.md` (the three-tool split and schema
+ownership) and `docs/log-design.md` (this tool's own design, milestone 1 in
+full) before touching any of it. Milestone 1 is large — ten tables, eight
+user workflows, a live host console with offline resilience, a pure timing
+engine — so it's being built in slices, the same way Remote Interview was.
+**Slice 1 ships only what Workflows A (defining a clock) and B (scheduling
+programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
+`log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
+route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
+and producer-only create forms for templates/versions/slots/programs/
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather) have
+since landed too — see below.** Rundown generation with the timing engine is
+next — proceed with it without asking again, followed by the host console
+with mid-broadcast actions, then submission and the three MCP capabilities —
+see `docs/log-design.md` §7 for the full milestone list this is slicing
+through.
+
+Two things about this slice are load-bearing:
+
+1. **Log is invite_only, like Academic Partnerships, not open like Roadmap.**
+   A `tool_access` grant is the ticket in, not an elevation on top of open
+   access. `private.has_log_access()` mirrors
+   `private.has_academic_partnerships_access()` exactly (a non-revoked grant
+   plus an active profile, no `default_access` branch). The elevation within
+   the tool — `private.is_log_producer()` — is the same member/coordinator
+   shape too: a grant carrying `tool_role = 'producer'`, OR'd with
+   `private.is_administrator()`. An administrator with no grant on Log can
+   therefore satisfy `is_log_producer()` but still can't open the tool at all
+   (`requireToolAccess` checks for an actual `tool_access` row, not this
+   predicate) — the same asymmetry Academic Partnerships already has, not a
+   new inconsistency introduced here.
+2. **`log_clock_versions` and `log_clock_slots` are insert-only, forever, by
+   design — not a gap to fill in later.** The design doc calls a clock
+   version immutable once created ("no update path on this table from the
+   application... a correction is a new version"), the same reasoning
+   Audience Listening's answers snapshot their question. RLS grants
+   producers `select`+`insert` only on both tables, no `update` policy at
+   all — confirmed directly against the preview database that an
+   `update` from a producer session silently matches zero rows (correct
+   Postgres RLS behavior for a command with no applicable policy), not a
+   permission error and not a successful write. A correction is always a new
+   version, never an edit to an old one.
+
+**Log: seeded with the 13 real NPR-syndicated programs WUWF currently
+carries** (`20260806140000_log_clock_slot_windows_and_schedule_times.sql` +
+`20260806150000_log_seed_npr_clocks.sql`), transcribed from the station's own
+NPR network clock diagrams and scheduled per the station's corrected weekly
+schedule — read the second migration's header before touching any of this
+seed data; it documents fidelity caveats (a few hour-internal junctions are
+structurally-sound approximations, not exact transcriptions) and the
+Fresh Air Weekend / TED Radio Hour / Here & Now / World Cafe schedule
+quirks. Seeding this surfaced two real schema gaps, both closed by the first
+migration before the second one could run: **`log_clock_slots` gained
+`earliest_start_offset_seconds`/`latest_start_offset_seconds`/
+`segment_label`** — a "floating break" (a local avail whose exact position
+within a window is the station's call, not the network's) is a real,
+current feature of five of these clocks, not a hypothetical one, and the
+single-value `start_offset_seconds` couldn't express a range; and
+**`log_schedule` gained `air_time` (not null) and `duration_minutes` (not
+null)** — the original design doc listed `start_date`/`end_date`/
+`days_of_week` but nothing saying what time of day a program airs or for how
+long, an oversight rather than a deferral, and not enough to ever generate a
+rundown from. Both columns are populated on every seeded schedule row, and
+the create-schedule-entry form/action in `src/app/(portal)/log/programs/
+page.tsx`/`program-actions.ts` (written before this gap was found) were
+updated in the same pass to collect them.
+
+**Log: schedule-completeness fixes (2026-08-06)** —
+`20260806170000_log_schedule_completeness_fixes.sql` closes three gaps found
+after the initial NPR seed, all discovered by cross-checking the seeded data
+against the actual 13 source clock PDFs and the station's real weekly
+schedule rather than only checking the seed script's own row counts for
+internal consistency (which is how the first gap shipped undetected in the
+first place): **Morning Edition's clock template/version/23 slots/program
+were missing entirely** — fully transcribed at the time but never added to
+the seed script's `CLOCKS` dict, so it silently never reached the SQL output;
+**`1A` and `Fresh Air` (weekday) had complete clock data but no
+`log_schedule` row** — both had templates/versions/slots/programs seeded
+correctly, but their `SCHEDULE` entries were left out of the same script, so
+neither would ever have appeared on the Today screen or a programs schedule
+list despite having a real clock behind them; and **every other program on
+the station's actual weekly schedule that this project hasn't yet been given
+a detailed clock PDF for now has a `log_programs` row and a `log_schedule`
+row anyway**, pointing at one new shared placeholder clock template ("Unspecified
+(awaiting network clock)", a single slot spanning the whole hour) rather than
+either 32 near-duplicate one-off templates or leaving those programs unable
+to be scheduled at all until their real clock arrives. Swapping a placeholder
+program onto its own real clock template later is a normal `log_schedule`
+update — that table, unlike `log_clock_versions`/`log_clock_slots`, is not
+insert-only — so no migration is required when the remaining clocks show up.
+
+**Log: clock version diagram.** The clock template detail screen
+(`/log/clocks/[id]`) now renders each version's slots as a circular ring
+diagram alongside the existing table, in the same visual spirit as the NPR
+network clock PDFs this data was transcribed from. `src/lib/log/clock-face.ts`
+is pure geometry/categorization (donut-segment SVG path construction,
+slot-to-visual-category mapping keyed off label text and
+`fill_mode`/`timing_mode` — there's no dedicated "kind of network element"
+column) with a colocated test file; `src/components/log/clock-face.tsx` is a
+plain server-rendered `<svg>` (no `"use client"` needed — each segment's
+native `<title>` tooltip is the only interactivity called for) consuming it.
+The diagram also fixed two real usability gaps found once it existed: slot
+boundaries had no minute labels (`buildBoundaryLabels`, rotated radially via
+`radialLabelOrientation` — a horizontal label collided with its neighbors
+wherever two boundaries fell only seconds apart, since a label's on-ring
+footprint is its full text width; rotating it to run along its own radius
+shrinks that footprint to the line's thickness), and a floating break
+rendered as an ordinary solid wedge at its nominal position instead of
+looking like a movable window — `slotRenderWindow` now draws it spanning its
+full earliest-start-to-latest-end range with a diagonal hatch fill and
+dashed border instead of a solid one.
+
+**Log: clock seed corrections (2026-08-06)** —
+`20260806180000_log_clock_seed_corrections.sql` fixes real transcription
+errors in 10 of the 13 seeded NPR clocks, found by re-checking each against
+its source PDF after a user report that some slot times looked wrong. Two
+bugs were systemic, not one-offs: nearly every clock's original transcription
+silently stopped short of the actual top of the hour, missing a final few
+seconds of "Silence" (and often a short "Music Bed" before it) that every one
+of these NPR house clocks reserves right before the next hour's Billboard —
+this alone affected Hidden Brain, TED Radio Hour, Wait Wait... Don't Tell
+Me!, 1A, both All Things Considered clocks, both Weekend Edition clocks, and
+World Cafe. Morning Edition additionally had a promo mislabeled onto the
+wrong position (swapped with a different promo fifteen minutes away) and a
+dropped 30-second Music slot that shifted two newscasts thirty seconds early
+and inflated one's duration past what the network newscast actually runs.
+All Things Considered (weekday) had a cluster of slots — a Return, a Music
+Bed, and a Cross-Promo — that don't exist at all in the source diagram, which
+shows Segment D starting immediately at that point instead. `log_clock_slots`
+is insert-only from the application (no update/delete RLS policy for
+producers — see below), which is a boundary on writes through the app, not a
+reason to leave a migration's own seeding mistake in place: each affected
+version's slots are deleted and re-inserted in this migration rather than
+left to accumulate as a confusing phantom "correction" version. Three clocks
+(Fresh Air, Fresh Air Weekend, Here & Now) were not yet re-verified against
+their source PDFs at the time — see the next entry for those.
+
+**Log: clock seed corrections, part 2 (2026-08-07)** —
+`20260807120000_log_clock_seed_corrections_2.sql` finishes the job the first
+corrections migration left open, re-checking Fresh Air, Fresh Air Weekend,
+and Here & Now against their source PDFs. Same missing-end-of-hour-tail bug
+in all three. Beyond that: Fresh Air had a wrong Segment B duration, a
+missing 35-second Funding Credit, and a floating break whose own duration
+undercounted its "adjacent funder" half (35s instead of the Music+Funding
+Credit combo's 65s the diagram's own label already named it for — the same
+combined-float-slot modeling Hidden Brain already used, not a new pattern).
+Fresh Air Weekend's floating break had the same undercounted-duration bug
+even more severely (41s instead of 101s), and — more seriously — the
+following Segment B was anchored to the floating window's *latest* bound
+instead of right after the break's actual nominal placement, leaving a real
+379-second hole in the schedule that nothing in the schema catches (a
+`log_schedule` row covering a program doesn't validate that its clock's own
+slots are gapless). Here & Now turned out to have a real, unusual structural
+feature none of the other clocks do — a 10-second Funding Credit before
+Billboard, which then only runs 50 seconds instead of 60 — that the first
+transcription pass flattened into an ordinary 60-second Billboard, plus a
+swapped Promo/Music Bed label pair and a missing Funding Credit before
+Segment E. All three clocks now sum to exactly 3600 seconds (or 3599,
+within the same ~1s rounding noise every clock's own PDF shows).
+
+**Log: milestone 1 slice 2 (Content library) has landed** —
+`20260806160000_log_content_library.sql` adds `log_content_items` (news,
+station/program promos, membership messages, university announcements,
+PSAs, legal IDs, interview/feature, host-created) and `log_content_components`
+(a timed part of one — live intro, recorded audio, live outro, optional
+tag), plus the `/log/library` route segment (browse/filter, create, detail
+with components and an approval-status control). One thing about this
+slice cuts the other way from Slice 1's producer gate: **content
+authorship is open to any tool member, not producer-only** — the design
+doc is explicit that newsroom/promotions staff "neither need a producer
+role to do it," so `log_content_items`/`log_content_components` RLS keys
+off `private.has_log_access()` alone, with no `is_log_producer()` branch at
+all (confirmed directly against preview: a plain member with no
+`tool_role` can insert a content item). Retiring stale content is an
+ordinary update (`approval_status` → `'retired'`), the same
+deactivate-don't-delete lifecycle `ep_criteria`/`ep_form_fields` use — no
+delete policy is granted on either table. Audio uploads (`log-media`
+storage bucket, added in the same migration) copy Sourcework's established
+pattern exactly: browser-direct-to-Storage via `supabase.storage.from(...).upload()`
+(`src/app/(portal)/log/audio-upload.tsx`), never a Server Action payload for
+the file itself, with `upsert: true` against a fixed per-entity object path
+(`lib/log/content-library.ts`'s `contentItemAudioObjectPath`/
+`contentComponentAudioObjectPath`) so a corrected re-upload overwrites
+cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
+(same file, pure and tested) implements the design doc's "a 30-second promo
+with a required 8-second outro is a 38-second commitment, never displayed
+as 30" rule — optional components never count toward the total.
+
+**Log: milestone 1 slice 3 (NPR + weather) has landed** — plus, the same
+day, its NPR half was corrected to the real API model (see the dated note
+below; this paragraph already describes the corrected state).
+`20260807130000_log_npr_weather.sql` adds `log_weather_reading`, and
+`20260807140000_log_npr_cds_correction.sql` adds `log_npr_episodes`/
+`log_npr_episode_items` and `log_programs.npr_collection_id`, plus the
+`/log/npr` and `/log/weather` route segments (Workflow D,
+`docs/log-design.md` §3). All three tables stay open to any tool member, no
+`is_log_producer()` branch, same reasoning as Slice 2's content library —
+reading and refreshing NPR/weather is an ordinary host duty. Both
+integrations are refreshed **lazily at read time, never on a schedule**
+(§6: this repo still has no job queue): `lib/log/npr.ts`'s
+`getNprEpisodeForProgramOnDate()` and `lib/log/weather.ts`'s
+`getCurrentWeatherReading()` check staleness against a pure, tested
+threshold check (`lib/log/staleness.ts`) on every read, refetch inline when
+stale, and — critically — never clear or block a previously cached result
+on a fetch failure; they return whatever's still cached, flagged stale,
+with the error attached for the screen to show (§5.2, §22's "a temporary
+API or network failure must not make the current rundown unreadable"). A
+short client poll (`log-poller.tsx`, the same
+`router.refresh()`-on-an-interval shape as Sourcework's `ProcessingPoller`
+and Remote Interview's waiting room) re-triggers that check periodically
+since there's still no notification layer. The two integrations' caches
+replace data differently per their own lifecycle: an NPR episode is deleted
+and reinserted wholesale **per (program, show_date)** on refresh ("not
+diffed... not a change history" — no update policy granted; see the
+correction note below for why it's scoped to a dated episode rather than a
+whole program), while `log_weather_reading` keeps every row as revision
+history and just flips `is_current` (a partial unique index enforces at
+most one current row; no delete policy granted). The provider layer
+(`lib/log/providers/`) treats the two integrations very differently because
+one has a confirmed API model and default and the other, as of this slice
+landing, didn't yet: weather hits the National Weather Service's free,
+keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
+(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+integration, though not necessarily WUWF's final vendor choice
+(`docs/log-design.md` §7). NPR now has a confirmed model too (NPR's
+Content Distribution Service — see the correction note), though WUWF's own
+production CDS token is still outstanding, so `providers/npr.ts` is
+unverified against a live account the same way
+`lib/remote-interview/daily.ts` shipped unverified before this repo had a
+live Daily account — every caller treats "not configured" as an ordinary,
+expected outcome, distinct from "this program has no CDS mapping" and from
+an actual CDS/network failure. `/log/npr` is a bridging standalone screen
+(a program+date picker plus that episode's ordered story items) not in
+`docs/log-design.md` §4's original screen list, which has NPR rendering
+only inline within the rundown builder — that screen doesn't exist yet
+(it's the next slice), and shipping Slice 3 with no way to see or manually
+refresh NPR data at all would leave it invisible and untestable until
+then; `/log/weather` matches §4 exactly.
+
+**Log: NPR integration corrected to the real CDS model (2026-08-07).**
+Slice 3 originally shipped its NPR half against a hypothetical, invented
+"rundown feed" contract (`NPR_RUNDOWNS_API_URL`, a generic
+`{ segments: [...] }` response, Log-invented fields like
+`forward_promo_copy` and a `draft`/`edited`/`revised`/`withdrawn` status,
+one undifferentiated "current rundown" per program with no date) — built
+before this repo had real information about NPR's actual API, deliberately
+labeled an open question at the time. It's since been given real API
+context for NPR's Content Distribution Service (CDS), so
+`20260807140000_log_npr_cds_correction.sql` replaces that prototype
+outright rather than leaving it as unsupported dead weight: NPR identifies
+a program as a CDS **collection** (a stable integer id — `log_programs`
+gained `npr_collection_id`, nullable, backfilled only for the 9 collection
+ids actually known, by exact program-name match, nothing guessed), and a
+rundown is a dated **program-episode** document containing an ordered
+`items` collection of stories — `log_npr_rundown_cache` (one row per
+program, no date, deleted in this migration) became `log_npr_episodes`
+(one row per **program + show_date**, `found`/`not_found`, a `raw jsonb`
+column preserving the CDS document verbatim for fields this schema didn't
+anticipate) and `log_npr_episode_items` (that episode's ordered story
+items, each with a stable `npr_item_id` — CDS's own document id, never
+derived from a title — plus `title`/`teaser`/`raw`). Date is part of a
+CDS episode's identity: a Log rundown for August 7 keeps referring to the
+August 7 NPR episode even if reopened on August 8, which is why the cache
+key changed from `program_id` alone to `(program_id, show_date)`.
+CDS-specific JSON parsing is concentrated in
+`lib/log/providers/npr-response.ts` — a pure, colocated-tested module
+(no fetch, no Supabase) isolated from `providers/npr.ts`'s actual `fetch`
+call so the important boundary cases (malformed response, no matching
+episode, missing/optional item fields, item order, stable ids surviving
+normalization) are unit-tested without live CDS credentials, which this
+repo still doesn't have. A new pure `lib/log/npr-access.ts` gates the two
+required short-circuits — no CDS mapping, no CDS token — before
+`lib/log/npr.ts`'s orchestration ever calls the provider, also
+unit-tested. Host-forward copy is explicitly **not** something NPR
+supplies or this correction models — CDS gives editorial metadata (title,
+teaser), and any on-air forward promotion a host wants is local/derived
+content composed from that, per `docs/log-design.md` §3D.
+
+**Log: station timezone fix (2026-08-07).** Slice 3 shipped a real bug,
+caught immediately by a user comparing the weather screen's "Last updated"
+against an actual clock: every wall-clock-facing display in Log had been
+built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
+the rendering process's own timezone — UTC on Vercel, five hours off
+Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+one place that knows the station is Central time, not Eastern, despite
+being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
+and every timestamp/date Log renders goes through it:
+`formatStationTimestamp` (weather's and NPR's "last updated"/"retrieved"),
+`formatStationDateLong` (the Today screen's header), and — the more
+consequential half of the same bug — `stationTodayISO()`, which replaced
+the Today screen's `new Date().toISOString().slice(0, 10)`. That one wasn't
+just a mislabeled timestamp: computing "today" from UTC meant the Today
+screen would silently show **tomorrow's** lineup for roughly 7pm–midnight
+Central, every single day, since UTC has already rolled over by then. Nothing
+elsewhere in the portal uses this helper or needs to — every other tool's
+timestamps (`created_at`, `submitted_at`, audit log entries, etc.) are
+ordinary multi-timezone-audience activity logs, not a live single-studio
+wall clock, and rendering those in the viewer's ambient timezone rather than
+a fixed one is a longstanding, separate characteristic of the rest of the
+codebase, not something this fix touched.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
@@ -619,6 +967,8 @@ src/app/(portal)/roadmap/  Roadmap (wishlist + product roadmap) — its own rout
 src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all submissions,
                             settings) — its own route segment, gated by
                             requireToolAccess("academic-partnerships")
+src/app/(portal)/log/     Log (clocks, programs — slice 1 of its milestone 1; see above) —
+                            its own route segment, gated by requireToolAccess("log")
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -670,6 +1020,11 @@ src/lib/academic-partnerships/  Academic Partnerships' access gate + role (acces
                            partnership types + public-form validation
                            (partnership-types.ts), embed code (embed.ts), and email
                            template interpolation (email.ts)
+src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff data reads
+                           (queries.ts), plus pure, tested modules — clock-version
+                           resolution (clock-versions.ts) and schedule-entry-active-on-a-date
+                           logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
+                           timing engine, content-eligibility filtering, etc. land here too
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

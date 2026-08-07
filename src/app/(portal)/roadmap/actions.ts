@@ -251,19 +251,27 @@ export async function deleteComment(formData: FormData): Promise<void> {
 
 // Curation ----------------------------------------------------------------------
 
-export async function setPostStatus(formData: FormData): Promise<void> {
+/**
+ * Called directly from the roadmap tab's kanban board (its drag handler and
+ * its keyboard-accessible "Move to…" select) as well as setPostStatus below
+ * — not a <form action> itself, because the board is already a client
+ * component (dnd-kit requires it) and a full page navigation on every drop
+ * would defeat the point. Returns rather than redirects so the board can
+ * update optimistically and roll back on error, mirroring
+ * academic-partnerships/actions.ts's setSubmissionStage.
+ */
+export async function movePostStatus(
+  postId: string,
+  status: RdPostStatus,
+  note = "",
+): Promise<{ error?: string }> {
   const { profile } = await assertRoadmapCurator();
-  const postId = field(formData, "post_id");
-  const path = postPath(postId);
-  const statusRaw = field(formData, "status");
-  if (!POST_STATUSES.includes(statusRaw as RdPostStatus)) {
-    failWith(path, "That is not a status a request can be in.");
+  if (!POST_STATUSES.includes(status)) {
+    return { error: "That is not a status a request can be in." };
   }
-  const status = statusRaw as RdPostStatus;
-  const note = field(formData, "status_note");
 
   const problem = validateStatusChange(status, note);
-  if (problem) failWith(path, problem);
+  if (problem) return { error: problem };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -278,7 +286,10 @@ export async function setPostStatus(formData: FormData): Promise<void> {
       status_changed_by: profile.id,
     })
     .eq("id", postId);
-  failIfError(error, path, "Could not change the status");
+  if (error) {
+    console.error("Could not change status", error);
+    return { error: "Could not change the status. Please try again." };
+  }
 
   await logAuditEvent({
     actorId: profile.id,
@@ -289,6 +300,20 @@ export async function setPostStatus(formData: FormData): Promise<void> {
   });
 
   revalidatePath(LIST_PATH);
+  revalidatePath(postPath(postId));
+  return {};
+}
+
+/** Form-based wrapper around movePostStatus(), for the post detail page's curation panel. */
+export async function setPostStatus(formData: FormData): Promise<void> {
+  const postId = field(formData, "post_id");
+  const path = postPath(postId);
+  const status = field(formData, "status") as RdPostStatus;
+  const note = field(formData, "status_note");
+
+  const result = await movePostStatus(postId, status, note);
+  if (result.error) failWith(path, result.error);
+
   redirect(path);
 }
 

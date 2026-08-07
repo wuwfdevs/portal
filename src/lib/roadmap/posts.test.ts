@@ -3,6 +3,7 @@ import type { RdPostStatus } from "@/lib/database.types";
 import {
   availableStatusActions,
   groupForRoadmap,
+  KANBAN_STATUSES,
   normalizeSort,
   POST_STATUS_BADGE,
   ROADMAP_STATUSES,
@@ -163,5 +164,19 @@ describe("groupForRoadmap", () => {
       { id: "b", status: "under_review" as const },
     ]);
     expect(grouped.every((column) => column.posts.length === 0)).toBe(true);
+  });
+});
+
+describe("KANBAN_STATUSES", () => {
+  it("covers every status exactly once, so every card has a column", () => {
+    expect([...KANBAN_STATUSES].sort()).toEqual([...ALL_STATUSES].sort());
+  });
+
+  it("makes every availableStatusActions() destination a column on the board", () => {
+    for (const status of KANBAN_STATUSES) {
+      for (const target of availableStatusActions(status)) {
+        expect(KANBAN_STATUSES).toContain(target);
+      }
+    }
   });
 });

@@ -297,39 +297,51 @@ export async function reopenSubmission(formData: FormData): Promise<void> {
 }
 
 /**
- * Permanently deletes an inquiry — unlike a disposition (Deferred/Declined/
- * Withdrawn/Archived), which pulls a submission out of the active pipeline
- * while keeping its record, this removes the row and its activity log for
- * good (ap_submission_events cascades via its foreign key). Coordinator-only
- * (see the delete migration's comment) since it can't be undone; the button
- * that calls this is also gated on isCoordinator, but that's a courtesy —
- * ap_submissions_delete's RLS policy is the actual boundary.
+ * Permanently deletes an inquiry — coordinator-only (see the migration this
+ * shipped with, 20260806120000_academic_partnerships_delete.sql):
+ * unlike a disposition, which just takes a submission off the active kanban
+ * board while keeping its record and its stage, this erases it. Called
+ * directly from the submission detail screen's client-side confirm control
+ * (mirroring sourcework's deleteSourceEntirely), not a <form action>, so the
+ * caller can hold a two-step "are you sure" state before committing. Fields
+ * are captured before the delete so the audit event — the only trace left
+ * once ap_submission_events cascades away with the row — still says whose
+ * inquiry it was.
  */
-export async function deleteSubmission(formData: FormData): Promise<void> {
+export async function deleteSubmission(submissionId: string): Promise<{ error?: string }> {
   const { profile } = await assertAcademicPartnershipsCoordinator();
-  const submissionId = field(formData, "submission_id");
 
   const supabase = await createClient();
   const { data: submission } = await supabase
     .from("ap_submissions")
-    .select("faculty_name")
+    .select("faculty_name, department")
     .eq("id", submissionId)
     .maybeSingle();
 
-  const { error } = await supabase.from("ap_submissions").delete().eq("id", submissionId);
-  failIfError(error, detailPath(submissionId), "Could not delete this submission");
+  const { data, error } = await supabase
+    .from("ap_submissions")
+    .delete()
+    .eq("id", submissionId)
+    .select("id");
+  if (error) {
+    console.error("Could not delete submission", error);
+    return { error: "Could not delete this inquiry. Please try again." };
+  }
+  if (!data || data.length === 0) {
+    return { error: "This inquiry could not be deleted." };
+  }
 
   await logAuditEvent({
     actorId: profile.id,
     action: "ap.submission.deleted",
     targetType: "ap_submission",
     targetId: submissionId,
-    metadata: { faculty_name: submission?.faculty_name ?? null },
+    metadata: { faculty_name: submission?.faculty_name ?? null, department: submission?.department ?? null },
   });
 
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/all`);
-  redirect(LIST_PATH);
+  return {};
 }
 
 /**

@@ -70,7 +70,18 @@ repo and a project's history, not the version number.
 | `20260803140000_academic_partnerships.sql`                     | 2026-08-03 | 2026-08-03 |
 | `20260805120000_academic_partnerships_multi_track.sql`         | 2026-08-05 | 2026-08-05 |
 | `20260805130000_academic_partnerships_field_trim.sql`           | 2026-08-05 | 2026-08-05 |
-| `20260806120000_academic_partnerships_delete.sql`               | 2026-08-06 | 2026-08-06 |
+| `20260806120000_academic_partnerships_delete.sql`                | 2026-08-06 | 2026-08-06 |
+| `20260806130000_log_foundation.sql`                              | 2026-08-06 | 2026-08-06 |
+| `20260806140000_log_clock_slot_windows_and_schedule_times.sql`   | 2026-08-06 | 2026-08-06 |
+| `20260806150000_log_seed_npr_clocks.sql`                         | 2026-08-06 | 2026-08-06 |
+| `20260806160000_log_content_library.sql`                         | 2026-08-06 | 2026-08-06 |
+| `20260806170000_log_schedule_completeness_fixes.sql`             | 2026-08-06 | 2026-08-06 |
+| `20260806180000_log_clock_seed_corrections.sql`                  | 2026-08-06 | 2026-08-06 |
+| `20260807120000_log_clock_seed_corrections_2.sql`                | 2026-08-07 | 2026-08-07 |
+| `20260807130000_log_npr_weather.sql`                              | 2026-08-07 | 2026-08-07 |
+| `20260807140000_log_npr_cds_correction.sql`                       | 2026-08-07 | 2026-08-07 |
+| `20260807150000_log_rundowns.sql`                                 | 2026-08-07 | 2026-08-07 |
+| `20260807160000_log_broadcast_events.sql`                         | 2026-08-07 | 2026-08-07 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

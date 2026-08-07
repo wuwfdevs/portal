@@ -23,11 +23,30 @@ export const POST_KIND_LABEL: Record<RdPostKind, string> = {
 };
 
 /**
- * The statuses the Roadmap tab groups by, in order. `open` and `under_review`
- * are deliberately absent: the roadmap is what has been decided, and everything
- * else lives on the Requests tab.
+ * The statuses the Roadmap tab's static (non-curator) view groups by, in
+ * order. `open` and `under_review` are deliberately absent there: for
+ * everyone except a curator, the roadmap is what has been decided, and
+ * everything else lives on the Requests tab. A curator's kanban board uses
+ * the wider KANBAN_STATUSES below instead — see its comment for why.
  */
 export const ROADMAP_STATUSES: RdPostStatus[] = ["planned", "in_progress", "shipped", "declined"];
+
+/**
+ * The curator kanban board's columns — every status, in state-machine
+ * order. Unlike ROADMAP_STATUSES, this includes `open` and `under_review`:
+ * a curator is the one who moves a request out of them, and a board that
+ * can't show a card can't be dragged from, so restricting the board to
+ * "already decided" would leave curators dropping back to the per-post
+ * curation panel for exactly the moves a kanban board exists to make fast.
+ */
+export const KANBAN_STATUSES: RdPostStatus[] = [
+  "open",
+  "under_review",
+  "planned",
+  "in_progress",
+  "shipped",
+  "declined",
+];
 
 /** The label on the button that moves a post *to* each status. */
 export const STATUS_ACTION_LABEL: Record<RdPostStatus, string> = {

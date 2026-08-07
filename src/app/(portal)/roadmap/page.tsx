@@ -12,6 +12,7 @@ import {
 } from "@/lib/roadmap/posts";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 import { PostRow } from "./post-row";
+import { RoadmapKanbanField } from "./kanban-board-field";
 
 const TABS = ["requests", "roadmap"] as const;
 type Tab = (typeof TABS)[number];
@@ -52,7 +53,7 @@ export default async function RoadmapPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { profile } = await requireRoadmapAccess();
+  const { profile, isCurator } = await requireRoadmapAccess();
 
   const activeTab: Tab = TABS.includes(params.tab as Tab) ? (params.tab as Tab) : "requests";
   const status = STATUSES.includes(params.status as RdPostStatus)
@@ -130,6 +131,14 @@ export default async function RoadmapPage({
             </div>
           )}
         </>
+      ) : isCurator ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-ink-500">
+            Every request, grouped by where it stands. Drag a card between columns to change its
+            status, or use its “Move to…” menu.
+          </p>
+          <RoadmapKanbanField posts={posts} />
+        </div>
       ) : (
         <div className="flex flex-col gap-6">
           <p className="text-[13px] text-ink-500">

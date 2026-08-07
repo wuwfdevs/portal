@@ -1,19 +1,18 @@
--- Academic Partnerships: lets a coordinator permanently delete an inquiry.
+-- Coordinator-only delete for ap_submissions.
 --
--- ap_submissions had no delete grant or policy at all until now (see the
--- Phase 1 migration's comment: "No insert grant... staff never create a
--- submission by hand" — delete was simply never considered). Unlike the
--- disposition columns (Deferred/Declined/Withdrawn/Archived), which move a
--- submission out of the active pipeline while keeping its record, this is a
--- real, irreversible delete — for spam/test submissions and mistaken
--- entries that shouldn't be kept around at all. Scoped to coordinators
--- (mirrors ap_settings_update / ap_email_templates_update), not every
--- member, since it can't be undone. ap_submission_events cascades via its
--- existing `on delete cascade` foreign key; audit_events' target_id is a
--- bare text column with no foreign key, so ap.submission.deleted can still
--- be recorded after the row is gone.
-
-grant delete on public.ap_submissions to authenticated;
+-- Every other submission write (stage, owner, assessment, next action,
+-- disposition) is available to any tool member per
+-- assertAcademicPartnershipsAccess() — deleting an inquiry outright is
+-- rarer and, unlike a disposition, not reversible, so it uses the same
+-- coordinator elevation Settings' write actions do
+-- (assertAcademicPartnershipsCoordinator() / is_academic_partnerships_coordinator()).
+--
+-- ap_submission_events carries `on delete cascade` back to ap_submissions
+-- (see 20260803140000_academic_partnerships.sql), so a submission's own
+-- activity log disappears with it — the deletion itself is recorded in
+-- audit_events instead (src/app/(portal)/academic-partnerships/actions.ts's
+-- deleteSubmission, action "ap.submission.deleted"), which is the only
+-- durable trace once RLS and the cascade have both finished.
 
 create policy ap_submissions_delete on public.ap_submissions
   for delete to authenticated
