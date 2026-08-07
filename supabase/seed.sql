@@ -20,6 +20,7 @@ declare
   tool_audience uuid;
   tool_roadmap uuid;
   tool_log uuid;
+  tool_underwriting uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -112,6 +113,9 @@ begin
   -- just looks it up to seed local tool_access grants, same as transcription
   -- and remote-interview above.
   select id into tool_log from public.tools where key = 'log';
+  -- Underwriting & Traffic's registry row comes from
+  -- 20260807200000_underwriting_foundation.sql — same lookup pattern.
+  select id into tool_underwriting from public.tools where key = 'underwriting';
 
   -- Editorial tool roles use the canonical lowercase set the tool interprets:
   -- 'contributor' < 'reviewer' < 'editor' (anything else falls back to contributor).
@@ -139,7 +143,12 @@ begin
     -- the content library (Workflow C).
     (dana_id, tool_log, 'producer', dana_id),
     (grace_id, tool_log, null, dana_id),
-    (marcus_id, tool_log, null, dana_id)
+    (marcus_id, tool_log, null, dana_id),
+    -- Underwriting & Traffic is invite_only like Log, no elevated role built
+    -- into milestone 1 except manager (waive/certify/override). Dana is a
+    -- manager; Sam is a plain traffic-staff member.
+    (dana_id, tool_underwriting, 'manager', dana_id),
+    (sam_id, tool_underwriting, null, dana_id)
   on conflict do nothing;
 
   insert into public.access_requests (email, display_name, note, status)
@@ -583,4 +592,91 @@ begin
     ('71000000-0000-0000-0000-000000000006', i_membership, 'optional_tag', 2, 10, false,
      'Text WUWF to 51555 to give.')
   on conflict (id) do nothing;
+end $$;
+
+-- Underwriting & Traffic sample data ---------------------------------------
+-- Modeled directly on the real WUWF Autumn Beck Blackledge underwriting
+-- agreement reviewed for this tool's redesign (docs/underwriting-design.md
+-- §2's worked example): a real estate underwriter, one insertion order,
+-- four weekly recurring schedule lines totaling 104 spots over 26 weeks,
+-- two rotating 30-second messages (one live-read, one WUWF-recorded),
+-- explicitly no affidavit required, and a preemption policy of
+-- rescheduling within the program originally sponsored. This is the
+-- reference case lib/underwriting/schedule-lines.test.ts's 104-occurrence
+-- test is built against.
+do $$
+declare
+  dana_id uuid := '10000000-0000-0000-0000-000000000001';
+  underwriter_id uuid := '80000000-0000-0000-0000-000000000001';
+  contract_id uuid := '80000000-0000-0000-0000-000000000002';
+  copy_a_id uuid := '80000000-0000-0000-0000-000000000003';
+  copy_b_id uuid := '80000000-0000-0000-0000-000000000004';
+  prog_morning_edition uuid;
+  prog_atc uuid;
+  campaign_start date := '2026-08-03'; -- a Monday
+  campaign_end date := ('2026-08-03'::date + interval '181 days')::date; -- 26 weeks
+begin
+  select id into prog_morning_edition from public.log_programs where name = 'Morning Edition';
+  select id into prog_atc from public.log_programs where name = 'All Things Considered';
+
+  insert into public.uw_underwriters (
+    id, name, mailing_address, contact_name, email, phone, category, notes, created_by
+  ) values (
+    underwriter_id, 'Autumn Beck Blackledge',
+    '4400 Bayou Blvd, Pensacola, FL 32503',
+    'Autumn Beck Blackledge', 'autumn@blackledgerealty.example', '(850) 555-0142',
+    'Real Estate Services',
+    'Reasonable efforts should avoid scheduling adjacent to another real-estate underwriter''s credit — see the competitive-adjacency check on the placement screen.',
+    dana_id
+  )
+  on conflict (id) do nothing;
+
+  insert into public.uw_contracts (
+    id, underwriter_id, contract_identifier, effective_from, effective_to, status,
+    affidavit_required, sponsorship_category, sponsorship_total, preemption_policy,
+    notes, created_by
+  ) values (
+    contract_id, underwriter_id, 'IO-2026-0142', campaign_start, campaign_end, 'active',
+    false, 'Real Estate Services', 6240.00,
+    'Preempted spots are rescheduled within the program originally sponsored, per the executed insertion order.',
+    'Copy reviewed by WUWF for FCC underwriting-compliance language before each flight. Executed agreement and insertion order kept on file — attach via the contract''s Document panel.',
+    dana_id
+  )
+  on conflict (id) do nothing;
+
+  -- Four weekly recurring lines, 26 weeks each — 4 x 26 = 104 expected
+  -- occurrences, matching the insertion order's own spot count exactly.
+  -- Monday/Wednesday/Thursday morning spots fall inside Morning Edition's
+  -- 5-9am block; the Tuesday afternoon spot falls inside All Things
+  -- Considered's drive-time block.
+  insert into public.uw_contract_schedule_lines (
+    contract_id, days_of_week, target_time, duration_seconds, program_id,
+    start_date, end_date, notes, created_by
+  ) values
+    (contract_id, array[1], '07:49', 30, prog_morning_edition,
+     campaign_start, campaign_end, 'Monday morning drive.', dana_id),
+    (contract_id, array[2], '16:48', 30, prog_atc,
+     campaign_start, campaign_end, 'Tuesday afternoon drive.', dana_id),
+    (contract_id, array[3, 4], '08:06', 30, prog_morning_edition,
+     campaign_start, campaign_end, 'Wednesday and Thursday morning drive.', dana_id)
+  on conflict do nothing;
+
+  -- Two rotating messages — one live-read, one WUWF-recorded per DAD cart,
+  -- matching the real agreement's "live-read or WUWF-recorded execution
+  -- depending on the message."
+  insert into public.uw_copy (
+    id, label, script, execution_kind, cart_identifier, duration_seconds,
+    effective_from, effective_to, approval_status, created_by
+  ) values
+    (copy_a_id, 'Message A (live read)',
+     'Support for WUWF comes from Autumn Beck Blackledge, helping Pensacola-area families find their next home, online at Blackledge Realty dot example.',
+     'live_read', null, 30, campaign_start, campaign_end, 'approved', dana_id),
+    (copy_b_id, 'Message B (recorded)',
+     'Support for WUWF comes from Autumn Beck Blackledge Realty, a proud supporter of public media in Northwest Florida.',
+     'recorded', 'UW-1142', 30, campaign_start, campaign_end, 'approved', dana_id)
+  on conflict (id) do nothing;
+
+  insert into public.uw_contract_copy (contract_id, copy_id)
+  values (contract_id, copy_a_id), (contract_id, copy_b_id)
+  on conflict do nothing;
 end $$;

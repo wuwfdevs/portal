@@ -19,10 +19,10 @@ export type ScheduleCreditResult = { ok: true; placementId: string } | { ok: fal
 export const scheduleCredit = defineCapability({
   id: "underwriting.credit.schedule",
   summary:
-    "Place an underwriting obligation's copy into an open, eligible Log rundown slot. Use log.content.search-style browsing on the obligation's contract page first to find eligible slots and linked copy — this only succeeds for already-approved, in-date copy; an expired or unapproved override is a manager-only action done from the obligation's own screen.",
+    "Place a contract schedule line's copy into an open, eligible Log rundown break. Browse the schedule line's contract page first to find eligible breaks and linked copy — this only succeeds for already-approved, in-date copy; an expired or unapproved override is a manager-only action done from the contract's own screen.",
   input: z.object({
-    rundownItemId: z.string(),
-    obligationId: z.string(),
+    breakId: z.string(),
+    scheduleLineId: z.string(),
     copyId: z.string(),
   }),
   requires: { tool: "underwriting" },

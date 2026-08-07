@@ -31,7 +31,7 @@ export default async function NewAffidavitPage({
               </option>
               {contracts.map((contract) => (
                 <option key={contract.id} value={contract.id}>
-                  {contract.underwriter_name} — {contract.contract_identifier}
+                  {contract.underwriter.name} — {contract.contract_identifier}
                 </option>
               ))}
             </Select>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBoundaryLabels,
   buildClockFaceSegments,
+  categorizeOpportunity,
   categorizeSlot,
   describeRingSegment,
   formatOffsetLabel,
@@ -14,30 +15,18 @@ function fixedWindow(slot: { start_offset_seconds: number | null; duration_secon
 }
 
 describe("categorizeSlot", () => {
-  it("treats any float slot as a floating local break, regardless of label", () => {
+  it("treats any float slot as a floating network element, regardless of label", () => {
     expect(
       categorizeSlot({
         label: "Whatever",
         segment_label: null,
-        fill_mode: "host_fillable",
         timing_mode: "float",
       }),
     ).toBe("float");
   });
 
-  it("treats a fixed optional slot as optional (host discretion)", () => {
-    expect(
-      categorizeSlot({
-        label: "Music / Optional Newscast Cutaway",
-        segment_label: null,
-        fill_mode: "optional",
-        timing_mode: "fixed",
-      }),
-    ).toBe("optional");
-  });
-
   it("recognizes billboard/promo, newscast/headlines, funding credit, and music bed by label", () => {
-    const base = { segment_label: null, fill_mode: "required" as const, timing_mode: "fixed" as const };
+    const base = { segment_label: null, timing_mode: "fixed" as const };
     expect(categorizeSlot({ ...base, label: "Billboard" })).toBe("promo");
     expect(categorizeSlot({ ...base, label: "WATC Promo" })).toBe("promo");
     expect(categorizeSlot({ ...base, label: "Newscast 1" })).toBe("newscast");
@@ -51,10 +40,16 @@ describe("categorizeSlot", () => {
       categorizeSlot({
         label: "Segment A",
         segment_label: "A",
-        fill_mode: "required",
         timing_mode: "fixed",
       }),
     ).toBe("segment");
+  });
+});
+
+describe("categorizeOpportunity", () => {
+  it("distinguishes a required local opportunity from an optional one", () => {
+    expect(categorizeOpportunity({ requirement: "required" })).toBe("local_required");
+    expect(categorizeOpportunity({ requirement: "optional" })).toBe("local_optional");
   });
 });
 

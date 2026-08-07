@@ -4,14 +4,13 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
-import { AudioUpload } from "../../audio-upload";
 import {
   COMPONENT_TYPE_LABEL,
   CONTENT_TYPE_LABEL,
   computeTotalDurationSeconds,
 } from "@/lib/log/content-library";
 import { getContentItemDetail } from "@/lib/log/queries";
-import { addComponent, setApprovalStatus } from "../../library-actions";
+import { addComponent, setApprovalStatus, setItemDadCartNumber } from "../../library-actions";
 import type { LogApprovalStatus } from "@/lib/database.types";
 
 const APPROVAL_STATUS_VARIANT: Record<LogApprovalStatus, BadgeVariant> = {
@@ -106,8 +105,21 @@ export default async function ContentItemDetailPage({
           </div>
 
           <div className="border-t border-line px-5 py-4">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Audio</div>
-            <AudioUpload target={{ kind: "item", contentItemId: item.id }} hasExisting={Boolean(item.audio_object_path)} />
+            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">ENCO/DAD</div>
+            <form action={setItemDadCartNumber} className="flex items-end gap-3">
+              <input type="hidden" name="content_item_id" value={item.id} />
+              <div className="flex-1">
+                <Label htmlFor="dad_cart_number">Cart number</Label>
+                <Input id="dad_cart_number" name="dad_cart_number" defaultValue={item.dad_cart_number ?? ""} placeholder="e.g. 4021" />
+                <FieldHint>
+                  ENCO/DAD is WUWF&apos;s audio playback system of record — hosts play this item from there,
+                  not the portal. This is just a reference identifier.
+                </FieldHint>
+              </div>
+              <Button type="submit" variant="secondary">
+                Save
+              </Button>
+            </form>
           </div>
         </div>
 
@@ -132,10 +144,9 @@ export default async function ContentItemDetailPage({
                     <span className="text-ink-500">{component.duration_seconds}s</span>
                   </div>
                   {component.script && <p className="text-xs text-ink-700">{component.script}</p>}
-                  <AudioUpload
-                    target={{ kind: "component", contentItemId: item.id, componentId: component.id }}
-                    hasExisting={Boolean(component.audio_object_path)}
-                  />
+                  {component.dad_cart_number && (
+                    <p className="text-xs text-ink-500">ENCO/DAD cart: {component.dad_cart_number}</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -173,9 +184,15 @@ export default async function ContentItemDetailPage({
                   <Input id="duration_seconds" name="duration_seconds" type="number" required min={1} />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="component_script">Script</Label>
-                <Input id="component_script" name="script" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="component_script">Script</Label>
+                  <Input id="component_script" name="script" />
+                </div>
+                <div>
+                  <Label htmlFor="component_dad_cart_number">ENCO/DAD cart</Label>
+                  <Input id="component_dad_cart_number" name="dad_cart_number" placeholder="e.g. 4021" />
+                </div>
               </div>
               <label className="flex items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" name="required" defaultChecked className="h-4 w-4" />

@@ -76,6 +76,7 @@ export async function createContentItem(formData: FormData): Promise<void> {
       subject_tags: splitTags(formData, "subject_tags"),
       community_issue_tags: splitTags(formData, "community_issue_tags"),
       reporter_or_editor: optionalField(formData, "reporter_or_editor"),
+      dad_cart_number: optionalField(formData, "dad_cart_number"),
       created_by: profile.id,
     })
     .select("id")
@@ -127,6 +128,7 @@ export async function addComponent(formData: FormData): Promise<void> {
     duration_seconds: durationSeconds,
     required: formData.get("required") === "on",
     script: optionalField(formData, "script"),
+    dad_cart_number: optionalField(formData, "dad_cart_number"),
   });
   failIfError(error, path, "Could not add the component");
 
@@ -134,38 +136,23 @@ export async function addComponent(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-type AudioUploadTarget =
-  | { kind: "item"; contentItemId: string }
-  | { kind: "component"; contentItemId: string; componentId: string };
-
-/** Records a storage path already uploaded client-side — see audio-upload.tsx. */
-export async function completeAudioUpload(
-  target: AudioUploadTarget,
-  storagePath: string,
-): Promise<{ error?: string }> {
+/**
+ * Updates a content item's own ENCO/DAD cart reference in place — ENCO/DAD
+ * is WUWF's playback system of record (CLAUDE.md's "Log domain redesign"
+ * note); the portal never stores or plays the audio itself.
+ */
+export async function setItemDadCartNumber(formData: FormData): Promise<void> {
   await assertLogAccess();
+  const id = field(formData, "content_item_id");
+  const path = detailPath(id);
+
   const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_content_items")
+    .update({ dad_cart_number: optionalField(formData, "dad_cart_number") })
+    .eq("id", id);
+  failIfError(error, path, "Could not update the DAD cart reference");
 
-  if (target.kind === "item") {
-    const { error } = await supabase
-      .from("log_content_items")
-      .update({ audio_object_path: storagePath })
-      .eq("id", target.contentItemId);
-    if (error) {
-      console.error("Could not save uploaded item audio", error);
-      return { error: "Could not save the uploaded audio." };
-    }
-  } else {
-    const { error } = await supabase
-      .from("log_content_components")
-      .update({ audio_object_path: storagePath })
-      .eq("id", target.componentId);
-    if (error) {
-      console.error("Could not save uploaded component audio", error);
-      return { error: "Could not save the uploaded audio." };
-    }
-  }
-
-  revalidatePath(detailPath(target.contentItemId));
-  return {};
+  revalidatePath(path);
+  redirect(path);
 }

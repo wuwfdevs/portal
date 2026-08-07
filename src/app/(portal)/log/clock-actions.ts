@@ -5,12 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogProducer } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import type {
-  LogClockVersionVariant,
-  LogSlotAssignmentMode,
-  LogSlotFillMode,
-  LogSlotTimingMode,
-} from "@/lib/database.types";
+import type { LogClockVersionVariant, LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
 const LIST_PATH = "/log/clocks";
 
@@ -84,11 +79,14 @@ export async function createClockVersion(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-const FILL_MODES: LogSlotFillMode[] = ["required", "optional", "host_fillable"];
-const ASSIGNMENT_MODES: LogSlotAssignmentMode[] = ["automatic", "preassigned", "host_selected"];
 const TIMING_MODES: LogSlotTimingMode[] = ["fixed", "float"];
 
-/** Appends one slot to a clock version. Insert-only, same reasoning as the version itself. */
+/**
+ * Appends one network clock slot to a clock version — the network's own
+ * structure only (offset, duration, label). Insert-only, same reasoning as
+ * the version itself. Local fillability is a separate concept — see
+ * addLocalOpportunity below.
+ */
 export async function addClockSlot(formData: FormData): Promise<void> {
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
@@ -101,21 +99,11 @@ export async function addClockSlot(formData: FormData): Promise<void> {
     failWith(path, "Give the slot a position and a duration greater than zero.");
   }
 
-  const fillMode = field(formData, "fill_mode") as LogSlotFillMode;
-  if (!FILL_MODES.includes(fillMode)) failWith(path, "That is not a recognized fill mode.");
-  const assignmentMode = field(formData, "assignment_mode") as LogSlotAssignmentMode;
-  if (!ASSIGNMENT_MODES.includes(assignmentMode)) {
-    failWith(path, "That is not a recognized assignment mode.");
-  }
   const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
   if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
 
   const startOffsetRaw = optionalField(formData, "start_offset_seconds");
   const startOffsetSeconds = startOffsetRaw === null ? null : Number.parseInt(startOffsetRaw, 10);
-  const permittedContentTypes = field(formData, "permitted_content_types")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
 
   const supabase = await createClient();
   const { error } = await supabase.from("log_clock_slots").insert({
@@ -123,18 +111,91 @@ export async function addClockSlot(formData: FormData): Promise<void> {
     position,
     start_offset_seconds: startOffsetSeconds,
     duration_seconds: durationSeconds,
-    permitted_content_types: permittedContentTypes,
-    fill_mode: fillMode,
-    assignment_mode: assignmentMode,
-    replaceable: formData.get("replaceable") === "on",
-    shortenable: formData.get("shortenable") === "on",
-    allow_empty: formData.get("allow_empty") === "on",
-    allow_multiple: formData.get("allow_multiple") === "on",
     timing_mode: timingMode,
-    lock_on_air: formData.get("lock_on_air") === "on",
     label: optionalField(formData, "label"),
+    segment_label: optionalField(formData, "segment_label"),
   });
   failIfError(error, path, "Could not add the slot");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+const REQUIREMENTS: LogOpportunityRequirement[] = ["optional", "required"];
+
+/**
+ * Adds a WUWF local-substitution opportunity over a clock version — the
+ * overlay that replaces fill_mode (see 20260808120000_log_local_
+ * opportunities.sql and CLAUDE.md's "Log domain redesign" note). Unlike
+ * clock slots, opportunities are editable in place (update, not insert-only)
+ * — see deactivateLocalOpportunity below.
+ */
+export async function addLocalOpportunity(formData: FormData): Promise<void> {
+  const { profile } = await assertLogProducer();
+  const templateId = field(formData, "clock_template_id");
+  const versionId = field(formData, "clock_version_id");
+  const path = templatePath(templateId);
+
+  const position = Number.parseInt(field(formData, "position"), 10);
+  const startOffsetSeconds = Number.parseInt(field(formData, "start_offset_seconds"), 10);
+  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
+  const label = field(formData, "label");
+  if (label === "") failWith(path, "Give this opportunity a short label.");
+  if (!Number.isFinite(position) || !Number.isFinite(startOffsetSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    failWith(path, "Give the opportunity a position, start offset, and a duration greater than zero.");
+  }
+
+  const requirement = field(formData, "requirement") as LogOpportunityRequirement;
+  if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
+  const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
+  if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
+
+  const earliestRaw = optionalField(formData, "earliest_start_offset_seconds");
+  const latestRaw = optionalField(formData, "latest_start_offset_seconds");
+  if (timingMode === "float" && (earliestRaw === null || latestRaw === null)) {
+    failWith(path, "A floating opportunity needs both an earliest and latest permitted start.");
+  }
+
+  const permittedContentTypes = field(formData, "permitted_content_types")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("log_local_opportunities").insert({
+    clock_version_id: versionId,
+    position,
+    label,
+    requirement,
+    timing_mode: timingMode,
+    start_offset_seconds: startOffsetSeconds,
+    duration_seconds: durationSeconds,
+    earliest_start_offset_seconds: timingMode === "float" ? Number.parseInt(earliestRaw!, 10) : null,
+    latest_start_offset_seconds: timingMode === "float" ? Number.parseInt(latestRaw!, 10) : null,
+    permitted_content_types: permittedContentTypes,
+    allow_multiple: formData.get("allow_multiple") === "on",
+    notes: optionalField(formData, "notes"),
+    created_by: profile.id,
+  });
+  failIfError(error, path, "Could not add the local opportunity");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+/** Deactivates a local opportunity (doesn't delete it) — the same deactivate-don't-delete lifecycle log_content_items uses. */
+export async function deactivateLocalOpportunity(formData: FormData): Promise<void> {
+  await assertLogProducer();
+  const templateId = field(formData, "clock_template_id");
+  const opportunityId = field(formData, "opportunity_id");
+  const path = templatePath(templateId);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_local_opportunities")
+    .update({ active: false })
+    .eq("id", opportunityId);
+  failIfError(error, path, "Could not deactivate this opportunity");
 
   revalidatePath(path);
   redirect(path);

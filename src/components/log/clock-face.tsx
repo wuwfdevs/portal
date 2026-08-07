@@ -1,6 +1,7 @@
 import {
   buildBoundaryLabels,
   buildClockFaceSegments,
+  categorizeOpportunity,
   categorizeSlot,
   radialLabelOrientation,
   slotRenderWindow,
@@ -8,25 +9,32 @@ import {
   CATEGORY_LABEL,
   type ClockFaceCategory,
 } from "@/lib/log/clock-face";
-import type { LogClockSlotRow } from "@/lib/log/queries";
+import type { LogClockSlotRow, LogLocalOpportunityRow } from "@/lib/log/queries";
 
-// A circular diagram of one clock version's slots, in the same spirit as the
-// NPR network clock PDFs this tool's seed data was transcribed from (see
-// docs/log-design.md and 20260806150000_log_seed_npr_clocks.sql) — a ring
-// segmented by slot, colored by category, with a minute label at every slot
-// boundary the way the source PDFs label each segment transition (not a
-// generic 5-minute grid). Rendered as a plain server-side SVG: no
-// interactivity beyond each segment's native <title> tooltip, so no
-// "use client" is needed. Slots are drawn in their existing (position) order
-// — a slot whose window overlaps an earlier one (1A's fundraising cutaways,
-// nested inside a larger segment) is drawn after it and so correctly
-// notches into it visually, without needing a separate overlay ring.
+// A circular diagram of one clock version, in the same spirit as the NPR
+// network clock PDFs this tool's seed data was transcribed from (see
+// docs/log-design.md and 20260806150000_log_seed_npr_clocks.sql) — an inner
+// ring segmented by network slot, colored by category, and an outer ring
+// showing WUWF's own local-opportunity overlay (see docs/log-design.md §4A/
+// §4B and 20260808120000_log_local_opportunities.sql) — deliberately a
+// separate ring, not a recolored network segment, so the network clock's
+// own structure and WUWF's overlay on top of it both stay legible at once.
+// A minute label sits at every network-slot boundary, the way the source
+// PDFs label each segment transition (not a generic 5-minute grid).
+// Rendered as a plain server-side SVG: no interactivity beyond each
+// segment's native <title> tooltip, so no "use client" is needed.
+//
+// Sized materially larger than the tool's first pass (320px) per the
+// domain redesign — this is specifically about the Clocks tab; the host
+// rundown does not get an equivalent large clock-face visualization.
 
-const SIZE = 360;
+const SIZE = 640;
 const CENTER = SIZE / 2;
-const R_OUTER = 140;
-const R_INNER = 90;
-const R_LABEL = R_OUTER + 18;
+const R_NETWORK_OUTER = 210;
+const R_NETWORK_INNER = 130;
+const R_OPPORTUNITY_OUTER = 260;
+const R_OPPORTUNITY_INNER = 220;
+const R_LABEL = R_OPPORTUNITY_OUTER + 24;
 const TOTAL_SECONDS = 3600;
 
 function formatOffset(seconds: number): string {
@@ -35,19 +43,37 @@ function formatOffset(seconds: number): string {
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
-  const segments = buildClockFaceSegments(
+export function ClockFace({
+  slots,
+  opportunities = [],
+}: {
+  slots: LogClockSlotRow[];
+  opportunities?: LogLocalOpportunityRow[];
+}) {
+  const networkSegments = buildClockFaceSegments(
     slots,
     TOTAL_SECONDS,
     categorizeSlot,
     slotRenderWindow,
     CENTER,
     CENTER,
-    R_OUTER,
-    R_INNER,
+    R_NETWORK_OUTER,
+    R_NETWORK_INNER,
+  );
+  const opportunitySegments = buildClockFaceSegments(
+    opportunities,
+    TOTAL_SECONDS,
+    categorizeOpportunity,
+    slotRenderWindow,
+    CENTER,
+    CENTER,
+    R_OPPORTUNITY_OUTER,
+    R_OPPORTUNITY_INNER,
   );
   const boundaryLabels = buildBoundaryLabels(slots, TOTAL_SECONDS, slotRenderWindow, CENTER, CENTER, R_LABEL);
-  const usedCategories = Array.from(new Set(segments.map((segment) => segment.category))) as ClockFaceCategory[];
+  const usedCategories = Array.from(
+    new Set([...networkSegments, ...opportunitySegments].map((segment) => segment.category)),
+  ) as ClockFaceCategory[];
   const floatPatternId = `log-clock-float-hatch-${slots[0]?.clock_version_id ?? "default"}`;
 
   return (
@@ -55,8 +81,8 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
-        aria-label="Clock version diagram"
-        className="h-auto w-full max-w-[320px]"
+        aria-label="Clock version diagram: network structure (inner ring) and WUWF local opportunities (outer ring)"
+        className="h-auto w-full max-w-[560px]"
       >
         <defs>
           <pattern
@@ -70,9 +96,10 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
             <line x1={0} y1={0} x2={0} y2={6} stroke={CATEGORY_COLOR.float.stroke} strokeWidth={3} />
           </pattern>
         </defs>
-        <circle cx={CENTER} cy={CENTER} r={R_OUTER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
-        <circle cx={CENTER} cy={CENTER} r={R_INNER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
-        {segments.map((segment, index) => {
+        <circle cx={CENTER} cy={CENTER} r={R_NETWORK_OUTER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
+        <circle cx={CENTER} cy={CENTER} r={R_NETWORK_INNER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
+        <circle cx={CENTER} cy={CENTER} r={R_OPPORTUNITY_OUTER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
+        {networkSegments.map((segment, index) => {
           const color = CATEGORY_COLOR[segment.category];
           const isFloat = segment.category === "float";
           const label = segment.slot.label ?? CATEGORY_LABEL[segment.category];
@@ -81,12 +108,28 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
             : `${label} — starts ${formatOffset(segment.slot.start_offset_seconds ?? 0)}, lasts ${formatOffset(segment.slot.duration_seconds)}`;
           return (
             <path
-              key={index}
+              key={`network-${index}`}
               d={segment.pathD}
               fill={isFloat ? `url(#${floatPatternId})` : color.fill}
               stroke={isFloat ? color.stroke : "#ffffff"}
-              strokeWidth={isFloat ? 1.25 : 0.75}
+              strokeWidth={isFloat ? 1.5 : 1}
               strokeDasharray={isFloat ? "3 2" : undefined}
+            >
+              <title>{title}</title>
+            </path>
+          );
+        })}
+        {opportunitySegments.map((segment, index) => {
+          const color = CATEGORY_COLOR[segment.category];
+          const opportunity = segment.slot;
+          const title = `${opportunity.label} (${opportunity.requirement}) — starts ${formatOffset(opportunity.start_offset_seconds)}, ${formatOffset(opportunity.duration_seconds)} available${opportunity.timing_mode === "float" ? ` (floats between ${formatOffset(opportunity.earliest_start_offset_seconds ?? 0)} and ${formatOffset(opportunity.latest_start_offset_seconds ?? 0)})` : ""}`;
+          return (
+            <path
+              key={`opportunity-${index}`}
+              d={segment.pathD}
+              fill={color.fill}
+              stroke={color.stroke}
+              strokeWidth={1}
             >
               <title>{title}</title>
             </path>
@@ -101,7 +144,7 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
               y={boundaryLabel.y}
               textAnchor={anchor}
               dominantBaseline="middle"
-              fontSize={9.5}
+              fontSize={14}
               className="fill-ink-500"
               transform={`rotate(${rotationDeg} ${boundaryLabel.x} ${boundaryLabel.y})`}
             >
@@ -109,17 +152,17 @@ export function ClockFace({ slots }: { slots: LogClockSlotRow[] }) {
             </text>
           );
         })}
-        <text x={CENTER} y={CENTER + 4} textAnchor="middle" fontSize={11} className="fill-ink-400">
+        <text x={CENTER} y={CENTER + 6} textAnchor="middle" fontSize={16} className="fill-ink-400">
           60 min
         </text>
       </svg>
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-ink-500">
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs text-ink-500">
         {usedCategories.map((category) => (
           <span key={category} className="flex items-center gap-1.5">
-            <svg width={10} height={10} aria-hidden="true">
+            <svg width={11} height={11} aria-hidden="true">
               <rect
-                width={10}
-                height={10}
+                width={11}
+                height={11}
                 rx={2}
                 fill={category === "float" ? `url(#${floatPatternId})` : CATEGORY_COLOR[category].fill}
                 stroke={category === "float" ? CATEGORY_COLOR.float.stroke : "#C7CBD1"}

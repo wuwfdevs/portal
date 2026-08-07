@@ -57,7 +57,7 @@ export default async function AffidavitDetailPage({
             <dt className="text-xs text-ink-400">Underwriter</dt>
             <dd className="text-ink-900">
               <Link href={`/underwriting/contracts/${affidavit.contract.id}`} className="text-brand-link">
-                {affidavit.contract.underwriter_name}
+                {affidavit.contract.underwriter.name}
               </Link>
             </dd>
           </div>
@@ -115,7 +115,7 @@ export default async function AffidavitDetailPage({
                     </Cell>
                     <Cell className="text-ink-700">
                       {placement.program_name}
-                      {placement.clock_slot_label ? ` (${placement.clock_slot_label})` : ""}
+                      {placement.break_label ? ` (${placement.break_label})` : ""}
                     </Cell>
                     <Cell className="text-ink-700">{broadcastEvent.outcome.replace(/_/g, " ")}</Cell>
                     <Cell className="text-ink-700">

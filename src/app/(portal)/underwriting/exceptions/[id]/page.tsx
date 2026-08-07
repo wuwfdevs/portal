@@ -5,6 +5,7 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Label, Select, Textarea } from "@/components/ui/input";
 import { getExceptionDetail, listMakegoodsForException } from "@/lib/underwriting/queries";
+import { describeScheduleLineRecurrence } from "@/lib/underwriting/schedule-lines";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
 import { describeMakegoodState, MAKEGOOD_STATE_LABEL, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
 import { resolveException } from "../../exception-actions";
@@ -43,14 +44,14 @@ export default async function ExceptionDetailPage({
           ← Back to exceptions
         </Link>
         <div className="mt-2 mb-1 flex flex-wrap items-center gap-2.5">
-          <h2 className="font-serif text-xl font-bold text-ink-900">{exception.contract.underwriter_name}</h2>
+          <h2 className="font-serif text-xl font-bold text-ink-900">{exception.contract.underwriter.name}</h2>
           <Badge variant={STATUS_VARIANT[exception.resolution_status]}>{exception.resolution_status}</Badge>
         </div>
         <p className="mb-4 text-xs text-ink-500">
           <Link href={`/underwriting/contracts/${exception.contract.id}`} className="font-semibold text-brand-link">
             {exception.contract.contract_identifier}
           </Link>{" "}
-          · {exception.obligation.description}
+          · {describeScheduleLineRecurrence(exception.scheduleLine)}
         </p>
 
         {error && <Alert className="mb-4">{error}</Alert>}
@@ -77,8 +78,8 @@ export default async function ExceptionDetailPage({
                   <dd className="text-ink-900">{exception.placement.program_name}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-ink-400">Slot</dt>
-                  <dd className="text-ink-900">{exception.placement.clock_slot_label ?? "—"}</dd>
+                  <dt className="text-xs text-ink-400">Break</dt>
+                  <dd className="text-ink-900">{exception.placement.break_label ?? "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-ink-400">Placement status</dt>

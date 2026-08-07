@@ -7,6 +7,16 @@
 // moveRundownItem (same authorization, same writes) — those are now thin
 // adapters over these, same pattern Phase A/B already established.
 // log.content.search mirrors sourcework.project.search.
+//
+// Domain redesign (2026-08-08): a "slot" is now a break that can hold zero
+// or more items, not a single pre-existing row to fill in place — see
+// docs/log-design.md §4B. buildItem creates a new item inside a break
+// rather than updating an existing placeholder's content_item_id;
+// recordOutcome's "moved" branch creates a fresh item at the destination
+// break and leaves the source item exactly as it was, recording it
+// 'skipped' — "this specific planned placement did not happen, because the
+// content moved elsewhere," never deleted, per the same as-planned-history
+// precedent log_broadcast_events itself follows.
 
 import "server-only";
 import { z } from "zod";
@@ -14,7 +24,7 @@ import { defineCapability } from "@/lib/capabilities/define";
 import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertLogAccess } from "./access";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "./content-library";
-import { getContentItemDetail, getRundownItem, listContentItems, type LogContentItemRow } from "./queries";
+import { getContentItemDetail, getRundownBreak, getRundownItem, listContentItems, listItemsForBreak, type LogContentItemRow } from "./queries";
 import type { LogMissReason } from "@/lib/database.types";
 
 const CONTENT_TYPES = Object.keys(CONTENT_TYPE_LABEL) as [
@@ -38,33 +48,47 @@ export type BuildRundownItemResult =
   | { ok: true; itemId: string; contentItemId: string; plannedDurationSeconds: number }
   | { ok: false; message: string };
 
-/** Same write fillRundownItem (rundown-actions.ts) performs: fill or replace a rundown item's content, recomputing planned duration from the chosen item's components. */
+/** Places a content-library item into an open break, the same write fillRundownItem (rundown-actions.ts) performs. */
 export const buildRundownItem = defineCapability({
   id: "log.rundown.buildItem",
   summary:
-    "Add or replace a content-library item in one rundown slot (a clock's local break). Use log.content.search first to find an eligible item's id.",
-  input: z.object({ itemId: z.string(), contentItemId: z.string() }),
+    "Add a content-library item into an open local-opportunity break in a rundown. Use log.content.search first to find an eligible item's id.",
+  input: z.object({ breakId: z.string(), contentItemId: z.string() }),
   requires: { tool: "log" },
   confirmation: "none",
   async handler({ supabase }: CapabilityContext, input): Promise<BuildRundownItemResult> {
     await assertLogAccess();
+
+    const brk = await getRundownBreak(input.breakId);
+    if (!brk) return { ok: false, message: "That break no longer exists." };
+
+    const existingItems = await listItemsForBreak(input.breakId);
+    if (existingItems.length > 0 && !brk.allow_multiple) {
+      return { ok: false, message: "That break is already occupied." };
+    }
 
     const contentItem = await getContentItemDetail(input.contentItemId);
     if (!contentItem) return { ok: false, message: "That content item no longer exists." };
     const plannedDurationSeconds =
       computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ?? 0;
 
-    const { error } = await supabase
+    const nextPosition = existingItems.reduce((max, item) => Math.max(max, item.position), 0) + 1;
+
+    const { data, error } = await supabase
       .from("log_rundown_items")
-      .update({
+      .insert({
+        break_id: input.breakId,
+        position: nextPosition,
+        item_kind: "content",
         content_item_id: input.contentItemId,
         planned_duration_seconds: plannedDurationSeconds,
         placement_status: "replaceable",
       })
-      .eq("id", input.itemId);
-    if (error) return { ok: false, message: `Could not fill this slot: ${error.message}` };
+      .select("id")
+      .single();
+    if (error) return { ok: false, message: `Could not fill this break: ${error.message}` };
 
-    return { ok: true, itemId: input.itemId, contentItemId: input.contentItemId, plannedDurationSeconds };
+    return { ok: true, itemId: data.id, contentItemId: input.contentItemId, plannedDurationSeconds };
   },
 });
 
@@ -88,7 +112,7 @@ export type RecordRundownOutcomeResult =
 export const recordRundownItemOutcome = defineCapability({
   id: "log.rundownItem.recordOutcome",
   summary:
-    "Record what happened to a rundown item — aired as scheduled, missed (with a brief reason), or moved to a different open slot.",
+    "Record what happened to a rundown item — aired as scheduled, missed (with a brief reason), or moved to a different open break.",
   input: z.discriminatedUnion("outcome", [
     z.object({ outcome: z.literal("aired"), itemId: z.string() }),
     z.object({
@@ -97,7 +121,7 @@ export const recordRundownItemOutcome = defineCapability({
       reason: z.enum(MISS_REASONS),
       notes: z.string().trim().optional(),
     }),
-    z.object({ outcome: z.literal("moved"), sourceItemId: z.string(), destinationItemId: z.string() }),
+    z.object({ outcome: z.literal("moved"), sourceItemId: z.string(), destinationBreakId: z.string() }),
   ]),
   requires: { tool: "log" },
   confirmation: "required",
@@ -129,45 +153,43 @@ export const recordRundownItemOutcome = defineCapability({
     }
 
     const source = await getRundownItem(input.sourceItemId);
-    if (!source || source.content_item_id === null) return { ok: false, message: "There is nothing to move." };
-    const destination = await getRundownItem(input.destinationItemId);
-    if (!destination || destination.content_item_id !== null || destination.underwriting_copy_id !== null) {
+    if (!source || source.item_kind !== "content" || source.content_item_id === null) {
+      return { ok: false, message: "There is nothing to move." };
+    }
+    const destinationBreak = await getRundownBreak(input.destinationBreakId);
+    if (!destinationBreak) return { ok: false, message: "That destination no longer exists." };
+
+    const destinationItems = await listItemsForBreak(input.destinationBreakId);
+    if (destinationItems.length > 0 && !destinationBreak.allow_multiple) {
       return { ok: false, message: "That destination is no longer open." };
     }
 
-    const { data: sourceSlot, error: slotError } = await supabase
-      .from("log_clock_slots")
-      .select("duration_seconds")
-      .eq("id", source.clock_slot_id)
-      .single();
-    if (slotError) return { ok: false, message: `Could not move this item: ${slotError.message}` };
+    const nextPosition = destinationItems.reduce((max, item) => Math.max(max, item.position), 0) + 1;
 
-    const { error: destinationError } = await supabase
-      .from("log_rundown_items")
-      .update({
-        content_item_id: source.content_item_id,
-        planned_duration_seconds: source.planned_duration_seconds,
-        placement_status: "replaceable",
-      })
-      .eq("id", input.destinationItemId);
-    if (destinationError) return { ok: false, message: `Could not move this item: ${destinationError.message}` };
+    const { error: insertError } = await supabase.from("log_rundown_items").insert({
+      break_id: input.destinationBreakId,
+      position: nextPosition,
+      item_kind: "content",
+      content_item_id: source.content_item_id,
+      planned_duration_seconds: source.planned_duration_seconds,
+      placement_status: "replaceable",
+    });
+    if (insertError) return { ok: false, message: `Could not move this item: ${insertError.message}` };
 
-    const { error: sourceError } = await supabase
+    // The source item is never deleted or cleared — it stays exactly as
+    // planned, and its own broadcast event records that the content moved
+    // elsewhere. locked, since the original placement is now resolved
+    // history, not something to keep editing in place.
+    const { error: lockError } = await supabase
       .from("log_rundown_items")
-      .update({
-        content_item_id: null,
-        planned_duration_seconds: sourceSlot?.duration_seconds ?? source.planned_duration_seconds,
-        placement_status: "editable",
-      })
+      .update({ placement_status: "locked" })
       .eq("id", input.sourceItemId);
-    if (sourceError) {
-      return { ok: false, message: `Moved, but could not clear the original slot: ${sourceError.message}` };
-    }
+    if (lockError) return { ok: false, message: `Moved, but could not update the original item: ${lockError.message}` };
 
     const { error: eventError } = await supabase.from("log_broadcast_events").insert({
       rundown_item_id: input.sourceItemId,
       outcome: "skipped",
-      notes: `Moved to a later opening (${input.destinationItemId}).`,
+      notes: `Moved to a different break (${input.destinationBreakId}).`,
       confirmation_source: "host",
       recorded_by: profile.id,
     });

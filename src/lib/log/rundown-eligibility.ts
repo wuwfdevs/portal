@@ -1,14 +1,15 @@
 // Pure content-eligibility filtering — no Supabase import, colocated test.
 // Decides which approved content library items a host is even offered for a
-// given clock slot (docs/log-design.md §11.2: "eligible existing content").
-// Deliberately does not filter by whether an item's duration fits the
-// slot — that's a warning lib/log/timing.ts surfaces, not a reason to hide
-// the item; a host may still choose to trim live or accept a short
-// underrun, matching §1.2's "human control during live radio."
+// given local-opportunity break (docs/log-design.md §11.2: "eligible
+// existing content"). Deliberately does not filter by whether an item's
+// duration fits the break's remaining time — that's a warning
+// lib/log/timing.ts surfaces, not a reason to hide the item; a host may
+// still choose to trim live or accept a short underrun, matching §1.2's
+// "human control during live radio."
 
 import type { LogContentType } from "@/lib/database.types";
 
-export interface EligibilitySlotLike {
+export interface EligibilityBreakLike {
   permitted_content_types: string[];
 }
 
@@ -21,19 +22,19 @@ export interface EligibilityContentItemLike {
 }
 
 /**
- * Whether `item` may fill `slot` for a broadcast of `programId` airing on
+ * Whether `item` may fill `brk` for a broadcast of `programId` airing on
  * `airDateISO`. All four conditions — approved, permitted content type,
  * effective on the air date, and (if the item restricts itself) eligible for
  * this program — must hold.
  */
 export function isContentItemEligibleForSlot(
   item: EligibilityContentItemLike,
-  slot: EligibilitySlotLike,
+  brk: EligibilityBreakLike,
   programId: string,
   airDateISO: string,
 ): boolean {
   if (item.approval_status !== "approved") return false;
-  if (!slot.permitted_content_types.includes(item.content_type)) return false;
+  if (!brk.permitted_content_types.includes(item.content_type)) return false;
   if (item.effective_from > airDateISO) return false;
   if (item.effective_to !== null && item.effective_to < airDateISO) return false;
   if (item.eligible_program_ids.length > 0 && !item.eligible_program_ids.includes(programId)) return false;
@@ -42,9 +43,9 @@ export function isContentItemEligibleForSlot(
 
 export function filterEligibleContent<T extends EligibilityContentItemLike>(
   items: T[],
-  slot: EligibilitySlotLike,
+  brk: EligibilityBreakLike,
   programId: string,
   airDateISO: string,
 ): T[] {
-  return items.filter((item) => isContentItemEligibleForSlot(item, slot, programId, airDateISO));
+  return items.filter((item) => isContentItemEligibleForSlot(item, brk, programId, airDateISO));
 }

@@ -5,46 +5,45 @@
 // aired), and inventory concepts have no columns anywhere in this schema
 // yet (no daypart classification, no per-item air-frequency tracking), so
 // this is scoped to what the schema actually models: a destination must be
-// another still-open (unfilled, not-yet-past) rundown item whose slot
-// permits the content's type. Duration fit is surfaced as a warning by
-// lib/log/timing.ts, not a hard gate here — same "host decides" philosophy
-// as lib/log/rundown-eligibility.ts.
+// another still-open break (a break with capacity for one more item) whose
+// permitted content types include the moving item's type. Duration fit is
+// surfaced as a warning by lib/log/timing.ts, not a hard gate here — same
+// "host decides" philosophy as lib/log/rundown-eligibility.ts.
+//
+// A destination is now a *break*, not a single-slot rundown item — a break
+// can hold several items when allow_multiple is set, so "open" means "has
+// room for one more," not "is completely empty."
 
 import type { LogContentType } from "@/lib/database.types";
 
-export interface MoveDestinationSlotLike {
-  permitted_content_types: string[];
-}
-
-export interface MoveDestinationLike {
+export interface MoveDestinationBreakLike {
   id: string;
-  content_item_id: string | null;
-  /** Set instead of content_item_id for an underwriting-credit placement — docs/underwriting-design.md §6. A destination holding one is occupied, same as a content-filled one. */
-  underwriting_copy_id?: string | null;
   scheduled_at: string;
-  slot: MoveDestinationSlotLike;
+  permitted_content_types: string[];
+  allow_multiple: boolean;
+  item_count: number;
 }
 
 export function isValidMoveDestination(
-  destination: MoveDestinationLike,
-  sourceItemId: string,
+  destination: MoveDestinationBreakLike,
+  sourceBreakId: string,
   sourceContentType: LogContentType,
   nowISO: string,
 ): boolean {
-  if (destination.id === sourceItemId) return false;
-  if (destination.content_item_id !== null || destination.underwriting_copy_id) return false;
+  if (destination.id === sourceBreakId) return false;
+  if (!destination.allow_multiple && destination.item_count > 0) return false;
   if (new Date(destination.scheduled_at).getTime() <= new Date(nowISO).getTime()) return false;
-  if (!destination.slot.permitted_content_types.includes(sourceContentType)) return false;
+  if (!destination.permitted_content_types.includes(sourceContentType)) return false;
   return true;
 }
 
-export function listValidMoveDestinations<T extends MoveDestinationLike>(
+export function listValidMoveDestinations<T extends MoveDestinationBreakLike>(
   destinations: T[],
-  sourceItemId: string,
+  sourceBreakId: string,
   sourceContentType: LogContentType,
   nowISO: string,
 ): T[] {
   return destinations.filter((destination) =>
-    isValidMoveDestination(destination, sourceItemId, sourceContentType, nowISO),
+    isValidMoveDestination(destination, sourceBreakId, sourceContentType, nowISO),
   );
 }

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 // See docs/underwriting-design.md §4 for the full screen list.
 const TABS = [
   { href: "/underwriting", label: "Dashboard" },
+  { href: "/underwriting/underwriters", label: "Underwriters" },
   { href: "/underwriting/contracts", label: "Contracts" },
   { href: "/underwriting/copy", label: "Copy" },
   { href: "/underwriting/exceptions", label: "Exceptions" },

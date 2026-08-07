@@ -117,28 +117,29 @@ export async function markMissed(formData: FormData): Promise<void> {
 }
 
 /**
- * Thin adapter over log.rundownItem.recordOutcome's "moved" branch: the
- * destination gets the source's content, the source goes back to empty, and
- * the source's own broadcast event records 'skipped'. Running this again
- * with source/destination swapped is exactly how the console's "Undo" link
- * works — there is nothing else to reverse, since log_broadcast_events is
- * append-only.
+ * Thin adapter over log.rundownItem.recordOutcome's "moved" branch: a fresh
+ * item with the source's content is created in the destination break; the
+ * source item is left exactly as it was (never deleted or cleared) and its
+ * own broadcast event records 'skipped'. Running this again with the
+ * destination pointed back at the source's original break is how the
+ * console's "Undo" link works — there is nothing else to reverse, since
+ * log_broadcast_events is append-only.
  */
 export async function moveRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const sourceItemId = field(formData, "source_item_id");
-  const destinationItemId = field(formData, "destination_item_id");
+  const destinationBreakId = field(formData, "destination_break_id");
   const path = consolePath(rundownId);
-  if (sourceItemId === "" || destinationItemId === "") failWith(path, "Choose a destination.");
+  if (sourceItemId === "" || destinationBreakId === "") failWith(path, "Choose a destination.");
 
   const result = await invokeCapability(
     recordRundownItemOutcome,
-    { outcome: "moved", sourceItemId, destinationItemId },
+    { outcome: "moved", sourceItemId, destinationBreakId },
     { confirmed: true },
   );
   if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
-  redirect(`${path}?moved_from=${sourceItemId}&moved_to=${destinationItemId}`);
+  redirect(`${path}?moved_from=${sourceItemId}&moved_to=${destinationBreakId}`);
 }

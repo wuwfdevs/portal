@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeLiveTimingState, type ConsoleItemLike } from "./console-timing";
+import { computeLiveTimingState, type ConsoleBreakLike } from "./console-timing";
 
-function item(overrides: Partial<ConsoleItemLike> & { id: string; scheduled_at: string }): ConsoleItemLike {
+function brk(overrides: Partial<ConsoleBreakLike> & { id: string; scheduled_at: string }): ConsoleBreakLike {
   return {
-    planned_duration_seconds: 60,
-    requirement_level: "required",
-    confirmed: false,
+    network_rejoin_at: overrides.scheduled_at,
+    requirement: "optional",
+    itemCount: 1,
+    allItemsConfirmed: false,
     ...overrides,
   };
 }
@@ -13,82 +14,111 @@ function item(overrides: Partial<ConsoleItemLike> & { id: string; scheduled_at: 
 const SHIFT_END = "2026-08-07T12:00:00.000Z";
 
 describe("computeLiveTimingState", () => {
-  it("is on_time with no current item yet (before the first one starts)", () => {
+  it("is on_time with no current break yet (before the first one starts)", () => {
     const result = computeLiveTimingState(
       "2026-08-07T09:00:00.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T09:30:00.000Z" })],
+      [brk({ id: "a", scheduled_at: "2026-08-07T09:30:00.000Z" })],
       SHIFT_END,
     );
     expect(result.state).toBe("on_time");
-    expect(result.currentItem).toBeNull();
-    expect(result.nextItem?.id).toBe("a");
+    expect(result.currentBreak).toBeNull();
+    expect(result.nextBreak?.id).toBe("a");
   });
 
-  it("is on_time squarely inside an unconfirmed item's window", () => {
+  it("is on_time squarely inside an unconfirmed break's window", () => {
     const result = computeLiveTimingState(
       "2026-08-07T09:00:20.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T09:00:00.000Z", planned_duration_seconds: 60 })],
+      [
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T09:00:00.000Z",
+          network_rejoin_at: "2026-08-07T09:01:00.000Z",
+        }),
+      ],
       SHIFT_END,
     );
     expect(result.state).toBe("on_time");
     expect(result.secondsRemainingInCurrent).toBe(40);
   });
 
-  it("is running_long once an unconfirmed item's window has elapsed past the risk threshold", () => {
+  it("is running_long once a filled, unconfirmed break's window has elapsed past the risk threshold", () => {
     const result = computeLiveTimingState(
       "2026-08-07T09:02:30.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T09:00:00.000Z", planned_duration_seconds: 60 })],
+      [
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T09:00:00.000Z",
+          network_rejoin_at: "2026-08-07T09:01:00.000Z",
+        }),
+      ],
       SHIFT_END,
     );
     expect(result.state).toBe("running_long");
   });
 
-  it("is running_short once a confirmed item still has meaningful time left in its window", () => {
+  it("is running_short once a confirmed break still has meaningful time left before rejoin", () => {
     const result = computeLiveTimingState(
       "2026-08-07T09:00:10.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T09:00:00.000Z", planned_duration_seconds: 60, confirmed: true })],
+      [
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T09:00:00.000Z",
+          network_rejoin_at: "2026-08-07T09:01:00.000Z",
+          allItemsConfirmed: true,
+        }),
+      ],
       SHIFT_END,
     );
     expect(result.state).toBe("running_short");
   });
 
-  it("is at_risk_required when the next required item is imminent and the current one is unconfirmed", () => {
+  it("is at_risk_required when a required, still-empty break's own rejoin is imminent", () => {
     const result = computeLiveTimingState(
-      "2026-08-07T09:00:50.000Z",
+      "2026-08-07T09:00:05.000Z",
       [
-        item({ id: "a", scheduled_at: "2026-08-07T09:00:00.000Z", planned_duration_seconds: 60 }),
-        item({ id: "b", scheduled_at: "2026-08-07T09:01:30.000Z", requirement_level: "required" }),
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T09:00:00.000Z",
+          network_rejoin_at: "2026-08-07T09:01:00.000Z",
+          requirement: "required",
+          itemCount: 0,
+        }),
       ],
       SHIFT_END,
     );
     expect(result.state).toBe("at_risk_required");
   });
 
-  it("is not at_risk_required when the imminent next item is only optional", () => {
+  it("is not at_risk_required for an empty optional break — carrying network is fine", () => {
     const result = computeLiveTimingState(
-      "2026-08-07T09:00:50.000Z",
+      "2026-08-07T09:00:05.000Z",
       [
-        item({ id: "a", scheduled_at: "2026-08-07T09:00:00.000Z", planned_duration_seconds: 60 }),
-        item({ id: "b", scheduled_at: "2026-08-07T09:01:30.000Z", requirement_level: "optional" }),
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T09:00:00.000Z",
+          network_rejoin_at: "2026-08-07T09:01:00.000Z",
+          requirement: "optional",
+          itemCount: 0,
+        }),
       ],
       SHIFT_END,
     );
     expect(result.state).not.toBe("at_risk_required");
   });
 
-  it("is at_risk_rejoin when the last item is unconfirmed and rejoin is imminent", () => {
+  it("is at_risk_rejoin when the last break is unresolved and shift rejoin is imminent", () => {
     const result = computeLiveTimingState(
       "2026-08-07T11:59:30.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T11:59:00.000Z" })],
+      [brk({ id: "a", scheduled_at: "2026-08-07T11:59:00.000Z" })],
       SHIFT_END,
     );
     expect(result.state).toBe("at_risk_rejoin");
   });
 
-  it("is not at_risk_rejoin once the last item is confirmed", () => {
+  it("is not at_risk_rejoin once the last break is fully confirmed", () => {
     const result = computeLiveTimingState(
       "2026-08-07T11:59:30.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T11:59:00.000Z", confirmed: true })],
+      [brk({ id: "a", scheduled_at: "2026-08-07T11:59:00.000Z", allItemsConfirmed: true })],
       SHIFT_END,
     );
     expect(result.state).not.toBe("at_risk_rejoin");
@@ -97,7 +127,13 @@ describe("computeLiveTimingState", () => {
   it("prioritizes at_risk_rejoin over running_long when both would otherwise apply", () => {
     const result = computeLiveTimingState(
       "2026-08-07T11:59:50.000Z",
-      [item({ id: "a", scheduled_at: "2026-08-07T11:57:00.000Z", planned_duration_seconds: 60 })],
+      [
+        brk({
+          id: "a",
+          scheduled_at: "2026-08-07T11:57:00.000Z",
+          network_rejoin_at: "2026-08-07T11:58:00.000Z",
+        }),
+      ],
       SHIFT_END,
     );
     expect(result.state).toBe("at_risk_rejoin");

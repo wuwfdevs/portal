@@ -1,9 +1,10 @@
 # Broadcast Rundown & Traffic — Strategy and Schema Plan
 
-Status: **Pre-design. Not authorized to build.** This document records the
-tool-boundary and schema decisions made before any of the three tools below
-gets its own design doc, migration, or route. Nothing in this document has
-been implemented.
+Status: **Log and Underwriting & Traffic have both shipped milestone 1 and
+been redesigned (2026-08-07/08) against real WUWF operational detail — see
+their own design docs' status lines. FCC Reporting remains design-only, not
+authorized to build, per §6's build order.** This document still records the
+tool-boundary and schema decisions the three tools below build on.
 
 Source: `WUWF Unified Broadcast Rundownand Traffic System` (functional
 requirements, August 2026), supplied by WUWF. That document specifies one
@@ -80,9 +81,15 @@ rundown slot. Rather than mirroring underwriting copy into a shadow
 `log_content_items` row (a sync problem waiting to happen), `log_rundown_items`
 takes the same shape Sourcework's `sw_source_excerpts` already uses for
 "exactly one of several possible references": an `item_kind` column
-(`content` | `underwriting_credit`) with `content_item_id` and
-`underwriting_copy_id` both nullable, and a check constraint requiring
-exactly one to be set. Same pattern, not a new one.
+(`content` | `live_read` | `weather` | `underwriting_credit`) with
+`content_item_id`, `live_read_title`, and `underwriting_copy_id` all
+nullable, and a check constraint requiring exactly one shape to be set. Same
+pattern, not a new one. Built as originally sketched here, then corrected
+once real WUWF clock detail showed the network-clock/local-opportunity split
+`docs/log-design.md` §2 describes was also needed: a rundown item sits
+inside a `log_rundown_breaks` row (one per local-opportunity occurrence),
+not directly against a clock slot — the underwriting credit's own reference
+shape didn't need to change, only what container holds it.
 
 ---
 
@@ -94,9 +101,19 @@ Owns the structural and operational core (source doc §4, §5, §7–§9, §11�
 - `log_clock_templates` — versioned clocks (weekday/weekend/program-specific/
   holiday/special-event), each with an effective date and a pointer to which
   version generated a given rundown (§4.3).
-- `log_clock_slots` — ordered positions within a template: offset, duration,
-  permitted content types, required/optional/host-fillable, fill behavior,
-  movable/replaceable/lockable, fixed vs. float timing (§4.2).
+- `log_clock_slots` — ordered positions within a template describing only
+  the network's own published structure: offset, duration, label, fixed vs.
+  float timing (§4.2). **Corrected in the 2026-08-07/08 redesign**: an
+  earlier version of this table also carried fill/assignment/fillability
+  columns, until checking it against a real WUWF clock showed local
+  substitution is not a property of one network segment — see
+  `log_local_opportunities` below and `docs/log-design.md` §2.
+- `log_local_opportunities` — WUWF's own local-substitution overlay on a
+  clock version, independently editable in place (unlike the network clock's
+  own insert-only immutability): offset/window, duration, `required` vs.
+  `optional`, permitted content types, whether more than one item may occupy
+  it. May span several network clock slots at once (`docs/log-design.md`
+  §2's Morning Edition example).
 - `log_schedule` — maps programs to the calendar: the recurring weekly grid
   plus date-bounded substitutions and holiday overrides (§4.1).
 - `log_content_items` — every non-underwriting content type from §7.1 (news,
@@ -116,9 +133,13 @@ Owns the structural and operational core (source doc §4, §5, §7–§9, §11�
   version.
 - `log_rundowns` — one per program/host shift instance: generated, edited,
   and eventually submitted/frozen (§15.3).
-- `log_rundown_items` — placements within a rundown: slot reference,
-  `item_kind` (see §2), scheduled/planned time and duration, required/
-  suggested/optional, locked/movable/replaceable, current air status.
+- `log_rundown_breaks` — one occurrence of a local opportunity within a
+  rundown; a container zero or more rundown items may occupy (added in the
+  2026-08-07/08 redesign alongside `log_local_opportunities` above).
+- `log_rundown_items` — placements within a break: `item_kind` (see §2),
+  scheduled/planned time and duration, per-airing overrides that never
+  mutate the master content item, locked/movable/replaceable, current air
+  status.
 - `log_broadcast_events` — the as-aired record: one row per rundown item with
   the full outcome vocabulary from §15.1 (aired as scheduled, aired at a
   different time, partially aired, skipped, missed, replaced, wrong copy
@@ -135,32 +156,55 @@ FCC Reporting rather than here.
 ## 4. Underwriting & Traffic — schema sketch
 
 Owns contract administration and everything downstream of it (source doc §6,
-§16, §17).
+§16, §17). **Redesigned 2026-08-07/08** against a real WUWF underwriting
+agreement (`docs/underwriting-design.md` §1's "The reference agreement") —
+the sketch below is the corrected shape, not the original one.
 
-- `uw_contracts` — underwriter, agreement, effective dates, status, notes.
-- `uw_placement_obligations` — one or more per contract: quantity, date
-  range, program, daypart, duration, frequency/distribution, position
-  restrictions (§6.2).
-- `uw_copy` — script/audio, duration, cart identifier, effective/expiration
-  dates, approval and production status, linked to the contracts allowed to
+- `uw_underwriters` — a durable sponsor entity (name, contact, category),
+  replacing free-text `underwriter_name` on the contract. Added in the
+  redesign.
+- `uw_contracts` — underwriter reference, contract identifier, a real
+  attached agreement document (a Storage object, not a bare URL),
+  sponsorship total/category, an explicit `affidavit_required` flag,
+  preemption policy, effective dates, status, notes.
+- `uw_contract_schedule_lines` — one or more per contract, replacing the
+  original `uw_placement_obligations`: day(s) of week, target time,
+  duration, program, date range — the real shape of a WUWF insertion order
+  ("Monday ~7:49am × 26 weeks"). `sponsorship_position` (opening/closing/
+  mid), never grounded in a real agreement, was removed outright.
+- `uw_copy` — script, cart identifier (an ENCO/DAD reference — see
+  `docs/log-design.md` §6's parallel DAD finding), duration, a rotation
+  label ("Message A"/"Message B"), effective/expiration dates, approval
+  status, and `execution_kind` (`live_read` | `recorded`) replacing the
+  original universal `production_status`, linked to the contracts allowed to
   use it (§6.3).
-- `uw_scheduled_placements` — the automatic scheduler's output: which
-  obligation is slated into which `log_clock_slot` on which date, and its
-  status (scheduled / locked / conflict) (§6.4). Log's rundown generation
-  reads eligible rows here the same way it reads `log_content_items` — the
-  scheduler doesn't write `log_rundown_items` directly; Log still owns
-  turning an eligible placement into an actual rundown item.
+- `uw_scheduled_placements` — which schedule line is slated into which
+  `log_rundown_breaks` row on which date, and its status (scheduled / locked
+  / conflict / superseded) (§6.4). Log's rundown generation reads eligible
+  rows here the same way it reads `log_content_items` — the scheduler
+  doesn't write `log_rundown_items` directly; Log still owns turning an
+  eligible placement into an actual rundown item.
 - `uw_exceptions` — the post-broadcast queue (§16): rows created against
   `log_broadcast_events` where the outcome is moved/missed/disputed, carrying
-  the applicable contract requirement, compliance judgment, and resolution
-  (accept alternate airing / schedule makegood / reassign / waive / request
+  the applicable schedule line, compliance judgment, and resolution (accept
+  alternate airing / schedule makegood / reassign / waive / request
   clarification / note / close).
 - `uw_makegoods` — scheduled and aired makegood tracking, linked to both the
-  originating obligation and the exception that produced it.
+  originating schedule line and the exception that produced it, per the
+  reference agreement's own preemption policy: rescheduled within the
+  program originally sponsored.
 - `uw_affidavits` — generated from confirmed or management-approved
   `log_broadcast_events` rows, never from the original schedule alone (§17)
   — retains a durable link to the underlying events for audit and
   regeneration.
+
+Two derived-not-stored corrections from the redesign, both because the
+original design let staff manually set what should always be computed:
+fulfillment status (`lib/underwriting/fulfillment.ts`) is never a column
+anyone edits, and a lightweight competitive-adjacency advisory
+(`lib/underwriting/adjacency.ts`) — flagging, never blocking, when another
+underwriter in the same category already has a nearby placement — replaced
+what could have become a full rules engine nobody asked for.
 
 **Cross-tool write path:** the scheduler and the mid-broadcast host actions
 (§14 — aired/move/missed) both need to cross the Log/Underwriting boundary.
@@ -206,16 +250,21 @@ Following the source document's own phasing (§23–24) and this portal's
    (excluding underwriting), NPR display, weather, daily rundown + host
    console, continuous timing, host exception actions writing directly to
    `log_broadcast_events` (with no Underwriting integration yet — a "missed
-   underwriting credit" is just an outcome on the event, unresolved).
+   underwriting credit" is just an outcome on the event, unresolved). ✅
+   **Shipped**, then redesigned 2026-08-07/08 — see `docs/log-design.md`.
 2. **Underwriting & Traffic**: contracts, copy, manual (not yet automatic)
-   placement into Log's clock inventory, the post-broadcast exception queue
-   reading `log_broadcast_events`, basic affidavits.
+   placement into Log's rundown, the post-broadcast exception queue reading
+   `log_broadcast_events`, basic affidavits. ✅ **Shipped**, then redesigned
+   in the same pass, grounded in a real WUWF agreement — see
+   `docs/underwriting-design.md`.
 3. **Automatic scheduling** as a follow-up slice on Underwriting, once manual
-   placement has validated the eligibility rules against real WUWF contract
-   patterns.
+   placement has validated the eligibility rules against more of WUWF's real
+   contract patterns beyond the one reference agreement this redesign used.
+   **Not started.**
 4. **FCC Reporting**: depends on a real backlog of `log_broadcast_events` and
    community-issue-tagged content existing before quarterly aggregation is
-   useful to build against.
+   useful to build against. **Not started** — design is written
+   (`docs/fcc-reporting-design.md`) but not authorized to build.
 
 This mirrors the source document's own initial-scope table (§23): the
 operational spine first, underwriting fulfillment second, compliance
@@ -237,8 +286,13 @@ Carried from the source document's §26, unresolved and still blocking:
   (CDS) — see `docs/log-design.md` §5/§7 and CLAUDE.md. WUWF's own
   production token is still outstanding.
 - Which existing clock and contract patterns represent WUWF's complete set of
-  use cases? (Needed before `log_clock_slots`/`uw_placement_obligations`'
-  columns are finalized — the sketches above are structural, not final DDL.)
+  use cases? **Partially resolved (2026-08-07/08):** one real clock (Morning
+  Edition) and one real underwriting agreement (Autumn Beck Blackledge) have
+  now been checked against the schema, and both surfaced real corrections —
+  see `docs/log-design.md` §2 and `docs/underwriting-design.md` §1. The other
+  twelve seeded clocks have accurate network structure but no confirmed
+  local-opportunity overlay, and only one contract pattern has been verified
+  against the schedule-line model — both still open per each doc's own §7.
 - What level of automation confirmation exists for carts, live reads, and
   local news, and who has final authority over alternate airings, makegoods,
   and affidavits? (Shapes `uw_exceptions`' approval flow.)
@@ -261,10 +315,16 @@ depth as `docs/roadmap-design.md` or `docs/academic-partnerships-design.md`.
 This document is the boundary and schema-ownership decision those three
 docs build on, not a replacement for them.
 
-Per the build order in §6: Log's milestone 1 has since shipped in full (see
-CLAUDE.md). Underwriting & Traffic is next, but — like every tool in this
-portal — its design being written is not the same as it being authorized to
-build; see its own doc's status line and CLAUDE.md before starting any
-migration. FCC Reporting depends on a real backlog of `log_broadcast_events`
-and community-issue-tagged content existing first, per §6 item 4, so it
-stays last regardless of when its design doc was written.
+Per the build order in §6: Log's milestone 1 shipped in full, and
+Underwriting & Traffic's milestone 1 has since shipped too (see CLAUDE.md).
+Both were then redesigned together on 2026-08-07/08 once real WUWF
+operational detail existed to check the original models against — a real
+annotated Morning Edition clock for Log, a real executed underwriting
+agreement for Underwriting. See each tool's own design doc for what changed
+and why. Automatic rules-based scheduling (item 3) and FCC Reporting
+(item 4) remain **not started** — like every tool in this portal, a written
+design is not the same as authorization to build; see each one's own status
+line and CLAUDE.md before starting any migration. FCC Reporting in
+particular depends on a real backlog of `log_broadcast_events` and
+community-issue-tagged content existing first, so it stays last regardless
+of when its design doc was written.
