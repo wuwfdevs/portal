@@ -255,9 +255,16 @@ a draft.
 
 ## 8. Next step
 
-Each tool still needs its own design doc — `docs/log-design.md`,
+All three per-tool design docs are now written — `docs/log-design.md`,
 `docs/underwriting-design.md`, `docs/fcc-reporting-design.md` — at the same
-depth as `docs/roadmap-design.md` or `docs/academic-partnerships-design.md`,
-before any migration is written. This document is the boundary and
-schema-ownership decision those three docs should build on, not a
-replacement for them.
+depth as `docs/roadmap-design.md` or `docs/academic-partnerships-design.md`.
+This document is the boundary and schema-ownership decision those three
+docs build on, not a replacement for them.
+
+Per the build order in §6: Log's milestone 1 has since shipped in full (see
+CLAUDE.md). Underwriting & Traffic is next, but — like every tool in this
+portal — its design being written is not the same as it being authorized to
+build; see its own doc's status line and CLAUDE.md before starting any
+migration. FCC Reporting depends on a real backlog of `log_broadcast_events`
+and community-issue-tagged content existing first, per §6 item 4, so it
+stays last regardless of when its design doc was written.

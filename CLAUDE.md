@@ -969,6 +969,22 @@ and `moveRundownItem` are now thin adapters over these capabilities —
 `sendAnswerToSourcework`'s: the console button click is itself the human
 confirmation.
 
+**Underwriting & Traffic and FCC Reporting: design is done, not yet
+authorized to build.** These are the second and third tools
+`docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
+Rundown and Traffic System spec into — Log is the first, and its milestone 1
+is now complete (see above). `docs/underwriting-design.md` and
+`docs/fcc-reporting-design.md` were both written the same day as the
+strategy doc and Log's own design doc, but neither had a CLAUDE.md entry
+until now, which is why the strategy doc's own §8 briefly said both docs
+still needed to be written after they already existed — fixed there too.
+Read the strategy doc, then the relevant tool's own design doc, before
+starting either: Underwriting depends on Log's rundown/broadcast-event
+schema (already in place) and adds `item_kind`/`underwriting_copy_id` to
+`log_rundown_items` per that doc's §6; FCC Reporting depends on a real
+backlog of tagged `log_broadcast_events` existing first, so it stays last
+regardless of doc order.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
