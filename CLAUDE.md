@@ -697,9 +697,31 @@ producers — see below), which is a boundary on writes through the app, not a
 reason to leave a migration's own seeding mistake in place: each affected
 version's slots are deleted and re-inserted in this migration rather than
 left to accumulate as a confusing phantom "correction" version. Three clocks
-(Fresh Air, Fresh Air Weekend, Here & Now) have not yet been re-verified
-against their source PDFs — their absence from this migration means "not yet
-checked," not "confirmed correct."
+(Fresh Air, Fresh Air Weekend, Here & Now) were not yet re-verified against
+their source PDFs at the time — see the next entry for those.
+
+**Log: clock seed corrections, part 2 (2026-08-07)** —
+`20260807120000_log_clock_seed_corrections_2.sql` finishes the job the first
+corrections migration left open, re-checking Fresh Air, Fresh Air Weekend,
+and Here & Now against their source PDFs. Same missing-end-of-hour-tail bug
+in all three. Beyond that: Fresh Air had a wrong Segment B duration, a
+missing 35-second Funding Credit, and a floating break whose own duration
+undercounted its "adjacent funder" half (35s instead of the Music+Funding
+Credit combo's 65s the diagram's own label already named it for — the same
+combined-float-slot modeling Hidden Brain already used, not a new pattern).
+Fresh Air Weekend's floating break had the same undercounted-duration bug
+even more severely (41s instead of 101s), and — more seriously — the
+following Segment B was anchored to the floating window's *latest* bound
+instead of right after the break's actual nominal placement, leaving a real
+379-second hole in the schedule that nothing in the schema catches (a
+`log_schedule` row covering a program doesn't validate that its clock's own
+slots are gapless). Here & Now turned out to have a real, unusual structural
+feature none of the other clocks do — a 10-second Funding Credit before
+Billboard, which then only runs 50 seconds instead of 60 — that the first
+transcription pass flattened into an ordinary 60-second Billboard, plus a
+swapped Promo/Music Bed label pair and a missing Funding Credit before
+Segment E. All three clocks now sum to exactly 3600 seconds (or 3599,
+within the same ~1s rounding noise every clock's own PDF shows).
 
 **Log: milestone 1 slice 2 (Content library) has landed** —
 `20260806160000_log_content_library.sql` adds `log_content_items` (news,
