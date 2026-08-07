@@ -8,11 +8,12 @@ import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import { getRundownDetail, listBroadcastEventsForItems } from "@/lib/log/queries";
 import { computeLiveTimingState, type ConsoleItemLike, type LiveTimingState } from "@/lib/log/console-timing";
 import { listValidMoveDestinations } from "@/lib/log/mid-broadcast";
+import { listUnresolvedItems } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../../log-poller";
-import { markAired, markMissed, moveRundownItem, startConsole } from "../../../console-actions";
+import { markAired, markMissed, moveRundownItem, startConsole, submitRundown } from "../../../console-actions";
 import { CopyDisplay } from "./copy-display";
 import type { LogMissReason } from "@/lib/database.types";
 
@@ -109,6 +110,15 @@ export default async function ConsolePage({
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
   ]);
 
+  const unresolvedItems = listUnresolvedItems(
+    rundown.items.map((item) => ({
+      id: item.id,
+      content_item_id: item.content_item_id,
+      requirement_level: item.requirement_level,
+    })),
+    new Set(eventCountByItem.keys()),
+  );
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <LogPoller intervalMs={15000} />
@@ -119,6 +129,7 @@ export default async function ConsolePage({
           </Link>
           <h2 className="font-serif text-xl font-bold text-ink-900">{rundown.programName}</h2>
           <Badge variant={STATE_VARIANT[timing.state]}>{STATE_LABEL[timing.state]}</Badge>
+          {rundown.status === "submitted" && <Badge variant="success">Submitted</Badge>}
         </div>
 
         {error && <Alert className="mb-4">{error}</Alert>}
@@ -294,6 +305,31 @@ export default async function ConsolePage({
             <p className="text-xs text-ink-400">Not available for this program.</p>
           ) : (
             <p className="text-xs text-ink-400">No episode data yet.</p>
+          )}
+        </div>
+
+        <div className="rounded border border-line p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wide text-ink-400">Wrap up</span>
+            {unresolvedItems.length > 0 && <Badge variant="warning">{unresolvedItems.length} unresolved</Badge>}
+          </div>
+          {unresolvedItems.length > 0 && (
+            <p className="mb-3 text-xs text-ink-500">
+              {unresolvedItems.length} item{unresolvedItems.length === 1 ? "" : "s"} still need an aired, missed,
+              or moved outcome — or content for a required slot. Submitting doesn&apos;t require resolving them
+              first.
+            </p>
+          )}
+          <form action={submitRundown}>
+            <input type="hidden" name="rundown_id" value={rundown.id} />
+            <Button type="submit" variant={rundown.status === "submitted" ? "secondary" : "primary"}>
+              {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
+            </Button>
+          </form>
+          {rundown.status === "submitted" && rundown.submitted_at && (
+            <p className="mt-2 text-xs text-ink-400">
+              Submitted {formatStationTimestamp(rundown.submitted_at)}. Corrections still work above.
+            </p>
           )}
         </div>
       </div>

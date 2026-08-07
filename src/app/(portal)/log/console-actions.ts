@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { getRundownItem } from "@/lib/log/queries";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import { recordRundownItemOutcome } from "@/lib/log/capabilities";
 import type { LogMissReason } from "@/lib/database.types";
 
 // Workflow G's three mid-broadcast actions (docs/log-design.md). "Moved" is
@@ -21,6 +22,32 @@ function field(formData: FormData, name: string): string {
 
 function consolePath(rundownId: string): string {
   return `/log/rundowns/${rundownId}/console`;
+}
+
+/**
+ * Freezes a reference version of the rundown — docs/log-design.md Workflow
+ * H. Not a lock: markAired/markMissed/moveRundownItem above check nothing
+ * about status, so "documented management corrections" (§15.3) after
+ * submission keep working exactly as before. Fine to call again (e.g. after
+ * a late correction) — it just re-stamps submitted_at/submitted_by.
+ */
+export async function submitRundown(formData: FormData): Promise<void> {
+  const { profile } = await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  if (rundownId === "") failWith("/log", "Choose a rundown to submit.");
+  const path = consolePath(rundownId);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_rundowns")
+    .update({ status: "submitted", submitted_at: new Date().toISOString(), submitted_by: profile.id })
+    .eq("id", rundownId)
+    .in("status", ["generated", "in_progress", "submitted"]);
+  failIfError(error, path, "Could not submit this rundown");
+
+  revalidatePath("/log");
+  revalidatePath(path);
+  redirect(path);
 }
 
 /** Marks a rundown as under way — 'generated' -> 'in_progress'. Idempotent: fine to call again once already in progress. */
@@ -41,21 +68,19 @@ export async function startConsole(formData: FormData): Promise<void> {
   redirect(consolePath(rundownId));
 }
 
-/** Records an item as aired, on its own scheduled placement. */
+/** Thin adapter over log.rundownItem.recordOutcome — the console button click is itself the confirmation, same convention as sendAnswerToSourcework's. */
 export async function markAired(formData: FormData): Promise<void> {
-  const { profile } = await assertLogAccess();
+  await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const itemId = field(formData, "item_id");
   const path = consolePath(rundownId);
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("log_broadcast_events").insert({
-    rundown_item_id: itemId,
-    outcome: "aired_as_scheduled",
-    confirmation_source: "host",
-    recorded_by: profile.id,
-  });
-  failIfError(error, path, "Could not record this item as aired");
+  const result = await invokeCapability(
+    recordRundownItemOutcome,
+    { outcome: "aired", itemId },
+    { confirmed: true },
+  );
+  if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
   redirect(path);
@@ -71,88 +96,48 @@ const MISS_REASONS: LogMissReason[] = [
   "other",
 ];
 
-/** Records an item as missed, with a brief reason — never a lengthy narrative, per docs/log-design.md Workflow G. */
+/** Thin adapter over log.rundownItem.recordOutcome. */
 export async function markMissed(formData: FormData): Promise<void> {
-  const { profile } = await assertLogAccess();
+  await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const itemId = field(formData, "item_id");
   const path = consolePath(rundownId);
   const reason = field(formData, "reason") as LogMissReason;
   if (!MISS_REASONS.includes(reason)) failWith(path, "Choose a reason.");
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("log_broadcast_events").insert({
-    rundown_item_id: itemId,
-    outcome: "missed",
-    reason,
-    notes: field(formData, "notes") || null,
-    confirmation_source: "host",
-    recorded_by: profile.id,
-  });
-  failIfError(error, path, "Could not record this item as missed");
+  const result = await invokeCapability(
+    recordRundownItemOutcome,
+    { outcome: "missed", itemId, reason, notes: field(formData, "notes") || undefined },
+    { confirmed: true },
+  );
+  if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
   redirect(path);
 }
 
 /**
- * Moves a filled item's content to a different, still-open slot: the
- * destination gets the content, the source goes back to empty, and the
- * source's own broadcast event records 'skipped' (see the migration file
- * header). Running this again with source/destination swapped is exactly
- * how the console's "Undo" link works — there is nothing else to reverse,
- * since log_broadcast_events is append-only.
+ * Thin adapter over log.rundownItem.recordOutcome's "moved" branch: the
+ * destination gets the source's content, the source goes back to empty, and
+ * the source's own broadcast event records 'skipped'. Running this again
+ * with source/destination swapped is exactly how the console's "Undo" link
+ * works — there is nothing else to reverse, since log_broadcast_events is
+ * append-only.
  */
 export async function moveRundownItem(formData: FormData): Promise<void> {
-  const { profile } = await assertLogAccess();
+  await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const sourceItemId = field(formData, "source_item_id");
   const destinationItemId = field(formData, "destination_item_id");
   const path = consolePath(rundownId);
   if (sourceItemId === "" || destinationItemId === "") failWith(path, "Choose a destination.");
 
-  const source = await getRundownItem(sourceItemId);
-  if (!source || source.content_item_id === null) failWith(path, "There is nothing to move.");
-  const destination = await getRundownItem(destinationItemId);
-  if (!destination || destination.content_item_id !== null) {
-    failWith(path, "That destination is no longer open.");
-  }
-
-  const supabase = await createClient();
-  const { data: sourceSlot, error: slotError } = await supabase
-    .from("log_clock_slots")
-    .select("duration_seconds")
-    .eq("id", source.clock_slot_id)
-    .single();
-  failIfError(slotError, path, "Could not move this item");
-  const { error: destinationError } = await supabase
-    .from("log_rundown_items")
-    .update({
-      content_item_id: source.content_item_id,
-      planned_duration_seconds: source.planned_duration_seconds,
-      placement_status: "replaceable",
-    })
-    .eq("id", destinationItemId);
-  failIfError(destinationError, path, "Could not move this item");
-
-  const { error: sourceError } = await supabase
-    .from("log_rundown_items")
-    .update({
-      content_item_id: null,
-      planned_duration_seconds: sourceSlot?.duration_seconds ?? source.planned_duration_seconds,
-      placement_status: "editable",
-    })
-    .eq("id", sourceItemId);
-  failIfError(sourceError, path, "Moved, but could not clear the original slot");
-
-  const { error: eventError } = await supabase.from("log_broadcast_events").insert({
-    rundown_item_id: sourceItemId,
-    outcome: "skipped",
-    notes: `Moved to a later opening (${destinationItemId}).`,
-    confirmation_source: "host",
-    recorded_by: profile.id,
-  });
-  failIfError(eventError, path, "Moved, but could not record it");
+  const result = await invokeCapability(
+    recordRundownItemOutcome,
+    { outcome: "moved", sourceItemId, destinationItemId },
+    { confirmed: true },
+  );
+  if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
   redirect(`${path}?moved_from=${sourceItemId}&moved_to=${destinationItemId}`);

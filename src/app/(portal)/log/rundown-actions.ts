@@ -5,16 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { computeTotalDurationSeconds } from "@/lib/log/content-library";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { buildRundownItemDrafts } from "@/lib/log/rundown-generation";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
-import {
-  getClockTemplateDetail,
-  getContentItemDetail,
-  getRundownForProgramOnDate,
-  getScheduleEntry,
-} from "@/lib/log/queries";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import { buildRundownItem } from "@/lib/log/capabilities";
+import { getClockTemplateDetail, getRundownForProgramOnDate, getScheduleEntry } from "@/lib/log/queries";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -88,7 +84,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
   redirect(rundownPath(rundown.id));
 }
 
-/** Fills (or replaces) a rundown item's content, recomputing its planned duration from the chosen item's components. */
+/** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). */
 export async function fillRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -97,21 +93,8 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   const path = rundownPath(rundownId);
   if (contentItemId === "") failWith(path, "Choose a content item.");
 
-  const contentItem = await getContentItemDetail(contentItemId);
-  if (!contentItem) failWith(path, "That content item no longer exists.");
-  const plannedDuration =
-    computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ?? 0;
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("log_rundown_items")
-    .update({
-      content_item_id: contentItemId,
-      planned_duration_seconds: plannedDuration,
-      placement_status: "replaceable",
-    })
-    .eq("id", itemId);
-  failIfError(error, path, "Could not fill this slot");
+  const result = await invokeCapability(buildRundownItem, { itemId, contentItemId });
+  if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
   redirect(path);

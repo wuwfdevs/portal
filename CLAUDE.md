@@ -574,12 +574,14 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slices 2 (content library) and 3 (NPR + weather) have
-since landed too — see below.** Rundown generation with the timing engine is
-next — proceed with it without asking again, followed by the host console
-with mid-broadcast actions, then submission and the three MCP capabilities —
-see `docs/log-design.md` §7 for the full milestone list this is slicing
-through.
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather), rundown
+generation with the timing engine, the host console with mid-broadcast
+actions, and rundown submission plus the three MCP capabilities have since
+landed too — see below.** That completes every workflow milestone 1 lists
+(§7); see `docs/log-design.md` §7 for what's deferred past milestone 1
+(Underwriting integration, the FCC taxonomy, automation-system confirmation,
+multi-editor concurrency) — none of it authorized to start without its own
+instruction.
 
 Two things about this slice are load-bearing:
 
@@ -894,6 +896,78 @@ ordinary multi-timezone-audience activity logs, not a live single-studio
 wall clock, and rendering those in the viewer's ambient timezone rather than
 a fixed one is a longstanding, separate characteristic of the rest of the
 codebase, not something this fix touched.
+
+**Log: rundown generation with the timing engine has landed** — Workflow E
+(docs/log-design.md, "Building the daily rundown"). `log_rundowns`/
+`log_rundown_items` (`20260807150000_log_rundowns.sql`, member-level RLS, no
+producer gate — generating and filling a rundown is an ordinary host/member
+action per the design doc). Generation (`generateRundown` in
+`rundown-actions.ts`) only creates a row for a clock slot a host actually
+decides something for (`fill_mode` `optional`/`host_fillable`) — the
+network-automatic majority of every real clock's slots never gets a row,
+since there's nothing for a host to pick and a row that can never be filled
+would just be noise in the builder. `lib/log/rundown-generation.ts` builds
+the draft items (repeating a clock's slots once per hour across a
+multi-hour shift), `lib/log/rundown-eligibility.ts` filters the content
+library to what a given slot actually permits, and `lib/log/timing.ts` is
+the pure, tested build-time fit engine (slot fit, rundown-level readiness) —
+never stored state, recomputed on every render per the design doc's
+"Timing is a pure, tested module." `log_rundowns` has a unique
+`(program_id, air_date)` constraint, not in the design doc's literal column
+list but needed to keep "generate" idempotent. The `/log/rundowns/[id]`
+builder screen lets a host fill, replace, or clear each host-fillable slot
+from the content library, with live fit feedback.
+
+**Log: the host console with mid-broadcast actions has landed** — Workflows
+F and G. `log_broadcast_events` (`20260807160000_log_broadcast_events.sql`,
+append-only RLS — select+insert only, no update/delete policy, matching
+`log_clock_versions`/`log_clock_slots`' immutability precedent) is the
+as-aired record. `lib/log/console-timing.ts` is the live, continuously
+recomputed timing state (on time / running long / running short / at risk
+of missing a required item / at risk of missing rejoin) — pure and tested,
+following the same "not stored state" rule as build-time `timing.ts`, and
+deliberately lighter-weight than a system with real playback telemetry
+would need, since every outcome in this milestone is host-confirmed.
+`lib/log/mid-broadcast.ts` is the pure, tested move-destination eligibility
+(empty, future, permitted content type — daypart/spacing/inventory
+eligibility the design doc also names have no modeled concepts yet in this
+schema). The `/log/rundowns/[id]/console` screen is the live view: current/
+next item, adjustable copy size, inline weather and NPR context, and the
+three mid-broadcast actions (`console-actions.ts`'s `markAired`/
+`markMissed`/`moveRundownItem`) always one tap away. "Moved" is modeled as
+filling a different open item with the same content and clearing the
+original, recorded as outcome `skipped` rather than a new column — see the
+migration's file header — which is what makes the console's "Undo" link
+just the same move run in reverse, with nothing to delete from an
+append-only table.
+
+**Log: rundown submission and the three MCP capabilities have landed** —
+Workflow H, and `docs/log-design.md`'s "Architecture" section naming
+exactly these three as "the operations useful to drive from the in-portal
+agent without a live console in front of you." No migration needed:
+`log_rundowns.status`/`submitted_at`/`submitted_by` already existed from the
+rundown-generation slice. `listUnresolvedItems()` (`lib/log/submission.ts`,
+pure, tested) is the review surface — a filled item with no recorded
+broadcast event, or a still-empty required slot — shown on the console
+screen's new "Wrap up" panel, but **submitting is never blocked by it**:
+per the design doc, "submission is a checkpoint, not a lock." `submitRundown`
+(`console-actions.ts`) sets `status = 'submitted'`; nothing about that status
+gates `markAired`/`markMissed`/`moveRundownItem`, which is what makes
+§15.3's "documented management corrections" after submission just work,
+unchanged, rather than needing a separate unlock path. The three
+capabilities (`lib/log/capabilities.ts`, registered in
+`src/lib/capabilities/registry.ts`): `log.rundown.buildItem` (fill/replace a
+slot's content, confirmation `none`), `log.rundownItem.recordOutcome` (one
+capability over aired/missed/moved, via a discriminated-union input, rather
+than three near-identical tools — confirmation `required`, since it writes
+the as-aired record Underwriting's exception queue and FCC Reporting will
+eventually read as ground truth), and `log.content.search` (mirrors
+`sourcework.project.search`). `fillRundownItem`, `markAired`, `markMissed`,
+and `moveRundownItem` are now thin adapters over these capabilities —
+`recordRundownItemOutcome`'s confirmation is satisfied with
+`confirmed: true` at the call site, same convention as
+`sendAnswerToSourcework`'s: the console button click is itself the human
+confirmation.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
