@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { logAuditEvent } from "@/lib/audit";
 import type { UwContractStatus, UwObligationStatus, UwQuantityPeriod, UwSponsorshipPosition } from "@/lib/database.types";
 
 const LIST_PATH = "/underwriting/contracts";
@@ -54,16 +55,33 @@ export async function createContract(formData: FormData): Promise<void> {
 
 const CONTRACT_STATUSES: UwContractStatus[] = ["draft", "active", "expired", "terminated"];
 
+/** Terminating a contract is audited (docs/underwriting-design.md §6's four privileged actions) — every other status change here is ordinary traffic-staff work. */
 export async function setContractStatus(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const id = field(formData, "contract_id");
   const path = contractPath(id);
   const status = field(formData, "status") as UwContractStatus;
   if (!CONTRACT_STATUSES.includes(status)) failWith(path, "That is not a recognized status.");
 
   const supabase = await createClient();
+
+  // Only a genuine draft/active/expired -> terminated transition is the
+  // privileged action — resubmitting this form while already terminated
+  // (nothing changed) must not add a fresh audit row every time.
+  const { data: existing } = await supabase.from("uw_contracts").select("status").eq("id", id).maybeSingle();
+  const isNewTermination = status === "terminated" && existing?.status !== "terminated";
+
   const { error } = await supabase.from("uw_contracts").update({ status }).eq("id", id);
   failIfError(error, path, "Could not update the contract's status");
+
+  if (isNewTermination) {
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.contract.terminated",
+      targetType: "uw_contract",
+      targetId: id,
+    });
+  }
 
   revalidatePath(path);
   revalidatePath(LIST_PATH);

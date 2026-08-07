@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Only the two tabs Slice 1 (Foundation) ships. Schedule/placement,
-// exceptions, makegoods, and affidavits each get their own tab when their
-// slice lands — see docs/underwriting-design.md §4 for the full list.
+// Makegoods and affidavits each get their own tab when their slice lands —
+// see docs/underwriting-design.md §4 for the full list.
 const TABS = [
   { href: "/underwriting", label: "Dashboard" },
   { href: "/underwriting/contracts", label: "Contracts" },
   { href: "/underwriting/copy", label: "Copy" },
+  { href: "/underwriting/exceptions", label: "Exceptions" },
 ] as const;
 
 export function NavTabs() {

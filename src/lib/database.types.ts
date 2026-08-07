@@ -117,7 +117,17 @@
 // their documented payload shape per every al_*/ri_* function's own
 // precedent above — added by hand, then verified against the Supabase MCP
 // server's generate_typescript_types output for the live preview project
-// after applying.
+// after applying. Hand-updated again on 2026-08-07 for Underwriting's
+// Slice 3, the exception queue
+// (supabase/migrations/20260807220000_underwriting_exceptions.sql):
+// uw_exceptions and the new UwComplianceJudgment/UwResolutionStatus/
+// UwResolutionAction enums (plain type aliases, same as every log_ enum
+// before them) — added by hand, then verified against the Supabase MCP
+// server's generate_typescript_types output for the live preview project
+// after applying. This migration's two trigger functions
+// (uw_guard_exception_resolution/uw_flag_exception_from_broadcast_event)
+// aren't in the Functions map — they're never called via .rpc(), only
+// fired by Postgres itself.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -353,6 +363,17 @@ export type UwCopyApprovalStatus = "draft" | "approved" | "expired" | "retired";
 export type UwCopyProductionStatus = "pending" | "produced";
 // Slice 2 (placement) — see supabase/migrations/20260807210000_underwriting_placement.sql.
 export type UwPlacementStatus = "scheduled" | "locked" | "conflict" | "superseded";
+// Slice 3 (exception queue) — see supabase/migrations/20260807220000_underwriting_exceptions.sql.
+export type UwComplianceJudgment = "compliant" | "noncompliant" | "pending";
+export type UwResolutionStatus = "open" | "resolved";
+export type UwResolutionAction =
+  | "accept_alternate"
+  | "schedule_makegood"
+  | "reassign"
+  | "waive"
+  | "clarification_requested"
+  | "corrected"
+  | "closed";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1812,6 +1833,34 @@ export interface Database {
           program_name: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_scheduled_placements"]["Row"]>;
+        Relationships: [];
+      };
+      uw_exceptions: {
+        Row: {
+          id: string;
+          log_broadcast_event_id: string;
+          obligation_id: string;
+          original_scheduled_at: string;
+          host_action: string;
+          host_reason: string | null;
+          requirement_note: string | null;
+          compliance_judgment: UwComplianceJudgment;
+          recommended_action: string | null;
+          resolution_status: UwResolutionStatus;
+          resolution_action: UwResolutionAction | null;
+          resolution_notes: string | null;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          created_at: string;
+        };
+        /** Insert-only from the trigger (uw_flag_exception_from_broadcast_event) — no insert grant to authenticated. Listed for completeness, not expected to be used from application code. */
+        Insert: Partial<Database["public"]["Tables"]["uw_exceptions"]["Row"]> & {
+          log_broadcast_event_id: string;
+          obligation_id: string;
+          original_scheduled_at: string;
+          host_action: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_exceptions"]["Row"]>;
         Relationships: [];
       };
     };

@@ -4,8 +4,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
-import { getContractDetail, listCopy, listPlacementsForObligation } from "@/lib/underwriting/queries";
-import { formatPlacementTime, listPlaceableRundownItems } from "@/lib/underwriting/placement";
+import { getContractDetail, listCopy, listObligationPlacementContexts } from "@/lib/underwriting/queries";
+import { formatPlacementTime } from "@/lib/underwriting/placement";
 import {
   addObligation,
   linkCopyToContract,
@@ -52,15 +52,7 @@ export default async function ContractDetailPage({
   const linkedCopyIds = new Set(contract.copy.map((item) => item.id));
   const linkableCopy = allCopy.filter((item) => !linkedCopyIds.has(item.id));
 
-  const obligationPlacements = await Promise.all(
-    contract.obligations.map(async (obligation) => {
-      const [placements, placeable] = await Promise.all([
-        listPlacementsForObligation(obligation.id),
-        listPlaceableRundownItems(obligation.id),
-      ]);
-      return { obligation, placements, placeable };
-    }),
-  );
+  const obligationPlacements = await listObligationPlacementContexts(contract.obligations);
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">

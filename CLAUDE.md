@@ -981,9 +981,10 @@ is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
 the route segment (`src/app/(portal)/underwriting/`) gated by
 `requireToolAccess("underwriting")`, and a plain member-level dashboard,
 contract, and copy-library screens. **Slice 2 (manual credit placement,
-Workflow C) has since landed too — see below.** The pre/post-broadcast
-queues (D/E), makegoods (F), and affidavits (G) are next, each its own
-slice per the design doc's §7 — proceed with them without asking again.
+Workflow C) and Slice 3 (the exception queue, Workflows D/E) have since
+landed too — see below.** Makegoods (F) and affidavits (G) are next, each
+its own slice per the design doc's §7 — proceed with them without asking
+again.
 
 Two things about this slice are load-bearing:
 
@@ -1051,6 +1052,56 @@ and hit a raw constraint-violation error live on air; both now also check
 action) is now scoped to `item_kind = 'content'` for the same reason — an
 underwriting-credit item is only ever cleared through
 `log_clear_underwriting_credit()`.
+
+**Underwriting & Traffic: Slice 3 (the post-broadcast exception queue) has
+landed** — Workflow E, plus Workflow D (pre-broadcast conflict review) as a
+computed dashboard needing no schema of its own. One migration
+(`20260807220000_underwriting_exceptions.sql`, corrected the same day by
+`20260807230000_underwriting_exception_read_fix.sql` — see below) since,
+like Slice 2, it's one relationship: `uw_exceptions` (§5) is real, staff-
+triaged state (compliance judgment, resolution action, notes), never a
+derived view, but it also has **no insert grant to `authenticated`** — the
+only way a row is ever created is `uw_flag_exception_from_broadcast_event()`,
+an `after insert` trigger on Log's own `log_broadcast_events`. That trigger
+is this repo's stand-in for the job queue it doesn't have: the moment a host
+records an underwriting-credit item's outcome as anything but
+`aired_as_scheduled`, an open exception exists — nobody polls for it. Waiving
+an exception is one of the design doc's four manager-only privileged
+actions, enforced by `uw_guard_exception_resolution()`, a `before update`
+trigger mirroring `rd_guard_post_curation()`'s exact shape (Roadmap's own
+curation guard): RLS admits any member's update, and the trigger alone
+raises unless `private.is_underwriting_manager()` is the one setting
+`resolution_action = 'waive'`. **The corrected read boundary**: Slice 3
+originally scoped `log_broadcast_events_select_for_underwriting` (the read
+side named in Slice 2's own note) to the rundown item's *current*
+`item_kind = 'underwriting_credit'` — caught by a self-review before it
+shipped to production reliance: clearing a placement after its exception
+was already raised (an ordinary reassign) flips `item_kind` back to
+`content`, which retroactively hid that exception's own broadcast event and,
+through it, `getExceptionDetail()`'s placement lookup — silently blanking a
+still-open exception's context with no error. The fix keys the policy off
+`uw_exceptions` actually referencing the event instead, which is permanent
+once created and never needs a join through Log's own tables at all. Two
+more privileged-action bugs a self-review caught before commit, both about
+auditing a value rather than a transition into it: `resolveException()` and
+`setContractStatus()` (the latter's audit call was a **Slice 1 gap** dating
+back to that slice, since `docs/underwriting-design.md` §6 has required it
+from the start) both now read the prior value first and only call
+`logAuditEvent()` when the write is a genuine transition into `waive`/
+`terminated` — re-saving an already-waived exception or an already-
+terminated contract no longer logs a fresh privileged-action row credited to
+whoever happened to click Save. `placeCreditAction` (Slice 2) had the same
+gap for the override audit and is fixed the same way, by reading back
+`uw_scheduled_placements.override_reason` after a successful placement
+rather than trusting "the form had text in it." `lib/underwriting/
+conflicts.ts` is Workflow D's pure conflict check — scoped to what this
+schema can actually verify (an approved linked copy; enough already-placed
+or enough eligible open slots to meet `quantity_required`), not a real
+inventory/spacing engine. `listObligationPlacementContexts()` in
+`lib/underwriting/queries.ts` is shared by the dashboard and the contract
+detail screen so the two don't drift on how "existing placements plus
+currently-placeable slots" is combined — flagged as duplicated by the same
+self-review before being extracted.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

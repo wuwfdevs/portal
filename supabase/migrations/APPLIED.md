@@ -87,6 +87,8 @@ repo and a project's history, not the version number.
 | `20260807190000_log_clock_seed_top_of_hour_swap.sql`             | 2026-08-07 | 2026-08-07 |
 | `20260807200000_underwriting_foundation.sql`                      | 2026-08-07 | 2026-08-07 |
 | `20260807210000_underwriting_placement.sql`                       | 2026-08-07 | 2026-08-07 |
+| `20260807220000_underwriting_exceptions.sql`                      | 2026-08-07 | 2026-08-07 |
+| `20260807230000_underwriting_exception_read_fix.sql`              | 2026-08-07 | 2026-08-07 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
