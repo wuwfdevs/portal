@@ -149,6 +149,14 @@ through automation and need a human in each dashboard once:
      "not configured" status. See `.env.example` for the caveat about whether Supabase
      Storage's S3-compatible endpoint actually works as this destination — unverified, and
      the first thing to test once Daily access exists.
+   - `NPR_RUNDOWNS_API_URL` and `NPR_RUNDOWNS_API_KEY` — Log's NPR rundown feed
+     (`lib/log/providers/npr.ts`). Optional and unset by default: WUWF's actual NPR feed
+     access is still an open question (see `docs/log-design.md` §7), so without these,
+     `/log/npr` shows a clear "not configured" state instead of failing.
+   - `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` — Log's weather live-read
+     (`lib/log/providers/weather.ts`). Optional: unset, it defaults to WUWF's Pensacola, FL
+     studio location against the free National Weather Service API, which needs no key.
+     Set these only to point the forecast at a different location.
    - `RESEND_API_KEY` and `RESEND_FROM_EMAIL` — the portal's transactional email sender
      (`src/lib/email.ts`), currently used only by Academic Partnerships' email actions
      (**sensitive** — mark `RESEND_API_KEY` encrypted). Optional: unset, sending fails

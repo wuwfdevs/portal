@@ -69,6 +69,15 @@
 // log_content_items/log_content_components and the new
 // LogContentType/LogApprovalStatus/LogComponentType enums, added by hand
 // following the same Row/Insert/Update shape as every other table here.
+// Hand-updated again on 2026-08-07 for Log's Slice 3 (NPR + weather,
+// supabase/migrations/20260807130000_log_npr_weather.sql):
+// log_npr_rundown_cache/log_weather_reading and the new LogNprStatus enum —
+// no local instance running to regenerate against; added by hand following
+// the same shape as every table here. Like every log_ enum before it,
+// LogNprStatus is exported as a plain type alias rather than added to the
+// Enums map at the bottom of this file — that map already omits every other
+// log_ enum from Slices 1-2, so adding just this one would be inconsistent
+// rather than fixing anything.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -251,6 +260,8 @@ export type LogContentType =
   | "host_created";
 export type LogApprovalStatus = "draft" | "approved" | "retired";
 export type LogComponentType = "live_intro" | "recorded_audio" | "live_outro" | "optional_tag";
+// Slice 3 (NPR + weather) — see supabase/migrations/20260807130000_log_npr_weather.sql.
+export type LogNprStatus = "draft" | "edited" | "revised" | "withdrawn";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1458,6 +1469,53 @@ export interface Database {
           duration_seconds: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]>;
+        Relationships: [];
+      };
+      log_npr_rundown_cache: {
+        Row: {
+          id: string;
+          program_id: string;
+          segment_order: number;
+          story_title: string;
+          story_description: string | null;
+          forward_promo_copy: string | null;
+          status: LogNprStatus;
+          advisory_text: string | null;
+          retrieved_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"]> & {
+          program_id: string;
+          segment_order: number;
+          story_title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"]>;
+        Relationships: [];
+      };
+      log_weather_reading: {
+        Row: {
+          id: string;
+          forecast_area: string;
+          source: string;
+          live_read_text: string;
+          condensed_text: string;
+          high_temp: number | null;
+          low_temp: number | null;
+          conditions_summary: string;
+          precipitation_notes: string | null;
+          hazards: string | null;
+          last_updated_at: string;
+          valid_through_at: string;
+          is_current: boolean;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]> & {
+          forecast_area: string;
+          source: string;
+          live_read_text: string;
+          condensed_text: string;
+          conditions_summary: string;
+          valid_through_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]>;
         Relationships: [];
       };
     };

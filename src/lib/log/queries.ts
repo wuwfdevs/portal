@@ -18,6 +18,8 @@ export type LogClockSlotRow = Database["public"]["Tables"]["log_clock_slots"]["R
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
+export type LogNprRundownCacheRow = Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"];
+export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
 
 export async function listPrograms(): Promise<LogProgramRow[]> {
   const supabase = await createClient();
@@ -184,4 +186,28 @@ export async function getContentItemDetail(id: string): Promise<ContentItemDetai
     ) ?? [];
 
   return { ...item, components };
+}
+
+/** One program's cached NPR segment order, in air order. Raw read only — see lib/log/npr.ts for the lazy-refresh read that calls this. */
+export async function listNprRundownForProgram(programId: string): Promise<LogNprRundownCacheRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("log_npr_rundown_cache")
+        .select("*")
+        .eq("program_id", programId)
+        .order("segment_order"),
+      "this program's NPR rundown",
+    ) ?? []
+  );
+}
+
+/** The single current weather reading, if one has ever been fetched. Raw read only — see lib/log/weather.ts for the lazy-refresh read that calls this. */
+export async function getCurrentWeatherReadingRow(): Promise<LogWeatherReadingRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_weather_reading").select("*").eq("is_current", true).maybeSingle(),
+    "the current weather reading",
+  );
 }
