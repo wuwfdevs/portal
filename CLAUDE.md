@@ -574,11 +574,12 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slice 2 (content library) has since landed too — see
-below.** NPR+weather is next — proceed with it without asking again,
-followed by rundown generation with the timing engine, the host console with
-mid-broadcast actions, then submission and the three MCP capabilities — see
-`docs/log-design.md` §7 for the full milestone list this is slicing through.
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather) have
+since landed too — see below.** Rundown generation with the timing engine is
+next — proceed with it without asking again, followed by the host console
+with mid-broadcast actions, then submission and the three MCP capabilities —
+see `docs/log-design.md` §7 for the full milestone list this is slicing
+through.
 
 Two things about this slice are load-bearing:
 
@@ -750,6 +751,53 @@ cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
 (same file, pure and tested) implements the design doc's "a 30-second promo
 with a required 8-second outro is a 38-second commitment, never displayed
 as 30" rule — optional components never count toward the total.
+
+**Log: milestone 1 slice 3 (NPR + weather) has landed** —
+`20260807130000_log_npr_weather.sql` adds `log_npr_rundown_cache` and
+`log_weather_reading`, plus the `/log/npr` and `/log/weather` route
+segments (Workflow D, `docs/log-design.md` §3). Both tables stay open to any
+tool member, no `is_log_producer()` branch, same reasoning as Slice 2's
+content library — reading and refreshing NPR/weather is an ordinary host
+duty. Both are refreshed **lazily at read time, never on a schedule** (§6:
+this repo still has no job queue): `lib/log/npr.ts`'s
+`getNprRundownForProgram()` and `lib/log/weather.ts`'s
+`getCurrentWeatherReading()` check staleness against a pure, tested
+threshold check (`lib/log/staleness.ts`) on every read, refetch inline when
+stale, and — critically — never clear or block the existing display on a
+fetch failure; they return whatever's still cached, flagged stale, with the
+error attached for the screen to show (§5.2, §22's "a temporary API or
+network failure must not make the current rundown unreadable"). A short
+client poll (`log-poller.tsx`, the same `router.refresh()`-on-an-interval
+shape as Sourcework's `ProcessingPoller` and Remote Interview's waiting
+room) re-triggers that check periodically since there's still no
+notification layer. The two tables replace data differently per their own
+lifecycle: `log_npr_rundown_cache` is deleted and reinserted wholesale on
+every refresh ("not diffed... not a change history" — no update policy
+granted), while `log_weather_reading` keeps every row as revision history
+and just flips `is_current` (a partial unique index enforces at most one
+current row; no delete policy granted). The provider layer
+(`lib/log/providers/`) treats the two integrations very differently because
+one has a real default and the other doesn't:
+`docs/log-design.md` §7 and `docs/broadcast-operations-strategy.md` §7 both
+flag "which NPR API/feed" and "which weather vendor" as genuinely open
+questions, unlike Daily or Mistral, which at least had a chosen vendor
+before this repo could verify against a live account. Weather sidesteps
+that: `providers/weather.ts` hits the National Weather Service's free,
+keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
+(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+integration, not a placeholder, though not necessarily WUWF's final vendor
+choice. NPR has no such default to reach for — `providers/npr.ts` is a
+configurable feed URL (`NPR_RUNDOWNS_API_URL`/`NPR_RUNDOWNS_API_KEY`,
+unset by default) normalizing a generic JSON contract into
+`log_npr_rundown_cache`'s shape, unverified against any real feed the same
+way `lib/remote-interview/daily.ts` shipped unverified against a live Daily
+account — every caller treats "not configured" as an ordinary, expected
+outcome. `/log/npr` is a bridging standalone screen (a program picker plus
+that program's segment table) not in `docs/log-design.md` §4's original
+screen list, which has NPR rendering only inline within the rundown
+builder — that screen doesn't exist yet (it's the next slice), and shipping
+Slice 3 with no way to see or manually refresh NPR data at all would leave
+it invisible and untestable until then; `/log/weather` matches §4 exactly.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
