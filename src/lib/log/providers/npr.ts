@@ -1,96 +1,64 @@
 import "server-only";
 
-// NPR integration for log_npr_rundown_cache (docs/log-design.md §5). The
-// real feed WUWF will poll is an explicitly open question — both
-// docs/broadcast-operations-strategy.md §7 ("What NPR API or station
-// integration is actually available for rundowns...") and
-// docs/log-design.md §7 flag it as unresolved. Rather than leaving NPR
-// entirely unbuilt until that's answered, this follows the same "build
-// behind a thin interface, mark it unverified" precedent
-// lib/remote-interview/daily.ts set when this repo had no live Daily
-// account either: a configurable feed URL, a generic JSON contract this
-// module normalizes into log_npr_rundown_cache's shape, and a clear
-// "not configured" outcome — never a crash — when no feed is set.
+// NPR integration for log_npr_episodes/log_npr_episode_items
+// (docs/log-design.md §5), against NPR's real Content Distribution Service
+// (CDS) — see CLAUDE.md's "Log: NPR integration corrected to the real CDS
+// model" note for why this replaced an earlier hypothetical "rundown feed"
+// prototype. CDS-specific request/response shape is concentrated in this
+// file and npr-response.ts; nothing above the orchestration layer
+// (lib/log/npr.ts) sees raw CDS JSON.
 //
-// NPR_RUNDOWNS_API_URL/NPR_RUNDOWNS_API_KEY are unset by default (see
-// .env.example). Until WUWF's actual affiliate feed access and its real
-// response shape are known, every caller (lib/log/npr.ts) must treat "not
-// configured" as an ordinary, expected outcome — the same way Remote
-// Interview's cloud backup or Sourcework's Mistral OCR fallback do for
-// their own optional integrations.
+// This repo has no live CDS token to verify against yet (see the note
+// above) — the request shape below is built from NPR-supplied API context,
+// not independently verified against a real account, the same "unverified
+// until credentials exist" posture lib/remote-interview/daily.ts shipped
+// with before this repo had a live Daily account.
 
-import type { LogNprStatus } from "@/lib/database.types";
+import { parseCdsProgramEpisodeResponse, type NprEpisodeFetchResult } from "./npr-response";
 
-export interface NprSegment {
-  segment_order: number;
-  story_title: string;
-  story_description: string | null;
-  forward_promo_copy: string | null;
-  status: LogNprStatus;
-  advisory_text: string | null;
+const DEFAULT_CDS_API_BASE = "https://content.api.npr.org/v1";
+
+function token(): string {
+  const value = process.env.NPR_CDS_TOKEN;
+  if (!value) throw new Error("NPR CDS access isn't configured yet (missing NPR_CDS_TOKEN).");
+  return value;
 }
 
-interface RawNprFeedSegment {
-  order?: number;
-  segment_order?: number;
-  title?: string;
-  story_title?: string;
-  description?: string;
-  story_description?: string;
-  forward_promo?: string;
-  forward_promo_copy?: string;
-  status?: string;
-  advisory?: string;
-}
-
-const VALID_STATUSES: LogNprStatus[] = ["draft", "edited", "revised", "withdrawn"];
-
-function normalizeStatus(value: string | undefined): LogNprStatus {
-  return VALID_STATUSES.includes(value as LogNprStatus) ? (value as LogNprStatus) : "draft";
-}
-
-/** Whether a feed URL is configured at all — callers use this to show a clear "not set up" state rather than attempting a fetch that can only fail. */
-export function isNprFeedConfigured(): boolean {
-  return Boolean(process.env.NPR_RUNDOWNS_API_URL);
+/** Whether an NPR CDS token is configured at all — callers check this (via lib/log/npr-access.ts) before ever attempting a fetch, so "not configured" is a state, not a caught error. */
+export function isNprCdsConfigured(): boolean {
+  return Boolean(process.env.NPR_CDS_TOKEN);
 }
 
 /**
- * Fetches the current segment order for one program from the configured NPR
- * feed. Throws with a clear, user-facing message on any failure — including
- * "not configured" — for lib/log/npr.ts to catch and treat as a
- * stale-but-not-broken read, per the architecture note in docs/log-design.md
- * §6 ("a temporary API or network failure must not make the current rundown
- * unreadable").
+ * Fetches the dated program-episode document for one NPR collection, with
+ * its ordered story items transcluded. Throws with a clear message on any
+ * hard failure (network error, non-2xx, unrecognized response shape) — for
+ * lib/log/npr.ts to catch and fall back to the last cached episode for this
+ * exact program+date, per docs/log-design.md §6 ("a temporary API or
+ * network failure must not make the current rundown unreadable"). A
+ * *recognized* response with no matching episode returns
+ * `{ status: "not_found" }` instead of throwing — that's a legitimate,
+ * cacheable outcome (see npr-response.ts).
  */
-export async function fetchNprRundown(programId: string): Promise<NprSegment[]> {
-  const feedUrl = process.env.NPR_RUNDOWNS_API_URL;
-  if (!feedUrl) {
-    throw new Error("The NPR rundown feed isn't configured yet (missing NPR_RUNDOWNS_API_URL).");
-  }
+export async function fetchNprEpisode(
+  npr_collection_id: number,
+  showDateISO: string,
+): Promise<NprEpisodeFetchResult> {
+  const base = process.env.NPR_CDS_API_BASE || DEFAULT_CDS_API_BASE;
+  const url = new URL(`${base}/documents`);
+  url.searchParams.set("collectionIds", String(npr_collection_id));
+  url.searchParams.set("profileIds", "program-episode");
+  url.searchParams.set("showDates", showDateISO);
+  url.searchParams.set("transclude", "items");
 
-  const url = new URL(feedUrl);
-  url.searchParams.set("program_id", programId);
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (process.env.NPR_RUNDOWNS_API_KEY) {
-    headers.Authorization = `Bearer ${process.env.NPR_RUNDOWNS_API_KEY}`;
-  }
-
-  const res = await fetch(url, { headers, cache: "no-store" });
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token()}`, Accept: "application/json" },
+    cache: "no-store",
+  });
   if (!res.ok) {
-    throw new Error(`The NPR rundown feed returned an error (${res.status}).`);
+    throw new Error(`NPR CDS returned an error (${res.status}).`);
   }
 
-  const body = (await res.json()) as { segments?: RawNprFeedSegment[] };
-  const rawSegments = body.segments ?? [];
-
-  return rawSegments
-    .map((segment, index) => ({
-      segment_order: segment.segment_order ?? segment.order ?? index + 1,
-      story_title: segment.story_title ?? segment.title ?? "Untitled segment",
-      story_description: segment.story_description ?? segment.description ?? null,
-      forward_promo_copy: segment.forward_promo_copy ?? segment.forward_promo ?? null,
-      status: normalizeStatus(segment.status),
-      advisory_text: segment.advisory ?? null,
-    }))
-    .sort((a, b) => a.segment_order - b.segment_order);
+  const body: unknown = await res.json();
+  return parseCdsProgramEpisodeResponse(body);
 }

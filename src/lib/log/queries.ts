@@ -18,7 +18,8 @@ export type LogClockSlotRow = Database["public"]["Tables"]["log_clock_slots"]["R
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
-export type LogNprRundownCacheRow = Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"];
+export type LogNprEpisodeRow = Database["public"]["Tables"]["log_npr_episodes"]["Row"];
+export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode_items"]["Row"];
 export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
 
 export async function listPrograms(): Promise<LogProgramRow[]> {
@@ -188,19 +189,45 @@ export async function getContentItemDetail(id: string): Promise<ContentItemDetai
   return { ...item, components };
 }
 
-/** One program's cached NPR segment order, in air order. Raw read only — see lib/log/npr.ts for the lazy-refresh read that calls this. */
-export async function listNprRundownForProgram(programId: string): Promise<LogNprRundownCacheRow[]> {
+export interface NprEpisodeCacheEntry {
+  episode: LogNprEpisodeRow;
+  items: LogNprEpisodeItemRow[];
+}
+
+/**
+ * The cached NPR CDS program-episode for one program on one show date, if
+ * one has ever been fetched — episode identity is (program, show_date), not
+ * just program (docs/log-design.md §5: date is part of a CDS episode's
+ * identity). Raw read only — see lib/log/npr.ts for the lazy-refresh read
+ * that calls this.
+ */
+export async function getNprEpisodeCache(
+  programId: string,
+  showDateISO: string,
+): Promise<NprEpisodeCacheEntry | null> {
   const supabase = await createClient();
-  return (
+  const episode = unwrapRead(
+    await supabase
+      .from("log_npr_episodes")
+      .select("*")
+      .eq("program_id", programId)
+      .eq("show_date", showDateISO)
+      .maybeSingle(),
+    "this program's cached NPR episode",
+  );
+  if (!episode) return null;
+
+  const items =
     unwrapRead(
       await supabase
-        .from("log_npr_rundown_cache")
+        .from("log_npr_episode_items")
         .select("*")
-        .eq("program_id", programId)
-        .order("segment_order"),
-      "this program's NPR rundown",
-    ) ?? []
-  );
+        .eq("episode_id", episode.id)
+        .order("position"),
+      "this NPR episode's items",
+    ) ?? [];
+
+  return { episode, items };
 }
 
 /** The single current weather reading, if one has ever been fetched. Raw read only — see lib/log/weather.ts for the lazy-refresh read that calls this. */

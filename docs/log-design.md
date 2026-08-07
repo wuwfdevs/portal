@@ -79,10 +79,16 @@ never displayed as 30.
 Underwriting credits are deliberately not a Log content type — see §6's
 "Deferred: the Underwriting boundary" below.
 
-### NPR rundown cache
-The most recently retrieved network segment order, story info, and
-forward-promo copy (§5) — an integration cache of an external source, never
-edited locally, always labeled with when it was last successfully retrieved.
+### NPR program episode
+NPR identifies a network program as a **collection** in its Content
+Distribution Service (CDS), and a particular broadcast's rundown as a dated
+**program-episode** document within that collection, containing an ordered
+sequence of story/content items (§5) — a mapped local program's cached copy
+of that dated episode, never edited locally, always labeled with when it was
+last successfully retrieved. Date is part of the episode's identity: "the
+Morning Edition episode for August 7" and "for August 8" are different
+documents, not one row that gets overwritten. Not every program has a CDS
+mapping — local and unmapped network programs simply have none.
 
 ### Weather reading
 One current live-read, not one row per slot (§8) — every weather slot in
@@ -126,12 +132,16 @@ tool member, matching §2.2/§2.3's framing of these as ordinary staff duties,
 not privileged ones.
 
 ### D. Reading NPR and weather in context
-The current NPR segment order and forward-promo copy render inline in
-chronological position within the rundown (§5.2) — not a separate tab. Same
-for the current weather live-read (§8.3): a host reads it from any weather
-slot, sees when it was last updated, can refresh manually, and can make a
-temporary edit for the current airing without overwriting the master copy
-that every other slot references.
+The current NPR program-episode's ordered story items render inline in
+chronological position within the rundown (§5.2) — not a separate tab. NPR
+supplies editorial metadata (title, teaser/description) for a host to read
+and understand what's coming, not polished on-air copy; a host composes
+their own forward promotion from that metadata if they want one — that
+copy is local/derived content, never something NPR is assumed to supply.
+Same for the current weather live-read (§8.3): a host reads it from any
+weather slot, sees when it was last updated, can refresh manually, and can
+make a temporary edit for the current airing without overwriting the master
+copy that every other slot references.
 
 ### E. Building the daily rundown (host, or a producer preparing ahead)
 For each host-fillable slot, Log shows total available time, any required
@@ -198,11 +208,15 @@ whatever's currently live.
 
 ## 5. Data model
 
-Ten tables, prefixed `log_` per CLAUDE.md's directory conventions.
+Thirteen tables (the NPR cache split into two — see `log_npr_episodes`/
+`log_npr_episode_items` below), prefixed `log_` per CLAUDE.md's directory
+conventions.
 
 ### `log_programs`
-`id`, `name`, `description`, `kind` (`recurring` | `special`), `created_at`,
-`created_by`.
+`id`, `name`, `description`, `kind` (`recurring` | `special`),
+`npr_collection_id` (nullable `int` — this program's NPR CDS collection id,
+e.g. Morning Edition = 3; null for local programs and any network program
+without a known mapping, never guessed), `created_at`, `created_by`.
 
 ### `log_clock_templates`
 `id`, `name`, `description`, `created_at`, `created_by`, `updated_at`.
@@ -247,12 +261,25 @@ real reference once FCC Reporting's taxonomy exists, see §6),
 `live_outro` | `optional_tag`), `sequence`, `duration_seconds`, `required`
 bool, `script` (nullable), `audio_object_path` (nullable).
 
-### `log_npr_rundown_cache`
-`id`, `program_id`, `segment_order` (`int`), `story_title`,
-`story_description`, `forward_promo_copy`, `status` (`draft` | `edited` |
-`revised` | `withdrawn`), `advisory_text` (nullable), `retrieved_at`. Rows
-are replaced wholesale on each successful retrieval, not diffed — the point
-is "what did we last successfully get," not a change history.
+### `log_npr_episodes`
+`id`, `program_id`, `show_date`, `npr_collection_id` (`int` — the CDS
+collection queried), `status` (`found` | `not_found`), `npr_episode_id`
+(nullable — the CDS document's stable id; null exactly when `status =
+not_found`), `title` (nullable), `raw` (`jsonb`, nullable — the CDS
+program-episode document as returned, preserved so a field this schema
+didn't anticipate isn't lost), `retrieved_at`. One row per (`program_id`,
+`show_date`) — a rundown is a dated document, not one undifferentiated
+"current" state per program (§2). Replaced wholesale (delete + insert) per
+program+date on each successful retrieval, not diffed — the point is "what
+did we last successfully get for this date," not a change history.
+
+### `log_npr_episode_items`
+`id`, `episode_id`, `position` (`int`), `npr_item_id` (the CDS document id
+for this story — stable NPR identity, never derived from the title),
+`title`, `teaser` (nullable), `raw` (`jsonb`, nullable). The ordered
+story/content sequence within one cached episode — CDS's transcluded
+`items` collection, ordered exactly as CDS returned it. Deleted and
+reinserted with its parent episode row, never updated in place.
 
 ### `log_weather_reading`
 `id`, `forecast_area`, `source`, `live_read_text`, `condensed_text`,
@@ -360,12 +387,15 @@ neither gets a cron job. Instead:
   "Refresh" button per §8.3. The same lazy-refresh shape Sourcework's
   Mistral OCR uses via `after()` doesn't apply here — there's no long job to
   detach from a request, just an API call cheap enough to make inline.
-- **NPR** works the same way: the console polls its own server (short
-  client-side interval, matching Remote Interview's waiting-room poll
-  pattern — there's still no notification layer in this repo to push
-  updates instead), and each poll both returns current data and triggers a
-  background refetch if the cache is older than the network's own update
-  cadence.
+- **NPR** works the same way, scoped to one program's episode for one show
+  date rather than a single per-program state: the console polls its own
+  server (short client-side interval, matching Remote Interview's
+  waiting-room poll pattern — there's still no notification layer in this
+  repo to push updates instead), and each poll both returns the cached
+  episode for that program+date and triggers a background refetch if it's
+  older than a threshold. A program with no CDS mapping, or a deployment
+  with no CDS token configured, never attempts a fetch at all — those are
+  distinct, clearly reported states, not failures.
 
 Both paths keep the last successful version on a fetch failure and mark it
 stale rather than blocking or clearing the display (§5.2, §8.2,
@@ -463,9 +493,16 @@ queue, because Underwriting doesn't exist yet.
 
 **Open questions specific to this tool, not yet answered:**
 
-- What NPR API or feed is actually available to poll, and at what rate
-  limit or update cadence? (Determines the console's poll interval and
-  whether "lazily refresh on read" is fast enough in practice.)
+- ~~What NPR API or feed is actually available to poll?~~ Resolved
+  (2026-08-07): NPR's Content Distribution Service (CDS), documented at
+  `https://content.api.npr.org/v1` — programs are CDS collections, a
+  rundown is a dated `program-episode` document with an ordered `items`
+  collection. See §2/§5 above and CLAUDE.md's "NPR integration corrected to
+  the real CDS model" note. What's still unverified: WUWF's own production
+  CDS token hasn't been requested/tested yet, so exact rate limits, update
+  cadence, and any additional fields a real response carries beyond what
+  this implementation defensively parses are still to be confirmed once
+  credentials exist.
 - Which weather API/vendor, and what's in its contract terms about update
   frequency and forecast-area granularity?
 - Do any of WUWF's current clocks have slot behavior not covered by

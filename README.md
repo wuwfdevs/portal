@@ -149,10 +149,15 @@ through automation and need a human in each dashboard once:
      "not configured" status. See `.env.example` for the caveat about whether Supabase
      Storage's S3-compatible endpoint actually works as this destination — unverified, and
      the first thing to test once Daily access exists.
-   - `NPR_RUNDOWNS_API_URL` and `NPR_RUNDOWNS_API_KEY` — Log's NPR rundown feed
-     (`lib/log/providers/npr.ts`). Optional and unset by default: WUWF's actual NPR feed
-     access is still an open question (see `docs/log-design.md` §7), so without these,
-     `/log/npr` shows a clear "not configured" state instead of failing.
+   - `NPR_CDS_TOKEN` — Log's NPR Content Distribution Service (CDS) integration
+     (`lib/log/providers/npr.ts`) (**sensitive** — mark encrypted). Optional and unset by
+     default: request one from NPR's Member Partnership team (about a business week
+     turnaround; you'll get separate non-expiring staging and production keys). Without it,
+     `/log/npr` shows a clear "not configured" state instead of failing. The API model
+     itself (programs as CDS collections, dated `program-episode` documents) is known — see
+     `docs/log-design.md` §5 — only WUWF's own token is outstanding.
+   - `NPR_CDS_API_BASE` — optional override of the CDS base URL, e.g. for testing against
+     staging. Defaults to CDS production (`https://content.api.npr.org/v1`).
    - `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` — Log's weather live-read
      (`lib/log/providers/weather.ts`). Optional: unset, it defaults to WUWF's Pensacola, FL
      studio location against the free National Weather Service API, which needs no key.
