@@ -724,6 +724,36 @@ swapped Promo/Music Bed label pair and a missing Funding Credit before
 Segment E. All three clocks now sum to exactly 3600 seconds (or 3599,
 within the same ~1s rounding noise every clock's own PDF shows).
 
+**Log: clock seed corrections, part 3 (2026-08-07) — a real, systemic
+mistranscription across nearly every clock, not just Morning Edition.** A
+user report ("the 5:40 break doesn't actually start until 6:00") led to
+re-rendering Morning Edition's source PDF at 6x resolution instead of 4x,
+which showed a genuine, separately-colored 20-second red "Funding Credit"
+wedge between Newscast 2 and the following Music Bed — previously read as
+decoration from the red double-headed "network newscast tolerance" arrow
+drawn over the same spot in every one of these clocks, because at lower
+resolution the thin wedge and the thick arrow on top of it were
+indistinguishable. `20260807180000_log_morning_edition_top_of_hour_fix.sql`
+fixes Morning Edition specifically: Newscast 2 ends at 5:40 as already
+recorded, but what follows is Funding Credit (5:40–6:00, 20s) *then* Music
+Bed (6:00–7:30, 90s) — the two prior passes had merged both into one
+110-second "Music Bed" starting at 5:40, which is what prompted the report.
+Re-checking the same junction on a second clock at the same resolution
+confirmed the identical red wedge exists there too, and a query across all
+13 clocks' `log_clock_slots` showed **every other clock** (all but World
+Cafe, which has no Newscast 2 at this position) had the same two slots
+recorded in the wrong order — Music Bed then Funding Credit, rather than
+Funding Credit then Music Bed — meaning this specific mistake predates and
+survived both prior correction passes entirely, since it was assumed to be
+normal cross-clock transcription noise rather than checked at full zoom.
+`20260807190000_log_clock_seed_top_of_hour_swap.sql` fixes it everywhere
+else in one pass: a pure label swap keyed on `start_offset_seconds` (340
+and 360), since the offsets and durations were already correct and only
+which slot was which had been backwards. The lesson worth remembering
+before trusting a "not a real slot, just decoration" read on any of these
+diagrams again: render tight and zoom past where an annotation and the
+element underneath it look identical at a glance.
+
 **Log: milestone 1 slice 2 (Content library) has landed** —
 `20260806160000_log_content_library.sql` adds `log_content_items` (news,
 station/program promos, membership messages, university announcements,
