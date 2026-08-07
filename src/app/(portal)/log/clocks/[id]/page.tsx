@@ -63,7 +63,7 @@ export default async function ClockTemplateDetailPage({
             <p className="px-5 py-4 text-sm text-ink-500">No slots yet.</p>
           ) : (
             <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
-              <div className="mx-auto shrink-0 lg:mx-0">
+              <div className="mx-auto w-full max-w-[320px] lg:mx-0 lg:w-[320px] lg:shrink-0">
                 <ClockFace slots={version.slots} />
               </div>
               <div className="min-w-0 flex-1 overflow-x-auto">
