@@ -4,16 +4,9 @@ import { Button } from "@/components/ui/button";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
+import { formatStationTimestamp } from "@/lib/log/timezone";
 
 const POLL_INTERVAL_MS = 60_000;
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default async function WeatherPage({
   searchParams,
@@ -92,11 +85,11 @@ export default async function WeatherPage({
               )}
               <div>
                 <dt className="text-ink-400">Last updated</dt>
-                <dd>{formatTimestamp(reading.last_updated_at)}</dd>
+                <dd>{formatStationTimestamp(reading.last_updated_at)}</dd>
               </div>
               <div>
                 <dt className="text-ink-400">Valid through</dt>
-                <dd>{formatTimestamp(reading.valid_through_at)}</dd>
+                <dd>{formatStationTimestamp(reading.valid_through_at)}</dd>
               </div>
               <div>
                 <dt className="text-ink-400">Source</dt>

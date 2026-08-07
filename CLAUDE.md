@@ -799,6 +799,29 @@ builder — that screen doesn't exist yet (it's the next slice), and shipping
 Slice 3 with no way to see or manually refresh NPR data at all would leave
 it invisible and untestable until then; `/log/weather` matches §4 exactly.
 
+**Log: station timezone fix (2026-08-07).** Slice 3 shipped a real bug,
+caught immediately by a user comparing the weather screen's "Last updated"
+against an actual clock: every wall-clock-facing display in Log had been
+built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
+the rendering process's own timezone — UTC on Vercel, five hours off
+Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+one place that knows the station is Central time, not Eastern, despite
+being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
+and every timestamp/date Log renders goes through it:
+`formatStationTimestamp` (weather's and NPR's "last updated"/"retrieved"),
+`formatStationDateLong` (the Today screen's header), and — the more
+consequential half of the same bug — `stationTodayISO()`, which replaced
+the Today screen's `new Date().toISOString().slice(0, 10)`. That one wasn't
+just a mislabeled timestamp: computing "today" from UTC meant the Today
+screen would silently show **tomorrow's** lineup for roughly 7pm–midnight
+Central, every single day, since UTC has already rolled over by then. Nothing
+elsewhere in the portal uses this helper or needs to — every other tool's
+timestamps (`created_at`, `submitted_at`, audit log entries, etc.) are
+ordinary multi-timezone-audience activity logs, not a live single-studio
+wall clock, and rendering those in the viewer's ambient timezone rather than
+a fixed one is a longstanding, separate characteristic of the rest of the
+codebase, not something this fix touched.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),

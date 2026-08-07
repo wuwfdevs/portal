@@ -3,14 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listPrograms, listScheduleEntries } from "@/lib/log/queries";
 import { computeEndTime, formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { formatStationDateLong, stationTodayISO } from "@/lib/log/timezone";
 
 export default async function LogTodayPage() {
   const [programs, scheduleEntries] = await Promise.all([listPrograms(), listScheduleEntries()]);
-  const today = todayISO();
+  const today = stationTodayISO();
   const activeToday = scheduleEntries
     .filter((entry) => isScheduleEntryActiveOn(entry, today))
     .sort((a, b) => a.air_time.localeCompare(b.air_time));
@@ -33,13 +30,7 @@ export default async function LogTodayPage() {
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-bold text-ink-900">
-        {new Date(`${today}T00:00:00Z`).toLocaleDateString(undefined, {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        })}
-      </h2>
+      <h2 className="mb-3 text-sm font-bold text-ink-900">{formatStationDateLong(today)}</h2>
       {activeToday.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           No program is scheduled for today.

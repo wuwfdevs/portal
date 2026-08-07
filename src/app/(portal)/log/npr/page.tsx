@@ -8,6 +8,7 @@ import { listPrograms } from "@/lib/log/queries";
 import { getNprRundownForProgram } from "@/lib/log/npr";
 import { refreshNprRundownAction } from "../npr-actions";
 import { LogPoller } from "../log-poller";
+import { formatStationTimestamp } from "@/lib/log/timezone";
 import type { LogNprStatus } from "@/lib/database.types";
 
 const POLL_INTERVAL_MS = 20_000;
@@ -18,14 +19,6 @@ const STATUS_VARIANT: Record<LogNprStatus, BadgeVariant> = {
   revised: "warning",
   withdrawn: "danger",
 };
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default async function NprPage({
   searchParams,
@@ -91,7 +84,7 @@ export default async function NprPage({
         <h2 className="text-sm font-bold text-ink-900">{selectedProgram.name}</h2>
         {stale && <Badge variant="warning">Stale</Badge>}
         {retrievedAt && (
-          <span className="text-xs text-ink-400">Retrieved {formatTimestamp(retrievedAt)}</span>
+          <span className="text-xs text-ink-400">Retrieved {formatStationTimestamp(retrievedAt)}</span>
         )}
       </div>
 
