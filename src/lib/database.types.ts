@@ -85,7 +85,15 @@
 // LogNprEpisodeStatus enum (also a plain type alias, same reasoning as
 // above); log_programs gained npr_collection_id. Verified against the
 // Supabase MCP server's generate_typescript_types output for the live
-// preview project after applying, field-by-field diffed.
+// preview project after applying, field-by-field diffed. Hand-updated again
+// on 2026-08-07 for Log's rundown-generation slice
+// (supabase/migrations/20260807150000_log_rundowns.sql): log_rundowns/
+// log_rundown_items and the new LogRundownStatus/LogRequirementLevel/
+// LogPlacementStatus/LogItemWarning enums (plain type aliases, same as
+// every other log_ enum) — added by hand following the same Row/Insert/
+// Update shape as every table here, then verified against the Supabase MCP
+// server's generate_typescript_types output for the live preview project
+// after applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -275,6 +283,14 @@ export type LogComponentType = "live_intro" | "recorded_audio" | "live_outro" | 
 // vocabulary with the real CDS distinction between an episode CDS actually
 // returned and one it confirmed doesn't exist for that date.
 export type LogNprEpisodeStatus = "found" | "not_found";
+// Slice 4 (rundown generation + timing engine) — see
+// supabase/migrations/20260807150000_log_rundowns.sql. log_broadcast_events
+// and its outcome/reason vocabulary are not in this file yet — that table
+// belongs to the next slice (the host console with mid-broadcast actions).
+export type LogRundownStatus = "draft" | "generated" | "in_progress" | "submitted";
+export type LogRequirementLevel = "required" | "suggested" | "optional";
+export type LogPlacementStatus = "locked" | "movable" | "replaceable" | "editable";
+export type LogItemWarning = "timing_conflict" | "stale_content" | "none";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1551,6 +1567,54 @@ export interface Database {
           valid_through_at: string;
         };
         Update: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]>;
+        Relationships: [];
+      };
+      log_rundowns: {
+        Row: {
+          id: string;
+          program_id: string;
+          schedule_entry_id: string | null;
+          clock_version_id: string;
+          air_date: string;
+          shift_start_at: string;
+          shift_end_at: string;
+          status: LogRundownStatus;
+          generated_at: string | null;
+          submitted_at: string | null;
+          submitted_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]> & {
+          program_id: string;
+          clock_version_id: string;
+          air_date: string;
+          shift_start_at: string;
+          shift_end_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]>;
+        Relationships: [];
+      };
+      log_rundown_items: {
+        Row: {
+          id: string;
+          rundown_id: string;
+          clock_slot_id: string;
+          /** Null until a host (or a producer preparing ahead) fills the slot. */
+          content_item_id: string | null;
+          position: number;
+          scheduled_at: string;
+          planned_duration_seconds: number;
+          requirement_level: LogRequirementLevel;
+          placement_status: LogPlacementStatus;
+          current_warning: LogItemWarning | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
+          rundown_id: string;
+          clock_slot_id: string;
+          position: number;
+          scheduled_at: string;
+          planned_duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
         Relationships: [];
       };
     };

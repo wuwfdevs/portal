@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatStationDateLong, formatStationTimestamp, stationTodayISO } from "./timezone";
+import {
+  formatStationDateLong,
+  formatStationTimestamp,
+  stationLocalDateTimeToUTC,
+  stationTodayISO,
+} from "./timezone";
 
 describe("stationTodayISO", () => {
   it("stays on the same calendar day for a Central-time morning instant", () => {
@@ -28,5 +33,22 @@ describe("formatStationTimestamp", () => {
     const result = formatStationTimestamp("2026-08-07T11:27:00.000Z");
     expect(result).toContain("6:27");
     expect(result).not.toContain("11:27");
+  });
+});
+
+describe("stationLocalDateTimeToUTC", () => {
+  it("applies the CDT offset (UTC-5) in August", () => {
+    // 9:00 AM in Pensacola on August 7 (CDT) is 14:00 UTC.
+    expect(stationLocalDateTimeToUTC("2026-08-07", "09:00:00")).toBe("2026-08-07T14:00:00.000Z");
+  });
+
+  it("applies the CST offset (UTC-6) in January", () => {
+    // 9:00 AM in Pensacola on January 7 (CST) is 15:00 UTC.
+    expect(stationLocalDateTimeToUTC("2026-01-07", "09:00:00")).toBe("2026-01-07T15:00:00.000Z");
+  });
+
+  it("rolls the calendar date forward when the local time is late enough", () => {
+    // 11:00 PM CDT on August 7 is already August 8 in UTC.
+    expect(stationLocalDateTimeToUTC("2026-08-07", "23:00:00")).toBe("2026-08-08T04:00:00.000Z");
   });
 });
