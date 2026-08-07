@@ -27,17 +27,17 @@ function contractPath(id: string): string {
 export async function placeCreditAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
-  const obligationId = field(formData, "obligation_id");
-  const rundownItemId = field(formData, "rundown_item_id");
+  const scheduleLineId = field(formData, "schedule_line_id");
+  const breakId = field(formData, "break_id");
   const copyId = field(formData, "copy_id");
   const overrideReason = field(formData, "override_reason");
   const path = contractPath(contractId);
 
-  if (rundownItemId === "" || copyId === "") failWith(path, "Choose an open slot and a copy to place.");
+  if (breakId === "" || copyId === "") failWith(path, "Choose an open break and a copy to place.");
 
   const result = await placeCredit({
-    rundownItemId,
-    obligationId,
+    breakId,
+    scheduleLineId,
     copyId,
     overrideReason: overrideReason || undefined,
   });

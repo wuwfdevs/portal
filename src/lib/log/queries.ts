@@ -15,6 +15,7 @@ export type LogProgramRow = Database["public"]["Tables"]["log_programs"]["Row"];
 export type LogClockTemplateRow = Database["public"]["Tables"]["log_clock_templates"]["Row"];
 export type LogClockVersionRow = Database["public"]["Tables"]["log_clock_versions"]["Row"];
 export type LogClockSlotRow = Database["public"]["Tables"]["log_clock_slots"]["Row"];
+export type LogLocalOpportunityRow = Database["public"]["Tables"]["log_local_opportunities"]["Row"];
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
@@ -22,6 +23,7 @@ export type LogNprEpisodeRow = Database["public"]["Tables"]["log_npr_episodes"][
 export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode_items"]["Row"];
 export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
 export type LogRundownRow = Database["public"]["Tables"]["log_rundowns"]["Row"];
+export type LogRundownBreakRow = Database["public"]["Tables"]["log_rundown_breaks"]["Row"];
 export type LogRundownItemRow = Database["public"]["Tables"]["log_rundown_items"]["Row"];
 export type LogBroadcastEventRow = Database["public"]["Tables"]["log_broadcast_events"]["Row"];
 
@@ -52,13 +54,14 @@ export async function listClockTemplates(): Promise<LogClockTemplateRow[]> {
 
 export interface ClockVersionWithSlots extends LogClockVersionRow {
   slots: LogClockSlotRow[];
+  opportunities: LogLocalOpportunityRow[];
 }
 
 export interface ClockTemplateDetail extends LogClockTemplateRow {
   versions: ClockVersionWithSlots[];
 }
 
-/** A template plus every version it has ever had, each with its own slots, newest first. */
+/** A template plus every version it has ever had, each with its own network slots and WUWF local opportunities, newest first. */
 export async function getClockTemplateDetail(id: string): Promise<ClockTemplateDetail | null> {
   const supabase = await createClient();
   const template = unwrapRead(
@@ -79,18 +82,22 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
 
   if (versions.length === 0) return { ...template, versions: [] };
 
-  const slots =
+  const versionIds = versions.map((version) => version.id);
+  const [slots, opportunities] = await Promise.all([
+    unwrapRead(
+      await supabase.from("log_clock_slots").select("*").in("clock_version_id", versionIds).order("position"),
+      "this clock template's slots",
+    ) ?? [],
     unwrapRead(
       await supabase
-        .from("log_clock_slots")
+        .from("log_local_opportunities")
         .select("*")
-        .in(
-          "clock_version_id",
-          versions.map((version) => version.id),
-        )
+        .in("clock_version_id", versionIds)
+        .eq("active", true)
         .order("position"),
-      "this clock template's slots",
-    ) ?? [];
+      "this clock template's local opportunities",
+    ) ?? [],
+  ]);
 
   const slotsByVersion = new Map<string, LogClockSlotRow[]>();
   for (const slot of slots) {
@@ -98,12 +105,19 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
     if (existing) existing.push(slot);
     else slotsByVersion.set(slot.clock_version_id, [slot]);
   }
+  const opportunitiesByVersion = new Map<string, LogLocalOpportunityRow[]>();
+  for (const opportunity of opportunities) {
+    const existing = opportunitiesByVersion.get(opportunity.clock_version_id);
+    if (existing) existing.push(opportunity);
+    else opportunitiesByVersion.set(opportunity.clock_version_id, [opportunity]);
+  }
 
   return {
     ...template,
     versions: versions.map((version) => ({
       ...version,
       slots: slotsByVersion.get(version.id) ?? [],
+      opportunities: opportunitiesByVersion.get(version.id) ?? [],
     })),
   };
 }
@@ -252,7 +266,7 @@ export async function getScheduleEntry(id: string): Promise<LogScheduleRow | nul
   );
 }
 
-/** The slots belonging to one clock version, in position order — the same shape getClockTemplateDetail nests per version. */
+/** The slots belonging to one clock version, in position order — the network structure, for the clock face diagram. */
 export async function listClockSlotsForVersion(clockVersionId: string): Promise<LogClockSlotRow[]> {
   const supabase = await createClient();
   return (
@@ -263,6 +277,22 @@ export async function listClockSlotsForVersion(clockVersionId: string): Promise<
         .eq("clock_version_id", clockVersionId)
         .order("position"),
       "this clock version's slots",
+    ) ?? []
+  );
+}
+
+/** The active local opportunities for one clock version, in position order — WUWF's own overlay, for both the clock face diagram and rundown generation. */
+export async function listLocalOpportunitiesForVersion(clockVersionId: string): Promise<LogLocalOpportunityRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("log_local_opportunities")
+        .select("*")
+        .eq("clock_version_id", clockVersionId)
+        .eq("active", true)
+        .order("position"),
+      "this clock version's local opportunities",
     ) ?? []
   );
 }
@@ -296,16 +326,19 @@ export async function getRundownForProgramOnDate(
 }
 
 export interface RundownItemDetail extends LogRundownItemRow {
-  slot: LogClockSlotRow;
   contentItem: (LogContentItemRow & { components: LogContentComponentRow[] }) | null;
+}
+
+export interface RundownBreakDetail extends LogRundownBreakRow {
+  items: RundownItemDetail[];
 }
 
 export interface RundownDetail extends LogRundownRow {
   programName: string;
-  items: RundownItemDetail[];
+  breaks: RundownBreakDetail[];
 }
 
-/** A rundown plus every item, each joined to its clock slot and (if filled) its content item and components. */
+/** A rundown plus every break, each with its placed items joined to their content item and components. */
 export async function getRundownDetail(id: string): Promise<RundownDetail | null> {
   const supabase = await createClient();
   const rundown = unwrapRead(
@@ -314,24 +347,26 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
   );
   if (!rundown) return null;
 
-  const [program, items] = await Promise.all([
+  const [program, breaks] = await Promise.all([
     getProgram(rundown.program_id),
     unwrapRead(
-      await supabase.from("log_rundown_items").select("*").eq("rundown_id", id).order("position"),
-      "this rundown's items",
+      await supabase.from("log_rundown_breaks").select("*").eq("rundown_id", id).order("position"),
+      "this rundown's breaks",
     ) ?? [],
   ]);
 
-  const slotIds = [...new Set(items.map((item) => item.clock_slot_id))];
-  const contentItemIds = [...new Set(items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])))];
-
-  const [slots, contentItems, components] = await Promise.all([
-    slotIds.length === 0
+  const breakIds = breaks.map((brk) => brk.id);
+  const items =
+    breakIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("log_clock_slots").select("*").in("id", slotIds),
-          "this rundown's clock slots",
-        ) ?? []),
+          await supabase.from("log_rundown_items").select("*").in("break_id", breakIds).order("position"),
+          "this rundown's items",
+        ) ?? []);
+
+  const contentItemIds = [...new Set(items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])))];
+
+  const [contentItems, components] = await Promise.all([
     contentItemIds.length === 0
       ? []
       : (unwrapRead(
@@ -346,7 +381,6 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
         ) ?? []),
   ]);
 
-  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
   const contentItemById = new Map(contentItems.map((item) => [item.id, item]));
   const componentsByContentItem = new Map<string, LogContentComponentRow[]>();
   for (const component of components) {
@@ -355,21 +389,24 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
     else componentsByContentItem.set(component.content_item_id, [component]);
   }
 
+  const itemsByBreak = new Map<string, RundownItemDetail[]>();
+  for (const item of items) {
+    const contentItem = item.content_item_id ? (contentItemById.get(item.content_item_id) ?? null) : null;
+    const detail: RundownItemDetail = {
+      ...item,
+      contentItem: contentItem
+        ? { ...contentItem, components: componentsByContentItem.get(contentItem.id) ?? [] }
+        : null,
+    };
+    const existing = itemsByBreak.get(item.break_id);
+    if (existing) existing.push(detail);
+    else itemsByBreak.set(item.break_id, [detail]);
+  }
+
   return {
     ...rundown,
     programName: program?.name ?? "Unknown program",
-    items: items.map((item) => {
-      const slot = slotById.get(item.clock_slot_id);
-      if (!slot) throw new Error(`Rundown item ${item.id} references a missing clock slot`);
-      const contentItem = item.content_item_id ? (contentItemById.get(item.content_item_id) ?? null) : null;
-      return {
-        ...item,
-        slot,
-        contentItem: contentItem
-          ? { ...contentItem, components: componentsByContentItem.get(contentItem.id) ?? [] }
-          : null,
-      };
-    }),
+    breaks: breaks.map((brk) => ({ ...brk, items: itemsByBreak.get(brk.id) ?? [] })),
   };
 }
 
@@ -378,6 +415,57 @@ export async function getRundownItem(id: string): Promise<LogRundownItemRow | nu
   return unwrapRead(
     await supabase.from("log_rundown_items").select("*").eq("id", id).maybeSingle(),
     "this rundown item",
+  );
+}
+
+export async function getRundownBreak(id: string): Promise<LogRundownBreakRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_rundown_breaks").select("*").eq("id", id).maybeSingle(),
+    "this break",
+  );
+}
+
+/** Every item currently placed in one break, in position order. */
+export async function listItemsForBreak(breakId: string): Promise<LogRundownItemRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase.from("log_rundown_items").select("*").eq("break_id", breakId).order("position"),
+      "this break's items",
+    ) ?? []
+  );
+}
+
+export interface UnderwritingCopyForLog {
+  id: string;
+  label: string;
+  script: string | null;
+  duration_seconds: number | null;
+  execution_kind: string;
+  cart_identifier: string | null;
+}
+
+/**
+ * The approved underwriting script for a set of underwriting-credit items —
+ * point 14 of the domain redesign: the host must never be told to go to
+ * Underwriting & Traffic to read a credit's copy. Readable here because of
+ * `uw_copy_select_for_log` (20260808200000_underwriting_redesign.sql), a
+ * narrow additive policy scoped to exactly the copy rows already referenced
+ * by a log_rundown_items row. Underwriting remains the source of truth —
+ * this is a read, never a write.
+ */
+export async function listUnderwritingCopyForItems(copyIds: string[]): Promise<UnderwritingCopyForLog[]> {
+  if (copyIds.length === 0) return [];
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_copy")
+        .select("id, label, script, duration_seconds, execution_kind, cart_identifier")
+        .in("id", copyIds),
+      "this rundown's underwriting copy",
+    ) ?? []
   );
 }
 

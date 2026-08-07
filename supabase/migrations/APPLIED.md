@@ -91,10 +91,19 @@ repo and a project's history, not the version number.
 | `20260807230000_underwriting_exception_read_fix.sql`              | 2026-08-07 | 2026-08-07 |
 | `20260807240000_underwriting_makegoods.sql`                       | 2026-08-07 | 2026-08-07 |
 | `20260807250000_underwriting_affidavits.sql`                      | 2026-08-07 | 2026-08-07 |
+| `20260808120000_log_local_opportunities.sql`                      | 2026-08-07 | 2026-08-07 |
+| `20260808130000_log_rundown_breaks.sql`                           | 2026-08-07 | 2026-08-07 |
+| `20260808140000_log_content_dad_and_media_removal.sql`            | 2026-08-07 | 2026-08-07 |
+| `20260808200000_underwriting_redesign.sql`                        | 2026-08-07 | 2026-08-07 |
+| `20260808210000_log_morning_edition_opportunities.sql`            | 2026-08-07 | 2026-08-07 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
-applied migration this repo doesn't have, except the one noted below.
+applied migration this repo doesn't have, except the one noted below. (The five
+2026-08-08-timestamped Log/Underwriting redesign migrations above were applied
+2026-08-07, ahead of their own filename timestamp — the timestamp prefix is a
+sequencing identifier chosen when the files were written, not a claim about
+when they'd be applied.)
 
 ## Known discrepancy: `harden_functions`
 

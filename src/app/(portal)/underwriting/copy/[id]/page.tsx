@@ -4,7 +4,6 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
-import { CopyAudioUpload } from "../../copy-audio-upload";
 import { getCopyDetail } from "@/lib/underwriting/queries";
 import { setCopyStatus, updateCopyDetails } from "../../copy-actions";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
@@ -35,11 +34,9 @@ export default async function CopyDetailPage({
           ← Back to copy library
         </Link>
         <div className="mt-2 mb-4 flex flex-wrap items-center gap-2.5">
-          <h2 className="font-serif text-xl font-bold text-ink-900">{copy.cart_identifier ?? "(no cart #)"}</h2>
+          <h2 className="font-serif text-xl font-bold text-ink-900">{copy.label}</h2>
           <Badge variant={APPROVAL_VARIANT[copy.approval_status]}>{copy.approval_status}</Badge>
-          <Badge variant={copy.production_status === "produced" ? "success" : "neutral"}>
-            {copy.production_status}
-          </Badge>
+          <Badge variant="neutral">{copy.execution_kind === "recorded" ? "Recorded" : "Live read"}</Badge>
         </div>
 
         {error && <Alert className="mb-4">{error}</Alert>}
@@ -48,9 +45,18 @@ export default async function CopyDetailPage({
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Details</div>
           <form action={updateCopyDetails} className="flex flex-col gap-4 p-5">
             <input type="hidden" name="copy_id" value={copy.id} />
-            <div>
-              <Label htmlFor="cart_identifier">Cart #</Label>
-              <Input id="cart_identifier" name="cart_identifier" defaultValue={copy.cart_identifier ?? ""} maxLength={120} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="label">Label</Label>
+                <Input id="label" name="label" required defaultValue={copy.label} maxLength={80} />
+              </div>
+              <div>
+                <Label htmlFor="execution_kind">Execution</Label>
+                <Select id="execution_kind" name="execution_kind" defaultValue={copy.execution_kind}>
+                  <option value="live_read">Live read</option>
+                  <option value="recorded">Recorded (via DAD)</option>
+                </Select>
+              </div>
             </div>
             <div>
               <Label htmlFor="script">Script</Label>
@@ -67,7 +73,11 @@ export default async function CopyDetailPage({
                   className="w-32"
                   defaultValue={copy.duration_seconds ?? ""}
                 />
-                <FieldHint>No processing pipeline reads this from the file — set it by hand.</FieldHint>
+              </div>
+              <div>
+                <Label htmlFor="cart_identifier">DAD cart #</Label>
+                <Input id="cart_identifier" name="cart_identifier" defaultValue={copy.cart_identifier ?? ""} maxLength={120} />
+                <FieldHint>Only meaningful when execution is recorded — ENCO/DAD plays the audio, not the portal.</FieldHint>
               </div>
             </div>
             <div className="flex gap-3">
@@ -84,11 +94,6 @@ export default async function CopyDetailPage({
               <Button type="submit">Save details</Button>
             </div>
           </form>
-
-          <div className="border-t border-line px-5 py-4">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Audio</div>
-            <CopyAudioUpload copyId={copy.id} hasExisting={Boolean(copy.audio_object_path)} />
-          </div>
         </div>
 
         <div className="mt-6 rounded border border-line">
@@ -104,9 +109,8 @@ export default async function CopyDetailPage({
               {copy.contracts.map((contract) => (
                 <li key={contract.id} className="px-5 py-3 text-sm">
                   <Link href={`/underwriting/contracts/${contract.id}`} className="font-semibold text-brand-link">
-                    {contract.underwriter_name}
-                  </Link>{" "}
-                  <span className="text-ink-400">{contract.contract_identifier}</span>
+                    {contract.contract_identifier}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -125,13 +129,6 @@ export default async function CopyDetailPage({
               <option value="approved">Approved</option>
               <option value="expired">Expired</option>
               <option value="retired">Retired</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="production_status">Production status</Label>
-            <Select id="production_status" name="production_status" defaultValue={copy.production_status}>
-              <option value="pending">Pending</option>
-              <option value="produced">Produced</option>
             </Select>
           </div>
           <FieldHint>

@@ -1,56 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { listUnresolvedItems, type UnresolvedReviewItemLike } from "./submission";
+import { listUnresolvedEntries, type UnresolvedReviewBreakLike } from "./submission";
 
-function item(overrides: Partial<UnresolvedReviewItemLike> & { id: string }): UnresolvedReviewItemLike {
-  return {
-    content_item_id: null,
-    requirement_level: "optional",
-    ...overrides,
-  };
+function brk(overrides: Partial<UnresolvedReviewBreakLike> & { id: string }): UnresolvedReviewBreakLike {
+  return { requirement: "optional", itemIds: [], ...overrides };
 }
 
-describe("listUnresolvedItems", () => {
-  it("flags a filled item with no recorded outcome", () => {
-    const result = listUnresolvedItems([item({ id: "a", content_item_id: "content-1" })], new Set());
-    expect(result.map((i) => i.id)).toEqual(["a"]);
+describe("listUnresolvedEntries", () => {
+  it("flags a placed item with no recorded outcome", () => {
+    const result = listUnresolvedEntries([brk({ id: "b1", itemIds: ["item-1"] })], new Set());
+    expect(result).toEqual([{ breakId: "b1", itemId: "item-1" }]);
   });
 
-  it("clears a filled item once it has a recorded outcome", () => {
-    const result = listUnresolvedItems(
-      [item({ id: "a", content_item_id: "content-1" })],
-      new Set(["a"]),
-    );
+  it("clears a placed item once it has a recorded outcome", () => {
+    const result = listUnresolvedEntries([brk({ id: "b1", itemIds: ["item-1"] })], new Set(["item-1"]));
     expect(result).toEqual([]);
   });
 
-  it("flags an empty required item", () => {
-    const result = listUnresolvedItems([item({ id: "a", requirement_level: "required" })], new Set());
-    expect(result.map((i) => i.id)).toEqual(["a"]);
+  it("flags an empty required break as the break itself, not an item", () => {
+    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "required", itemIds: [] })], new Set());
+    expect(result).toEqual([{ breakId: "b1", itemId: null }]);
   });
 
-  it("does not flag an empty optional or suggested item", () => {
-    const result = listUnresolvedItems(
-      [item({ id: "a", requirement_level: "optional" }), item({ id: "b", requirement_level: "suggested" })],
-      new Set(),
-    );
+  it("does not flag an empty optional break — carrying network is resolved", () => {
+    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "optional", itemIds: [] })], new Set());
     expect(result).toEqual([]);
   });
 
-  it("flags an underwriting-credit placement (no content_item_id) with no recorded outcome", () => {
-    const result = listUnresolvedItems(
-      [item({ id: "a", content_item_id: null, underwriting_copy_id: "copy-1" })],
-      new Set(),
+  it("flags every unconfirmed item in a multi-item break independently", () => {
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", itemIds: ["item-1", "item-2"] })],
+      new Set(["item-1"]),
     );
-    expect(result.map((i) => i.id)).toEqual(["a"]);
+    expect(result).toEqual([{ breakId: "b1", itemId: "item-2" }]);
   });
 
-  it("does not flag a moved item's cleared (optional) source, only its still-filled destination", () => {
-    const items = [
-      item({ id: "source", content_item_id: null, requirement_level: "optional" }),
-      item({ id: "destination", content_item_id: "content-1" }),
-    ];
-    // Source got a 'skipped' broadcast event when it was moved; destination has none yet.
-    const result = listUnresolvedItems(items, new Set(["source"]));
-    expect(result.map((i) => i.id)).toEqual(["destination"]);
+  it("a required break with an item placed is judged by the item, not flagged as an empty break", () => {
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", requirement: "required", itemIds: ["item-1"] })],
+      new Set(["item-1"]),
+    );
+    expect(result).toEqual([]);
   });
 });

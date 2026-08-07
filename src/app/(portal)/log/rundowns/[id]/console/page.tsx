@@ -4,24 +4,23 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
-import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
-import { getRundownDetail, listBroadcastEventsForItems } from "@/lib/log/queries";
-import { computeLiveTimingState, type ConsoleItemLike, type LiveTimingState } from "@/lib/log/console-timing";
-import { listValidMoveDestinations } from "@/lib/log/mid-broadcast";
-import { listUnresolvedItems } from "@/lib/log/submission";
+import { getRundownDetail, listBroadcastEventsForItems, listUnderwritingCopyForItems } from "@/lib/log/queries";
+import { computeLiveTimingState, type ConsoleBreakLike, type LiveTimingState } from "@/lib/log/console-timing";
+import { listValidMoveDestinations, type MoveDestinationBreakLike } from "@/lib/log/mid-broadcast";
+import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../../log-poller";
 import { markAired, markMissed, moveRundownItem, startConsole, submitRundown } from "../../../console-actions";
 import { CopyDisplay } from "./copy-display";
-import type { LogMissReason } from "@/lib/database.types";
+import type { LogContentType, LogMissReason } from "@/lib/database.types";
 
 const STATE_LABEL: Record<LiveTimingState, string> = {
   on_time: "On time",
   running_long: "Running long",
   running_short: "Running short",
-  at_risk_required: "At risk — required item coming up",
+  at_risk_required: "At risk — required break unfilled",
   at_risk_rejoin: "At risk — network rejoin approaching",
 };
 
@@ -71,55 +70,43 @@ export default async function ConsolePage({
   }
 
   const now = new Date().toISOString();
-  const events = await listBroadcastEventsForItems(rundown.items.map((item) => item.id));
+  const allItems = rundown.breaks.flatMap((brk) => brk.items);
+  const events = await listBroadcastEventsForItems(allItems.map((item) => item.id));
   const eventCountByItem = new Map<string, number>();
   for (const event of events) {
     eventCountByItem.set(event.rundown_item_id, (eventCountByItem.get(event.rundown_item_id) ?? 0) + 1);
   }
+  const underwritingCopyIds = [...new Set(allItems.flatMap((item) => (item.underwriting_copy_id ? [item.underwriting_copy_id] : [])))];
+  const copyById = new Map((await listUnderwritingCopyForItems(underwritingCopyIds)).map((copy) => [copy.id, copy]));
 
-  const consoleItems: ConsoleItemLike[] = rundown.items.map((item) => ({
-    id: item.id,
-    scheduled_at: item.scheduled_at,
-    planned_duration_seconds: item.planned_duration_seconds,
-    requirement_level: item.requirement_level,
-    confirmed: (eventCountByItem.get(item.id) ?? 0) > 0,
+  const consoleBreaks: ConsoleBreakLike[] = rundown.breaks.map((brk) => ({
+    id: brk.id,
+    scheduled_at: brk.scheduled_at,
+    network_rejoin_at: brk.network_rejoin_at,
+    requirement: brk.requirement,
+    itemCount: brk.items.length,
+    allItemsConfirmed: brk.items.length > 0 && brk.items.every((item) => (eventCountByItem.get(item.id) ?? 0) > 0),
   }));
 
-  const timing = computeLiveTimingState(now, consoleItems, rundown.shift_end_at);
-  const currentItem = rundown.items.find((item) => item.id === timing.currentItem?.id) ?? null;
-  const nextItem = rundown.items.find((item) => item.id === timing.nextItem?.id) ?? null;
-  const currentIsFilled =
-    currentItem != null && (currentItem.content_item_id !== null || currentItem.underwriting_copy_id !== null);
+  const timing = computeLiveTimingState(now, consoleBreaks, rundown.shift_end_at);
+  const currentBreak = rundown.breaks.find((brk) => brk.id === timing.currentBreak?.id) ?? null;
+  const nextBreak = rundown.breaks.find((brk) => brk.id === timing.nextBreak?.id) ?? null;
 
-  const moveDestinations =
-    currentItem?.contentItem != null
-      ? listValidMoveDestinations(
-          rundown.items.map((item) => ({
-            id: item.id,
-            content_item_id: item.content_item_id,
-            underwriting_copy_id: item.underwriting_copy_id,
-            scheduled_at: item.scheduled_at,
-            slot: item.slot,
-          })),
-          currentItem.id,
-          currentItem.contentItem.content_type,
-          now,
-        )
-      : [];
-  const moveDestinationById = new Map(rundown.items.map((item) => [item.id, item]));
+  const destinationBreaks: MoveDestinationBreakLike[] = rundown.breaks.map((brk) => ({
+    id: brk.id,
+    scheduled_at: brk.scheduled_at,
+    permitted_content_types: brk.permitted_content_types,
+    allow_multiple: brk.allow_multiple,
+    item_count: brk.items.length,
+  }));
 
   const [weather, npr] = await Promise.all([
     getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
   ]);
 
-  const unresolvedItems = listUnresolvedItems(
-    rundown.items.map((item) => ({
-      id: item.id,
-      content_item_id: item.content_item_id,
-      underwriting_copy_id: item.underwriting_copy_id,
-      requirement_level: item.requirement_level,
-    })),
+  const unresolvedEntries = listUnresolvedEntries(
+    rundown.breaks.map((brk) => ({ id: brk.id, requirement: brk.requirement, itemIds: brk.items.map((item) => item.id) })),
     new Set(eventCountByItem.keys()),
   );
 
@@ -144,9 +131,9 @@ export default async function ConsolePage({
               <form action={moveRundownItem}>
                 <input type="hidden" name="rundown_id" value={rundown.id} />
                 <input type="hidden" name="source_item_id" value={moved_to} />
-                <input type="hidden" name="destination_item_id" value={moved_from} />
+                <input type="hidden" name="destination_break_id" value={currentBreak?.id ?? ""} />
                 <Button type="submit" variant="ghost">
-                  Undo
+                  Dismiss
                 </Button>
               </form>
             </div>
@@ -155,127 +142,140 @@ export default async function ConsolePage({
 
         <div className="rounded border border-line p-5">
           <div className="mb-3 flex items-center justify-between text-xs text-ink-400">
-            <span>Current</span>
-            {currentItem && (
+            <span>Current — {currentBreak?.label ?? "—"}</span>
+            {currentBreak && (
               <span>
-                {formatStationTimestamp(currentItem.scheduled_at)} · {currentItem.slot.duration_seconds}s
+                {formatStationTimestamp(currentBreak.scheduled_at)} · rejoin by{" "}
+                {formatStationTimestamp(currentBreak.network_rejoin_at)}
               </span>
             )}
           </div>
 
-          {!currentItem ? (
+          {!currentBreak ? (
             <p className="text-sm text-ink-500">Nothing scheduled right now.</p>
-          ) : currentItem.underwriting_copy_id ? (
-            <CopyDisplay
-              title="Underwriting credit"
-              script={null}
-              summary="Managed from Underwriting & Traffic — see that tool for the script."
-            />
-          ) : !currentItem.contentItem ? (
-            <div>
-              <p className="text-lg font-bold text-danger">
-                {currentItem.slot.label ?? "Local break"} — empty
-              </p>
-              <p className="mt-1 text-xs text-ink-500">
-                This slot has no content assigned.{" "}
-                <Link href={`/log/rundowns/${rundown.id}`} className="font-semibold text-brand-link">
-                  Fill it in the builder
-                </Link>
-                .
-              </p>
-            </div>
+          ) : currentBreak.items.length === 0 ? (
+            currentBreak.requirement === "required" ? (
+              <div>
+                <p className="text-lg font-bold text-danger">{currentBreak.label} — empty</p>
+                <p className="mt-1 text-xs text-ink-500">
+                  This is a required local obligation with nothing placed.{" "}
+                  <Link href={`/log/rundowns/${rundown.id}`} className="font-semibold text-brand-link">
+                    Fill it in the builder
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">Carrying network — nothing placed here, and that&apos;s fine.</p>
+            )
           ) : (
-            <CopyDisplay
-              title={currentItem.contentItem.title}
-              script={currentItem.contentItem.script}
-              summary={currentItem.contentItem.summary}
-            />
-          )}
+            <div className="flex flex-col gap-4">
+              {currentBreak.items.map((item) => {
+                const copy = item.underwriting_copy_id ? copyById.get(item.underwriting_copy_id) : null;
+                const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
+                const title = item.contentItem?.title ?? item.live_read_title ?? copy?.label ?? "Weather";
+                const script = item.override_script ?? item.contentItem?.script ?? copy?.script ?? item.live_read_script;
+                const summary = item.contentItem?.summary ?? null;
+                const moveDestinations =
+                  item.item_kind === "content" && item.contentItem
+                    ? listValidMoveDestinations(
+                        destinationBreaks,
+                        currentBreak.id,
+                        item.contentItem.content_type as LogContentType,
+                        now,
+                      )
+                    : [];
 
-          {currentIsFilled && currentItem && (
-            <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
-              <form action={markAired}>
-                <input type="hidden" name="rundown_id" value={rundown.id} />
-                <input type="hidden" name="item_id" value={currentItem.id} />
-                <Button type="submit">Aired</Button>
-              </form>
+                return (
+                  <div key={item.id} className="border-t border-line pt-3 first:border-t-0 first:pt-0">
+                    <CopyDisplay title={title} script={script} summary={summary} />
+                    {!confirmed && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <form action={markAired}>
+                          <input type="hidden" name="rundown_id" value={rundown.id} />
+                          <input type="hidden" name="item_id" value={item.id} />
+                          <Button type="submit">Aired</Button>
+                        </form>
 
-              <details className="inline-block">
-                <summary className="inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700">
-                  Missed
-                </summary>
-                <form action={markMissed} className="mt-2 flex flex-col gap-2 rounded border border-line p-3">
-                  <input type="hidden" name="rundown_id" value={rundown.id} />
-                  <input type="hidden" name="item_id" value={currentItem.id} />
-                  <Select name="reason" required defaultValue="">
-                    <option value="" disabled>
-                      Reason…
-                    </option>
-                    {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                  <input
-                    type="text"
-                    name="notes"
-                    placeholder="Brief note (optional)"
-                    className="rounded border border-line px-3 py-2 text-sm"
-                  />
-                  <Button type="submit" variant="secondary">
-                    Record missed
-                  </Button>
-                </form>
-              </details>
+                        <details className="inline-block">
+                          <summary className="inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700">
+                            Missed
+                          </summary>
+                          <form action={markMissed} className="mt-2 flex flex-col gap-2 rounded border border-line p-3">
+                            <input type="hidden" name="rundown_id" value={rundown.id} />
+                            <input type="hidden" name="item_id" value={item.id} />
+                            <Select name="reason" required defaultValue="">
+                              <option value="" disabled>
+                                Reason…
+                              </option>
+                              {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </Select>
+                            <input
+                              type="text"
+                              name="notes"
+                              placeholder="Brief note (optional)"
+                              className="rounded border border-line px-3 py-2 text-sm"
+                            />
+                            <Button type="submit" variant="secondary">
+                              Record missed
+                            </Button>
+                          </form>
+                        </details>
 
-              {moveDestinations.length > 0 && (
-                <details className="inline-block">
-                  <summary className="inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700">
-                    Move
-                  </summary>
-                  <form action={moveRundownItem} className="mt-2 flex flex-col gap-2 rounded border border-line p-3">
-                    <input type="hidden" name="rundown_id" value={rundown.id} />
-                    <input type="hidden" name="source_item_id" value={currentItem.id} />
-                    <Select name="destination_item_id" required defaultValue="">
-                      <option value="" disabled>
-                        Choose an opening…
-                      </option>
-                      {moveDestinations.map((destination) => {
-                        const full = moveDestinationById.get(destination.id);
-                        return (
-                          <option key={destination.id} value={destination.id}>
-                            {formatStationTimestamp(destination.scheduled_at)} — {full?.slot.label ?? "Local break"}
-                          </option>
-                        );
-                      })}
-                    </Select>
-                    <Button type="submit" variant="secondary">
-                      Move
-                    </Button>
-                  </form>
-                </details>
-              )}
+                        {moveDestinations.length > 0 && (
+                          <details className="inline-block">
+                            <summary className="inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700">
+                              Move
+                            </summary>
+                            <form action={moveRundownItem} className="mt-2 flex flex-col gap-2 rounded border border-line p-3">
+                              <input type="hidden" name="rundown_id" value={rundown.id} />
+                              <input type="hidden" name="source_item_id" value={item.id} />
+                              <Select name="destination_break_id" required defaultValue="">
+                                <option value="" disabled>
+                                  Choose an opening…
+                                </option>
+                                {moveDestinations.map((destination) => (
+                                  <option key={destination.id} value={destination.id}>
+                                    {formatStationTimestamp(destination.scheduled_at)}
+                                  </option>
+                                ))}
+                              </Select>
+                              <Button type="submit" variant="secondary">
+                                Move
+                              </Button>
+                            </form>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
         <div className="mt-4 rounded border border-dashed border-line p-4">
           <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Next</div>
-          {!nextItem ? (
+          {!nextBreak ? (
             <p className="text-sm text-ink-500">Nothing else scheduled.</p>
           ) : (
             <p className="text-sm text-ink-700">
-              {formatStationTimestamp(nextItem.scheduled_at)} —{" "}
-              {nextItem.underwriting_copy_id ? (
-                <span className="text-ink-400">Underwriting credit</span>
-              ) : nextItem.contentItem ? (
-                <>
-                  {nextItem.contentItem.title}{" "}
-                  <span className="text-ink-400">({CONTENT_TYPE_LABEL[nextItem.contentItem.content_type]})</span>
-                </>
+              {formatStationTimestamp(nextBreak.scheduled_at)} — {nextBreak.label}{" "}
+              {nextBreak.items.length === 0 ? (
+                nextBreak.requirement === "required" ? (
+                  <span className="text-danger">still needs something</span>
+                ) : (
+                  <span className="text-ink-400">carrying network</span>
+                )
               ) : (
-                <span className="text-danger">{nextItem.slot.label ?? "Local break"} — empty</span>
+                <span className="text-ink-400">
+                  {nextBreak.items.map((item) => item.contentItem?.title ?? item.live_read_title ?? "underwriting credit").join(", ")}
+                </span>
               )}
             </p>
           )}
@@ -323,13 +323,13 @@ export default async function ConsolePage({
         <div className="rounded border border-line p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wide text-ink-400">Wrap up</span>
-            {unresolvedItems.length > 0 && <Badge variant="warning">{unresolvedItems.length} unresolved</Badge>}
+            {unresolvedEntries.length > 0 && <Badge variant="warning">{unresolvedEntries.length} unresolved</Badge>}
           </div>
-          {unresolvedItems.length > 0 && (
+          {unresolvedEntries.length > 0 && (
             <p className="mb-3 text-xs text-ink-500">
-              {unresolvedItems.length} item{unresolvedItems.length === 1 ? "" : "s"} still need an aired, missed,
-              or moved outcome — or content for a required slot. Submitting doesn&apos;t require resolving them
-              first.
+              {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still need an aired,
+              missed, or moved outcome — or content for a required break. Submitting doesn&apos;t require
+              resolving them first.
             </p>
           )}
           <form action={submitRundown}>

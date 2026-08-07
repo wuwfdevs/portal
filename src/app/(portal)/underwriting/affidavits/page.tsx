@@ -46,7 +46,7 @@ export default async function AffidavitsPage() {
                       {affidavit.report_identifier}
                     </Link>
                   </Cell>
-                  <Cell className="text-ink-500">{affidavit.contract.underwriter_name}</Cell>
+                  <Cell className="text-ink-500">{affidavit.contract.underwriter.name}</Cell>
                   <Cell className="whitespace-nowrap text-ink-500">
                     {affidavit.campaign_period_start} – {affidavit.campaign_period_end}
                   </Cell>

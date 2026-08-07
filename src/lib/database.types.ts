@@ -137,7 +137,35 @@
 // (supabase/migrations/20260807250000_underwriting_affidavits.sql):
 // uw_affidavits/uw_affidavit_line_items and the new UwAffidavitStatus enum;
 // its guard trigger (uw_guard_affidavit_certification) is likewise not in
-// the Functions map.
+// the Functions map. Hand-updated again on 2026-08-08 for the Log and
+// Underwriting domain redesign (see CLAUDE.md's "Log domain redesign" and
+// "Underwriting domain redesign" notes) — no local instance running to
+// regenerate against. Log: log_clock_slots dropped fill_mode/
+// assignment_mode/permitted_content_types/replaceable/shortenable/
+// allow_empty/allow_multiple/lock_on_air entirely
+// (20260808120000_log_local_opportunities.sql); new log_local_opportunities
+// table and LogOpportunityRequirement enum; log_rundown_items (in its old
+// one-row-per-clock-slot shape) and log_broadcast_events were dropped and
+// recreated as log_rundown_breaks (new) + a redesigned log_rundown_items
+// (zero or more placements per break, with override_* per-airing columns)
+// + log_broadcast_events unchanged in shape (20260808130000_log_rundown_
+// breaks.sql); log_content_items/log_content_components swapped
+// audio_object_path for dad_cart_number (20260808140000_log_content_dad_
+// and_media_removal.sql). Underwriting: new uw_underwriters table;
+// uw_contracts swapped underwriter_name for underwriter_id and
+// agreement_document_url for agreement_document_path, gained
+// affidavit_required/sponsorship_category/sponsorship_total/
+// preemption_policy; uw_placement_obligations dropped entirely, replaced by
+// uw_contract_schedule_lines; uw_copy dropped production_status and
+// audio_object_path, gained execution_kind and label; uw_scheduled_
+// placements/uw_exceptions/uw_makegoods renamed obligation_id to
+// schedule_line_id (and clock_slot_label to break_label);
+// UwQuantityPeriod/UwSponsorshipPosition/UwObligationStatus/
+// UwCopyProductionStatus are gone, replaced by UwCopyExecutionKind
+// (20260808200000_underwriting_redesign.sql). The three boundary functions
+// were renamed/retyped (log_list_placeable_rundown_items ->
+// log_list_placeable_rundown_breaks, log_place_underwriting_credit's args
+// changed shape) and log_list_programs was added.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -304,9 +332,16 @@ export type LogClockVersionVariant =
   | "program_specific"
   | "holiday"
   | "special_event";
-export type LogSlotFillMode = "required" | "optional" | "host_fillable";
-export type LogSlotAssignmentMode = "automatic" | "preassigned" | "host_selected";
 export type LogSlotTimingMode = "fixed" | "float";
+// Domain redesign (2026-08-08) — see supabase/migrations/
+// 20260808120000_log_local_opportunities.sql and CLAUDE.md's "Log domain
+// redesign" note. LogSlotFillMode/LogSlotAssignmentMode are gone —
+// log_clock_slots no longer carries fill/assignment information at all
+// (fill_mode, assignment_mode, permitted_content_types, replaceable,
+// shortenable, allow_empty, allow_multiple, lock_on_air were all dropped).
+// LogOpportunityRequirement is the new local-opportunity overlay's own
+// two-value distinction.
+export type LogOpportunityRequirement = "optional" | "required";
 // Slice 2 (content library) — see supabase/migrations/20260806160000_log_content_library.sql.
 export type LogContentType =
   | "news"
@@ -332,9 +367,21 @@ export type LogNprEpisodeStatus = "found" | "not_found";
 // and its outcome/reason vocabulary are not in this file yet — that table
 // belongs to the next slice (the host console with mid-broadcast actions).
 export type LogRundownStatus = "draft" | "generated" | "in_progress" | "submitted";
-export type LogRequirementLevel = "required" | "suggested" | "optional";
 export type LogPlacementStatus = "locked" | "movable" | "replaceable" | "editable";
-export type LogItemWarning = "timing_conflict" | "stale_content" | "none";
+// Domain redesign (2026-08-08) — see supabase/migrations/
+// 20260808130000_log_rundown_breaks.sql and 20260808200000_underwriting_
+// redesign.sql. log_rundown_items no longer exists in the old
+// one-row-per-clock-slot shape; log_rundown_breaks (one per local
+// opportunity occurrence) plus a redesigned log_rundown_items (zero or more
+// placements inside a break) replace it. LogRequirementLevel and
+// LogItemWarning are gone — requirement now lives on log_rundown_breaks as
+// LogOpportunityRequirement (see above), snapshotted from the opportunity
+// at generation time, and there is no stored warning column at all (fit is
+// always derived — see lib/log/timing.ts). item_kind is plain text with a
+// check constraint (not a Postgres enum, so a later ALTER TABLE could widen
+// it without the same-transaction restriction a new enum value hits) —
+// LogRundownItemKind is this file's own convenience alias for it.
+export type LogRundownItemKind = "content" | "live_read" | "weather" | "underwriting_credit";
 // Slice 5 (the host console + mid-broadcast actions) — see
 // supabase/migrations/20260807160000_log_broadcast_events.sql. This slice's
 // own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
@@ -366,11 +413,19 @@ export type LogMissReason =
 // Underwriting & Traffic (uw_*) — Slice 1 (Foundation). See
 // supabase/migrations/20260807200000_underwriting_foundation.sql.
 export type UwContractStatus = "draft" | "active" | "expired" | "terminated";
-export type UwQuantityPeriod = "weekly" | "monthly" | "campaign_total";
-export type UwSponsorshipPosition = "opening" | "closing" | "mid";
-export type UwObligationStatus = "active" | "fulfilled" | "at_risk";
 export type UwCopyApprovalStatus = "draft" | "approved" | "expired" | "retired";
-export type UwCopyProductionStatus = "pending" | "produced";
+// Domain redesign (2026-08-08) — see supabase/migrations/
+// 20260808200000_underwriting_redesign.sql and CLAUDE.md's "Underwriting
+// domain redesign" note, grounded in the real WUWF Autumn Beck Blackledge
+// agreement. UwQuantityPeriod, UwSponsorshipPosition, UwObligationStatus,
+// and UwCopyProductionStatus are all gone: uw_placement_obligations was
+// replaced by uw_contract_schedule_lines (a real recurring-schedule shape,
+// not an abstract quantity/period); sponsorship_position had no basis in
+// the real agreement and no real enforcement; obligation/fulfillment status
+// is now always derived (lib/underwriting/fulfillment.ts), never a stored
+// enum; and production_status doesn't fit a live-read message at all —
+// replaced by UwCopyExecutionKind, which is descriptive, not a workflow gate.
+export type UwCopyExecutionKind = "live_read" | "recorded";
 // Slice 2 (placement) — see supabase/migrations/20260807210000_underwriting_placement.sql.
 export type UwPlacementStatus = "scheduled" | "locked" | "conflict" | "superseded";
 // Slice 3 (exception queue) — see supabase/migrations/20260807220000_underwriting_exceptions.sql.
@@ -1488,7 +1543,11 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_clock_versions"]["Row"]>;
         Relationships: [];
       };
-      // Insert-only, same reasoning as log_clock_versions.
+      // Insert-only, same reasoning as log_clock_versions. Domain redesign
+      // (2026-08-08): fill_mode/assignment_mode/permitted_content_types/
+      // replaceable/shortenable/allow_empty/allow_multiple/lock_on_air are
+      // all gone — a clock slot now describes only the network's own
+      // structure. See log_local_opportunities immediately below.
       log_clock_slots: {
         Row: {
           id: string;
@@ -1496,17 +1555,9 @@ export interface Database {
           position: number;
           start_offset_seconds: number | null;
           duration_seconds: number;
-          permitted_content_types: string[];
-          fill_mode: LogSlotFillMode;
-          assignment_mode: LogSlotAssignmentMode;
-          replaceable: boolean;
-          shortenable: boolean;
-          allow_empty: boolean;
-          allow_multiple: boolean;
           timing_mode: LogSlotTimingMode;
-          lock_on_air: boolean;
           label: string | null;
-          /** Set only when timing_mode = 'float' — see 20260806140000_log_clock_slot_windows_and_schedule_times.sql. */
+          /** Set only when timing_mode = 'float' — a genuinely floating *network* element (e.g. Hidden Brain's own described break), not a WUWF local opportunity. */
           earliest_start_offset_seconds: number | null;
           latest_start_offset_seconds: number | null;
           /** The network clock's own segment letter (A, B, ...), purely descriptive. */
@@ -1518,6 +1569,41 @@ export interface Database {
           duration_seconds: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_clock_slots"]["Row"]>;
+        Relationships: [];
+      };
+      // WUWF's own local-substitution overlay on a clock version — see
+      // supabase/migrations/20260808120000_log_local_opportunities.sql and
+      // CLAUDE.md's "Log domain redesign" note. Editable in place
+      // (deactivate via `active`, not deleted) — unlike the network clock
+      // itself, this is WUWF policy, not NPR's immutable structure.
+      log_local_opportunities: {
+        Row: {
+          id: string;
+          clock_version_id: string;
+          position: number;
+          label: string;
+          requirement: LogOpportunityRequirement;
+          timing_mode: LogSlotTimingMode;
+          start_offset_seconds: number;
+          duration_seconds: number;
+          earliest_start_offset_seconds: number | null;
+          latest_start_offset_seconds: number | null;
+          permitted_content_types: string[];
+          allow_multiple: boolean;
+          notes: string | null;
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_local_opportunities"]["Row"]> & {
+          clock_version_id: string;
+          position: number;
+          label: string;
+          start_offset_seconds: number;
+          duration_seconds: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_local_opportunities"]["Row"]>;
         Relationships: [];
       };
       log_schedule: {
@@ -1553,7 +1639,8 @@ export interface Database {
           content_type: LogContentType;
           title: string;
           script: string | null;
-          audio_object_path: string | null;
+          /** Optional identifier for this item's recorded audio in ENCO/DAD, WUWF's playback system of record — the portal does not store or play the audio itself. */
+          dad_cart_number: string | null;
           summary: string | null;
           expected_duration_seconds: number | null;
           effective_from: string;
@@ -1588,7 +1675,8 @@ export interface Database {
           duration_seconds: number;
           required: boolean;
           script: string | null;
-          audio_object_path: string | null;
+          /** Optional identifier for this component's recorded audio in ENCO/DAD. Only meaningful for component_type = recorded_audio. */
+          dad_cart_number: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]> & {
           content_item_id: string;
@@ -1690,28 +1778,68 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]>;
         Relationships: [];
       };
-      log_rundown_items: {
+      // Domain redesign (2026-08-08) — see supabase/migrations/
+      // 20260808130000_log_rundown_breaks.sql. One row per occurrence of a
+      // local opportunity within a rundown; zero or more log_rundown_items
+      // occupy it. requirement/label/permitted_content_types/allow_multiple
+      // are snapshots of the opportunity at generation time.
+      log_rundown_breaks: {
         Row: {
           id: string;
           rundown_id: string;
-          clock_slot_id: string;
-          /** Null until a host (or a producer preparing ahead) fills the slot. */
-          content_item_id: string | null;
+          local_opportunity_id: string;
           position: number;
+          label: string;
+          requirement: LogOpportunityRequirement;
+          permitted_content_types: string[];
+          allow_multiple: boolean;
           scheduled_at: string;
+          available_duration_seconds: number;
+          network_rejoin_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_rundown_breaks"]["Row"]> & {
+          rundown_id: string;
+          local_opportunity_id: string;
+          position: number;
+          label: string;
+          requirement: LogOpportunityRequirement;
+          scheduled_at: string;
+          available_duration_seconds: number;
+          network_rejoin_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_rundown_breaks"]["Row"]>;
+        Relationships: [];
+      };
+      // Redesigned (2026-08-08): a discrete placement inside a
+      // log_rundown_breaks window, not a one-row-per-clock-slot fill target.
+      // item_kind is plain text + a check constraint, not a Postgres enum
+      // (see LogRundownItemKind above for why). override_* columns are
+      // per-airing overrides — never written back to log_content_items/
+      // log_content_components. planned_duration_seconds is always the
+      // *effective* total for this airing (master or overridden).
+      log_rundown_items: {
+        Row: {
+          id: string;
+          break_id: string;
+          position: number;
+          item_kind: LogRundownItemKind;
+          content_item_id: string | null;
+          live_read_title: string | null;
+          live_read_script: string | null;
+          override_script: string | null;
+          override_duration_seconds: number | null;
+          override_live_intro_seconds: number | null;
+          override_live_outro_seconds: number | null;
+          override_tag_seconds: number | null;
+          override_notes: string | null;
           planned_duration_seconds: number;
-          requirement_level: LogRequirementLevel;
           placement_status: LogPlacementStatus;
-          current_warning: LogItemWarning | null;
-          /** 'content' | 'underwriting_credit' — see docs/underwriting-design.md §6. Only ever set by log_place_underwriting_credit(). */
-          item_kind: string;
+          /** Set only when item_kind = 'underwriting_credit'. References uw_copy — only ever set by log_place_underwriting_credit(). */
           underwriting_copy_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
-          rundown_id: string;
-          clock_slot_id: string;
+          break_id: string;
           position: number;
-          scheduled_at: string;
           planned_duration_seconds: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
@@ -1739,69 +1867,105 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]>;
         Relationships: [];
       };
+      // New (2026-08-08) — a durable underwriter/sponsor entity, replacing
+      // free-text underwriter_name on the contract. See supabase/migrations/
+      // 20260808200000_underwriting_redesign.sql.
+      uw_underwriters: {
+        Row: {
+          id: string;
+          name: string;
+          mailing_address: string | null;
+          contact_name: string | null;
+          email: string | null;
+          phone: string | null;
+          category: string | null;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_underwriters"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_underwriters"]["Row"]>;
+        Relationships: [];
+      };
+      // Redesigned (2026-08-08): underwriter_name -> underwriter_id;
+      // agreement_document_url -> agreement_document_path (a real Storage
+      // attachment); added affidavit_required, sponsorship_category,
+      // sponsorship_total, preemption_policy. Fulfillment is never a column
+      // here — see lib/underwriting/fulfillment.ts.
       uw_contracts: {
         Row: {
           id: string;
-          underwriter_name: string;
+          underwriter_id: string;
           contract_identifier: string;
-          agreement_document_url: string | null;
+          agreement_document_path: string | null;
           effective_from: string;
           effective_to: string | null;
           status: UwContractStatus;
+          affidavit_required: boolean;
+          sponsorship_category: string | null;
+          sponsorship_total: number | null;
+          preemption_policy: string | null;
           notes: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]> & {
-          underwriter_name: string;
+          underwriter_id: string;
           contract_identifier: string;
           effective_from: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]>;
         Relationships: [];
       };
-      uw_placement_obligations: {
+      // New (2026-08-08), replaces uw_placement_obligations — a real
+      // recurring-schedule shape (day(s) of week, target time, duration,
+      // program, date range) instead of an abstract quantity/period. See
+      // lib/underwriting/schedule-lines.ts for the expected-occurrence math.
+      uw_contract_schedule_lines: {
         Row: {
           id: string;
           contract_id: string;
-          description: string;
-          quantity_required: number;
-          quantity_period: UwQuantityPeriod;
+          /** 0=Sunday..6=Saturday, matching log_schedule.days_of_week. */
+          days_of_week: number[];
+          target_time: string | null;
           duration_seconds: number;
-          eligible_program_ids: string[];
-          eligible_days_of_week: number[] | null;
-          eligible_daypart: string | null;
-          distribution_rule: string | null;
-          sponsorship_position: UwSponsorshipPosition | null;
+          program_id: string | null;
           start_date: string;
           end_date: string | null;
-          status: UwObligationStatus;
+          /** Set only for a non-day-of-week-recurring obligation (e.g. "12 credits a month") — see lib/underwriting/schedule-lines.ts. */
+          occurrence_count_override: number | null;
+          makegood_policy: string | null;
+          notes: string | null;
           created_by: string | null;
           created_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["uw_placement_obligations"]["Row"]> & {
+        Insert: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]> & {
           contract_id: string;
-          description: string;
-          quantity_required: number;
-          quantity_period: UwQuantityPeriod;
+          days_of_week: number[];
           duration_seconds: number;
           start_date: string;
         };
-        Update: Partial<Database["public"]["Tables"]["uw_placement_obligations"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]>;
         Relationships: [];
       };
+      // Redesigned (2026-08-08): removed production_status and
+      // audio_object_path (ENCO/DAD is the playback system of record —
+      // cart_identifier is the reference); added execution_kind and label.
       uw_copy: {
         Row: {
           id: string;
+          label: string;
           script: string | null;
-          audio_object_path: string | null;
+          execution_kind: UwCopyExecutionKind;
           duration_seconds: number | null;
           cart_identifier: string | null;
           effective_from: string;
           effective_to: string | null;
           approval_status: UwCopyApprovalStatus;
-          production_status: UwCopyProductionStatus;
           created_by: string | null;
           created_at: string;
         };
@@ -1821,24 +1985,27 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
         Relationships: [];
       };
+      // Redesigned (2026-08-08): obligation_id -> schedule_line_id;
+      // clock_slot_label -> break_label (log_rundown_items no longer has a
+      // single clock slot — see log_rundown_breaks).
       uw_scheduled_placements: {
         Row: {
           id: string;
-          obligation_id: string;
+          schedule_line_id: string;
           copy_id: string;
           log_rundown_item_id: string;
           placement_date: string;
           scheduled_at: string;
           program_id: string;
           program_name: string;
-          clock_slot_label: string | null;
+          break_label: string | null;
           status: UwPlacementStatus;
           override_reason: string | null;
           created_by: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["uw_scheduled_placements"]["Row"]> & {
-          obligation_id: string;
+          schedule_line_id: string;
           copy_id: string;
           log_rundown_item_id: string;
           placement_date: string;
@@ -1849,11 +2016,12 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["uw_scheduled_placements"]["Row"]>;
         Relationships: [];
       };
+      // Redesigned (2026-08-08): obligation_id -> schedule_line_id.
       uw_exceptions: {
         Row: {
           id: string;
           log_broadcast_event_id: string;
-          obligation_id: string;
+          schedule_line_id: string;
           original_scheduled_at: string;
           host_action: string;
           host_reason: string | null;
@@ -1870,18 +2038,19 @@ export interface Database {
         /** Insert-only from the trigger (uw_flag_exception_from_broadcast_event) — no insert grant to authenticated. Listed for completeness, not expected to be used from application code. */
         Insert: Partial<Database["public"]["Tables"]["uw_exceptions"]["Row"]> & {
           log_broadcast_event_id: string;
-          obligation_id: string;
+          schedule_line_id: string;
           original_scheduled_at: string;
           host_action: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_exceptions"]["Row"]>;
         Relationships: [];
       };
+      // Redesigned (2026-08-08): obligation_id -> schedule_line_id.
       uw_makegoods: {
         Row: {
           id: string;
           exception_id: string;
-          obligation_id: string;
+          schedule_line_id: string;
           scheduled_placement_id: string | null;
           status: UwMakegoodStatus;
           scheduled_for: string | null;
@@ -1891,7 +2060,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["uw_makegoods"]["Row"]> & {
           exception_id: string;
-          obligation_id: string;
+          schedule_line_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_makegoods"]["Row"]>;
         Relationships: [];
@@ -2060,40 +2229,45 @@ export interface Database {
           | { error: string };
       };
       /**
-       * The two-way Log boundary Underwriting & Traffic's placement slice
-       * adds (20260807210000_underwriting_placement.sql,
-       * docs/underwriting-design.md §6). Security definer: the caller may
-       * have no RLS access to Log's own tables at all.
+       * The two-way Log boundary Underwriting & Traffic's redesign rebuilds
+       * against breaks/schedule lines (20260808200000_underwriting_redesign.sql).
+       * Security definer: the caller may have no RLS access to Log's own
+       * tables at all.
        */
-      log_list_placeable_rundown_items: {
-        Args: { p_obligation_id: string };
+      log_list_placeable_rundown_breaks: {
+        Args: { p_schedule_line_id: string };
         Returns:
           | {
               ok: true;
-              items: {
-                rundown_item_id: string;
+              breaks: {
+                break_id: string;
                 rundown_id: string;
                 air_date: string;
                 scheduled_at: string;
-                clock_slot_label: string | null;
-                slot_duration_seconds: number;
+                label: string;
                 program_name: string;
+                remaining_seconds: number;
               }[];
             }
           | { error: string };
       };
       log_place_underwriting_credit: {
         Args: {
-          p_rundown_item_id: string;
-          p_obligation_id: string;
+          p_break_id: string;
+          p_schedule_line_id: string;
           p_copy_id: string;
           p_override_reason: string | null;
         };
-        Returns: { ok: true; placement_id: string } | { error: string };
+        Returns: { ok: true; placement_id: string; item_id: string } | { error: string };
       };
       log_clear_underwriting_credit: {
         Args: { p_placement_id: string };
         Returns: { ok: true } | { error: string };
+      };
+      /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */
+      log_list_programs: {
+        Args: Record<string, never>;
+        Returns: { ok: true; programs: { id: string; name: string }[] } | { error: string };
       };
     };
     Enums: {

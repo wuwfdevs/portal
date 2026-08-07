@@ -96,7 +96,7 @@ export async function resolveException(formData: FormData): Promise<void> {
   if (isNewWaiver) {
     await logAuditEvent({
       actorId: profile.id,
-      action: "underwriting.obligation.waived",
+      action: "underwriting.exception.waived",
       targetType: "uw_exception",
       targetId: id,
     });

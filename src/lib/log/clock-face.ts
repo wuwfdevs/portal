@@ -5,7 +5,7 @@
 // plain math and string-building, safe to unit test directly and to import
 // from the (server) page component that renders the SVG.
 
-import type { LogSlotFillMode, LogSlotTimingMode } from "@/lib/database.types";
+import type { LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
 export type ClockFaceCategory =
   | "segment"
@@ -14,7 +14,8 @@ export type ClockFaceCategory =
   | "music"
   | "credit"
   | "float"
-  | "optional";
+  | "local_optional"
+  | "local_required";
 
 export const CATEGORY_LABEL: Record<ClockFaceCategory, string> = {
   segment: "Segment (program content)",
@@ -22,8 +23,9 @@ export const CATEGORY_LABEL: Record<ClockFaceCategory, string> = {
   promo: "Promo / billboard",
   music: "Music bed",
   credit: "Funding credit",
-  float: "Floating local break",
-  optional: "Optional (host discretion)",
+  float: "Floating network element",
+  local_optional: "WUWF local opportunity (optional)",
+  local_required: "WUWF local opportunity (required)",
 };
 
 export const CATEGORY_COLOR: Record<ClockFaceCategory, { fill: string; stroke: string }> = {
@@ -33,26 +35,29 @@ export const CATEGORY_COLOR: Record<ClockFaceCategory, { fill: string; stroke: s
   music: { fill: "#6B9B96", stroke: "#6B9B96" },
   credit: { fill: "#D63E2D", stroke: "#D63E2D" },
   float: { fill: "#E3A63D", stroke: "#8A5A12" },
-  optional: { fill: "#C7CBD1", stroke: "#8A9099" },
+  local_optional: { fill: "#8B6BC7", stroke: "#5B3F94" },
+  local_required: { fill: "#C74B6B", stroke: "#8A2E45" },
 };
 
 export interface ClockFaceSlotLike {
   label: string | null;
   segment_label: string | null;
-  fill_mode: LogSlotFillMode;
   timing_mode: LogSlotTimingMode;
 }
 
 /**
- * Which visual category a slot falls into. Keyed off the label text this
- * repo's own seed data uses (Billboard/Newscast/Promo/Music Bed/Funding
- * Credit) plus timing_mode/fill_mode for the local-avail cases, since there
- * is no dedicated column for "kind of network element" — see the seed
+ * Which visual category a network clock slot falls into. Keyed off the
+ * label text this repo's own seed data uses (Billboard/Newscast/Promo/Music
+ * Bed/Funding Credit) plus timing_mode for a genuinely floating *network*
+ * element (e.g. Hidden Brain's own described break — still a fact about the
+ * network clock, distinct from a WUWF local opportunity, which is a
+ * separate overlay — see categorizeOpportunity below and
+ * docs/log-design.md §4A/§4B). There is no dedicated column for "kind of
+ * network element," so this stays a label-text heuristic — see the seed
  * migration's file header for why that's a reasonable simplification.
  */
 export function categorizeSlot(slot: ClockFaceSlotLike): ClockFaceCategory {
   if (slot.timing_mode === "float") return "float";
-  if (slot.fill_mode === "optional") return "optional";
 
   const label = slot.label ?? "";
   if (/billboard|promo/i.test(label)) return "promo";
@@ -61,6 +66,15 @@ export function categorizeSlot(slot: ClockFaceSlotLike): ClockFaceCategory {
   if (/music/i.test(label)) return "music";
   if (slot.segment_label) return "segment";
   return "segment";
+}
+
+export interface ClockFaceOpportunityLike {
+  requirement: LogOpportunityRequirement;
+}
+
+/** WUWF's local-opportunity overlay renders as its own outer ring, distinct from the network clock — see docs/log-design.md §4A/§4B. */
+export function categorizeOpportunity(opportunity: ClockFaceOpportunityLike): ClockFaceCategory {
+  return opportunity.requirement === "required" ? "local_required" : "local_optional";
 }
 
 /** Point on a circle of radius r centered at (cx, cy), at angleDeg measured clockwise from the top (12 o'clock = 0). */

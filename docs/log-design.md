@@ -1,19 +1,21 @@
 # Log — Product & Engineering Design
 
-Status: **Design, not yet authorized to build.** First of the three tools
-`docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
-Rundown and Traffic System spec into, and the one the strategy doc's build
-order (§6) puts first, because it owns the operational spine — Program,
-Clock, Content item, Rundown, Broadcast event — that Underwriting & Traffic
-and FCC Reporting both read from once they exist.
+Status: **Milestone 1 shipped in full, then redesigned (2026-08-07/08) once
+real WUWF clock and operational detail existed to check it against.** First
+of the three tools `docs/broadcast-operations-strategy.md` splits the WUWF
+Unified Broadcast Rundown and Traffic System spec into, and the one the
+strategy doc's build order (§6) puts first, because it owns the operational
+spine — Program, Clock, Content item, Rundown, Broadcast event — that
+Underwriting & Traffic and FCC Reporting both read from.
 
 Read `docs/broadcast-operations-strategy.md` first — it records why this is
 three tools instead of one, and why this tool in particular owns the shared
-tables rather than a new foundation layer. This document is the one-tool
-depth pass the strategy doc's §8 calls for, at the level of
-`docs/roadmap-design.md`/`docs/academic-partnerships-design.md`. Source
-material throughout is the `WUWF Unified Broadcast Rundownand Traffic
-System` spec (§ references below point there).
+tables rather than a new foundation layer. Source material throughout is the
+`WUWF Unified Broadcast Rundownand Traffic System` spec (§ references below
+point there) plus, as of the 2026-08-07/08 redesign, WUWF's actual NPR
+network clock diagrams and a real annotated Morning Edition example that
+surfaced a modeling mistake milestone 1 shipped with — see §2's "Network
+clock vs. local opportunity" below for the correction.
 
 ---
 
@@ -41,7 +43,45 @@ bearing: Log calculates, warns, and surfaces options; a host decides.
 
 ## 2. Product model
 
-Nine objects, three of them (Contract, Placement obligation, Affidavit) explicitly out of scope here — see `docs/broadcast-operations-strategy.md` §4.
+### Network clock vs. local opportunity — the milestone-1 mistake, corrected
+
+Milestone 1 shipped `log_clock_slots.fill_mode` (`required` | `optional` |
+`host_fillable`) as a property of the network clock's own structural table.
+It looked reasonable against the abstract spec, but checking it against
+WUWF's real, annotated Morning Edition clock (the reference case for this
+whole correction) exposed why it was wrong: **every slot in every clock
+seeded so far was `fill_mode = 'required'`/`assignment_mode = 'automatic'`.
+There has never actually been a host-fillable network slot in this data**,
+because a WUWF local-substitution opportunity is not a property of one
+network segment at all — it's WUWF's own operational decision layered *on
+top of* an accurate network clock, and it routinely spans several network
+segments. Morning Edition's real ~29:30–34:00 local-story window, for
+example, covers the tail of a cross-promo, a Music Bed, and both Newscast 3
+and Newscast 4 — four distinct network slots, one WUWF opportunity. There
+was no way to express that as a fill_mode on a single slot; the model was
+conflating "what the network publishes" with "where WUWF may substitute
+local material," and a floating opportunity spanning several slots proved
+those are genuinely different objects, not two names for the same one.
+
+The fix: `log_clock_slots` describes only what NPR/the network actually
+publishes (offset, duration, label, and — for a genuinely floating network
+element — a timing window), same as before this redesign but stripped of
+every fillability column. `log_local_opportunities` is new: WUWF's own
+overlay, versioned against a `log_clock_versions` row (so it stays
+meaningful against the exact offsets it was authored for) but **editable in
+place**, unlike the network clock's own insert-only immutability — this is
+WUWF policy, not NPR's structure, and a producer revising which windows are
+local avails shouldn't rewrite history the way editing the network clock
+itself would.
+
+`requirement` (`optional` | `required`) is the field milestone 1's
+`fill_mode` conflated three different things into, split apart: **optional**
+means a genuine avail WUWF may or may not use — an unfilled optional
+opportunity is a normal, resolved state ("carrying network"), never flagged.
+**required** means a genuine local obligation (a legal ID, a station
+announcement) — an unfilled required opportunity is unresolved and must be
+flagged. See §5 (Morning Edition's five seeded opportunities) and §6
+(`log_rundown_breaks`) for how this plays out downstream.
 
 ### Program
 A recurring or special broadcast program (§3, §4.1) — *Morning Edition*,
@@ -54,18 +94,24 @@ Morning Drive," "Weekend Classical." A **clock version** is an immutable,
 dated snapshot of that template's slots. This split exists for the same
 reason Audience Listening's answers snapshot their question rather than
 referencing a live `al_questions` row: a completed rundown must forever
-point at the exact clock that generated it (§4.3, "preserve the schedule and
-clock version used for completed broadcasts"), and a template that keeps
+point at the exact clock that generated it (§4.3), and a template that keeps
 changing underneath it would silently rewrite history. Editing a template
 creates a new version; old rundowns keep referencing the old one.
 
 ### Clock slot
-A position within a clock version (§4.2): start offset, duration, permitted
-content types, and — the part that drives everything downstream — whether
-it's required, optional, or host-fillable; whether it's filled
-automatically, pre-assigned, or host-selected; whether it can be moved,
-replaced, shortened, or left empty; whether timing is fixed or floats with
-the network.
+A position within a clock version describing **only the network's own
+structure** (post-redesign): start offset, duration, label, and — for a
+genuinely floating network element (Hidden Brain's own described break) — a
+timing window. No fillability of any kind lives here anymore; see above.
+
+### Local opportunity
+WUWF's own local-substitution overlay on a clock version (new in this
+redesign): start offset (or, for a floating window, an earliest/latest
+range), duration, a `requirement` of `optional` or `required`, the content
+types permitted to occupy it, and whether more than one item may occupy it
+at once. Independently editable in place — deactivated, not deleted, when
+retired — because it's WUWF's own policy decision about an accurate network
+clock, not a fact about the network clock itself.
 
 ### Content item / Content component
 A **content item** is reusable or one-time material (§7): news, a station
@@ -76,8 +122,17 @@ a timed part of it — live intro, recorded audio, live outro, optional tag
 30-second promo with a required 8-second outro is a 38-second commitment,
 never displayed as 30.
 
-Underwriting credits are deliberately not a Log content type — see §6's
-"Deferred: the Underwriting boundary" below.
+Recorded material (`component_type = recorded_audio`) carries an optional
+`dad_cart_number` — a plain text reference to the item's identifier in
+ENCO/DAD, WUWF's actual playback/automation system of record. See §6's "DAD
+is the system of record, not the portal" below for why this replaced a
+Supabase-hosted audio upload.
+
+Underwriting credits are a real content kind as of this redesign
+(`item_kind = 'underwriting_credit'` on a rundown item, never a
+`log_content_items` row) — see §6's "The Underwriting boundary is now real"
+below. Milestone 1 shipped this as a manual stopgap `content_type`; that
+stopgap is gone.
 
 ### NPR program episode
 NPR identifies a network program as a **collection** in its Content
@@ -88,16 +143,43 @@ of that dated episode, never edited locally, always labeled with when it was
 last successfully retrieved. Date is part of the episode's identity: "the
 Morning Edition episode for August 7" and "for August 8" are different
 documents, not one row that gets overwritten. Not every program has a CDS
-mapping — local and unmapped network programs simply have none.
+mapping — local and unmapped network programs simply have none. NPR remains
+subordinate/contextual throughout this redesign, exactly as milestone 1
+built it: editorial metadata a host reads, never on-air copy Log assumes NPR
+supplies (see §3D).
 
 ### Weather reading
 One current live-read, not one row per slot (§8) — every weather slot in
-every rundown references today's current version.
+every rundown references today's current version by default. A host may
+still set a **per-airing override** for one specific slot's wording without
+mutating that shared master reading — see the per-airing override entry
+below.
 
-### Rundown / Rundown item
-A **rundown** is the generated, editable plan for one program's air period or
-host shift. A **rundown item** is a specific placement of a content item (or,
-once Underwriting ships, an underwriting credit) into a clock slot.
+### Rundown / Rundown break / Rundown item
+A **rundown** is the generated, editable plan for one program's air period
+or host shift, tiling `log_local_opportunities` hourly across the shift the
+same way milestone 1 tiled clock slots. A **rundown break** is one
+occurrence of a local opportunity within that rundown — a container zero or
+more **rundown items** may occupy. This is the direct structural consequence
+of the network-clock/local-opportunity split above: milestone 1's
+`log_rundown_items` held exactly one row per fillable slot; post-redesign, a
+break can hold nothing (a normal, resolved state for an optional break), one
+item, or several (when `allow_multiple` is true — e.g. an underwriting
+credit plus a legal ID inside one longer window).
+
+### Per-airing override
+A rundown item may override a master content item's script, total duration,
+live-intro/live-outro/tag seconds, or add operator notes, **for this one
+airing only** — new in this redesign, and the mechanism behind "the same
+promo airs slightly differently at 6am versus 8am without a second copy of
+the promo existing." Nothing about an override ever writes back to
+`log_content_items`/`log_content_components`; a null override column means
+"inherit from the master," and `planned_duration_seconds` is always the
+computed effective total for this specific airing (master or overridden —
+see `lib/log/content-library.ts`'s `computeEffectiveDurationSeconds`). The
+same mechanism covers weather: a `weather`-kind item has no content
+reference at all, and its effective text is the current
+`log_weather_reading` unless this one airing's `override_script` is set.
 
 ### Broadcast event
 The planned-versus-actual record of one rundown item's airing (§15). This is
@@ -111,10 +193,17 @@ events across many air dates, each independently outcome-tracked.
 
 ### A. Defining a clock (producer)
 A producer builds or edits a clock template's slots — offsets, durations,
-permitted content types, fill behavior. Saving creates a new clock version;
-the template itself has no "current slots" a rundown can silently drift
-onto. Existing rundowns keep citing whichever version was current when they
-were generated.
+labels, and (for a genuinely floating network element) a timing window.
+Saving creates a new clock version; the template itself has no "current
+slots" a rundown can silently drift onto. Separately, and editable in place
+rather than versioned, a producer maintains that version's local
+opportunities — see §2's "Network clock vs. local opportunity." The clock
+template detail screen (`/log/clocks/[id]`) renders both: a network
+structure table, a local-opportunity table, and — materially larger than
+before this redesign, since it now has to legibly show two concentric rings
+instead of one — the circular clock-face diagram, network slots on an inner
+ring and local opportunities on an outer one (`lib/log/clock-face.ts`,
+`components/log/clock-face.tsx`).
 
 ### B. Scheduling programs (producer)
 Maintains the recurring weekly grid, associates each program with a clock
@@ -128,51 +217,57 @@ Promotions staff create promos and institutional announcements with
 campaign dates, eligible programs/slots, priority, and required/optional
 tags (§10). Both browse, search, and retire their own stale content;
 neither needs a producer role to do it — content authorship is open to any
-tool member, matching §2.2/§2.3's framing of these as ordinary staff duties,
-not privileged ones.
+tool member. Recorded items carry a `dad_cart_number` rather than an
+uploaded audio file — see §6.
 
 ### D. Reading NPR and weather in context
 The current NPR program-episode's ordered story items render inline in
 chronological position within the rundown (§5.2) — not a separate tab. NPR
 supplies editorial metadata (title, teaser/description) for a host to read
 and understand what's coming, not polished on-air copy; a host composes
-their own forward promotion from that metadata if they want one — that
-copy is local/derived content, never something NPR is assumed to supply.
-Same for the current weather live-read (§8.3): a host reads it from any
-weather slot, sees when it was last updated, can refresh manually, and can
-make a temporary edit for the current airing without overwriting the master
-copy that every other slot references.
+their own forward promotion from that metadata if they want one — that copy
+is local/derived content, never something NPR is assumed to supply. Same for
+the current weather live-read (§8.3): a host reads it from any weather slot,
+sees when it was last updated, can refresh manually, and can set a temporary
+per-airing override for the current slot without overwriting the master
+copy every other slot references.
 
 ### E. Building the daily rundown (host, or a producer preparing ahead)
-For each host-fillable slot, Log shows total available time, any required
-material already occupying it, remaining time, and eligible existing
-content with its full duration including intros and tags (§11.2). A host
-searches, browses, and filters the content library; adds an existing item;
-creates a new one-time item without leaving the rundown; reorders, replaces,
-or removes; and previews recorded audio before committing. Every action
-recalculates timing immediately (§11.3, §12).
+Rebuilt as a **vertical, chronological list of break cards** in this
+redesign (`/log/rundowns/[id]`), replacing milestone 1's table — a break's
+scheduled time, label, requirement badge, network-rejoin time, and available
+duration head the card; its items (if any) list below with per-item
+override controls; quick-add controls (existing content, a one-off live
+read, a "use today's weather" button where permitted) sit at the bottom of
+an open break. An optional break with nothing in it reads as "carrying
+network," not as an error state — the vertical layout makes that legible at
+a glance the way a dense table couldn't. Every action recalculates timing
+immediately (§11.3, §12).
 
 ### F. Running the console live (host)
-During the broadcast, the host console (§13) shows current and next item,
-readable copy at an adjustable size, network outcue/rejoin information, NPR
-forward-promo copy, upcoming underwriting obligations, current weather, and
-time remaining — one screen, minimal navigation. §12.4's live timing state
-(on time / running long / running short / at risk of missing a required
-item / at risk of missing rejoin) is computed continuously, not on request.
+During the broadcast, the host console (§13) shows the current and next
+**break** (not slot), readable copy at an adjustable size, network
+outcue/rejoin information, NPR forward-promo context, current weather, and
+time remaining. **Underwriting-credit items render their actual script
+directly on the console** — a correction from milestone 1's placeholder,
+which told the host to "go to Underwriting & Traffic" to read a credit; see
+§6's "The Underwriting boundary is now real." §12.4's live timing state (on
+time / running long / running short / at risk of missing a required item /
+at risk of missing rejoin) is computed continuously against breaks, not on
+request.
 
 ### G. Mid-broadcast host actions
 When timing shifts, a host marks an item **aired**, **moved** to another
-valid opening (§14.2 — Log evaluates program/daypart/duration/spacing/
-inventory eligibility and shows valid destinations), or **missed** with a
-brief reason and no lengthy narrative (§14.3). Every deviation is retained,
-never silently dropped from the record (§1.2's "planned is not aired"). A
-brief undo period follows any move.
+valid break, or **missed** with a brief reason and no lengthy narrative
+(§14.3). Every deviation is retained, never silently dropped from the record
+(§1.2's "planned is not aired"). A brief undo period follows any move.
 
 ### H. Completing and submitting a rundown (host)
-At the end of a shift, the host reviews unresolved items and submits. That
-freezes a reference version of the rundown while still allowing documented
-management corrections afterward (§15.3) — submission is a checkpoint, not
-a lock that erases the ability to fix a mistake.
+At the end of a shift, the host reviews unresolved items — an empty
+*required* break, or a filled item with no recorded outcome — and submits.
+That freezes a reference version of the rundown while still allowing
+documented management corrections afterward (§15.3) — submission is a
+checkpoint, not a lock that erases the ability to fix a mistake.
 
 ---
 
@@ -181,13 +276,14 @@ a lock that erases the ability to fix a mistake.
 ```
 /log                              Today's programs and their rundown status
 /log/clocks                       Clock template list (producer)
-/log/clocks/[id]                  Clock template editor — slots, versions (producer)
+/log/clocks/[id]                  Clock editor — network structure + local opportunities, diagram (producer)
 /log/programs                     Program schedule (producer)
 /log/library                      Content library: browse/search/filter by type
-/log/library/[id]                 Content item detail — components, air history
+/log/library/[id]                 Content item detail — components, DAD cart refs, air history
 /log/library/new                  Create a content item
 /log/weather                      Current weather live-read, manual refresh
-/log/rundowns/[id]                Rundown builder: slots, timing, host actions
+/log/npr                          Program+date NPR episode lookup, manual refresh
+/log/rundowns/[id]                Rundown builder: vertical break list, per-airing overrides, host actions
 /log/rundowns/[id]/console        The live host console (§13)
 ```
 
@@ -195,22 +291,29 @@ a lock that erases the ability to fix a mistake.
 status (not generated / generated / in progress / submitted) and a quick
 link into the builder or, once a shift starts, the console.
 
-**`/log/rundowns/[id]`** — the pre-air builder: clock slots down the left,
-each host-fillable slot showing remaining time and an eligible-content
-picker; NPR and weather render inline at their chronological position.
+**`/log/clocks/[id]`** — the network structure and the local-opportunity
+overlay as two separate tables, plus the enlarged dual-ring diagram, so a
+producer can see at a glance which windows are WUWF's own call versus what
+the network dictates.
+
+**`/log/rundowns/[id]`** — the vertical break-card builder described in §3E.
 
 **`/log/rundowns/[id]/console`** — the live view (§13's requirements
-verbatim): large controls, current/next item, adjustable text size, and the
+verbatim): large controls, current/next break, adjustable text size, and the
 three mid-broadcast actions (aired / move / missed) always one tap away for
-whatever's currently live.
+whatever's currently live — underwriting credits show their real script
+inline.
 
 ---
 
 ## 5. Data model
 
-Thirteen tables (the NPR cache split into two — see `log_npr_episodes`/
-`log_npr_episode_items` below), prefixed `log_` per CLAUDE.md's directory
-conventions.
+Fourteen tables (the NPR cache split into two — see `log_npr_episodes`/
+`log_npr_episode_items`), prefixed `log_` per CLAUDE.md's directory
+conventions. This section reflects the post-redesign shape
+(`20260808120000_log_local_opportunities.sql`,
+`20260808130000_log_rundown_breaks.sql`,
+`20260808140000_log_content_dad_and_media_removal.sql`).
 
 ### `log_programs`
 `id`, `name`, `description`, `kind` (`recurring` | `special`),
@@ -224,17 +327,55 @@ without a known mapping, never guessed), `created_at`, `created_by`.
 ### `log_clock_versions`
 `id`, `clock_template_id`, `variant` (`weekday` | `weekend` |
 `program_specific` | `holiday` | `special_event`), `effective_from`,
-`effective_to` (nullable), `created_at`, `created_by`. Immutable once a
-rundown references it — no update path on this table from the application
-beyond the fields above at creation; a correction is a new version.
+`effective_to` (nullable), `created_at`, `created_by`. Immutable — no update
+path on this table from the application; a correction is a new version.
 
 ### `log_clock_slots`
 `id`, `clock_version_id`, `position`, `start_offset_seconds` (nullable —
-some slots float), `duration_seconds`, `permitted_content_types` (`text[]`),
-`fill_mode` (`required` | `optional` | `host_fillable`), `assignment_mode`
-(`automatic` | `preassigned` | `host_selected`), `replaceable` bool,
-`shortenable` bool, `allow_empty` bool, `allow_multiple` bool, `timing_mode`
-(`fixed` | `float`), `lock_on_air` bool, `label`.
+some slots float), `duration_seconds`, `timing_mode` (`fixed` | `float`),
+`earliest_start_offset_seconds`/`latest_start_offset_seconds` (nullable,
+for `timing_mode = float`), `label`. Describes **only** the network's
+published structure post-redesign — every fillability column milestone 1
+had here (`fill_mode`, `assignment_mode`, `permitted_content_types`,
+`replaceable`, `shortenable`, `allow_empty`, `allow_multiple`,
+`lock_on_air`) was dropped; see §2. Insert-only from the application, same
+as `log_clock_versions`.
+
+### `log_local_opportunities` (new)
+`id`, `clock_version_id`, `position`, `label`, `requirement`
+(`optional` | `required`), `timing_mode` (`fixed` | `float`),
+`start_offset_seconds`, `duration_seconds`,
+`earliest_start_offset_seconds`/`latest_start_offset_seconds` (nullable, for
+`timing_mode = float`), `permitted_content_types` (`text[]`),
+`allow_multiple` bool, `notes`, `active` bool (deactivate, don't delete),
+`created_at`, `created_by`, `updated_at`. WUWF's own overlay — see §2.
+Update-able in place, unlike the network clock tables, since this is station
+policy rather than immutable network structure.
+
+**Morning Edition seed** (`20260808210000_log_morning_edition_opportunities.sql`)
+— the reference case this whole correction is built against, five rows
+against Morning Edition's clock version:
+
+1. Optional short cover over the post-newscast Music Bed at 6:00 (90s) —
+   legal ID / PSA / promo / membership message / underwriting credit
+   eligible.
+2. Optional short cover over the Segment A Music Bed at 19:00 (90s) — same
+   eligible types.
+3. Optional local story window at ~29:30–34:00 (270s) — spans the tail of a
+   cross-promo, a Music Bed, and both Newscast 3 and Newscast 4;
+   `allow_multiple = false` since this window is sized for one longer piece.
+4. Optional local story window at ~49:35–51:30 (115s) — lands almost exactly
+   on the Music Bed at :49:34–:51:29, WUWF's second common story-
+   substitution point.
+5. **Required** local ID/announcement window at 42:30 (90s) — the one
+   opportunity in this seed whose unfilled state is genuinely unresolved,
+   exercising `requirement = required` end to end.
+
+Only Morning Edition is seeded — inventing opportunities for the other
+twelve network clocks without real operational confirmation from WUWF would
+be exactly the "manufacture local slots" mistake this redesign exists to
+fix. A producer adds them for any other clock from `/log/clocks/[id]` once
+WUWF confirms where they actually are.
 
 ### `log_schedule`
 `id`, `program_id`, `clock_template_id`, `entry_type` (`recurring` |
@@ -246,61 +387,76 @@ some slots float), `duration_seconds`, `permitted_content_types` (`text[]`),
 `id`, `content_type` (`news` | `station_promo` | `program_promo` |
 `membership_message` | `university_announcement` | `psa` | `legal_id` |
 `interview_feature` | `host_created`), `title`, `script` (nullable),
-`audio_object_path` (nullable, in a `log-media` storage bucket), `summary`,
-`expected_duration_seconds`, `effective_from`, `effective_to` (nullable),
-`owner_id`, `approval_status` (`draft` | `approved` | `retired`),
-`eligible_program_ids` (`uuid[]`), `priority`, `frequency_guidance`,
-`reusable` bool, `geography_tags` (`text[]`), `subject_tags` (`text[]`),
-`community_issue_tags` (`text[]` — free text in this milestone; becomes a
-real reference once FCC Reporting's taxonomy exists, see §6),
-`reporter_or_editor` (nullable, news-specific), `created_at`, `updated_at`,
-`created_by`.
+`dad_cart_number` (nullable text — see §6; replaces the milestone-1
+`audio_object_path`), `summary`, `expected_duration_seconds`,
+`effective_from`, `effective_to` (nullable), `owner_id`, `approval_status`
+(`draft` | `approved` | `retired`), `eligible_program_ids` (`uuid[]`),
+`priority`, `frequency_guidance`, `reusable` bool, `geography_tags`
+(`text[]`), `subject_tags` (`text[]`), `community_issue_tags` (`text[]` —
+free text in this milestone; becomes a real reference once FCC Reporting's
+taxonomy exists, see §6), `reporter_or_editor` (nullable, news-specific),
+`created_at`, `updated_at`, `created_by`.
 
 ### `log_content_components`
 `id`, `content_item_id`, `component_type` (`live_intro` | `recorded_audio` |
 `live_outro` | `optional_tag`), `sequence`, `duration_seconds`, `required`
-bool, `script` (nullable), `audio_object_path` (nullable).
+bool, `script` (nullable), `dad_cart_number` (nullable — only meaningful for
+`component_type = recorded_audio`).
 
 ### `log_npr_episodes`
-`id`, `program_id`, `show_date`, `npr_collection_id` (`int` — the CDS
-collection queried), `status` (`found` | `not_found`), `npr_episode_id`
-(nullable — the CDS document's stable id; null exactly when `status =
-not_found`), `title` (nullable), `raw` (`jsonb`, nullable — the CDS
-program-episode document as returned, preserved so a field this schema
-didn't anticipate isn't lost), `retrieved_at`. One row per (`program_id`,
-`show_date`) — a rundown is a dated document, not one undifferentiated
-"current" state per program (§2). Replaced wholesale (delete + insert) per
-program+date on each successful retrieval, not diffed — the point is "what
-did we last successfully get for this date," not a change history.
+`id`, `program_id`, `show_date`, `npr_collection_id` (`int`), `status`
+(`found` | `not_found`), `npr_episode_id` (nullable), `title` (nullable),
+`raw` (`jsonb`, nullable), `retrieved_at`. One row per (`program_id`,
+`show_date`). Replaced wholesale per program+date on each successful
+retrieval, not diffed.
 
 ### `log_npr_episode_items`
-`id`, `episode_id`, `position` (`int`), `npr_item_id` (the CDS document id
-for this story — stable NPR identity, never derived from the title),
-`title`, `teaser` (nullable), `raw` (`jsonb`, nullable). The ordered
-story/content sequence within one cached episode — CDS's transcluded
-`items` collection, ordered exactly as CDS returned it. Deleted and
-reinserted with its parent episode row, never updated in place.
+`id`, `episode_id`, `position`, `npr_item_id`, `title`, `teaser` (nullable),
+`raw` (`jsonb`, nullable). Deleted and reinserted with its parent episode
+row.
 
 ### `log_weather_reading`
 `id`, `forecast_area`, `source`, `live_read_text`, `condensed_text`,
 `high_temp`, `low_temp`, `conditions_summary`, `precipitation_notes`
 (nullable), `hazards` (nullable), `last_updated_at`, `valid_through_at`,
-`is_current` bool (exactly one row true at a time; prior rows are the
-revision history §8.1 asks for).
+`is_current` bool (exactly one row true at a time; prior rows are revision
+history). A per-airing override of this reading for one specific weather
+item lives on that `log_rundown_items` row (`override_script`), not here —
+see below.
 
 ### `log_rundowns`
 `id`, `program_id`, `schedule_entry_id` (nullable), `clock_version_id`,
 `air_date`, `shift_start_at`, `shift_end_at`, `status` (`draft` |
 `generated` | `in_progress` | `submitted`), `generated_at`, `submitted_at`,
-`submitted_by`.
+`submitted_by`. Unique on `(program_id, air_date)` so "generate" is
+idempotent.
+
+### `log_rundown_breaks` (new — replaces the milestone-1 one-row-per-slot shape)
+`id`, `rundown_id`, `local_opportunity_id`, `position`, `label`,
+`requirement`, `permitted_content_types` (`text[]`), `allow_multiple` bool,
+`scheduled_at`, `available_duration_seconds`, `network_rejoin_at`. The last
+five columns are **snapshots** of the opportunity at generation time — the
+same "answers snapshot their question" precedent Audience Listening uses —
+so editing the opportunity later doesn't rewrite an already-generated
+rundown's meaning. `network_rejoin_at` is the point by which WUWF must be
+back on network content: start + duration for a fixed opportunity, or the
+opportunity's latest permitted start + duration for a floating one, computed
+once at generation time.
 
 ### `log_rundown_items`
-`id`, `rundown_id`, `clock_slot_id`, `content_item_id`, `position`,
-`scheduled_at`, `planned_duration_seconds`, `requirement_level`
-(`required` | `suggested` | `optional`, defaults from the slot but can be
-overridden for a specific placement), `placement_status` (`locked` |
-`movable` | `replaceable` | `editable`), `current_warning` (nullable —
-`timing_conflict` | `stale_content` | `none`).
+`id`, `break_id`, `position`, `item_kind` (`content` | `live_read` |
+`weather` | `underwriting_credit` — the last added by Underwriting's own
+migration, see §6), `content_item_id` (for `content`), `live_read_title`/
+`live_read_script` (for an ad-hoc `live_read` with no library reference),
+`underwriting_copy_id` (for `underwriting_credit`, references `uw_copy`),
+`override_script`/`override_duration_seconds`/`override_live_intro_seconds`/
+`override_live_outro_seconds`/`override_tag_seconds`/`override_notes` (the
+per-airing overrides — see §2), `planned_duration_seconds` (the always-
+computed effective total for this airing), `placement_status` (`locked` |
+`movable` | `replaceable` | `editable`). Exactly one reference set per
+`item_kind`, enforced by a check constraint — same discriminated-shape
+precedent as `sw_source_excerpts`. A break can hold zero, one, or several of
+these rows depending on `allow_multiple`.
 
 ### `log_broadcast_events`
 `id`, `rundown_item_id`, `outcome` (`scheduled` | `aired_as_scheduled` |
@@ -311,12 +467,11 @@ vocabulary), `actual_started_at` (nullable), `actual_duration_seconds`
 (nullable), `confirmation_source` (`automation` | `host` |
 `exception_report` | `management_correction`), `reason` (nullable —
 `network_timing` | `breaking_news` | `segment_overrun` | `technical_problem`
-| `host_error` | `unavailable_copy` | `other`, from §14.3), `notes`
-(nullable), `recorded_by`, `recorded_at`.
-
-This is the single source of as-aired truth. Underwriting's post-broadcast
-exception queue and FCC Reporting's quarterly aggregation both read it
-through scoped additive RLS — neither tool writes it.
+| `host_error` | `unavailable_copy` | `other`), `notes` (nullable),
+`recorded_by`, `recorded_at`. Append-only: select+insert only, no update, no
+delete. The single source of as-aired truth; Underwriting's exception queue
+and FCC Reporting's quarterly aggregation both read it through scoped
+additive RLS.
 
 ---
 
@@ -332,181 +487,189 @@ or Academic Partnerships do). Within that membership, two roles:
 - **Member** — any granted user. Builds and executes rundowns, manages
   content library items, runs the console, records mid-broadcast outcomes.
 - **Producer** — `tool_access.tool_role = 'producer'`. Additionally edits
-  clock templates/versions and the program schedule.
+  clock templates/versions, local opportunities, and the program schedule.
 
 This is the same shape Roadmap's curator and Academic Partnerships'
 coordinator use: a `tool_access` grant is the ticket in, `tool_role` is the
 elevation, and the portal itself still doesn't interpret the string —
-`private.is_log_producer` is this tool's own predicate, same as
-`private.is_roadmap_curator`.
+`private.is_log_producer` is this tool's own predicate.
 
-### Deferred: the Underwriting boundary
+### DAD is the system of record, not the portal
 
-`docs/broadcast-operations-strategy.md` §2 settles the eventual shape of an
-underwriting credit occupying a rundown slot: `log_rundown_items` gets an
-`item_kind` column and a second nullable reference
-(`underwriting_copy_id`), mirroring `sw_source_excerpts`' locator pattern.
+Inspecting the actual milestone-1 implementation (not just the design doc's
+original aspiration) found that `log_content_items.audio_object_path`/
+`log_content_components.audio_object_path` were write-only: an upload widget
+wrote them, and the only read anywhere in the codebase used the value as a
+boolean to toggle upload-hint text — never a signed URL, never an `<audio>`
+element, never a preview. WUWF plays recorded material through ENCO/DAD, its
+actual broadcast automation system, not through the portal. This redesign
+removed the storage bucket and both `audio_object_path` columns, replacing
+them with `dad_cart_number` — a plain optional text reference to the item's
+identifier in DAD. Script, intro/outro/tag timing, and duration are what Log
+actually needs to represent a recorded item; the bytes live in DAD.
 
-That shape is **not** built in this milestone. `uw_copy` doesn't exist yet,
-and a nullable `uuid` column with no FK target — provisioned now against a
-table that might change shape before it ships — is exactly the kind of
-speculative schema this repo avoids elsewhere ("don't design for
-hypothetical future requirements"). Instead, milestone 1 lists
-`underwriting_credit` as an ordinary `log_content_items.content_type` (per
-§7.1's own table, which lists it alongside news and promos), manually
-managed within Log — no contracts, no automatic scheduling, no affidavits.
-A host can still mark one aired, moved, or missed, so the mid-broadcast
-workflow (§14) and the as-aired record (§15) both work end-to-end before
-Underwriting exists.
+### The Underwriting boundary is now real
 
-When Underwriting ships, its migration adds `item_kind` and
-`underwriting_copy_id` (with a real FK, since `uw_copy` will exist by then)
-to `log_rundown_items`, and its own scheduler starts producing placements
-instead of a traffic staffer manually creating `underwriting_credit`
-content items. Existing manually-placed credits are unaffected — they stay
-`item_kind = 'content'` — because milestone 1 never claimed they were
-contract-driven.
+Milestone 1 deferred this with a manual `content_type = 'underwriting_credit'`
+stopgap. This redesign, alongside Underwriting & Traffic's own domain
+redesign, builds the real thing: `log_rundown_items.item_kind` includes
+`underwriting_credit`, backed by a real `underwriting_copy_id` reference to
+Underwriting's own `uw_copy` — added by that tool's migration, per the
+`sw_source_excerpts`-style discriminated-reference shape
+`docs/broadcast-operations-strategy.md` §2 always intended. Three
+security-definer functions on Log's side (all owned and defined by
+Underwriting's migration, since the guard logic depends on contract/
+schedule-line state that lives in that tool's schema) are the only path
+that ever creates, clears, or lists eligible slots for one of these items:
+`log_place_underwriting_credit()`, `log_clear_underwriting_credit()`,
+`log_list_placeable_rundown_breaks()`. A plain RLS policy naming
+underwriting members would let them write any `log_rundown_items` row, not
+just an eligible underwriting-credit one; the guard lives in the function
+body instead.
+
+The host-facing gap milestone 1 explicitly left open — "the console tells
+the host to go to Underwriting & Traffic to read a credit's script" — is
+closed: a narrow additive `select` policy on `uw_copy`
+(`uw_copy_select_for_log`), scoped to exactly the copy rows already
+referenced from a `log_rundown_items` row the caller can see, lets the
+console render an underwriting credit's actual script inline. Underwriting
+remains the source of truth for that row; this is a read, never a write.
+
+Underwriting-credit items are also excluded from the ordinary item-delete
+policy (`log_rundown_items_delete` — `item_kind <> 'underwriting_credit'`):
+one is only ever removed through `log_clear_underwriting_credit()`, so that
+function can mark the corresponding placement superseded atomically instead
+of leaving Underwriting's own placement history pointing at a deleted row.
 
 ### Deferred: the FCC Reporting boundary
 
-Same reasoning, smaller: `log_content_items.community_issue_tags` is
-`text[]` in this milestone, not a reference to a taxonomy table, because
-`fcc_community_issues` doesn't exist yet. FCC Reporting's own migration is
-where a real controlled vocabulary and a proper reference — or a mapping
-step for whatever free text accumulated before then — gets built.
+`log_content_items.community_issue_tags` is `text[]` in this milestone, not
+a reference to a taxonomy table, because `fcc_community_issues` doesn't
+exist yet. FCC Reporting's own migration is where a real controlled
+vocabulary and a proper reference — or a mapping step for whatever free text
+accumulated before then — gets built.
 
 ### No job queue: NPR and weather refresh lazily, not on a schedule
 
-This repository still has no job queue (true as of every tool built so
-far). NPR (§5) and weather (§8) both want to look continuously current, but
-neither gets a cron job. Instead:
+This repository still has no job queue. NPR (§5) and weather (§8) both want
+to look continuously current, but neither gets a cron job:
 
 - **Weather** refreshes on a stale-check at read time: opening a rundown or
   the console checks `log_weather_reading.last_updated_at` against a
   threshold and triggers a refetch server-side if stale, plus a manual
-  "Refresh" button per §8.3. The same lazy-refresh shape Sourcework's
-  Mistral OCR uses via `after()` doesn't apply here — there's no long job to
-  detach from a request, just an API call cheap enough to make inline.
+  "Refresh" button.
 - **NPR** works the same way, scoped to one program's episode for one show
-  date rather than a single per-program state: the console polls its own
-  server (short client-side interval, matching Remote Interview's
-  waiting-room poll pattern — there's still no notification layer in this
-  repo to push updates instead), and each poll both returns the cached
-  episode for that program+date and triggers a background refetch if it's
-  older than a threshold. A program with no CDS mapping, or a deployment
-  with no CDS token configured, never attempts a fetch at all — those are
-  distinct, clearly reported states, not failures.
+  date: the console polls its own server (short client-side interval,
+  matching Remote Interview's waiting-room poll pattern), and each poll both
+  returns the cached episode for that program+date and triggers a background
+  refetch if it's older than a threshold. A program with no CDS mapping, or
+  a deployment with no CDS token configured, never attempts a fetch at all —
+  those are distinct, clearly reported states, not failures.
 
 Both paths keep the last successful version on a fetch failure and mark it
-stale rather than blocking or clearing the display (§5.2, §8.2,
-§22 — "operational resilience... a temporary API or network failure must
-not make the current rundown unreadable").
+stale rather than blocking or clearing the display — "a temporary API or
+network failure must not make the current rundown unreadable."
 
 ### Timing is a pure, tested module — not stored state
 
-§12's fit calculations (remaining time in a slot, remaining time in the
-break, overage/underrun, time to rejoin, the effect of adding/removing/
-moving an item) are never persisted as a computed column. They're derived
-in `lib/log/timing.ts` from `log_rundown_items` + `log_clock_slots` +
-wall-clock time, the same way `lib/remote-interview/call-status.ts` derives
-participant status from events rather than storing it — pure functions, no
-Supabase import, colocated tests, safe to recompute on every render.
+Fit calculations (remaining time in a break, overage/underrun, time to
+network rejoin, the effect of adding/removing/moving an item) are never
+persisted as a computed column. They're derived in `lib/log/timing.ts`
+(`computeBreakFit`, `computeBreakStatus`, `computeRundownSummary`) from
+`log_rundown_items` + `log_rundown_breaks` + wall-clock time, the same way
+`lib/remote-interview/call-status.ts` derives participant status from events
+rather than storing it — pure functions, no Supabase import, colocated
+tests, safe to recompute on every render. `lib/log/console-timing.ts`
+(`computeLiveTimingState`) is the live-console counterpart, operating on
+`ConsoleBreakLike` rather than a single item.
 
-### Host console resilience: queue actions locally, sync on reconnect
+### Host console resilience — flagged, not built, in this pass
 
-§22 requires the current rundown to survive a temporary connectivity loss
-without becoming unreadable, and requires unsent host actions to be
-preserved and synchronized when connectivity returns. The console caches
-the active rundown in the browser (IndexedDB) on load and after each
-successful sync, and queues mid-broadcast actions (aired/move/missed)
-locally with a client-generated id, retrying with backoff until
-acknowledged — the same write-then-sync-then-acknowledge shape Remote
-Interview's local capture uses for audio chunks, applied here to small
-action records instead of media. An action is never lost to a dropped
-connection; it's replayed once the console is back online. External
-updates (an NPR revision, a weather refresh) never silently overwrite copy
-a host is actively reading (§5.2, §22) — a change is flagged, not applied,
-until the host acknowledges it.
+§22 of the source spec requires the current rundown to survive a temporary
+connectivity loss without becoming unreadable, and requires unsent host
+actions to be preserved and synchronized when connectivity returns. **This
+was not implemented in the 2026-08-07/08 redesign pass** — the console still
+assumes a live connection to record `markAired`/`markMissed`/
+`moveRundownItem`. This is the top unresolved operational gap coming out of
+this redesign; see §7. The originally-designed shape (queue actions locally
+in IndexedDB with a client-generated id, retry with backoff, replay on
+reconnect — the same write-then-sync-then-acknowledge pattern Remote
+Interview's local capture uses for audio chunks) is still the intended
+approach; it simply hasn't been built yet.
 
 ### Fit with portal conventions
 
 `requireToolAccess("log")` gates the route segment; Server Actions in
 `actions.ts` per screen area (`clock-actions.ts`, `library-actions.ts`,
-`rundown-actions.ts`) assert access first and use `failIfError`/`failWith`
-for the standard `?error=` bounce-back; reads live in `lib/log/queries.ts`
-behind `unwrapRead()`; pure logic (timing, the mid-broadcast state machine,
-content-eligibility filtering) sits in colocated `*.test.ts`-covered
-modules with no Supabase import, following `lib/roadmap/posts.ts`'s
-pattern.
+`rundown-actions.ts`, `console-actions.ts`) assert access first and use
+`failIfError`/`failWith` for the standard `?error=` bounce-back; reads live
+in `lib/log/queries.ts` behind `unwrapRead()`; pure logic (timing, the
+mid-broadcast state machine, content-eligibility filtering, rundown
+generation, submission review) sits in colocated `*.test.ts`-covered modules
+with no Supabase import.
 
 Capabilities registered for the MCP/agent layer:
-`log.rundown.buildItem` (add/replace a content item in a slot),
-`log.rundownItem.recordOutcome` (the aired/move/missed action), and
-`log.content.search` (mirroring `sourcework.project.search`) — the three
-operations useful to drive from the in-portal agent without a live console
-in front of you.
+`log.rundown.buildItem` (add a content item, live read, or weather item to a
+break), `log.rundownItem.recordOutcome` (the aired/move/missed action,
+confirmation `required`), and `log.content.search` (mirroring
+`sourcework.project.search`).
 
-### What's deliberately not in the architecture (milestone 1)
+### What's deliberately not in the architecture
 
+- **No console offline resilience** — see above; the top unresolved gap.
 - **No automation-system integration.** `confirmation_source = 'automation'`
   exists in the schema for when that integration is built, but nothing
-  populates it yet — every milestone-1 outcome is host-confirmed. Which
-  automation system and what export format it needs is still an open
-  question in the strategy doc (§7).
-- **No video.** Out of scope for this entire product area per the source
-  document's silence on it; Remote Interview's own video deferral (Phase 5,
-  not authorized) is unrelated but sets the same precedent — audio-first,
-  video only when explicitly asked for.
-- **No second concurrent host editing the same rundown.** Like Remote
-  Interview's studio slice 3 ("no second staff member can join a session's
-  Daily room"), one editor at a time keeps this milestone's concurrency
-  story simple; multi-host handoff is a real scenario (a board-op and a
-  host) but not one this milestone needs to solve.
-- **No notification layer**, same as every tool before this one. A stale
+  populates it yet.
+- **No video.** Out of scope for this entire product area.
+- **No second concurrent host editing the same rundown.**
+- **No notification layer**, same as every tool in this portal. A stale
   NPR/weather flag or an unresolved exception is visible when the relevant
   screen is open, not pushed.
+- **No manufactured local opportunities for the twelve non-Morning-Edition
+  clocks.** Only real, WUWF-confirmed operational detail gets seeded — see
+  §5.
 
 ---
 
 ## 7. Milestone 1, and what is left
 
-**Milestone 1** ships: clock templates and versions, program scheduling,
-the content library (all types from §7.1 except contract-driven
-underwriting), NPR rundown display, the weather live-read, daily rundown
-generation, the host console with continuous timing, the three mid-broadcast
-actions writing directly to `log_broadcast_events`, and rundown submission.
-A "missed underwriting credit" is fully recordable — it's just an
-unresolved outcome on a broadcast event with nobody yet reading it into a
-queue, because Underwriting doesn't exist yet.
+**Milestone 1, plus the 2026-08-07/08 domain redesign, ships:** clock
+templates and versions with a separate, editable local-opportunity overlay;
+program scheduling; the content library (referencing DAD by cart number,
+not portal-hosted audio); NPR rundown display; the weather live-read with
+per-airing override; daily rundown generation around local opportunities
+(never flagging an unused optional one); the vertical break-card rundown
+builder; the host console with continuous break-level timing and inline
+underwriting-credit scripts; the three mid-broadcast actions writing
+directly to `log_broadcast_events`; and rundown submission.
 
-**Deferred, matching the strategy doc's build order:**
+**Genuinely unresolved, in priority order:**
 
-1. **Underwriting integration** — the `item_kind`/`underwriting_copy_id`
-   polymorphism and automatic scheduling, once Underwriting & Traffic ships
-   (`docs/underwriting-design.md`, not yet written).
-2. **FCC community-issue taxonomy as a real reference**, once FCC Reporting
-   ships (`docs/fcc-reporting-design.md`, not yet written).
-3. **Automation-system confirmation**, pending an answer to which system and
-   what format (strategy doc §7).
-4. **Multi-editor rundown concurrency**, if a real second-host scenario
+1. **Host console offline/connectivity resilience** (§6) — not built in this
+   pass. This is the single highest-priority remaining gap: a real
+   connectivity drop during a live broadcast currently risks losing an
+   unsent mid-broadcast action, exactly what §22 warns against.
+2. **Local opportunities for the other twelve seeded network clocks.** Only
+   Morning Edition has real, confirmed local-substitution windows as of this
+   redesign; every other clock has an accurate network structure but no
+   overlay, so a rundown generated from it has no host-fillable breaks at
+   all until a producer (or a future migration, once WUWF confirms the real
+   windows) adds them.
+3. **FCC community-issue taxonomy as a real reference**, once FCC Reporting
+   ships.
+4. **Automation-system confirmation**, pending an answer to which system and
+   what format.
+5. **Multi-editor rundown concurrency**, if a real second-host scenario
    turns out to need it.
 
-**Open questions specific to this tool, not yet answered:**
+**Open questions specific to this tool:**
 
-- ~~What NPR API or feed is actually available to poll?~~ Resolved
-  (2026-08-07): NPR's Content Distribution Service (CDS), documented at
-  `https://content.api.npr.org/v1` — programs are CDS collections, a
-  rundown is a dated `program-episode` document with an ordered `items`
-  collection. See §2/§5 above and CLAUDE.md's "NPR integration corrected to
-  the real CDS model" note. What's still unverified: WUWF's own production
-  CDS token hasn't been requested/tested yet, so exact rate limits, update
-  cadence, and any additional fields a real response carries beyond what
-  this implementation defensively parses are still to be confirmed once
-  credentials exist.
 - Which weather API/vendor, and what's in its contract terms about update
   frequency and forecast-area granularity?
-- Do any of WUWF's current clocks have slot behavior not covered by
-  `fill_mode`/`assignment_mode`/`timing_mode` as sketched in §5 above? The
-  strategy doc flags this as unresolved (§7); it should be checked against
-  real clock examples before `log_clock_slots`' columns are finalized in a
-  migration.
+- Do any of WUWF's other twelve clocks have local-opportunity behavior not
+  yet captured — floating windows with unusual eligibility, opportunities
+  that only exist on certain days? Each needs the same real-diagram
+  verification Morning Edition got before being seeded.
+- WUWF's own production NPR CDS token is still outstanding — rate limits,
+  update cadence, and response fields beyond what this implementation
+  defensively parses remain unconfirmed until it exists.

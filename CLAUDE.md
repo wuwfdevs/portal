@@ -1183,6 +1183,165 @@ generation, automation-system export/reconciliation, scheduled
 proof-of-performance delivery — all listed in that section as deferred) is
 authorized to start without its own instruction.
 
+**Log and Underwriting & Traffic: domain redesign (2026-08-07/08), grounded
+in real WUWF operational detail — both tools' milestone-1 models were wrong
+in ways that only checking them against real clocks and a real contract
+exposed.** Read the "Status" line and the top of `docs/log-design.md` and
+`docs/underwriting-design.md` before touching either tool again — both docs
+describe the corrected model in full; this note is a pointer, not a
+duplicate.
+
+**Log's correction**: `log_clock_slots.fill_mode`
+(`required`/`optional`/`host_fillable`) conflated the network's own
+published structure with WUWF's local-substitution decisions. Every slot in
+every clock seeded so far was `fill_mode = 'required'`
+— there was never a real host-fillable *network slot* in this data, because
+a WUWF local opportunity (a music-bed cover, a longer story substitution) is
+not a property of one network segment. It's WUWF's own overlay on an
+accurate network clock, and it routinely spans several segments — Morning
+Edition's real ~29:30–34:00 local-story window covers a cross-promo tail, a
+Music Bed, and both Newscast 3 and 4, four network slots for one WUWF
+opportunity. `20260808120000_log_local_opportunities.sql` splits this: 
+`log_clock_slots` goes back to describing only network structure (every
+fillability column dropped, along with `log_slot_fill_mode`/
+`log_slot_assignment_mode`), and `log_local_opportunities` is new — WUWF's
+own overlay, versioned against a clock version but **editable in place**
+(unlike the network clock's insert-only immutability), carrying a
+`requirement` of `optional` (an avail WUWF may or may not use — unfilled is
+normal, "carrying network") or `required` (a genuine local obligation —
+unfilled is flagged unresolved). `20260808210000_log_morning_edition_
+opportunities.sql` seeds five real opportunities against Morning Edition's
+clock — the two real story windows above, two short optional music-bed
+covers, and one required local-ID window — and deliberately nothing for the
+other twelve seeded clocks, since inventing opportunities without WUWF
+confirmation would be exactly the mistake this correction fixes.
+`20260808130000_log_rundown_breaks.sql` follows the same split downstream:
+`log_rundown_items` (one row per fillable slot) became
+`log_rundown_breaks` (one row per local-opportunity occurrence, snapshotting
+the opportunity's label/requirement/permitted types the way Audience
+Listening's answers snapshot their question) containing zero or more
+`log_rundown_items` rows — because a break can now hold nothing (a normal
+resolved state for an optional one), one item, or several when
+`allow_multiple`. Rundown items also gained real per-airing overrides
+(`override_script`/`override_duration_seconds`/`override_live_intro_seconds`/
+`override_live_outro_seconds`/`override_tag_seconds`/`override_notes`,
+composed into an always-current `planned_duration_seconds` by
+`lib/log/content-library.ts`'s `computeEffectiveDurationSeconds`) that never
+write back to the master `log_content_items`/`log_content_components` row —
+the mechanism behind the same promo airing slightly differently at 6am
+versus 8am without a second copy existing, and also how a `weather`-kind
+item can override just this one airing's wording without touching the
+shared current `log_weather_reading`. `20260808140000_log_content_dad_and_
+media_removal.sql` is a separate, unrelated finding from the same
+inspection pass: `log_content_items`/`log_content_components`'s
+`audio_object_path` (backed by the `log-media` storage bucket) was
+write-only — read back in exactly two places, both as a boolean toggling
+upload-hint text, never a signed URL or an `<audio>` element. WUWF plays
+recorded material through ENCO/DAD, its real broadcast automation system,
+not the portal. Removed in favor of `dad_cart_number` (plain text, both
+tables) — the bucket's RLS policies were dropped (Supabase's
+`storage.protect_delete()` trigger blocks a direct `DELETE` against
+`storage.objects`/`storage.buckets` from a migration; dropping the policies
+alone fully locks it down via RLS-default-deny, and removing the now-inert
+bucket row itself is a follow-up via the dashboard or `supabase storage rm`,
+not a migration statement). The host console's "go to Underwriting &
+Traffic to read a credit's script" gap named in the original Log design doc
+is closed too (see the Underwriting paragraph below) — a rundown builder
+rebuild (`/log/clocks/[id]`, `/log/rundowns/[id]`, `/log/rundowns/[id]/
+console`) accompanied all of this: the clock detail screen's diagram grew
+materially larger (640px SVG, was 360px) to legibly show two concentric
+rings (network slots inner, local opportunities outer —
+`lib/log/clock-face.ts`'s `categorizeOpportunity`,
+`components/log/clock-face.tsx`), and the rundown builder became a vertical
+list of break cards instead of a table, so an empty optional break reads as
+"carrying network" at a glance rather than looking like a gap.
+
+**Underwriting's correction**, grounded in the real WUWF Autumn Beck
+Blackledge agreement (4 weekly recurring placements × 26 weeks = 104 spots,
+30-second credits, 2 rotating messages, "Affidavits Needed — NO," preemption
+= "rescheduled within the program originally sponsored"):
+`20260808200000_underwriting_redesign.sql` fixes eight problems the
+milestone-1 model had, none of them visible until checked against a real
+agreement — full list in `docs/underwriting-design.md` §1. The two
+structural ones: **underwriters are now first-class** (`uw_underwriters`,
+replacing free-text `underwriter_name`), and **`uw_placement_obligations`
+(a generic quantity/period ad-tech shape) became `uw_contract_schedule_
+lines`** — day(s) of week, target time, duration, program, date range, the
+literal shape of a real WUWF insertion order ("Monday ~7:49am × 26 weeks" is
+one line; "Wednesday and Thursday ~8:06am" is one line with
+`days_of_week = {3,4}`, not two). `lib/underwriting/schedule-lines.ts`'s
+`expectedOccurrenceCount()` is checked directly against the reference
+agreement — four weekly lines over a 182-day campaign sum to exactly 104
+(getting this right required using campaign end date `start_date + 181
+days`, not a date that happens to land on the same weekday as the start;
+the first version of the test undercounted by summing to 103). Also
+removed: `sponsorship_position` (opening/closing/mid — never grounded in a
+real agreement, no enforcement anywhere, no real UI); `uw_copy.production_
+status` (a universal pending/produced field that doesn't fit a live-read
+message — replaced by `execution_kind` of `live_read`/`recorded`, purely
+descriptive, no workflow gate); `uw_obligation_status` (manually set by
+staff despite the original design doc itself always saying fulfillment
+should derive from placements — now always computed by
+`lib/underwriting/fulfillment.ts`'s `computeFulfillment()`, which returns
+`behind` rather than `fulfilled` whenever an exception or makegood against a
+line is still open, even if the raw completed count already meets target).
+`uw_copy.audio_object_path` had the identical write-only finding as Log's
+own audio storage (same inspection pass, same fix — `cart_identifier`,
+which already existed, is the DAD reference; the bucket's policies were
+dropped the same way Log's were, with the same storage-protect-delete
+caveat). Two additive contract fields make real facts from the agreement
+explicit rather than implicit: `affidavit_required` (most WUWF agreements
+are `false`, per the reference agreement's own "NO") and
+`preemption_policy` (free text, holding the reference agreement's own
+"rescheduled within the program originally sponsored" language — read by
+staff, not enforced by the schema). `agreement_document_path` replaces the
+old bare `agreement_document_url` text field with a real Storage object in
+a new `underwriting-documents` bucket (`ContractDocumentUpload`,
+signed-URL download) — the executed agreement is now an authoritative
+attached reference, not a set of manually copied fields with the source
+discarded. A new, deliberately narrow **competitive-adjacency advisory**
+(`lib/underwriting/adjacency.ts`'s `checkCompetitiveAdjacency()`) flags —
+never blocks — when another underwriter sharing the current one's
+`category` already has a nearby placement, and never fires against the same
+underwriter's own other placements; this is advisory only, not a spacing
+rules engine, per the task's own explicit scope. Every program reference in
+the Underwriting UI (schedule lines, placement) is now a human-readable
+`<select>` via a new `log_list_programs()` security-definer function, never
+a raw UUID field, with one narrow exception noted in the design doc. The
+Log boundary functions (`log_place_underwriting_credit`,
+`log_clear_underwriting_credit`, `log_list_placeable_rundown_breaks`, all
+owned by this tool's migration per the original design) were rewritten
+against Log's new break/item shape, and a new `uw_copy_select_for_log` RLS
+policy closes the host-script gap from the Log paragraph above: the console
+now renders an underwriting credit's actual script inline, never "go to
+Underwriting & Traffic."
+
+Both migrations hit real Postgres ordering issues worth remembering:
+`DROP TABLE ... CASCADE` does not drop a dependent enum type used as a
+column's type on that table (`log_broadcast_outcome`/
+`log_confirmation_source`/`log_miss_reason` needed explicit `DROP TYPE`
+statements after the `CASCADE`), and a `DROP TYPE` fails if any column still
+depends on it even when that column is dropped later in the same script —
+`uw_copy_production_status` had to move to right after
+`uw_copy.production_status`'s own column drop, not grouped with the other
+type drops earlier in the file. Production also had one stray test contract
+row (`underwriter_name = 'Test UW'`) predating this redesign — not real
+production data per this tool's own no-production-data status, but the
+migration still had to backfill a placeholder `uw_underwriters` row for it
+before requiring `underwriter_id not null`, rather than assuming the table
+was empty.
+
+**Known gap, explicitly not built in this pass**: the Log host console has
+no offline/connectivity resilience. §22 of the source spec (queue unsent
+mid-broadcast actions locally, survive a connectivity drop without losing
+data) was flagged as a requirement in the original Log design doc and still
+isn't implemented — the console assumes a live connection to record
+`markAired`/`markMissed`/`moveRundownItem`. This is the single highest-
+priority item left in `docs/log-design.md` §7's open-issues list; the
+intended shape (IndexedDB queue, client-generated ids, retry with backoff,
+replay on reconnect — the same pattern Remote Interview's local capture
+uses for audio chunks) is designed but not built.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

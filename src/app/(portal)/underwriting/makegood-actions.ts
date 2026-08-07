@@ -27,14 +27,14 @@ export async function createMakegood(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: exception } = await supabase
     .from("uw_exceptions")
-    .select("obligation_id")
+    .select("schedule_line_id")
     .eq("id", exceptionId)
     .maybeSingle();
   if (!exception) failWith(path, "That exception no longer exists.");
 
   const { error } = await supabase.from("uw_makegoods").insert({
     exception_id: exceptionId,
-    obligation_id: exception.obligation_id,
+    schedule_line_id: exception.schedule_line_id,
     created_by: profile.id,
   });
   failIfError(error, path, "Could not create a makegood record");
@@ -55,16 +55,16 @@ export async function createMakegood(formData: FormData): Promise<void> {
 export async function scheduleMakegoodAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const makegoodId = field(formData, "makegood_id");
-  const obligationId = field(formData, "obligation_id");
-  const rundownItemId = field(formData, "rundown_item_id");
+  const scheduleLineId = field(formData, "schedule_line_id");
+  const breakId = field(formData, "break_id");
   const copyId = field(formData, "copy_id");
   const overrideReason = field(formData, "override_reason");
 
-  if (rundownItemId === "" || copyId === "") failWith(LIST_PATH, "Choose an open slot and a copy to place.");
+  if (breakId === "" || copyId === "") failWith(LIST_PATH, "Choose an open break and a copy to place.");
 
   const result = await placeCredit({
-    rundownItemId,
-    obligationId,
+    breakId,
+    scheduleLineId,
     copyId,
     overrideReason: overrideReason || undefined,
   });

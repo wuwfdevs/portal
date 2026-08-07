@@ -8,7 +8,7 @@ import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
 import { getClockTemplateDetail } from "@/lib/log/queries";
-import { addClockSlot, createClockVersion } from "../../clock-actions";
+import { addClockSlot, addLocalOpportunity, createClockVersion, deactivateLocalOpportunity } from "../../clock-actions";
 
 const VARIANT_LABEL: Record<string, string> = {
   weekday: "Weekday",
@@ -62,140 +62,229 @@ export default async function ClockTemplateDetailPage({
           {version.slots.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No slots yet.</p>
           ) : (
-            <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
-              <div className="mx-auto w-full max-w-[320px] lg:mx-0 lg:w-[320px] lg:shrink-0">
-                <ClockFace slots={version.slots} />
+            <div className="flex flex-col gap-6 p-5 xl:flex-row xl:items-start">
+              <div className="mx-auto w-full max-w-[560px] xl:mx-0 xl:w-[560px] xl:shrink-0">
+                <ClockFace slots={version.slots} opportunities={version.opportunities} />
               </div>
-              <div className="min-w-0 flex-1 overflow-x-auto">
-                <Table>
-                  <thead>
-                    <HeaderRow>
-                      <Th>#</Th>
-                      <Th>Label</Th>
-                      <Th>Duration</Th>
-                      <Th>Fill</Th>
-                      <Th>Assignment</Th>
-                      <Th>Content types</Th>
-                    </HeaderRow>
-                  </thead>
-                  <tbody>
-                    {version.slots.map((slot) => (
-                      <Row key={slot.id}>
-                        <Cell>{slot.position}</Cell>
-                        <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
-                        <Cell>{slot.duration_seconds}s</Cell>
-                        <Cell>{slot.fill_mode}</Cell>
-                        <Cell>{slot.assignment_mode}</Cell>
-                        <Cell className="text-ink-500">
-                          {slot.permitted_content_types.length > 0
-                            ? slot.permitted_content_types.join(", ")
-                            : "—"}
-                        </Cell>
-                      </Row>
-                    ))}
-                  </tbody>
-                </Table>
+              <div className="min-w-0 flex-1 space-y-6">
+                <div className="overflow-x-auto">
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
+                    Network structure
+                  </h3>
+                  <Table>
+                    <thead>
+                      <HeaderRow>
+                        <Th>#</Th>
+                        <Th>Label</Th>
+                        <Th>Start</Th>
+                        <Th>Duration</Th>
+                        <Th>Timing</Th>
+                      </HeaderRow>
+                    </thead>
+                    <tbody>
+                      {version.slots.map((slot) => (
+                        <Row key={slot.id}>
+                          <Cell>{slot.position}</Cell>
+                          <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
+                          <Cell>{slot.start_offset_seconds ?? "—"}s</Cell>
+                          <Cell>{slot.duration_seconds}s</Cell>
+                          <Cell className="text-ink-500">
+                            {slot.timing_mode === "float"
+                              ? `floats ${slot.earliest_start_offset_seconds}–${slot.latest_start_offset_seconds}s`
+                              : "fixed"}
+                          </Cell>
+                        </Row>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
+                    WUWF local opportunities
+                  </h3>
+                  {version.opportunities.length === 0 ? (
+                    <p className="text-sm text-ink-500">
+                      None yet — this clock is currently all network feed, no local substitution windows.
+                    </p>
+                  ) : (
+                    <Table>
+                      <thead>
+                        <HeaderRow>
+                          <Th>Label</Th>
+                          <Th>Requirement</Th>
+                          <Th>Window</Th>
+                          <Th>Permits</Th>
+                          {isProducer && <Th>&nbsp;</Th>}
+                        </HeaderRow>
+                      </thead>
+                      <tbody>
+                        {version.opportunities.map((opportunity) => (
+                          <Row key={opportunity.id}>
+                            <Cell className="font-semibold text-ink-900">{opportunity.label}</Cell>
+                            <Cell>
+                              <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
+                                {opportunity.requirement}
+                              </Badge>
+                            </Cell>
+                            <Cell>
+                              {opportunity.timing_mode === "float"
+                                ? `floats ${opportunity.earliest_start_offset_seconds}–${opportunity.latest_start_offset_seconds}s, ${opportunity.duration_seconds}s`
+                                : `${opportunity.start_offset_seconds}s, ${opportunity.duration_seconds}s`}
+                            </Cell>
+                            <Cell className="text-ink-500">
+                              {opportunity.permitted_content_types.length > 0
+                                ? opportunity.permitted_content_types.join(", ")
+                                : "anything"}
+                            </Cell>
+                            {isProducer && (
+                              <Cell>
+                                <form action={deactivateLocalOpportunity}>
+                                  <input type="hidden" name="clock_template_id" value={template.id} />
+                                  <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                                  <Button type="submit" variant="ghost" className="px-2.5 py-1.5 text-xs">
+                                    Deactivate
+                                  </Button>
+                                </form>
+                              </Cell>
+                            )}
+                          </Row>
+                        ))}
+                      </tbody>
+                    </Table>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {isProducer && (
-            <details className="border-t border-line px-5 py-4">
-              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                Add a slot
-              </summary>
-              <form action={addClockSlot} className="mt-4 flex flex-col gap-4">
-                <input type="hidden" name="clock_template_id" value={template.id} />
-                <input type="hidden" name="clock_version_id" value={version.id} />
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-0 border-t border-line lg:grid-cols-2 lg:divide-x lg:divide-line">
+              <details className="px-5 py-4">
+                <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                  Add a network slot
+                </summary>
+                <form action={addClockSlot} className="mt-4 flex flex-col gap-4">
+                  <input type="hidden" name="clock_template_id" value={template.id} />
+                  <input type="hidden" name="clock_version_id" value={version.id} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor={`position-${version.id}`}>Position</Label>
+                      <Input id={`position-${version.id}`} name="position" type="number" required min={1} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`duration-${version.id}`}>Duration (s)</Label>
+                      <Input
+                        id={`duration-${version.id}`}
+                        name="duration_seconds"
+                        type="number"
+                        required
+                        min={1}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`offset-${version.id}`}>Start offset (s)</Label>
+                      <Input id={`offset-${version.id}`} name="start_offset_seconds" type="number" />
+                    </div>
+                    <div>
+                      <Label htmlFor={`label-${version.id}`}>Label</Label>
+                      <Input id={`label-${version.id}`} name="label" maxLength={120} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`segment-label-${version.id}`}>Segment letter</Label>
+                      <Input id={`segment-label-${version.id}`} name="segment_label" maxLength={4} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`timing-mode-${version.id}`}>Timing</Label>
+                      <Select id={`timing-mode-${version.id}`} name="timing_mode" defaultValue="fixed">
+                        <option value="fixed">Fixed</option>
+                        <option value="float">Float</option>
+                      </Select>
+                    </div>
+                  </div>
+                  <FieldHint>
+                    This describes only the network&apos;s own structure — no fill/assignment mode anymore.
+                    See &quot;Add a local opportunity&quot; for WUWF&apos;s own substitution windows.
+                  </FieldHint>
+                  <div className="flex justify-end">
+                    <Button type="submit">Add slot</Button>
+                  </div>
+                </form>
+              </details>
+
+              <details className="px-5 py-4">
+                <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                  Add a local opportunity
+                </summary>
+                <form action={addLocalOpportunity} className="mt-4 flex flex-col gap-4">
+                  <input type="hidden" name="clock_template_id" value={template.id} />
+                  <input type="hidden" name="clock_version_id" value={version.id} />
                   <div>
-                    <Label htmlFor={`position-${version.id}`}>Position</Label>
-                    <Input id={`position-${version.id}`} name="position" type="number" required min={1} />
+                    <Label htmlFor={`opp-label-${version.id}`}>Label</Label>
+                    <Input id={`opp-label-${version.id}`} name="label" required maxLength={120} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor={`opp-position-${version.id}`}>Position</Label>
+                      <Input id={`opp-position-${version.id}`} name="position" type="number" required min={1} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-requirement-${version.id}`}>Requirement</Label>
+                      <Select id={`opp-requirement-${version.id}`} name="requirement" defaultValue="optional">
+                        <option value="optional">Optional — network continues if unused</option>
+                        <option value="required">Required — a genuine local obligation</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-start-${version.id}`}>Start offset (s)</Label>
+                      <Input id={`opp-start-${version.id}`} name="start_offset_seconds" type="number" required min={0} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-duration-${version.id}`}>Duration (s)</Label>
+                      <Input id={`opp-duration-${version.id}`} name="duration_seconds" type="number" required min={1} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-timing-${version.id}`}>Timing</Label>
+                      <Select id={`opp-timing-${version.id}`} name="timing_mode" defaultValue="fixed">
+                        <option value="fixed">Fixed</option>
+                        <option value="float">Floating window</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-multiple-${version.id}`}>Multiple items?</Label>
+                      <label className="mt-2 flex items-center gap-2 text-sm text-ink-700">
+                        <input id={`opp-multiple-${version.id}`} type="checkbox" name="allow_multiple" defaultChecked className="h-4 w-4" />
+                        Allow more than one item
+                      </label>
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-earliest-${version.id}`}>Earliest start (s, float only)</Label>
+                      <Input id={`opp-earliest-${version.id}`} name="earliest_start_offset_seconds" type="number" />
+                    </div>
+                    <div>
+                      <Label htmlFor={`opp-latest-${version.id}`}>Latest start (s, float only)</Label>
+                      <Input id={`opp-latest-${version.id}`} name="latest_start_offset_seconds" type="number" />
+                    </div>
                   </div>
                   <div>
-                    <Label htmlFor={`duration-${version.id}`}>Duration (s)</Label>
+                    <Label htmlFor={`opp-types-${version.id}`}>Permitted content types</Label>
                     <Input
-                      id={`duration-${version.id}`}
-                      name="duration_seconds"
-                      type="number"
-                      required
-                      min={1}
+                      id={`opp-types-${version.id}`}
+                      name="permitted_content_types"
+                      placeholder="legal_id, psa, underwriting_credit"
                     />
+                    <FieldHint>Comma-separated. Leave blank to permit anything.</FieldHint>
                   </div>
                   <div>
-                    <Label htmlFor={`offset-${version.id}`}>Start offset (s)</Label>
-                    <Input id={`offset-${version.id}`} name="start_offset_seconds" type="number" />
+                    <Label htmlFor={`opp-notes-${version.id}`}>Notes</Label>
+                    <Input id={`opp-notes-${version.id}`} name="notes" maxLength={280} />
                   </div>
-                  <div>
-                    <Label htmlFor={`label-${version.id}`}>Label</Label>
-                    <Input id={`label-${version.id}`} name="label" maxLength={120} />
+                  <div className="flex justify-end">
+                    <Button type="submit">Add opportunity</Button>
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor={`content-types-${version.id}`}>Permitted content types</Label>
-                  <Input
-                    id={`content-types-${version.id}`}
-                    name="permitted_content_types"
-                    placeholder="news, station_promo, psa"
-                  />
-                  <FieldHint>Comma-separated.</FieldHint>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <Label htmlFor={`fill-mode-${version.id}`}>Fill mode</Label>
-                    <Select id={`fill-mode-${version.id}`} name="fill_mode" defaultValue="host_fillable">
-                      <option value="required">Required</option>
-                      <option value="optional">Optional</option>
-                      <option value="host_fillable">Host-fillable</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor={`assignment-mode-${version.id}`}>Assignment mode</Label>
-                    <Select
-                      id={`assignment-mode-${version.id}`}
-                      name="assignment_mode"
-                      defaultValue="host_selected"
-                    >
-                      <option value="automatic">Automatic</option>
-                      <option value="preassigned">Preassigned</option>
-                      <option value="host_selected">Host-selected</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor={`timing-mode-${version.id}`}>Timing</Label>
-                    <Select id={`timing-mode-${version.id}`} name="timing_mode" defaultValue="fixed">
-                      <option value="fixed">Fixed</option>
-                      <option value="float">Float</option>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm text-ink-700">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="replaceable" defaultChecked className="h-4 w-4" />
-                    Replaceable
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="shortenable" className="h-4 w-4" />
-                    Shortenable
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="allow_empty" className="h-4 w-4" />
-                    Allow empty
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="allow_multiple" className="h-4 w-4" />
-                    Allow multiple
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" name="lock_on_air" className="h-4 w-4" />
-                    Lock on air
-                  </label>
-                </div>
-                <div className="flex justify-end">
-                  <Button type="submit">Add slot</Button>
-                </div>
-              </form>
-            </details>
+                </form>
+              </details>
+            </div>
           )}
         </div>
       ))}
@@ -228,7 +317,8 @@ export default async function ClockTemplateDetailPage({
               </div>
             </div>
             <FieldHint>
-              A version is immutable once created — a correction is a new version, not an edit.
+              A version is immutable once created — a correction is a new version, not an edit. Local
+              opportunities are defined separately, per version, above.
             </FieldHint>
             <div className="flex justify-end border-t border-line pt-4">
               <Button type="submit">Start version</Button>

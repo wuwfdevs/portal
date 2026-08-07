@@ -2,49 +2,49 @@
 // pure and recomputed on every render/poll, not stored, same rule
 // lib/log/timing.ts follows for build-time fit. This module is scoped by
 // what this milestone actually has: wall-clock time versus the plan, plus
-// whether each item has been confirmed (a log_broadcast_events row exists
-// for it). There is no automation-system feed and no live playback
-// telemetry (docs/log-design.md's "What's deliberately not in the
-// architecture" — every outcome is host-confirmed), so "running_short" here
-// is a lighter-weight signal than a system with real elapsed-playback data
-// could offer: it fires once a confirmed item's planned window still has
-// meaningful time left, not from measuring actual audio length.
+// whether every item currently placed in a break has been confirmed (a
+// log_broadcast_events row exists for it). There is no automation-system
+// feed and no live playback telemetry (docs/log-design.md's "What's
+// deliberately not in the architecture" — every outcome is host-confirmed).
+//
+// The live timeline's unit is now the *break* (docs/log-design.md §4B), not
+// a single-slot item — a break is what has a scheduled start and a network
+// rejoin point; the items placed inside it are what actually air.
 
-import type { LogRequirementLevel } from "@/lib/database.types";
-
-export interface ConsoleItemLike {
+export interface ConsoleBreakLike {
   id: string;
   scheduled_at: string;
-  planned_duration_seconds: number;
-  requirement_level: LogRequirementLevel;
-  /** Whether a broadcast event has already been recorded for this item (aired or missed). */
-  confirmed: boolean;
+  network_rejoin_at: string;
+  requirement: "optional" | "required";
+  itemCount: number;
+  /** Whether every item currently placed in this break has a recorded broadcast outcome. Vacuously true for an empty break. */
+  allItemsConfirmed: boolean;
 }
 
 export type LiveTimingState = "on_time" | "running_long" | "running_short" | "at_risk_required" | "at_risk_rejoin";
 
 export interface LiveTimingResult {
   state: LiveTimingState;
-  currentItem: ConsoleItemLike | null;
-  nextItem: ConsoleItemLike | null;
-  /** Seconds left in the current item's planned window — negative once it's run over. Null with no current item. */
+  currentBreak: ConsoleBreakLike | null;
+  nextBreak: ConsoleBreakLike | null;
+  /** Seconds left before this break's own network-rejoin point — negative once past it. Null with no current break. */
   secondsRemainingInCurrent: number | null;
-  /** Seconds until the shift's network rejoin point (shift_end_at) — negative once past it. */
+  /** Seconds until the shift's overall network rejoin point (shift_end_at) — negative once past it. */
   secondsToRejoin: number;
 }
 
 export interface LiveTimingThresholds {
-  /** How close to a deadline (rejoin, or a required item's start) counts as "at risk." Default 60s. */
+  /** How close to a deadline (rejoin, or a required break's own rejoin) counts as "at risk." Default 60s. */
   riskThresholdSeconds: number;
-  /** How much spare time in a confirmed item's window counts as "running short." Default 30s. */
+  /** How much spare time before rejoin counts as "running short" once every item is confirmed. Default 30s. */
   shortThresholdSeconds: number;
 }
 
 const DEFAULT_THRESHOLDS: LiveTimingThresholds = { riskThresholdSeconds: 60, shortThresholdSeconds: 30 };
 
 /**
- * The item airing (or that should be airing) at `nowISO`, and the one after
- * it — items are expected sorted by scheduled_at, chronological and
+ * The break airing (or that should be airing) at `nowISO`, and the one
+ * after it — breaks are expected sorted by scheduled_at, chronological and
  * non-overlapping, same assumption lib/log/clock-face.ts makes of slots.
  */
 function findCurrentAndNext<T extends { scheduled_at: string }>(
@@ -67,43 +67,49 @@ function findCurrentAndNext<T extends { scheduled_at: string }>(
 
 export function computeLiveTimingState(
   nowISO: string,
-  items: ConsoleItemLike[],
+  breaks: ConsoleBreakLike[],
   shiftEndAtISO: string,
   thresholds: Partial<LiveTimingThresholds> = {},
 ): LiveTimingResult {
   const { riskThresholdSeconds, shortThresholdSeconds } = { ...DEFAULT_THRESHOLDS, ...thresholds };
-  const sorted = [...items].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  const sorted = [...breaks].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const nowMs = new Date(nowISO).getTime();
   const { current, next } = findCurrentAndNext(sorted, nowMs);
   const secondsToRejoin = (new Date(shiftEndAtISO).getTime() - nowMs) / 1000;
 
   if (!current) {
-    return { state: "on_time", currentItem: null, nextItem: next, secondsRemainingInCurrent: null, secondsToRejoin };
+    return {
+      state: "on_time",
+      currentBreak: null,
+      nextBreak: next,
+      secondsRemainingInCurrent: null,
+      secondsToRejoin,
+    };
   }
 
-  const currentEndMs = new Date(current.scheduled_at).getTime() + current.planned_duration_seconds * 1000;
-  const secondsRemainingInCurrent = (currentEndMs - nowMs) / 1000;
-  const isLastItem = sorted[sorted.length - 1]?.id === current.id;
+  const currentRejoinMs = new Date(current.network_rejoin_at).getTime();
+  const secondsRemainingInCurrent = (currentRejoinMs - nowMs) / 1000;
+  const isLastBreak = sorted[sorted.length - 1]?.id === current.id;
+  const currentUnresolved = current.itemCount === 0 ? current.requirement === "required" : !current.allItemsConfirmed;
 
   let state: LiveTimingState = "on_time";
-  if (!current.confirmed && secondsRemainingInCurrent < -riskThresholdSeconds) {
+  if (current.itemCount > 0 && !current.allItemsConfirmed && secondsRemainingInCurrent < -riskThresholdSeconds) {
     state = "running_long";
-  } else if (current.confirmed && secondsRemainingInCurrent > shortThresholdSeconds) {
+  } else if (current.itemCount > 0 && current.allItemsConfirmed && secondsRemainingInCurrent > shortThresholdSeconds) {
     state = "running_short";
   }
 
   if (
-    next &&
-    next.requirement_level === "required" &&
-    !current.confirmed &&
-    (new Date(next.scheduled_at).getTime() - nowMs) / 1000 <= riskThresholdSeconds
+    current.requirement === "required" &&
+    current.itemCount === 0 &&
+    secondsRemainingInCurrent <= riskThresholdSeconds
   ) {
     state = "at_risk_required";
   }
 
-  if (isLastItem && !current.confirmed && secondsToRejoin <= riskThresholdSeconds) {
+  if (isLastBreak && currentUnresolved && secondsToRejoin <= riskThresholdSeconds) {
     state = "at_risk_rejoin";
   }
 
-  return { state, currentItem: current, nextItem: next, secondsRemainingInCurrent, secondsToRejoin };
+  return { state, currentBreak: current, nextBreak: next, secondsRemainingInCurrent, secondsToRejoin };
 }

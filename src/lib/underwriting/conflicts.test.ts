@@ -1,41 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { computeObligationConflicts, type ObligationConflictCheckInput } from "./conflicts";
+import { computeScheduleLineConflicts, type ScheduleLineConflictCheckInput } from "./conflicts";
 
-function input(overrides: Partial<ObligationConflictCheckInput> = {}): ObligationConflictCheckInput {
+function input(overrides: Partial<ScheduleLineConflictCheckInput> = {}): ScheduleLineConflictCheckInput {
   return {
     hasApprovedLinkedCopy: true,
-    eligibleOpenSlotCount: 3,
+    eligibleOpenBreakCount: 3,
     activePlacementCount: 0,
-    quantityRequired: 4,
+    expectedOccurrences: 4,
     ...overrides,
   };
 }
 
-describe("computeObligationConflicts", () => {
-  it("flags nothing when copy is approved and slots remain", () => {
-    expect(computeObligationConflicts(input())).toEqual([]);
+describe("computeScheduleLineConflicts", () => {
+  it("flags nothing when copy is approved and breaks remain", () => {
+    expect(computeScheduleLineConflicts(input())).toEqual([]);
   });
 
   it("flags missing approved copy", () => {
-    expect(computeObligationConflicts(input({ hasApprovedLinkedCopy: false }))).toEqual(["no_approved_copy"]);
+    expect(computeScheduleLineConflicts(input({ hasApprovedLinkedCopy: false }))).toEqual(["no_approved_copy"]);
   });
 
   it("flags insufficient inventory once the quota is unmet and nothing is open", () => {
     expect(
-      computeObligationConflicts(input({ eligibleOpenSlotCount: 0, activePlacementCount: 1 })),
+      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 1 })),
     ).toEqual(["insufficient_inventory"]);
   });
 
   it("does not flag insufficient inventory once the quota is already met", () => {
     expect(
-      computeObligationConflicts(input({ eligibleOpenSlotCount: 0, activePlacementCount: 4 })),
+      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 4 })),
+    ).toEqual([]);
+  });
+
+  it("does not flag insufficient inventory for an open-ended line with no fixed target", () => {
+    expect(
+      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 0, expectedOccurrences: null })),
     ).toEqual([]);
   });
 
   it("can flag both reasons at once", () => {
     expect(
-      computeObligationConflicts(
-        input({ hasApprovedLinkedCopy: false, eligibleOpenSlotCount: 0, activePlacementCount: 0 }),
+      computeScheduleLineConflicts(
+        input({ hasApprovedLinkedCopy: false, eligibleOpenBreakCount: 0, activePlacementCount: 0 }),
       ),
     ).toEqual(["no_approved_copy", "insufficient_inventory"]);
   });

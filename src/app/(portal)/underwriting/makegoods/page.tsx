@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { listMakegoods } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
+import { describeScheduleLineRecurrence } from "@/lib/underwriting/schedule-lines";
 import { describeMakegoodState, MAKEGOOD_STATE_LABEL, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
 import { cancelMakegoodAction, scheduleMakegoodAction } from "../makegood-actions";
 
@@ -18,9 +19,9 @@ const STATE_VARIANT: Record<MakegoodDisplayState, BadgeVariant> = {
 /**
  * Workflow F (docs/underwriting-design.md §3F, §4) — every makegood, newest
  * first. A makegood created from the exception page starts here awaiting a
- * slot; picking one goes through the identical eligibility check as the
+ * break; picking one goes through the identical eligibility check as the
  * contract page's own "Place a credit" form, since both call
- * log_place_underwriting_credit(). Once aired (Slice 4's own
+ * log_place_underwriting_credit(). Once aired (the
  * uw_update_makegood_from_broadcast_event trigger) or cancelled, a makegood
  * is read-only here.
  */
@@ -53,12 +54,12 @@ export default async function MakegoodsPage({
                   href={`/underwriting/contracts/${makegood.contract.id}`}
                   className="text-sm font-semibold text-brand-link"
                 >
-                  {makegood.contract.underwriter_name}
+                  {makegood.contract.underwriter.name}
                 </Link>
                 <Badge variant={STATE_VARIANT[state]}>{MAKEGOOD_STATE_LABEL[state]}</Badge>
               </div>
               <p className="mb-3 text-xs text-ink-500">
-                {makegood.obligation.description} · resolving{" "}
+                {describeScheduleLineRecurrence(makegood.scheduleLine)} · resolving{" "}
                 <Link href={`/underwriting/exceptions/${makegood.exception.id}`} className="font-semibold text-brand-link">
                   the exception from {formatPlacementTime(makegood.exception.original_scheduled_at)}
                 </Link>
@@ -67,7 +68,7 @@ export default async function MakegoodsPage({
               {makegood.placement && (
                 <p className="mb-3 text-xs text-ink-700">
                   {makegood.placement.program_name} — {formatPlacementTime(makegood.placement.scheduled_at)}
-                  {makegood.placement.clock_slot_label ? ` (${makegood.placement.clock_slot_label})` : ""}
+                  {makegood.placement.break_label ? ` (${makegood.placement.break_label})` : ""}
                   {makegood.placement.override_reason && (
                     <span className="ml-2 text-warning-fg">override: {makegood.placement.override_reason}</span>
                   )}
@@ -77,11 +78,11 @@ export default async function MakegoodsPage({
               {state === "awaiting_slot" &&
                 (!makegood.placeable || !makegood.placeable.ok ? (
                   <p className="text-xs text-danger">
-                    {makegood.placeable ? makegood.placeable.message : "Could not check for eligible slots."}
+                    {makegood.placeable ? makegood.placeable.message : "Could not check for eligible breaks."}
                   </p>
-                ) : makegood.placeable.items.length === 0 ? (
+                ) : makegood.placeable.breaks.length === 0 ? (
                   <p className="text-xs text-ink-500">
-                    No eligible open slots right now — a rundown must exist for an eligible program first.
+                    No eligible open breaks right now — a rundown must exist for an eligible program first.
                   </p>
                 ) : makegood.linkedCopy.length === 0 ? (
                   <p className="text-xs text-ink-500">
@@ -97,17 +98,17 @@ export default async function MakegoodsPage({
                     className="flex flex-col gap-3 rounded border border-dashed border-line p-3"
                   >
                     <input type="hidden" name="makegood_id" value={makegood.id} />
-                    <input type="hidden" name="obligation_id" value={makegood.obligation_id} />
+                    <input type="hidden" name="schedule_line_id" value={makegood.schedule_line_id} />
                     <div>
-                      <Label htmlFor={`rundown_item_${makegood.id}`}>Open slot</Label>
-                      <Select id={`rundown_item_${makegood.id}`} name="rundown_item_id" defaultValue="">
+                      <Label htmlFor={`break_${makegood.id}`}>Open break</Label>
+                      <Select id={`break_${makegood.id}`} name="break_id" defaultValue="">
                         <option value="" disabled>
-                          Choose a slot…
+                          Choose a break…
                         </option>
-                        {makegood.placeable.items.map((item) => (
-                          <option key={item.rundown_item_id} value={item.rundown_item_id}>
-                            {item.program_name} — {formatPlacementTime(item.scheduled_at)}
-                            {item.clock_slot_label ? ` (${item.clock_slot_label})` : ""} · {item.slot_duration_seconds}s
+                        {makegood.placeable.breaks.map((brk) => (
+                          <option key={brk.break_id} value={brk.break_id}>
+                            {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}) ·{" "}
+                            {brk.remaining_seconds}s remaining
                           </option>
                         ))}
                       </Select>
@@ -120,7 +121,7 @@ export default async function MakegoodsPage({
                         </option>
                         {makegood.linkedCopy.map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.cart_identifier ?? item.id.slice(0, 8)} ({item.approval_status})
+                            {item.label} ({item.approval_status})
                           </option>
                         ))}
                       </Select>

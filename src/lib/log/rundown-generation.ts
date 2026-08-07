@@ -1,78 +1,109 @@
 // Pure rundown-generation logic — no Supabase import, colocated test. Given
-// a clock version's slots and a shift's start time/length, produces the
-// draft log_rundown_items rows generation should insert. See
-// docs/log-design.md §4.2/§11 (Workflow E) and CLAUDE.md's "the clock
-// template repeats each hour" note on log_schedule.duration_minutes.
+// a clock version's local opportunities (WUWF's own overlay — see
+// lib/log/local-opportunities.ts and 20260808120000_log_local_opportunities.sql)
+// and a shift's start time/length, produces the draft log_rundown_breaks
+// rows generation should insert. See docs/log-design.md §4B (Workflow E)
+// and CLAUDE.md's "the clock template repeats each hour" note on
+// log_schedule.duration_minutes.
 //
-// Only slots a host actually decides something about get a row: fill_mode =
-// 'required' slots are the network feed itself (assignment_mode =
-// 'automatic' for every one of them in this tool's real seed data) — there
-// is no content_item to pick and nothing for a rundown_item to represent, so
-// generation leaves them out entirely rather than manufacturing a row with a
-// null content_item_id for something nobody will ever fill. The clock face
-// diagram (lib/log/clock-face.ts) already renders the full clock, required
-// slots included, for context.
+// Every local opportunity gets a break — including optional ones — because
+// the break itself is what the builder and console render ("carrying
+// network" if nothing gets placed in it). What generation does NOT do is
+// manufacture a break for the network clock's own required/automatic
+// content: log_clock_slots never feeds this function at all anymore. See
+// the clock face diagram (lib/log/clock-face.ts) for the full network
+// structure, opportunities included, rendered for context.
 
-import type { LogRequirementLevel, LogSlotFillMode } from "@/lib/database.types";
+import type { LogOpportunityRequirement } from "@/lib/database.types";
 
-export interface RundownSlotLike {
+export interface RundownOpportunityLike {
   id: string;
   position: number;
-  start_offset_seconds: number | null;
+  label: string;
+  requirement: LogOpportunityRequirement;
+  timing_mode: "fixed" | "float";
+  start_offset_seconds: number;
   duration_seconds: number;
-  fill_mode: LogSlotFillMode;
+  earliest_start_offset_seconds: number | null;
+  latest_start_offset_seconds: number | null;
+  permitted_content_types: string[];
+  allow_multiple: boolean;
 }
 
-export interface RundownItemDraft {
-  clock_slot_id: string;
+export interface RundownBreakDraft {
+  local_opportunity_id: string;
   hour_index: number;
   position: number;
+  label: string;
+  requirement: LogOpportunityRequirement;
+  permitted_content_types: string[];
+  allow_multiple: boolean;
   scheduled_at: string;
-  planned_duration_seconds: number;
-  requirement_level: LogRequirementLevel;
+  available_duration_seconds: number;
+  network_rejoin_at: string;
 }
 
 /**
- * A slot's requirement once placed in a rundown: 'host_fillable' means the
- * break must be filled with *something*, the host just chooses what — that
- * maps to 'required' here, not 'optional'. Only a slot whose own fill_mode
- * is 'optional' (host's discretion whether to use it at all) maps to
- * 'optional'. 'suggested' is a valid requirement_level a producer can
- * override a specific placement to later, but generation never produces it.
+ * The nominal start offset used to place a break on the timeline: a fixed
+ * opportunity's own offset, or a floating one's earliest permitted start
+ * (a sensible default position before a producer/host decides exactly
+ * where within the window to land — same convention log_clock_slots'
+ * floating network elements already use).
  */
-export function defaultRequirementLevel(fillMode: LogSlotFillMode): LogRequirementLevel {
-  return fillMode === "optional" ? "optional" : "required";
+function nominalStartOffsetSeconds(opportunity: RundownOpportunityLike): number {
+  if (opportunity.timing_mode === "float") {
+    return opportunity.earliest_start_offset_seconds ?? opportunity.start_offset_seconds;
+  }
+  return opportunity.start_offset_seconds;
 }
 
 /**
- * Builds one draft rundown item per host-decided slot, repeated once per
- * hour across the shift (a clock template describes a single hour; a
+ * The latest moment WUWF may still be on local content before the network
+ * must be rejoined: start + duration for a fixed opportunity, or the
+ * latest permitted start + duration for a floating one (the worst case —
+ * a float window that starts as late as possible still needs its full
+ * duration before rejoining).
+ */
+function rejoinOffsetSeconds(opportunity: RundownOpportunityLike): number {
+  if (opportunity.timing_mode === "float") {
+    const latest = opportunity.latest_start_offset_seconds ?? opportunity.start_offset_seconds;
+    return latest + opportunity.duration_seconds;
+  }
+  return opportunity.start_offset_seconds + opportunity.duration_seconds;
+}
+
+/**
+ * Builds one draft break per local opportunity, repeated once per hour
+ * across the shift (a clock template describes a single hour; a
  * multi-hour air block — e.g. Morning Edition's four hours — repeats it).
  * `shiftDurationMinutes` is rounded up to a whole number of hours so a
- * not-quite-hour-aligned shift still gets its final partial hour's slots
- * rather than silently dropping them.
+ * not-quite-hour-aligned shift still gets its final partial hour's
+ * opportunities rather than silently dropping them.
  */
-export function buildRundownItemDrafts(
-  slots: RundownSlotLike[],
+export function buildRundownBreakDrafts(
+  opportunities: RundownOpportunityLike[],
   shiftStartAtISO: string,
   shiftDurationMinutes: number,
-): RundownItemDraft[] {
-  const fillableSlots = slots.filter((slot) => slot.fill_mode !== "required");
+): RundownBreakDraft[] {
   const hours = Math.max(1, Math.ceil(shiftDurationMinutes / 60));
   const shiftStartMs = new Date(shiftStartAtISO).getTime();
 
-  const drafts: RundownItemDraft[] = [];
+  const drafts: RundownBreakDraft[] = [];
   for (let hourIndex = 0; hourIndex < hours; hourIndex++) {
-    for (const slot of fillableSlots) {
-      const offsetSeconds = slot.start_offset_seconds ?? 0;
-      const scheduledAtMs = shiftStartMs + (hourIndex * 3600 + offsetSeconds) * 1000;
+    for (const opportunity of opportunities) {
+      const startSeconds = hourIndex * 3600 + nominalStartOffsetSeconds(opportunity);
+      const rejoinSeconds = hourIndex * 3600 + rejoinOffsetSeconds(opportunity);
       drafts.push({
-        clock_slot_id: slot.id,
+        local_opportunity_id: opportunity.id,
         hour_index: hourIndex,
-        position: hourIndex * 10_000 + slot.position,
-        scheduled_at: new Date(scheduledAtMs).toISOString(),
-        planned_duration_seconds: slot.duration_seconds,
-        requirement_level: defaultRequirementLevel(slot.fill_mode),
+        position: hourIndex * 10_000 + opportunity.position,
+        label: opportunity.label,
+        requirement: opportunity.requirement,
+        permitted_content_types: opportunity.permitted_content_types,
+        allow_multiple: opportunity.allow_multiple,
+        scheduled_at: new Date(shiftStartMs + startSeconds * 1000).toISOString(),
+        available_duration_seconds: opportunity.duration_seconds,
+        network_rejoin_at: new Date(shiftStartMs + rejoinSeconds * 1000).toISOString(),
       });
     }
   }

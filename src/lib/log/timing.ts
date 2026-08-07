@@ -1,68 +1,94 @@
 // The timing engine, per docs/log-design.md §12/"Timing is a pure, tested
-// module — not stored state": fit calculations derived from rundown items +
-// clock slots, never persisted as a computed column. Scoped to this slice's
-// build-time concern (does an item fit its slot, is the rundown ready) —
-// the live console's continuous on-time/running-long/running-short state
-// (§12.4) needs actual wall-clock playback progress and belongs to the next
-// slice (the host console), not rundown generation.
+// module — not stored state": fit calculations derived from rundown breaks
+// and their items, never persisted as a computed column.
+//
+// The core domain fix this module encodes: an *optional* local opportunity
+// left empty is a normal, resolved state ("carrying network") — never
+// unresolved. A *required* one left empty is a genuine unresolved
+// obligation. Those are two different things, and this module is where
+// that distinction is actually computed — see computeBreakStatus.
 
-import type { LogRequirementLevel } from "@/lib/database.types";
-
-export interface SlotFit {
-  slotDurationSeconds: number;
-  plannedDurationSeconds: number;
-  /** Slot time left over after the planned material — negative when over. */
+export interface BreakFit {
+  availableDurationSeconds: number;
+  occupiedDurationSeconds: number;
+  /** Break time left over after placed items. Negative when over. */
   remainingSeconds: number;
-  /** How far over the slot's duration the planned material runs, 0 if it fits. */
+  /** How far placed items run past the break's available time, 0 if it fits. */
   overSeconds: number;
   fits: boolean;
 }
 
-export function computeSlotFit(slotDurationSeconds: number, plannedDurationSeconds: number | null): SlotFit {
-  const planned = plannedDurationSeconds ?? 0;
-  const remainingSeconds = slotDurationSeconds - planned;
+export function computeBreakFit(availableDurationSeconds: number, occupiedDurationSeconds: number): BreakFit {
+  const occupied = occupiedDurationSeconds ?? 0;
+  const remainingSeconds = availableDurationSeconds - occupied;
   return {
-    slotDurationSeconds,
-    plannedDurationSeconds: planned,
+    availableDurationSeconds,
+    occupiedDurationSeconds: occupied,
     remainingSeconds,
     overSeconds: Math.max(0, -remainingSeconds),
     fits: remainingSeconds >= 0,
   };
 }
 
-export interface RundownSummaryItemLike {
-  content_item_id: string | null;
-  /** Set instead of content_item_id for an underwriting-credit placement — docs/underwriting-design.md §6. Either one counts as filled. */
-  underwriting_copy_id?: string | null;
-  requirement_level: LogRequirementLevel;
-  planned_duration_seconds: number;
-  slot_duration_seconds: number;
+export type BreakStatus = "carrying_network" | "unresolved_required" | "filled" | "over";
+
+export interface BreakStatusLike {
+  requirement: "optional" | "required";
+  item_count: number;
+  fit: BreakFit;
+}
+
+/**
+ * The single place "is this break okay as-is" gets decided. An empty
+ * optional break is 'carrying_network' — the network feed continues, and
+ * that is not a problem to flag. An empty required break is
+ * 'unresolved_required' — a genuine obligation nobody has met yet. Anything
+ * with items that runs long is 'over' regardless of requirement; otherwise
+ * a filled break is just 'filled'.
+ */
+export function computeBreakStatus(input: BreakStatusLike): BreakStatus {
+  if (input.fit.overSeconds > 0) return "over";
+  if (input.item_count === 0) {
+    return input.requirement === "required" ? "unresolved_required" : "carrying_network";
+  }
+  return "filled";
+}
+
+export interface RundownSummaryBreakLike {
+  requirement: "optional" | "required";
+  available_duration_seconds: number;
+  occupied_duration_seconds: number;
+  item_count: number;
 }
 
 export interface RundownSummary {
-  totalItems: number;
-  filledItems: number;
-  /** Slots that must be filled with something before air and currently aren't. */
-  emptyRequiredItems: number;
+  totalBreaks: number;
+  filledBreaks: number;
+  /** Optional breaks with nothing placed — normal, resolved, network continues. */
+  carryingNetworkBreaks: number;
+  /** Required breaks with nothing placed — genuinely unresolved. */
+  unresolvedRequiredBreaks: number;
   overCount: number;
   totalOverSeconds: number;
-  /** No unfilled required slots and nothing running over its slot. */
+  /** No unresolved required breaks and nothing running over its available time. */
   ready: boolean;
 }
 
 /** A rundown-level readiness summary for the builder screen's header — recomputed on every render, not stored. */
-export function computeRundownSummary(items: RundownSummaryItemLike[]): RundownSummary {
-  let filledItems = 0;
-  let emptyRequiredItems = 0;
+export function computeRundownSummary(breaks: RundownSummaryBreakLike[]): RundownSummary {
+  let filledBreaks = 0;
+  let carryingNetworkBreaks = 0;
+  let unresolvedRequiredBreaks = 0;
   let overCount = 0;
   let totalOverSeconds = 0;
 
-  for (const item of items) {
-    const filled = item.content_item_id !== null || Boolean(item.underwriting_copy_id);
-    if (filled) filledItems++;
-    else if (item.requirement_level === "required") emptyRequiredItems++;
+  for (const b of breaks) {
+    const fit = computeBreakFit(b.available_duration_seconds, b.occupied_duration_seconds);
+    const status = computeBreakStatus({ requirement: b.requirement, item_count: b.item_count, fit });
 
-    const fit = computeSlotFit(item.slot_duration_seconds, filled ? item.planned_duration_seconds : 0);
+    if (status === "filled" || status === "over") filledBreaks++;
+    if (status === "carrying_network") carryingNetworkBreaks++;
+    if (status === "unresolved_required") unresolvedRequiredBreaks++;
     if (fit.overSeconds > 0) {
       overCount++;
       totalOverSeconds += fit.overSeconds;
@@ -70,11 +96,12 @@ export function computeRundownSummary(items: RundownSummaryItemLike[]): RundownS
   }
 
   return {
-    totalItems: items.length,
-    filledItems,
-    emptyRequiredItems,
+    totalBreaks: breaks.length,
+    filledBreaks,
+    carryingNetworkBreaks,
+    unresolvedRequiredBreaks,
     overCount,
     totalOverSeconds,
-    ready: emptyRequiredItems === 0 && overCount === 0,
+    ready: unresolvedRequiredBreaks === 0 && overCount === 0,
   };
 }

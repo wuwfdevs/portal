@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy } from "@/lib/underwriting/queries";
 import { createCopy } from "../copy-actions";
@@ -28,18 +28,18 @@ export default async function CopyLibraryPage({
       <div className="min-w-0 flex-1">
         {copy.length === 0 ? (
           <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            No copy yet.
+            No copy yet — usually created from a contract&apos;s own page.
           </div>
         ) : (
           <TableFrame>
             <Table>
               <thead>
                 <HeaderRow>
-                  <Th>Cart #</Th>
+                  <Th>Label</Th>
                   <Th>Script</Th>
                   <Th>Duration</Th>
+                  <Th>Execution</Th>
                   <Th>Approval</Th>
-                  <Th>Production</Th>
                 </HeaderRow>
               </thead>
               <tbody>
@@ -47,17 +47,17 @@ export default async function CopyLibraryPage({
                   <Row key={item.id}>
                     <Cell className="font-semibold text-ink-900">
                       <Link href={`/underwriting/copy/${item.id}`} className="text-brand-link">
-                        {item.cart_identifier ?? "(no cart #)"}
+                        {item.label}
                       </Link>
                     </Cell>
                     <Cell className="max-w-xs truncate text-ink-500">{item.script ?? "—"}</Cell>
                     <Cell className="whitespace-nowrap text-ink-500">
                       {item.duration_seconds ? `${item.duration_seconds}s` : "—"}
                     </Cell>
+                    <Cell className="text-ink-500">{item.execution_kind === "recorded" ? "Recorded" : "Live read"}</Cell>
                     <Cell>
                       <Badge variant={APPROVAL_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
                     </Cell>
-                    <Cell className="text-ink-500">{item.production_status}</Cell>
                   </Row>
                 ))}
               </tbody>
@@ -71,12 +71,29 @@ export default async function CopyLibraryPage({
         <form action={createCopy} className="flex flex-col gap-4 p-5">
           {error && <Alert>{error}</Alert>}
           <div>
-            <Label htmlFor="cart_identifier">Cart #</Label>
-            <Input id="cart_identifier" name="cart_identifier" maxLength={120} />
+            <Label htmlFor="label">Label</Label>
+            <Input id="label" name="label" required maxLength={80} placeholder="Message A" />
+          </div>
+          <div>
+            <Label htmlFor="execution_kind">Execution</Label>
+            <Select id="execution_kind" name="execution_kind" defaultValue="live_read">
+              <option value="live_read">Live read</option>
+              <option value="recorded">Recorded (via DAD)</option>
+            </Select>
           </div>
           <div>
             <Label htmlFor="script">Script</Label>
             <Textarea id="script" name="script" rows={5} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="duration_seconds">Duration (s)</Label>
+              <Input id="duration_seconds" name="duration_seconds" type="number" min={1} />
+            </div>
+            <div>
+              <Label htmlFor="cart_identifier">DAD cart #</Label>
+              <Input id="cart_identifier" name="cart_identifier" maxLength={120} />
+            </div>
           </div>
           <div className="flex gap-3">
             <div>
@@ -88,7 +105,10 @@ export default async function CopyLibraryPage({
               <Input id="effective_to" name="effective_to" type="date" />
             </div>
           </div>
-          <FieldHint>Audio, duration, and approval/production status are set from the copy&apos;s own page.</FieldHint>
+          <FieldHint>
+            Not linked to a contract from here — usually copy is created from the contract&apos;s own page
+            instead, which links it in the same step.
+          </FieldHint>
           <div className="flex justify-end border-t border-line pt-4">
             <Button type="submit">Create copy</Button>
           </div>
