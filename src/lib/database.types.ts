@@ -127,7 +127,17 @@
 // after applying. This migration's two trigger functions
 // (uw_guard_exception_resolution/uw_flag_exception_from_broadcast_event)
 // aren't in the Functions map — they're never called via .rpc(), only
-// fired by Postgres itself.
+// fired by Postgres itself. Hand-updated again on 2026-08-07 for
+// Underwriting's Slice 4, makegoods
+// (supabase/migrations/20260807240000_underwriting_makegoods.sql):
+// uw_makegoods and the new UwMakegoodStatus enum. Its trigger function
+// (uw_update_makegood_from_broadcast_event) isn't in the Functions map for
+// the same reason as Slice 3's two. Hand-updated again on 2026-08-07 for
+// Underwriting's Slice 5, affidavits
+// (supabase/migrations/20260807250000_underwriting_affidavits.sql):
+// uw_affidavits/uw_affidavit_line_items and the new UwAffidavitStatus enum;
+// its guard trigger (uw_guard_affidavit_certification) is likewise not in
+// the Functions map.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -374,6 +384,10 @@ export type UwResolutionAction =
   | "clarification_requested"
   | "corrected"
   | "closed";
+// Slice 4 (makegoods) — see supabase/migrations/20260807240000_underwriting_makegoods.sql.
+export type UwMakegoodStatus = "scheduled" | "aired" | "cancelled";
+// Slice 5 (affidavits) — see supabase/migrations/20260807250000_underwriting_affidavits.sql.
+export type UwAffidavitStatus = "draft" | "certified";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1861,6 +1875,61 @@ export interface Database {
           host_action: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_exceptions"]["Row"]>;
+        Relationships: [];
+      };
+      uw_makegoods: {
+        Row: {
+          id: string;
+          exception_id: string;
+          obligation_id: string;
+          scheduled_placement_id: string | null;
+          status: UwMakegoodStatus;
+          scheduled_for: string | null;
+          aired_log_broadcast_event_id: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_makegoods"]["Row"]> & {
+          exception_id: string;
+          obligation_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_makegoods"]["Row"]>;
+        Relationships: [];
+      };
+      uw_affidavits: {
+        Row: {
+          id: string;
+          contract_id: string;
+          campaign_period_start: string;
+          campaign_period_end: string;
+          generated_at: string;
+          generated_by: string | null;
+          certifying_staff_id: string | null;
+          certification_text: string | null;
+          report_identifier: string;
+          status: UwAffidavitStatus;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_affidavits"]["Row"]> & {
+          contract_id: string;
+          campaign_period_start: string;
+          campaign_period_end: string;
+          report_identifier: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_affidavits"]["Row"]>;
+        Relationships: [];
+      };
+      uw_affidavit_line_items: {
+        Row: {
+          affidavit_id: string;
+          log_broadcast_event_id: string;
+          scheduled_placement_id: string;
+        };
+        Insert: {
+          affidavit_id: string;
+          log_broadcast_event_id: string;
+          scheduled_placement_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_affidavit_line_items"]["Row"]>;
         Relationships: [];
       };
     };
