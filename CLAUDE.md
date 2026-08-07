@@ -574,11 +574,12 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slice 2 (content library) has since landed too — see
-below.** NPR+weather is next — proceed with it without asking again,
-followed by rundown generation with the timing engine, the host console with
-mid-broadcast actions, then submission and the three MCP capabilities — see
-`docs/log-design.md` §7 for the full milestone list this is slicing through.
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather) have
+since landed too — see below.** Rundown generation with the timing engine is
+next — proceed with it without asking again, followed by the host console
+with mid-broadcast actions, then submission and the three MCP capabilities —
+see `docs/log-design.md` §7 for the full milestone list this is slicing
+through.
 
 Two things about this slice are load-bearing:
 
@@ -780,6 +781,119 @@ cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
 (same file, pure and tested) implements the design doc's "a 30-second promo
 with a required 8-second outro is a 38-second commitment, never displayed
 as 30" rule — optional components never count toward the total.
+
+**Log: milestone 1 slice 3 (NPR + weather) has landed** — plus, the same
+day, its NPR half was corrected to the real API model (see the dated note
+below; this paragraph already describes the corrected state).
+`20260807130000_log_npr_weather.sql` adds `log_weather_reading`, and
+`20260807140000_log_npr_cds_correction.sql` adds `log_npr_episodes`/
+`log_npr_episode_items` and `log_programs.npr_collection_id`, plus the
+`/log/npr` and `/log/weather` route segments (Workflow D,
+`docs/log-design.md` §3). All three tables stay open to any tool member, no
+`is_log_producer()` branch, same reasoning as Slice 2's content library —
+reading and refreshing NPR/weather is an ordinary host duty. Both
+integrations are refreshed **lazily at read time, never on a schedule**
+(§6: this repo still has no job queue): `lib/log/npr.ts`'s
+`getNprEpisodeForProgramOnDate()` and `lib/log/weather.ts`'s
+`getCurrentWeatherReading()` check staleness against a pure, tested
+threshold check (`lib/log/staleness.ts`) on every read, refetch inline when
+stale, and — critically — never clear or block a previously cached result
+on a fetch failure; they return whatever's still cached, flagged stale,
+with the error attached for the screen to show (§5.2, §22's "a temporary
+API or network failure must not make the current rundown unreadable"). A
+short client poll (`log-poller.tsx`, the same
+`router.refresh()`-on-an-interval shape as Sourcework's `ProcessingPoller`
+and Remote Interview's waiting room) re-triggers that check periodically
+since there's still no notification layer. The two integrations' caches
+replace data differently per their own lifecycle: an NPR episode is deleted
+and reinserted wholesale **per (program, show_date)** on refresh ("not
+diffed... not a change history" — no update policy granted; see the
+correction note below for why it's scoped to a dated episode rather than a
+whole program), while `log_weather_reading` keeps every row as revision
+history and just flips `is_current` (a partial unique index enforces at
+most one current row; no delete policy granted). The provider layer
+(`lib/log/providers/`) treats the two integrations very differently because
+one has a confirmed API model and default and the other, as of this slice
+landing, didn't yet: weather hits the National Weather Service's free,
+keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
+(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+integration, though not necessarily WUWF's final vendor choice
+(`docs/log-design.md` §7). NPR now has a confirmed model too (NPR's
+Content Distribution Service — see the correction note), though WUWF's own
+production CDS token is still outstanding, so `providers/npr.ts` is
+unverified against a live account the same way
+`lib/remote-interview/daily.ts` shipped unverified before this repo had a
+live Daily account — every caller treats "not configured" as an ordinary,
+expected outcome, distinct from "this program has no CDS mapping" and from
+an actual CDS/network failure. `/log/npr` is a bridging standalone screen
+(a program+date picker plus that episode's ordered story items) not in
+`docs/log-design.md` §4's original screen list, which has NPR rendering
+only inline within the rundown builder — that screen doesn't exist yet
+(it's the next slice), and shipping Slice 3 with no way to see or manually
+refresh NPR data at all would leave it invisible and untestable until
+then; `/log/weather` matches §4 exactly.
+
+**Log: NPR integration corrected to the real CDS model (2026-08-07).**
+Slice 3 originally shipped its NPR half against a hypothetical, invented
+"rundown feed" contract (`NPR_RUNDOWNS_API_URL`, a generic
+`{ segments: [...] }` response, Log-invented fields like
+`forward_promo_copy` and a `draft`/`edited`/`revised`/`withdrawn` status,
+one undifferentiated "current rundown" per program with no date) — built
+before this repo had real information about NPR's actual API, deliberately
+labeled an open question at the time. It's since been given real API
+context for NPR's Content Distribution Service (CDS), so
+`20260807140000_log_npr_cds_correction.sql` replaces that prototype
+outright rather than leaving it as unsupported dead weight: NPR identifies
+a program as a CDS **collection** (a stable integer id — `log_programs`
+gained `npr_collection_id`, nullable, backfilled only for the 9 collection
+ids actually known, by exact program-name match, nothing guessed), and a
+rundown is a dated **program-episode** document containing an ordered
+`items` collection of stories — `log_npr_rundown_cache` (one row per
+program, no date, deleted in this migration) became `log_npr_episodes`
+(one row per **program + show_date**, `found`/`not_found`, a `raw jsonb`
+column preserving the CDS document verbatim for fields this schema didn't
+anticipate) and `log_npr_episode_items` (that episode's ordered story
+items, each with a stable `npr_item_id` — CDS's own document id, never
+derived from a title — plus `title`/`teaser`/`raw`). Date is part of a
+CDS episode's identity: a Log rundown for August 7 keeps referring to the
+August 7 NPR episode even if reopened on August 8, which is why the cache
+key changed from `program_id` alone to `(program_id, show_date)`.
+CDS-specific JSON parsing is concentrated in
+`lib/log/providers/npr-response.ts` — a pure, colocated-tested module
+(no fetch, no Supabase) isolated from `providers/npr.ts`'s actual `fetch`
+call so the important boundary cases (malformed response, no matching
+episode, missing/optional item fields, item order, stable ids surviving
+normalization) are unit-tested without live CDS credentials, which this
+repo still doesn't have. A new pure `lib/log/npr-access.ts` gates the two
+required short-circuits — no CDS mapping, no CDS token — before
+`lib/log/npr.ts`'s orchestration ever calls the provider, also
+unit-tested. Host-forward copy is explicitly **not** something NPR
+supplies or this correction models — CDS gives editorial metadata (title,
+teaser), and any on-air forward promotion a host wants is local/derived
+content composed from that, per `docs/log-design.md` §3D.
+
+**Log: station timezone fix (2026-08-07).** Slice 3 shipped a real bug,
+caught immediately by a user comparing the weather screen's "Last updated"
+against an actual clock: every wall-clock-facing display in Log had been
+built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
+the rendering process's own timezone — UTC on Vercel, five hours off
+Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+one place that knows the station is Central time, not Eastern, despite
+being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
+and every timestamp/date Log renders goes through it:
+`formatStationTimestamp` (weather's and NPR's "last updated"/"retrieved"),
+`formatStationDateLong` (the Today screen's header), and — the more
+consequential half of the same bug — `stationTodayISO()`, which replaced
+the Today screen's `new Date().toISOString().slice(0, 10)`. That one wasn't
+just a mislabeled timestamp: computing "today" from UTC meant the Today
+screen would silently show **tomorrow's** lineup for roughly 7pm–midnight
+Central, every single day, since UTC has already rolled over by then. Nothing
+elsewhere in the portal uses this helper or needs to — every other tool's
+timestamps (`created_at`, `submitted_at`, audit log entries, etc.) are
+ordinary multi-timezone-audience activity logs, not a live single-studio
+wall clock, and rendering those in the viewer's ambient timezone rather than
+a fixed one is a longstanding, separate characteristic of the rest of the
+codebase, not something this fix touched.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

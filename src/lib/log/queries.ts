@@ -18,6 +18,12 @@ export type LogClockSlotRow = Database["public"]["Tables"]["log_clock_slots"]["R
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
+export type LogNprEpisodeRow = Database["public"]["Tables"]["log_npr_episodes"]["Row"];
+export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode_items"]["Row"];
+export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
+export type LogRundownRow = Database["public"]["Tables"]["log_rundowns"]["Row"];
+export type LogRundownItemRow = Database["public"]["Tables"]["log_rundown_items"]["Row"];
+export type LogBroadcastEventRow = Database["public"]["Tables"]["log_broadcast_events"]["Row"];
 
 export async function listPrograms(): Promise<LogProgramRow[]> {
   const supabase = await createClient();
@@ -184,4 +190,209 @@ export async function getContentItemDetail(id: string): Promise<ContentItemDetai
     ) ?? [];
 
   return { ...item, components };
+}
+
+export interface NprEpisodeCacheEntry {
+  episode: LogNprEpisodeRow;
+  items: LogNprEpisodeItemRow[];
+}
+
+/**
+ * The cached NPR CDS program-episode for one program on one show date, if
+ * one has ever been fetched — episode identity is (program, show_date), not
+ * just program (docs/log-design.md §5: date is part of a CDS episode's
+ * identity). Raw read only — see lib/log/npr.ts for the lazy-refresh read
+ * that calls this.
+ */
+export async function getNprEpisodeCache(
+  programId: string,
+  showDateISO: string,
+): Promise<NprEpisodeCacheEntry | null> {
+  const supabase = await createClient();
+  const episode = unwrapRead(
+    await supabase
+      .from("log_npr_episodes")
+      .select("*")
+      .eq("program_id", programId)
+      .eq("show_date", showDateISO)
+      .maybeSingle(),
+    "this program's cached NPR episode",
+  );
+  if (!episode) return null;
+
+  const items =
+    unwrapRead(
+      await supabase
+        .from("log_npr_episode_items")
+        .select("*")
+        .eq("episode_id", episode.id)
+        .order("position"),
+      "this NPR episode's items",
+    ) ?? [];
+
+  return { episode, items };
+}
+
+/** The single current weather reading, if one has ever been fetched. Raw read only — see lib/log/weather.ts for the lazy-refresh read that calls this. */
+export async function getCurrentWeatherReadingRow(): Promise<LogWeatherReadingRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_weather_reading").select("*").eq("is_current", true).maybeSingle(),
+    "the current weather reading",
+  );
+}
+
+// Rundowns ------------------------------------------------------------------
+
+export async function getScheduleEntry(id: string): Promise<LogScheduleRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_schedule").select("*").eq("id", id).maybeSingle(),
+    "this schedule entry",
+  );
+}
+
+/** The slots belonging to one clock version, in position order — the same shape getClockTemplateDetail nests per version. */
+export async function listClockSlotsForVersion(clockVersionId: string): Promise<LogClockSlotRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("log_clock_slots")
+        .select("*")
+        .eq("clock_version_id", clockVersionId)
+        .order("position"),
+      "this clock version's slots",
+    ) ?? []
+  );
+}
+
+/** Every rundown for a given air date — the Today screen's per-program status column. */
+export async function listRundownsForDate(airDateISO: string): Promise<LogRundownRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase.from("log_rundowns").select("*").eq("air_date", airDateISO),
+      "today's rundowns",
+    ) ?? []
+  );
+}
+
+/** The rundown already generated for this program on this date, if any — generation checks this first to stay idempotent. */
+export async function getRundownForProgramOnDate(
+  programId: string,
+  airDateISO: string,
+): Promise<LogRundownRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase
+      .from("log_rundowns")
+      .select("*")
+      .eq("program_id", programId)
+      .eq("air_date", airDateISO)
+      .maybeSingle(),
+    "this program's rundown",
+  );
+}
+
+export interface RundownItemDetail extends LogRundownItemRow {
+  slot: LogClockSlotRow;
+  contentItem: (LogContentItemRow & { components: LogContentComponentRow[] }) | null;
+}
+
+export interface RundownDetail extends LogRundownRow {
+  programName: string;
+  items: RundownItemDetail[];
+}
+
+/** A rundown plus every item, each joined to its clock slot and (if filled) its content item and components. */
+export async function getRundownDetail(id: string): Promise<RundownDetail | null> {
+  const supabase = await createClient();
+  const rundown = unwrapRead(
+    await supabase.from("log_rundowns").select("*").eq("id", id).maybeSingle(),
+    "this rundown",
+  );
+  if (!rundown) return null;
+
+  const [program, items] = await Promise.all([
+    getProgram(rundown.program_id),
+    unwrapRead(
+      await supabase.from("log_rundown_items").select("*").eq("rundown_id", id).order("position"),
+      "this rundown's items",
+    ) ?? [],
+  ]);
+
+  const slotIds = [...new Set(items.map((item) => item.clock_slot_id))];
+  const contentItemIds = [...new Set(items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])))];
+
+  const [slots, contentItems, components] = await Promise.all([
+    slotIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("log_clock_slots").select("*").in("id", slotIds),
+          "this rundown's clock slots",
+        ) ?? []),
+    contentItemIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("log_content_items").select("*").in("id", contentItemIds),
+          "this rundown's content items",
+        ) ?? []),
+    contentItemIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("log_content_components").select("*").in("content_item_id", contentItemIds),
+          "this rundown's content components",
+        ) ?? []),
+  ]);
+
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+  const contentItemById = new Map(contentItems.map((item) => [item.id, item]));
+  const componentsByContentItem = new Map<string, LogContentComponentRow[]>();
+  for (const component of components) {
+    const existing = componentsByContentItem.get(component.content_item_id);
+    if (existing) existing.push(component);
+    else componentsByContentItem.set(component.content_item_id, [component]);
+  }
+
+  return {
+    ...rundown,
+    programName: program?.name ?? "Unknown program",
+    items: items.map((item) => {
+      const slot = slotById.get(item.clock_slot_id);
+      if (!slot) throw new Error(`Rundown item ${item.id} references a missing clock slot`);
+      const contentItem = item.content_item_id ? (contentItemById.get(item.content_item_id) ?? null) : null;
+      return {
+        ...item,
+        slot,
+        contentItem: contentItem
+          ? { ...contentItem, components: componentsByContentItem.get(contentItem.id) ?? [] }
+          : null,
+      };
+    }),
+  };
+}
+
+export async function getRundownItem(id: string): Promise<LogRundownItemRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_rundown_items").select("*").eq("id", id).maybeSingle(),
+    "this rundown item",
+  );
+}
+
+/** Every broadcast event for a set of rundown items, most recent first — used to derive each item's confirmed/outcome state on the console. */
+export async function listBroadcastEventsForItems(rundownItemIds: string[]): Promise<LogBroadcastEventRow[]> {
+  if (rundownItemIds.length === 0) return [];
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("log_broadcast_events")
+        .select("*")
+        .in("rundown_item_id", rundownItemIds)
+        .order("recorded_at", { ascending: false }),
+      "these rundown items' broadcast events",
+    ) ?? []
+  );
 }

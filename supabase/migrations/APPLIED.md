@@ -78,6 +78,10 @@ repo and a project's history, not the version number.
 | `20260806170000_log_schedule_completeness_fixes.sql`             | 2026-08-06 | 2026-08-06 |
 | `20260806180000_log_clock_seed_corrections.sql`                  | 2026-08-06 | 2026-08-06 |
 | `20260807120000_log_clock_seed_corrections_2.sql`                | 2026-08-07 | 2026-08-07 |
+| `20260807130000_log_npr_weather.sql`                              | 2026-08-07 | 2026-08-07 |
+| `20260807140000_log_npr_cds_correction.sql`                       | 2026-08-07 | 2026-08-07 |
+| `20260807150000_log_rundowns.sql`                                 | 2026-08-07 | 2026-08-07 |
+| `20260807160000_log_broadcast_events.sql`                         | 2026-08-07 | 2026-08-07 |
 | `20260807170000_log_morning_edition_top_of_hour_fix.sql`         | 2026-08-07 | 2026-08-07 |
 | `20260807180000_log_clock_seed_top_of_hour_swap.sql`             | 2026-08-07 | 2026-08-07 |
 
