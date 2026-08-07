@@ -733,7 +733,7 @@ wedge between Newscast 2 and the following Music Bed — previously read as
 decoration from the red double-headed "network newscast tolerance" arrow
 drawn over the same spot in every one of these clocks, because at lower
 resolution the thin wedge and the thick arrow on top of it were
-indistinguishable. `20260807170000_log_morning_edition_top_of_hour_fix.sql`
+indistinguishable. `20260807180000_log_morning_edition_top_of_hour_fix.sql`
 fixes Morning Edition specifically: Newscast 2 ends at 5:40 as already
 recorded, but what follows is Funding Credit (5:40–6:00, 20s) *then* Music
 Bed (6:00–7:30, 90s) — the two prior passes had merged both into one
@@ -746,7 +746,7 @@ recorded in the wrong order — Music Bed then Funding Credit, rather than
 Funding Credit then Music Bed — meaning this specific mistake predates and
 survived both prior correction passes entirely, since it was assumed to be
 normal cross-clock transcription noise rather than checked at full zoom.
-`20260807180000_log_clock_seed_top_of_hour_swap.sql` fixes it everywhere
+`20260807190000_log_clock_seed_top_of_hour_swap.sql` fixes it everywhere
 else in one pass: a pure label swap keyed on `start_offset_seconds` (340
 and 360), since the offsets and durations were already correct and only
 which slot was which had been backwards. The lesson worth remembering

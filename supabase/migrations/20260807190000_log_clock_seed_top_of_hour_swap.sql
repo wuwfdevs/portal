@@ -1,5 +1,5 @@
 -- Fixes a systemic labeling error found immediately after the Morning
--- Edition top-of-hour fix (20260807170000): a maximum-resolution re-render
+-- Edition top-of-hour fix (20260807180000): a maximum-resolution re-render
 -- of Morning Edition's and All Things Considered's source PDFs showed a
 -- genuine, separately-colored (red) 20-second Funding Credit wedge right
 -- after Newscast 2, distinct from the following Music Bed — previously
