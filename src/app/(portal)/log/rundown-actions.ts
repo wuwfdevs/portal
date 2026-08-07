@@ -5,16 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { computeTotalDurationSeconds } from "@/lib/log/content-library";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { buildRundownItemDrafts } from "@/lib/log/rundown-generation";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
-import {
-  getClockTemplateDetail,
-  getContentItemDetail,
-  getRundownForProgramOnDate,
-  getScheduleEntry,
-} from "@/lib/log/queries";
+import { invokeCapability } from "@/lib/capabilities/registry";
+import { buildRundownItem } from "@/lib/log/capabilities";
+import { getClockTemplateDetail, getRundownForProgramOnDate, getScheduleEntry } from "@/lib/log/queries";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -88,7 +84,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
   redirect(rundownPath(rundown.id));
 }
 
-/** Fills (or replaces) a rundown item's content, recomputing its planned duration from the chosen item's components. */
+/** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). */
 export async function fillRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -97,27 +93,21 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   const path = rundownPath(rundownId);
   if (contentItemId === "") failWith(path, "Choose a content item.");
 
-  const contentItem = await getContentItemDetail(contentItemId);
-  if (!contentItem) failWith(path, "That content item no longer exists.");
-  const plannedDuration =
-    computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ?? 0;
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("log_rundown_items")
-    .update({
-      content_item_id: contentItemId,
-      planned_duration_seconds: plannedDuration,
-      placement_status: "replaceable",
-    })
-    .eq("id", itemId);
-  failIfError(error, path, "Could not fill this slot");
+  const result = await invokeCapability(buildRundownItem, { itemId, contentItemId });
+  if (!result.ok) failWith(path, result.message);
 
   revalidatePath(path);
   redirect(path);
 }
 
-/** Empties a rundown item back to its slot's nominal duration. */
+/**
+ * Empties a rundown item back to its slot's nominal duration. Scoped to
+ * item_kind = 'content' — an underwriting-credit item is only ever cleared
+ * through log_clear_underwriting_credit() (see the Underwriting placement
+ * screen), never this bare update: touching content_item_id/underwriting_
+ * copy_id together for the wrong kind would violate
+ * log_rundown_items_item_kind_shape_check.
+ */
 export async function clearRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -133,7 +123,8 @@ export async function clearRundownItem(formData: FormData): Promise<void> {
       planned_duration_seconds: Number.isFinite(slotDurationSeconds) ? slotDurationSeconds : 1,
       placement_status: "editable",
     })
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .eq("item_kind", "content");
   failIfError(error, path, "Could not clear this slot");
 
   revalidatePath(path);

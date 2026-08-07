@@ -574,12 +574,14 @@ programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
 `log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
 route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
 and producer-only create forms for templates/versions/slots/programs/
-schedule entries. **Slices 2 (content library) and 3 (NPR + weather) have
-since landed too — see below.** Rundown generation with the timing engine is
-next — proceed with it without asking again, followed by the host console
-with mid-broadcast actions, then submission and the three MCP capabilities —
-see `docs/log-design.md` §7 for the full milestone list this is slicing
-through.
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather), rundown
+generation with the timing engine, the host console with mid-broadcast
+actions, and rundown submission plus the three MCP capabilities have since
+landed too — see below.** That completes every workflow milestone 1 lists
+(§7); see `docs/log-design.md` §7 for what's deferred past milestone 1
+(Underwriting integration, the FCC taxonomy, automation-system confirmation,
+multi-editor concurrency) — none of it authorized to start without its own
+instruction.
 
 Two things about this slice are load-bearing:
 
@@ -894,6 +896,221 @@ ordinary multi-timezone-audience activity logs, not a live single-studio
 wall clock, and rendering those in the viewer's ambient timezone rather than
 a fixed one is a longstanding, separate characteristic of the rest of the
 codebase, not something this fix touched.
+
+**Log: rundown generation with the timing engine has landed** — Workflow E
+(docs/log-design.md, "Building the daily rundown"). `log_rundowns`/
+`log_rundown_items` (`20260807150000_log_rundowns.sql`, member-level RLS, no
+producer gate — generating and filling a rundown is an ordinary host/member
+action per the design doc). Generation (`generateRundown` in
+`rundown-actions.ts`) only creates a row for a clock slot a host actually
+decides something for (`fill_mode` `optional`/`host_fillable`) — the
+network-automatic majority of every real clock's slots never gets a row,
+since there's nothing for a host to pick and a row that can never be filled
+would just be noise in the builder. `lib/log/rundown-generation.ts` builds
+the draft items (repeating a clock's slots once per hour across a
+multi-hour shift), `lib/log/rundown-eligibility.ts` filters the content
+library to what a given slot actually permits, and `lib/log/timing.ts` is
+the pure, tested build-time fit engine (slot fit, rundown-level readiness) —
+never stored state, recomputed on every render per the design doc's
+"Timing is a pure, tested module." `log_rundowns` has a unique
+`(program_id, air_date)` constraint, not in the design doc's literal column
+list but needed to keep "generate" idempotent. The `/log/rundowns/[id]`
+builder screen lets a host fill, replace, or clear each host-fillable slot
+from the content library, with live fit feedback.
+
+**Log: the host console with mid-broadcast actions has landed** — Workflows
+F and G. `log_broadcast_events` (`20260807160000_log_broadcast_events.sql`,
+append-only RLS — select+insert only, no update/delete policy, matching
+`log_clock_versions`/`log_clock_slots`' immutability precedent) is the
+as-aired record. `lib/log/console-timing.ts` is the live, continuously
+recomputed timing state (on time / running long / running short / at risk
+of missing a required item / at risk of missing rejoin) — pure and tested,
+following the same "not stored state" rule as build-time `timing.ts`, and
+deliberately lighter-weight than a system with real playback telemetry
+would need, since every outcome in this milestone is host-confirmed.
+`lib/log/mid-broadcast.ts` is the pure, tested move-destination eligibility
+(empty, future, permitted content type — daypart/spacing/inventory
+eligibility the design doc also names have no modeled concepts yet in this
+schema). The `/log/rundowns/[id]/console` screen is the live view: current/
+next item, adjustable copy size, inline weather and NPR context, and the
+three mid-broadcast actions (`console-actions.ts`'s `markAired`/
+`markMissed`/`moveRundownItem`) always one tap away. "Moved" is modeled as
+filling a different open item with the same content and clearing the
+original, recorded as outcome `skipped` rather than a new column — see the
+migration's file header — which is what makes the console's "Undo" link
+just the same move run in reverse, with nothing to delete from an
+append-only table.
+
+**Log: rundown submission and the three MCP capabilities have landed** —
+Workflow H, and `docs/log-design.md`'s "Architecture" section naming
+exactly these three as "the operations useful to drive from the in-portal
+agent without a live console in front of you." No migration needed:
+`log_rundowns.status`/`submitted_at`/`submitted_by` already existed from the
+rundown-generation slice. `listUnresolvedItems()` (`lib/log/submission.ts`,
+pure, tested) is the review surface — a filled item with no recorded
+broadcast event, or a still-empty required slot — shown on the console
+screen's new "Wrap up" panel, but **submitting is never blocked by it**:
+per the design doc, "submission is a checkpoint, not a lock." `submitRundown`
+(`console-actions.ts`) sets `status = 'submitted'`; nothing about that status
+gates `markAired`/`markMissed`/`moveRundownItem`, which is what makes
+§15.3's "documented management corrections" after submission just work,
+unchanged, rather than needing a separate unlock path. The three
+capabilities (`lib/log/capabilities.ts`, registered in
+`src/lib/capabilities/registry.ts`): `log.rundown.buildItem` (fill/replace a
+slot's content, confirmation `none`), `log.rundownItem.recordOutcome` (one
+capability over aired/missed/moved, via a discriminated-union input, rather
+than three near-identical tools — confirmation `required`, since it writes
+the as-aired record Underwriting's exception queue and FCC Reporting will
+eventually read as ground truth), and `log.content.search` (mirrors
+`sourcework.project.search`). `fillRundownItem`, `markAired`, `markMissed`,
+and `moveRundownItem` are now thin adapters over these capabilities —
+`recordRundownItemOutcome`'s confirmation is satisfied with
+`confirmed: true` at the call site, same convention as
+`sendAnswerToSourcework`'s: the console button click is itself the human
+confirmation.
+
+**Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
+guardrail against building it is lifted.** This is the second of three tools
+`docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
+Rundown and Traffic System spec into — Log is the first, and its milestone 1
+is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
+`docs/underwriting-design.md` (design in full) before touching any of it.
+**Slice 1 ships only Workflows A (creating/maintaining a contract) and B
+(managing underwriting copy)** — `uw_contracts`/`uw_placement_obligations`/
+`uw_copy`/`uw_contract_copy` (`20260807200000_underwriting_foundation.sql`),
+the route segment (`src/app/(portal)/underwriting/`) gated by
+`requireToolAccess("underwriting")`, and a plain member-level dashboard,
+contract, and copy-library screens. **Slice 2 (manual credit placement,
+Workflow C) and Slice 3 (the exception queue, Workflows D/E) have since
+landed too — see below.** Makegoods (F) and affidavits (G) are next, each
+its own slice per the design doc's §7 — proceed with them without asking
+again.
+
+Two things about this slice are load-bearing:
+
+1. **This slice has no elevated role, unlike every other tool's Slice 1.**
+   `docs/underwriting-design.md` §6 is explicit: "Ordinary traffic staff do
+   everything else: contracts, copy, placement, exception triage up to but
+   not including a waive/certify decision" — and every action this slice
+   adds is on that "everything else" list. `private.is_underwriting_manager()`
+   (the elevation for waiving an obligation, certifying an affidavit, and
+   overriding expired/unapproved copy into a placement) is deliberately
+   **not defined yet** — there is nothing in this slice for it to gate.
+   Defining an authorization predicate before any policy needs it is the
+   same speculative-schema mistake CLAUDE.md warns against for columns; it
+   gets added in whichever later slice adds the first action that actually
+   needs it.
+2. **The eligible-programs field is still a plain UUID list, not a name
+   picker.** `uw_placement_obligations.eligible_program_ids` references
+   `log_programs`, but Slice 2's boundary work (below) only ever reads Log's
+   tables from inside a `security definer` function — it never granted this
+   tool's own client-side code a `select` policy on `log_programs`. A create-
+   time name picker would need one, which is still more RLS surface than the
+   obligation-creation screen alone justifies; the obligation form stays
+   comma-separated program IDs with a hint explaining why.
+
+**Underwriting & Traffic: Slice 2 (manual credit placement into Log's
+rundown) has landed** — Workflow C, the two-way Log boundary
+`docs/underwriting-design.md` §6 describes, built in one migration
+(`20260807210000_underwriting_placement.sql`) since it's one relationship
+with two directions. **Write into Log**: `log_rundown_items` gained
+`item_kind`/`underwriting_copy_id` (mirroring `sw_source_excerpts`' "exactly
+one of several possible references" shape), written only by
+`log_place_underwriting_credit()` — a `security definer` function, not a
+bare RLS-gated update, so the guard (an open, permitted slot; an active
+contract; program-eligible; copy linked to the contract and either approved-
+and-in-date or carrying a manager-checked override) lives in one place.
+`log_clear_underwriting_credit()` is the undo. **The read side of the same
+boundary, not named explicitly in the design doc but needed for Workflow
+C's own UI**: an underwriting-only caller has no RLS access to Log's
+rundown tables at all, so `log_list_placeable_rundown_items()` — also
+`security definer` — is how the contract page finds a given obligation's
+eligible open slots. **The reverse read Log needs from this tool**: a
+narrow additive `select` policy on `uw_placement_obligations` for Log
+members, scoped to obligations with an active placement — added per the
+design doc's instruction, though no Log-side code reads it yet (the
+console's existing move-destination check is content-type-based and already
+works for underwriting-credit items without it). This slice also defines
+`private.is_underwriting_manager()` for the first time — Slice 1 deliberately
+left it undefined; this is the slice with the first action (an override)
+that needs it. `uw_scheduled_placements` denormalizes `program_name`/
+`scheduled_at`/`clock_slot_label` at write time (captured by the security
+definer function, which can read Log's tables) specifically so this tool's
+own screens never need a live cross-tool read just to render a placement
+list — the same reasoning Audience Listening's answers snapshot their
+question. The capability layer gets `underwriting.credit.schedule`
+(`lib/underwriting/capabilities.ts`), confirmation-required, but
+deliberately **without** override support — the override path stays
+UI-only, the same judgment-call carve-out `lib/roadmap/capabilities.ts`
+already applies to curation. Two Log-side pure-logic bugs surfaced and were
+fixed while building this: `lib/log/mid-broadcast.ts`'s move-destination
+check and `lib/log/capabilities.ts`'s `recordRundownItemOutcome` "moved"
+branch both only checked `content_item_id` for "is this slot open," so
+either would have let a host move content on top of an underwriting credit
+and hit a raw constraint-violation error live on air; both now also check
+`underwriting_copy_id`. `clearRundownItem` (Log's own plain content-clear
+action) is now scoped to `item_kind = 'content'` for the same reason — an
+underwriting-credit item is only ever cleared through
+`log_clear_underwriting_credit()`.
+
+**Underwriting & Traffic: Slice 3 (the post-broadcast exception queue) has
+landed** — Workflow E, plus Workflow D (pre-broadcast conflict review) as a
+computed dashboard needing no schema of its own. One migration
+(`20260807220000_underwriting_exceptions.sql`, corrected the same day by
+`20260807230000_underwriting_exception_read_fix.sql` — see below) since,
+like Slice 2, it's one relationship: `uw_exceptions` (§5) is real, staff-
+triaged state (compliance judgment, resolution action, notes), never a
+derived view, but it also has **no insert grant to `authenticated`** — the
+only way a row is ever created is `uw_flag_exception_from_broadcast_event()`,
+an `after insert` trigger on Log's own `log_broadcast_events`. That trigger
+is this repo's stand-in for the job queue it doesn't have: the moment a host
+records an underwriting-credit item's outcome as anything but
+`aired_as_scheduled`, an open exception exists — nobody polls for it. Waiving
+an exception is one of the design doc's four manager-only privileged
+actions, enforced by `uw_guard_exception_resolution()`, a `before update`
+trigger mirroring `rd_guard_post_curation()`'s exact shape (Roadmap's own
+curation guard): RLS admits any member's update, and the trigger alone
+raises unless `private.is_underwriting_manager()` is the one setting
+`resolution_action = 'waive'`. **The corrected read boundary**: Slice 3
+originally scoped `log_broadcast_events_select_for_underwriting` (the read
+side named in Slice 2's own note) to the rundown item's *current*
+`item_kind = 'underwriting_credit'` — caught by a self-review before it
+shipped to production reliance: clearing a placement after its exception
+was already raised (an ordinary reassign) flips `item_kind` back to
+`content`, which retroactively hid that exception's own broadcast event and,
+through it, `getExceptionDetail()`'s placement lookup — silently blanking a
+still-open exception's context with no error. The fix keys the policy off
+`uw_exceptions` actually referencing the event instead, which is permanent
+once created and never needs a join through Log's own tables at all. Two
+more privileged-action bugs a self-review caught before commit, both about
+auditing a value rather than a transition into it: `resolveException()` and
+`setContractStatus()` (the latter's audit call was a **Slice 1 gap** dating
+back to that slice, since `docs/underwriting-design.md` §6 has required it
+from the start) both now read the prior value first and only call
+`logAuditEvent()` when the write is a genuine transition into `waive`/
+`terminated` — re-saving an already-waived exception or an already-
+terminated contract no longer logs a fresh privileged-action row credited to
+whoever happened to click Save. `placeCreditAction` (Slice 2) had the same
+gap for the override audit and is fixed the same way, by reading back
+`uw_scheduled_placements.override_reason` after a successful placement
+rather than trusting "the form had text in it." `lib/underwriting/
+conflicts.ts` is Workflow D's pure conflict check — scoped to what this
+schema can actually verify (an approved linked copy; enough already-placed
+or enough eligible open slots to meet `quantity_required`), not a real
+inventory/spacing engine. `listObligationPlacementContexts()` in
+`lib/underwriting/queries.ts` is shared by the dashboard and the contract
+detail screen so the two don't drift on how "existing placements plus
+currently-placeable slots" is combined — flagged as duplicated by the same
+self-review before being extracted.
+
+**FCC Reporting: design is done, not yet authorized to build.** The third of
+the three tools, depending on a real backlog of tagged `log_broadcast_events`
+existing before quarterly aggregation is worth building against, so it stays
+last regardless of when its design doc was written. `docs/fcc-reporting-design.md`
+was written the same day as the strategy doc and the other two tools' design
+docs, but had no CLAUDE.md entry until now — same staleness this section's
+Underwriting entry above already explains, and now fixed in the strategy
+doc's §8 too. Read it before starting any of it.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

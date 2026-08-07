@@ -37,6 +37,7 @@ export default async function RundownDetailPage({
   const summary = computeRundownSummary(
     rundown.items.map((item) => ({
       content_item_id: item.content_item_id,
+      underwriting_copy_id: item.underwriting_copy_id,
       requirement_level: item.requirement_level,
       planned_duration_seconds: item.planned_duration_seconds,
       slot_duration_seconds: item.slot.duration_seconds,
@@ -100,9 +101,11 @@ export default async function RundownDetailPage({
             </thead>
             <tbody>
               {rundown.items.map((item) => {
+                const isUnderwritingCredit = item.item_kind === "underwriting_credit";
+                const isFilled = item.content_item_id !== null || isUnderwritingCredit;
                 const fit = computeSlotFit(
                   item.slot.duration_seconds,
-                  item.content_item_id ? item.planned_duration_seconds : null,
+                  isFilled ? item.planned_duration_seconds : null,
                 );
                 const eligible = filterEligibleContent(
                   approvedContent,
@@ -129,7 +132,12 @@ export default async function RundownDetailPage({
                       </Badge>
                     </Cell>
                     <Cell>
-                      {item.contentItem ? (
+                      {isUnderwritingCredit ? (
+                        <div>
+                          <Badge variant="accent">Underwriting credit</Badge>
+                          <div className="mt-1 text-xs text-ink-400">{item.planned_duration_seconds}s</div>
+                        </div>
+                      ) : item.contentItem ? (
                         <div>
                           <div className="font-semibold text-ink-900">{item.contentItem.title}</div>
                           <div className="text-xs text-ink-400">
@@ -146,7 +154,7 @@ export default async function RundownDetailPage({
                       )}
                     </Cell>
                     <Cell>
-                      {item.content_item_id ? (
+                      {isFilled ? (
                         <Badge variant={fit.fits ? "success" : "danger"}>
                           {fit.fits ? `${fit.remainingSeconds}s to spare` : `${fit.overSeconds}s over`}
                         </Badge>
@@ -155,44 +163,50 @@ export default async function RundownDetailPage({
                       )}
                     </Cell>
                     <Cell>
-                      <div className="flex flex-col gap-2">
-                        <form action={fillRundownItem} className="flex items-center gap-1.5">
-                          <input type="hidden" name="rundown_id" value={rundown.id} />
-                          <input type="hidden" name="item_id" value={item.id} />
-                          <Select
-                            name="content_item_id"
-                            className="max-w-[180px]"
-                            defaultValue={item.content_item_id ?? ""}
-                            disabled={eligible.length === 0}
-                          >
-                            <option value="" disabled>
-                              {eligible.length === 0 ? "No eligible content" : "Choose content…"}
-                            </option>
-                            {eligible.map((candidate) => (
-                              <option key={candidate.id} value={candidate.id}>
-                                {candidate.title}
-                              </option>
-                            ))}
-                          </Select>
-                          <Button type="submit" variant="secondary">
-                            {item.content_item_id ? "Replace" : "Fill"}
-                          </Button>
-                        </form>
-                        {item.content_item_id && (
-                          <form action={clearRundownItem}>
+                      {isUnderwritingCredit ? (
+                        <Link href="/underwriting" className="text-xs font-semibold text-brand-link">
+                          Managed from Underwriting &amp; Traffic
+                        </Link>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <form action={fillRundownItem} className="flex items-center gap-1.5">
                             <input type="hidden" name="rundown_id" value={rundown.id} />
                             <input type="hidden" name="item_id" value={item.id} />
-                            <input
-                              type="hidden"
-                              name="slot_duration_seconds"
-                              value={item.slot.duration_seconds}
-                            />
-                            <Button type="submit" variant="ghost">
-                              Clear
+                            <Select
+                              name="content_item_id"
+                              className="max-w-[180px]"
+                              defaultValue={item.content_item_id ?? ""}
+                              disabled={eligible.length === 0}
+                            >
+                              <option value="" disabled>
+                                {eligible.length === 0 ? "No eligible content" : "Choose content…"}
+                              </option>
+                              {eligible.map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>
+                                  {candidate.title}
+                                </option>
+                              ))}
+                            </Select>
+                            <Button type="submit" variant="secondary">
+                              {item.content_item_id ? "Replace" : "Fill"}
                             </Button>
                           </form>
-                        )}
-                      </div>
+                          {item.content_item_id && (
+                            <form action={clearRundownItem}>
+                              <input type="hidden" name="rundown_id" value={rundown.id} />
+                              <input type="hidden" name="item_id" value={item.id} />
+                              <input
+                                type="hidden"
+                                name="slot_duration_seconds"
+                                value={item.slot.duration_seconds}
+                              />
+                              <Button type="submit" variant="ghost">
+                                Clear
+                              </Button>
+                            </form>
+                          )}
+                        </div>
+                      )}
                     </Cell>
                   </Row>
                 );
