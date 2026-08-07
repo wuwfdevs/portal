@@ -19,6 +19,7 @@ declare
   tool_transcription uuid;
   tool_audience uuid;
   tool_roadmap uuid;
+  tool_log uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -107,6 +108,10 @@ begin
   -- over the migration's via `on conflict do nothing` and quietly close the
   -- tool to everyone without a grant.
   select id into tool_roadmap from public.tools where key = 'roadmap';
+  -- Log's registry row comes from 20260806130000_log_foundation.sql — this
+  -- just looks it up to seed local tool_access grants, same as transcription
+  -- and remote-interview above.
+  select id into tool_log from public.tools where key = 'log';
 
   -- Editorial tool roles use the canonical lowercase set the tool interprets:
   -- 'contributor' < 'reviewer' < 'editor' (anything else falls back to contributor).
@@ -126,7 +131,15 @@ begin
     -- Roadmap inverts the usual meaning of a grant: everyone already has
     -- access, so this row exists only to make Dana a curator. Nobody else
     -- needs one to post, vote, or comment.
-    (dana_id, tool_roadmap, 'curator', dana_id)
+    (dana_id, tool_roadmap, 'curator', dana_id),
+    -- Log is invite_only like Academic Partnerships, not open like Roadmap
+    -- (see CLAUDE.md) — a grant is the ticket in. Dana is a producer (clocks,
+    -- programs, schedule); Grace and Marcus are plain members, matching the
+    -- design's "content authorship is open to any tool member" framing for
+    -- the content library (Workflow C).
+    (dana_id, tool_log, 'producer', dana_id),
+    (grace_id, tool_log, null, dana_id),
+    (marcus_id, tool_log, null, dana_id)
   on conflict do nothing;
 
   insert into public.access_requests (email, display_name, note, status)
@@ -421,4 +434,153 @@ begin
     ('50000000-0000-0000-0000-000000000006', c_pillar, 3, 13, 4, 0),
     ('50000000-0000-0000-0000-000000000006', c_readiness, 4, 5, 4, 0)
   on conflict do nothing;
+end $$;
+
+-- Log content library sample data -----------------------------------------
+-- Adapted from a real WUWF-FM Friday program log: the network programs, air
+-- times, and short local features it shows already match what
+-- 20260806150000_log_seed_npr_clocks.sql and its follow-up corrections
+-- seeded for log_programs/log_schedule/log_clock_*, so there's nothing to
+-- add there. log_content_items was still empty. This is not a transcription
+-- of that log's underwriting credits — docs/log-design.md is explicit that
+-- "Underwriting credits are deliberately not a Log content type" (see
+-- "Deferred: the Underwriting boundary"), and log_content_type has no
+-- underwriting_credit value. Instead this exercises all nine real content
+-- types with items a station like the one in that log would actually keep
+-- in its library: a legal ID, a university announcement (WUWF is licensed
+-- to UWF, echoing the log's constant "UW Credit" breaks), station and
+-- program promos, a membership message, a community PSA, a news brief, and
+-- the short local/produced features the log shows airing inside Morning
+-- Edition/1A/All Things Considered (Unearthing Florida, Climate
+-- Connections, BirdNote Daily, Sound Beat, Eco Minute) — none of which have
+-- their own log_programs row, matching how the log itself treats them as
+-- inserts within an hour rather than scheduled programs.
+do $$
+declare
+  dana_id uuid := '10000000-0000-0000-0000-000000000001';
+  marcus_id uuid := '10000000-0000-0000-0000-000000000002';
+  grace_id uuid := '10000000-0000-0000-0000-000000000005';
+  prog_morning_edition uuid;
+  prog_1a uuid;
+  prog_atc uuid;
+  i_legal_id uuid := '70000000-0000-0000-0000-000000000001';
+  i_uwf_announcement uuid := '70000000-0000-0000-0000-000000000002';
+  i_book_club_promo uuid := '70000000-0000-0000-0000-000000000003';
+  i_sci_friday_promo uuid := '70000000-0000-0000-0000-000000000004';
+  i_1a_promo uuid := '70000000-0000-0000-0000-000000000005';
+  i_membership uuid := '70000000-0000-0000-0000-000000000006';
+  i_hurricane_psa uuid := '70000000-0000-0000-0000-000000000007';
+  i_budget_news uuid := '70000000-0000-0000-0000-000000000008';
+  i_unearthing_fl uuid := '70000000-0000-0000-0000-000000000009';
+  i_climate_connections uuid := '70000000-0000-0000-0000-00000000000a';
+  i_birdnote uuid := '70000000-0000-0000-0000-00000000000b';
+  i_sound_beat uuid := '70000000-0000-0000-0000-00000000000c';
+  i_eco_minute uuid := '70000000-0000-0000-0000-00000000000d';
+begin
+  select id into prog_morning_edition from public.log_programs where name = 'Morning Edition';
+  select id into prog_1a from public.log_programs where name = '1A';
+  select id into prog_atc from public.log_programs where name = 'All Things Considered';
+
+  insert into public.log_content_items (
+    id, content_type, title, script, summary, expected_duration_seconds,
+    effective_from, effective_to, owner_id, approval_status, eligible_program_ids,
+    priority, frequency_guidance, reusable, geography_tags, subject_tags,
+    community_issue_tags, reporter_or_editor, created_by
+  ) values
+    (i_legal_id, 'legal_id', 'WUWF-FM Station Legal ID',
+     'WUWF-FM Pensacola, a public service of the University of West Florida.',
+     'Top-of-hour legal station identification.', 10,
+     current_date, null, dana_id, 'approved', '{}'::uuid[],
+     1, 'Read live at the top of every hour, immediately after the network billboard.', true,
+     '{"Pensacola, FL"}', '{}', '{}', null, dana_id),
+    (i_uwf_announcement, 'university_announcement', 'UWF Fall Move-In Weekend',
+     null, 'Announcement of fall move-in weekend dates for University of West Florida students.', null,
+     current_date, (current_date + interval '30 days')::date, dana_id, 'approved',
+     array[prog_morning_edition, prog_atc], 2,
+     'Air twice daily on Morning Edition and All Things Considered through move-in weekend.', false,
+     '{"Pensacola, FL"}', '{"education","University of West Florida"}', '{"higher education"}',
+     null, dana_id),
+    (i_book_club_promo, 'station_promo', 'WUWF Book Club Promo',
+     'The WUWF Book Club invites you to join fellow readers for our next discussion. Visit WUWF dot org and click the Book Club logo for details, and follow us on Facebook for upcoming salon announcements.',
+     'Promotes the WUWF Book Club reading and discussion series.', null,
+     current_date, null, grace_id, 'approved', '{}'::uuid[],
+     3, 'Rotate during weekday breaks, roughly twice a day.', true,
+     '{"Pensacola, FL"}', '{"books","community"}', '{}', null, grace_id),
+    (i_sci_friday_promo, 'program_promo', 'Science Friday Tune-In Promo',
+     'Every Friday afternoon at one o''clock, join Science Friday on WUWF for conversations about the science shaping our world.',
+     'Promotes the Friday 1pm Science Friday broadcast.', 20,
+     current_date, null, dana_id, 'approved', array[prog_morning_edition, prog_atc],
+     4, 'Air Thursday and Friday mornings ahead of the 1pm broadcast.', true,
+     '{}', '{"science"}', '{}', null, dana_id),
+    (i_1a_promo, 'program_promo', '1A Weekday Promo',
+     'Join 1A weekdays at nine for the conversations shaping the day.',
+     'Promotes the weekday 9am 1A broadcast.', 15,
+     (current_date - interval '90 days')::date, (current_date - interval '10 days')::date, dana_id, 'retired',
+     array[prog_morning_edition], 5, 'Air weekday mornings ahead of the 9am broadcast.', true,
+     '{}', '{}', '{}', null, dana_id),
+    (i_membership, 'membership_message', 'Become a WUWF Member',
+     'WUWF is listener-supported public media. If you value what you hear, become a member today at WUWF dot org slash donate. Thank you for keeping this station strong.',
+     'General membership appeal, outside pledge drives.', null,
+     current_date, null, grace_id, 'approved', '{}'::uuid[],
+     2, 'Rotate during pledge periods and as a general membership reminder otherwise.', true,
+     '{}', '{}', '{}', null, grace_id),
+    (i_hurricane_psa, 'psa', 'Hurricane Season Preparedness',
+     'Hurricane season runs June through November. Escambia County Emergency Management urges residents to have a family plan, a seven-day supply kit, and to know their evacuation zone before a storm approaches. More information is available at myescambia dot com slash emergency.',
+     'Community PSA on hurricane preparedness.', 30,
+     current_date, null, grace_id, 'approved', '{}'::uuid[],
+     1, 'Air daily June through November, more frequently as storms approach.', true,
+     '{"Escambia County, FL","Santa Rosa County, FL"}', '{"severe weather","public safety"}',
+     '{"hurricane preparedness"}', null, grace_id),
+    (i_budget_news, 'news', 'County Budget Vote Preview',
+     'The Escambia County Commission is set to vote Tuesday on next year''s budget, including funding for beach renourishment and shelter capacity upgrades. WUWF will have details as the vote approaches.',
+     'Local news brief previewing the upcoming county budget vote.', 30,
+     current_date, null, grace_id, 'draft', array[prog_morning_edition, prog_atc],
+     null, null, false, '{"Escambia County, FL"}', '{"local government","budget"}', '{}',
+     'Grace Whitfield', grace_id),
+    (i_unearthing_fl, 'interview_feature', 'Unearthing Florida',
+     null, 'Weekly feature on Florida history and archaeology.', 90,
+     current_date, null, dana_id, 'approved', array[prog_morning_edition],
+     6, 'Airs Fridays during the second Morning Edition hour.', true,
+     '{"Florida"}', '{"history","archaeology"}', '{}', null, dana_id),
+    (i_climate_connections, 'interview_feature', 'Climate Connections',
+     null, 'Weekly feature on climate science and its local impact.', 90,
+     current_date, null, dana_id, 'approved', array[prog_1a],
+     6, 'Airs Fridays during 1A.', true,
+     '{}', '{"climate","environment"}', '{}', null, dana_id),
+    (i_birdnote, 'interview_feature', 'BirdNote Daily',
+     null, 'Daily short feature on birds and wildlife.', 105,
+     current_date, null, dana_id, 'approved', array[prog_morning_edition],
+     7, 'Airs daily during the second Morning Edition hour.', true,
+     '{}', '{"wildlife","nature"}', '{}', null, dana_id),
+    (i_sound_beat, 'host_created', 'Sound Beat',
+     null, 'Short daily science feature produced with University of West Florida.', 90,
+     current_date, null, marcus_id, 'approved', array[prog_1a],
+     7, 'Airs weekdays during 1A.', true,
+     '{}', '{"science"}', '{}', 'Marcus Bell', marcus_id),
+    (i_eco_minute, 'host_created', 'Eco Minute',
+     null, 'Short daily feature on local environmental topics.', 60,
+     current_date, null, grace_id, 'approved', array[prog_atc],
+     8, 'Airs weekdays during the All Things Considered afternoon break.', true,
+     '{}', '{"environment"}', '{"environment"}', null, grace_id)
+  on conflict (id) do nothing;
+
+  -- Components for the three items built from a live intro/recorded
+  -- audio/live outro or tag breakdown, per docs/log-design.md §2 — total
+  -- occupied time is the sum of required components, never the item's own
+  -- expected_duration_seconds (left null above for exactly these three).
+  -- The Book Club promo's 30s + 8s split deliberately mirrors that design
+  -- doc's own "30-second promo with a required 8-second outro" example.
+  insert into public.log_content_components (
+    id, content_item_id, component_type, sequence, duration_seconds, required, script
+  ) values
+    ('71000000-0000-0000-0000-000000000001', i_uwf_announcement, 'live_intro', 1, 5, true,
+     'A note from the University of West Florida:'),
+    ('71000000-0000-0000-0000-000000000002', i_uwf_announcement, 'recorded_audio', 2, 25, true, null),
+    ('71000000-0000-0000-0000-000000000003', i_book_club_promo, 'recorded_audio', 1, 30, true, null),
+    ('71000000-0000-0000-0000-000000000004', i_book_club_promo, 'live_outro', 2, 8, true,
+     'For details, visit WUWF dot org slash book club.'),
+    ('71000000-0000-0000-0000-000000000005', i_membership, 'recorded_audio', 1, 25, true, null),
+    ('71000000-0000-0000-0000-000000000006', i_membership, 'optional_tag', 2, 10, false,
+     'Text WUWF to 51555 to give.')
+  on conflict (id) do nothing;
 end $$;
