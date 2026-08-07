@@ -50,3 +50,38 @@ export function formatStationTimestamp(iso: string): string {
     timeZoneName: "short",
   });
 }
+
+/** The station's UTC offset, in minutes, at the given instant (e.g. -300 for CDT, -360 for CST). */
+function stationOffsetMinutesAt(instant: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return (asUtc - instant.getTime()) / 60_000;
+}
+
+/**
+ * Converts a station-local calendar date (YYYY-MM-DD) and time-of-day
+ * (HH:MM:SS, e.g. a log_schedule.air_time) into the UTC instant it actually
+ * refers to, accounting for whichever of Central's two offsets (CST/CDT)
+ * applies on that date — a fixed UTC-6 or UTC-5 assumption would be wrong
+ * roughly half the year. Used by rundown generation to turn a schedule
+ * entry's local air time into a real timestamptz; nothing before this needed
+ * to construct a new instant from wall-clock time, only format an existing
+ * one. Accurate for any ordinary broadcast time; does not attempt to
+ * disambiguate the one repeated/skipped hour on a DST transition night
+ * itself, which doesn't occur during this station's programming day.
+ */
+export function stationLocalDateTimeToUTC(dateISO: string, timeHHMMSS: string): string {
+  const naiveUtc = new Date(`${dateISO}T${timeHHMMSS}Z`);
+  const offsetMinutes = stationOffsetMinutesAt(naiveUtc);
+  return new Date(naiveUtc.getTime() - offsetMinutes * 60_000).toISOString();
+}

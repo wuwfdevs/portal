@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCurrentClockVersion, type ClockVersionLike } from "./clock-versions";
+import { resolveCurrentClockVersion, resolveCurrentVersion, type ClockVersionLike } from "./clock-versions";
 
 function version(
   id: string,
@@ -42,5 +42,27 @@ describe("resolveCurrentClockVersion", () => {
 
   it("returns null when nothing of that variant exists", () => {
     expect(resolveCurrentClockVersion([], "weekday", "2026-06-01")).toBeNull();
+  });
+});
+
+describe("resolveCurrentVersion", () => {
+  it("picks the most recent version at or before the date, ignoring variant", () => {
+    const versions = [
+      version("v1", "program_specific", "2026-01-01"),
+      version("v2", "program_specific", "2026-06-01"),
+    ];
+    expect(resolveCurrentVersion(versions, "2026-07-15")?.id).toBe("v2");
+  });
+
+  it("respects effective_to", () => {
+    const versions = [
+      version("v1", "program_specific", "2026-01-01", "2026-05-31"),
+      version("v2", "program_specific", "2026-06-01"),
+    ];
+    expect(resolveCurrentVersion(versions, "2026-03-01")?.id).toBe("v1");
+  });
+
+  it("returns null when no version is in effect", () => {
+    expect(resolveCurrentVersion([version("v1", "program_specific", "2026-06-01")], "2026-01-01")).toBeNull();
   });
 });
