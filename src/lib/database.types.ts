@@ -99,7 +99,14 @@
 // LogMissReason enums (plain type aliases, same as every other log_ enum) —
 // added by hand, then verified against the Supabase MCP server's
 // generate_typescript_types output for the live preview project after
-// applying.
+// applying. Hand-updated again on 2026-08-07 for Underwriting & Traffic's
+// Slice 1 (supabase/migrations/20260807200000_underwriting_foundation.sql):
+// uw_contracts/uw_placement_obligations/uw_copy/uw_contract_copy and the new
+// UwContractStatus/UwQuantityPeriod/UwSponsorshipPosition/UwObligationStatus/
+// UwCopyApprovalStatus/UwCopyProductionStatus enums (plain type aliases,
+// same as every log_ enum before them) — added by hand, then verified
+// against the Supabase MCP server's generate_typescript_types output for the
+// live preview project after applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -324,6 +331,15 @@ export type LogMissReason =
   | "host_error"
   | "unavailable_copy"
   | "other";
+
+// Underwriting & Traffic (uw_*) — Slice 1 (Foundation). See
+// supabase/migrations/20260807200000_underwriting_foundation.sql.
+export type UwContractStatus = "draft" | "active" | "expired" | "terminated";
+export type UwQuantityPeriod = "weekly" | "monthly" | "campaign_total";
+export type UwSponsorshipPosition = "opening" | "closing" | "mid";
+export type UwObligationStatus = "active" | "fulfilled" | "at_risk";
+export type UwCopyApprovalStatus = "draft" | "approved" | "expired" | "retired";
+export type UwCopyProductionStatus = "pending" | "produced";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1670,6 +1686,88 @@ export interface Database {
           outcome: LogBroadcastOutcome;
         };
         Update: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]>;
+        Relationships: [];
+      };
+      uw_contracts: {
+        Row: {
+          id: string;
+          underwriter_name: string;
+          contract_identifier: string;
+          agreement_document_url: string | null;
+          effective_from: string;
+          effective_to: string | null;
+          status: UwContractStatus;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]> & {
+          underwriter_name: string;
+          contract_identifier: string;
+          effective_from: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]>;
+        Relationships: [];
+      };
+      uw_placement_obligations: {
+        Row: {
+          id: string;
+          contract_id: string;
+          description: string;
+          quantity_required: number;
+          quantity_period: UwQuantityPeriod;
+          duration_seconds: number;
+          eligible_program_ids: string[];
+          eligible_days_of_week: number[] | null;
+          eligible_daypart: string | null;
+          distribution_rule: string | null;
+          sponsorship_position: UwSponsorshipPosition | null;
+          start_date: string;
+          end_date: string | null;
+          status: UwObligationStatus;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_placement_obligations"]["Row"]> & {
+          contract_id: string;
+          description: string;
+          quantity_required: number;
+          quantity_period: UwQuantityPeriod;
+          duration_seconds: number;
+          start_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_placement_obligations"]["Row"]>;
+        Relationships: [];
+      };
+      uw_copy: {
+        Row: {
+          id: string;
+          script: string | null;
+          audio_object_path: string | null;
+          duration_seconds: number | null;
+          cart_identifier: string | null;
+          effective_from: string;
+          effective_to: string | null;
+          approval_status: UwCopyApprovalStatus;
+          production_status: UwCopyProductionStatus;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_copy"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["uw_copy"]["Row"]>;
+        Relationships: [];
+      };
+      uw_contract_copy: {
+        Row: {
+          contract_id: string;
+          copy_id: string;
+        };
+        Insert: {
+          contract_id: string;
+          copy_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
         Relationships: [];
       };
     };

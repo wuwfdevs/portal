@@ -969,21 +969,56 @@ and `moveRundownItem` are now thin adapters over these capabilities —
 `sendAnswerToSourcework`'s: the console button click is itself the human
 confirmation.
 
-**Underwriting & Traffic and FCC Reporting: design is done, not yet
-authorized to build.** These are the second and third tools
+**Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
+guardrail against building it is lifted.** This is the second of three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
 Rundown and Traffic System spec into — Log is the first, and its milestone 1
-is now complete (see above). `docs/underwriting-design.md` and
-`docs/fcc-reporting-design.md` were both written the same day as the
-strategy doc and Log's own design doc, but neither had a CLAUDE.md entry
-until now, which is why the strategy doc's own §8 briefly said both docs
-still needed to be written after they already existed — fixed there too.
-Read the strategy doc, then the relevant tool's own design doc, before
-starting either: Underwriting depends on Log's rundown/broadcast-event
-schema (already in place) and adds `item_kind`/`underwriting_copy_id` to
-`log_rundown_items` per that doc's §6; FCC Reporting depends on a real
-backlog of tagged `log_broadcast_events` existing first, so it stays last
-regardless of doc order.
+is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
+`docs/underwriting-design.md` (design in full) before touching any of it.
+**Slice 1 ships only Workflows A (creating/maintaining a contract) and B
+(managing underwriting copy)** — `uw_contracts`/`uw_placement_obligations`/
+`uw_copy`/`uw_contract_copy` (`20260807200000_underwriting_foundation.sql`),
+the route segment (`src/app/(portal)/underwriting/`) gated by
+`requireToolAccess("underwriting")`, and a plain member-level dashboard,
+contract, and copy-library screens. Manual credit placement into Log's
+rundown (Workflow C — the two-way boundary the design doc's §6 describes:
+writing `log_rundown_items` via a `security definer` function, reading
+`log_broadcast_events`, and the reverse read Log needs for its own
+mid-broadcast "move" validation), the pre/post-broadcast queues (D/E),
+makegoods (F), and affidavits (G) are next, each its own slice per the
+design doc's §7 — proceed with them without asking again.
+
+Two things about this slice are load-bearing:
+
+1. **This slice has no elevated role, unlike every other tool's Slice 1.**
+   `docs/underwriting-design.md` §6 is explicit: "Ordinary traffic staff do
+   everything else: contracts, copy, placement, exception triage up to but
+   not including a waive/certify decision" — and every action this slice
+   adds is on that "everything else" list. `private.is_underwriting_manager()`
+   (the elevation for waiving an obligation, certifying an affidavit, and
+   overriding expired/unapproved copy into a placement) is deliberately
+   **not defined yet** — there is nothing in this slice for it to gate.
+   Defining an authorization predicate before any policy needs it is the
+   same speculative-schema mistake CLAUDE.md warns against for columns; it
+   gets added in whichever later slice adds the first action that actually
+   needs it.
+2. **The eligible-programs field is a plain UUID list, not a name picker,
+   on purpose.** `uw_placement_obligations.eligible_program_ids` references
+   `log_programs`, but reading Log's program names into this tool's UI needs
+   a new cross-tool `select` policy that only the placement slice's Log
+   boundary work justifies adding — building it now, just for a nicer form
+   field, would be exactly the kind of scope creep on the RLS surface this
+   repo avoids. The obligation form takes comma-separated program IDs with a
+   hint explaining why, until that slice lands.
+
+**FCC Reporting: design is done, not yet authorized to build.** The third of
+the three tools, depending on a real backlog of tagged `log_broadcast_events`
+existing before quarterly aggregation is worth building against, so it stays
+last regardless of when its design doc was written. `docs/fcc-reporting-design.md`
+was written the same day as the strategy doc and the other two tools' design
+docs, but had no CLAUDE.md entry until now — same staleness this section's
+Underwriting entry above already explains, and now fixed in the strategy
+doc's §8 too. Read it before starting any of it.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
