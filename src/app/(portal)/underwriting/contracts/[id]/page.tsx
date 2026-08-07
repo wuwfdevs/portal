@@ -4,7 +4,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
-import { getContractDetail, listCopy } from "@/lib/underwriting/queries";
+import { getContractDetail, listCopy, listPlacementsForObligation } from "@/lib/underwriting/queries";
+import { formatPlacementTime, listPlaceableRundownItems } from "@/lib/underwriting/placement";
 import {
   addObligation,
   linkCopyToContract,
@@ -12,7 +13,8 @@ import {
   setObligationStatus,
   unlinkCopyFromContract,
 } from "../../contract-actions";
-import type { UwContractStatus, UwObligationStatus } from "@/lib/database.types";
+import { clearCreditAction, placeCreditAction } from "../../placement-actions";
+import type { UwContractStatus, UwObligationStatus, UwPlacementStatus } from "@/lib/database.types";
 
 const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   draft: "neutral",
@@ -25,6 +27,13 @@ const OBLIGATION_STATUS_VARIANT: Record<UwObligationStatus, BadgeVariant> = {
   active: "success",
   fulfilled: "accent",
   at_risk: "danger",
+};
+
+const PLACEMENT_STATUS_VARIANT: Record<UwPlacementStatus, BadgeVariant> = {
+  scheduled: "success",
+  locked: "accent",
+  conflict: "danger",
+  superseded: "muted",
 };
 
 export default async function ContractDetailPage({
@@ -42,6 +51,16 @@ export default async function ContractDetailPage({
   const allCopy = await listCopy();
   const linkedCopyIds = new Set(contract.copy.map((item) => item.id));
   const linkableCopy = allCopy.filter((item) => !linkedCopyIds.has(item.id));
+
+  const obligationPlacements = await Promise.all(
+    contract.obligations.map(async (obligation) => {
+      const [placements, placeable] = await Promise.all([
+        listPlacementsForObligation(obligation.id),
+        listPlaceableRundownItems(obligation.id),
+      ]);
+      return { obligation, placements, placeable };
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -69,7 +88,7 @@ export default async function ContractDetailPage({
             <p className="px-5 py-4 text-sm text-ink-500">No obligations yet.</p>
           ) : (
             <ul className="divide-y divide-line">
-              {contract.obligations.map((obligation) => (
+              {obligationPlacements.map(({ obligation, placements, placeable }) => (
                 <li key={obligation.id} className="flex flex-col gap-2 px-5 py-4">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-semibold text-ink-900">{obligation.description}</span>
@@ -96,6 +115,95 @@ export default async function ContractDetailPage({
                       Update
                     </Button>
                   </form>
+
+                  {placements.length > 0 && (
+                    <ul className="mt-1 flex flex-col gap-1.5 rounded border border-dashed border-line p-2.5">
+                      {placements.map((placement) => (
+                        <li key={placement.id} className="flex flex-wrap items-center gap-2 text-xs">
+                          <Badge variant={PLACEMENT_STATUS_VARIANT[placement.status]}>{placement.status}</Badge>
+                          <span className="text-ink-700">
+                            {placement.program_name} — {formatPlacementTime(placement.scheduled_at)}
+                            {placement.clock_slot_label ? ` (${placement.clock_slot_label})` : ""}
+                          </span>
+                          {placement.override_reason && (
+                            <span className="text-warning-fg">override: {placement.override_reason}</span>
+                          )}
+                          <form action={clearCreditAction}>
+                            <input type="hidden" name="contract_id" value={contract.id} />
+                            <input type="hidden" name="placement_id" value={placement.id} />
+                            <Button type="submit" variant="ghost">
+                              Clear
+                            </Button>
+                          </form>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                      Place a credit
+                    </summary>
+                    {contract.copy.length === 0 ? (
+                      <p className="mt-2 text-xs text-ink-500">
+                        Link copy to this contract first — see &quot;Linked copy&quot; below.
+                      </p>
+                    ) : !placeable.ok ? (
+                      <p className="mt-2 text-xs text-danger">{placeable.message}</p>
+                    ) : placeable.items.length === 0 ? (
+                      <p className="mt-2 text-xs text-ink-500">
+                        No eligible open slots right now — a rundown must exist for an eligible program
+                        first.
+                      </p>
+                    ) : (
+                      <form
+                        action={placeCreditAction}
+                        className="mt-2 flex flex-col gap-3 rounded border border-line p-3"
+                      >
+                        <input type="hidden" name="contract_id" value={contract.id} />
+                        <input type="hidden" name="obligation_id" value={obligation.id} />
+                        <div>
+                          <Label htmlFor={`rundown_item_${obligation.id}`}>Open slot</Label>
+                          <Select id={`rundown_item_${obligation.id}`} name="rundown_item_id" defaultValue="">
+                            <option value="" disabled>
+                              Choose a slot…
+                            </option>
+                            {placeable.items.map((item) => (
+                              <option key={item.rundown_item_id} value={item.rundown_item_id}>
+                                {item.program_name} — {formatPlacementTime(item.scheduled_at)}
+                                {item.clock_slot_label ? ` (${item.clock_slot_label})` : ""} ·{" "}
+                                {item.slot_duration_seconds}s
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor={`copy_${obligation.id}`}>Copy</Label>
+                          <Select id={`copy_${obligation.id}`} name="copy_id" defaultValue="">
+                            <option value="" disabled>
+                              Choose copy…
+                            </option>
+                            {contract.copy.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.cart_identifier ?? item.id.slice(0, 8)} ({item.approval_status})
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor={`override_${obligation.id}`}>Override reason</Label>
+                          <Input id={`override_${obligation.id}`} name="override_reason" />
+                          <FieldHint>
+                            Only needed if the copy isn&apos;t approved or is outside its effective dates —
+                            and only a manager&apos;s override is actually honored.
+                          </FieldHint>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button type="submit">Place credit</Button>
+                        </div>
+                      </form>
+                    )}
+                  </details>
                 </li>
               ))}
             </ul>
@@ -164,9 +272,9 @@ export default async function ContractDetailPage({
                 <Label htmlFor="eligible_program_ids">Eligible program IDs</Label>
                 <Input id="eligible_program_ids" name="eligible_program_ids" placeholder="uuid, uuid" />
                 <FieldHint>
-                  Comma-separated Log program IDs. Leave blank if eligible everywhere. A picker by name
-                  needs a scoped read into Log&apos;s program list, which isn&apos;t built until the placement
-                  slice — see docs/underwriting-design.md §6.
+                  Comma-separated Log program IDs. Leave blank if eligible everywhere. Still no name
+                  picker — placing a credit below resolves program names for eligible slots, but nothing
+                  reads Log&apos;s whole program list for a create-time dropdown yet.
                 </FieldHint>
               </div>
               <div className="flex justify-end">

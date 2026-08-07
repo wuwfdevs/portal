@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertToolAccess } from "@/lib/auth/authz";
+import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwContractStatus, UwObligationStatus, UwQuantityPeriod, UwSponsorshipPosition } from "@/lib/database.types";
 
@@ -23,7 +23,7 @@ function optionalField(formData: FormData, name: string): string | null {
 }
 
 export async function createContract(formData: FormData): Promise<void> {
-  const { profile } = await assertToolAccess("underwriting");
+  const { profile } = await assertUnderwritingAccess();
   const underwriterName = field(formData, "underwriter_name");
   const contractIdentifier = field(formData, "contract_identifier");
   const effectiveFrom = field(formData, "effective_from");
@@ -55,7 +55,7 @@ export async function createContract(formData: FormData): Promise<void> {
 const CONTRACT_STATUSES: UwContractStatus[] = ["draft", "active", "expired", "terminated"];
 
 export async function setContractStatus(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const id = field(formData, "contract_id");
   const path = contractPath(id);
   const status = field(formData, "status") as UwContractStatus;
@@ -74,7 +74,7 @@ const QUANTITY_PERIODS: UwQuantityPeriod[] = ["weekly", "monthly", "campaign_tot
 const SPONSORSHIP_POSITIONS: UwSponsorshipPosition[] = ["opening", "closing", "mid"];
 
 export async function addObligation(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const path = contractPath(contractId);
   const description = field(formData, "description");
@@ -130,7 +130,7 @@ export async function addObligation(formData: FormData): Promise<void> {
 const OBLIGATION_STATUSES: UwObligationStatus[] = ["active", "fulfilled", "at_risk"];
 
 export async function setObligationStatus(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const obligationId = field(formData, "obligation_id");
   const contractId = field(formData, "contract_id");
   const path = contractPath(contractId);
@@ -147,7 +147,7 @@ export async function setObligationStatus(formData: FormData): Promise<void> {
 
 /** Links an existing piece of copy to this contract — the reverse of copy-actions.ts's own link form. */
 export async function linkCopyToContract(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
   const path = contractPath(contractId);
@@ -162,7 +162,7 @@ export async function linkCopyToContract(formData: FormData): Promise<void> {
 }
 
 export async function unlinkCopyFromContract(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
   const path = contractPath(contractId);

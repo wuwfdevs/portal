@@ -6,6 +6,7 @@ import * as remoteInterviewCapabilities from "@/lib/remote-interview/capabilitie
 import * as audienceListeningCapabilities from "@/lib/audience-listening/capabilities";
 import * as roadmapCapabilities from "@/lib/roadmap/capabilities";
 import * as logCapabilities from "@/lib/log/capabilities";
+import * as underwritingCapabilities from "@/lib/underwriting/capabilities";
 import type { CapabilityDefinition } from "./define";
 
 // The one place all of a tool's capabilities are aggregated — the thing an
@@ -29,6 +30,7 @@ const CAPABILITY_MODULES = [
   audienceListeningCapabilities,
   roadmapCapabilities,
   logCapabilities,
+  underwritingCapabilities,
 ];
 
 const ALL_CAPABILITIES: AnyCapability[] = CAPABILITY_MODULES.flatMap((module) =>

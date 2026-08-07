@@ -100,7 +100,14 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Empties a rundown item back to its slot's nominal duration. */
+/**
+ * Empties a rundown item back to its slot's nominal duration. Scoped to
+ * item_kind = 'content' — an underwriting-credit item is only ever cleared
+ * through log_clear_underwriting_credit() (see the Underwriting placement
+ * screen), never this bare update: touching content_item_id/underwriting_
+ * copy_id together for the wrong kind would violate
+ * log_rundown_items_item_kind_shape_check.
+ */
 export async function clearRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -116,7 +123,8 @@ export async function clearRundownItem(formData: FormData): Promise<void> {
       planned_duration_seconds: Number.isFinite(slotDurationSeconds) ? slotDurationSeconds : 1,
       placement_status: "editable",
     })
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .eq("item_kind", "content");
   failIfError(error, path, "Could not clear this slot");
 
   revalidatePath(path);

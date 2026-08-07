@@ -106,7 +106,18 @@
 // UwCopyApprovalStatus/UwCopyProductionStatus enums (plain type aliases,
 // same as every log_ enum before them) — added by hand, then verified
 // against the Supabase MCP server's generate_typescript_types output for the
-// live preview project after applying.
+// live preview project after applying. Hand-updated again on 2026-08-07 for
+// Underwriting's Slice 2, the two-way Log boundary
+// (supabase/migrations/20260807210000_underwriting_placement.sql):
+// log_rundown_items gained item_kind/underwriting_copy_id; uw_scheduled_
+// placements and the new UwPlacementStatus enum were added; and the three
+// jsonb-returning security definer functions
+// (log_list_placeable_rundown_items/log_place_underwriting_credit/
+// log_clear_underwriting_credit) were added to the Functions map, typed by
+// their documented payload shape per every al_*/ri_* function's own
+// precedent above — added by hand, then verified against the Supabase MCP
+// server's generate_typescript_types output for the live preview project
+// after applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -340,6 +351,8 @@ export type UwSponsorshipPosition = "opening" | "closing" | "mid";
 export type UwObligationStatus = "active" | "fulfilled" | "at_risk";
 export type UwCopyApprovalStatus = "draft" | "approved" | "expired" | "retired";
 export type UwCopyProductionStatus = "pending" | "produced";
+// Slice 2 (placement) — see supabase/migrations/20260807210000_underwriting_placement.sql.
+export type UwPlacementStatus = "scheduled" | "locked" | "conflict" | "superseded";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1655,6 +1668,9 @@ export interface Database {
           requirement_level: LogRequirementLevel;
           placement_status: LogPlacementStatus;
           current_warning: LogItemWarning | null;
+          /** 'content' | 'underwriting_credit' — see docs/underwriting-design.md §6. Only ever set by log_place_underwriting_credit(). */
+          item_kind: string;
+          underwriting_copy_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
           rundown_id: string;
@@ -1768,6 +1784,34 @@ export interface Database {
           copy_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
+        Relationships: [];
+      };
+      uw_scheduled_placements: {
+        Row: {
+          id: string;
+          obligation_id: string;
+          copy_id: string;
+          log_rundown_item_id: string;
+          placement_date: string;
+          scheduled_at: string;
+          program_id: string;
+          program_name: string;
+          clock_slot_label: string | null;
+          status: UwPlacementStatus;
+          override_reason: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_scheduled_placements"]["Row"]> & {
+          obligation_id: string;
+          copy_id: string;
+          log_rundown_item_id: string;
+          placement_date: string;
+          scheduled_at: string;
+          program_id: string;
+          program_name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_scheduled_placements"]["Row"]>;
         Relationships: [];
       };
     };
@@ -1896,6 +1940,42 @@ export interface Database {
         Returns:
           | { ok: true; confirmation_copy: string }
           | { error: string };
+      };
+      /**
+       * The two-way Log boundary Underwriting & Traffic's placement slice
+       * adds (20260807210000_underwriting_placement.sql,
+       * docs/underwriting-design.md §6). Security definer: the caller may
+       * have no RLS access to Log's own tables at all.
+       */
+      log_list_placeable_rundown_items: {
+        Args: { p_obligation_id: string };
+        Returns:
+          | {
+              ok: true;
+              items: {
+                rundown_item_id: string;
+                rundown_id: string;
+                air_date: string;
+                scheduled_at: string;
+                clock_slot_label: string | null;
+                slot_duration_seconds: number;
+                program_name: string;
+              }[];
+            }
+          | { error: string };
+      };
+      log_place_underwriting_credit: {
+        Args: {
+          p_rundown_item_id: string;
+          p_obligation_id: string;
+          p_copy_id: string;
+          p_override_reason: string | null;
+        };
+        Returns: { ok: true; placement_id: string } | { error: string };
+      };
+      log_clear_underwriting_credit: {
+        Args: { p_placement_id: string };
+        Returns: { ok: true } | { error: string };
       };
     };
     Enums: {

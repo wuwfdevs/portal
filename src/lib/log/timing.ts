@@ -32,6 +32,8 @@ export function computeSlotFit(slotDurationSeconds: number, plannedDurationSecon
 
 export interface RundownSummaryItemLike {
   content_item_id: string | null;
+  /** Set instead of content_item_id for an underwriting-credit placement — docs/underwriting-design.md §6. Either one counts as filled. */
+  underwriting_copy_id?: string | null;
   requirement_level: LogRequirementLevel;
   planned_duration_seconds: number;
   slot_duration_seconds: number;
@@ -56,7 +58,7 @@ export function computeRundownSummary(items: RundownSummaryItemLike[]): RundownS
   let totalOverSeconds = 0;
 
   for (const item of items) {
-    const filled = item.content_item_id !== null;
+    const filled = item.content_item_id !== null || Boolean(item.underwriting_copy_id);
     if (filled) filledItems++;
     else if (item.requirement_level === "required") emptyRequiredItems++;
 

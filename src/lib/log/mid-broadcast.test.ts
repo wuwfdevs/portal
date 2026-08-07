@@ -41,6 +41,17 @@ describe("isValidMoveDestination", () => {
   it("rejects a destination whose slot doesn't permit the content type", () => {
     expect(isValidMoveDestination(destination({ id: "d1" }), "source", "news", NOW)).toBe(false);
   });
+
+  it("rejects a destination already occupied by an underwriting credit", () => {
+    expect(
+      isValidMoveDestination(
+        destination({ id: "d1", underwriting_copy_id: "copy-1" }),
+        "source",
+        "psa",
+        NOW,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("listValidMoveDestinations", () => {

@@ -13,6 +13,8 @@ import type { LogRequirementLevel } from "@/lib/database.types";
 export interface UnresolvedReviewItemLike {
   id: string;
   content_item_id: string | null;
+  /** Set instead of content_item_id for an underwriting-credit placement — docs/underwriting-design.md §6. Either one counts as filled. */
+  underwriting_copy_id?: string | null;
   requirement_level: LogRequirementLevel;
 }
 
@@ -22,7 +24,7 @@ export function listUnresolvedItems<T extends UnresolvedReviewItemLike>(
   confirmedItemIds: ReadonlySet<string>,
 ): T[] {
   return items.filter((item) => {
-    if (item.content_item_id !== null) return !confirmedItemIds.has(item.id);
+    if (item.content_item_id !== null || item.underwriting_copy_id) return !confirmedItemIds.has(item.id);
     return item.requirement_level === "required";
   });
 }

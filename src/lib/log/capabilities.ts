@@ -131,7 +131,7 @@ export const recordRundownItemOutcome = defineCapability({
     const source = await getRundownItem(input.sourceItemId);
     if (!source || source.content_item_id === null) return { ok: false, message: "There is nothing to move." };
     const destination = await getRundownItem(input.destinationItemId);
-    if (!destination || destination.content_item_id !== null) {
+    if (!destination || destination.content_item_id !== null || destination.underwriting_copy_id !== null) {
       return { ok: false, message: "That destination is no longer open." };
     }
 

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertToolAccess } from "@/lib/auth/authz";
+import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwCopyApprovalStatus, UwCopyProductionStatus } from "@/lib/database.types";
 
@@ -24,7 +24,7 @@ function optionalField(formData: FormData, name: string): string | null {
 }
 
 export async function createCopy(formData: FormData): Promise<void> {
-  const { profile } = await assertToolAccess("underwriting");
+  const { profile } = await assertUnderwritingAccess();
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -47,7 +47,7 @@ export async function createCopy(formData: FormData): Promise<void> {
 
 /** Corrects a copy's own metadata in place — script, cart #, duration, effective dates. No approval workflow gate: see setCopyStatus below for that. */
 export async function updateCopyDetails(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const id = field(formData, "copy_id");
   const path = copyPath(id);
 
@@ -78,7 +78,7 @@ const APPROVAL_STATUSES: UwCopyApprovalStatus[] = ["draft", "approved", "expired
 const PRODUCTION_STATUSES: UwCopyProductionStatus[] = ["pending", "produced"];
 
 export async function setCopyStatus(formData: FormData): Promise<void> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const id = field(formData, "copy_id");
   const path = copyPath(id);
   const approvalStatus = field(formData, "approval_status") as UwCopyApprovalStatus;
@@ -105,7 +105,7 @@ export async function completeCopyAudioUpload(
   copyId: string,
   storagePath: string,
 ): Promise<{ error?: string }> {
-  await assertToolAccess("underwriting");
+  await assertUnderwritingAccess();
   const supabase = await createClient();
 
   const { error } = await supabase.from("uw_copy").update({ audio_object_path: storagePath }).eq("id", copyId);

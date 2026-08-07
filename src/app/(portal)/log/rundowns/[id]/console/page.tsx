@@ -88,6 +88,8 @@ export default async function ConsolePage({
   const timing = computeLiveTimingState(now, consoleItems, rundown.shift_end_at);
   const currentItem = rundown.items.find((item) => item.id === timing.currentItem?.id) ?? null;
   const nextItem = rundown.items.find((item) => item.id === timing.nextItem?.id) ?? null;
+  const currentIsFilled =
+    currentItem != null && (currentItem.content_item_id !== null || currentItem.underwriting_copy_id !== null);
 
   const moveDestinations =
     currentItem?.contentItem != null
@@ -95,6 +97,7 @@ export default async function ConsolePage({
           rundown.items.map((item) => ({
             id: item.id,
             content_item_id: item.content_item_id,
+            underwriting_copy_id: item.underwriting_copy_id,
             scheduled_at: item.scheduled_at,
             slot: item.slot,
           })),
@@ -114,6 +117,7 @@ export default async function ConsolePage({
     rundown.items.map((item) => ({
       id: item.id,
       content_item_id: item.content_item_id,
+      underwriting_copy_id: item.underwriting_copy_id,
       requirement_level: item.requirement_level,
     })),
     new Set(eventCountByItem.keys()),
@@ -161,6 +165,12 @@ export default async function ConsolePage({
 
           {!currentItem ? (
             <p className="text-sm text-ink-500">Nothing scheduled right now.</p>
+          ) : currentItem.underwriting_copy_id ? (
+            <CopyDisplay
+              title="Underwriting credit"
+              script={null}
+              summary="Managed from Underwriting & Traffic — see that tool for the script."
+            />
           ) : !currentItem.contentItem ? (
             <div>
               <p className="text-lg font-bold text-danger">
@@ -182,7 +192,7 @@ export default async function ConsolePage({
             />
           )}
 
-          {currentItem?.contentItem && (
+          {currentIsFilled && currentItem && (
             <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
               <form action={markAired}>
                 <input type="hidden" name="rundown_id" value={rundown.id} />
@@ -257,7 +267,9 @@ export default async function ConsolePage({
           ) : (
             <p className="text-sm text-ink-700">
               {formatStationTimestamp(nextItem.scheduled_at)} —{" "}
-              {nextItem.contentItem ? (
+              {nextItem.underwriting_copy_id ? (
+                <span className="text-ink-400">Underwriting credit</span>
+              ) : nextItem.contentItem ? (
                 <>
                   {nextItem.contentItem.title}{" "}
                   <span className="text-ink-400">({CONTENT_TYPE_LABEL[nextItem.contentItem.content_type]})</span>

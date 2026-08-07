@@ -980,13 +980,10 @@ is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
 `uw_copy`/`uw_contract_copy` (`20260807200000_underwriting_foundation.sql`),
 the route segment (`src/app/(portal)/underwriting/`) gated by
 `requireToolAccess("underwriting")`, and a plain member-level dashboard,
-contract, and copy-library screens. Manual credit placement into Log's
-rundown (Workflow C — the two-way boundary the design doc's §6 describes:
-writing `log_rundown_items` via a `security definer` function, reading
-`log_broadcast_events`, and the reverse read Log needs for its own
-mid-broadcast "move" validation), the pre/post-broadcast queues (D/E),
-makegoods (F), and affidavits (G) are next, each its own slice per the
-design doc's §7 — proceed with them without asking again.
+contract, and copy-library screens. **Slice 2 (manual credit placement,
+Workflow C) has since landed too — see below.** The pre/post-broadcast
+queues (D/E), makegoods (F), and affidavits (G) are next, each its own
+slice per the design doc's §7 — proceed with them without asking again.
 
 Two things about this slice are load-bearing:
 
@@ -1002,14 +999,58 @@ Two things about this slice are load-bearing:
    same speculative-schema mistake CLAUDE.md warns against for columns; it
    gets added in whichever later slice adds the first action that actually
    needs it.
-2. **The eligible-programs field is a plain UUID list, not a name picker,
-   on purpose.** `uw_placement_obligations.eligible_program_ids` references
-   `log_programs`, but reading Log's program names into this tool's UI needs
-   a new cross-tool `select` policy that only the placement slice's Log
-   boundary work justifies adding — building it now, just for a nicer form
-   field, would be exactly the kind of scope creep on the RLS surface this
-   repo avoids. The obligation form takes comma-separated program IDs with a
-   hint explaining why, until that slice lands.
+2. **The eligible-programs field is still a plain UUID list, not a name
+   picker.** `uw_placement_obligations.eligible_program_ids` references
+   `log_programs`, but Slice 2's boundary work (below) only ever reads Log's
+   tables from inside a `security definer` function — it never granted this
+   tool's own client-side code a `select` policy on `log_programs`. A create-
+   time name picker would need one, which is still more RLS surface than the
+   obligation-creation screen alone justifies; the obligation form stays
+   comma-separated program IDs with a hint explaining why.
+
+**Underwriting & Traffic: Slice 2 (manual credit placement into Log's
+rundown) has landed** — Workflow C, the two-way Log boundary
+`docs/underwriting-design.md` §6 describes, built in one migration
+(`20260807210000_underwriting_placement.sql`) since it's one relationship
+with two directions. **Write into Log**: `log_rundown_items` gained
+`item_kind`/`underwriting_copy_id` (mirroring `sw_source_excerpts`' "exactly
+one of several possible references" shape), written only by
+`log_place_underwriting_credit()` — a `security definer` function, not a
+bare RLS-gated update, so the guard (an open, permitted slot; an active
+contract; program-eligible; copy linked to the contract and either approved-
+and-in-date or carrying a manager-checked override) lives in one place.
+`log_clear_underwriting_credit()` is the undo. **The read side of the same
+boundary, not named explicitly in the design doc but needed for Workflow
+C's own UI**: an underwriting-only caller has no RLS access to Log's
+rundown tables at all, so `log_list_placeable_rundown_items()` — also
+`security definer` — is how the contract page finds a given obligation's
+eligible open slots. **The reverse read Log needs from this tool**: a
+narrow additive `select` policy on `uw_placement_obligations` for Log
+members, scoped to obligations with an active placement — added per the
+design doc's instruction, though no Log-side code reads it yet (the
+console's existing move-destination check is content-type-based and already
+works for underwriting-credit items without it). This slice also defines
+`private.is_underwriting_manager()` for the first time — Slice 1 deliberately
+left it undefined; this is the slice with the first action (an override)
+that needs it. `uw_scheduled_placements` denormalizes `program_name`/
+`scheduled_at`/`clock_slot_label` at write time (captured by the security
+definer function, which can read Log's tables) specifically so this tool's
+own screens never need a live cross-tool read just to render a placement
+list — the same reasoning Audience Listening's answers snapshot their
+question. The capability layer gets `underwriting.credit.schedule`
+(`lib/underwriting/capabilities.ts`), confirmation-required, but
+deliberately **without** override support — the override path stays
+UI-only, the same judgment-call carve-out `lib/roadmap/capabilities.ts`
+already applies to curation. Two Log-side pure-logic bugs surfaced and were
+fixed while building this: `lib/log/mid-broadcast.ts`'s move-destination
+check and `lib/log/capabilities.ts`'s `recordRundownItemOutcome` "moved"
+branch both only checked `content_item_id` for "is this slot open," so
+either would have let a host move content on top of an underwriting credit
+and hit a raw constraint-violation error live on air; both now also check
+`underwriting_copy_id`. `clearRundownItem` (Log's own plain content-clear
+action) is now scoped to `item_kind = 'content'` for the same reason — an
+underwriting-credit item is only ever cleared through
+`log_clear_underwriting_credit()`.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

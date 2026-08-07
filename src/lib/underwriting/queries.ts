@@ -15,6 +15,7 @@ import type { Database } from "@/lib/database.types";
 export type UwContractRow = Database["public"]["Tables"]["uw_contracts"]["Row"];
 export type UwPlacementObligationRow = Database["public"]["Tables"]["uw_placement_obligations"]["Row"];
 export type UwCopyRow = Database["public"]["Tables"]["uw_copy"]["Row"];
+export type UwScheduledPlacementRow = Database["public"]["Tables"]["uw_scheduled_placements"]["Row"];
 
 export async function listContracts(): Promise<UwContractRow[]> {
   const supabase = await createClient();
@@ -113,4 +114,20 @@ export async function getCopyDetail(id: string): Promise<CopyDetail | null> {
         ) ?? []);
 
   return { ...copy, contracts };
+}
+
+/** Active (non-superseded) placements for one obligation, most recent first — this table is select-only from RLS, so a plain read is fine here (writes go through lib/underwriting/placement.ts's RPC calls). */
+export async function listPlacementsForObligation(obligationId: string): Promise<UwScheduledPlacementRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_scheduled_placements")
+        .select("*")
+        .eq("obligation_id", obligationId)
+        .neq("status", "superseded")
+        .order("scheduled_at"),
+      "this obligation's scheduled placements",
+    ) ?? []
+  );
 }

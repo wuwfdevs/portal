@@ -36,6 +36,14 @@ describe("listUnresolvedItems", () => {
     expect(result).toEqual([]);
   });
 
+  it("flags an underwriting-credit placement (no content_item_id) with no recorded outcome", () => {
+    const result = listUnresolvedItems(
+      [item({ id: "a", content_item_id: null, underwriting_copy_id: "copy-1" })],
+      new Set(),
+    );
+    expect(result.map((i) => i.id)).toEqual(["a"]);
+  });
+
   it("does not flag a moved item's cleared (optional) source, only its still-filled destination", () => {
     const items = [
       item({ id: "source", content_item_id: null, requirement_level: "optional" }),

@@ -1,8 +1,8 @@
-import { requireToolAccess } from "@/lib/auth/authz";
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { NavTabs } from "./nav-tabs";
 
 export default async function UnderwritingLayout({ children }: { children: React.ReactNode }) {
-  await requireToolAccess("underwriting");
+  await requireUnderwritingAccess();
 
   return (
     <div className="px-6 py-7 sm:px-8 sm:pb-12">

@@ -19,6 +19,8 @@ export interface MoveDestinationSlotLike {
 export interface MoveDestinationLike {
   id: string;
   content_item_id: string | null;
+  /** Set instead of content_item_id for an underwriting-credit placement — docs/underwriting-design.md §6. A destination holding one is occupied, same as a content-filled one. */
+  underwriting_copy_id?: string | null;
   scheduled_at: string;
   slot: MoveDestinationSlotLike;
 }
@@ -30,7 +32,7 @@ export function isValidMoveDestination(
   nowISO: string,
 ): boolean {
   if (destination.id === sourceItemId) return false;
-  if (destination.content_item_id !== null) return false;
+  if (destination.content_item_id !== null || destination.underwriting_copy_id) return false;
   if (new Date(destination.scheduled_at).getTime() <= new Date(nowISO).getTime()) return false;
   if (!destination.slot.permitted_content_types.includes(sourceContentType)) return false;
   return true;

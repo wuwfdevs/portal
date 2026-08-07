@@ -53,6 +53,13 @@ describe("computeRundownSummary", () => {
     expect(summary.ready).toBe(true);
   });
 
+  it("treats an underwriting-credit placement (no content_item_id) as filled", () => {
+    const summary = computeRundownSummary([
+      summaryItem({ content_item_id: null, underwriting_copy_id: "copy-1" }),
+    ]);
+    expect(summary).toMatchObject({ filledItems: 1, emptyRequiredItems: 0, ready: true });
+  });
+
   it("counts and sums overage across items, and is not ready", () => {
     const summary = computeRundownSummary([
       summaryItem({ planned_duration_seconds: 45, slot_duration_seconds: 30 }),
