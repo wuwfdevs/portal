@@ -9,7 +9,7 @@ export default async function UnderwritingLayout({ children }: { children: React
       <div className="mb-5">
         <h1 className="font-serif text-2xl font-bold text-ink-900">Underwriting &amp; Traffic</h1>
         <p className="mt-1 text-xs text-ink-400">
-          Contracts, copy, and (soon) credit placement into Log&apos;s rundowns, the exception queue, and
+          Contracts, copy, credit placement into Log&apos;s rundowns, the exception queue, makegoods, and
           affidavits.
         </p>
       </div>

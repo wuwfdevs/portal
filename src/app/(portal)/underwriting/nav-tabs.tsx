@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Makegoods and affidavits each get their own tab when their slice lands —
-// see docs/underwriting-design.md §4 for the full list.
+// See docs/underwriting-design.md §4 for the full screen list.
 const TABS = [
   { href: "/underwriting", label: "Dashboard" },
   { href: "/underwriting/contracts", label: "Contracts" },
   { href: "/underwriting/copy", label: "Copy" },
   { href: "/underwriting/exceptions", label: "Exceptions" },
+  { href: "/underwriting/makegoods", label: "Makegoods" },
+  { href: "/underwriting/affidavits", label: "Affidavits" },
 ] as const;
 
 export function NavTabs() {

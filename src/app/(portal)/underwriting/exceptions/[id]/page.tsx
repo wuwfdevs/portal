@@ -4,14 +4,23 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Label, Select, Textarea } from "@/components/ui/input";
-import { getExceptionDetail } from "@/lib/underwriting/queries";
+import { getExceptionDetail, listMakegoodsForException } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
+import { describeMakegoodState, MAKEGOOD_STATE_LABEL, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
 import { resolveException } from "../../exception-actions";
+import { createMakegood } from "../../makegood-actions";
 import type { UwResolutionStatus } from "@/lib/database.types";
 
 const STATUS_VARIANT: Record<UwResolutionStatus, BadgeVariant> = {
   open: "warning",
   resolved: "success",
+};
+
+const MAKEGOOD_STATE_VARIANT: Record<MakegoodDisplayState, BadgeVariant> = {
+  awaiting_slot: "warning",
+  slot_scheduled: "accent",
+  aired: "success",
+  cancelled: "muted",
 };
 
 export default async function ExceptionDetailPage({
@@ -25,6 +34,7 @@ export default async function ExceptionDetailPage({
   const { error } = await searchParams;
   const exception = await getExceptionDetail(id);
   if (!exception) notFound();
+  const makegoods = await listMakegoodsForException(id);
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -83,6 +93,40 @@ export default async function ExceptionDetailPage({
               </div>
             )}
           </dl>
+        </div>
+
+        <div className="mt-6 rounded border border-line">
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Makegoods</div>
+          {makegoods.length === 0 ? (
+            <p className="px-5 py-4 text-sm text-ink-500">No makegood scheduled against this exception yet.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {makegoods.map((makegood) => {
+                const state = describeMakegoodState(makegood);
+                return (
+                  <li key={makegood.id} className="flex items-center justify-between gap-2 px-5 py-3 text-sm">
+                    <span className="text-ink-700">
+                      {makegood.scheduled_for ? formatPlacementTime(makegood.scheduled_for) : "Not yet scheduled"}
+                    </span>
+                    <Badge variant={MAKEGOOD_STATE_VARIANT[state]}>{MAKEGOOD_STATE_LABEL[state]}</Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <form action={createMakegood} className="flex justify-end border-t border-line px-5 py-4">
+            <input type="hidden" name="exception_id" value={exception.id} />
+            <Button type="submit" variant="secondary">
+              Schedule a makegood
+            </Button>
+          </form>
+          <p className="border-t border-line px-5 py-3 text-xs text-ink-400">
+            Pick an open slot and copy from the{" "}
+            <Link href="/underwriting/makegoods" className="font-semibold text-brand-link">
+              makegoods
+            </Link>{" "}
+            screen.
+          </p>
         </div>
       </div>
 

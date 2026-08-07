@@ -981,10 +981,10 @@ is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
 the route segment (`src/app/(portal)/underwriting/`) gated by
 `requireToolAccess("underwriting")`, and a plain member-level dashboard,
 contract, and copy-library screens. **Slice 2 (manual credit placement,
-Workflow C) and Slice 3 (the exception queue, Workflows D/E) have since
-landed too — see below.** Makegoods (F) and affidavits (G) are next, each
-its own slice per the design doc's §7 — proceed with them without asking
-again.
+Workflow C), Slice 3 (the exception queue, Workflows D/E), Slice 4
+(makegoods, Workflow F), and Slice 5 (affidavits, Workflow G) have since
+landed too — see below.** That completes every workflow milestone 1 lists
+(§7) — nothing further is authorized to start without its own instruction.
 
 Two things about this slice are load-bearing:
 
@@ -1102,6 +1102,86 @@ inventory/spacing engine. `listObligationPlacementContexts()` in
 detail screen so the two don't drift on how "existing placements plus
 currently-placeable slots" is combined — flagged as duplicated by the same
 self-review before being extracted.
+
+**Underwriting & Traffic: Slice 4 (scheduling and confirming makegoods) has
+landed** — Workflow F. One migration
+(`20260807240000_underwriting_makegoods.sql`) adds `uw_makegoods`, reusing
+every mechanism Slice 2 already built rather than adding new ones:
+scheduling a makegood's slot goes through the identical
+`log_place_underwriting_credit()`/`log_list_placeable_rundown_items()` pair
+the contract page's own "Place a credit" form already calls
+(`lib/underwriting/placement.ts`), and cancelling one that already has a
+slot reuses `log_clear_underwriting_credit()` too — nothing writes into
+`log_rundown_items` or `log_broadcast_events` directly, and
+`log_broadcast_events`' insert policy stays scoped to `has_log_access` only
+(hosts). §5's literal column list makes `uw_makegoods.status` a three-value
+enum (`scheduled` | `aired` | `cancelled`) with `scheduled_placement_id`
+nullable "until scheduled" — a makegood record can exist before a slot is
+chosen (status stays `scheduled`, `scheduled_placement_id` null) and after
+(`scheduled_placement_id` set once a slot is picked, status still
+`scheduled` until confirmed aired); the "awaiting a slot" vs "slot chosen"
+distinction is derived at read time (`lib/underwriting/makegoods.ts`,
+pure and tested), not a fourth stored status, the same "derived, not
+stored" discipline `uw_placement_obligations.status` already follows.
+`uw_update_makegood_from_broadcast_event()` (an `after insert` trigger on
+`log_broadcast_events`, security definer for the same reason Slice 3's
+`uw_flag_exception_from_broadcast_event()` is) flips a scheduled makegood to
+`aired` the moment its own placement's rundown item is confirmed aired as
+scheduled — the other half of "tracked through to its own broadcast event."
+If a makegood's own airing is itself missed or moved, this trigger leaves
+it alone and Slice 3's own trigger already raises a fresh `uw_exceptions`
+row against it, since that trigger doesn't distinguish an original
+placement's rundown item from a makegood's — the recursive resolution path
+the design doc implies, with no new code needed for it. Ordinary
+member-level RLS throughout, no manager gate — §3F lists this workflow
+under "traffic staff," not §6's four privileged actions. The exception
+detail screen gained a "Makegoods" panel (create a bare record against an
+exception) and a new `/underwriting/makegoods` screen (Workflow F's own
+screen per §4) is where a slot actually gets picked or a makegood gets
+cancelled.
+
+**Underwriting & Traffic: Slice 5 (generating affidavits) has landed** —
+Workflow G, the last of milestone 1's seven workflows. One migration
+(`20260807250000_underwriting_affidavits.sql`) adds
+`uw_affidavits`/`uw_affidavit_line_items` (§5's literal columns —
+`uw_affidavit_line_items` has no separate id, a composite
+`(affidavit_id, log_broadcast_event_id)` primary key, same shape as
+`uw_contract_copy`'s own join-table precedent) plus a broadened read policy
+on `log_broadcast_events`: Slice 3's own
+`log_broadcast_events_select_for_underwriting` is scoped to broadcast
+events an `uw_exceptions` row already references, correct for the exception
+queue but too narrow for affidavit generation, which needs every broadcast
+event behind a contract's placements in a period — including the compliant
+majority that never became an exception. The new
+`log_broadcast_events_select_for_underwriting_placements` policy is
+additive, not a replacement, and — like Slice 3's own
+`exception_read_fix` — keyed off a permanent reference
+(`uw_scheduled_placements` rows are never deleted or repointed, only marked
+superseded) rather than `log_rundown_items.item_kind`'s current,
+reassignable state, so it doesn't reintroduce that bug. Generating an
+affidavit is ordinary application-layer orchestration
+(`lib/underwriting/queries.ts`'s `findAffidavitEvidence()`,
+`affidavit-actions.ts`'s `generateAffidavit`) over existing reads, not a
+security definer function — unlike Slice 2's placement boundary, nothing
+here writes into a table this tool doesn't already own. Regenerating for
+the same contract/period is allowed and produces a new, separately
+versioned affidavit (`lib/underwriting/affidavits.ts`'s
+`buildReportIdentifier`, pure and tested) rather than overwriting the
+previous one. Certifying an affidavit (`status` → `certified`) is one of
+§6's four privileged, manager-only actions, enforced by
+`uw_guard_affidavit_certification()` — a before-update trigger in the exact
+shape of Slice 3's `uw_guard_exception_resolution()` — not the Server
+Action, so the boundary holds no matter how the table is ever written.
+Milestone 1's affidavit stays a structured on-screen record styled for
+browser print (`/underwriting/affidavits/[id]`, a `print-button.tsx` client
+component calling `window.print()`), per §6's "no PDF generation" — not a
+generated PDF.
+
+That completes every workflow `docs/underwriting-design.md` §7 lists for
+milestone 1. Nothing further (automatic rules-based scheduling, true PDF
+generation, automation-system export/reconciliation, scheduled
+proof-of-performance delivery — all listed in that section as deferred) is
+authorized to start without its own instruction.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
