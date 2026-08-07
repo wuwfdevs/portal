@@ -106,10 +106,11 @@ Owns the structural and operational core (source doc §4, §5, §7–§9, §11�
 - `log_content_components` — live intro / recorded audio / live outro /
   optional tag rows under a content item, each independently timed, so total
   occupied time is always the sum of required components (§7.3).
-- `log_npr_rundown_cache` — the most recently retrieved NPR segment order,
-  story info, forward-promo copy, and advisories, with a retrieved-at
-  timestamp and a flag for staleness (§5) — a cache of an external source,
-  not user-authored data.
+- `log_npr_episodes` / `log_npr_episode_items` — the most recently retrieved
+  dated NPR program-episode (NPR's Content Distribution Service model —
+  see `docs/log-design.md` §5) for each mapped program, and its ordered
+  story items, with a retrieved-at timestamp and a flag for staleness (§5)
+  — a cache of an external source, not user-authored data.
 - `log_weather_reading` — single current row plus revision history, not one
   row per clock slot (§8) — every weather slot references the current
   version.
@@ -231,9 +232,10 @@ Carried from the source document's §26, unresolved and still blocking:
   and what export/as-run formats does it support? (Affects whether
   `log_broadcast_events`' automation-confirmation source is a real
   integration or host-confirmed only, at least initially.)
-- What NPR API or station integration is actually available for rundowns,
-  forward-promo copy, and revisions? (`log_npr_rundown_cache`'s shape depends
-  on this.)
+- ~~What NPR API or station integration is actually available for
+  rundowns?~~ Resolved (2026-08-07): NPR's Content Distribution Service
+  (CDS) — see `docs/log-design.md` §5/§7 and CLAUDE.md. WUWF's own
+  production token is still outstanding.
 - Which existing clock and contract patterns represent WUWF's complete set of
   use cases? (Needed before `log_clock_slots`/`uw_placement_obligations`'
   columns are finalized — the sketches above are structural, not final DDL.)

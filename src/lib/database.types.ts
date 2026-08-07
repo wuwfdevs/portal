@@ -74,10 +74,18 @@
 // log_npr_rundown_cache/log_weather_reading and the new LogNprStatus enum —
 // no local instance running to regenerate against; added by hand following
 // the same shape as every table here. Like every log_ enum before it,
-// LogNprStatus is exported as a plain type alias rather than added to the
+// LogNprStatus was exported as a plain type alias rather than added to the
 // Enums map at the bottom of this file — that map already omits every other
-// log_ enum from Slices 1-2, so adding just this one would be inconsistent
-// rather than fixing anything.
+// log_ enum from Slices 1-2, so adding just this one would have been
+// inconsistent rather than fixing anything. Hand-updated again on
+// 2026-08-07 to correct Slice 3's NPR half to the real CDS model
+// (supabase/migrations/20260807140000_log_npr_cds_correction.sql — see
+// CLAUDE.md): log_npr_rundown_cache and LogNprStatus are gone entirely,
+// replaced by log_npr_episodes/log_npr_episode_items and the new
+// LogNprEpisodeStatus enum (also a plain type alias, same reasoning as
+// above); log_programs gained npr_collection_id. Verified against the
+// Supabase MCP server's generate_typescript_types output for the live
+// preview project after applying, field-by-field diffed.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -261,7 +269,12 @@ export type LogContentType =
 export type LogApprovalStatus = "draft" | "approved" | "retired";
 export type LogComponentType = "live_intro" | "recorded_audio" | "live_outro" | "optional_tag";
 // Slice 3 (NPR + weather) — see supabase/migrations/20260807130000_log_npr_weather.sql.
-export type LogNprStatus = "draft" | "edited" | "revised" | "withdrawn";
+// NPR CDS correction (2026-08-07) — see supabase/migrations/
+// 20260807140000_log_npr_cds_correction.sql and CLAUDE.md: replaced the
+// prototype's invented draft/edited/revised/withdrawn segment-status
+// vocabulary with the real CDS distinction between an episode CDS actually
+// returned and one it confirmed doesn't exist for that date.
+export type LogNprEpisodeStatus = "found" | "not_found";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1316,6 +1329,8 @@ export interface Database {
           name: string;
           description: string | null;
           kind: LogProgramKind;
+          /** NPR Content Distribution Service collection id, if this is a mapped NPR network program — see supabase/migrations/20260807140000_log_npr_cds_correction.sql. */
+          npr_collection_id: number | null;
           created_at: string;
           created_by: string | null;
         };
@@ -1471,24 +1486,44 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]>;
         Relationships: [];
       };
-      log_npr_rundown_cache: {
+      log_npr_episodes: {
         Row: {
           id: string;
           program_id: string;
-          segment_order: number;
-          story_title: string;
-          story_description: string | null;
-          forward_promo_copy: string | null;
-          status: LogNprStatus;
-          advisory_text: string | null;
+          show_date: string;
+          npr_collection_id: number;
+          status: LogNprEpisodeStatus;
+          npr_episode_id: string | null;
+          title: string | null;
+          raw: unknown;
           retrieved_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"]> & {
+        Insert: Partial<Database["public"]["Tables"]["log_npr_episodes"]["Row"]> & {
           program_id: string;
-          segment_order: number;
-          story_title: string;
+          show_date: string;
+          npr_collection_id: number;
+          status: LogNprEpisodeStatus;
         };
-        Update: Partial<Database["public"]["Tables"]["log_npr_rundown_cache"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["log_npr_episodes"]["Row"]>;
+        Relationships: [];
+      };
+      log_npr_episode_items: {
+        Row: {
+          id: string;
+          episode_id: string;
+          position: number;
+          npr_item_id: string;
+          title: string;
+          teaser: string | null;
+          raw: unknown;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_npr_episode_items"]["Row"]> & {
+          episode_id: string;
+          position: number;
+          npr_item_id: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_npr_episode_items"]["Row"]>;
         Relationships: [];
       };
       log_weather_reading: {
