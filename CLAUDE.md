@@ -664,6 +664,42 @@ slot-to-visual-category mapping keyed off label text and
 column) with a colocated test file; `src/components/log/clock-face.tsx` is a
 plain server-rendered `<svg>` (no `"use client"` needed — each segment's
 native `<title>` tooltip is the only interactivity called for) consuming it.
+The diagram also fixed two real usability gaps found once it existed: slot
+boundaries had no minute labels (`buildBoundaryLabels`, rotated radially via
+`radialLabelOrientation` — a horizontal label collided with its neighbors
+wherever two boundaries fell only seconds apart, since a label's on-ring
+footprint is its full text width; rotating it to run along its own radius
+shrinks that footprint to the line's thickness), and a floating break
+rendered as an ordinary solid wedge at its nominal position instead of
+looking like a movable window — `slotRenderWindow` now draws it spanning its
+full earliest-start-to-latest-end range with a diagonal hatch fill and
+dashed border instead of a solid one.
+
+**Log: clock seed corrections (2026-08-06)** —
+`20260806180000_log_clock_seed_corrections.sql` fixes real transcription
+errors in 10 of the 13 seeded NPR clocks, found by re-checking each against
+its source PDF after a user report that some slot times looked wrong. Two
+bugs were systemic, not one-offs: nearly every clock's original transcription
+silently stopped short of the actual top of the hour, missing a final few
+seconds of "Silence" (and often a short "Music Bed" before it) that every one
+of these NPR house clocks reserves right before the next hour's Billboard —
+this alone affected Hidden Brain, TED Radio Hour, Wait Wait... Don't Tell
+Me!, 1A, both All Things Considered clocks, both Weekend Edition clocks, and
+World Cafe. Morning Edition additionally had a promo mislabeled onto the
+wrong position (swapped with a different promo fifteen minutes away) and a
+dropped 30-second Music slot that shifted two newscasts thirty seconds early
+and inflated one's duration past what the network newscast actually runs.
+All Things Considered (weekday) had a cluster of slots — a Return, a Music
+Bed, and a Cross-Promo — that don't exist at all in the source diagram, which
+shows Segment D starting immediately at that point instead. `log_clock_slots`
+is insert-only from the application (no update/delete RLS policy for
+producers — see below), which is a boundary on writes through the app, not a
+reason to leave a migration's own seeding mistake in place: each affected
+version's slots are deleted and re-inserted in this migration rather than
+left to accumulate as a confusing phantom "correction" version. Three clocks
+(Fresh Air, Fresh Air Weekend, Here & Now) have not yet been re-verified
+against their source PDFs — their absence from this migration means "not yet
+checked," not "confirmed correct."
 
 **Log: milestone 1 slice 2 (Content library) has landed** —
 `20260806160000_log_content_library.sql` adds `log_content_items` (news,
