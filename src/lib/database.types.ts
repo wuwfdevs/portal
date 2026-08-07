@@ -93,7 +93,13 @@
 // every other log_ enum) — added by hand following the same Row/Insert/
 // Update shape as every table here, then verified against the Supabase MCP
 // server's generate_typescript_types output for the live preview project
-// after applying.
+// after applying. Hand-updated again on 2026-08-07 for Log's host-console
+// slice (supabase/migrations/20260807160000_log_broadcast_events.sql):
+// log_broadcast_events and the new LogBroadcastOutcome/LogConfirmationSource/
+// LogMissReason enums (plain type aliases, same as every other log_ enum) —
+// added by hand, then verified against the Supabase MCP server's
+// generate_typescript_types output for the live preview project after
+// applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -291,6 +297,33 @@ export type LogRundownStatus = "draft" | "generated" | "in_progress" | "submitte
 export type LogRequirementLevel = "required" | "suggested" | "optional";
 export type LogPlacementStatus = "locked" | "movable" | "replaceable" | "editable";
 export type LogItemWarning = "timing_conflict" | "stale_content" | "none";
+// Slice 5 (the host console + mid-broadcast actions) — see
+// supabase/migrations/20260807160000_log_broadcast_events.sql. This slice's
+// own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
+// see that migration's file header for the rest of the vocabulary's status.
+export type LogBroadcastOutcome =
+  | "scheduled"
+  | "aired_as_scheduled"
+  | "aired_different_time"
+  | "partially_aired"
+  | "skipped"
+  | "missed"
+  | "replaced"
+  | "wrong_copy_aired"
+  | "unconfirmed"
+  | "pending_review"
+  | "makegood_scheduled"
+  | "makegood_aired"
+  | "waived";
+export type LogConfirmationSource = "automation" | "host" | "exception_report" | "management_correction";
+export type LogMissReason =
+  | "network_timing"
+  | "breaking_news"
+  | "segment_overrun"
+  | "technical_problem"
+  | "host_error"
+  | "unavailable_copy"
+  | "other";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1615,6 +1648,28 @@ export interface Database {
           planned_duration_seconds: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
+        Relationships: [];
+      };
+      // Append-only from the application — no update grant. See the
+      // migration's file header.
+      log_broadcast_events: {
+        Row: {
+          id: string;
+          rundown_item_id: string;
+          outcome: LogBroadcastOutcome;
+          actual_started_at: string | null;
+          actual_duration_seconds: number | null;
+          confirmation_source: LogConfirmationSource;
+          reason: LogMissReason | null;
+          notes: string | null;
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]> & {
+          rundown_item_id: string;
+          outcome: LogBroadcastOutcome;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_broadcast_events"]["Row"]>;
         Relationships: [];
       };
     };

@@ -52,6 +52,12 @@ export default async function RundownDetailPage({
       <div className="mt-2 mb-1 flex flex-wrap items-center gap-2.5">
         <h2 className="font-serif text-xl font-bold text-ink-900">{rundown.programName}</h2>
         <Badge variant={STATUS_VARIANT[rundown.status]}>{rundown.status.replace("_", " ")}</Badge>
+        <Link
+          href={`/log/rundowns/${rundown.id}/console`}
+          className="ml-auto text-xs font-semibold text-brand-link"
+        >
+          Open console →
+        </Link>
       </div>
       <p className="mb-4 text-xs text-ink-500">
         {rundown.air_date} · {formatStationTimestamp(rundown.shift_start_at)} –{" "}

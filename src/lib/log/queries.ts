@@ -23,6 +23,7 @@ export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode
 export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
 export type LogRundownRow = Database["public"]["Tables"]["log_rundowns"]["Row"];
 export type LogRundownItemRow = Database["public"]["Tables"]["log_rundown_items"]["Row"];
+export type LogBroadcastEventRow = Database["public"]["Tables"]["log_broadcast_events"]["Row"];
 
 export async function listPrograms(): Promise<LogProgramRow[]> {
   const supabase = await createClient();
@@ -370,4 +371,28 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
       };
     }),
   };
+}
+
+export async function getRundownItem(id: string): Promise<LogRundownItemRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("log_rundown_items").select("*").eq("id", id).maybeSingle(),
+    "this rundown item",
+  );
+}
+
+/** Every broadcast event for a set of rundown items, most recent first — used to derive each item's confirmed/outcome state on the console. */
+export async function listBroadcastEventsForItems(rundownItemIds: string[]): Promise<LogBroadcastEventRow[]> {
+  if (rundownItemIds.length === 0) return [];
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("log_broadcast_events")
+        .select("*")
+        .in("rundown_item_id", rundownItemIds)
+        .order("recorded_at", { ascending: false }),
+      "these rundown items' broadcast events",
+    ) ?? []
+  );
 }
