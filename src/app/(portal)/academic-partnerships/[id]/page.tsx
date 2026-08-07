@@ -42,22 +42,20 @@ export default async function SubmissionDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-serif text-xl font-bold text-ink-900">{submission.faculty_name}</h1>
-              {submission.disposition ? (
-                <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
-                  {DISPOSITION_LABEL[submission.disposition]}
-                </Badge>
-              ) : (
-                <Badge variant="accent">{STAGE_LABEL[submission.stage]}</Badge>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-ink-400">
-              Submitted {new Date(submission.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
-            </p>
+        <header>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-serif text-xl font-bold text-ink-900">{submission.faculty_name}</h1>
+            {submission.disposition ? (
+              <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
+                {DISPOSITION_LABEL[submission.disposition]}
+              </Badge>
+            ) : (
+              <Badge variant="accent">{STAGE_LABEL[submission.stage]}</Badge>
+            )}
           </div>
+          <p className="mt-1 text-xs text-ink-400">
+            Submitted {new Date(submission.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+          </p>
         </header>
 
         <OriginalResponse submission={submission} />
