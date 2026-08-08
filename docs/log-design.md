@@ -232,57 +232,67 @@ sees when it was last updated, can refresh manually, and can set a temporary
 per-airing override for the current slot without overwriting the master
 copy every other slot references.
 
-### E. Building the daily rundown (host, or a producer preparing ahead)
-Rebuilt as a **vertical, chronological list of break cards** in this
-redesign (`/log/rundowns/[id]`), replacing milestone 1's table — a break's
-scheduled time, label, requirement badge, network-rejoin time, and available
-duration head the card; its items (if any) list below with per-item
-override controls; quick-add controls (existing content, a one-off live
-read, a "use today's weather" button where permitted) sit at the bottom of
-an open break. An optional break with nothing in it reads as "carrying
-network," not as an error state — the vertical layout makes that legible at
-a glance the way a dense table couldn't. Every action recalculates timing
-immediately (§11.3, §12).
+### E–H. Building, running, and submitting a rundown — one screen (host, or a producer preparing ahead)
+Workflows E ("building the daily rundown"), F ("running the console live"),
+G (mid-broadcast actions), and H (submitting) all happen on **one screen**,
+`/log/rundowns/[id]` — not four workflows split across two routes. This is
+itself a correction: the original build (both milestone 1 and the first
+pass of this redesign) split a **builder** (pre-air planning, full editing,
+time-independent) from a separate **console** (`/console`, a narrowed
+current/next live view with only aired/missed/move). Real usage showed that
+split was wrong on two counts, both found from direct reports against the
+deployed app, not from re-reading the spec: a host routinely decides what
+fills an open avail *while on air*, not only ahead of time, so the console
+needed the builder's fill controls anyway — and once it had them, keeping a
+second, narrower route around stopped making sense. A solo host running the
+board wants the **same vertical, chronological list of break cards** at
+every point in the process, not a wide-view screen for prepping and a
+narrow one for executing. See §6's "One screen, not two" for the mechanism;
+CLAUDE.md's "Log: builder and console merged into one screen" note has the
+full account of both corrections in order.
 
-### F. Running the console live (host)
-During the broadcast, the host console (§13) shows the current and next
-**break** (not slot), readable copy at an adjustable size, network
-outcue/rejoin information, NPR forward-promo context, current weather, and
-time remaining. **Underwriting-credit items render their actual script
-directly on the console** — a correction from milestone 1's placeholder,
-which told the host to "go to Underwriting & Traffic" to read a credit; see
-§6's "The Underwriting boundary is now real." §12.4's live timing state (on
-time / running long / running short / at risk of missing a required item /
-at risk of missing rejoin) is computed continuously against breaks, not on
-request.
+**Always visible, regardless of whether the broadcast has started:** every
+break in chronological order — scheduled time, label, requirement badge,
+network-rejoin time, available duration, its items with per-item override
+controls, and quick-add controls at the bottom of any break with room. An
+optional break with nothing in it reads as "carrying network," not an error
+state. Every action recalculates timing immediately (§11.3, §12).
 
-**The console can fill an open break directly, not just execute a
-pre-built plan** — a correction found from a real usability report, not
-something the original milestone-1/redesign build got right the first
-time. The initial console shipped read-only against the plan: aired,
-missed, and move, nothing else, on the stated assumption that "building" is
-builder work and "executing" is console work. That's wrong for how this
-actually happens at a small station: a solo host is routinely deciding what
-goes into an open avail *while on air*, not only executing a plan someone
-finished building ahead of time. The console's Current panel now has the
-same fill controls the builder has — existing content, a one-off live read,
-today's weather where permitted — for exactly this case, and the Next panel
-has the same behind a "Fill ahead" disclosure for prepping the next break
-without leaving the live view. See §6's "Builder and console share their
-fill actions" for the mechanism.
+**Filling a break is one workflow, not three, and weather is not a special
+case.** A single "Add…" picker lists every eligible content-library item
+*and* "Today's weather" together — weather is picked exactly the way any
+other content is, not through a separate button living apart from the rest.
+The underlying write still branches (weather has no library row behind it —
+its effective text always comes from the current `log_weather_reading`
+unless overridden for this one airing), but that's an implementation detail
+the host never sees; from the host's side, filling an open break is always
+the same interaction. A one-off live read stays a separate control since it
+takes free-text input rather than a pick from a list — that's a genuinely
+different kind of interaction, not an arbitrary inconsistency.
 
-### G. Mid-broadcast host actions
-When timing shifts, a host marks an item **aired**, **moved** to another
-valid break, or **missed** with a brief reason and no lengthy narrative
-(§14.3). Every deviation is retained, never silently dropped from the record
-(§1.2's "planned is not aired"). A brief undo period follows any move.
+**Once the broadcast is under way** (`status = in_progress`, started with a
+"Start broadcast" button), the same list gains: a live timing badge (on time
+/ running long / running short / at risk of missing a required item / at
+risk of missing rejoin, §12.4, computed continuously, not on request); the
+break currently airing highlighted and anchored ("Jump to now"), its items
+shown at adjustable large text size for readability (§13); and, on every
+*unconfirmed* item in *any* break — not only the current one, since the
+whole show is visible at once — the three mid-broadcast actions: **aired**,
+**moved** to another valid break, or **missed** with a brief reason (§14.3).
+Every deviation is retained, never silently dropped from the record (§1.2's
+"planned is not aired"). **Underwriting-credit items render their actual
+script inline** — a correction from milestone 1's placeholder, which told
+the host to "go to Underwriting & Traffic" to read a credit; see §6's "The
+Underwriting boundary is now real." A sidebar carries network-rejoin time,
+current weather, NPR context, and a wrap-up panel (unresolved-item count,
+submit).
 
-### H. Completing and submitting a rundown (host)
-At the end of a shift, the host reviews unresolved items — an empty
+At the end of a shift, the host reviews that wrap-up panel — an empty
 *required* break, or a filled item with no recorded outcome — and submits.
 That freezes a reference version of the rundown while still allowing
 documented management corrections afterward (§15.3) — submission is a
-checkpoint, not a lock that erases the ability to fix a mistake.
+checkpoint, not a lock that erases the ability to fix a mistake, and every
+control above keeps working after submission for exactly that reason.
 
 ---
 
@@ -298,28 +308,24 @@ checkpoint, not a lock that erases the ability to fix a mistake.
 /log/library/new                  Create a content item
 /log/weather                      Current weather live-read, manual refresh
 /log/npr                          Program+date NPR episode lookup, manual refresh
-/log/rundowns/[id]                Rundown builder: vertical break list, per-airing overrides, host actions
-/log/rundowns/[id]/console        The live host console (§13)
+/log/rundowns/[id]                The rundown — build it, run it live, submit it (§3E-H). One screen.
 ```
 
 **`/log`** — today's schedule, one row per program with its rundown's
 status (not generated / generated / in progress / submitted) and a quick
-link into the builder or, once a shift starts, the console.
+link into its rundown.
 
 **`/log/clocks/[id]`** — the network structure and the local-opportunity
 overlay as two separate tables, plus the enlarged dual-ring diagram, so a
 producer can see at a glance which windows are WUWF's own call versus what
 the network dictates.
 
-**`/log/rundowns/[id]`** — the vertical break-card builder described in §3E.
-
-**`/log/rundowns/[id]/console`** — the live view (§13's requirements
-verbatim): large controls, current/next break, adjustable text size, the
-three mid-broadcast actions (aired / move / missed) always one tap away for
-whatever's currently live, and the same fill controls the builder has (add
-existing content, a one-off live read, today's weather) for filling an open
-break without leaving the live view — see §3F/§6. Underwriting credits show
-their real script inline.
+**`/log/rundowns/[id]`** — the vertical, chronological break-card list
+described in §3E-H: always available for planning, gains a live timing
+badge, adjustable-size copy for whatever's currently airing, and the three
+mid-broadcast actions once the broadcast starts. There is no separate
+console route — that split was tried and corrected; see §6's "One screen,
+not two."
 
 ---
 
@@ -504,8 +510,8 @@ standard `tool_access` membership predicate, no `security definer` public
 surface (Log has no unauthenticated participant the way Audience Listening
 or Academic Partnerships do). Within that membership, two roles:
 
-- **Member** — any granted user. Builds and executes rundowns, manages
-  content library items, runs the console, records mid-broadcast outcomes.
+- **Member** — any granted user. Builds and runs rundowns live, manages
+  content library items, records mid-broadcast outcomes.
 - **Producer** — `tool_access.tool_role = 'producer'`. Additionally edits
   clock templates/versions, local opportunities, and the program schedule.
 
@@ -600,31 +606,73 @@ persisted as a computed column. They're derived in `lib/log/timing.ts`
 `lib/remote-interview/call-status.ts` derives participant status from events
 rather than storing it — pure functions, no Supabase import, colocated
 tests, safe to recompute on every render. `lib/log/console-timing.ts`
-(`computeLiveTimingState`) is the live-console counterpart, operating on
+(`computeLiveTimingState`, module name kept from when it had a dedicated
+route — see below) is the live-timing counterpart, operating on
 `ConsoleBreakLike` rather than a single item.
 
-### Builder and console share their fill actions
+### One screen, not two
 
-`fillRundownItem`, `createLiveReadItem`, and `addWeatherItem`
-(`src/app/(portal)/log/rundown-actions.ts`) are called from both screens —
-not duplicated into a second console-side copy. Each accepts an optional
-`return_to` form field (`"console"` or, by default, the builder); the
-action's own redirect and error bounce-back target whichever screen
-submitted the form (`resolveReturnPath`). The console's own copy of these
-forms — rendered on the Current break unconditionally and on the Next break
-behind a "Fill ahead" disclosure — sets `return_to=console` as a hidden
-field; the builder's forms don't set it and keep redirecting to themselves,
-unchanged. This is the fix for §3F's "the console can fill an open break
-directly" — a host filling a break from the live view stays on the live
-view afterward, they don't get bounced to the builder mid-broadcast.
+`/log/rundowns/[id]` used to be two routes: a builder (pre-air planning,
+full editing, time-independent) and `/console` (a narrowed current/next
+live view with only aired/missed/move). Both corrections below were found
+from direct usability reports against the deployed app, in the same
+session, each building on the one before it:
 
-### Host console resilience — flagged, not built, in this pass
+1. The console shipped read-only against the plan at first — aired,
+   missed, move, nothing else — on the assumption that "building" is
+   builder work and "executing" is console work. That's wrong for how this
+   actually happens at a small station: a host is routinely deciding what
+   fills an open avail *while on air*. Fixed by sharing the builder's fill
+   actions with the console instead of duplicating them.
+2. Once the console could fill breaks, keeping a second, narrower route
+   around stopped making sense — the thing that made a live view *live*
+   was never "less content, more buttons," it was the timing badge and the
+   mid-broadcast actions, and those can layer onto the same always-visible
+   break list the builder already had. A host running the board wants full
+   context and control at every point, not a wide view for prepping and a
+   narrow one for executing.
+
+The merge itself: `computeLiveTimingState`/`currentBreak` are computed
+whenever `rundown.status` is `in_progress` or `submitted` (the `live`
+flag in `src/app/(portal)/log/rundowns/[id]/page.tsx`); when not live, none
+of the live-only data (broadcast events, weather, NPR) is even fetched. The
+break currently airing gets a visual highlight and an anchor
+(`#current-break`, with a "Jump to now" link) and its items render through
+`CopyDisplay` (adjustable text size) instead of the plain compact card every
+other break uses. Mid-broadcast actions (aired/missed/move) appear on any
+unconfirmed item in *any* break once live, not only the current one — the
+whole show is visible at once, so a host can act on something from three
+breaks back exactly as easily as on what's airing right now, which a
+narrowed current/next view could never offer. A sidebar carries
+network-rejoin time, weather, NPR, and the wrap-up/submit panel; before the
+broadcast starts, that same panel shows a "Start broadcast" button instead
+of the submit form. `broadcast-actions.ts` (renamed from
+`console-actions.ts` in the same pass, along with `startConsole` →
+`startBroadcast`) still holds the three mid-broadcast actions and submit —
+their own logic didn't change, only which page renders their controls.
+
+**Weather is filled through the same picker as any other content, not a
+separate button** — the other half of the same "one workflow, not several"
+correction. `WEATHER_ITEM_SENTINEL` (`lib/log/content-library.ts`) is a
+plain string value the "Add…" select's weather option carries;
+`fillRundownItem` branches on it before falling through to the ordinary
+`buildRundownItem` capability path for a real content item. The underlying
+write still differs — weather has no `log_content_items` row, only today's
+current `log_weather_reading` — but that split lives entirely inside one
+action, invisible to the host, who just picks "Today's weather" out of the
+same list as everything else. `buildRundownItem` itself stays scoped to
+real library content (its own MCP-facing contract says "use
+`log.content.search` first to find an eligible item's id," which never
+applies to weather), so the branch sits in the thin Server Action layer
+rather than widening that capability's schema.
+
+### Host live-view resilience — flagged, not built, in this pass
 
 §22 of the source spec requires the current rundown to survive a temporary
 connectivity loss without becoming unreadable, and requires unsent host
 actions to be preserved and synchronized when connectivity returns. **This
-was not implemented in the 2026-08-07/08 redesign pass** — the console still
-assumes a live connection to record `markAired`/`markMissed`/
+was not implemented in the 2026-08-07/08 redesign pass** — the live view
+still assumes a live connection to record `markAired`/`markMissed`/
 `moveRundownItem`. This is the top unresolved operational gap coming out of
 this redesign; see §7. The originally-designed shape (queue actions locally
 in IndexedDB with a client-generated id, retry with backoff, replay on
@@ -636,7 +684,7 @@ approach; it simply hasn't been built yet.
 
 `requireToolAccess("log")` gates the route segment; Server Actions in
 `actions.ts` per screen area (`clock-actions.ts`, `library-actions.ts`,
-`rundown-actions.ts`, `console-actions.ts`) assert access first and use
+`rundown-actions.ts`, `broadcast-actions.ts`) assert access first and use
 `failIfError`/`failWith` for the standard `?error=` bounce-back; reads live
 in `lib/log/queries.ts` behind `unwrapRead()`; pure logic (timing, the
 mid-broadcast state machine, content-eligibility filtering, rundown
@@ -651,7 +699,7 @@ confirmation `required`), and `log.content.search` (mirroring
 
 ### What's deliberately not in the architecture
 
-- **No console offline resilience** — see above; the top unresolved gap.
+- **No offline resilience for the live view** — see above; the top unresolved gap.
 - **No automation-system integration.** `confirmation_source = 'automation'`
   exists in the schema for when that integration is built, but nothing
   populates it yet.
@@ -673,16 +721,19 @@ templates and versions with a separate, editable local-opportunity overlay;
 program scheduling; the content library (referencing DAD by cart number,
 not portal-hosted audio); NPR rundown display; the weather live-read with
 per-airing override; daily rundown generation around local opportunities
-(never flagging an unused optional one); the vertical break-card rundown
-builder; the host console with continuous break-level timing and inline
-underwriting-credit scripts; the three mid-broadcast actions writing
-directly to `log_broadcast_events`; and rundown submission.
+(never flagging an unused optional one); and the single rundown screen —
+the vertical break-card list for planning, gaining continuous break-level
+timing, adjustable-size copy, inline underwriting-credit scripts, and the
+three mid-broadcast actions once a broadcast is under way — plus rundown
+submission, all writing directly to `log_broadcast_events`. Builder and
+console started as two routes and were merged into this one screen after
+two rounds of usability corrections; see §6's "One screen, not two."
 
 **Genuinely unresolved, in priority order:**
 
-1. **Host console offline/connectivity resilience** (§6) — not built in this
-   pass. This is the single highest-priority remaining gap: a real
-   connectivity drop during a live broadcast currently risks losing an
+1. **Offline/connectivity resilience for the live rundown view** (§6) — not
+   built in this pass. This is the single highest-priority remaining gap: a
+   real connectivity drop during a live broadcast currently risks losing an
    unsent mid-broadcast action, exactly what §22 warns against.
 2. **Local opportunities for the other twelve seeded network clocks.** Only
    Morning Edition has real, confirmed local-substitution windows as of this

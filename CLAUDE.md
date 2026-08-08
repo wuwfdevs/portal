@@ -1433,6 +1433,54 @@ view, per `docs/log-design.md` §1) — this correction is about what the
 console screen itself can do, not about merging the two screens or removing
 the split.
 
+**Log: builder and console merged into one screen (2026-08-08), superseding
+the note above.** The previous correction gave the console the builder's
+fill capability but kept the Builder/Console split itself, on the reasoning
+that pre-air planning and live execution are different moments needing
+different screens. Direct pushback on that reasoning — the vertical,
+always-visible break list is exactly what gives a host control during a
+live broadcast, not something to narrow away in favor of a minimal
+current/next view — was correct: once the console could fill breaks, there
+was no real remaining difference to justify a second route, only two
+lookalike-but-separate implementations of decreasing distinctness. Merged
+into `src/app/(portal)/log/rundowns/[id]/page.tsx`; the `/console` route is
+deleted outright, not redirected. Every break renders in chronological
+order at all times, live or not (`const live = rundown.status ===
+"in_progress" || rundown.status === "submitted"`). Once live: the current
+break gets a visual highlight plus a `#current-break` anchor ("Jump to
+now"), its items render through the adjustable-text-size `CopyDisplay`
+instead of the plain compact card every other break uses, and the three
+mid-broadcast actions (aired/missed/move) appear on any unconfirmed item in
+*any* break, not only the current one — the whole show being visible at
+once is what makes "full context and control," the actual goal, mean
+something. Before live, the sidebar's status panel shows a "Start
+broadcast" button; once live, it shows the wrap-up/submit panel. `console-
+actions.ts` was renamed `broadcast-actions.ts` and `startConsole` renamed
+`startBroadcast`, matching that there's no more separate console concept
+for either name to refer to; `console-timing.ts`/`ConsoleBreakLike` keep
+their names since renaming a working, tested pure module purely for label
+consistency wasn't worth the churn.
+
+**Log: weather folded into the same "add content" workflow (2026-08-08),
+not a separate button.** A second, related report: weather being its own
+button with its own form next to the ordinary content picker read as an
+arbitrary inconsistency to a host — "why isn't this just in the list?" It
+should be, and now is: `WEATHER_ITEM_SENTINEL`
+(`lib/log/content-library.ts`) is a plain string value included as an
+option in the *same* `<select>` the eligible content items populate, and
+`fillRundownItem` (`rundown-actions.ts`) branches on that sentinel before
+falling through to the ordinary `buildRundownItem` capability call for a
+real content item. The underlying write still differs, because it has to —
+weather has no `log_content_items` row, only today's one current
+`log_weather_reading` — but that split is now entirely inside one Server
+Action, invisible to the host, who just picks "Today's weather" out of the
+same list as everything else. `addWeatherItem` as a separate exported
+action is gone. `buildRundownItem` itself was deliberately left alone
+rather than widened to also accept weather — its own MCP-facing contract
+("use `log.content.search` first to find an eligible item's id") never
+applies to weather, so the branch belongs in the thin Server Action layer,
+not in a capability meant to stay scoped to real library content.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

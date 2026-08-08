@@ -1,9 +1,9 @@
 // Log's capability layer (docs/agent-capabilities-design.md §4). Three
 // entries, exactly the ones docs/log-design.md's "Architecture" section
 // names as "the three operations useful to drive from the in-portal agent
-// without a live console in front of you": buildItem and recordOutcome are
+// without a live view in front of you": buildItem and recordOutcome are
 // the write logic that used to live inline in rundown-actions.ts's
-// fillRundownItem and console-actions.ts's markAired/markMissed/
+// fillRundownItem and broadcast-actions.ts's markAired/markMissed/
 // moveRundownItem (same authorization, same writes) — those are now thin
 // adapters over these, same pattern Phase A/B already established.
 // log.content.search mirrors sourcework.project.search.
@@ -100,7 +100,7 @@ export type RecordRundownOutcomeResult =
 
 /**
  * One capability over Workflow G's three mid-broadcast actions
- * (console-actions.ts's markAired/markMissed/moveRundownItem) rather than
+ * (broadcast-actions.ts's markAired/markMissed/moveRundownItem) rather than
  * three, since they're one decision ("what happened to this item") with a
  * discriminated shape — matching how an MCP/agent caller would naturally
  * think about "record what happened," not three near-identical tools.

@@ -18,7 +18,7 @@ export const ROLE_OPTIONS: { value: LogRole; label: string; description: string 
   {
     value: "member",
     label: "Member",
-    description: "Builds and executes rundowns, manages the content library, runs the console",
+    description: "Builds and runs rundowns live, manages the content library",
   },
   {
     value: "producer",
