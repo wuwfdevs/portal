@@ -109,3 +109,27 @@ export function buildRundownBreakDrafts(
   }
   return drafts;
 }
+
+export interface ExistingBreakLike {
+  local_opportunity_id: string;
+  scheduled_at: string;
+}
+
+/**
+ * Filters a full draft set down to the ones with no matching existing
+ * break — the additive counterpart to buildRundownBreakDrafts, used when a
+ * rundown was generated before a producer added (or a migration seeded) a
+ * local opportunity its clock version didn't have yet. A draft and an
+ * existing break refer to the same occurrence when they share both
+ * local_opportunity_id and scheduled_at (deterministic from the
+ * opportunity + shift start, so this never depends on generation order).
+ * Never modifies or removes an existing break — safe to call on every
+ * page load, and safe to re-run.
+ */
+export function selectMissingBreakDrafts(
+  drafts: RundownBreakDraft[],
+  existingBreaks: ExistingBreakLike[],
+): RundownBreakDraft[] {
+  const existingKeys = new Set(existingBreaks.map((brk) => `${brk.local_opportunity_id}|${brk.scheduled_at}`));
+  return drafts.filter((draft) => !existingKeys.has(`${draft.local_opportunity_id}|${draft.scheduled_at}`));
+}

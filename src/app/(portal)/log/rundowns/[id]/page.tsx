@@ -5,8 +5,15 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "@/lib/log/content-library";
-import { getRundownDetail, listContentItems, listUnderwritingCopyForItems, type RundownItemDetail } from "@/lib/log/queries";
+import {
+  getRundownDetail,
+  listContentItems,
+  listLocalOpportunitiesForVersion,
+  listUnderwritingCopyForItems,
+  type RundownItemDetail,
+} from "@/lib/log/queries";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
+import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
 import { computeBreakFit, computeBreakStatus, computeRundownSummary } from "@/lib/log/timing";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import {
@@ -14,6 +21,7 @@ import {
   createLiveReadItem,
   fillRundownItem,
   removeRundownItem,
+  syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
 import type { LogRundownStatus } from "@/lib/database.types";
@@ -56,6 +64,23 @@ export default async function RundownDetailPage({
   ];
   const underwritingCopy = await listUnderwritingCopyForItems(underwritingCopyIds);
   const copyById = new Map(underwritingCopy.map((copy) => [copy.id, copy]));
+
+  // generateRundown() is idempotent on (program_id, air_date) — once this row
+  // exists, re-generating just redirects here rather than re-running
+  // generation. So a rundown created before a producer added an opportunity
+  // (or, as happened once, before a migration seeded one) never picks it up
+  // on its own. Compare the clock version's *current* opportunities against
+  // what's already here so the page can tell "this clock genuinely has no
+  // opportunities" apart from "this rundown is just out of sync" and offer
+  // the fix for the latter — see syncRundownBreaks in rundown-actions.ts.
+  const currentOpportunities = await listLocalOpportunitiesForVersion(rundown.clock_version_id);
+  const shiftDurationMinutes = Math.round(
+    (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) / 60_000,
+  );
+  const missingBreakCount = selectMissingBreakDrafts(
+    buildRundownBreakDrafts(currentOpportunities, rundown.shift_start_at, shiftDurationMinutes),
+    rundown.breaks,
+  ).length;
 
   const summary = computeRundownSummary(
     rundown.breaks.map((brk) => ({
@@ -101,6 +126,20 @@ export default async function RundownDetailPage({
           </Badge>
         )}
       </div>
+
+      {missingBreakCount > 0 && (
+        <Alert variant="note" className="mb-4">
+          This rundown was generated before {missingBreakCount === 1 ? "an opportunity" : "some opportunities"}{" "}
+          {missingBreakCount === 1 ? "was" : "were"} added to this clock, so{" "}
+          {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.{" "}
+          <form action={syncRundownBreaks} className="mt-2 inline-block">
+            <input type="hidden" name="rundown_id" value={rundown.id} />
+            <Button type="submit" className="px-2.5 py-1.5 text-xs">
+              Sync {missingBreakCount === 1 ? "it" : "them"} in now
+            </Button>
+          </form>
+        </Alert>
+      )}
 
       {rundown.breaks.length === 0 ? (
         <div className="rounded border border-dashed border-line p-6 text-sm text-ink-500">
