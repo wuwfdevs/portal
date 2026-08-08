@@ -1836,6 +1836,10 @@ export interface Database {
           placement_status: LogPlacementStatus;
           /** Set only when item_kind = 'underwriting_credit'. References uw_copy — only ever set by log_place_underwriting_credit(). */
           underwriting_copy_id: string | null;
+          /** CDS's own stable item id for the NPR story this live-read was built as a look-ahead for, if any — not a foreign key, see the migration. */
+          source_npr_item_id: string | null;
+          /** The NPR story's title captured at creation time — never re-read from log_npr_episode_items. */
+          source_npr_item_title: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
           break_id: string;
