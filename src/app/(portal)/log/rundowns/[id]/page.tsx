@@ -309,7 +309,7 @@ export default async function RundownDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       {live && <LogPoller intervalMs={15000} />}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 lg:order-1">
         <Link href="/log" className="text-xs font-semibold text-brand-link">
           ← Back to Today
         </Link>
@@ -521,7 +521,12 @@ export default async function RundownDetailPage({
         )}
       </div>
 
-      <div className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
+      {/* On mobile this stacks above the break list (order-first) so weather/NPR/status
+          aren't buried below a potentially long rundown — a host scanning on a phone
+          shouldn't have to scroll past every break to see them. Desktop keeps its
+          existing side-by-side layout (lg:order-2 puts it back after the break list,
+          which is lg:order-1 above) since that's not the problem being fixed here. */}
+      <div className="order-first flex w-full shrink-0 flex-col gap-4 lg:order-2 lg:w-80">
         <div className="rounded border border-line p-4">
           <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Network rejoin</div>
           <p className="text-sm text-ink-700">{formatStationTimestamp(rundown.shift_end_at)}</p>
