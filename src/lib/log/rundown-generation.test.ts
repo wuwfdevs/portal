@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRundownBreakDrafts, type RundownOpportunityLike } from "./rundown-generation";
+import { buildRundownBreakDrafts, selectMissingBreakDrafts, type RundownOpportunityLike } from "./rundown-generation";
 
 function opportunity(overrides: Partial<RundownOpportunityLike> & { id: string }): RundownOpportunityLike {
   return {
@@ -99,5 +99,46 @@ describe("buildRundownBreakDrafts", () => {
     );
     const positions = drafts.map((d) => d.position);
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+});
+
+describe("selectMissingBreakDrafts", () => {
+  it("keeps every draft when the rundown has no existing breaks yet", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1" }), opportunity({ id: "o2", position: 2 })],
+      "2026-08-07T09:00:00.000Z",
+      60,
+    );
+    expect(selectMissingBreakDrafts(drafts, [])).toHaveLength(2);
+  });
+
+  it("drops a draft that already has a matching break (a rundown generated before this opportunity existed)", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1" }), opportunity({ id: "o2", position: 2 })],
+      "2026-08-07T09:00:00.000Z",
+      60,
+    );
+    const missing = selectMissingBreakDrafts(drafts, [
+      { local_opportunity_id: "o1", scheduled_at: drafts[0]!.scheduled_at },
+    ]);
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.local_opportunity_id).toBe("o2");
+  });
+
+  it("matches on opportunity id and scheduled time together, not either alone", () => {
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
+    // Same opportunity id, different scheduled_at (e.g. a different hour repetition) — not a match.
+    const missing = selectMissingBreakDrafts(drafts, [
+      { local_opportunity_id: "o1", scheduled_at: "2026-08-07T10:00:00.000Z" },
+    ]);
+    expect(missing).toHaveLength(1);
+  });
+
+  it("returns nothing when every draft already has a matching break", () => {
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
+    const missing = selectMissingBreakDrafts(drafts, [
+      { local_opportunity_id: "o1", scheduled_at: drafts[0]!.scheduled_at },
+    ]);
+    expect(missing).toHaveLength(0);
   });
 });

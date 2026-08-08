@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import { buildRundownBreakDrafts } from "@/lib/log/rundown-generation";
+import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
 import { computeEffectiveDurationSeconds } from "@/lib/log/content-library";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { invokeCapability } from "@/lib/capabilities/registry";
@@ -14,6 +14,7 @@ import { buildRundownItem } from "@/lib/log/capabilities";
 import {
   getClockTemplateDetail,
   getContentItemDetail,
+  getRundownDetail,
   getRundownForProgramOnDate,
   getScheduleEntry,
   listLocalOpportunitiesForVersion,
@@ -98,6 +99,55 @@ export async function generateRundown(formData: FormData): Promise<void> {
 
   revalidatePath("/log");
   redirect(rundownPath(rundown.id));
+}
+
+/**
+ * Backfills any breaks a rundown is missing relative to its clock version's
+ * *current* local opportunities — additive only, never touches an existing
+ * break or its items. generateRundown() is idempotent on (program_id,
+ * air_date): once a rundown row exists, generating again just redirects to
+ * it rather than re-running generation, so a rundown created before a
+ * producer added (or a migration seeded) an opportunity on its clock
+ * version has no way to pick that opportunity up on its own — this is that
+ * catch-up path. Safe to call repeatedly; a rundown already in sync simply
+ * gets nothing inserted.
+ */
+export async function syncRundownBreaks(formData: FormData): Promise<void> {
+  await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  const path = rundownPath(rundownId);
+
+  const rundown = await getRundownDetail(rundownId);
+  if (!rundown) failWith("/log", "That rundown no longer exists.");
+
+  const opportunities = await listLocalOpportunitiesForVersion(rundown.clock_version_id);
+  const shiftDurationMinutes = Math.round(
+    (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) / 60_000,
+  );
+  const drafts = buildRundownBreakDrafts(opportunities, rundown.shift_start_at, shiftDurationMinutes);
+  const missing = selectMissingBreakDrafts(drafts, rundown.breaks);
+
+  if (missing.length > 0) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("log_rundown_breaks").insert(
+      missing.map((draft) => ({
+        rundown_id: rundown.id,
+        local_opportunity_id: draft.local_opportunity_id,
+        position: draft.position,
+        label: draft.label,
+        requirement: draft.requirement,
+        permitted_content_types: draft.permitted_content_types,
+        allow_multiple: draft.allow_multiple,
+        scheduled_at: draft.scheduled_at,
+        available_duration_seconds: draft.available_duration_seconds,
+        network_rejoin_at: draft.network_rejoin_at,
+      })),
+    );
+    failIfError(error, path, "Could not sync this rundown's breaks");
+  }
+
+  revalidatePath(path);
+  redirect(path);
 }
 
 /** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). */
