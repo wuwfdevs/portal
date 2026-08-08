@@ -80,7 +80,13 @@ export async function generateRundown(formData: FormData): Promise<void> {
 
   const drafts = buildRundownBreakDrafts(opportunities, shiftStartAt, scheduleEntry.duration_minutes);
   if (drafts.length > 0) {
-    const { error: breaksError } = await supabase.from("log_rundown_breaks").insert(
+    // upsert + ignoreDuplicates against the unique (rundown_id,
+    // local_opportunity_id, scheduled_at) constraint — not just a plain
+    // insert — so a duplicate is impossible at the database level even
+    // under a concurrent double-submit, not only when the application's own
+    // "is this missing?" check gets it right. See
+    // 20260808220000_log_rundown_breaks_dedup_and_unique.sql.
+    const { error: breaksError } = await supabase.from("log_rundown_breaks").upsert(
       drafts.map((draft) => ({
         rundown_id: rundown.id,
         local_opportunity_id: draft.local_opportunity_id,
@@ -93,6 +99,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
         available_duration_seconds: draft.available_duration_seconds,
         network_rejoin_at: draft.network_rejoin_at,
       })),
+      { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
     );
     failIfError(breaksError, "/log", "Rundown created, but its local-opportunity breaks could not be generated");
   }
@@ -129,7 +136,11 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
 
   if (missing.length > 0) {
     const supabase = await createClient();
-    const { error } = await supabase.from("log_rundown_breaks").insert(
+    // Same upsert + ignoreDuplicates guard as generateRundown — belt and
+    // braces alongside selectMissingBreakDrafts' own check, since two
+    // concurrent clicks of "Sync them in now" could otherwise both compute
+    // the same "missing" set before either write lands.
+    const { error } = await supabase.from("log_rundown_breaks").upsert(
       missing.map((draft) => ({
         rundown_id: rundown.id,
         local_opportunity_id: draft.local_opportunity_id,
@@ -142,6 +153,7 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
         available_duration_seconds: draft.available_duration_seconds,
         network_rejoin_at: draft.network_rejoin_at,
       })),
+      { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
     );
     failIfError(error, path, "Could not sync this rundown's breaks");
   }

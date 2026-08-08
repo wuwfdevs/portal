@@ -123,13 +123,30 @@ export interface ExistingBreakLike {
  * existing break refer to the same occurrence when they share both
  * local_opportunity_id and scheduled_at (deterministic from the
  * opportunity + shift start, so this never depends on generation order).
- * Never modifies or removes an existing break — safe to call on every
- * page load, and safe to re-run.
+ *
+ * scheduled_at is compared by parsed instant (`Date.getTime()`), never raw
+ * string equality: a freshly-built draft's scheduled_at always comes from
+ * `Date.prototype.toISOString()` (`...T10:06:00.000Z`), but a value read
+ * back from Postgres through supabase-js renders the same instant
+ * differently (no milliseconds, `+00:00` instead of `Z`) — those strings
+ * never match even when they name the same moment. String-comparing them
+ * was a real, confirmed bug: every existing break looked "missing" on
+ * every call, so every click of the sync action re-inserted the full draft
+ * set instead of nothing. See 20260808220000_log_rundown_breaks_dedup_and_
+ * unique.sql for the production fallout and the database-level guard added
+ * alongside this fix.
+ *
+ * Never modifies or removes an existing break — safe to call on every page
+ * load, and safe to re-run.
  */
 export function selectMissingBreakDrafts(
   drafts: RundownBreakDraft[],
   existingBreaks: ExistingBreakLike[],
 ): RundownBreakDraft[] {
-  const existingKeys = new Set(existingBreaks.map((brk) => `${brk.local_opportunity_id}|${brk.scheduled_at}`));
-  return drafts.filter((draft) => !existingKeys.has(`${draft.local_opportunity_id}|${draft.scheduled_at}`));
+  const existingKeys = new Set(
+    existingBreaks.map((brk) => `${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`),
+  );
+  return drafts.filter(
+    (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
+  );
 }

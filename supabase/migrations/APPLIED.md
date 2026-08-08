@@ -96,6 +96,7 @@ repo and a project's history, not the version number.
 | `20260808140000_log_content_dad_and_media_removal.sql`            | 2026-08-07 | 2026-08-07 |
 | `20260808200000_underwriting_redesign.sql`                        | 2026-08-07 | 2026-08-07 |
 | `20260808210000_log_morning_edition_opportunities.sql`            | 2026-08-07 | 2026-08-07 |
+| `20260808220000_log_rundown_breaks_dedup_and_unique.sql`          | 2026-08-07 | 2026-08-07 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
