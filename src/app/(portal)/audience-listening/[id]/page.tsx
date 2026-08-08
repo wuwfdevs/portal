@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
+import { TabNav } from "@/components/ui/tab-nav";
 import {
   listAnswersForQuery,
   listQuestions,
@@ -133,25 +134,16 @@ export default async function QueryWorkspacePage({
         {note.message}
       </Alert>
 
-      <nav className="mb-6 flex flex-wrap gap-1 border-b border-line">
-        {TABS.map((candidate) => (
-          <Link
-            key={candidate}
-            href={`/audience-listening/${query.id}?tab=${candidate}`}
-            aria-current={candidate === activeTab ? "page" : undefined}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${
-              candidate === activeTab
-                ? "border-brand-primary text-ink-900"
-                : "border-transparent text-ink-500 hover:text-ink-700"
-            }`}
-          >
-            {TAB_LABEL[candidate]}
-            {candidate === "submissions" && submissions.length > 0 && (
-              <span className="ml-1.5 text-xs font-normal text-ink-400">{submissions.length}</span>
-            )}
-          </Link>
-        ))}
-      </nav>
+      <TabNav
+        tabs={TABS.map((candidate) => ({
+          href: `/audience-listening/${query.id}?tab=${candidate}`,
+          label:
+            candidate === "submissions" && submissions.length > 0
+              ? `${TAB_LABEL[candidate]} (${submissions.length})`
+              : TAB_LABEL[candidate],
+          active: candidate === activeTab,
+        }))}
+      />
 
       {activeTab === "overview" && (
         <OverviewTab
