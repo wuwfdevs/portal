@@ -28,6 +28,25 @@ function rundownPath(id: string): string {
   return `/log/rundowns/${id}`;
 }
 
+function consolePath(id: string): string {
+  return `/log/rundowns/${id}/console`;
+}
+
+/**
+ * Where a fill action should bounce back to on success or failure — the
+ * builder by default, or the console when the same fill controls are used
+ * there. Real hosts build a broadcast live, not only ahead of time (a
+ * pre-built plan a host executes without deviation was never how this
+ * actually works at a small station) — the console needs the same fill
+ * capability as the builder, not just aired/missed/move, so these actions
+ * are shared between both screens rather than duplicated. A hidden
+ * `return_to` field on the console's own copy of these forms is the only
+ * thing that differs from the builder's.
+ */
+function resolveReturnPath(rundownId: string, formData: FormData): string {
+  return field(formData, "return_to") === "console" ? consolePath(rundownId) : rundownPath(rundownId);
+}
+
 /**
  * Generates (or, if one already exists, just links to) the rundown for a
  * schedule entry's program on a given air date — docs/log-design.md
@@ -162,13 +181,13 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). */
+/** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). Used from both the builder and the console — see resolveReturnPath. */
 export async function fillRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const breakId = field(formData, "break_id");
   const contentItemId = field(formData, "content_item_id");
-  const path = rundownPath(rundownId);
+  const path = resolveReturnPath(rundownId, formData);
   if (contentItemId === "") failWith(path, "Choose a content item.");
 
   const result = await invokeCapability(buildRundownItem, { breakId, contentItemId });
@@ -178,7 +197,7 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Creates a one-off, ad-hoc item with no library content_item — "create a new one-time item without leaving the rundown" (docs/log-design.md Workflow E). */
+/** Creates a one-off, ad-hoc item with no library content_item — "create a new one-time item without leaving the rundown" (docs/log-design.md Workflow E). Used from both the builder and the console. */
 export async function createLiveReadItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -186,7 +205,7 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   const title = field(formData, "title");
   const script = field(formData, "script");
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
-  const path = rundownPath(rundownId);
+  const path = resolveReturnPath(rundownId, formData);
   if (title === "") failWith(path, "Give this live-read item a short title.");
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) failWith(path, "Enter a duration in seconds.");
 
@@ -213,13 +232,13 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Places the current weather reading into a break that permits it — the effective text is always today's live reading unless overridden for this one airing. */
+/** Places the current weather reading into a break that permits it — the effective text is always today's live reading unless overridden for this one airing. Used from both the builder and the console. */
 export async function addWeatherItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const breakId = field(formData, "break_id");
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10) || 20;
-  const path = rundownPath(rundownId);
+  const path = resolveReturnPath(rundownId, formData);
 
   const supabase = await createClient();
   const { data: existingItems, error: countError } = await supabase

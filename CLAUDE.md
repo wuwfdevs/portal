@@ -1411,6 +1411,28 @@ at generation time, same as every other break field) directly, since
 `syncRundownBreaks()` only adds missing breaks — it doesn't refresh an
 existing one's snapshot when the opportunity behind it changes.
 
+**Log: the console can now fill an open break directly, not just execute a
+pre-built plan (2026-08-08)** — a real product-design correction, not a bug
+fix. The console originally shipped read-only against the plan: aired,
+missed, move, and nothing else, on the assumption that "building" happens
+in the builder and the console only "executes" what's already there. That
+assumption was wrong — a solo host at a small station is routinely deciding
+what fills an open avail *while on air*, not always executing a plan
+someone finished building ahead of time. Fixed by sharing the builder's own
+fill actions (`fillRundownItem`/`createLiveReadItem`/`addWeatherItem` in
+`rundown-actions.ts`) with the console instead of duplicating or rebuilding
+them: each now accepts an optional `return_to` field (`"console"` or the
+builder default) so a host filling a break from the live view stays on the
+live view afterward — `resolveReturnPath` is the one place that decides
+where a fill bounces back to. The console's Current panel shows these fill
+controls whenever there's room (empty, or `allow_multiple` with space); the
+Next panel shows them behind a "Fill ahead" disclosure, for prepping the
+next break without losing the live view. The Builder/Console split itself
+is unchanged and still deliberate (pre-air planning vs. the live in-studio
+view, per `docs/log-design.md` §1) — this correction is about what the
+console screen itself can do, not about merging the two screens or removing
+the split.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

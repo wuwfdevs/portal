@@ -256,6 +256,21 @@ time / running long / running short / at risk of missing a required item /
 at risk of missing rejoin) is computed continuously against breaks, not on
 request.
 
+**The console can fill an open break directly, not just execute a
+pre-built plan** — a correction found from a real usability report, not
+something the original milestone-1/redesign build got right the first
+time. The initial console shipped read-only against the plan: aired,
+missed, and move, nothing else, on the stated assumption that "building" is
+builder work and "executing" is console work. That's wrong for how this
+actually happens at a small station: a solo host is routinely deciding what
+goes into an open avail *while on air*, not only executing a plan someone
+finished building ahead of time. The console's Current panel now has the
+same fill controls the builder has — existing content, a one-off live read,
+today's weather where permitted — for exactly this case, and the Next panel
+has the same behind a "Fill ahead" disclosure for prepping the next break
+without leaving the live view. See §6's "Builder and console share their
+fill actions" for the mechanism.
+
 ### G. Mid-broadcast host actions
 When timing shifts, a host marks an item **aired**, **moved** to another
 valid break, or **missed** with a brief reason and no lengthy narrative
@@ -299,10 +314,12 @@ the network dictates.
 **`/log/rundowns/[id]`** — the vertical break-card builder described in §3E.
 
 **`/log/rundowns/[id]/console`** — the live view (§13's requirements
-verbatim): large controls, current/next break, adjustable text size, and the
+verbatim): large controls, current/next break, adjustable text size, the
 three mid-broadcast actions (aired / move / missed) always one tap away for
-whatever's currently live — underwriting credits show their real script
-inline.
+whatever's currently live, and the same fill controls the builder has (add
+existing content, a one-off live read, today's weather) for filling an open
+break without leaving the live view — see §3F/§6. Underwriting credits show
+their real script inline.
 
 ---
 
@@ -585,6 +602,21 @@ rather than storing it — pure functions, no Supabase import, colocated
 tests, safe to recompute on every render. `lib/log/console-timing.ts`
 (`computeLiveTimingState`) is the live-console counterpart, operating on
 `ConsoleBreakLike` rather than a single item.
+
+### Builder and console share their fill actions
+
+`fillRundownItem`, `createLiveReadItem`, and `addWeatherItem`
+(`src/app/(portal)/log/rundown-actions.ts`) are called from both screens —
+not duplicated into a second console-side copy. Each accepts an optional
+`return_to` form field (`"console"` or, by default, the builder); the
+action's own redirect and error bounce-back target whichever screen
+submitted the form (`resolveReturnPath`). The console's own copy of these
+forms — rendered on the Current break unconditionally and on the Next break
+behind a "Fill ahead" disclosure — sets `return_to=console` as a hidden
+field; the builder's forms don't set it and keep redirecting to themselves,
+unchanged. This is the fix for §3F's "the console can fill an open break
+directly" — a host filling a break from the live view stays on the live
+view afterward, they don't get bounced to the builder mid-broadcast.
 
 ### Host console resilience — flagged, not built, in this pass
 

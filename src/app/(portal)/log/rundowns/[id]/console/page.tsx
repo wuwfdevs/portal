@@ -3,16 +3,24 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
-import { getRundownDetail, listBroadcastEventsForItems, listUnderwritingCopyForItems } from "@/lib/log/queries";
+import { Input, Label, Select } from "@/components/ui/input";
+import {
+  getRundownDetail,
+  listBroadcastEventsForItems,
+  listContentItems,
+  listUnderwritingCopyForItems,
+  type RundownBreakDetail,
+} from "@/lib/log/queries";
 import { computeLiveTimingState, type ConsoleBreakLike, type LiveTimingState } from "@/lib/log/console-timing";
 import { listValidMoveDestinations, type MoveDestinationBreakLike } from "@/lib/log/mid-broadcast";
+import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../../log-poller";
 import { markAired, markMissed, moveRundownItem, startConsole, submitRundown } from "../../../console-actions";
+import { addWeatherItem, createLiveReadItem, fillRundownItem } from "../../../rundown-actions";
 import { CopyDisplay } from "./copy-display";
 import type { LogContentType, LogMissReason } from "@/lib/database.types";
 
@@ -110,6 +118,88 @@ export default async function ConsolePage({
     new Set(eventCountByItem.keys()),
   );
 
+  // Real hosts build a broadcast live, not only ahead of time in the
+  // builder — a solo host with an open avail right now needs to fill it
+  // without leaving the console. approvedContent + filterEligibleContent
+  // mirror exactly what the builder uses; fillRundownItem/createLiveReadItem/
+  // addWeatherItem are the same actions the builder calls, just told to
+  // redirect back here via the return_to field instead.
+  const approvedContent = await listContentItems({ approvalStatus: "approved" });
+
+  const renderFillControls = (brk: RundownBreakDetail) => {
+    const canAddMore = brk.allow_multiple || brk.items.length === 0;
+    if (!canAddMore) return null;
+    const eligible = filterEligibleContent(approvedContent, brk, rundown.program_id, rundown.air_date);
+
+    return (
+      <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <form action={fillRundownItem} className="flex flex-wrap items-center gap-1.5">
+          <input type="hidden" name="rundown_id" value={rundown.id} />
+          <input type="hidden" name="break_id" value={brk.id} />
+          <input type="hidden" name="return_to" value="console" />
+          <Select name="content_item_id" className="max-w-[220px]" disabled={eligible.length === 0} defaultValue="">
+            <option value="" disabled>
+              {eligible.length === 0 ? "No eligible content" : "Add existing content…"}
+            </option>
+            {eligible.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.title}
+              </option>
+            ))}
+          </Select>
+          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+            Fill
+          </Button>
+        </form>
+        <div className="flex flex-wrap gap-3">
+          <details>
+            <summary className="cursor-pointer text-xs font-semibold text-brand-link">One-off live read</summary>
+            <form action={createLiveReadItem} className="mt-2 flex flex-col gap-2">
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <input type="hidden" name="break_id" value={brk.id} />
+              <input type="hidden" name="return_to" value="console" />
+              <div>
+                <Label htmlFor={`console-live-title-${brk.id}`}>Title</Label>
+                <Input id={`console-live-title-${brk.id}`} name="title" required maxLength={120} />
+              </div>
+              <div>
+                <Label htmlFor={`console-live-script-${brk.id}`}>Script</Label>
+                <Input id={`console-live-script-${brk.id}`} name="script" />
+              </div>
+              <div>
+                <Label htmlFor={`console-live-duration-${brk.id}`}>Duration (s)</Label>
+                <Input
+                  id={`console-live-duration-${brk.id}`}
+                  name="duration_seconds"
+                  type="number"
+                  required
+                  min={1}
+                  className="w-24"
+                />
+              </div>
+              <div>
+                <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                  Add live read
+                </Button>
+              </div>
+            </form>
+          </details>
+          {brk.permitted_content_types.includes("weather") && (
+            <form action={addWeatherItem}>
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <input type="hidden" name="break_id" value={brk.id} />
+              <input type="hidden" name="duration_seconds" value={20} />
+              <input type="hidden" name="return_to" value="console" />
+              <Button type="submit" variant="ghost" className="px-2.5 py-1.5 text-xs">
+                Add today&apos;s weather
+              </Button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <LogPoller intervalMs={15000} />
@@ -157,13 +247,7 @@ export default async function ConsolePage({
             currentBreak.requirement === "required" ? (
               <div>
                 <p className="text-lg font-bold text-danger">{currentBreak.label} — empty</p>
-                <p className="mt-1 text-xs text-ink-500">
-                  This is a required local obligation with nothing placed.{" "}
-                  <Link href={`/log/rundowns/${rundown.id}`} className="font-semibold text-brand-link">
-                    Fill it in the builder
-                  </Link>
-                  .
-                </p>
+                <p className="mt-1 text-xs text-ink-500">This is a required local obligation with nothing placed — fill it below.</p>
               </div>
             ) : (
               <p className="text-sm text-ink-500">Carrying network — nothing placed here, and that&apos;s fine.</p>
@@ -257,6 +341,7 @@ export default async function ConsolePage({
               })}
             </div>
           )}
+          {currentBreak && renderFillControls(currentBreak)}
         </div>
 
         <div className="mt-4 rounded border border-dashed border-line p-4">
@@ -278,6 +363,12 @@ export default async function ConsolePage({
                 </span>
               )}
             </p>
+          )}
+          {nextBreak && (nextBreak.allow_multiple || nextBreak.items.length === 0) && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">Fill ahead</summary>
+              {renderFillControls(nextBreak)}
+            </details>
           )}
         </div>
       </div>
