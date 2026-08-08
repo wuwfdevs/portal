@@ -357,8 +357,11 @@ policy rather than immutable network structure.
 against Morning Edition's clock version:
 
 1. Optional short cover over the post-newscast Music Bed at 6:00 (90s) —
-   legal ID / PSA / promo / membership message / underwriting credit
-   eligible.
+   legal ID / PSA / promo / membership message / underwriting credit /
+   weather eligible. (`weather` was added by a follow-up correction,
+   `20260808230000_log_morning_edition_weather.sql`, after a user report
+   that "Add today's weather" never appeared anywhere — the original seed
+   omitted it from every opportunity's permitted types.)
 2. Optional short cover over the Segment A Music Bed at 19:00 (90s) — same
    eligible types.
 3. Optional local story window at ~29:30–34:00 (270s) — spans the tail of a

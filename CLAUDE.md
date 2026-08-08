@@ -1389,6 +1389,28 @@ redesign above shipped.** Two separate real bugs, one migration
    `start_offset_seconds` order, so the raw data isn't misleading to a
    future reader even though display no longer depends on it.
 
+**Log: weather couldn't be added to any Morning Edition break (2026-08-07)**
+— a third user report against the same seed, fixed by
+`20260808230000_log_morning_edition_weather.sql`. Not a code bug: the
+`item_kind = 'weather'` mechanism, `addWeatherItem()`, and the rundown
+builder's "Add today's weather" button (gated on a break's
+`permitted_content_types` including `'weather'`) all already worked — the
+Morning Edition seed's five opportunities simply never listed `'weather'`
+in any of their `permitted_content_types`, an oversight in that seed's own
+authorship rather than a missing feature. Fixed narrowly: the two short
+optional post-newscast music-bed covers (positions 1 and 2 — already
+generic local avails permitting a legal ID, PSA, promo, membership message,
+or underwriting credit) now also permit `weather`, since a quick weather
+update is exactly the kind of short generic local fill those windows exist
+for. The three story/ID-specific windows are deliberately unchanged — a
+weather update doesn't belong in a multi-minute local-story window or the
+required legal-ID window, and widening those would be inventing behavior
+WUWF hasn't confirmed. The migration also updates the one already-generated
+production rundown's existing breaks (which snapshot `permitted_content_types`
+at generation time, same as every other break field) directly, since
+`syncRundownBreaks()` only adds missing breaks — it doesn't refresh an
+existing one's snapshot when the opportunity behind it changes.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
