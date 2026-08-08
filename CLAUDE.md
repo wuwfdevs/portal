@@ -1342,6 +1342,53 @@ intended shape (IndexedDB queue, client-generated ids, retry with backoff,
 replay on reconnect — the same pattern Remote Interview's local capture
 uses for audio chunks) is designed but not built.
 
+**Log: rundown-breaks duplication and ordering fixes (2026-08-07), both
+found from a user report against the deployed app right after the domain
+redesign above shipped.** Two separate real bugs, one migration
+(`20260808220000_log_rundown_breaks_dedup_and_unique.sql`):
+
+1. **`syncRundownBreaks()` (the redesign's own catch-up path for a rundown
+   generated before its clock's local opportunities existed) duplicated its
+   entire draft set on every single call, not just under a race.** Its
+   "does this break already exist?" check compared a freshly-built draft's
+   `scheduled_at` (always `Date.prototype.toISOString()`, e.g.
+   `"2026-08-07T10:06:00.000Z"`) against the same instant read back from
+   Postgres through supabase-js (no milliseconds, `+00:00` instead of `Z`,
+   e.g. `"2026-08-07T10:06:00+00:00"`) using plain string equality — two
+   different strings for the same instant, so nothing ever matched and
+   every click re-inserted the full set. Confirmed on production: one
+   rundown's 20 breaks (5 Morning Edition opportunities × 4 hours) had
+   grown to 60 from ordinary use. Fixed at both layers, deliberately not
+   just one: `lib/log/rundown-generation.ts`'s `selectMissingBreakDrafts`
+   now compares parsed instants (`new Date(...).getTime()`), and the
+   migration adds a real `unique (rundown_id, local_opportunity_id,
+   scheduled_at)` constraint that both `generateRundown()`'s and
+   `syncRundownBreaks()`'s inserts now write through as
+   `upsert(..., { onConflict, ignoreDuplicates: true })` — so a duplicate
+   is impossible at the database level regardless of what application code
+   does or how two concurrent requests interleave, not just when the
+   JS-level check happens to get it right. The migration also deduplicates
+   whatever the bug had already produced (60 → 20 on production; preview
+   never hit the bug, since its own test rundown's clock had no
+   opportunities to sync in the first place).
+2. **Rundown breaks and local opportunities both rendered out of
+   chronological order.** `getRundownDetail`'s breaks query and
+   `listLocalOpportunitiesForVersion` both ordered by `position` — a
+   producer-assigned authoring/entry order, not a guarantee about actual
+   timing. The real Morning Edition seed itself has exactly this mismatch:
+   its required 42:30 local-ID opportunity was entered (and thus
+   numbered) after both story windows even though it airs between them
+   (position 4 = the ~49:35 window at offset 2975s; position 5 = the
+   42:30 ID at offset 2550s — numerically after but chronologically
+   before). Fixed at the query level, not just the data: both queries now
+   order by actual time (`scheduled_at` for breaks, `start_offset_seconds`
+   for opportunities — see each function's updated comment) rather than
+   trusting `position` to track it, so a future opportunity entered out of
+   time order can't reproduce this. The migration also corrects the
+   Morning Edition seed's own `position` values to match
+   `start_offset_seconds` order, so the raw data isn't misleading to a
+   future reader even though display no longer depends on it.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

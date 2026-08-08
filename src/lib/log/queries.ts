@@ -281,7 +281,17 @@ export async function listClockSlotsForVersion(clockVersionId: string): Promise<
   );
 }
 
-/** The active local opportunities for one clock version, in position order — WUWF's own overlay, for both the clock face diagram and rundown generation. */
+/**
+ * The active local opportunities for one clock version, in chronological
+ * order — WUWF's own overlay, for both the clock face diagram and rundown
+ * generation. Ordered by start_offset_seconds (the nominal/diagram-shown
+ * start — see that column's comment), not `position`: `position` is just
+ * the order a producer entered opportunities in and is not guaranteed to
+ * track when they actually occur — the real Morning Edition seed itself
+ * has this exact mismatch (the required local-ID opportunity was entered
+ * after both story windows even though it airs between them), which
+ * ordering by `position` rendered out of chronological order downstream.
+ */
 export async function listLocalOpportunitiesForVersion(clockVersionId: string): Promise<LogLocalOpportunityRow[]> {
   const supabase = await createClient();
   return (
@@ -291,7 +301,7 @@ export async function listLocalOpportunitiesForVersion(clockVersionId: string): 
         .select("*")
         .eq("clock_version_id", clockVersionId)
         .eq("active", true)
-        .order("position"),
+        .order("start_offset_seconds"),
       "this clock version's local opportunities",
     ) ?? []
   );
@@ -338,7 +348,15 @@ export interface RundownDetail extends LogRundownRow {
   breaks: RundownBreakDetail[];
 }
 
-/** A rundown plus every break, each with its placed items joined to their content item and components. */
+/**
+ * A rundown plus every break, each with its placed items joined to their
+ * content item and components. Breaks are ordered by `scheduled_at`, not
+ * `position` — `position` is derived from the local opportunity's own
+ * `position` (see listLocalOpportunitiesForVersion's comment) and is not
+ * guaranteed to track chronological order, which made the rundown builder
+ * and console render breaks out of time order for any clock whose
+ * opportunities weren't authored in start-time order.
+ */
 export async function getRundownDetail(id: string): Promise<RundownDetail | null> {
   const supabase = await createClient();
   const rundown = unwrapRead(
@@ -350,7 +368,7 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
   const [program, breaks] = await Promise.all([
     getProgram(rundown.program_id),
     unwrapRead(
-      await supabase.from("log_rundown_breaks").select("*").eq("rundown_id", id).order("position"),
+      await supabase.from("log_rundown_breaks").select("*").eq("rundown_id", id).order("scheduled_at"),
       "this rundown's breaks",
     ) ?? [],
   ]);

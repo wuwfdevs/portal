@@ -141,4 +141,18 @@ describe("selectMissingBreakDrafts", () => {
     ]);
     expect(missing).toHaveLength(0);
   });
+
+  it("matches the same instant even when it's formatted differently than a fresh draft's toISOString() — the confirmed production bug", () => {
+    // A value read back from Postgres via supabase-js renders a timestamptz
+    // with no milliseconds and "+00:00" instead of "Z" — a real, different
+    // string from what Date.prototype.toISOString() produces for the exact
+    // same instant. Comparing those strings directly (the original bug)
+    // made every already-synced break look "missing" on every call.
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1", start_offset_seconds: 90 })], "2026-08-07T09:00:00.000Z", 60);
+    expect(drafts[0]!.scheduled_at).toBe("2026-08-07T09:01:30.000Z");
+    const missing = selectMissingBreakDrafts(drafts, [
+      { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },
+    ]);
+    expect(missing).toHaveLength(0);
+  });
 });
