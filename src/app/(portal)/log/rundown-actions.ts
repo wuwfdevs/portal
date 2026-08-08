@@ -7,7 +7,7 @@ import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
-import { computeEffectiveDurationSeconds } from "@/lib/log/content-library";
+import { computeEffectiveDurationSeconds, WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
@@ -162,14 +162,52 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Thin adapter over log.rundown.buildItem: parse FormData, invoke the capability, map the result to failWith()/redirect(). */
+/**
+ * One "add something to this break" workflow, not several — weather is
+ * just another option in the same content_item_id select, identified by
+ * WEATHER_ITEM_SENTINEL, rather than a separate button with its own form
+ * and its own action. From a host's point of view there was never a good
+ * reason for these to feel like different actions: both are "pick a thing,
+ * put it in this open break." The underlying write still differs (weather
+ * has no content_item_id — its effective text always comes from today's
+ * current log_weather_reading unless overridden for this one airing, see
+ * docs/log-design.md's per-airing override section), so that branch stays
+ * a plain insert rather than being forced through the buildRundownItem
+ * capability, which is specifically scoped to library content
+ * (docs/log-design.md §6, `log.rundown.buildItem`'s own MCP-facing
+ * contract: "Use log.content.search first to find an eligible item's id" —
+ * that never applies to weather, so it stays outside that capability
+ * rather than muddying its schema).
+ */
 export async function fillRundownItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const breakId = field(formData, "break_id");
   const contentItemId = field(formData, "content_item_id");
   const path = rundownPath(rundownId);
-  if (contentItemId === "") failWith(path, "Choose a content item.");
+  if (contentItemId === "") failWith(path, "Choose something to add.");
+
+  if (contentItemId === WEATHER_ITEM_SENTINEL) {
+    const supabase = await createClient();
+    const { data: existingItems, error: countError } = await supabase
+      .from("log_rundown_items")
+      .select("position")
+      .eq("break_id", breakId);
+    failIfError(countError, path, "Could not add weather");
+    const nextPosition = Math.max(0, ...(existingItems ?? []).map((item) => item.position)) + 1;
+
+    const { error } = await supabase.from("log_rundown_items").insert({
+      break_id: breakId,
+      position: nextPosition,
+      item_kind: "weather",
+      planned_duration_seconds: 20,
+      placement_status: "editable",
+    });
+    failIfError(error, path, "Could not add weather");
+
+    revalidatePath(path);
+    redirect(path);
+  }
 
   const result = await invokeCapability(buildRundownItem, { breakId, contentItemId });
   if (!result.ok) failWith(path, result.message);
@@ -208,35 +246,6 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
     placement_status: "editable",
   });
   failIfError(error, path, "Could not add this item");
-
-  revalidatePath(path);
-  redirect(path);
-}
-
-/** Places the current weather reading into a break that permits it — the effective text is always today's live reading unless overridden for this one airing. */
-export async function addWeatherItem(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const rundownId = field(formData, "rundown_id");
-  const breakId = field(formData, "break_id");
-  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10) || 20;
-  const path = rundownPath(rundownId);
-
-  const supabase = await createClient();
-  const { data: existingItems, error: countError } = await supabase
-    .from("log_rundown_items")
-    .select("position")
-    .eq("break_id", breakId);
-  failIfError(countError, path, "Could not add weather");
-  const nextPosition = Math.max(0, ...(existingItems ?? []).map((item) => item.position)) + 1;
-
-  const { error } = await supabase.from("log_rundown_items").insert({
-    break_id: breakId,
-    position: nextPosition,
-    item_kind: "weather",
-    planned_duration_seconds: durationSeconds,
-    placement_status: "editable",
-  });
-  failIfError(error, path, "Could not add weather");
 
   revalidatePath(path);
   redirect(path);

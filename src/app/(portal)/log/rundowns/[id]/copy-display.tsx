@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-// "Readable copy at an adjustable size" (docs/log-design.md §13). Resets
-// each page load rather than persisting — this console is used from
-// whatever machine is in the studio at the time, not carried between hosts
-// or sessions, so there's nothing meaningful to remember between visits.
+// "Readable copy at an adjustable size" (docs/log-design.md §13) for the
+// current break's items during a live broadcast. Resets each page load
+// rather than persisting — this is used from whatever machine is in the
+// studio at the time, not carried between hosts or sessions, so there's
+// nothing meaningful to remember between visits.
 
 const SIZES = ["text-lg", "text-2xl", "text-4xl"] as const;
 

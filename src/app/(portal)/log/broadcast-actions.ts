@@ -20,8 +20,8 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
-function consolePath(rundownId: string): string {
-  return `/log/rundowns/${rundownId}/console`;
+function rundownPath(rundownId: string): string {
+  return `/log/rundowns/${rundownId}`;
 }
 
 /**
@@ -35,7 +35,7 @@ export async function submitRundown(formData: FormData): Promise<void> {
   const { profile } = await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   if (rundownId === "") failWith("/log", "Choose a rundown to submit.");
-  const path = consolePath(rundownId);
+  const path = rundownPath(rundownId);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -51,7 +51,7 @@ export async function submitRundown(formData: FormData): Promise<void> {
 }
 
 /** Marks a rundown as under way — 'generated' -> 'in_progress'. Idempotent: fine to call again once already in progress. */
-export async function startConsole(formData: FormData): Promise<void> {
+export async function startBroadcast(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   if (rundownId === "") failWith("/log", "Choose a rundown to start.");
@@ -62,10 +62,10 @@ export async function startConsole(formData: FormData): Promise<void> {
     .update({ status: "in_progress" })
     .eq("id", rundownId)
     .eq("status", "generated");
-  failIfError(error, "/log", "Could not start the console");
+  failIfError(error, "/log", "Could not start the broadcast");
 
   revalidatePath("/log");
-  redirect(consolePath(rundownId));
+  redirect(rundownPath(rundownId));
 }
 
 /** Thin adapter over log.rundownItem.recordOutcome — the console button click is itself the confirmation, same convention as sendAnswerToSourcework's. */
@@ -73,7 +73,7 @@ export async function markAired(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const itemId = field(formData, "item_id");
-  const path = consolePath(rundownId);
+  const path = rundownPath(rundownId);
 
   const result = await invokeCapability(
     recordRundownItemOutcome,
@@ -101,7 +101,7 @@ export async function markMissed(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const itemId = field(formData, "item_id");
-  const path = consolePath(rundownId);
+  const path = rundownPath(rundownId);
   const reason = field(formData, "reason") as LogMissReason;
   if (!MISS_REASONS.includes(reason)) failWith(path, "Choose a reason.");
 
@@ -130,7 +130,7 @@ export async function moveRundownItem(formData: FormData): Promise<void> {
   const rundownId = field(formData, "rundown_id");
   const sourceItemId = field(formData, "source_item_id");
   const destinationBreakId = field(formData, "destination_break_id");
-  const path = consolePath(rundownId);
+  const path = rundownPath(rundownId);
   if (sourceItemId === "" || destinationBreakId === "") failWith(path, "Choose a destination.");
 
   const result = await invokeCapability(

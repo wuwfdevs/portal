@@ -12,6 +12,20 @@
 
 import type { LogComponentType, LogContentType } from "@/lib/database.types";
 
+/**
+ * The sentinel value the single "add something to this break" picker uses
+ * for today's weather reading — weather is just another content type from
+ * a host's point of view (pick it from the same list, same Fill button),
+ * even though it isn't a `log_content_items` row and never was: there's no
+ * library of weather items to choose from, only today's one current
+ * reading, so it's a distinct `item_kind` with no content_item_id rather
+ * than a real library row. Picking it out of the *same* select as ordinary
+ * content is what makes the workflow actually the same one, not two
+ * lookalike-but-separate mechanisms — see rundown-actions.ts's
+ * fillRundownItem.
+ */
+export const WEATHER_ITEM_SENTINEL = "__weather__";
+
 export const CONTENT_TYPE_LABEL: Record<LogContentType, string> = {
   news: "News",
   station_promo: "Station promo",

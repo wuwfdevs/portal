@@ -1389,6 +1389,98 @@ redesign above shipped.** Two separate real bugs, one migration
    `start_offset_seconds` order, so the raw data isn't misleading to a
    future reader even though display no longer depends on it.
 
+**Log: weather couldn't be added to any Morning Edition break (2026-08-07)**
+— a third user report against the same seed, fixed by
+`20260808230000_log_morning_edition_weather.sql`. Not a code bug: the
+`item_kind = 'weather'` mechanism, `addWeatherItem()`, and the rundown
+builder's "Add today's weather" button (gated on a break's
+`permitted_content_types` including `'weather'`) all already worked — the
+Morning Edition seed's five opportunities simply never listed `'weather'`
+in any of their `permitted_content_types`, an oversight in that seed's own
+authorship rather than a missing feature. Fixed narrowly: the two short
+optional post-newscast music-bed covers (positions 1 and 2 — already
+generic local avails permitting a legal ID, PSA, promo, membership message,
+or underwriting credit) now also permit `weather`, since a quick weather
+update is exactly the kind of short generic local fill those windows exist
+for. The three story/ID-specific windows are deliberately unchanged — a
+weather update doesn't belong in a multi-minute local-story window or the
+required legal-ID window, and widening those would be inventing behavior
+WUWF hasn't confirmed. The migration also updates the one already-generated
+production rundown's existing breaks (which snapshot `permitted_content_types`
+at generation time, same as every other break field) directly, since
+`syncRundownBreaks()` only adds missing breaks — it doesn't refresh an
+existing one's snapshot when the opportunity behind it changes.
+
+**Log: the console can now fill an open break directly, not just execute a
+pre-built plan (2026-08-08)** — a real product-design correction, not a bug
+fix. The console originally shipped read-only against the plan: aired,
+missed, move, and nothing else, on the assumption that "building" happens
+in the builder and the console only "executes" what's already there. That
+assumption was wrong — a solo host at a small station is routinely deciding
+what fills an open avail *while on air*, not always executing a plan
+someone finished building ahead of time. Fixed by sharing the builder's own
+fill actions (`fillRundownItem`/`createLiveReadItem`/`addWeatherItem` in
+`rundown-actions.ts`) with the console instead of duplicating or rebuilding
+them: each now accepts an optional `return_to` field (`"console"` or the
+builder default) so a host filling a break from the live view stays on the
+live view afterward — `resolveReturnPath` is the one place that decides
+where a fill bounces back to. The console's Current panel shows these fill
+controls whenever there's room (empty, or `allow_multiple` with space); the
+Next panel shows them behind a "Fill ahead" disclosure, for prepping the
+next break without losing the live view. The Builder/Console split itself
+is unchanged and still deliberate (pre-air planning vs. the live in-studio
+view, per `docs/log-design.md` §1) — this correction is about what the
+console screen itself can do, not about merging the two screens or removing
+the split.
+
+**Log: builder and console merged into one screen (2026-08-08), superseding
+the note above.** The previous correction gave the console the builder's
+fill capability but kept the Builder/Console split itself, on the reasoning
+that pre-air planning and live execution are different moments needing
+different screens. Direct pushback on that reasoning — the vertical,
+always-visible break list is exactly what gives a host control during a
+live broadcast, not something to narrow away in favor of a minimal
+current/next view — was correct: once the console could fill breaks, there
+was no real remaining difference to justify a second route, only two
+lookalike-but-separate implementations of decreasing distinctness. Merged
+into `src/app/(portal)/log/rundowns/[id]/page.tsx`; the `/console` route is
+deleted outright, not redirected. Every break renders in chronological
+order at all times, live or not (`const live = rundown.status ===
+"in_progress" || rundown.status === "submitted"`). Once live: the current
+break gets a visual highlight plus a `#current-break` anchor ("Jump to
+now"), its items render through the adjustable-text-size `CopyDisplay`
+instead of the plain compact card every other break uses, and the three
+mid-broadcast actions (aired/missed/move) appear on any unconfirmed item in
+*any* break, not only the current one — the whole show being visible at
+once is what makes "full context and control," the actual goal, mean
+something. Before live, the sidebar's status panel shows a "Start
+broadcast" button; once live, it shows the wrap-up/submit panel. `console-
+actions.ts` was renamed `broadcast-actions.ts` and `startConsole` renamed
+`startBroadcast`, matching that there's no more separate console concept
+for either name to refer to; `console-timing.ts`/`ConsoleBreakLike` keep
+their names since renaming a working, tested pure module purely for label
+consistency wasn't worth the churn.
+
+**Log: weather folded into the same "add content" workflow (2026-08-08),
+not a separate button.** A second, related report: weather being its own
+button with its own form next to the ordinary content picker read as an
+arbitrary inconsistency to a host — "why isn't this just in the list?" It
+should be, and now is: `WEATHER_ITEM_SENTINEL`
+(`lib/log/content-library.ts`) is a plain string value included as an
+option in the *same* `<select>` the eligible content items populate, and
+`fillRundownItem` (`rundown-actions.ts`) branches on that sentinel before
+falling through to the ordinary `buildRundownItem` capability call for a
+real content item. The underlying write still differs, because it has to —
+weather has no `log_content_items` row, only today's one current
+`log_weather_reading` — but that split is now entirely inside one Server
+Action, invisible to the host, who just picks "Today's weather" out of the
+same list as everything else. `addWeatherItem` as a separate exported
+action is gone. `buildRundownItem` itself was deliberately left alone
+rather than widened to also accept weather — its own MCP-facing contract
+("use `log.content.search` first to find an eligible item's id") never
+applies to weather, so the branch belongs in the thin Server Action layer,
+not in a capability meant to stay scoped to real library content.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
