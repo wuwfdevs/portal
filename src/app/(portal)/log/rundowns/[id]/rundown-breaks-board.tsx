@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState, useTransition, type ReactNode } from "react";
 import {
+  closestCenter,
   DndContext,
   KeyboardSensor,
   PointerSensor,
@@ -166,7 +167,15 @@ export function RundownBreaksBoard({
   }
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    // closestCenter, not the default rectIntersection: the default is tuned
+    // for free-form 2D board layouts (the two existing kanban boards use
+    // it, correctly, for that shape) — for a vertical list of thin,
+    // variable-height rows with insertion-point elements interspersed
+    // between items, rect-overlap detection is unreliable right at the
+    // moment of drop, which is what "drag starts but drop doesn't register"
+    // looks like. closestCenter is what dnd-kit's own sortable-list
+    // examples use for exactly this shape.
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <ol className="flex flex-col gap-4">
         {initialBreaks.map((brk) => {
           const itemIds = order[brk.id] ?? [];

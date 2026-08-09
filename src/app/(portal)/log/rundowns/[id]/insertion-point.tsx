@@ -50,8 +50,17 @@ export function InsertionPoint({
   const [query, setQuery] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const [pendingContentItemId, setPendingContentItemId] = useState("");
+  // fillRundownItem is a <form action> that redirects on success — there's a
+  // real network+server round trip between clicking a result and the page
+  // re-rendering with the new item in place, and nothing was disabling the
+  // list during it, so a second (or third) click on the same or a different
+  // result before the first one landed created duplicates. This blocks
+  // every result and both mode tabs the moment one is picked.
+  const [submitting, setSubmitting] = useState(false);
 
   function pick(contentItemId: string) {
+    if (submitting) return;
+    setSubmitting(true);
     setPendingContentItemId(contentItemId);
     requestAnimationFrame(() => formRef.current?.requestSubmit());
   }
@@ -87,14 +96,16 @@ export function InsertionPoint({
           <button
             type="button"
             onClick={() => setMode("search")}
-            className={`rounded px-2 py-1 text-xs font-bold ${mode === "search" ? "bg-white text-brand-link" : "text-ink-500"}`}
+            disabled={submitting}
+            className={`rounded px-2 py-1 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50 ${mode === "search" ? "bg-white text-brand-link" : "text-ink-500"}`}
           >
             Add content
           </button>
           <button
             type="button"
             onClick={() => setMode("live_read")}
-            className={`rounded px-2 py-1 text-xs font-bold ${mode === "live_read" ? "bg-white text-brand-link" : "text-ink-500"}`}
+            disabled={submitting}
+            className={`rounded px-2 py-1 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50 ${mode === "live_read" ? "bg-white text-brand-link" : "text-ink-500"}`}
           >
             Create live read
           </button>
@@ -102,8 +113,9 @@ export function InsertionPoint({
         <button
           type="button"
           onClick={() => setOpen(false)}
+          disabled={submitting}
           aria-label="Cancel"
-          className="rounded px-1.5 text-xs font-bold text-ink-500 hover:bg-white"
+          className="rounded px-1.5 text-xs font-bold text-ink-500 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           ×
         </button>
@@ -117,40 +129,46 @@ export function InsertionPoint({
             <input type="hidden" name="before_item_id" value={beforeItemId ?? ""} />
             <input type="hidden" name="content_item_id" value={pendingContentItemId} />
           </form>
-          <Input
-            autoFocus
-            placeholder="Search content…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="mb-2"
-          />
-          <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
-            {showsWeather && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => pick(WEATHER_ITEM_SENTINEL)}
-                  className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
-                >
-                  Today&apos;s weather
-                </button>
-              </li>
-            )}
-            {filtered.map((candidate) => (
-              <li key={candidate.id}>
-                <button
-                  type="button"
-                  onClick={() => pick(candidate.id)}
-                  className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
-                >
-                  {candidate.title}
-                </button>
-              </li>
-            ))}
-            {filtered.length === 0 && !showsWeather && (
-              <li className="px-2 py-1.5 text-xs text-ink-400">No matching content.</li>
-            )}
-          </ul>
+          {submitting ? (
+            <p className="px-2 py-1.5 text-sm text-ink-500">Adding…</p>
+          ) : (
+            <>
+              <Input
+                autoFocus
+                placeholder="Search content…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="mb-2"
+              />
+              <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+                {showsWeather && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => pick(WEATHER_ITEM_SENTINEL)}
+                      className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
+                    >
+                      Today&apos;s weather
+                    </button>
+                  </li>
+                )}
+                {filtered.map((candidate) => (
+                  <li key={candidate.id}>
+                    <button
+                      type="button"
+                      onClick={() => pick(candidate.id)}
+                      className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
+                    >
+                      {candidate.title}
+                    </button>
+                  </li>
+                ))}
+                {filtered.length === 0 && !showsWeather && (
+                  <li className="px-2 py-1.5 text-xs text-ink-400">No matching content.</li>
+                )}
+              </ul>
+            </>
+          )}
         </>
       ) : (
         <LiveReadForm

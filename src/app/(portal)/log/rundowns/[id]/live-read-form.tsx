@@ -12,6 +12,7 @@
 // visibility, so this component just renders the bare fields.
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { createLiveReadItem } from "../../rundown-actions";
@@ -103,11 +104,19 @@ export function LiveReadForm({
           />
         </div>
         <div>
-          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
-            Add live read
-          </Button>
+          <SubmitButton />
         </div>
       </form>
     </div>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" variant="secondary" disabled={pending} className="px-2.5 py-1.5 text-xs">
+      {pending ? "Adding…" : "Add live read"}
+    </Button>
   );
 }
