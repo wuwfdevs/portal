@@ -5,8 +5,13 @@ import { revalidatePath } from "next/cache";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
-import { autoFillActiveScheduleLines, autoFillScheduleLine, type AutoFillResult } from "@/lib/underwriting/auto-fill";
-import { getContract, getScheduleLine } from "@/lib/underwriting/queries";
+import {
+  autoFillActiveScheduleLines,
+  autoFillContractScheduleLines,
+  autoFillScheduleLine,
+  type AutoFillResult,
+} from "@/lib/underwriting/auto-fill";
+import { getContract, getContractDetail, getScheduleLine } from "@/lib/underwriting/queries";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -20,11 +25,21 @@ const SKIP_REASON_LABEL: Record<AutoFillResult["skipped"][number]["reason"], str
 
 function summarizeAutoFill(result: AutoFillResult): string {
   const parts: string[] = [];
+  if (result.rundownsGeneratedCount > 0) {
+    parts.push(
+      `generated ${result.rundownsGeneratedCount} rundown${result.rundownsGeneratedCount === 1 ? "" : "s"} to place into`,
+    );
+  }
   if (result.placedCount > 0) {
     parts.push(`placed ${result.placedCount} credit${result.placedCount === 1 ? "" : "s"}`);
   }
   if (result.makegoodsResolvedCount > 0) {
     parts.push(`${result.makegoodsResolvedCount} of those resolved a makegood awaiting a slot`);
+  }
+  if (result.unschedulableAirDates.length > 0) {
+    parts.push(
+      `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no Log schedule entry or clock version to generate a rundown against`,
+    );
   }
   const skipCounts = new Map<string, number>();
   for (const skip of result.skipped) {
@@ -65,19 +80,60 @@ export async function autoFillScheduleLineAction(formData: FormData): Promise<vo
   if (!scheduleLine) failWith(path, "That schedule line no longer exists.");
 
   const result = await autoFillScheduleLine(scheduleLine);
-  if (result.placedCount > 0) {
+  if (result.placedCount > 0 || result.rundownsGeneratedCount > 0) {
     await logAuditEvent({
       actorId: profile.id,
       action: "underwriting.schedule_line.auto_filled",
       targetType: "uw_contract_schedule_line",
       targetId: scheduleLineId,
-      metadata: { placed_count: result.placedCount, makegoods_resolved_count: result.makegoodsResolvedCount },
+      metadata: {
+        placed_count: result.placedCount,
+        makegoods_resolved_count: result.makegoodsResolvedCount,
+        rundowns_generated_count: result.rundownsGeneratedCount,
+      },
     });
   }
 
   revalidatePath(path);
   revalidatePath("/underwriting/makegoods");
   redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(result))}`);
+}
+
+/**
+ * Contract-wide version — every schedule line under this one contract, one
+ * click. The middle ground between the per-line button above and the
+ * dashboard's every-active-contract sweep, for a traffic staffer working a
+ * single renewal who doesn't want to click "Auto-fill remaining" once per
+ * line.
+ */
+export async function autoFillContractAction(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const path = `/underwriting/contracts/${contractId}`;
+
+  const contract = await getContractDetail(contractId);
+  if (!contract) failWith(path, "That contract no longer exists.");
+  if (contract.status !== "active") failWith(path, "Auto-fill only works for an active contract.");
+
+  const { perLine, totals } = await autoFillContractScheduleLines(contract.scheduleLines);
+  for (const { scheduleLine, result } of perLine) {
+    if (result.placedCount === 0 && result.rundownsGeneratedCount === 0) continue;
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.schedule_line.auto_filled",
+      targetType: "uw_contract_schedule_line",
+      targetId: scheduleLine.id,
+      metadata: {
+        placed_count: result.placedCount,
+        makegoods_resolved_count: result.makegoodsResolvedCount,
+        rundowns_generated_count: result.rundownsGeneratedCount,
+      },
+    });
+  }
+
+  revalidatePath(path);
+  revalidatePath("/underwriting/makegoods");
+  redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(totals))}`);
 }
 
 /** Dashboard-wide version — every schedule line under every active contract, one click (Workflow D). */
@@ -87,13 +143,17 @@ export async function autoFillAllAction(): Promise<void> {
 
   const { perLine, totals } = await autoFillActiveScheduleLines();
   for (const { scheduleLine, result } of perLine) {
-    if (result.placedCount === 0) continue;
+    if (result.placedCount === 0 && result.rundownsGeneratedCount === 0) continue;
     await logAuditEvent({
       actorId: profile.id,
       action: "underwriting.schedule_line.auto_filled",
       targetType: "uw_contract_schedule_line",
       targetId: scheduleLine.id,
-      metadata: { placed_count: result.placedCount, makegoods_resolved_count: result.makegoodsResolvedCount },
+      metadata: {
+        placed_count: result.placedCount,
+        makegoods_resolved_count: result.makegoodsResolvedCount,
+        rundowns_generated_count: result.rundownsGeneratedCount,
+      },
     });
   }
 

@@ -58,6 +58,46 @@ export function sumExpectedOccurrences(lines: ScheduleLineOccurrenceLike[]): num
   return total;
 }
 
+/**
+ * Every date this schedule line's remaining campaign still needs a fresh
+ * occurrence on: matching days_of_week, from max(start_date, todayISO)
+ * through end_date inclusive, minus whatever's already in coveredAirDates
+ * (an active placement already claims that day). Used by
+ * lib/underwriting/rundown-provisioning.ts to provision Log rundowns for
+ * the *entire* remaining campaign in one auto-fill run, not just this run's
+ * immediate demand — see that module's own header.
+ *
+ * Returns [] for an open-ended line (no end_date) or a non-day-of-week
+ * one (occurrence_count_override set) — neither has a deterministic set of
+ * "which calendar days" to generate against; auto-fill still fills
+ * whatever's already available for those, unchanged. maxDates is a
+ * defensive cap against a degenerate date range — real WUWF contracts run
+ * well under it (the reference agreement's longest line is 26 weeks).
+ */
+export function remainingOccurrenceDates(
+  line: ScheduleLineOccurrenceLike,
+  todayISO: string,
+  coveredAirDates: string[],
+  maxDates = 400,
+): string[] {
+  if (line.end_date == null || line.occurrence_count_override != null || line.days_of_week.length === 0) return [];
+
+  const startISO = line.start_date > todayISO ? line.start_date : todayISO;
+  const start = new Date(`${startISO}T00:00:00Z`);
+  const end = new Date(`${line.end_date}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return [];
+
+  const covered = new Set(coveredAirDates);
+  const daySet = new Set(line.days_of_week);
+  const dates: string[] = [];
+  for (const cursor = new Date(start); cursor <= end && dates.length < maxDates; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    if (!daySet.has(cursor.getUTCDay())) continue;
+    const iso = cursor.toISOString().slice(0, 10);
+    if (!covered.has(iso)) dates.push(iso);
+  }
+  return dates;
+}
+
 const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** A short human-readable summary of a schedule line's recurrence, for display — never raw days_of_week integers. */

@@ -23,7 +23,7 @@ import {
 } from "../../contract-actions";
 import { createCopy } from "../../copy-actions";
 import { clearCreditAction, placeCreditAction } from "../../placement-actions";
-import { autoFillScheduleLineAction } from "../../auto-fill-actions";
+import { autoFillContractAction, autoFillScheduleLineAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
 import type { UwContractStatus, UwPlacementStatus } from "@/lib/database.types";
 
@@ -120,8 +120,16 @@ export default async function ContractDetailPage({
         </div>
 
         <div className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-            Contract schedule lines
+          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+            <div className="text-sm font-bold text-ink-900">Contract schedule lines</div>
+            {contract.scheduleLines.length > 1 && contract.status === "active" && (
+              <form action={autoFillContractAction}>
+                <input type="hidden" name="contract_id" value={contract.id} />
+                <Button type="submit" variant="secondary">
+                  Auto-fill this contract
+                </Button>
+              </form>
+            )}
           </div>
           {contract.scheduleLines.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No schedule lines yet.</p>
@@ -180,7 +188,7 @@ export default async function ContractDetailPage({
                       </ul>
                     )}
 
-                    {placeable.ok && placeable.breaks.length > 0 && contract.copy.length > 0 && (
+                    {contract.copy.length > 0 && (
                       <form action={autoFillScheduleLineAction} className="mt-1">
                         <input type="hidden" name="contract_id" value={contract.id} />
                         <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
@@ -188,10 +196,11 @@ export default async function ContractDetailPage({
                           Auto-fill remaining
                         </Button>
                         <FieldHint>
-                          Places approved, in-date copy into every eligible open break right now — awaiting-slot
-                          makegoods for this line first, then fresh occurrences up to the expected count. Never
-                          places this underwriter (or its industry) right after another credit from the same one
-                          in a break that already holds one.
+                          Generates every Log rundown this line&apos;s remaining campaign needs (if they don&apos;t
+                          already exist), then places approved, in-date copy into them — awaiting-slot makegoods
+                          first, then fresh occurrences up to the expected count. Never places this underwriter (or
+                          its industry) right after another credit from the same one in a break that already holds
+                          one.
                         </FieldHint>
                       </form>
                     )}
