@@ -59,7 +59,7 @@ export function RundownLiveLayout({
   return (
     <div className="flex flex-col gap-4">
       <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-        <h1 className="truncate text-sm font-bold text-ink-900">{programName}</h1>
+        <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
         {stateLabel && stateVariant && <Badge variant={stateVariant}>{stateLabel}</Badge>}
         {hasCurrentBreak && (
           <button
