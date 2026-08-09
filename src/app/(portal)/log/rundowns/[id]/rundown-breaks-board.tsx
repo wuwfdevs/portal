@@ -13,9 +13,9 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/cn";
-import { Select } from "@/components/ui/input";
 import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { InsertionPoint, type InsertConfig } from "./insertion-point";
+import { RundownItemCard, type RundownItemCardBaseProps } from "./rundown-item-card";
 import type { LogContentType } from "@/lib/database.types";
 
 /**
@@ -26,14 +26,14 @@ import type { LogContentType } from "@/lib/database.types";
  * covers moving *between* containers; reordering *within* one needs
  * @dnd-kit/sortable, which this module is what actually needs it for.
  *
- * Every item also carries an always-visible "Move to…" <select>, same
- * reasoning as academic-partnerships/kanban-board.tsx's: it's how a
- * keyboard or screen-reader user, or anyone on a touch device where drag is
- * unreliable, moves an item at all — not a fallback bolted on for
- * compliance, the primary path for a real share of hosts. The select is
- * coarser than drag (it always appends to the end of the target break,
- * where drag can drop anywhere) — matching the kanban board's own select,
- * which doesn't offer a position within a column either.
+ * Every draggable item also carries a "Move to…" option inside its own
+ * corner menu (rundown-item-card.tsx) — same reasoning as
+ * academic-partnerships/kanban-board.tsx's always-visible select: it's how
+ * a keyboard or screen-reader user, or anyone on a touch device where drag
+ * is unreliable, moves an item at all. Coarser than drag (it always
+ * appends to the end of the target break, where drag can drop anywhere),
+ * matching the kanban board's own select, which doesn't offer a position
+ * within a column either.
  */
 
 export interface BreakBoardItem {
@@ -42,7 +42,7 @@ export interface BreakBoardItem {
   contentType: LogContentType | null;
   draggable: boolean;
   label: string;
-  node: ReactNode;
+  cardProps: RundownItemCardBaseProps;
 }
 
 export interface BreakBoardBreak {
@@ -262,36 +262,21 @@ function SortableItem({
       className={cn("rounded border border-line/70 bg-panel-50/50 p-3", isDragging && "opacity-50")}
     >
       {item.draggable && (
-        <div className="mb-1.5 flex items-center gap-2">
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            aria-label={`Drag to reorder or move ${item.label}. Press space to pick up and arrow keys to move, or use the Move to menu.`}
-            className="touch-none cursor-grab rounded px-1 text-ink-300 hover:text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-surface active:cursor-grabbing"
-          >
-            ⠿
-          </button>
-          {destinations.length > 0 && (
-            <label className="flex items-center gap-1.5">
-              <span className="sr-only">Move {item.label} to</span>
-              <Select
-                value=""
-                onChange={(event) => event.target.value && onMoveTo(event.target.value)}
-                className="w-auto py-1 text-xs"
-              >
-                <option value="">Move to…</option>
-                {destinations.map((destination) => (
-                  <option key={destination.id} value={destination.id}>
-                    {destination.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-          )}
-        </div>
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag to reorder or move ${item.label}. Press space to pick up and arrow keys to move, or use its Move to… menu item.`}
+          className="mb-1.5 touch-none cursor-grab rounded px-1 text-ink-300 hover:text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-surface active:cursor-grabbing"
+        >
+          ⠿
+        </button>
       )}
-      {item.node}
+      <RundownItemCard
+        {...item.cardProps}
+        moveDestinations={item.draggable ? destinations.map((d) => ({ id: d.id, label: d.label })) : null}
+        onMoveTo={item.draggable ? onMoveTo : null}
+      />
     </li>
   );
 }

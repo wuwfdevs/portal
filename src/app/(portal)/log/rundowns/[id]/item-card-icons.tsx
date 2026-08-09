@@ -37,3 +37,14 @@ export function CloseIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** The card's single "more actions" trigger — consolidates edit/move/remove into one menu instead of three separate corner icons. */
+export function DotsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden="true" fill="currentColor">
+      <circle cx="3" cy="8" r="1.5" />
+      <circle cx="8" cy="8" r="1.5" />
+      <circle cx="13" cy="8" r="1.5" />
+    </svg>
+  );
+}
