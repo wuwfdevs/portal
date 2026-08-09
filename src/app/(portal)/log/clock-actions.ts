@@ -183,6 +183,67 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
   redirect(path);
 }
 
+/**
+ * Edits a WUWF local-substitution opportunity in place — the RLS layer has
+ * allowed this since the opportunity was split from the network clock (see
+ * addLocalOpportunity above), but no action or form ever exercised it until
+ * now. Same field set and validation as addLocalOpportunity, applied as an
+ * update against an existing row instead of an insert.
+ */
+export async function updateLocalOpportunity(formData: FormData): Promise<void> {
+  await assertLogProducer();
+  const templateId = field(formData, "clock_template_id");
+  const opportunityId = field(formData, "opportunity_id");
+  const path = templatePath(templateId);
+
+  const position = Number.parseInt(field(formData, "position"), 10);
+  const startOffsetSeconds = Number.parseInt(field(formData, "start_offset_seconds"), 10);
+  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
+  const label = field(formData, "label");
+  if (label === "") failWith(path, "Give this opportunity a short label.");
+  if (!Number.isFinite(position) || !Number.isFinite(startOffsetSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    failWith(path, "Give the opportunity a position, start offset, and a duration greater than zero.");
+  }
+
+  const requirement = field(formData, "requirement") as LogOpportunityRequirement;
+  if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
+  const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
+  if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
+
+  const earliestRaw = optionalField(formData, "earliest_start_offset_seconds");
+  const latestRaw = optionalField(formData, "latest_start_offset_seconds");
+  if (timingMode === "float" && (earliestRaw === null || latestRaw === null)) {
+    failWith(path, "A floating opportunity needs both an earliest and latest permitted start.");
+  }
+
+  const permittedContentTypes = field(formData, "permitted_content_types")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_local_opportunities")
+    .update({
+      position,
+      label,
+      requirement,
+      timing_mode: timingMode,
+      start_offset_seconds: startOffsetSeconds,
+      duration_seconds: durationSeconds,
+      earliest_start_offset_seconds: timingMode === "float" ? Number.parseInt(earliestRaw!, 10) : null,
+      latest_start_offset_seconds: timingMode === "float" ? Number.parseInt(latestRaw!, 10) : null,
+      permitted_content_types: permittedContentTypes,
+      allow_multiple: formData.get("allow_multiple") === "on",
+      notes: optionalField(formData, "notes"),
+    })
+    .eq("id", opportunityId);
+  failIfError(error, path, "Could not update the local opportunity");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
 /** Deactivates a local opportunity (doesn't delete it) — the same deactivate-don't-delete lifecycle log_content_items uses. */
 export async function deactivateLocalOpportunity(formData: FormData): Promise<void> {
   await assertLogProducer();

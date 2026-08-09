@@ -23,7 +23,7 @@ import {
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
-import { computeBreakFit, computeBreakStatus, computeRundownSummary } from "@/lib/log/timing";
+import { computeBreakStatuses, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
@@ -153,12 +153,35 @@ export default async function RundownDetailPage({
     rundown.breaks,
   ).length;
 
+  // Per-break status, computed once for the whole rundown so a break can
+  // read as 'covered_by_previous' when the break just before it holds
+  // content that runs past its own window into this one — see
+  // lib/log/timing.ts's computeBreakStatuses. Both the header summary and
+  // each break's own badge below read from this same map.
+  const breakStatusesById = new Map(
+    computeBreakStatuses(
+      rundown.breaks.map((brk) => ({
+        id: brk.id,
+        requirement: brk.requirement,
+        available_duration_seconds: brk.available_duration_seconds,
+        occupied_duration_seconds: brk.items.reduce((total, item) => total + itemDuration(item), 0),
+        item_count: brk.items.length,
+        scheduled_at: brk.scheduled_at,
+        network_rejoin_at: brk.network_rejoin_at,
+      })),
+    ).map((result) => [result.id, result]),
+  );
+  const breakLabelById = new Map(rundown.breaks.map((brk) => [brk.id, brk.label]));
+
   const summary = computeRundownSummary(
     rundown.breaks.map((brk) => ({
+      id: brk.id,
       requirement: brk.requirement,
       available_duration_seconds: brk.available_duration_seconds,
       occupied_duration_seconds: brk.items.reduce((total, item) => total + itemDuration(item), 0),
       item_count: brk.items.length,
+      scheduled_at: brk.scheduled_at,
+      network_rejoin_at: brk.network_rejoin_at,
     })),
   );
 
@@ -353,13 +376,9 @@ export default async function RundownDetailPage({
   // the old inline rendering used, so nothing about what's shown changes,
   // only how relocation works.
   const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk) => {
-    const occupied = brk.items.reduce((total, item) => total + itemDuration(item), 0);
-    const fit = computeBreakFit(brk.available_duration_seconds, occupied);
-    const status = computeBreakStatus({
-      requirement: brk.requirement,
-      item_count: brk.items.length,
-      fit,
-    });
+    const result = breakStatusesById.get(brk.id);
+    const fit = result!.fit;
+    const status = result!.status;
     const isCurrent = live && brk.id === currentBreakId;
 
     const statusBadge =
@@ -369,6 +388,10 @@ export default async function RundownDetailPage({
         <Badge variant="danger">Needs something</Badge>
       ) : status === "over" ? (
         <Badge variant="danger">{fit.overSeconds}s over</Badge>
+      ) : status === "covered_by_previous" ? (
+        <Badge variant="muted">
+          Covered by {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"}
+        </Badge>
       ) : (
         <Badge variant="success">{fit.remainingSeconds}s to spare</Badge>
       );
@@ -494,6 +517,14 @@ export default async function RundownDetailPage({
           {status === "carrying_network" && (
             <span className="text-xs text-ink-400">
               Nothing placed — the network feed simply continues. That&apos;s fine.
+            </span>
+          )}
+          {status === "covered_by_previous" && (
+            <span className="text-xs text-ink-400">
+              Nothing placed here, but the content in {breakLabelById.get(result!.coveredByBreakId ?? "") ??
+                "the previous break"}{" "}
+              runs long enough to cover this window too. Still open if you&apos;d rather place something
+              here instead.
             </span>
           )}
         </div>

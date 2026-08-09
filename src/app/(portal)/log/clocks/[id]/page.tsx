@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,13 @@ import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
 import { getClockTemplateDetail } from "@/lib/log/queries";
-import { addClockSlot, addLocalOpportunity, createClockVersion, deactivateLocalOpportunity } from "../../clock-actions";
+import {
+  addClockSlot,
+  addLocalOpportunity,
+  createClockVersion,
+  deactivateLocalOpportunity,
+  updateLocalOpportunity,
+} from "../../clock-actions";
 
 const VARIANT_LABEL: Record<string, string> = {
   weekday: "Weekday",
@@ -23,13 +30,14 @@ export default async function ClockTemplateDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; edit?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, edit } = await searchParams;
   const { isProducer } = await requireLogAccess();
   const template = await getClockTemplateDetail(id);
   if (!template) notFound();
+  const basePath = `/log/clocks/${template.id}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,35 +128,189 @@ export default async function ClockTemplateDetailPage({
                       </thead>
                       <tbody>
                         {version.opportunities.map((opportunity) => (
-                          <Row key={opportunity.id}>
-                            <Cell className="font-semibold text-ink-900">{opportunity.label}</Cell>
-                            <Cell>
-                              <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
-                                {opportunity.requirement}
-                              </Badge>
-                            </Cell>
-                            <Cell>
-                              {opportunity.timing_mode === "float"
-                                ? `floats ${opportunity.earliest_start_offset_seconds}–${opportunity.latest_start_offset_seconds}s, ${opportunity.duration_seconds}s`
-                                : `${opportunity.start_offset_seconds}s, ${opportunity.duration_seconds}s`}
-                            </Cell>
-                            <Cell className="text-ink-500">
-                              {opportunity.permitted_content_types.length > 0
-                                ? opportunity.permitted_content_types.join(", ")
-                                : "anything"}
-                            </Cell>
-                            {isProducer && (
+                          <Fragment key={opportunity.id}>
+                            <Row>
+                              <Cell className="font-semibold text-ink-900">{opportunity.label}</Cell>
                               <Cell>
-                                <form action={deactivateLocalOpportunity}>
-                                  <input type="hidden" name="clock_template_id" value={template.id} />
-                                  <input type="hidden" name="opportunity_id" value={opportunity.id} />
-                                  <Button type="submit" variant="ghost" className="px-2.5 py-1.5 text-xs">
-                                    Deactivate
-                                  </Button>
-                                </form>
+                                <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
+                                  {opportunity.requirement}
+                                </Badge>
                               </Cell>
+                              <Cell>
+                                {opportunity.timing_mode === "float"
+                                  ? `floats ${opportunity.earliest_start_offset_seconds}–${opportunity.latest_start_offset_seconds}s, ${opportunity.duration_seconds}s`
+                                  : `${opportunity.start_offset_seconds}s, ${opportunity.duration_seconds}s`}
+                              </Cell>
+                              <Cell className="text-ink-500">
+                                {opportunity.permitted_content_types.length > 0
+                                  ? opportunity.permitted_content_types.join(", ")
+                                  : "anything"}
+                              </Cell>
+                              {isProducer && (
+                                <Cell>
+                                  <div className="flex items-center gap-3 whitespace-nowrap">
+                                    <Link
+                                      href={edit === opportunity.id ? basePath : `${basePath}?edit=${opportunity.id}`}
+                                      className="text-xs font-semibold text-brand-link hover:underline"
+                                    >
+                                      {edit === opportunity.id ? "Cancel" : "Edit"}
+                                    </Link>
+                                    <form action={deactivateLocalOpportunity}>
+                                      <input type="hidden" name="clock_template_id" value={template.id} />
+                                      <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                                      <button
+                                        type="submit"
+                                        className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
+                                      >
+                                        Deactivate
+                                      </button>
+                                    </form>
+                                  </div>
+                                </Cell>
+                              )}
+                            </Row>
+                            {isProducer && edit === opportunity.id && (
+                              <Row key={`${opportunity.id}-edit`}>
+                                <Cell colSpan={5} className="bg-panel-50/60">
+                                  <form
+                                    action={updateLocalOpportunity}
+                                    className="flex flex-col gap-4 py-1"
+                                  >
+                                    <input type="hidden" name="clock_template_id" value={template.id} />
+                                    <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                                    <div>
+                                      <Label htmlFor={`opp-edit-label-${opportunity.id}`}>Label</Label>
+                                      <Input
+                                        id={`opp-edit-label-${opportunity.id}`}
+                                        name="label"
+                                        required
+                                        maxLength={120}
+                                        defaultValue={opportunity.label}
+                                      />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <Label htmlFor={`opp-edit-position-${opportunity.id}`}>Position</Label>
+                                        <Input
+                                          id={`opp-edit-position-${opportunity.id}`}
+                                          name="position"
+                                          type="number"
+                                          required
+                                          min={1}
+                                          defaultValue={opportunity.position}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-requirement-${opportunity.id}`}>Requirement</Label>
+                                        <Select
+                                          id={`opp-edit-requirement-${opportunity.id}`}
+                                          name="requirement"
+                                          defaultValue={opportunity.requirement}
+                                        >
+                                          <option value="optional">Optional — network continues if unused</option>
+                                          <option value="required">Required — a genuine local obligation</option>
+                                        </Select>
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-start-${opportunity.id}`}>Start offset (s)</Label>
+                                        <Input
+                                          id={`opp-edit-start-${opportunity.id}`}
+                                          name="start_offset_seconds"
+                                          type="number"
+                                          required
+                                          min={0}
+                                          defaultValue={opportunity.start_offset_seconds}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-duration-${opportunity.id}`}>Duration (s)</Label>
+                                        <Input
+                                          id={`opp-edit-duration-${opportunity.id}`}
+                                          name="duration_seconds"
+                                          type="number"
+                                          required
+                                          min={1}
+                                          defaultValue={opportunity.duration_seconds}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-timing-${opportunity.id}`}>Timing</Label>
+                                        <Select
+                                          id={`opp-edit-timing-${opportunity.id}`}
+                                          name="timing_mode"
+                                          defaultValue={opportunity.timing_mode}
+                                        >
+                                          <option value="fixed">Fixed</option>
+                                          <option value="float">Floating window</option>
+                                        </Select>
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-multiple-${opportunity.id}`}>Multiple items?</Label>
+                                        <label
+                                          className="mt-2 flex items-center gap-2 text-sm text-ink-700"
+                                        >
+                                          <input
+                                            id={`opp-edit-multiple-${opportunity.id}`}
+                                            type="checkbox"
+                                            name="allow_multiple"
+                                            defaultChecked={opportunity.allow_multiple}
+                                            className="h-4 w-4"
+                                          />
+                                          Allow more than one item
+                                        </label>
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-earliest-${opportunity.id}`}>
+                                          Earliest start (s, float only)
+                                        </Label>
+                                        <Input
+                                          id={`opp-edit-earliest-${opportunity.id}`}
+                                          name="earliest_start_offset_seconds"
+                                          type="number"
+                                          defaultValue={opportunity.earliest_start_offset_seconds ?? undefined}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor={`opp-edit-latest-${opportunity.id}`}>
+                                          Latest start (s, float only)
+                                        </Label>
+                                        <Input
+                                          id={`opp-edit-latest-${opportunity.id}`}
+                                          name="latest_start_offset_seconds"
+                                          type="number"
+                                          defaultValue={opportunity.latest_start_offset_seconds ?? undefined}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor={`opp-edit-types-${opportunity.id}`}>
+                                        Permitted content types
+                                      </Label>
+                                      <Input
+                                        id={`opp-edit-types-${opportunity.id}`}
+                                        name="permitted_content_types"
+                                        placeholder="legal_id, psa, underwriting_credit"
+                                        defaultValue={opportunity.permitted_content_types.join(", ")}
+                                      />
+                                      <FieldHint>Comma-separated. Leave blank to permit anything.</FieldHint>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor={`opp-edit-notes-${opportunity.id}`}>Notes</Label>
+                                      <Input
+                                        id={`opp-edit-notes-${opportunity.id}`}
+                                        name="notes"
+                                        maxLength={280}
+                                        defaultValue={opportunity.notes ?? undefined}
+                                      />
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <Button type="submit">Save changes</Button>
+                                    </div>
+                                  </form>
+                                </Cell>
+                              </Row>
                             )}
-                          </Row>
+                          </Fragment>
                         ))}
                       </tbody>
                     </Table>
