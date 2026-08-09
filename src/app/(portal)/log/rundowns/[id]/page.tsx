@@ -4,11 +4,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
-import {
-  CONTENT_TYPE_LABEL,
-  WEATHER_ITEM_SENTINEL,
-  computeTotalDurationSeconds,
-} from "@/lib/log/content-library";
+import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "@/lib/log/content-library";
 import {
   getRundownDetail,
   listBroadcastEventsForItems,
@@ -34,14 +30,14 @@ import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../log-poller";
 import { markAired, markMissed, startBroadcast, submitRundown } from "../../broadcast-actions";
 import {
-  fillRundownItem,
   relocateRundownItem,
   removeRundownItem,
   syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
 import { CopyDisplay } from "./copy-display";
-import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
+import type { NprLookaheadItem } from "./live-read-form";
+import type { InsertConfig } from "./insertion-point";
 import { RundownItemCard } from "./rundown-item-card";
 import { RundownLiveLayout } from "./rundown-live-layout";
 import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
@@ -206,45 +202,22 @@ export default async function RundownDetailPage({
       )
     : [];
 
-  const renderFillControls = (brk: RundownBreakDetail) => {
+  // Config for the breaks board's insertion points (insertion-point.tsx) —
+  // replaces the old bottom-of-break "Add…" <select> + "Create a one-off
+  // live read" <details> entirely. Null when the break can't take anything
+  // more, same canAddMore gate the old dropdown used.
+  const buildInsertConfig = (brk: RundownBreakDetail): InsertConfig | null => {
     const canAddMore = brk.allow_multiple || brk.items.length === 0;
     if (!canAddMore) return null;
-    const eligible = filterEligibleContent(
-      approvedContent,
-      brk,
-      rundown.program_id,
-      rundown.air_date,
-    );
-    const permitsWeather = brk.permitted_content_types.includes("weather");
+    const eligible = filterEligibleContent(approvedContent, brk, rundown.program_id, rundown.air_date);
 
-    return (
-      <div className="flex flex-col gap-2 border-t border-line px-5 py-3">
-        <form action={fillRundownItem} className="flex flex-wrap items-center gap-1.5">
-          <input type="hidden" name="rundown_id" value={rundown.id} />
-          <input type="hidden" name="break_id" value={brk.id} />
-          <Select
-            name="content_item_id"
-            className="max-w-[220px]"
-            disabled={eligible.length === 0 && !permitsWeather}
-            defaultValue=""
-          >
-            <option value="" disabled>
-              {eligible.length === 0 && !permitsWeather ? "No eligible content" : "Add…"}
-            </option>
-            {permitsWeather && <option value={WEATHER_ITEM_SENTINEL}>Today&apos;s weather</option>}
-            {eligible.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.title}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
-            Add
-          </Button>
-        </form>
-        <LiveReadForm rundownId={rundown.id} breakId={brk.id} nprItems={nprLookaheadItems} />
-      </div>
-    );
+    return {
+      rundownId: rundown.id,
+      breakId: brk.id,
+      eligibleContent: eligible.map((candidate) => ({ id: candidate.id, title: candidate.title })),
+      permitsWeather: brk.permitted_content_types.includes("weather"),
+      nprItems: nprLookaheadItems,
+    };
   };
 
   // Aired/Missed are the only mid-broadcast outcomes left — "Move" is gone,
@@ -455,7 +428,7 @@ export default async function RundownDetailPage({
           )}
         </div>
       ),
-      fillControlsNode: renderFillControls(brk),
+      insertConfig: buildInsertConfig(brk),
       items,
     };
   });

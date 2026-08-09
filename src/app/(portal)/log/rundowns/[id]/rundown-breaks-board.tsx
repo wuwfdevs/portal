@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useMemo, useState, useTransition, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -15,6 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/input";
 import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import { InsertionPoint, type InsertConfig } from "./insertion-point";
 import type { LogContentType } from "@/lib/database.types";
 
 /**
@@ -53,7 +54,8 @@ export interface BreakBoardBreak {
   allowMultiple: boolean;
   headerNode: ReactNode;
   statusNode: ReactNode;
-  fillControlsNode: ReactNode;
+  /** Null when the break can't take anything more (occupied and not allow_multiple) — no insertion points render at all then. */
+  insertConfig: InsertConfig | null;
   isCurrent: boolean;
   items: BreakBoardItem[];
 }
@@ -168,27 +170,37 @@ export function RundownBreaksBoard({
       <ol className="flex flex-col gap-4">
         {initialBreaks.map((brk) => {
           const itemIds = order[brk.id] ?? [];
+          const insertConfig = brk.insertConfig;
           return (
             <BreakDropZone key={brk.id} brk={brk} itemIds={itemIds}>
-              {itemIds.length > 0 && (
-                <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-                  <ul className="flex flex-col gap-3 px-5 py-4">
-                    {itemIds.map((itemId) => {
-                      const item = itemsById.get(itemId);
-                      if (!item) return null;
-                      return (
-                        <SortableItem
-                          key={itemId}
-                          item={item}
-                          destinations={item.draggable ? eligibleDestinations(itemId) : []}
-                          onMoveTo={(destinationBreakId) => moveItem(itemId, destinationBreakId, null)}
-                        />
-                      );
-                    })}
-                  </ul>
-                </SortableContext>
+              {(itemIds.length > 0 || insertConfig) && (
+                <ul className="flex flex-col gap-3 px-5 py-4">
+                  {insertConfig && itemIds.length === 0 && (
+                    <InsertionPoint config={insertConfig} beforeItemId={null} />
+                  )}
+                  {itemIds.length > 0 && (
+                    <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+                      {itemIds.map((itemId, index) => {
+                        const item = itemsById.get(itemId);
+                        if (!item) return null;
+                        return (
+                          <Fragment key={itemId}>
+                            {insertConfig && <InsertionPoint config={insertConfig} beforeItemId={itemId} />}
+                            <SortableItem
+                              item={item}
+                              destinations={item.draggable ? eligibleDestinations(itemId) : []}
+                              onMoveTo={(destinationBreakId) => moveItem(itemId, destinationBreakId, null)}
+                            />
+                            {insertConfig && index === itemIds.length - 1 && (
+                              <InsertionPoint config={insertConfig} beforeItemId={null} />
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </SortableContext>
+                  )}
+                </ul>
               )}
-              {brk.fillControlsNode}
             </BreakDropZone>
           );
         })}
