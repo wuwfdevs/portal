@@ -12,6 +12,12 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
+const SKIP_REASON_LABEL: Record<AutoFillResult["skipped"][number]["reason"], string> = {
+  same_underwriter_adjacent: "would have run the same underwriter back to back",
+  same_category_adjacent: "would have run the same industry back to back",
+  no_eligible_copy: "had no eligible copy to place",
+};
+
 function summarizeAutoFill(result: AutoFillResult): string {
   const parts: string[] = [];
   if (result.placedCount > 0) {
@@ -20,10 +26,12 @@ function summarizeAutoFill(result: AutoFillResult): string {
   if (result.makegoodsResolvedCount > 0) {
     parts.push(`${result.makegoodsResolvedCount} of those resolved a makegood awaiting a slot`);
   }
-  if (result.skippedBreakIds.length > 0) {
-    parts.push(
-      `${result.skippedBreakIds.length} open break${result.skippedBreakIds.length === 1 ? "" : "s"} had no eligible copy to place`,
-    );
+  const skipCounts = new Map<string, number>();
+  for (const skip of result.skipped) {
+    skipCounts.set(skip.reason, (skipCounts.get(skip.reason) ?? 0) + 1);
+  }
+  for (const [reason, count] of skipCounts) {
+    parts.push(`${count} break${count === 1 ? "" : "s"} skipped — ${SKIP_REASON_LABEL[reason as keyof typeof SKIP_REASON_LABEL]}`);
   }
   if (result.demandExceedsSupply) {
     parts.push("more are still needed than there's inventory for right now");

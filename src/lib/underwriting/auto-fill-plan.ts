@@ -12,11 +12,27 @@
 // an ordinary not-yet-scheduled occurrence rather than requiring its own
 // separate manual pick.
 //
-// One planned item per break, always — even when a break's allow_multiple
-// and remaining capacity could in principle fit more than one short credit,
-// this pass never double-books a single break. Real WUWF schedule lines
-// place one credit per break; packing several into a single break in one
-// pass is behavior no real contract pattern has exercised yet.
+// A break can hold several different underwriters' credits at once when its
+// remaining capacity allows, but the same underwriter never runs back to
+// back, and neither does the same industry — a real contractual promise,
+// not a style preference: the reference Autumn Beck Blackledge agreement's
+// own terms say "WUWF will make appropriate changes in scheduling to insure
+// that your sponsorship message does not run adjacent to a business with
+// similar services or products," and its own conflict category is
+// "Lawyers." Manual placement surfaces this as an advisory a human decides
+// what to do with (lib/underwriting/adjacency.ts); auto-fill has no human
+// in the loop at the moment it places a credit, so here it's an enforced
+// rule instead. "Back to back" only ever means immediately adjacent within
+// one break (cross-break adjacency is out of scope) — and since
+// log_place_underwriting_credit() always appends at the end of a break, the
+// only item a newly-placed one could ever be adjacent to is whichever one
+// currently holds the break's highest position, so that's all a candidate
+// break needs to carry.
+//
+// One schedule line's own demand still never places two of its own items
+// into the same break in a single pass: every item on one line shares that
+// line's underwriter, so the same-underwriter rule already rules that out
+// structurally — this file doesn't need special-case logic for it.
 
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
@@ -35,6 +51,10 @@ export interface AutoFillBreakCandidate {
   /** YYYY-MM-DD — checked against a candidate's effective_from/effective_to, the same as log_place_underwriting_credit() checks against the rundown's own air_date. */
   airDate: string;
   remainingSeconds: number;
+  /** Underwriter id of whichever credit currently holds this break's highest position, if any — null for an empty break or one whose last item isn't a credit. */
+  lastItemUnderwriterId: string | null;
+  /** That same last item's underwriter category, if set — null otherwise. */
+  lastItemCategory: string | null;
 }
 
 export interface AutoFillDemand {
@@ -42,6 +62,10 @@ export interface AutoFillDemand {
   awaitingSlotMakegoodIds: string[];
   /** Brand-new occurrences still needed beyond what's already pending or awaiting a makegood slot. Null for an open-ended schedule line — fill every eligible break available instead of stopping at a target. */
   freshOccurrencesNeeded: number | null;
+  /** This schedule line's own underwriter — checked against each candidate break's last item so the same underwriter never runs back to back within one break. */
+  underwriterId: string;
+  /** That underwriter's category, if set — checked the same way so two underwriters from the same industry never run back to back within one break. */
+  category: string | null;
 }
 
 export type AutoFillPlanItemReason = "makegood" | "fresh";
@@ -53,10 +77,17 @@ export interface AutoFillPlanItem {
   makegoodId?: string;
 }
 
+export type AutoFillSkipReason = "same_underwriter_adjacent" | "same_category_adjacent" | "no_eligible_copy";
+
+export interface AutoFillSkippedBreak {
+  breakId: string;
+  reason: AutoFillSkipReason;
+}
+
 export interface AutoFillPlan {
   items: AutoFillPlanItem[];
-  /** Breaks that had demand queued for them but no linked copy fit (approved, in date, short enough). */
-  skippedBreakIds: string[];
+  /** Breaks that had demand queued for them but were passed over — either an adjacency conflict, or no linked copy fit (approved, in date, short enough). */
+  skipped: AutoFillSkippedBreak[];
   /** True when demand (makegoods + fresh occurrences) outlasted the eligible breaks available this pass. */
   demandExceedsSupply: boolean;
 }
@@ -79,7 +110,8 @@ function isCopyEligible(copy: AutoFillCopyCandidate, brk: AutoFillBreakCandidate
  * log_list_placeable_rundown_breaks' own order) to queued demand —
  * makegoods first, then fresh occurrences — choosing whichever eligible
  * linked copy has been used least so far to rotate fairly between a
- * contract's messages. A break with no eligible copy is skipped and the
+ * contract's messages. A break that would put the same underwriter or the
+ * same industry back to back, or has no eligible copy, is skipped and the
  * same request tries the next break instead of being dropped.
  */
 export function planAutoFill(
@@ -96,18 +128,27 @@ export function planAutoFill(
 
   const usageCounts = new Map(copyCandidates.map((copy) => [copy.id, copy.existingUsageCount]));
   const items: AutoFillPlanItem[] = [];
-  const skippedBreakIds: string[] = [];
+  const skipped: AutoFillSkippedBreak[] = [];
   let requestIndex = 0;
 
   for (const brk of breaks) {
     if (requestIndex >= requests.length) break;
+
+    if (brk.lastItemUnderwriterId === demand.underwriterId) {
+      skipped.push({ breakId: brk.breakId, reason: "same_underwriter_adjacent" });
+      continue;
+    }
+    if (demand.category != null && brk.lastItemCategory === demand.category) {
+      skipped.push({ breakId: brk.breakId, reason: "same_category_adjacent" });
+      continue;
+    }
 
     const eligible = copyCandidates
       .filter((copy) => isCopyEligible(copy, brk))
       .sort((a, b) => (usageCounts.get(a.id)! - usageCounts.get(b.id)!) || a.id.localeCompare(b.id));
 
     if (eligible.length === 0) {
-      skippedBreakIds.push(brk.breakId);
+      skipped.push({ breakId: brk.breakId, reason: "no_eligible_copy" });
       continue;
     }
 
@@ -119,5 +160,5 @@ export function planAutoFill(
     requestIndex++;
   }
 
-  return { items, skippedBreakIds, demandExceedsSupply: requestIndex < requests.length };
+  return { items, skipped, demandExceedsSupply: requestIndex < requests.length };
 }

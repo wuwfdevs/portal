@@ -372,6 +372,86 @@ export async function getScheduleLineAutoFillDemand(
   };
 }
 
+export interface LastItemAdjacencyInfo {
+  underwriterId: string;
+  category: string | null;
+}
+
+/**
+ * Resolves a set of Log rundown item ids — each a candidate break's current
+ * last item, from log_list_placeable_rundown_breaks()'s last_item_id — to
+ * the underwriter (and category) whose placement put it there, if any. Used
+ * by the auto-fill scheduler (lib/underwriting/auto-fill.ts) to enforce
+ * "never the same underwriter, or the same industry, back to back within
+ * one break" — the reference agreement's own "does not run adjacent to a
+ * business with similar services or products" language, enforced here
+ * since auto-fill has no human in the loop to see the manual-placement
+ * advisory (lib/underwriting/adjacency.ts). An id with no entry in the
+ * returned map is either an empty break or a non-credit item — no
+ * adjacency concern either way. Plain reads against this tool's own
+ * tables, not a new security-definer surface: the item id itself already
+ * crossed the Log boundary through log_list_placeable_rundown_breaks().
+ */
+export async function resolveLastItemAdjacency(
+  rundownItemIds: (string | null)[],
+): Promise<Map<string, LastItemAdjacencyInfo>> {
+  const ids = [...new Set(rundownItemIds.filter((id): id is string => id !== null))];
+  if (ids.length === 0) return new Map();
+
+  const supabase = await createClient();
+  const placements =
+    unwrapRead(
+      await supabase
+        .from("uw_scheduled_placements")
+        .select("log_rundown_item_id, schedule_line_id")
+        .in("log_rundown_item_id", ids)
+        .neq("status", "superseded"),
+      "these breaks' current last items",
+    ) ?? [];
+  if (placements.length === 0) return new Map();
+
+  const scheduleLineIds = [...new Set(placements.map((placement) => placement.schedule_line_id))];
+  const scheduleLines =
+    unwrapRead(
+      await supabase.from("uw_contract_schedule_lines").select("id, contract_id").in("id", scheduleLineIds),
+      "these breaks' schedule lines",
+    ) ?? [];
+  const contractIdByLine = new Map(scheduleLines.map((line) => [line.id, line.contract_id]));
+
+  const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))];
+  const contracts =
+    contractIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("uw_contracts").select("id, underwriter_id").in("id", contractIds),
+          "these breaks' contracts",
+        ) ?? []);
+  const underwriterIdByContract = new Map(contracts.map((contract) => [contract.id, contract.underwriter_id]));
+
+  const underwriterIds = [...new Set(contracts.map((contract) => contract.underwriter_id))];
+  const underwriters =
+    underwriterIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("uw_underwriters").select("id, category").in("id", underwriterIds),
+          "these breaks' underwriters",
+        ) ?? []);
+  const categoryByUnderwriter = new Map(underwriters.map((underwriter) => [underwriter.id, underwriter.category]));
+
+  const result = new Map<string, LastItemAdjacencyInfo>();
+  for (const placement of placements) {
+    if (placement.log_rundown_item_id === null) continue;
+    const contractId = contractIdByLine.get(placement.schedule_line_id);
+    const underwriterId = contractId ? underwriterIdByContract.get(contractId) : undefined;
+    if (!underwriterId) continue;
+    result.set(placement.log_rundown_item_id, {
+      underwriterId,
+      category: categoryByUnderwriter.get(underwriterId) ?? null,
+    });
+  }
+  return result;
+}
+
 export interface NearbyPlacementForAdjacency {
   underwriterId: string;
   category: string | null;

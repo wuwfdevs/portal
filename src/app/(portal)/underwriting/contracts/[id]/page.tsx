@@ -189,7 +189,9 @@ export default async function ContractDetailPage({
                         </Button>
                         <FieldHint>
                           Places approved, in-date copy into every eligible open break right now — awaiting-slot
-                          makegoods for this line first, then fresh occurrences up to the expected count.
+                          makegoods for this line first, then fresh occurrences up to the expected count. Never
+                          places this underwriter (or its industry) right after another credit from the same one
+                          in a break that already holds one.
                         </FieldHint>
                       </form>
                     )}

@@ -2,13 +2,21 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { listPlaceableRundownBreaks, placeCredit } from "./placement";
 import {
+  getContract,
   getScheduleLineAutoFillDemand,
+  getUnderwriter,
   listCopyLinkedToContracts,
   listPlacementsForScheduleLine,
   listScheduleLinesWithActiveContracts,
+  resolveLastItemAdjacency,
   type UwContractScheduleLineRow,
 } from "./queries";
-import { planAutoFill, type AutoFillBreakCandidate, type AutoFillCopyCandidate } from "./auto-fill-plan";
+import {
+  planAutoFill,
+  type AutoFillBreakCandidate,
+  type AutoFillCopyCandidate,
+  type AutoFillSkippedBreak,
+} from "./auto-fill-plan";
 
 /**
  * Execution side of the rules-based scheduler (docs/underwriting-design.md
@@ -23,7 +31,7 @@ import { planAutoFill, type AutoFillBreakCandidate, type AutoFillCopyCandidate }
 export interface AutoFillResult {
   placedCount: number;
   makegoodsResolvedCount: number;
-  skippedBreakIds: string[];
+  skipped: AutoFillSkippedBreak[];
   demandExceedsSupply: boolean;
   errors: string[];
 }
@@ -31,13 +39,22 @@ export interface AutoFillResult {
 const EMPTY_RESULT: AutoFillResult = {
   placedCount: 0,
   makegoodsResolvedCount: 0,
-  skippedBreakIds: [],
+  skipped: [],
   demandExceedsSupply: false,
   errors: [],
 };
 
-/** Runs the scheduler for one schedule line: gathers its current demand and eligible open breaks, plans an assignment, then executes it. */
+/** Runs the scheduler for one schedule line: gathers its current demand, its underwriter/category, and its eligible open breaks (with each one's current last item, for the adjacency rule below), plans an assignment, then executes it. */
 export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineRow): Promise<AutoFillResult> {
+  const contract = await getContract(scheduleLine.contract_id);
+  if (!contract) {
+    return { ...EMPTY_RESULT, errors: ["This schedule line's contract no longer exists."] };
+  }
+  const underwriter = await getUnderwriter(contract.underwriter_id);
+  if (!underwriter) {
+    return { ...EMPTY_RESULT, errors: ["This schedule line's underwriter no longer exists."] };
+  }
+
   const [demand, placeable, placements, copyByContract] = await Promise.all([
     getScheduleLineAutoFillDemand(scheduleLine),
     listPlaceableRundownBreaks(scheduleLine.id),
@@ -51,6 +68,11 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
   if (placeable.breaks.length === 0) {
     return EMPTY_RESULT;
   }
+
+  // Never the same underwriter, or the same industry, back to back within
+  // one break — see auto-fill-plan.ts's header for why this is enforced
+  // here rather than left as the manual-placement advisory.
+  const adjacencyByItemId = await resolveLastItemAdjacency(placeable.breaks.map((brk) => brk.last_item_id));
 
   // Rotation fairness is seeded from every currently-active placement on
   // this line, not just ones this pass adds — a superseded (cleared)
@@ -70,15 +92,25 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
     existingUsageCount: usageCounts.get(copy.id) ?? 0,
   }));
 
-  const breakCandidates: AutoFillBreakCandidate[] = placeable.breaks.map((brk) => ({
-    breakId: brk.break_id,
-    airDate: brk.air_date,
-    remainingSeconds: brk.remaining_seconds,
-  }));
+  const breakCandidates: AutoFillBreakCandidate[] = placeable.breaks.map((brk) => {
+    const lastItem = brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined;
+    return {
+      breakId: brk.break_id,
+      airDate: brk.air_date,
+      remainingSeconds: brk.remaining_seconds,
+      lastItemUnderwriterId: lastItem?.underwriterId ?? null,
+      lastItemCategory: lastItem?.category ?? null,
+    };
+  });
 
   const plan = planAutoFill(
     breakCandidates,
-    { awaitingSlotMakegoodIds: demand.awaitingSlotMakegoodIds, freshOccurrencesNeeded: demand.freshOccurrencesNeeded },
+    {
+      awaitingSlotMakegoodIds: demand.awaitingSlotMakegoodIds,
+      freshOccurrencesNeeded: demand.freshOccurrencesNeeded,
+      underwriterId: underwriter.id,
+      category: underwriter.category,
+    },
     copyCandidates,
   );
 
@@ -118,7 +150,7 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
   return {
     placedCount,
     makegoodsResolvedCount,
-    skippedBreakIds: plan.skippedBreakIds,
+    skipped: plan.skipped,
     demandExceedsSupply: plan.demandExceedsSupply,
     errors,
   };
@@ -133,9 +165,11 @@ export interface AutoFillAllResult {
  * Runs auto-fill across every schedule line under an active contract —
  * Workflow D's dashboard, one click. Sequential, not parallel: two lines
  * racing for the same open break is a real possibility (e.g. two different
- * underwriters both eligible for one generic local avail), and
- * log_list_placeable_rundown_breaks() reads live occupancy at call time, so
- * running lines one after another is what keeps that correct.
+ * underwriters both eligible for one generic local avail — and, now that a
+ * break can hold several credits, exactly the case the adjacency rule above
+ * exists for), and log_list_placeable_rundown_breaks() reads live occupancy
+ * at call time, so running lines one after another is what keeps both the
+ * occupancy count and the adjacency check correct.
  */
 export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> {
   const scheduleLines = await listScheduleLinesWithActiveContracts();
@@ -150,7 +184,7 @@ export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> 
     (acc, { result }) => ({
       placedCount: acc.placedCount + result.placedCount,
       makegoodsResolvedCount: acc.makegoodsResolvedCount + result.makegoodsResolvedCount,
-      skippedBreakIds: [...acc.skippedBreakIds, ...result.skippedBreakIds],
+      skipped: [...acc.skipped, ...result.skipped],
       demandExceedsSupply: acc.demandExceedsSupply || result.demandExceedsSupply,
       errors: [...acc.errors, ...result.errors],
     }),

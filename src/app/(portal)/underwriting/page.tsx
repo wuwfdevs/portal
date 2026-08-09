@@ -75,6 +75,7 @@ export default async function UnderwritingDashboardPage({
           <p className="text-xs text-ink-500">
             Places approved, in-date copy into every eligible open break for every active contract&apos;s schedule
             lines — awaiting-slot makegoods first, then fresh occurrences up to each line&apos;s expected count.
+            Breaks can hold several underwriters at once, but never the same underwriter or industry back to back.
           </p>
         </div>
         <form action={autoFillAllAction}>

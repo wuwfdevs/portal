@@ -424,14 +424,23 @@ placement is never silently counted as fulfilled while an exception or
 makegood against it is still open; `behind` wins over `fulfilled` in that
 case even if the raw completed count already meets the target.
 
-### Competitive adjacency is advisory, not a rules engine
+### Competitive adjacency is advisory for a human, enforced for the scheduler
 
 `lib/underwriting/adjacency.ts`'s `checkCompetitiveAdjacency()` flags when
 another underwriter sharing the current one's `category` already has a
-nearby placement — purely informational (an `Alert`, never a block), and
-never triggered by the same underwriter's own other placements. This is
-deliberately not a scheduling constraint or a spacing rule engine; WUWF
-asked for a simple advisory, not automated enforcement.
+nearby placement — purely informational (an `Alert`, never a block) on the
+*manual* placement form, and never triggered by the same underwriter's own
+other placements. This is deliberately not a scheduling constraint or a
+spacing rule engine; WUWF asked for a simple advisory there, not automated
+enforcement, since a human is already looking at the screen. Auto-fill
+(§7) has no human in the loop at the moment it places a credit, so the
+same real promise — the reference agreement's own "does not run adjacent
+to a business with similar services or products" — is an *enforced* rule
+there instead, scoped to within one break (see CLAUDE.md's dated note and
+`lib/underwriting/auto-fill-plan.ts`). The two aren't the same check: the
+manual advisory is program-wide and coarse; the auto-fill rule is exact,
+since it only ever needs to know whichever item currently holds a
+candidate break's last position.
 
 ### Milestone 1 (and this redesign) ships the real write path, not a fake one
 

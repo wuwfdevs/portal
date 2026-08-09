@@ -1525,19 +1525,48 @@ silently under-fills it while an uncleared missed placement masks the gap;
 draws between a pending, a completed, and a resolved-but-uncleared
 placement.
 
-Auto-fill never packs more than one credit into a single break in one
-pass, even when a break's `allow_multiple` and remaining capacity could in
-principle fit more than one short credit — real WUWF schedule lines place
-one credit per break, and packing several into one break in a single pass
-is behavior no real contract pattern has exercised yet, the same
-"grounded in a real agreement, not a hypothetical one" discipline the
-redesign above already applies elsewhere in this tool. Reachable from two
-places: a per-schedule-line "Auto-fill remaining" button on the contract
-detail page (`contracts/[id]/page.tsx`), and a dashboard-wide "Auto-fill
-everything" button (`page.tsx`) that runs every active contract's every
-schedule line — sequentially, not in parallel, since two schedule lines
-racing for the same open break within one click is a real possibility (two
-underwriters both eligible for one generic local avail) and
+**Revision the same day: a break can hold several underwriters at once, and
+same-underwriter/same-industry adjacency is enforced, not advisory.** The
+first cut of auto-fill placed at most one credit per break, reasoning that
+no real contract pattern had exercised packing several into one — WUWF
+corrected that directly: multiple underwriter credits in a single break is
+routine when a contract calls for it, and the one hard rule is that the
+same underwriter never runs back to back. WUWF also pointed at the
+reference Autumn Beck Blackledge agreement's own language — "WUWF will
+make appropriate changes in scheduling to insure that your sponsorship
+message does not run adjacent to a business with similar services or
+products," with a real conflict category of "Lawyers" — as a rule that
+should already be enforced here if it wasn't. It wasn't: the existing
+competitive-adjacency check (`lib/underwriting/adjacency.ts`) is a
+program-wide *advisory* a human sees on the manual placement form and
+decides what to do with (design doc §6: "never a block"); auto-fill has no
+human in the loop at the moment it places a credit, so the same concern
+needed to be an enforced rule there instead. "Back to back" is scoped to
+within one break only (confirmed with WUWF directly) — cross-break
+adjacency is out of scope.
+`20260809140000_underwriting_break_adjacency.sql` widens
+`log_list_placeable_rundown_breaks()` to return each candidate break's
+`last_item_id` (whichever item currently holds its highest position, since
+`log_place_underwriting_credit()` always appends at the end — the only item
+a new one could ever be adjacent to); `lib/underwriting/queries.ts`'s
+`resolveLastItemAdjacency()` resolves that id to an underwriter/category
+through this tool's own `uw_scheduled_placements` (a copy row alone can't
+identify the underwriter, since `uw_contract_copy` is many-to-many — a
+specific *placement* is what pins one). `planAutoFill()` now takes each
+break's last-item underwriter/category plus the current schedule line's
+own, and skips (tries the next break for the same demand) rather than
+placing whenever either would run back to back. One schedule line's own
+demand still never books two of its own items into the same break, since
+every item on one line shares that line's underwriter — the same-underwriter
+rule already rules that out without special-case logic.
+
+Reachable from two places: a per-schedule-line "Auto-fill remaining" button
+on the contract detail page (`contracts/[id]/page.tsx`), and a
+dashboard-wide "Auto-fill everything" button (`page.tsx`) that runs every
+active contract's every schedule line — sequentially, not in parallel,
+since two schedule lines racing for the same open break within one click is
+a real possibility (two underwriters both eligible for one generic local
+avail — exactly the case the adjacency rule exists for) and
 `log_list_placeable_rundown_breaks()` reads live occupancy at call time.
 Each schedule line that placed at least one credit gets an
 `underwriting.schedule_line.auto_filled` audit event — not one of §6's four

@@ -20,6 +20,8 @@ export interface PlaceableRundownBreak {
   label: string;
   program_name: string;
   remaining_seconds: number;
+  /** The log_rundown_items id currently holding this break's highest position, if any — null for an empty break. Used to check same-underwriter/same-industry adjacency before appending another credit; see lib/underwriting/queries.ts's resolveLastItemAdjacency(). */
+  last_item_id: string | null;
 }
 
 export type UnderwritingRpcResult<T> = ({ ok: true } & T) | { ok: false; message: string };
