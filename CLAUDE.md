@@ -1482,6 +1482,48 @@ rather than widened to also accept weather — its own MCP-facing contract
 applies to weather, so the branch belongs in the thin Server Action layer,
 not in a capability meant to stay scoped to real library content.
 
+**Log: local opportunities gained an edit action (2026-08-09).**
+`log_local_opportunities` has allowed in-place `update` at the RLS layer
+since it was split from the network clock in the domain redesign (see
+above) — deliberately, unlike the network clock's own insert-only
+immutability, because it's WUWF's own policy overlay, not a fact about what
+the network published. No action or form ever exercised that grant until
+now: the clock detail screen only ever wired up add and deactivate.
+`updateLocalOpportunity` (`clock-actions.ts`), the same validation as
+`addLocalOpportunity` applied to an update instead of an insert, plus an
+inline per-row edit form (`clocks/[id]/page.tsx`) toggled by `?edit=<id>`,
+closes that gap. No migration — the schema already supported this.
+
+**Log: a long item can now cover the next break too, without a "merge" step
+(2026-08-09).** A real, recurring host scenario: an adjacent pair of
+breaks — say a short Music Bed cover and the programming segment right
+after it — where the host may cover just the first, or place one longer
+piece that runs across both. The first design considered for this was an
+explicit "merge two breaks" action; rejected as the wrong shape for
+something a host needs to do live, on air, without learning a new concept.
+The shipped version needs no new action at all: `lib/log/timing.ts`'s new
+`computeBreakStatuses` (whole-rundown, spillover-aware, superseding the old
+single-break-only `computeBreakStatus` as what `computeRundownSummary` and
+the builder/console screen actually call) treats a break that runs over its
+own `available_duration_seconds` as covering the *immediately following*
+break for free, as long as that next break is empty, `optional`, and starts
+exactly at the first break's `network_rejoin_at` (no gap) and its own
+`available_duration_seconds` is enough to absorb the overage. That covered
+break reads `covered_by_previous` — a `Badge` reading "Covered by
+`<label>`" instead of "Carrying network" or a false "Needs something" flag
+— rather than a stored flag or a second break-authoring concept; a host's
+only action is picking the longer piece of content. A required break, one
+that already has its own content, one separated by a real gap, or overage
+that exceeds even the next break's own window are all deliberately never
+covered this way — each is left with its honest `over`/`unresolved_required`
+status rather than silently absorbing or reaching past a second break. Only
+a single hop is absorbed by design (matches the concrete two-break case
+this was built for); chaining further is a straightforward follow-up to
+`computeBreakStatuses` if a real case needs it, not something to
+speculatively build now. No migration — purely a computed read, the same
+"pure, tested, not stored state" discipline the rest of the timing engine
+follows.
+
 **Underwriting & Traffic: the automatic rules-based scheduler has landed
 (2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
 more real contract patterns beyond the reference agreement; now authorized

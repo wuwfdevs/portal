@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   computeBreakFit,
   computeBreakStatus,
+  computeBreakStatuses,
   computeRundownSummary,
   type RundownSummaryBreakLike,
+  type SpilloverBreakLike,
 } from "./timing";
 
 describe("computeBreakFit", () => {
@@ -63,12 +65,204 @@ describe("computeBreakStatus", () => {
   });
 });
 
-function summaryBreak(overrides: Partial<RundownSummaryBreakLike> = {}): RundownSummaryBreakLike {
+function spilloverBreak(overrides: Partial<SpilloverBreakLike> = {}): SpilloverBreakLike {
+  const index = breakSequence++;
   return {
+    id: `spillover-break-${index}`,
     requirement: "required",
     available_duration_seconds: 30,
     occupied_duration_seconds: 30,
     item_count: 1,
+    scheduled_at: new Date(2026, 0, 1, 6, index * 10, 0).toISOString(),
+    network_rejoin_at: new Date(2026, 0, 1, 6, index * 10 + 1, 0).toISOString(),
+    ...overrides,
+  };
+}
+
+describe("computeBreakStatuses (spillover)", () => {
+  it("a long item covers the immediately next break when it's empty, optional, and adjacent", () => {
+    // Music Bed: 60s window, a 200s feature placed in it (140s over).
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 200,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    // Segment: starts exactly where Music Bed rejoins, empty, optional, 180s window (>= 140s overage).
+    const segment = spilloverBreak({
+      id: "segment",
+      requirement: "optional",
+      available_duration_seconds: 180,
+      occupied_duration_seconds: 0,
+      item_count: 0,
+      scheduled_at: "2026-08-09T10:01:00.000Z",
+      network_rejoin_at: "2026-08-09T10:04:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, segment]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("filled");
+    expect(byId.get("segment")?.status).toBe("covered_by_previous");
+    expect(byId.get("segment")?.coveredByBreakId).toBe("music-bed");
+  });
+
+  it("does not cover a break separated by a gap", () => {
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 200,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    const segment = spilloverBreak({
+      id: "segment",
+      requirement: "optional",
+      available_duration_seconds: 180,
+      occupied_duration_seconds: 0,
+      item_count: 0,
+      // Starts a minute after Music Bed's own rejoin point — a real gap.
+      scheduled_at: "2026-08-09T10:02:00.000Z",
+      network_rejoin_at: "2026-08-09T10:05:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, segment]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("over");
+    expect(byId.get("segment")?.status).toBe("carrying_network");
+  });
+
+  it("does not cover a required next break — a genuine local obligation is never silently swallowed", () => {
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 200,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    const legalId = spilloverBreak({
+      id: "legal-id",
+      requirement: "required",
+      available_duration_seconds: 180,
+      occupied_duration_seconds: 0,
+      item_count: 0,
+      scheduled_at: "2026-08-09T10:01:00.000Z",
+      network_rejoin_at: "2026-08-09T10:04:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, legalId]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("over");
+    expect(byId.get("legal-id")?.status).toBe("unresolved_required");
+  });
+
+  it("does not cover a next break that already has its own content", () => {
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 200,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    const segment = spilloverBreak({
+      id: "segment",
+      requirement: "optional",
+      available_duration_seconds: 180,
+      occupied_duration_seconds: 30,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:01:00.000Z",
+      network_rejoin_at: "2026-08-09T10:04:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, segment]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("over");
+    expect(byId.get("segment")?.status).toBe("filled");
+  });
+
+  it("leaves both breaks honestly over/carrying_network when the overage exceeds even the next break's window", () => {
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 600, // 540s over
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    const segment = spilloverBreak({
+      id: "segment",
+      requirement: "optional",
+      available_duration_seconds: 180, // not enough to absorb 540s
+      occupied_duration_seconds: 0,
+      item_count: 0,
+      scheduled_at: "2026-08-09T10:01:00.000Z",
+      network_rejoin_at: "2026-08-09T10:04:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, segment]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("over");
+    expect(byId.get("segment")?.status).toBe("carrying_network");
+  });
+
+  it("an item that fits its own break covers nothing, regardless of neighbors", () => {
+    const musicBed = spilloverBreak({
+      id: "music-bed",
+      requirement: "optional",
+      available_duration_seconds: 60,
+      occupied_duration_seconds: 60,
+      item_count: 1,
+      scheduled_at: "2026-08-09T10:00:00.000Z",
+      network_rejoin_at: "2026-08-09T10:01:00.000Z",
+    });
+    const segment = spilloverBreak({
+      id: "segment",
+      requirement: "optional",
+      available_duration_seconds: 180,
+      occupied_duration_seconds: 0,
+      item_count: 0,
+      scheduled_at: "2026-08-09T10:01:00.000Z",
+      network_rejoin_at: "2026-08-09T10:04:00.000Z",
+    });
+
+    const results = computeBreakStatuses([musicBed, segment]);
+    const byId = new Map(results.map((r) => [r.id, r]));
+
+    expect(byId.get("music-bed")?.status).toBe("filled");
+    expect(byId.get("segment")?.status).toBe("carrying_network");
+  });
+});
+
+let breakSequence = 0;
+
+// Defaults space each break several minutes apart from a fresh "sequence" so
+// unrelated summaryBreak() calls within a test never accidentally register
+// as adjacent — spillover eligibility is deliberately exercised only by
+// tests that set scheduled_at/network_rejoin_at to line up on purpose.
+function summaryBreak(overrides: Partial<RundownSummaryBreakLike> = {}): RundownSummaryBreakLike {
+  const index = breakSequence++;
+  return {
+    id: `break-${index}`,
+    requirement: "required",
+    available_duration_seconds: 30,
+    occupied_duration_seconds: 30,
+    item_count: 1,
+    scheduled_at: new Date(2026, 0, 1, 6, index * 10, 0).toISOString(),
+    network_rejoin_at: new Date(2026, 0, 1, 6, index * 10 + 1, 0).toISOString(),
     ...overrides,
   };
 }
@@ -115,5 +309,34 @@ describe("computeRundownSummary", () => {
     expect(summary.overCount).toBe(2);
     expect(summary.totalOverSeconds).toBe(25);
     expect(summary.ready).toBe(false);
+  });
+
+  it("a break covered by a neighbor's overrunning content counts as filled, not over or carrying network", () => {
+    const summary = computeRundownSummary([
+      summaryBreak({
+        requirement: "optional",
+        available_duration_seconds: 60,
+        occupied_duration_seconds: 200,
+        item_count: 1,
+        scheduled_at: "2026-08-09T10:00:00.000Z",
+        network_rejoin_at: "2026-08-09T10:01:00.000Z",
+      }),
+      summaryBreak({
+        requirement: "optional",
+        available_duration_seconds: 180,
+        occupied_duration_seconds: 0,
+        item_count: 0,
+        scheduled_at: "2026-08-09T10:01:00.000Z",
+        network_rejoin_at: "2026-08-09T10:04:00.000Z",
+      }),
+    ]);
+    expect(summary).toMatchObject({
+      filledBreaks: 2,
+      carryingNetworkBreaks: 0,
+      unresolvedRequiredBreaks: 0,
+      overCount: 0,
+      totalOverSeconds: 0,
+      ready: true,
+    });
   });
 });

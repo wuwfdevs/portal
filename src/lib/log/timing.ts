@@ -30,7 +30,12 @@ export function computeBreakFit(availableDurationSeconds: number, occupiedDurati
   };
 }
 
-export type BreakStatus = "carrying_network" | "unresolved_required" | "filled" | "over";
+export type BreakStatus =
+  | "carrying_network"
+  | "unresolved_required"
+  | "filled"
+  | "over"
+  | "covered_by_previous";
 
 export interface BreakStatusLike {
   requirement: "optional" | "required";
@@ -39,12 +44,14 @@ export interface BreakStatusLike {
 }
 
 /**
- * The single place "is this break okay as-is" gets decided. An empty
- * optional break is 'carrying_network' — the network feed continues, and
- * that is not a problem to flag. An empty required break is
- * 'unresolved_required' — a genuine obligation nobody has met yet. Anything
- * with items that runs long is 'over' regardless of requirement; otherwise
- * a filled break is just 'filled'.
+ * The single-break primitive: "is this break okay as-is," with no
+ * awareness of its neighbors. An empty optional break is 'carrying_network'
+ * — the network feed continues, and that is not a problem to flag. An empty
+ * required break is 'unresolved_required' — a genuine obligation nobody has
+ * met yet. Anything with items that runs long is 'over' regardless of
+ * requirement; otherwise a filled break is just 'filled'. Most callers want
+ * computeBreakStatuses below instead, which also accounts for spillover
+ * from a previous break.
  */
 export function computeBreakStatus(input: BreakStatusLike): BreakStatus {
   if (input.fit.overSeconds > 0) return "over";
@@ -54,12 +61,72 @@ export function computeBreakStatus(input: BreakStatusLike): BreakStatus {
   return "filled";
 }
 
-export interface RundownSummaryBreakLike {
+export interface SpilloverBreakLike {
+  id: string;
   requirement: "optional" | "required";
+  item_count: number;
   available_duration_seconds: number;
   occupied_duration_seconds: number;
-  item_count: number;
+  scheduled_at: string;
+  network_rejoin_at: string;
 }
+
+export interface BreakStatusResult {
+  id: string;
+  fit: BreakFit;
+  status: BreakStatus;
+  /** Set only when status is 'covered_by_previous' — the break whose overrunning content covers this one. */
+  coveredByBreakId: string | null;
+}
+
+/**
+ * Per-break status for a whole rundown, aware of spillover into an
+ * immediately-following break: a host doesn't merge or configure anything —
+ * they just place a longer piece of content than one break's own window,
+ * and if the very next break is empty, optional, and starts exactly where
+ * this one's network-rejoin point is (no gap), that next break reads as
+ * 'covered_by_previous' instead of independently flagging 'carrying_network'
+ * while this one flags 'over'. A required break, one that already has
+ * content, or one separated by a gap is never eligible to be covered this
+ * way. Only a single hop is absorbed — if the overage doesn't fit even
+ * after folding in the next break's own window, both breaks are left with
+ * their honest, unabsorbed status rather than silently reaching further.
+ */
+export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusResult[] {
+  const sorted = [...breaks].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  const results: BreakStatusResult[] = sorted.map((b) => {
+    const fit = computeBreakFit(b.available_duration_seconds, b.occupied_duration_seconds);
+    return {
+      id: b.id,
+      fit,
+      status: computeBreakStatus({ requirement: b.requirement, item_count: b.item_count, fit }),
+      coveredByBreakId: null,
+    };
+  });
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i]!;
+    const currentResult = results[i]!;
+    if (currentResult.status !== "over") continue;
+
+    const next = sorted[i + 1]!;
+    const nextResult = results[i + 1]!;
+    const eligible =
+      next.item_count === 0 &&
+      next.requirement === "optional" &&
+      next.scheduled_at === current.network_rejoin_at &&
+      currentResult.fit.overSeconds <= next.available_duration_seconds;
+    if (!eligible) continue;
+
+    currentResult.status = "filled";
+    nextResult.status = "covered_by_previous";
+    nextResult.coveredByBreakId = current.id;
+  }
+
+  return results;
+}
+
+export type RundownSummaryBreakLike = SpilloverBreakLike;
 
 export interface RundownSummary {
   totalBreaks: number;
@@ -82,16 +149,15 @@ export function computeRundownSummary(breaks: RundownSummaryBreakLike[]): Rundow
   let overCount = 0;
   let totalOverSeconds = 0;
 
-  for (const b of breaks) {
-    const fit = computeBreakFit(b.available_duration_seconds, b.occupied_duration_seconds);
-    const status = computeBreakStatus({ requirement: b.requirement, item_count: b.item_count, fit });
-
-    if (status === "filled" || status === "over") filledBreaks++;
-    if (status === "carrying_network") carryingNetworkBreaks++;
-    if (status === "unresolved_required") unresolvedRequiredBreaks++;
-    if (fit.overSeconds > 0) {
+  for (const result of computeBreakStatuses(breaks)) {
+    if (result.status === "filled" || result.status === "over" || result.status === "covered_by_previous") {
+      filledBreaks++;
+    }
+    if (result.status === "carrying_network") carryingNetworkBreaks++;
+    if (result.status === "unresolved_required") unresolvedRequiredBreaks++;
+    if (result.status === "over") {
       overCount++;
-      totalOverSeconds += fit.overSeconds;
+      totalOverSeconds += result.fit.overSeconds;
     }
   }
 
