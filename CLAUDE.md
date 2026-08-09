@@ -1178,10 +1178,11 @@ component calling `window.print()`), per §6's "no PDF generation" — not a
 generated PDF.
 
 That completes every workflow `docs/underwriting-design.md` §7 lists for
-milestone 1. Nothing further (automatic rules-based scheduling, true PDF
-generation, automation-system export/reconciliation, scheduled
-proof-of-performance delivery — all listed in that section as deferred) is
-authorized to start without its own instruction.
+milestone 1. **Automatic rules-based scheduling has since been authorized
+and built — see the dated note below.** True PDF generation,
+automation-system export/reconciliation, and scheduled proof-of-performance
+delivery remain deferred, not authorized to start without their own
+instruction.
 
 **Log and Underwriting & Traffic: domain redesign (2026-08-07/08), grounded
 in real WUWF operational detail — both tools' milestone-1 models were wrong
@@ -1480,6 +1481,72 @@ rather than widened to also accept weather — its own MCP-facing contract
 ("use `log.content.search` first to find an eligible item's id") never
 applies to weather, so the branch belongs in the thin Server Action layer,
 not in a capability meant to stay scoped to real library content.
+
+**Underwriting & Traffic: the automatic rules-based scheduler has landed
+(2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
+more real contract patterns beyond the reference agreement; now authorized
+and built against that same one agreement, since no others have surfaced
+yet to check it against. No migration: the design doc's own §6 already
+committed to this shape — "manual placement and the eventual automatic
+scheduler produce the *same* `uw_scheduled_placements`/`log_rundown_items`
+rows through the *same* `log_place_underwriting_credit()` function" — so
+this is purely an application-layer planner sitting in front of the
+existing write path, never a new one.
+`lib/underwriting/auto-fill-plan.ts` (pure, tested) plans an assignment of
+a schedule line's currently-eligible open breaks to its current demand;
+`lib/underwriting/auto-fill.ts` (server-only) gathers that demand and
+executes the plan by calling `placeCredit()` once per item — the identical
+RPC wrapper the manual "Place a credit" form already calls, never with an
+override (auto-fill only ever selects approved, in-date linked copy, so
+`log_place_underwriting_credit()` never has a reason to ask for one — §6's
+override path stays the UI-only judgment call it always was).
+
+Two design decisions worth recording. **A makegood awaiting a slot is
+folded into the same fill queue as an ordinary not-yet-scheduled
+occurrence, and drains first.** A missed or preempted credit is exactly a
+schedule line's demand returning to the queue, not a separate scheduling
+problem — so `getScheduleLineAutoFillDemand()`
+(`lib/underwriting/queries.ts`) reports a schedule line's awaiting-slot
+makegood ids directly alongside its fresh-occurrence count, and
+`planAutoFill()` always assigns every makegood a break before it assigns
+any fresh occurrence one, oldest-created first. The Makegoods list page
+(Workflow F) still offers its own manual "pick a slot" form unchanged, for
+picking a specific break by hand; auto-fill is the normal path now, not a
+replacement for it. **"Fresh" demand is deliberately not just
+`expected − completed`.** An active (non-superseded) placement whose
+broadcast event hasn't happened yet is already a live claim on one of a
+line's expected occurrences and must not be double-scheduled, but one whose
+event already recorded a non-compliant outcome (left uncleared, per
+`uw_flag_exception_from_broadcast_event()`'s own design) is not — that
+occurrence's demand already resurfaces separately as its makegood. Getting
+this wrong either double-books a schedule line ahead of its real target or
+silently under-fills it while an uncleared missed placement masks the gap;
+`getScheduleLineAutoFillDemand()`'s own comment explains the distinction it
+draws between a pending, a completed, and a resolved-but-uncleared
+placement.
+
+Auto-fill never packs more than one credit into a single break in one
+pass, even when a break's `allow_multiple` and remaining capacity could in
+principle fit more than one short credit — real WUWF schedule lines place
+one credit per break, and packing several into one break in a single pass
+is behavior no real contract pattern has exercised yet, the same
+"grounded in a real agreement, not a hypothetical one" discipline the
+redesign above already applies elsewhere in this tool. Reachable from two
+places: a per-schedule-line "Auto-fill remaining" button on the contract
+detail page (`contracts/[id]/page.tsx`), and a dashboard-wide "Auto-fill
+everything" button (`page.tsx`) that runs every active contract's every
+schedule line — sequentially, not in parallel, since two schedule lines
+racing for the same open break within one click is a real possibility (two
+underwriters both eligible for one generic local avail) and
+`log_list_placeable_rundown_breaks()` reads live occupancy at call time.
+Each schedule line that placed at least one credit gets an
+`underwriting.schedule_line.auto_filled` audit event — not one of §6's four
+privileged actions (any tool member can run this, same as manual
+placement), but worth a durable trace of an automated bulk write the same
+way MCP-originated writes always get one. Deliberately not exposed as a
+capability (no `underwriting.creditLine.autoFill` MCP tool) — nothing asked
+for that yet, and `underwriting.credit.schedule` already covers one
+placement at a time for an agent caller.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

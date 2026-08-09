@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { listPlaceableRundownBreaks, type PlaceableRundownBreak, type UnderwritingRpcResult } from "./placement";
-import { sumExpectedOccurrences } from "./schedule-lines";
+import { expectedOccurrenceCount, sumExpectedOccurrences } from "./schedule-lines";
 import { computeFulfillment, type FulfillmentResult } from "./fulfillment";
 import type { Database } from "@/lib/database.types";
 
@@ -294,6 +294,82 @@ export async function listScheduleLinePlacementContexts(
       return { scheduleLine, placements, placeable };
     }),
   );
+}
+
+export async function getScheduleLine(id: string): Promise<UwContractScheduleLineRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("uw_contract_schedule_lines").select("*").eq("id", id).maybeSingle(),
+    "this schedule line",
+  );
+}
+
+export interface ScheduleLineAutoFillDemand {
+  /** Brand-new occurrences still needed beyond what's pending or already awaiting a makegood slot — null for an open-ended line (see lib/underwriting/auto-fill-plan.ts). */
+  freshOccurrencesNeeded: number | null;
+  /** Makegood ids for this line with status='scheduled' and no slot yet, oldest first — priority demand for the auto-fill scheduler. */
+  awaitingSlotMakegoodIds: string[];
+}
+
+/**
+ * Demand inputs for the auto-fill scheduler (lib/underwriting/auto-fill.ts),
+ * per schedule line. "Fresh" need is deliberately not just
+ * expected - completed: an active (non-superseded) placement whose
+ * broadcast event hasn't happened yet is still a live claim on one of the
+ * expected occurrences and must not be double-scheduled, but a placement
+ * whose event already recorded a non-compliant outcome (missed/preempted,
+ * left uncleared by uw_flag_exception_from_broadcast_event()) is not —
+ * that's exactly what its makegood is for, which is why it surfaces
+ * separately as awaitingSlotMakegoodIds instead of silently inflating this
+ * count.
+ */
+export async function getScheduleLineAutoFillDemand(
+  scheduleLine: UwContractScheduleLineRow,
+): Promise<ScheduleLineAutoFillDemand> {
+  const supabase = await createClient();
+  const [placements, makegoodsResult] = await Promise.all([
+    listPlacementsForScheduleLine(scheduleLine.id),
+    supabase
+      .from("uw_makegoods")
+      .select("id")
+      .eq("schedule_line_id", scheduleLine.id)
+      .eq("status", "scheduled")
+      .is("scheduled_placement_id", null)
+      .order("created_at"),
+  ]);
+  const awaitingSlotMakegoods =
+    unwrapRead(makegoodsResult, "this schedule line's makegoods awaiting a slot") ?? [];
+
+  const rundownItemIds = placements
+    .map((placement) => placement.log_rundown_item_id)
+    .filter((id): id is string => id !== null);
+
+  let completedCount = 0;
+  let pendingCount = 0;
+  if (rundownItemIds.length > 0) {
+    const events =
+      unwrapRead(
+        await supabase
+          .from("log_broadcast_events")
+          .select("rundown_item_id, outcome")
+          .in("rundown_item_id", rundownItemIds),
+        "this schedule line's broadcast events",
+      ) ?? [];
+    const outcomeByItem = new Map(events.map((event) => [event.rundown_item_id, event.outcome]));
+    for (const itemId of rundownItemIds) {
+      const outcome = outcomeByItem.get(itemId);
+      if (outcome === undefined) pendingCount++;
+      else if (outcome === "aired_as_scheduled") completedCount++;
+    }
+  }
+
+  const expected = expectedOccurrenceCount(scheduleLine);
+  const freshOccurrencesNeeded = expected == null ? null : Math.max(0, expected - completedCount - pendingCount);
+
+  return {
+    freshOccurrencesNeeded,
+    awaitingSlotMakegoodIds: awaitingSlotMakegoods.map((makegood) => makegood.id),
+  };
 }
 
 export interface NearbyPlacementForAdjacency {

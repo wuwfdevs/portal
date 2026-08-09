@@ -44,6 +44,11 @@ export default async function MakegoodsPage({
   return (
     <div className="flex flex-col gap-4">
       {error && <Alert>{error}</Alert>}
+      <Alert variant="note">
+        A makegood awaiting a slot is picked up automatically the next time its schedule line is auto-filled
+        (from the contract&apos;s own page, or the dashboard&apos;s &quot;Auto-fill everything&quot;) — it doesn&apos;t need
+        to be scheduled manually here unless you want to pick a specific break yourself.
+      </Alert>
       <ul className="flex flex-col gap-4">
         {makegoods.map((makegood) => {
           const state = describeMakegoodState(makegood);

@@ -23,6 +23,7 @@ import {
 } from "../../contract-actions";
 import { createCopy } from "../../copy-actions";
 import { clearCreditAction, placeCreditAction } from "../../placement-actions";
+import { autoFillScheduleLineAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
 import type { UwContractStatus, UwPlacementStatus } from "@/lib/database.types";
 
@@ -52,10 +53,10 @@ export default async function ContractDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
@@ -103,6 +104,11 @@ export default async function ContractDetailPage({
         </p>
 
         {error && <Alert className="mb-4">{error}</Alert>}
+        {notice && (
+          <Alert variant="info" className="mb-4">
+            {notice}
+          </Alert>
+        )}
         {contract.notes && <p className="mb-4 text-sm text-ink-700">{contract.notes}</p>}
         {contract.preemption_policy && (
           <p className="mb-4 text-xs text-ink-500">Preemption policy: {contract.preemption_policy}</p>
@@ -174,9 +180,23 @@ export default async function ContractDetailPage({
                       </ul>
                     )}
 
+                    {placeable.ok && placeable.breaks.length > 0 && contract.copy.length > 0 && (
+                      <form action={autoFillScheduleLineAction} className="mt-1">
+                        <input type="hidden" name="contract_id" value={contract.id} />
+                        <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
+                        <Button type="submit" variant="secondary">
+                          Auto-fill remaining
+                        </Button>
+                        <FieldHint>
+                          Places approved, in-date copy into every eligible open break right now — awaiting-slot
+                          makegoods for this line first, then fresh occurrences up to the expected count.
+                        </FieldHint>
+                      </form>
+                    )}
+
                     <details className="mt-1">
                       <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                        Place a credit
+                        Place a credit manually
                       </summary>
                       {contract.copy.length === 0 ? (
                         <p className="mt-2 text-xs text-ink-500">
