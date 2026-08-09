@@ -23,7 +23,7 @@ import {
 } from "../../contract-actions";
 import { createCopy } from "../../copy-actions";
 import { clearCreditAction, placeCreditAction } from "../../placement-actions";
-import { autoFillScheduleLineAction } from "../../auto-fill-actions";
+import { autoFillContractAction, autoFillScheduleLineAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
 import type { UwContractStatus, UwPlacementStatus } from "@/lib/database.types";
 
@@ -120,8 +120,16 @@ export default async function ContractDetailPage({
         </div>
 
         <div className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-            Contract schedule lines
+          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+            <div className="text-sm font-bold text-ink-900">Contract schedule lines</div>
+            {contract.scheduleLines.length > 1 && contract.status === "active" && (
+              <form action={autoFillContractAction}>
+                <input type="hidden" name="contract_id" value={contract.id} />
+                <Button type="submit" variant="secondary">
+                  Auto-fill this contract
+                </Button>
+              </form>
+            )}
           </div>
           {contract.scheduleLines.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No schedule lines yet.</p>

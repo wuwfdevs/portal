@@ -5,8 +5,13 @@ import { revalidatePath } from "next/cache";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
-import { autoFillActiveScheduleLines, autoFillScheduleLine, type AutoFillResult } from "@/lib/underwriting/auto-fill";
-import { getContract, getScheduleLine } from "@/lib/underwriting/queries";
+import {
+  autoFillActiveScheduleLines,
+  autoFillContractScheduleLines,
+  autoFillScheduleLine,
+  type AutoFillResult,
+} from "@/lib/underwriting/auto-fill";
+import { getContract, getContractDetail, getScheduleLine } from "@/lib/underwriting/queries";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -78,6 +83,39 @@ export async function autoFillScheduleLineAction(formData: FormData): Promise<vo
   revalidatePath(path);
   revalidatePath("/underwriting/makegoods");
   redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(result))}`);
+}
+
+/**
+ * Contract-wide version — every schedule line under this one contract, one
+ * click. The middle ground between the per-line button above and the
+ * dashboard's every-active-contract sweep, for a traffic staffer working a
+ * single renewal who doesn't want to click "Auto-fill remaining" once per
+ * line.
+ */
+export async function autoFillContractAction(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const path = `/underwriting/contracts/${contractId}`;
+
+  const contract = await getContractDetail(contractId);
+  if (!contract) failWith(path, "That contract no longer exists.");
+  if (contract.status !== "active") failWith(path, "Auto-fill only works for an active contract.");
+
+  const { perLine, totals } = await autoFillContractScheduleLines(contract.scheduleLines);
+  for (const { scheduleLine, result } of perLine) {
+    if (result.placedCount === 0) continue;
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.schedule_line.auto_filled",
+      targetType: "uw_contract_schedule_line",
+      targetId: scheduleLine.id,
+      metadata: { placed_count: result.placedCount, makegoods_resolved_count: result.makegoodsResolvedCount },
+    });
+  }
+
+  revalidatePath(path);
+  revalidatePath("/underwriting/makegoods");
+  redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(totals))}`);
 }
 
 /** Dashboard-wide version — every schedule line under every active contract, one click (Workflow D). */

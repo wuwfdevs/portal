@@ -188,17 +188,17 @@ export interface AutoFillAllResult {
 }
 
 /**
- * Runs auto-fill across every schedule line under an active contract —
- * Workflow D's dashboard, one click. Sequential, not parallel: two lines
- * racing for the same open break is a real possibility (e.g. two different
- * underwriters both eligible for one generic local avail — and, now that a
- * break can hold several credits, exactly the case the adjacency rule above
- * exists for), and log_list_placeable_rundown_breaks() reads live occupancy
- * at call time, so running lines one after another is what keeps both the
- * occupancy count and the adjacency check correct.
+ * Runs auto-fill over a given list of schedule lines, one after another —
+ * shared by the dashboard-wide sweep and the per-contract one below.
+ * Sequential, not parallel: two lines racing for the same open break is a
+ * real possibility (e.g. two different underwriters both eligible for one
+ * generic local avail — and, now that a break can hold several credits,
+ * exactly the case the adjacency rule in auto-fill-plan.ts exists for), and
+ * log_list_placeable_rundown_breaks() reads live occupancy at call time, so
+ * running lines one after another is what keeps both the occupancy count
+ * and the adjacency check correct.
  */
-export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> {
-  const scheduleLines = await listScheduleLinesWithActiveContracts();
+async function runAutoFillOverLines(scheduleLines: UwContractScheduleLineRow[]): Promise<AutoFillAllResult> {
   const perLine: { scheduleLine: UwContractScheduleLineRow; result: AutoFillResult }[] = [];
 
   for (const scheduleLine of scheduleLines) {
@@ -218,4 +218,21 @@ export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> 
   );
 
   return { perLine, totals };
+}
+
+/** Runs auto-fill across every schedule line under every active contract — Workflow D's dashboard, one click. */
+export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> {
+  return runAutoFillOverLines(await listScheduleLinesWithActiveContracts());
+}
+
+/**
+ * Runs auto-fill across every schedule line under one contract — the
+ * middle ground between the per-line button and the dashboard's
+ * every-active-contract sweep, for a traffic staffer who just wants "fill
+ * everything for this renewal conversation" without leaving the contract
+ * page. Same sequential execution and per-line skip/error reporting as the
+ * dashboard version, just scoped to one contract's own lines.
+ */
+export async function autoFillContractScheduleLines(scheduleLines: UwContractScheduleLineRow[]): Promise<AutoFillAllResult> {
+  return runAutoFillOverLines(scheduleLines);
 }

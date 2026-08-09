@@ -1602,14 +1602,21 @@ demand still never books two of its own items into the same break, since
 every item on one line shares that line's underwriter — the same-underwriter
 rule already rules that out without special-case logic.
 
-Reachable from two places: a per-schedule-line "Auto-fill remaining" button
-on the contract detail page (`contracts/[id]/page.tsx`), and a
-dashboard-wide "Auto-fill everything" button (`page.tsx`) that runs every
-active contract's every schedule line — sequentially, not in parallel,
-since two schedule lines racing for the same open break within one click is
-a real possibility (two underwriters both eligible for one generic local
-avail — exactly the case the adjacency rule exists for) and
+Reachable from three places, all sequential (never parallel) for the same
+reason: two schedule lines racing for the same open break within one click
+is a real possibility (two underwriters both eligible for one generic
+local avail — exactly the case the adjacency rule exists for), and
 `log_list_placeable_rundown_breaks()` reads live occupancy at call time.
+The per-schedule-line "Auto-fill remaining" button on the contract detail
+page (`contracts/[id]/page.tsx`) came first; a contract-wide "Auto-fill
+this contract" button on the same page (added the same day, once a real
+multi-line contract made the gap obvious — a traffic staffer working one
+renewal shouldn't have to click "Auto-fill remaining" once per line) and
+the dashboard-wide "Auto-fill everything" button (`page.tsx`, every active
+contract's every schedule line) both just call the same per-line
+`autoFillScheduleLine()` in a loop
+(`lib/underwriting/auto-fill.ts`'s shared `runAutoFillOverLines()`), scoped
+to that button's own contract or to every active contract respectively.
 Each schedule line that placed at least one credit gets an
 `underwriting.schedule_line.auto_filled` audit event — not one of §6's four
 privileged actions (any tool member can run this, same as manual
