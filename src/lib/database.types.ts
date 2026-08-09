@@ -1997,7 +1997,11 @@ export interface Database {
           id: string;
           schedule_line_id: string;
           copy_id: string;
-          log_rundown_item_id: string;
+          // Nullable as of 20260809130000_underwriting_credit_relocation.sql
+          // (on delete set null, was cascade) — a superseded row survives its
+          // item's deletion instead of vanishing with it. See that
+          // migration's header.
+          log_rundown_item_id: string | null;
           placement_date: string;
           scheduled_at: string;
           program_id: string;
@@ -2277,6 +2281,11 @@ export interface Database {
       uw_has_open_exceptions_for_rundown: {
         Args: { p_rundown_id: string };
         Returns: boolean;
+      };
+      /** Gated by has_log_access, not has_underwriting_access — see 20260809130000_underwriting_credit_relocation.sql. Moves an already-placed, not-yet-aired credit to a different open break in the same rundown. */
+      log_relocate_underwriting_credit: {
+        Args: { p_item_id: string; p_destination_break_id: string };
+        Returns: { ok: true; item_id: string; placement_id: string } | { error: string };
       };
     };
     Enums: {

@@ -14,7 +14,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/cn";
-import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import {
+  isValidCreditRelocationDestination,
+  isValidMoveDestination,
+  sortByProximityToOriginal,
+  type RelocatableItemKind,
+} from "@/lib/log/mid-broadcast";
 import { InsertionPoint, type InsertConfig } from "./insertion-point";
 import { RundownItemCard, type RundownItemCardBaseProps } from "./rundown-item-card";
 import type { LogContentType } from "@/lib/database.types";
@@ -48,6 +53,8 @@ export interface BreakBoardItem {
 
 export interface BreakBoardBreak {
   id: string;
+  /** Same value on every break the board renders (one rundown per page) — needed so isValidCreditRelocationDestination can confirm a credit's destination stays inside it. */
+  rundownId: string;
   scheduledAt: string;
   /** Plain-text label for the "Move to…" select's <option> — headerNode is a rendered node, not usable there. */
   label: string;
@@ -66,6 +73,7 @@ export function RundownBreaksBoard({
   live,
   nowISO,
   relocateItem,
+  relocateCredit,
 }: {
   breaks: BreakBoardBreak[];
   live: boolean;
@@ -75,6 +83,8 @@ export function RundownBreaksBoard({
     destinationBreakId: string,
     orderedItemIds: string[],
   ) => Promise<{ error?: string }>;
+  /** Underwriting credits move through a different write than ordinary content — see lib/log/mid-broadcast.ts. */
+  relocateCredit: (itemId: string, destinationBreakId: string) => Promise<{ error?: string }>;
 }) {
   const itemsById = useMemo(() => {
     const map = new Map<string, BreakBoardItem>();
@@ -99,7 +109,32 @@ export function RundownBreaksBoard({
   function eligibleDestinations(itemId: string): BreakBoardBreak[] {
     const item = itemsById.get(itemId);
     const sourceBreakId = containerOf(itemId);
-    if (!item || !sourceBreakId || item.kind === "underwriting_credit") return [];
+    if (!item || !sourceBreakId) return [];
+
+    if (item.kind === "underwriting_credit") {
+      const sourceBreak = initialBreaks.find((brk) => brk.id === sourceBreakId);
+      if (!sourceBreak) return [];
+      const candidates = initialBreaks.filter((brk) =>
+        isValidCreditRelocationDestination(
+          {
+            id: brk.id,
+            rundown_id: brk.rundownId,
+            scheduled_at: brk.scheduledAt,
+            permitted_content_types: brk.permittedContentTypes,
+            allow_multiple: brk.allowMultiple,
+            item_count: order[brk.id]?.length ?? 0,
+          },
+          sourceBreakId,
+          sourceBreak.rundownId,
+          live ? nowISO : null,
+        ),
+      );
+      // Nearest to this credit's current break first — "move it to the
+      // closest break to when it was supposed to air," not just the next
+      // one chronologically.
+      return sortByProximityToOriginal(candidates, sourceBreak.scheduledAt, (brk) => brk.scheduledAt);
+    }
+
     const kind: RelocatableItemKind = item.kind;
     const contentType = item.contentType;
     return initialBreaks.filter((brk) =>
@@ -125,6 +160,15 @@ export function RundownBreaksBoard({
     if (!sourceBreakId) return;
     if (sourceBreakId === destinationBreakId && beforeItemId === itemId) return;
 
+    const item = itemsById.get(itemId);
+    const isCredit = item?.kind === "underwriting_credit";
+    if (isCredit && sourceBreakId !== destinationBreakId) {
+      const confirmed = window.confirm(
+        "This is an underwriting credit — a contractual obligation, not ordinary content. Move it to the new break?",
+      );
+      if (!confirmed) return;
+    }
+
     const next: Record<string, string[]> = { ...order };
     next[sourceBreakId] = next[sourceBreakId]!.filter((id) => id !== itemId);
 
@@ -135,7 +179,9 @@ export function RundownBreaksBoard({
     setOrder(next);
 
     startTransition(async () => {
-      const result = await relocateItem(itemId, destinationBreakId, next[destinationBreakId]!);
+      const result = isCredit
+        ? await relocateCredit(itemId, destinationBreakId)
+        : await relocateItem(itemId, destinationBreakId, next[destinationBreakId]!);
       if (result.error) setOrder(previous);
     });
   }

@@ -39,6 +39,7 @@ import {
 } from "../../broadcast-actions";
 import {
   relocateRundownItem,
+  relocateUnderwritingCredit,
   removeRundownItem,
   syncRundownBreaks,
   updateItemOverrides,
@@ -173,6 +174,15 @@ export default async function RundownDetailPage({
       (eventCountByItem.get(event.rundown_item_id) ?? 0) + 1,
     );
   }
+  // Distinct from "confirmed" (eventCountByItem > 0, which is also true for
+  // a missed item): an underwriting credit that's only ever been marked
+  // missed can still be relocated (see relocateUnderwritingCredit) — only
+  // an actual aired_as_scheduled event locks it. Ordinary content doesn't
+  // need this distinction; nothing downstream reacts to its outcome the
+  // way the credit/exception pipeline does.
+  const airedItemIds = new Set(
+    events.filter((event) => event.outcome === "aired_as_scheduled").map((event) => event.rundown_item_id),
+  );
 
   const consoleBreaks: ConsoleBreakLike[] = rundown.breaks.map((brk) => ({
     id: brk.id,
@@ -256,68 +266,86 @@ export default async function RundownDetailPage({
   // in with ordinary content: they're the one item kind with a real
   // contractual "must air" obligation, and the only kind whose outcome the
   // exception/makegood pipeline reacts to
-  // (uw_flag_exception_from_broadcast_event). Flagging one as missed doesn't
-  // ask the host to fix it here — that trigger already opens a
-  // uw_exceptions row Underwriting & Traffic's own screens handle (a
-  // makegood, an accepted alternate, or a waiver); the host's job is just to
-  // say honestly whether it aired.
+  // (uw_flag_exception_from_broadcast_event). Once one is settled as aired,
+  // nothing more shows here — that's genuinely done. Once it's marked
+  // missed, the fix is the same drag/"Move to…" affordance the card's own
+  // corner menu already offers (draggable is true for it below, since
+  // relocateUnderwritingCredit works on a missed-but-not-aired credit) —
+  // this panel just explains that's the default response, rather than
+  // asking the host to separately go create a makegood in Underwriting &
+  // Traffic. See CLAUDE.md's 2026-08-09 note: only a credit still missed
+  // and unmoved when the broadcast wraps escalates to that tool at all.
   const renderMidBroadcastActions = (item: RundownItemDetail, compact: boolean, breakScheduledAt: string) => {
-    const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
-    if (!live || confirmed) return null;
+    if (!live || item.item_kind !== "underwriting_credit" || airedItemIds.has(item.id)) return null;
 
-    if (item.item_kind === "underwriting_credit") {
+    const missed = (eventCountByItem.get(item.id) ?? 0) > 0;
+
+    if (missed) {
       return (
-        <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
-          <p className="mb-2 text-sm font-semibold text-ink-900">
-            Did this air at {formatStationTimestamp(breakScheduledAt)}?
+        <div className={`rounded border-2 border-danger bg-danger/5 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+          <p className="text-sm font-semibold text-ink-900">
+            Missed at {formatStationTimestamp(breakScheduledAt)}.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <form action={markAired}>
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <input type="hidden" name="item_id" value={item.id} />
-              <Button type="submit">Yes, aired</Button>
-            </form>
-            <details className="inline-block">
-              <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
-                No — flag it
-              </summary>
-              <form
-                action={markMissed}
-                className="mt-2 flex flex-col gap-2 rounded border border-line bg-white p-3"
-              >
-                <input type="hidden" name="rundown_id" value={rundown.id} />
-                <input type="hidden" name="item_id" value={item.id} />
-                <Select name="reason" required defaultValue="">
-                  <option value="" disabled>
-                    Reason…
-                  </option>
-                  {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-                <input
-                  type="text"
-                  name="notes"
-                  placeholder="Brief note (optional)"
-                  className="rounded border border-line px-3 py-2 text-sm"
-                />
-                <Button type="submit" variant="secondary">
-                  Record missed
-                </Button>
-              </form>
-            </details>
-          </div>
-          <p className="mt-2 text-xs text-ink-700">
-            Flagging this opens an exception for Underwriting &amp; Traffic to resolve — a makegood, an
-            accepted alternate, or a waiver. Nothing more to do here.
+          <p className="mt-1 text-xs text-ink-700">
+            Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule it into another
+            open break in this broadcast — that&apos;s the default fix, and destinations are offered closest to the
+            original time first. Underwriting &amp; Traffic only needs to schedule a makegood if it&apos;s still
+            unresolved when this broadcast wraps up.
           </p>
         </div>
       );
     }
 
-    return null;
+    return (
+      <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+        <p className="mb-2 text-sm font-semibold text-ink-900">
+          Did this air at {formatStationTimestamp(breakScheduledAt)}?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <form action={markAired}>
+            <input type="hidden" name="rundown_id" value={rundown.id} />
+            <input type="hidden" name="item_id" value={item.id} />
+            <Button type="submit">Yes, aired</Button>
+          </form>
+          <details className="inline-block">
+            <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
+              No — flag it
+            </summary>
+            <form
+              action={markMissed}
+              className="mt-2 flex flex-col gap-2 rounded border border-line bg-white p-3"
+            >
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <input type="hidden" name="item_id" value={item.id} />
+              <Select name="reason" required defaultValue="">
+                <option value="" disabled>
+                  Reason…
+                </option>
+                {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <input
+                type="text"
+                name="notes"
+                placeholder="Brief note (optional)"
+                className="rounded border border-line px-3 py-2 text-sm"
+              />
+              <Button type="submit" variant="secondary">
+                Record missed
+              </Button>
+            </form>
+          </details>
+        </div>
+        <p className="mt-2 text-xs text-ink-700">
+          If you flag it missed, you can move it to another open break in this same broadcast right from this
+          card — Underwriting &amp; Traffic only gets involved if it&apos;s still unresolved once this broadcast
+          wraps up.
+        </p>
+      </div>
+    );
   };
 
   // Every break/item view model the breaks board (drag-and-drop) needs to
@@ -414,7 +442,12 @@ export default async function RundownDetailPage({
         id: item.id,
         kind,
         contentType: (item.contentItem?.content_type as LogContentType | undefined) ?? null,
-        draggable: kind !== "underwriting_credit" && !confirmed,
+        // A credit stays draggable through a "missed" mark — that's the
+        // recovery path, not a dead end — and only locks once it actually
+        // airs. Ordinary content keeps the original "any event at all"
+        // gate; nothing reacts to its outcome the way the credit/exception
+        // pipeline does.
+        draggable: kind === "underwriting_credit" ? !airedItemIds.has(item.id) : !confirmed,
         label: title,
         cardProps: {
           rundownId: rundown.id,
@@ -435,6 +468,7 @@ export default async function RundownDetailPage({
 
     return {
       id: brk.id,
+      rundownId: rundown.id,
       scheduledAt: brk.scheduled_at,
       label: `${formatStationTimestamp(brk.scheduled_at)} — ${brk.label}`,
       permittedContentTypes: brk.permitted_content_types,
@@ -524,7 +558,13 @@ export default async function RundownDetailPage({
           clock template screen.
         </div>
       ) : (
-        <RundownBreaksBoard breaks={breakBoardBreaks} live={live} nowISO={now} relocateItem={relocateRundownItem} />
+        <RundownBreaksBoard
+          breaks={breakBoardBreaks}
+          live={live}
+          nowISO={now}
+          relocateItem={relocateRundownItem}
+          relocateCredit={relocateUnderwritingCredit}
+        />
       )}
     </>
   );

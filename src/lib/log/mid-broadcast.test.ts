@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isValidMoveDestination, listValidMoveDestinations, type MoveDestinationBreakLike } from "./mid-broadcast";
+import {
+  isValidCreditRelocationDestination,
+  isValidMoveDestination,
+  listValidMoveDestinations,
+  sortByProximityToOriginal,
+  type CreditRelocationBreakLike,
+  type MoveDestinationBreakLike,
+} from "./mid-broadcast";
 
 function destination(overrides: Partial<MoveDestinationBreakLike> & { id: string }): MoveDestinationBreakLike {
   return {
@@ -123,5 +130,119 @@ describe("listValidMoveDestinations", () => {
     ];
     const result = listValidMoveDestinations(destinations, "source-break", "content", "psa", NOW);
     expect(result.map((d) => d.id)).toEqual(["d1"]);
+  });
+});
+
+function creditDestination(
+  overrides: Partial<CreditRelocationBreakLike> & { id: string },
+): CreditRelocationBreakLike {
+  return {
+    rundown_id: "rundown-1",
+    scheduled_at: "2026-08-07T10:00:00.000Z",
+    permitted_content_types: ["underwriting_credit"],
+    allow_multiple: false,
+    item_count: 0,
+    ...overrides,
+  };
+}
+
+describe("isValidCreditRelocationDestination", () => {
+  it("accepts an open, eligible break in the same rundown", () => {
+    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1", NOW)).toBe(
+      true,
+    );
+  });
+
+  it("rejects the source break itself", () => {
+    expect(
+      isValidCreditRelocationDestination(creditDestination({ id: "source-break" }), "source-break", "rundown-1", NOW),
+    ).toBe(false);
+  });
+
+  it("rejects a break in a different rundown", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", rundown_id: "rundown-2" }),
+        "source-break",
+        "rundown-1",
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a break that doesn't permit underwriting credits", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", permitted_content_types: ["psa"] }),
+        "source-break",
+        "rundown-1",
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects an already-occupied single-occupancy break", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", item_count: 1 }),
+        "source-break",
+        "rundown-1",
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a multi-occupancy break that already has an item", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", allow_multiple: true, item_count: 1 }),
+        "source-break",
+        "rundown-1",
+        NOW,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a destination already in the past, when live", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", scheduled_at: "2026-08-07T08:00:00.000Z" }),
+        "source-break",
+        "rundown-1",
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a destination in the past when not live — a credit can still be planned pre-air", () => {
+    expect(
+      isValidCreditRelocationDestination(
+        creditDestination({ id: "d1", scheduled_at: "2026-08-07T08:00:00.000Z" }),
+        "source-break",
+        "rundown-1",
+        null,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("sortByProximityToOriginal", () => {
+  it("orders candidates by closeness to the original time, nearest first", () => {
+    const breaks = [
+      creditDestination({ id: "far-after", scheduled_at: "2026-08-07T12:00:00.000Z" }),
+      creditDestination({ id: "near-before", scheduled_at: "2026-08-07T09:55:00.000Z" }),
+      creditDestination({ id: "near-after", scheduled_at: "2026-08-07T10:05:00.000Z" }),
+    ];
+    const result = sortByProximityToOriginal(breaks, "2026-08-07T10:00:00.000Z");
+    expect(result.map((b) => b.id)).toEqual(["near-before", "near-after", "far-after"]);
+  });
+
+  it("keeps input order for equal distances", () => {
+    const breaks = [
+      creditDestination({ id: "before", scheduled_at: "2026-08-07T09:55:00.000Z" }),
+      creditDestination({ id: "after", scheduled_at: "2026-08-07T10:05:00.000Z" }),
+    ];
+    const result = sortByProximityToOriginal(breaks, "2026-08-07T10:00:00.000Z");
+    expect(result.map((b) => b.id)).toEqual(["before", "after"]);
   });
 });
