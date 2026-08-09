@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import {
   CONTENT_TYPE_LABEL,
   WEATHER_ITEM_SENTINEL,
@@ -47,6 +47,7 @@ import {
 } from "../../rundown-actions";
 import { CopyDisplay } from "./copy-display";
 import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
+import { RundownItemCard } from "./rundown-item-card";
 import { RundownLiveLayout } from "./rundown-live-layout";
 import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
 
@@ -516,104 +517,60 @@ export default async function RundownDetailPage({
                               Source story may have changed — check before airing
                             </Badge>
                           )}
-                          {isCurrent ? (
-                            <CopyDisplay
-                              title={title}
-                              script={effectiveScript}
-                              summary={item.contentItem?.summary ?? null}
-                            />
-                          ) : (
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <Badge variant="accent">
-                                    {ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}
-                                  </Badge>
-                                  {isOverridden && (
-                                    <Badge variant="warning">overridden for this airing</Badge>
-                                  )}
-                                  <span className="text-sm font-semibold text-ink-900">
-                                    {title}
-                                  </span>
-                                </div>
-                                {item.contentItem && (
-                                  <div className="mt-0.5 text-xs text-ink-400">
-                                    {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
-                                    {masterDuration !== null && ` · master ${masterDuration}s`}
+                          <RundownItemCard
+                            rundownId={rundown.id}
+                            itemId={item.id}
+                            title={title}
+                            durationSeconds={isCurrent ? null : itemDuration(item)}
+                            editable={item.item_kind === "content" || item.item_kind === "weather"}
+                            removable={item.item_kind !== "underwriting_credit"}
+                            overrideScript={item.override_script}
+                            overrideDurationSeconds={item.override_duration_seconds}
+                            updateItemOverridesAction={updateItemOverrides}
+                            removeRundownItemAction={removeRundownItem}
+                            midBroadcastActions={renderMidBroadcastActions(item, brk, !isCurrent)}
+                            readView={
+                              isCurrent ? (
+                                <CopyDisplay
+                                  title={title}
+                                  script={effectiveScript}
+                                  summary={item.contentItem?.summary ?? null}
+                                />
+                              ) : (
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <Badge variant="accent">
+                                      {ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}
+                                    </Badge>
+                                    {isOverridden && (
+                                      <Badge variant="warning">overridden for this airing</Badge>
+                                    )}
+                                    <span className="text-sm font-semibold text-ink-900">
+                                      {title}
+                                    </span>
                                   </div>
-                                )}
-                                {copy && (
-                                  <div className="mt-0.5 text-xs text-ink-400">
-                                    {copy.execution_kind === "recorded"
-                                      ? `DAD cart ${copy.cart_identifier ?? "—"}`
-                                      : "Live read"}
-                                  </div>
-                                )}
-                                {effectiveScript && (
-                                  <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">
-                                    {effectiveScript}
-                                  </p>
-                                )}
-                              </div>
-                              <span className="shrink-0 font-mono text-xs font-semibold text-ink-900">
-                                {itemDuration(item)}s
-                              </span>
-                            </div>
-                          )}
-
-                          {renderMidBroadcastActions(item, brk, !isCurrent)}
-
-                          {item.item_kind !== "underwriting_credit" && (
-                            <div className="mt-2 flex flex-wrap items-center gap-3">
-                              <form action={removeRundownItem}>
-                                <input type="hidden" name="rundown_id" value={rundown.id} />
-                                <input type="hidden" name="item_id" value={item.id} />
-                                <Button
-                                  type="submit"
-                                  variant="ghost"
-                                  className="px-2.5 py-1.5 text-xs"
-                                >
-                                  Remove
-                                </Button>
-                              </form>
-                              {(item.item_kind === "content" || item.item_kind === "weather") && (
-                                <details>
-                                  <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                                    Adjust for this airing
-                                  </summary>
-                                  <form
-                                    action={updateItemOverrides}
-                                    className="mt-2 flex flex-col gap-2"
-                                  >
-                                    <input type="hidden" name="rundown_id" value={rundown.id} />
-                                    <input type="hidden" name="item_id" value={item.id} />
-                                    <Input
-                                      name="override_script"
-                                      placeholder="Script for this airing only"
-                                      defaultValue={item.override_script ?? ""}
-                                    />
-                                    <div className="flex gap-2">
-                                      <Input
-                                        name="override_duration_seconds"
-                                        type="number"
-                                        min={1}
-                                        placeholder="Duration (s)"
-                                        defaultValue={item.override_duration_seconds ?? ""}
-                                        className="w-32"
-                                      />
-                                      <Button
-                                        type="submit"
-                                        variant="secondary"
-                                        className="px-2.5 py-1.5 text-xs"
-                                      >
-                                        Save override
-                                      </Button>
+                                  {item.contentItem && (
+                                    <div className="mt-0.5 text-xs text-ink-400">
+                                      {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
+                                      {masterDuration !== null && ` · master ${masterDuration}s`}
                                     </div>
-                                  </form>
-                                </details>
-                              )}
-                            </div>
-                          )}
+                                  )}
+                                  {copy && (
+                                    <div className="mt-0.5 text-xs text-ink-400">
+                                      {copy.execution_kind === "recorded"
+                                        ? `DAD cart ${copy.cart_identifier ?? "—"}`
+                                        : "Live read"}
+                                    </div>
+                                  )}
+                                  {effectiveScript && (
+                                    <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">
+                                      {effectiveScript}
+                                    </p>
+                                  )}
+                                </div>
+                              )
+                            }
+                          />
                         </li>
                       );
                     })}
