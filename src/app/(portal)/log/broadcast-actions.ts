@@ -11,6 +11,7 @@ import {
   getRundownDetail,
   hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
+  type RundownItemDetail,
 } from "@/lib/log/queries";
 import type { LogMissReason } from "@/lib/database.types";
 
@@ -135,14 +136,44 @@ export async function markMissed(formData: FormData): Promise<void> {
 }
 
 /**
+ * Shared write behind both wrap-up batch-attestation actions below: marks
+ * every item matching `matches` that has *no* broadcast event yet as
+ * aired_as_scheduled, in one insert. Never touches an item that already has
+ * one (aired, or missed and now carrying whatever exception that opened) —
+ * this is "confirm the silence," never a way to overwrite a known problem.
+ */
+async function attestUnconfirmedItems(
+  rundownId: string,
+  path: string,
+  actorId: string,
+  matches: (item: RundownItemDetail) => boolean,
+): Promise<void> {
+  const rundown = await getRundownDetail(rundownId);
+  if (!rundown) failWith(path, "That rundown no longer exists.");
+
+  const itemIds = rundown.breaks.flatMap((brk) => brk.items).filter(matches).map((item) => item.id);
+  const events = await listBroadcastEventsForItems(itemIds);
+  const confirmedIds = new Set(events.map((event) => event.rundown_item_id));
+  const unconfirmedIds = itemIds.filter((id) => !confirmedIds.has(id));
+  if (unconfirmedIds.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("log_broadcast_events").insert(
+    unconfirmedIds.map((itemId) => ({
+      rundown_item_id: itemId,
+      outcome: "aired_as_scheduled" as const,
+      confirmation_source: "host" as const,
+      recorded_by: actorId,
+    })),
+  );
+  failIfError(error, path, "Could not mark these items as aired");
+}
+
+/**
  * The wrap-up panel's underwriting attestation — one explicit click instead
- * of confirming every untouched underwriting credit individually. Only ever
- * writes aired_as_scheduled for a credit that has *no* broadcast event yet;
- * anything already recorded (aired, or missed and now carrying whatever
- * exception that opened) is left exactly as it is — this is "confirm the
- * silence," never a way to overwrite a known problem. It does not bypass
- * submitRundown's own open-exception check: attesting the untouched ones
- * doesn't resolve an exception an already-missed credit opened, so
+ * of confirming every untouched underwriting credit individually. Does not
+ * bypass submitRundown's own open-exception check: attesting the untouched
+ * ones doesn't resolve an exception an already-missed credit opened, so
  * submission can still be blocked afterward, correctly.
  */
 export async function attestUnderwritingCredits(formData: FormData): Promise<void> {
@@ -150,29 +181,37 @@ export async function attestUnderwritingCredits(formData: FormData): Promise<voi
   const rundownId = field(formData, "rundown_id");
   const path = rundownPath(rundownId);
 
-  const rundown = await getRundownDetail(rundownId);
-  if (!rundown) failWith(path, "That rundown no longer exists.");
+  await attestUnconfirmedItems(
+    rundownId,
+    path,
+    profile.id,
+    (item) => item.item_kind === "underwriting_credit",
+  );
 
-  const underwritingItemIds = rundown.breaks
-    .flatMap((brk) => brk.items)
-    .filter((item) => item.item_kind === "underwriting_credit")
-    .map((item) => item.id);
-  const events = await listBroadcastEventsForItems(underwritingItemIds);
-  const confirmedIds = new Set(events.map((event) => event.rundown_item_id));
-  const unconfirmedIds = underwritingItemIds.filter((id) => !confirmedIds.has(id));
+  revalidatePath(path);
+  redirect(path);
+}
 
-  if (unconfirmedIds.length > 0) {
-    const supabase = await createClient();
-    const { error } = await supabase.from("log_broadcast_events").insert(
-      unconfirmedIds.map((itemId) => ({
-        rundown_item_id: itemId,
-        outcome: "aired_as_scheduled" as const,
-        confirmation_source: "host" as const,
-        recorded_by: profile.id,
-      })),
-    );
-    failIfError(error, path, "Could not attest these underwriting credits");
-  }
+/**
+ * The wrap-up panel's ordinary-content counterpart — but optional, not a
+ * gate: nothing about submission requires this, unlike
+ * attestUnderwritingCredits. It exists so a host who wants a complete
+ * as-aired record (the raw material FCC Reporting will eventually read) can
+ * get one in a single click instead of confirming every item individually,
+ * which is exactly the per-item clutter the console dropped for ordinary
+ * content in the first place.
+ */
+export async function attestOrdinaryContentAired(formData: FormData): Promise<void> {
+  const { profile } = await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  const path = rundownPath(rundownId);
+
+  await attestUnconfirmedItems(
+    rundownId,
+    path,
+    profile.id,
+    (item) => item.item_kind !== "underwriting_credit",
+  );
 
   revalidatePath(path);
   redirect(path);

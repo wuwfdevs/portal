@@ -30,6 +30,7 @@ import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../log-poller";
 import {
+  attestOrdinaryContentAired,
   attestUnderwritingCredits,
   markAired,
   markMissed,
@@ -45,7 +46,6 @@ import {
 import { CopyDisplay } from "./copy-display";
 import type { NprLookaheadItem } from "./live-read-form";
 import type { InsertConfig } from "./insertion-point";
-import { RundownItemCard } from "./rundown-item-card";
 import { RundownLiveLayout } from "./rundown-live-layout";
 import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
 import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
@@ -203,16 +203,24 @@ export default async function RundownDetailPage({
         rundown.breaks.map((brk) => ({
           id: brk.id,
           requirement: brk.requirement,
-          itemIds: brk.items.map((item) => item.id),
+          items: brk.items.map((item) => ({
+            id: item.id,
+            requiresConfirmation: item.item_kind === "underwriting_credit",
+          })),
         })),
         new Set(eventCountByItem.keys()),
       )
     : [];
 
-  // The wrap-up panel's underwriting attestation — see broadcast-actions.ts's
-  // submitRundown/attestUnderwritingCredits for the write side.
+  // The wrap-up panel's two batch attestations — see broadcast-actions.ts's
+  // submitRundown/attestUnderwritingCredits/attestOrdinaryContentAired for
+  // the write side.
   const underwritingItems = allItems.filter((item) => item.item_kind === "underwriting_credit");
   const unconfirmedUnderwritingCount = underwritingItems.filter(
+    (item) => (eventCountByItem.get(item.id) ?? 0) === 0,
+  ).length;
+  const ordinaryItems = allItems.filter((item) => item.item_kind !== "underwriting_credit");
+  const unconfirmedOrdinaryCount = ordinaryItems.filter(
     (item) => (eventCountByItem.get(item.id) ?? 0) === 0,
   ).length;
   const hasOpenExceptions = live ? await hasOpenUnderwritingExceptions(rundown.id) : false;
@@ -235,11 +243,14 @@ export default async function RundownDetailPage({
     };
   };
 
-  // Aired is the only mid-broadcast outcome ordinary content still shows —
-  // "Move" is gone, replaced entirely by the breaks board's drag-and-drop (a
-  // plain rundown edit now, not a broadcast outcome; see
-  // lib/log/mid-broadcast.ts), and "missed" for ordinary content is just
-  // Remove (stage 1) — nothing downstream needs a record of it.
+  // Ordinary content shows no mid-broadcast action at all now — "Move" was
+  // replaced by the breaks board's drag-and-drop (a plain rundown edit now,
+  // not a broadcast outcome; see lib/log/mid-broadcast.ts), "missed" is just
+  // Remove (stage 1), and "aired" moved off the card entirely to the
+  // wrap-up panel's optional, non-blocking batch action
+  // (attestOrdinaryContentAired) — nothing downstream needs a per-item
+  // confirmation for it, so per-item confirmation is not the default; the
+  // batch action is there for a host who wants a complete record anyway.
   //
   // Underwriting credits get a visually distinct callout instead of blending
   // in with ordinary content: they're the one item kind with a real
@@ -306,17 +317,7 @@ export default async function RundownDetailPage({
       );
     }
 
-    return (
-      <div className={`flex flex-wrap gap-2 ${compact ? "mt-2" : "mt-3"}`}>
-        <form action={markAired}>
-          <input type="hidden" name="rundown_id" value={rundown.id} />
-          <input type="hidden" name="item_id" value={item.id} />
-          <Button type="submit" className={compact ? "px-2.5 py-1.5 text-xs" : undefined}>
-            Aired
-          </Button>
-        </form>
-      </div>
-    );
+    return null;
   };
 
   // Every break/item view model the breaks board (drag-and-drop) needs to
@@ -374,65 +375,61 @@ export default async function RundownDetailPage({
           ? item.item_kind
           : "underwriting_credit";
 
+      const readView = (
+        <>
+          {nprSourceStale && (
+            <Badge variant="danger" className="mb-2">
+              Source story may have changed — check before airing
+            </Badge>
+          )}
+          {isCurrent ? (
+            <CopyDisplay title={title} script={effectiveScript} summary={item.contentItem?.summary ?? null} />
+          ) : (
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="accent">{ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}</Badge>
+                {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
+                <span className="text-sm font-semibold text-ink-900">{title}</span>
+              </div>
+              {item.contentItem && (
+                <div className="mt-0.5 text-xs text-ink-400">
+                  {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
+                  {masterDuration !== null && ` · master ${masterDuration}s`}
+                </div>
+              )}
+              {copy && (
+                <div className="mt-0.5 text-xs text-ink-400">
+                  {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+                </div>
+              )}
+              {effectiveScript && (
+                <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">{effectiveScript}</p>
+              )}
+            </div>
+          )}
+        </>
+      );
+
       return {
         id: item.id,
         kind,
         contentType: (item.contentItem?.content_type as LogContentType | undefined) ?? null,
         draggable: kind !== "underwriting_credit" && !confirmed,
         label: title,
-        node: (
-          <>
-            {nprSourceStale && (
-              <Badge variant="danger" className="mb-2">
-                Source story may have changed — check before airing
-              </Badge>
-            )}
-            <RundownItemCard
-              rundownId={rundown.id}
-              itemId={item.id}
-              title={title}
-              durationSeconds={isCurrent ? null : itemDuration(item)}
-              editable={item.item_kind === "content" || item.item_kind === "weather"}
-              removable={item.item_kind !== "underwriting_credit"}
-              overrideScript={item.override_script}
-              overrideDurationSeconds={item.override_duration_seconds}
-              updateItemOverridesAction={updateItemOverrides}
-              removeRundownItemAction={removeRundownItem}
-              midBroadcastActions={renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at)}
-              readView={
-                isCurrent ? (
-                  <CopyDisplay
-                    title={title}
-                    script={effectiveScript}
-                    summary={item.contentItem?.summary ?? null}
-                  />
-                ) : (
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="accent">{ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}</Badge>
-                      {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
-                      <span className="text-sm font-semibold text-ink-900">{title}</span>
-                    </div>
-                    {item.contentItem && (
-                      <div className="mt-0.5 text-xs text-ink-400">
-                        {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
-                        {masterDuration !== null && ` · master ${masterDuration}s`}
-                      </div>
-                    )}
-                    {copy && (
-                      <div className="mt-0.5 text-xs text-ink-400">
-                        {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
-                      </div>
-                    )}
-                    {effectiveScript && (
-                      <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">{effectiveScript}</p>
-                    )}
-                  </div>
-                )
-              }
-            />
-          </>
-        ),
+        cardProps: {
+          rundownId: rundown.id,
+          itemId: item.id,
+          title,
+          durationSeconds: isCurrent ? null : itemDuration(item),
+          editable: item.item_kind === "content" || item.item_kind === "weather",
+          removable: item.item_kind !== "underwriting_credit",
+          overrideScript: item.override_script,
+          overrideDurationSeconds: item.override_duration_seconds,
+          updateItemOverridesAction: updateItemOverrides,
+          removeRundownItemAction: removeRundownItem,
+          midBroadcastActions: renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at),
+          readView,
+        },
       };
     });
 
@@ -628,9 +625,9 @@ export default async function RundownDetailPage({
             </div>
             {unresolvedEntries.length > 0 && (
               <p className="mb-3 text-xs text-ink-500">
-                {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
-                need an aired or missed outcome — or content for a required break. Submitting
-                doesn&apos;t require resolving them first.
+                {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still need
+                an underwriting credit confirmed, or content for a required break. Ordinary content is
+                never counted here — see below.
               </p>
             )}
 
@@ -664,6 +661,22 @@ export default async function RundownDetailPage({
                 {unconfirmedUnderwritingCount === 0 && !hasOpenExceptions && (
                   <p className="text-xs text-ink-500">Every credit is confirmed or resolved.</p>
                 )}
+              </div>
+            )}
+
+            {unconfirmedOrdinaryCount > 0 && (
+              <div className="mb-3 rounded border border-line bg-panel-50 p-3">
+                <p className="mb-2 text-xs text-ink-700">
+                  {unconfirmedOrdinaryCount} other item{unconfirmedOrdinaryCount === 1 ? "" : "s"}{" "}
+                  haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t need
+                  this. Marking them helps keep a complete record.
+                </p>
+                <form action={attestOrdinaryContentAired}>
+                  <input type="hidden" name="rundown_id" value={rundown.id} />
+                  <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                    Mark {unconfirmedOrdinaryCount} aired as scheduled
+                  </Button>
+                </form>
               </div>
             )}
 
