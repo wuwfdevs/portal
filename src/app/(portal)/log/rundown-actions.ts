@@ -14,11 +14,16 @@ import { buildRundownItem } from "@/lib/log/capabilities";
 import {
   getClockTemplateDetail,
   getContentItemDetail,
+  getRundownBreak,
   getRundownDetail,
   getRundownForProgramOnDate,
+  getRundownItem,
   getScheduleEntry,
+  listItemsForBreak,
   listLocalOpportunitiesForVersion,
 } from "@/lib/log/queries";
+import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import type { LogContentType } from "@/lib/database.types";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -371,4 +376,89 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   redirect(path);
+}
+
+/**
+ * Called directly from the rundown breaks board's drag handler and its
+ * keyboard/touch-accessible "Move to…" select — not a <form action>, for the
+ * same reason academic-partnerships/actions.ts's setSubmissionStage isn't:
+ * the board is already a client component (dnd-kit requires it) and a full
+ * page navigation on every drop would defeat the point. Returns rather than
+ * redirects so the client can update optimistically and roll back on error.
+ *
+ * Handles both a same-break reorder and a cross-break move with one write:
+ * orderedItemIds is the destination break's complete item order after the
+ * drop (including the moved item), renumbered 1..N. The source break's
+ * other items are left exactly where they are — position doesn't need to
+ * stay contiguous, only correctly ordered.
+ *
+ * "Moved" is now a plain rundown edit, not a broadcast outcome — see
+ * lib/log/mid-broadcast.ts's file header. Nothing is written to
+ * log_broadcast_events, and nothing is left behind at the old spot.
+ * Underwriting credits are excluded entirely: they're relocated through
+ * Underwriting & Traffic's own placement/makegood mechanism instead.
+ */
+export async function relocateRundownItem(
+  itemId: string,
+  destinationBreakId: string,
+  orderedItemIds: string[],
+): Promise<{ error?: string }> {
+  await assertLogAccess();
+
+  const item = await getRundownItem(itemId);
+  if (!item) return { error: "That item no longer exists." };
+  if (item.item_kind === "underwriting_credit") {
+    return { error: "Underwriting credits are moved from the Underwriting & Traffic tool." };
+  }
+
+  const destinationBreak = await getRundownBreak(destinationBreakId);
+  if (!destinationBreak) return { error: "That break no longer exists." };
+
+  if (item.break_id !== destinationBreakId) {
+    const destinationItems = await listItemsForBreak(destinationBreakId);
+    const alreadyThere = destinationItems.filter((existing) => existing.id !== itemId);
+
+    let kind: RelocatableItemKind = "live_read";
+    let contentType: string | null = null;
+    if (item.item_kind === "content" && item.content_item_id) {
+      kind = "content";
+      const contentItem = await getContentItemDetail(item.content_item_id);
+      contentType = contentItem?.content_type ?? null;
+    } else if (item.item_kind === "weather") {
+      kind = "weather";
+    }
+
+    // nowISO is null here (not the "already in the past" gate) — that check
+    // is a client-side UX hint only, same reasoning duration-fit warnings
+    // use elsewhere in Log: the schema and this write don't need to enforce
+    // it to stay correct. Capacity and content-type eligibility do.
+    const eligible = isValidMoveDestination(
+      {
+        id: destinationBreak.id,
+        scheduled_at: destinationBreak.scheduled_at,
+        permitted_content_types: destinationBreak.permitted_content_types,
+        allow_multiple: destinationBreak.allow_multiple,
+        item_count: alreadyThere.length,
+      },
+      item.break_id,
+      kind,
+      contentType as LogContentType | null,
+      null,
+    );
+    if (!eligible) return { error: "That break can't hold this item." };
+  }
+
+  const supabase = await createClient();
+  const results = await Promise.all(
+    orderedItemIds.map((id, index) =>
+      supabase
+        .from("log_rundown_items")
+        .update({ break_id: destinationBreakId, position: index + 1 })
+        .eq("id", id),
+    ),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) return { error: "Could not move this item." };
+
+  return {};
 }

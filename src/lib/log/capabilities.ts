@@ -11,12 +11,13 @@
 // Domain redesign (2026-08-08): a "slot" is now a break that can hold zero
 // or more items, not a single pre-existing row to fill in place — see
 // docs/log-design.md §4B. buildItem creates a new item inside a break
-// rather than updating an existing placeholder's content_item_id;
-// recordOutcome's "moved" branch creates a fresh item at the destination
-// break and leaves the source item exactly as it was, recording it
-// 'skipped' — "this specific planned placement did not happen, because the
-// content moved elsewhere," never deleted, per the same as-planned-history
-// precedent log_broadcast_events itself follows.
+// rather than updating an existing placeholder's content_item_id.
+//
+// recordOutcome no longer has a "moved" branch (removed 2026-08-09): moving
+// ordinary content around a rundown is now a plain edit — see
+// rundown-actions.ts's relocateRundownItem and lib/log/mid-broadcast.ts —
+// not a broadcast outcome worth its own log_broadcast_events row. This
+// capability now covers aired/missed only.
 
 import "server-only";
 import { z } from "zod";
@@ -24,7 +25,7 @@ import { defineCapability } from "@/lib/capabilities/define";
 import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertLogAccess } from "./access";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "./content-library";
-import { getContentItemDetail, getRundownBreak, getRundownItem, listContentItems, listItemsForBreak, type LogContentItemRow } from "./queries";
+import { getContentItemDetail, getRundownBreak, listContentItems, listItemsForBreak, type LogContentItemRow } from "./queries";
 import type { LogMissReason } from "@/lib/database.types";
 
 const CONTENT_TYPES = Object.keys(CONTENT_TYPE_LABEL) as [
@@ -95,24 +96,22 @@ export const buildRundownItem = defineCapability({
 // --- log.rundownItem.recordOutcome -----------------------------------------
 
 export type RecordRundownOutcomeResult =
-  | { ok: true; outcome: "aired" | "missed" | "moved" }
+  | { ok: true; outcome: "aired" | "missed" }
   | { ok: false; message: string };
 
 /**
- * One capability over Workflow G's three mid-broadcast actions
- * (broadcast-actions.ts's markAired/markMissed/moveRundownItem) rather than
- * three, since they're one decision ("what happened to this item") with a
- * discriminated shape — matching how an MCP/agent caller would naturally
- * think about "record what happened," not three near-identical tools.
- * Confirmation-required: this is the as-aired record other tools
- * (Underwriting's exception queue, FCC Reporting) will eventually read as
- * ground truth, so an agent needs an explicit human yes before writing it,
- * same reasoning as audience-listening.answer.sendToSourcework.
+ * One capability over the two remaining mid-broadcast outcomes
+ * (broadcast-actions.ts's markAired/markMissed) rather than two, since
+ * they're one decision ("what happened to this item") with a discriminated
+ * shape — matching how an MCP/agent caller would naturally think about
+ * "record what happened." Confirmation-required: this is the as-aired
+ * record other tools (Underwriting's exception queue, FCC Reporting) will
+ * eventually read as ground truth, so an agent needs an explicit human yes
+ * before writing it, same reasoning as audience-listening.answer.sendToSourcework.
  */
 export const recordRundownItemOutcome = defineCapability({
   id: "log.rundownItem.recordOutcome",
-  summary:
-    "Record what happened to a rundown item — aired as scheduled, missed (with a brief reason), or moved to a different open break.",
+  summary: "Record what happened to a rundown item — aired as scheduled, or missed (with a brief reason).",
   input: z.discriminatedUnion("outcome", [
     z.object({ outcome: z.literal("aired"), itemId: z.string() }),
     z.object({
@@ -121,7 +120,6 @@ export const recordRundownItemOutcome = defineCapability({
       reason: z.enum(MISS_REASONS),
       notes: z.string().trim().optional(),
     }),
-    z.object({ outcome: z.literal("moved"), sourceItemId: z.string(), destinationBreakId: z.string() }),
   ]),
   requires: { tool: "log" },
   confirmation: "required",
@@ -152,50 +150,7 @@ export const recordRundownItemOutcome = defineCapability({
       return { ok: true, outcome: "missed" };
     }
 
-    const source = await getRundownItem(input.sourceItemId);
-    if (!source || source.item_kind !== "content" || source.content_item_id === null) {
-      return { ok: false, message: "There is nothing to move." };
-    }
-    const destinationBreak = await getRundownBreak(input.destinationBreakId);
-    if (!destinationBreak) return { ok: false, message: "That destination no longer exists." };
-
-    const destinationItems = await listItemsForBreak(input.destinationBreakId);
-    if (destinationItems.length > 0 && !destinationBreak.allow_multiple) {
-      return { ok: false, message: "That destination is no longer open." };
-    }
-
-    const nextPosition = destinationItems.reduce((max, item) => Math.max(max, item.position), 0) + 1;
-
-    const { error: insertError } = await supabase.from("log_rundown_items").insert({
-      break_id: input.destinationBreakId,
-      position: nextPosition,
-      item_kind: "content",
-      content_item_id: source.content_item_id,
-      planned_duration_seconds: source.planned_duration_seconds,
-      placement_status: "replaceable",
-    });
-    if (insertError) return { ok: false, message: `Could not move this item: ${insertError.message}` };
-
-    // The source item is never deleted or cleared — it stays exactly as
-    // planned, and its own broadcast event records that the content moved
-    // elsewhere. locked, since the original placement is now resolved
-    // history, not something to keep editing in place.
-    const { error: lockError } = await supabase
-      .from("log_rundown_items")
-      .update({ placement_status: "locked" })
-      .eq("id", input.sourceItemId);
-    if (lockError) return { ok: false, message: `Moved, but could not update the original item: ${lockError.message}` };
-
-    const { error: eventError } = await supabase.from("log_broadcast_events").insert({
-      rundown_item_id: input.sourceItemId,
-      outcome: "skipped",
-      notes: `Moved to a different break (${input.destinationBreakId}).`,
-      confirmation_source: "host",
-      recorded_by: profile.id,
-    });
-    if (eventError) return { ok: false, message: `Moved, but could not record it: ${eventError.message}` };
-
-    return { ok: true, outcome: "moved" };
+    return { ok: false, message: "Unknown outcome." };
   },
 });
 

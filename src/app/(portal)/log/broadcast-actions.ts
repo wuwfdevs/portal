@@ -9,12 +9,12 @@ import { invokeCapability } from "@/lib/capabilities/registry";
 import { recordRundownItemOutcome } from "@/lib/log/capabilities";
 import type { LogMissReason } from "@/lib/database.types";
 
-// Workflow G's three mid-broadcast actions (docs/log-design.md). "Moved" is
-// modeled as filling a different, still-open rundown item with the same
-// content and clearing the original one — see
-// supabase/migrations/20260807160000_log_broadcast_events.sql's file header
-// for why, and for the append-only reasoning that makes "undo" just the
-// same move run in reverse rather than a delete/edit of history.
+// Workflow G's mid-broadcast actions (docs/log-design.md): markAired and
+// markMissed. There used to be a third, moveRundownItem — it's gone
+// (2026-08-09). Relocating an item is now a plain rundown edit (drag-and-
+// drop, or its "Move to…" select fallback), not a broadcast outcome; see
+// rundown-actions.ts's relocateRundownItem and lib/log/mid-broadcast.ts's
+// file header for why.
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -26,10 +26,10 @@ function rundownPath(rundownId: string): string {
 
 /**
  * Freezes a reference version of the rundown — docs/log-design.md Workflow
- * H. Not a lock: markAired/markMissed/moveRundownItem above check nothing
- * about status, so "documented management corrections" (§15.3) after
- * submission keep working exactly as before. Fine to call again (e.g. after
- * a late correction) — it just re-stamps submitted_at/submitted_by.
+ * H. Not a lock: markAired/markMissed below check nothing about status, so
+ * "documented management corrections" (§15.3) after submission keep working
+ * exactly as before. Fine to call again (e.g. after a late correction) — it
+ * just re-stamps submitted_at/submitted_by.
  */
 export async function submitRundown(formData: FormData): Promise<void> {
   const { profile } = await assertLogAccess();
@@ -114,32 +114,4 @@ export async function markMissed(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   redirect(path);
-}
-
-/**
- * Thin adapter over log.rundownItem.recordOutcome's "moved" branch: a fresh
- * item with the source's content is created in the destination break; the
- * source item is left exactly as it was (never deleted or cleared) and its
- * own broadcast event records 'skipped'. Running this again with the
- * destination pointed back at the source's original break is how the
- * console's "Undo" link works — there is nothing else to reverse, since
- * log_broadcast_events is append-only.
- */
-export async function moveRundownItem(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const rundownId = field(formData, "rundown_id");
-  const sourceItemId = field(formData, "source_item_id");
-  const destinationBreakId = field(formData, "destination_break_id");
-  const path = rundownPath(rundownId);
-  if (sourceItemId === "" || destinationBreakId === "") failWith(path, "Choose a destination.");
-
-  const result = await invokeCapability(
-    recordRundownItemOutcome,
-    { outcome: "moved", sourceItemId, destinationBreakId },
-    { confirmed: true },
-  );
-  if (!result.ok) failWith(path, result.message);
-
-  revalidatePath(path);
-  redirect(`${path}?moved_from=${sourceItemId}&moved_to=${destinationBreakId}`);
 }
