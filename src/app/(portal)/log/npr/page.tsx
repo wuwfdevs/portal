@@ -61,12 +61,12 @@ export default async function NprPage({
             <Label htmlFor="npr-date">Show date</Label>
             <Input id="npr-date" type="date" name="date" defaultValue={selectedDate} className="w-40" />
           </div>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" className="shrink-0">
             Switch
           </Button>
         </form>
         {canRefresh && (
-          <form action={refreshNprEpisodeAction}>
+          <form action={refreshNprEpisodeAction} className="shrink-0">
             <input type="hidden" name="program_id" value={selectedProgram.id} />
             <input type="hidden" name="show_date" value={selectedDate} />
             <Button type="submit">Refresh</Button>

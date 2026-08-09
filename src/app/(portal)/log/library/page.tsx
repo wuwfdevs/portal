@@ -53,11 +53,11 @@ export default async function ContentLibraryPage({
               <option value="retired">Retired</option>
             </Select>
           </div>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" className="shrink-0">
             Filter
           </Button>
         </form>
-        <Link href="/log/library/new">
+        <Link href="/log/library/new" className="shrink-0">
           <Button type="button">+ New content item</Button>
         </Link>
       </div>

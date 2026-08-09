@@ -20,7 +20,7 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 const NAV_LINK_CLASSES =
-  "inline-flex items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
+  "inline-flex shrink-0 items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
 
 export default async function LogTodayPage({
   searchParams,
@@ -73,7 +73,7 @@ export default async function LogTodayPage({
           <Link href={`/log?date=${shiftDateISO(selectedDate, 1)}`} className={NAV_LINK_CLASSES}>
             Next day →
           </Link>
-          <form method="get" className="flex items-end gap-2">
+          <form method="get" className="flex flex-wrap items-end gap-2">
             <div>
               <Label htmlFor="log-today-date">Jump to date</Label>
               <Input
@@ -84,7 +84,7 @@ export default async function LogTodayPage({
                 className="w-40"
               />
             </div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" className="shrink-0">
               Go
             </Button>
           </form>
