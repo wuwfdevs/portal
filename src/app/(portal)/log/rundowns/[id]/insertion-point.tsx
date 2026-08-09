@@ -7,12 +7,13 @@
 // read" <details> — both are now just modes of the same insertion point,
 // reachable from anywhere in the break, not only its end.
 //
-// Low-visual-weight by default (opacity-0, shown on hover/focus) but never
-// hover-only in the sense that matters: it's a real, always-present,
-// keyboard-focusable, tappable button regardless of pointer type — hover
-// only changes its resting opacity on a device that has hover at all.
-// Touch and keyboard users reach it exactly the same way as a plain button
-// they haven't hovered yet.
+// Genuinely visible at rest (a full-width row, not a tiny circle at
+// opacity-0) — an earlier version relied on hover/focus to go from
+// invisible to visible with only a 20px target inside a 12px-tall row,
+// which in practice was indistinguishable from "not there" (confirmed by a
+// real user report: "I don't see the add item element at all"). It still
+// brightens on hover as a nicety, but nothing about finding it should
+// depend on that.
 //
 // A search box over the eligible-content list rather than a <select>,
 // since a <select> stops working once a break's eligible content runs to
@@ -57,14 +58,18 @@ export function InsertionPoint({
 
   if (!open) {
     return (
-      <li className="group relative flex h-3 items-center justify-center">
+      <li>
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Insert content here"
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-line text-xs leading-none text-ink-400 opacity-0 transition-opacity hover:border-brand-primary hover:text-brand-primary focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-surface group-hover:opacity-100"
+          className="group flex w-full items-center gap-2 rounded py-1 text-ink-400 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface focus:ring-offset-1"
         >
-          +
+          <span className="h-px flex-1 bg-line transition-colors group-hover:bg-brand-primary" />
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-xs leading-none">
+            +
+          </span>
+          <span className="h-px flex-1 bg-line transition-colors group-hover:bg-brand-primary" />
         </button>
       </li>
     );
