@@ -14,11 +14,16 @@ import { buildRundownItem } from "@/lib/log/capabilities";
 import {
   getClockTemplateDetail,
   getContentItemDetail,
+  getRundownBreak,
   getRundownDetail,
   getRundownForProgramOnDate,
+  getRundownItem,
   getScheduleEntry,
+  listItemsForBreak,
   listLocalOpportunitiesForVersion,
 } from "@/lib/log/queries";
+import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import type { LogContentType } from "@/lib/database.types";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -26,6 +31,61 @@ function field(formData: FormData, name: string): string {
 
 function rundownPath(id: string): string {
   return `/log/rundowns/${id}`;
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Renumbers a break's items into exactly the given order (1..N) — shared by
+ * relocateRundownItem (a drag) and placeNewItemAtPosition below (a fresh
+ * insert), since both are "this break's items should now read in this
+ * order" once whatever changed has changed. Position is just a sort key;
+ * nothing depends on it staying contiguous outside this one write.
+ */
+async function renumberBreakItems(
+  supabase: SupabaseServerClient,
+  orderedItemIds: string[],
+): Promise<string | null> {
+  const results = await Promise.all(
+    orderedItemIds.map((id, index) =>
+      supabase.from("log_rundown_items").update({ position: index + 1 }).eq("id", id),
+    ),
+  );
+  return results.find((result) => result.error) ? "Could not reorder this break's items." : null;
+}
+
+/**
+ * Moves a just-inserted item (which landed at the end of its break, per
+ * every insert path's own nextPosition = max+1) into place ahead of
+ * beforeItemId — the server half of the breaks board's insertion-point
+ * affordance (rundown-breaks-board.tsx / insertion-point.tsx): a host can
+ * insert new content between two existing items, not just append it.
+ * Renumbering the whole break rather than fractional positions — this
+ * repo's position columns are plain integers, and a drag reorder already
+ * renumbers the same way (see relocateRundownItem), so this reuses that
+ * approach rather than introducing a second one.
+ */
+async function placeNewItemAtPosition(
+  supabase: SupabaseServerClient,
+  breakId: string,
+  beforeItemId: string,
+  newItemId: string,
+): Promise<string | null> {
+  if (beforeItemId === "") return null;
+
+  const { data: items, error } = await supabase
+    .from("log_rundown_items")
+    .select("id")
+    .eq("break_id", breakId)
+    .order("position");
+  if (error || !items) return "Could not place this item.";
+
+  const withoutNew = items.map((item) => item.id).filter((id) => id !== newItemId);
+  const insertAt = withoutNew.indexOf(beforeItemId);
+  const finalOrder = [...withoutNew];
+  finalOrder.splice(insertAt === -1 ? finalOrder.length : insertAt, 0, newItemId);
+
+  return renumberBreakItems(supabase, finalOrder);
 }
 
 /**
@@ -198,11 +258,13 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   const rundownId = field(formData, "rundown_id");
   const breakId = field(formData, "break_id");
   const contentItemId = field(formData, "content_item_id");
+  const beforeItemId = field(formData, "before_item_id");
   const path = rundownPath(rundownId);
   if (contentItemId === "") failWith(path, "Choose something to add.");
 
+  const supabase = await createClient();
+
   if (contentItemId === WEATHER_ITEM_SENTINEL) {
-    const supabase = await createClient();
     const { data: existingItems, error: countError } = await supabase
       .from("log_rundown_items")
       .select("position")
@@ -210,14 +272,23 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
     failIfError(countError, path, "Could not add weather");
     const nextPosition = Math.max(0, ...(existingItems ?? []).map((item) => item.position)) + 1;
 
-    const { error } = await supabase.from("log_rundown_items").insert({
-      break_id: breakId,
-      position: nextPosition,
-      item_kind: "weather",
-      planned_duration_seconds: 20,
-      placement_status: "editable",
-    });
+    const { data: inserted, error } = await supabase
+      .from("log_rundown_items")
+      .insert({
+        break_id: breakId,
+        position: nextPosition,
+        item_kind: "weather",
+        planned_duration_seconds: 20,
+        placement_status: "editable",
+      })
+      .select("id")
+      .single();
     failIfError(error, path, "Could not add weather");
+
+    if (inserted) {
+      const placeError = await placeNewItemAtPosition(supabase, breakId, beforeItemId, inserted.id);
+      if (placeError) failWith(path, placeError);
+    }
 
     revalidatePath(path);
     redirect(path);
@@ -225,6 +296,9 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
 
   const result = await invokeCapability(buildRundownItem, { breakId, contentItemId });
   if (!result.ok) failWith(path, result.message);
+
+  const placeError = await placeNewItemAtPosition(supabase, breakId, beforeItemId, result.itemId);
+  if (placeError) failWith(path, placeError);
 
   revalidatePath(path);
   redirect(path);
@@ -248,6 +322,7 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
   const sourceNprItemId = field(formData, "source_npr_item_id");
   const sourceNprItemTitle = field(formData, "source_npr_item_title");
+  const beforeItemId = field(formData, "before_item_id");
   const path = rundownPath(rundownId);
   if (title === "") failWith(path, "Give this live-read item a short title.");
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
@@ -261,18 +336,27 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   failIfError(countError, path, "Could not add this item");
   const nextPosition = Math.max(0, ...(existingItems ?? []).map((item) => item.position)) + 1;
 
-  const { error } = await supabase.from("log_rundown_items").insert({
-    break_id: breakId,
-    position: nextPosition,
-    item_kind: "live_read",
-    live_read_title: title,
-    live_read_script: script || null,
-    planned_duration_seconds: durationSeconds,
-    placement_status: "editable",
-    source_npr_item_id: sourceNprItemId || null,
-    source_npr_item_title: sourceNprItemTitle || null,
-  });
+  const { data: inserted, error } = await supabase
+    .from("log_rundown_items")
+    .insert({
+      break_id: breakId,
+      position: nextPosition,
+      item_kind: "live_read",
+      live_read_title: title,
+      live_read_script: script || null,
+      planned_duration_seconds: durationSeconds,
+      placement_status: "editable",
+      source_npr_item_id: sourceNprItemId || null,
+      source_npr_item_title: sourceNprItemTitle || null,
+    })
+    .select("id")
+    .single();
   failIfError(error, path, "Could not add this item");
+
+  if (inserted) {
+    const placeError = await placeNewItemAtPosition(supabase, breakId, beforeItemId, inserted.id);
+    if (placeError) failWith(path, placeError);
+  }
 
   revalidatePath(path);
   redirect(path);
@@ -371,4 +455,89 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   redirect(path);
+}
+
+/**
+ * Called directly from the rundown breaks board's drag handler and its
+ * keyboard/touch-accessible "Move to…" select — not a <form action>, for the
+ * same reason academic-partnerships/actions.ts's setSubmissionStage isn't:
+ * the board is already a client component (dnd-kit requires it) and a full
+ * page navigation on every drop would defeat the point. Returns rather than
+ * redirects so the client can update optimistically and roll back on error.
+ *
+ * Handles both a same-break reorder and a cross-break move with one write:
+ * orderedItemIds is the destination break's complete item order after the
+ * drop (including the moved item), renumbered 1..N. The source break's
+ * other items are left exactly where they are — position doesn't need to
+ * stay contiguous, only correctly ordered.
+ *
+ * "Moved" is now a plain rundown edit, not a broadcast outcome — see
+ * lib/log/mid-broadcast.ts's file header. Nothing is written to
+ * log_broadcast_events, and nothing is left behind at the old spot.
+ * Underwriting credits are excluded entirely: they're relocated through
+ * Underwriting & Traffic's own placement/makegood mechanism instead.
+ */
+export async function relocateRundownItem(
+  itemId: string,
+  destinationBreakId: string,
+  orderedItemIds: string[],
+): Promise<{ error?: string }> {
+  await assertLogAccess();
+
+  const item = await getRundownItem(itemId);
+  if (!item) return { error: "That item no longer exists." };
+  if (item.item_kind === "underwriting_credit") {
+    return { error: "Underwriting credits are moved from the Underwriting & Traffic tool." };
+  }
+
+  const destinationBreak = await getRundownBreak(destinationBreakId);
+  if (!destinationBreak) return { error: "That break no longer exists." };
+
+  if (item.break_id !== destinationBreakId) {
+    const destinationItems = await listItemsForBreak(destinationBreakId);
+    const alreadyThere = destinationItems.filter((existing) => existing.id !== itemId);
+
+    let kind: RelocatableItemKind = "live_read";
+    let contentType: string | null = null;
+    if (item.item_kind === "content" && item.content_item_id) {
+      kind = "content";
+      const contentItem = await getContentItemDetail(item.content_item_id);
+      contentType = contentItem?.content_type ?? null;
+    } else if (item.item_kind === "weather") {
+      kind = "weather";
+    }
+
+    // nowISO is null here (not the "already in the past" gate) — that check
+    // is a client-side UX hint only, same reasoning duration-fit warnings
+    // use elsewhere in Log: the schema and this write don't need to enforce
+    // it to stay correct. Capacity and content-type eligibility do.
+    const eligible = isValidMoveDestination(
+      {
+        id: destinationBreak.id,
+        scheduled_at: destinationBreak.scheduled_at,
+        permitted_content_types: destinationBreak.permitted_content_types,
+        allow_multiple: destinationBreak.allow_multiple,
+        item_count: alreadyThere.length,
+      },
+      item.break_id,
+      kind,
+      contentType as LogContentType | null,
+      null,
+    );
+    if (!eligible) return { error: "That break can't hold this item." };
+  }
+
+  const supabase = await createClient();
+  const results = await Promise.all(
+    orderedItemIds.map((id, index) =>
+      supabase
+        .from("log_rundown_items")
+        .update({ break_id: destinationBreakId, position: index + 1 })
+        .eq("id", id),
+    ),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) return { error: "Could not move this item." };
+
+  return {};
 }

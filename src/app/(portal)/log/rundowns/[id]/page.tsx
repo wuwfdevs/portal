@@ -3,14 +3,11 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
-import {
-  CONTENT_TYPE_LABEL,
-  WEATHER_ITEM_SENTINEL,
-  computeTotalDurationSeconds,
-} from "@/lib/log/content-library";
+import { Select } from "@/components/ui/input";
+import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "@/lib/log/content-library";
 import {
   getRundownDetail,
+  hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
   listContentItems,
   listLocalOpportunitiesForVersion,
@@ -23,7 +20,7 @@ import {
   type ConsoleBreakLike,
   type LiveTimingState,
 } from "@/lib/log/console-timing";
-import { listValidMoveDestinations, type MoveDestinationBreakLike } from "@/lib/log/mid-broadcast";
+import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
 import { computeBreakFit, computeBreakStatus, computeRundownSummary } from "@/lib/log/timing";
@@ -33,21 +30,24 @@ import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../log-poller";
 import {
+  attestUnderwritingCredits,
   markAired,
   markMissed,
-  moveRundownItem,
   startBroadcast,
   submitRundown,
 } from "../../broadcast-actions";
 import {
-  fillRundownItem,
+  relocateRundownItem,
   removeRundownItem,
   syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
 import { CopyDisplay } from "./copy-display";
-import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
+import type { NprLookaheadItem } from "./live-read-form";
+import type { InsertConfig } from "./insertion-point";
+import { RundownItemCard } from "./rundown-item-card";
 import { RundownLiveLayout } from "./rundown-live-layout";
+import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
 import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
 
 // One screen, not two. Builder and console used to be separate routes —
@@ -114,10 +114,10 @@ export default async function RundownDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; moved_from?: string; moved_to?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { error, moved_from, moved_to } = await searchParams;
+  const { error } = await searchParams;
   const rundown = await getRundownDetail(id);
   if (!rundown) notFound();
 
@@ -186,21 +186,13 @@ export default async function RundownDetailPage({
   const timing = live ? computeLiveTimingState(now, consoleBreaks, rundown.shift_end_at) : null;
   const currentBreakId = timing?.currentBreak?.id ?? null;
 
-  const destinationBreaks: MoveDestinationBreakLike[] = rundown.breaks.map((brk) => ({
-    id: brk.id,
-    scheduled_at: brk.scheduled_at,
-    permitted_content_types: brk.permitted_content_types,
-    allow_multiple: brk.allow_multiple,
-    item_count: brk.items.length,
-  }));
-
-  // NPR is fetched regardless of live status — a host planning a break
-  // ahead of air wants to see (and pick a look-ahead from) upcoming stories
-  // the same way they'd plan around a promo or a weather item, not just
-  // once the broadcast has started. Weather has no equivalent build-time
-  // use, so it stays live-only.
+  // Both NPR and weather are fetched regardless of live status — a host
+  // planning a break ahead of air wants to see (and pick a look-ahead from)
+  // upcoming stories, and to add and check today's weather item, the same
+  // way they'd plan around a promo, not just once the broadcast has
+  // started.
   const [weather, npr] = await Promise.all([
-    live ? getCurrentWeatherReading() : Promise.resolve(null),
+    getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
   ]);
   const nprLookaheadItems: NprLookaheadItem[] = npr?.kind === "found" ? npr.items : [];
@@ -217,136 +209,268 @@ export default async function RundownDetailPage({
       )
     : [];
 
-  const renderFillControls = (brk: RundownBreakDetail) => {
+  // The wrap-up panel's underwriting attestation — see broadcast-actions.ts's
+  // submitRundown/attestUnderwritingCredits for the write side.
+  const underwritingItems = allItems.filter((item) => item.item_kind === "underwriting_credit");
+  const unconfirmedUnderwritingCount = underwritingItems.filter(
+    (item) => (eventCountByItem.get(item.id) ?? 0) === 0,
+  ).length;
+  const hasOpenExceptions = live ? await hasOpenUnderwritingExceptions(rundown.id) : false;
+
+  // Config for the breaks board's insertion points (insertion-point.tsx) —
+  // replaces the old bottom-of-break "Add…" <select> + "Create a one-off
+  // live read" <details> entirely. Null when the break can't take anything
+  // more, same canAddMore gate the old dropdown used.
+  const buildInsertConfig = (brk: RundownBreakDetail): InsertConfig | null => {
     const canAddMore = brk.allow_multiple || brk.items.length === 0;
     if (!canAddMore) return null;
-    const eligible = filterEligibleContent(
-      approvedContent,
-      brk,
-      rundown.program_id,
-      rundown.air_date,
-    );
-    const permitsWeather = brk.permitted_content_types.includes("weather");
+    const eligible = filterEligibleContent(approvedContent, brk, rundown.program_id, rundown.air_date);
 
-    return (
-      <div className="flex flex-col gap-2 border-t border-line px-5 py-3">
-        <form action={fillRundownItem} className="flex flex-wrap items-center gap-1.5">
-          <input type="hidden" name="rundown_id" value={rundown.id} />
-          <input type="hidden" name="break_id" value={brk.id} />
-          <Select
-            name="content_item_id"
-            className="max-w-[220px]"
-            disabled={eligible.length === 0 && !permitsWeather}
-            defaultValue=""
-          >
-            <option value="" disabled>
-              {eligible.length === 0 && !permitsWeather ? "No eligible content" : "Add…"}
-            </option>
-            {permitsWeather && <option value={WEATHER_ITEM_SENTINEL}>Today&apos;s weather</option>}
-            {eligible.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.title}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
-            Add
-          </Button>
-        </form>
-        <LiveReadForm rundownId={rundown.id} breakId={brk.id} nprItems={nprLookaheadItems} />
-      </div>
-    );
+    return {
+      rundownId: rundown.id,
+      breakId: brk.id,
+      eligibleContent: eligible.map((candidate) => ({ id: candidate.id, title: candidate.title })),
+      permitsWeather: brk.permitted_content_types.includes("weather"),
+      nprItems: nprLookaheadItems,
+    };
   };
 
-  const renderMidBroadcastActions = (
-    item: RundownItemDetail,
-    brk: RundownBreakDetail,
-    compact: boolean,
-  ) => {
+  // Aired is the only mid-broadcast outcome ordinary content still shows —
+  // "Move" is gone, replaced entirely by the breaks board's drag-and-drop (a
+  // plain rundown edit now, not a broadcast outcome; see
+  // lib/log/mid-broadcast.ts), and "missed" for ordinary content is just
+  // Remove (stage 1) — nothing downstream needs a record of it.
+  //
+  // Underwriting credits get a visually distinct callout instead of blending
+  // in with ordinary content: they're the one item kind with a real
+  // contractual "must air" obligation, and the only kind whose outcome the
+  // exception/makegood pipeline reacts to
+  // (uw_flag_exception_from_broadcast_event). Flagging one as missed doesn't
+  // ask the host to fix it here — that trigger already opens a
+  // uw_exceptions row Underwriting & Traffic's own screens handle (a
+  // makegood, an accepted alternate, or a waiver); the host's job is just to
+  // say honestly whether it aired.
+  const renderMidBroadcastActions = (item: RundownItemDetail, compact: boolean, breakScheduledAt: string) => {
     const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
     if (!live || confirmed) return null;
-    const moveDestinations =
-      item.item_kind === "content" && item.contentItem
-        ? listValidMoveDestinations(
-            destinationBreaks,
-            brk.id,
-            item.contentItem.content_type as LogContentType,
-            now,
-          )
-        : [];
-    const buttonClass = compact ? "px-2.5 py-1.5 text-xs" : undefined;
-    const detailsSummaryClass = compact
-      ? "inline-flex cursor-pointer items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700"
-      : "inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700";
+
+    if (item.item_kind === "underwriting_credit") {
+      return (
+        <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+          <p className="mb-2 text-sm font-semibold text-ink-900">
+            Did this air at {formatStationTimestamp(breakScheduledAt)}?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <form action={markAired}>
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <input type="hidden" name="item_id" value={item.id} />
+              <Button type="submit">Yes, aired</Button>
+            </form>
+            <details className="inline-block">
+              <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
+                No — flag it
+              </summary>
+              <form
+                action={markMissed}
+                className="mt-2 flex flex-col gap-2 rounded border border-line bg-white p-3"
+              >
+                <input type="hidden" name="rundown_id" value={rundown.id} />
+                <input type="hidden" name="item_id" value={item.id} />
+                <Select name="reason" required defaultValue="">
+                  <option value="" disabled>
+                    Reason…
+                  </option>
+                  {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder="Brief note (optional)"
+                  className="rounded border border-line px-3 py-2 text-sm"
+                />
+                <Button type="submit" variant="secondary">
+                  Record missed
+                </Button>
+              </form>
+            </details>
+          </div>
+          <p className="mt-2 text-xs text-ink-700">
+            Flagging this opens an exception for Underwriting &amp; Traffic to resolve — a makegood, an
+            accepted alternate, or a waiver. Nothing more to do here.
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className={`flex flex-wrap gap-2 ${compact ? "mt-2" : "mt-3"}`}>
         <form action={markAired}>
           <input type="hidden" name="rundown_id" value={rundown.id} />
           <input type="hidden" name="item_id" value={item.id} />
-          <Button type="submit" className={buttonClass}>
+          <Button type="submit" className={compact ? "px-2.5 py-1.5 text-xs" : undefined}>
             Aired
           </Button>
         </form>
-
-        <details className="inline-block">
-          <summary className={detailsSummaryClass}>Missed</summary>
-          <form
-            action={markMissed}
-            className="mt-2 flex flex-col gap-2 rounded border border-line p-3"
-          >
-            <input type="hidden" name="rundown_id" value={rundown.id} />
-            <input type="hidden" name="item_id" value={item.id} />
-            <Select name="reason" required defaultValue="">
-              <option value="" disabled>
-                Reason…
-              </option>
-              {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-            <input
-              type="text"
-              name="notes"
-              placeholder="Brief note (optional)"
-              className="rounded border border-line px-3 py-2 text-sm"
-            />
-            <Button type="submit" variant="secondary">
-              Record missed
-            </Button>
-          </form>
-        </details>
-
-        {moveDestinations.length > 0 && (
-          <details className="inline-block">
-            <summary className={detailsSummaryClass}>Move</summary>
-            <form
-              action={moveRundownItem}
-              className="mt-2 flex flex-col gap-2 rounded border border-line p-3"
-            >
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <input type="hidden" name="source_item_id" value={item.id} />
-              <Select name="destination_break_id" required defaultValue="">
-                <option value="" disabled>
-                  Choose an opening…
-                </option>
-                {moveDestinations.map((destination) => (
-                  <option key={destination.id} value={destination.id}>
-                    {formatStationTimestamp(destination.scheduled_at)}
-                  </option>
-                ))}
-              </Select>
-              <Button type="submit" variant="secondary">
-                Move
-              </Button>
-            </form>
-          </details>
-        )}
       </div>
     );
   };
+
+  // Every break/item view model the breaks board (drag-and-drop) needs to
+  // render and validate drops — built here, server-side, from the same data
+  // the old inline rendering used, so nothing about what's shown changes,
+  // only how relocation works.
+  const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk) => {
+    const occupied = brk.items.reduce((total, item) => total + itemDuration(item), 0);
+    const fit = computeBreakFit(brk.available_duration_seconds, occupied);
+    const status = computeBreakStatus({
+      requirement: brk.requirement,
+      item_count: brk.items.length,
+      fit,
+    });
+    const isCurrent = live && brk.id === currentBreakId;
+
+    const statusBadge =
+      status === "carrying_network" ? (
+        <Badge variant="muted">Carrying network</Badge>
+      ) : status === "unresolved_required" ? (
+        <Badge variant="danger">Needs something</Badge>
+      ) : status === "over" ? (
+        <Badge variant="danger">{fit.overSeconds}s over</Badge>
+      ) : (
+        <Badge variant="success">{fit.remainingSeconds}s to spare</Badge>
+      );
+
+    const items: BreakBoardItem[] = brk.items.map((item) => {
+      const copy = item.underwriting_copy_id ? copyById.get(item.underwriting_copy_id) : null;
+      const effectiveScript =
+        item.override_script ??
+        item.contentItem?.script ??
+        copy?.script ??
+        item.live_read_script ??
+        (item.item_kind === "weather" ? (weather.reading?.live_read_text ?? null) : null);
+      const masterDuration = item.contentItem
+        ? computeTotalDurationSeconds(item.contentItem.components, item.contentItem.expected_duration_seconds)
+        : null;
+      const isOverridden =
+        item.override_duration_seconds !== null ||
+        item.override_script !== null ||
+        item.override_live_intro_seconds !== null ||
+        item.override_live_outro_seconds !== null ||
+        item.override_tag_seconds !== null;
+      const title = item.contentItem?.title ?? item.live_read_title ?? copy?.label ?? "Weather";
+      // Flags a look-ahead whose source story may no longer exist in the
+      // current NPR episode data — a real, if rare, mid-broadcast story
+      // substitution (see the migration's comment). Never auto-corrected;
+      // just surfaced so a host can check it before airing.
+      const nprSourceStale =
+        item.source_npr_item_id !== null && !currentNprItemIds.has(item.source_npr_item_id);
+      const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
+      const kind: RelocatableItemKind | "underwriting_credit" =
+        item.item_kind === "content" || item.item_kind === "weather" || item.item_kind === "live_read"
+          ? item.item_kind
+          : "underwriting_credit";
+
+      return {
+        id: item.id,
+        kind,
+        contentType: (item.contentItem?.content_type as LogContentType | undefined) ?? null,
+        draggable: kind !== "underwriting_credit" && !confirmed,
+        label: title,
+        node: (
+          <>
+            {nprSourceStale && (
+              <Badge variant="danger" className="mb-2">
+                Source story may have changed — check before airing
+              </Badge>
+            )}
+            <RundownItemCard
+              rundownId={rundown.id}
+              itemId={item.id}
+              title={title}
+              durationSeconds={isCurrent ? null : itemDuration(item)}
+              editable={item.item_kind === "content" || item.item_kind === "weather"}
+              removable={item.item_kind !== "underwriting_credit"}
+              overrideScript={item.override_script}
+              overrideDurationSeconds={item.override_duration_seconds}
+              updateItemOverridesAction={updateItemOverrides}
+              removeRundownItemAction={removeRundownItem}
+              midBroadcastActions={renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at)}
+              readView={
+                isCurrent ? (
+                  <CopyDisplay
+                    title={title}
+                    script={effectiveScript}
+                    summary={item.contentItem?.summary ?? null}
+                  />
+                ) : (
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="accent">{ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}</Badge>
+                      {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
+                      <span className="text-sm font-semibold text-ink-900">{title}</span>
+                    </div>
+                    {item.contentItem && (
+                      <div className="mt-0.5 text-xs text-ink-400">
+                        {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
+                        {masterDuration !== null && ` · master ${masterDuration}s`}
+                      </div>
+                    )}
+                    {copy && (
+                      <div className="mt-0.5 text-xs text-ink-400">
+                        {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+                      </div>
+                    )}
+                    {effectiveScript && (
+                      <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">{effectiveScript}</p>
+                    )}
+                  </div>
+                )
+              }
+            />
+          </>
+        ),
+      };
+    });
+
+    return {
+      id: brk.id,
+      scheduledAt: brk.scheduled_at,
+      label: `${formatStationTimestamp(brk.scheduled_at)} — ${brk.label}`,
+      permittedContentTypes: brk.permitted_content_types,
+      allowMultiple: brk.allow_multiple,
+      isCurrent,
+      headerNode: (
+        <div className="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-50 px-5 py-3">
+          {isCurrent && <Badge variant="warning">Live now</Badge>}
+          <span className="font-mono text-sm font-bold text-ink-900">
+            {formatStationTimestamp(brk.scheduled_at)}
+          </span>
+          <span className="text-sm font-semibold text-ink-900">{brk.label}</span>
+          <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
+          <span className="ml-auto text-xs text-ink-500">
+            Rejoin network by {formatStationTimestamp(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
+            available
+          </span>
+        </div>
+      ),
+      statusNode: (
+        <div className="flex flex-wrap items-center gap-2 px-5 pt-3">
+          {statusBadge}
+          {status === "carrying_network" && (
+            <span className="text-xs text-ink-400">
+              Nothing placed — the network feed simply continues. That&apos;s fine.
+            </span>
+          )}
+        </div>
+      ),
+      insertConfig: buildInsertConfig(brk),
+      items,
+    };
+  });
 
   const mainContent = (
     <>
@@ -365,21 +489,6 @@ export default async function RundownDetailPage({
       </p>
 
       {error && <Alert className="mb-4">{error}</Alert>}
-      {moved_from && moved_to && (
-        <Alert variant="info" className="mb-4">
-          <div className="flex items-center justify-between gap-3">
-            <span>Moved.</span>
-            <form action={moveRundownItem}>
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <input type="hidden" name="source_item_id" value={moved_to} />
-              <input type="hidden" name="destination_break_id" value={currentBreakId ?? ""} />
-              <Button type="submit" variant="ghost">
-                Dismiss
-              </Button>
-            </form>
-          </div>
-        </Alert>
-      )}
 
       <div className="mb-6 flex flex-wrap gap-2 text-xs text-ink-700">
         <Badge variant={summary.ready ? "success" : "warning"}>{summary.filledBreaks} filled</Badge>
@@ -418,212 +527,7 @@ export default async function RundownDetailPage({
           clock template screen.
         </div>
       ) : (
-        <ol className="flex flex-col gap-4">
-          {rundown.breaks.map((brk) => {
-            const occupied = brk.items.reduce((total, item) => total + itemDuration(item), 0);
-            const fit = computeBreakFit(brk.available_duration_seconds, occupied);
-            const status = computeBreakStatus({
-              requirement: brk.requirement,
-              item_count: brk.items.length,
-              fit,
-            });
-            const isCurrent = live && brk.id === currentBreakId;
-
-            const statusBadge =
-              status === "carrying_network" ? (
-                <Badge variant="muted">Carrying network</Badge>
-              ) : status === "unresolved_required" ? (
-                <Badge variant="danger">Needs something</Badge>
-              ) : status === "over" ? (
-                <Badge variant="danger">{fit.overSeconds}s over</Badge>
-              ) : (
-                <Badge variant="success">{fit.remainingSeconds}s to spare</Badge>
-              );
-
-            return (
-              <li
-                key={brk.id}
-                id={isCurrent ? "current-break" : undefined}
-                className={
-                  isCurrent ? "rounded border-2 border-brand-primary" : "rounded border border-line"
-                }
-              >
-                <div className="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-50 px-5 py-3">
-                  {isCurrent && <Badge variant="warning">Live now</Badge>}
-                  <span className="font-mono text-sm font-bold text-ink-900">
-                    {formatStationTimestamp(brk.scheduled_at)}
-                  </span>
-                  <span className="text-sm font-semibold text-ink-900">{brk.label}</span>
-                  <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>
-                    {brk.requirement}
-                  </Badge>
-                  <span className="ml-auto text-xs text-ink-500">
-                    Rejoin network by {formatStationTimestamp(brk.network_rejoin_at)} ·{" "}
-                    {brk.available_duration_seconds}s available
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 px-5 pt-3">
-                  {statusBadge}
-                  {status === "carrying_network" && (
-                    <span className="text-xs text-ink-400">
-                      Nothing placed — the network feed simply continues. That&apos;s fine.
-                    </span>
-                  )}
-                </div>
-
-                {brk.items.length > 0 && (
-                  <ul className="flex flex-col gap-3 px-5 py-4">
-                    {brk.items.map((item) => {
-                      const copy = item.underwriting_copy_id
-                        ? copyById.get(item.underwriting_copy_id)
-                        : null;
-                      const effectiveScript =
-                        item.override_script ??
-                        item.contentItem?.script ??
-                        copy?.script ??
-                        item.live_read_script;
-                      const masterDuration = item.contentItem
-                        ? computeTotalDurationSeconds(
-                            item.contentItem.components,
-                            item.contentItem.expected_duration_seconds,
-                          )
-                        : null;
-                      const isOverridden =
-                        item.override_duration_seconds !== null ||
-                        item.override_script !== null ||
-                        item.override_live_intro_seconds !== null ||
-                        item.override_live_outro_seconds !== null ||
-                        item.override_tag_seconds !== null;
-                      const title =
-                        item.contentItem?.title ?? item.live_read_title ?? copy?.label ?? "Weather";
-                      // Flags a look-ahead whose source story may no longer exist in the
-                      // current NPR episode data — a real, if rare, mid-broadcast story
-                      // substitution (see the migration's comment). Never auto-corrected;
-                      // just surfaced so a host can check it before airing.
-                      const nprSourceStale =
-                        item.source_npr_item_id !== null &&
-                        !currentNprItemIds.has(item.source_npr_item_id);
-
-                      return (
-                        <li
-                          key={item.id}
-                          className="rounded border border-line/70 bg-panel-50/50 p-3"
-                        >
-                          {nprSourceStale && (
-                            <Badge variant="danger" className="mb-2">
-                              Source story may have changed — check before airing
-                            </Badge>
-                          )}
-                          {isCurrent ? (
-                            <CopyDisplay
-                              title={title}
-                              script={effectiveScript}
-                              summary={item.contentItem?.summary ?? null}
-                            />
-                          ) : (
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <Badge variant="accent">
-                                    {ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}
-                                  </Badge>
-                                  {isOverridden && (
-                                    <Badge variant="warning">overridden for this airing</Badge>
-                                  )}
-                                  <span className="text-sm font-semibold text-ink-900">
-                                    {title}
-                                  </span>
-                                </div>
-                                {item.contentItem && (
-                                  <div className="mt-0.5 text-xs text-ink-400">
-                                    {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
-                                    {masterDuration !== null && ` · master ${masterDuration}s`}
-                                  </div>
-                                )}
-                                {copy && (
-                                  <div className="mt-0.5 text-xs text-ink-400">
-                                    {copy.execution_kind === "recorded"
-                                      ? `DAD cart ${copy.cart_identifier ?? "—"}`
-                                      : "Live read"}
-                                  </div>
-                                )}
-                                {effectiveScript && (
-                                  <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">
-                                    {effectiveScript}
-                                  </p>
-                                )}
-                              </div>
-                              <span className="shrink-0 font-mono text-xs font-semibold text-ink-900">
-                                {itemDuration(item)}s
-                              </span>
-                            </div>
-                          )}
-
-                          {renderMidBroadcastActions(item, brk, !isCurrent)}
-
-                          {item.item_kind !== "underwriting_credit" && (
-                            <div className="mt-2 flex flex-wrap items-center gap-3">
-                              <form action={removeRundownItem}>
-                                <input type="hidden" name="rundown_id" value={rundown.id} />
-                                <input type="hidden" name="item_id" value={item.id} />
-                                <Button
-                                  type="submit"
-                                  variant="ghost"
-                                  className="px-2.5 py-1.5 text-xs"
-                                >
-                                  Remove
-                                </Button>
-                              </form>
-                              {(item.item_kind === "content" || item.item_kind === "weather") && (
-                                <details>
-                                  <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                                    Adjust for this airing
-                                  </summary>
-                                  <form
-                                    action={updateItemOverrides}
-                                    className="mt-2 flex flex-col gap-2"
-                                  >
-                                    <input type="hidden" name="rundown_id" value={rundown.id} />
-                                    <input type="hidden" name="item_id" value={item.id} />
-                                    <Input
-                                      name="override_script"
-                                      placeholder="Script for this airing only"
-                                      defaultValue={item.override_script ?? ""}
-                                    />
-                                    <div className="flex gap-2">
-                                      <Input
-                                        name="override_duration_seconds"
-                                        type="number"
-                                        min={1}
-                                        placeholder="Duration (s)"
-                                        defaultValue={item.override_duration_seconds ?? ""}
-                                        className="w-32"
-                                      />
-                                      <Button
-                                        type="submit"
-                                        variant="secondary"
-                                        className="px-2.5 py-1.5 text-xs"
-                                      >
-                                        Save override
-                                      </Button>
-                                    </div>
-                                  </form>
-                                </details>
-                              )}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {renderFillControls(brk)}
-              </li>
-            );
-          })}
-        </ol>
+        <RundownBreaksBoard breaks={breakBoardBreaks} live={live} nowISO={now} relocateItem={relocateRundownItem} />
       )}
     </>
   );
@@ -639,15 +543,38 @@ export default async function RundownDetailPage({
 
       <div className="rounded border border-line p-4">
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Weather</div>
-        {!live ? (
-          <p className="text-xs text-ink-400">Shown once the broadcast starts.</p>
-        ) : weather?.reading ? (
+        {weather.reading ? (
           <>
             <p className="text-sm text-ink-700">{weather.reading.condensed_text}</p>
             <p className="mt-1 text-xs text-ink-400">
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
             </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                Full forecast
+              </summary>
+              <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
+                {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
+                  <p className="font-semibold text-ink-900">
+                    {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
+                    {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
+                    {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
+                  </p>
+                )}
+                <p>{weather.reading.conditions_summary}</p>
+                {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
+                {weather.reading.hazards && (
+                  <p className="font-semibold text-danger">{weather.reading.hazards}</p>
+                )}
+                <p className="whitespace-pre-wrap border-t border-line pt-1.5">
+                  {weather.reading.live_read_text}
+                </p>
+                <p className="text-ink-400">
+                  Valid through {formatStationTimestamp(weather.reading.valid_through_at)}
+                </p>
+              </div>
+            </details>
           </>
         ) : (
           <p className="text-xs text-ink-400">No reading yet.</p>
@@ -702,15 +629,50 @@ export default async function RundownDetailPage({
             {unresolvedEntries.length > 0 && (
               <p className="mb-3 text-xs text-ink-500">
                 {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
-                need an aired, missed, or moved outcome — or content for a required break.
-                Submitting doesn&apos;t require resolving them first.
+                need an aired or missed outcome — or content for a required break. Submitting
+                doesn&apos;t require resolving them first.
               </p>
             )}
+
+            {underwritingItems.length > 0 && (
+              <div className="mb-3 rounded border border-line bg-panel-50 p-3">
+                <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
+                  Underwriting credits
+                </div>
+                {unconfirmedUnderwritingCount > 0 && (
+                  <>
+                    <p className="mb-2 text-xs text-ink-700">
+                      {unconfirmedUnderwritingCount} credit{unconfirmedUnderwritingCount === 1 ? "" : "s"}{" "}
+                      haven&apos;t been confirmed one way or the other. Attesting marks all of them
+                      aired as scheduled — never anything already recorded as aired or missed.
+                    </p>
+                    <form action={attestUnderwritingCredits}>
+                      <input type="hidden" name="rundown_id" value={rundown.id} />
+                      <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                        Attest {unconfirmedUnderwritingCount} aired as scheduled
+                      </Button>
+                    </form>
+                  </>
+                )}
+                {hasOpenExceptions && (
+                  <Alert variant="danger" className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}>
+                    This rundown has an unresolved underwriting exception. Submission is blocked
+                    until it&apos;s resolved in Underwriting &amp; Traffic — a makegood, an accepted
+                    alternate, or a waiver.
+                  </Alert>
+                )}
+                {unconfirmedUnderwritingCount === 0 && !hasOpenExceptions && (
+                  <p className="text-xs text-ink-500">Every credit is confirmed or resolved.</p>
+                )}
+              </div>
+            )}
+
             <form action={submitRundown}>
               <input type="hidden" name="rundown_id" value={rundown.id} />
               <Button
                 type="submit"
                 variant={rundown.status === "submitted" ? "secondary" : "primary"}
+                disabled={hasOpenExceptions}
               >
                 {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
               </Button>

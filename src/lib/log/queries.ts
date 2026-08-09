@@ -487,6 +487,25 @@ export async function listUnderwritingCopyForItems(copyIds: string[]): Promise<U
   );
 }
 
+/**
+ * Whether any underwriting credit in this rundown has an open, unresolved
+ * uw_exceptions row — backs the submission attestation gate (page.tsx's
+ * wrap-up panel, broadcast-actions.ts's submitRundown). Goes through
+ * uw_has_open_exceptions_for_rundown(), a security-definer function owned
+ * by Underwriting's own migration (20260809120000_uw_open_exceptions_for_
+ * rundown.sql) — uw_exceptions' own RLS is scoped to underwriting access,
+ * which most Log hosts don't have.
+ */
+export async function hasOpenUnderwritingExceptions(rundownId: string): Promise<boolean> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase.rpc("uw_has_open_exceptions_for_rundown", { p_rundown_id: rundownId }),
+      "this rundown's underwriting exception status",
+    ) ?? false
+  );
+}
+
 /** Every broadcast event for a set of rundown items, most recent first — used to derive each item's confirmed/outcome state on the console. */
 export async function listBroadcastEventsForItems(rundownItemIds: string[]): Promise<LogBroadcastEventRow[]> {
   if (rundownItemIds.length === 0) return [];
