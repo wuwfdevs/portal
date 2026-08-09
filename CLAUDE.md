@@ -1724,6 +1724,32 @@ contract page's "Auto-fill remaining" button no longer hides itself when a
 line currently has zero eligible breaks — that used to mean "nothing to
 do," and now means "click it and it'll make some."
 
+**Bug found the same day, running auto-fill against the real Autumn Beck
+Blackledge contract for the first time with provisioning live: a program
+with no local opportunities at all wasted 25 rundowns before saying so.**
+The Tuesday schedule line targets All Things Considered — a real gap
+already on record (CLAUDE.md's Log domain redesign note: only Morning
+Edition ever got real local-opportunity data seeded; "deliberately nothing
+for the other twelve seeded clocks, since inventing opportunities without
+WUWF confirmation would be exactly the mistake this correction fixes").
+ATC's clock genuinely has zero `log_local_opportunities` rows, so there is
+no slot anywhere on it a credit could ever occupy — correct, expected
+behavior given the data. What wasn't correct: `provisionRundownsForDates()`
+still generated a rundown for all 25 remaining Tuesdays before discovering
+each one was useless, producing "generated 99 rundowns... placed 75
+credits... more are still needed" with no explanation, and leaving 25
+empty rundowns behind as clutter. Fixed by checking, before generating,
+whether the resolved clock version has *any* local opportunity permitting
+`underwriting_credit` — if not, the date is reported as unschedulable
+immediately, the same bucket as "no schedule entry" or "no clock version
+in effect," and no rundown is written. The 25 empty ATC rundowns this
+produced were deleted from preview (production was never touched — it has
+no ATC rundowns at all). Tuesday genuinely can't be auto-filled until a
+Log producer adds a local opportunity to All Things Considered's own clock
+— ATC airs 3:00–5:00pm and the contract wants ~4:48pm, so an avail around
+the 108-minute mark would match, the same mechanism Morning Edition's own
+opportunities already use.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
