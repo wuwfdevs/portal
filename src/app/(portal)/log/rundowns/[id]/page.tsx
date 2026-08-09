@@ -354,8 +354,9 @@ export default async function RundownDetailPage({
         ← Back to Today
       </Link>
 
+      {/* rundown.programName itself is the sticky bar's <h1> (rundown-live-layout.tsx) —
+          not repeated here, see the "two program name headers" fix. */}
       <div className="mt-2 mb-1 flex flex-wrap items-center gap-2.5">
-        <h2 className="font-serif text-xl font-bold text-ink-900">{rundown.programName}</h2>
         <Badge variant={STATUS_VARIANT[rundown.status]}>{rundown.status.replace("_", " ")}</Badge>
       </div>
       <p className="mb-4 text-xs text-ink-500">
