@@ -197,6 +197,14 @@ export function RundownBreaksBoard({
     const destinationBreakId = order[overId] ? overId : containerOf(overId);
     if (!sourceBreakId || !destinationBreakId) return;
 
+    // Underwriting credits have no reorderable position within a break —
+    // relocateUnderwritingCredit only moves a credit to a *different* break
+    // and rejects a same-break destination outright (RELOCATE_CREDIT_ERRORS'
+    // "same_break") — so dropping one back into its own break, the most
+    // common gesture when a break holds several items, must no-op instead of
+    // firing a doomed server call that then snaps the card back.
+    if (destinationBreakId === sourceBreakId && itemsById.get(itemId)?.kind === "underwriting_credit") return;
+
     // A same-break reorder never needs the eligibility check below — the
     // item is already there, dropping doesn't add capacity pressure. A
     // cross-break drop does, and dnd-kit lets you drop onto another item's
