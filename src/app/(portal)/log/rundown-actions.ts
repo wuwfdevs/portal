@@ -41,7 +41,8 @@ export async function generateRundown(formData: FormData): Promise<void> {
   await assertLogAccess();
   const scheduleEntryId = field(formData, "schedule_entry_id");
   const airDate = field(formData, "air_date");
-  if (scheduleEntryId === "" || airDate === "") failWith("/log", "Choose a program to generate a rundown for.");
+  if (scheduleEntryId === "" || airDate === "")
+    failWith("/log", "Choose a program to generate a rundown for.");
 
   const scheduleEntry = await getScheduleEntry(scheduleEntryId);
   if (!scheduleEntry) failWith("/log", "That schedule entry no longer exists.");
@@ -78,7 +79,11 @@ export async function generateRundown(formData: FormData): Promise<void> {
   failIfError(rundownError, "/log", "Could not generate the rundown");
   if (!rundown) failWith("/log", "Could not generate the rundown.");
 
-  const drafts = buildRundownBreakDrafts(opportunities, shiftStartAt, scheduleEntry.duration_minutes);
+  const drafts = buildRundownBreakDrafts(
+    opportunities,
+    shiftStartAt,
+    scheduleEntry.duration_minutes,
+  );
   if (drafts.length > 0) {
     // upsert + ignoreDuplicates against the unique (rundown_id,
     // local_opportunity_id, scheduled_at) constraint — not just a plain
@@ -101,7 +106,11 @@ export async function generateRundown(formData: FormData): Promise<void> {
       })),
       { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
     );
-    failIfError(breaksError, "/log", "Rundown created, but its local-opportunity breaks could not be generated");
+    failIfError(
+      breaksError,
+      "/log",
+      "Rundown created, but its local-opportunity breaks could not be generated",
+    );
   }
 
   revalidatePath("/log");
@@ -129,9 +138,14 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
 
   const opportunities = await listLocalOpportunitiesForVersion(rundown.clock_version_id);
   const shiftDurationMinutes = Math.round(
-    (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) / 60_000,
+    (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
+      60_000,
   );
-  const drafts = buildRundownBreakDrafts(opportunities, rundown.shift_start_at, shiftDurationMinutes);
+  const drafts = buildRundownBreakDrafts(
+    opportunities,
+    rundown.shift_start_at,
+    shiftDurationMinutes,
+  );
   const missing = selectMissingBreakDrafts(drafts, rundown.breaks);
 
   if (missing.length > 0) {
@@ -216,7 +230,15 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Creates a one-off, ad-hoc item with no library content_item — "create a new one-time item without leaving the rundown" (docs/log-design.md Workflow E). */
+/**
+ * Creates a one-off, ad-hoc item with no library content_item — "create a
+ * new one-time item without leaving the rundown" (docs/log-design.md
+ * Workflow E). Also how an NPR "look-ahead" gets made: the form's
+ * "Use as look-ahead" picker (live-read-form.tsx) just pre-fills title/
+ * script from an NPR story and stamps source_npr_item_id/
+ * source_npr_item_title alongside — it's still an ordinary live_read item,
+ * fully counted in the break's timing math, not a separate item_kind.
+ */
 export async function createLiveReadItem(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
@@ -224,9 +246,12 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   const title = field(formData, "title");
   const script = field(formData, "script");
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
+  const sourceNprItemId = field(formData, "source_npr_item_id");
+  const sourceNprItemTitle = field(formData, "source_npr_item_title");
   const path = rundownPath(rundownId);
   if (title === "") failWith(path, "Give this live-read item a short title.");
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) failWith(path, "Enter a duration in seconds.");
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+    failWith(path, "Enter a duration in seconds.");
 
   const supabase = await createClient();
   const { data: existingItems, error: countError } = await supabase
@@ -244,6 +269,8 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
     live_read_script: script || null,
     planned_duration_seconds: durationSeconds,
     placement_status: "editable",
+    source_npr_item_id: sourceNprItemId || null,
+    source_npr_item_title: sourceNprItemTitle || null,
   });
   failIfError(error, path, "Could not add this item");
 
@@ -314,11 +341,15 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
   if (plannedDurationSeconds === null && item?.content_item_id) {
     const contentItem = await getContentItemDetail(item.content_item_id);
     plannedDurationSeconds = contentItem
-      ? computeEffectiveDurationSeconds(contentItem.components, contentItem.expected_duration_seconds, {
-          override_live_intro_seconds: overrideLiveIntroSeconds,
-          override_live_outro_seconds: overrideLiveOutroSeconds,
-          override_tag_seconds: overrideTagSeconds,
-        })
+      ? computeEffectiveDurationSeconds(
+          contentItem.components,
+          contentItem.expected_duration_seconds,
+          {
+            override_live_intro_seconds: overrideLiveIntroSeconds,
+            override_live_outro_seconds: overrideLiveOutroSeconds,
+            override_tag_seconds: overrideTagSeconds,
+          },
+        )
       : null;
   }
 
@@ -331,7 +362,9 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
       override_live_intro_seconds: overrideLiveIntroSeconds,
       override_live_outro_seconds: overrideLiveOutroSeconds,
       override_tag_seconds: overrideTagSeconds,
-      ...(plannedDurationSeconds !== null ? { planned_duration_seconds: plannedDurationSeconds } : {}),
+      ...(plannedDurationSeconds !== null
+        ? { planned_duration_seconds: plannedDurationSeconds }
+        : {}),
     })
     .eq("id", itemId);
   failIfError(error, path, "Could not update this item");
