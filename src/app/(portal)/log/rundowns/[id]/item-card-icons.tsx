@@ -48,3 +48,21 @@ export function DotsIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** The "Move to…" menu item's icon — four-way move arrows. */
+export function MoveIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M8 0 5.5 2.5H7V6H3.5V4.5L0 8l3.5 3.5V10H7v3.5H5.5L8 16l2.5-2.5H9V10h3.5v1.5L16 8l-3.5-3.5V6H9V2.5h1.5L8 0Z" />
+    </svg>
+  );
+}
+
+/** The move submenu's "back to the main menu" affordance. */
+export function BackIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M10.7 2.3a1 1 0 0 1 0 1.4L6.4 8l4.3 4.3a1 1 0 0 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" />
+    </svg>
+  );
+}

@@ -255,25 +255,27 @@ function SortableItem({
     transition,
   };
 
+  const dragHandle = item.draggable ? (
+    <button
+      type="button"
+      {...attributes}
+      {...listeners}
+      aria-label={`Drag to reorder or move ${item.label}. Press space to pick up and arrow keys to move, or use its Move to… menu item.`}
+      className="mt-0.5 shrink-0 touch-none cursor-grab rounded px-0.5 text-ink-300 hover:text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-surface active:cursor-grabbing"
+    >
+      ⠿
+    </button>
+  ) : null;
+
   return (
     <li
       ref={setNodeRef}
       style={style}
       className={cn("rounded border border-line/70 bg-panel-50/50 p-3", isDragging && "opacity-50")}
     >
-      {item.draggable && (
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={`Drag to reorder or move ${item.label}. Press space to pick up and arrow keys to move, or use its Move to… menu item.`}
-          className="mb-1.5 touch-none cursor-grab rounded px-1 text-ink-300 hover:text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-surface active:cursor-grabbing"
-        >
-          ⠿
-        </button>
-      )}
       <RundownItemCard
         {...item.cardProps}
+        dragHandle={dragHandle}
         moveDestinations={item.draggable ? destinations.map((d) => ({ id: d.id, label: d.label })) : null}
         onMoveTo={item.draggable ? onMoveTo : null}
       />
