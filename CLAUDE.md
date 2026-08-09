@@ -1577,6 +1577,37 @@ capability (no `underwriting.creditLine.autoFill` MCP tool) — nothing asked
 for that yet, and `underwriting.credit.schedule` already covers one
 placement at a time for an agent caller.
 
+**Bug found and fixed the same day, live in production, before this had run
+against more than one real contract:** the scheduler had no concept of "one
+credit per calendar day" at all. `target_time` (e.g. "Monday ~7:49am") had
+only ever been a display label, never used to constrain anything — and a
+program's local opportunities can recur every hour (Morning Edition's
+generic post-newscast avails do), so a single Monday's rundown legitimately
+offers several eligible breaks, not one. The first cut of auto-fill treated
+each of those as separate demand and filled every one of them in a single
+run against the real Autumn Beck Blackledge contract — 8 credits into one
+Monday for a line that calls for exactly one a week — confirmed directly
+against production data (`created_at` timestamps ~35ms apart across all 8
+rows, one straightforward `for` loop's worth of sequential RPC calls).
+Fixed by `lib/underwriting/auto-fill-plan.ts`'s new `collapseToOnePerDay()`:
+before demand is ever assigned to a break, the eligible-breaks list is
+reduced to at most one candidate per `air_date` — whichever is closest to
+the schedule line's own `target_time` (converted to station-local minutes
+via `lib/log/timezone.ts`, since `target_time` is a plain wall-clock value
+and `scheduled_at` is UTC) — and any day the line already has an active
+placement on is dropped outright, so a makegood or a later run's fresh
+occurrence always lands on a *different* day rather than stacking a second
+credit onto one already spoken for. No migration; this is app-layer demand
+shaping in front of the same unchanged write path. The 8 wrongly-placed
+credits this produced against the real contract were cleared from preview
+(the incorrect placement + its `log_rundown_items` row deleted, matching
+exactly what `log_clear_underwriting_credit()` itself does) once the fix
+landed; production was never touched by this bug specifically — its only
+placements against this contract are three older, unrelated stray rows
+(same fixed system `created_by`/timestamp in both projects, predating this
+feature by a day) that are a separate, pre-existing data question, not this
+bug.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
