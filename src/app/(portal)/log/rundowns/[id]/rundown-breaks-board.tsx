@@ -162,7 +162,32 @@ export function RundownBreaksBoard({
       if (!eligible) return;
     }
 
-    const beforeItemId = order[overId] ? null : overId;
+    // Dropped directly on a break's own (empty) area, not on another item —
+    // always append to the end, nothing to be "before" or "after."
+    if (order[overId]) {
+      moveItem(itemId, destinationBreakId, null);
+      return;
+    }
+
+    // Dropped on another item: whether that means "insert before it" or
+    // "insert after it" depends on which side of the item's midpoint the
+    // pointer ended up on, not just which item it is — dragging down past
+    // an item and dragging up past it can both end with over.id equal to
+    // that same item. Always treating it as "insert before" (an earlier
+    // version) silently no-ops the single most common downward gesture:
+    // dragging an item down onto the very next one, since "insert before
+    // the next item" is exactly where it already sits.
+    const activeRect = active.rect.current.translated;
+    const overRect = over.rect;
+    const insertAfter =
+      activeRect && overRect
+        ? activeRect.top + activeRect.height / 2 > overRect.top + overRect.height / 2
+        : false;
+
+    const destinationItems = order[destinationBreakId] ?? [];
+    const overIndex = destinationItems.indexOf(overId);
+    const beforeItemId = insertAfter ? (destinationItems[overIndex + 1] ?? null) : overId;
+
     moveItem(itemId, destinationBreakId, beforeItemId);
   }
 
