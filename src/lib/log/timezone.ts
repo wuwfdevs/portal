@@ -51,6 +51,19 @@ export function formatStationTimestamp(iso: string): string {
   });
 }
 
+/**
+ * Adds (or, with a negative count, subtracts) whole days to a calendar date
+ * (YYYY-MM-DD), for prev/next-day navigation. Pure calendar-date arithmetic —
+ * anchored at noon UTC like formatStationDateLong so it never has to reason
+ * about the station's own offset, since shifting a bare calendar date by a
+ * day is the same operation regardless of timezone.
+ */
+export function shiftDateISO(dateISO: string, days: number): string {
+  const anchored = new Date(`${dateISO}T12:00:00Z`);
+  anchored.setUTCDate(anchored.getUTCDate() + days);
+  return anchored.toISOString().slice(0, 10);
+}
+
 /** The station's UTC offset, in minutes, at the given instant (e.g. -300 for CDT, -360 for CST). */
 function stationOffsetMinutesAt(instant: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
