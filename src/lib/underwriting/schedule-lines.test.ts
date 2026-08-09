@@ -3,6 +3,7 @@ import {
   countWeekdayOccurrences,
   describeScheduleLineRecurrence,
   expectedOccurrenceCount,
+  remainingOccurrenceDates,
   sumExpectedOccurrences,
   type ScheduleLineOccurrenceLike,
 } from "./schedule-lines";
@@ -63,6 +64,48 @@ describe("sumExpectedOccurrences — the real Autumn Beck Blackledge agreement",
   it("is null if any line is open-ended", () => {
     const lines: ScheduleLineOccurrenceLike[] = [line(), line({ end_date: null })];
     expect(sumExpectedOccurrences(lines)).toBeNull();
+  });
+});
+
+describe("remainingOccurrenceDates", () => {
+  it("lists every remaining matching weekday through end_date", () => {
+    expect(
+      remainingOccurrenceDates(line({ days_of_week: [1], start_date: "2026-08-03", end_date: "2026-08-24" }), "2026-08-01", []),
+    ).toEqual(["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"]);
+  });
+
+  it("starts from today when today is later than start_date", () => {
+    expect(
+      remainingOccurrenceDates(line({ days_of_week: [1], start_date: "2026-08-03", end_date: "2026-08-24" }), "2026-08-11", []),
+    ).toEqual(["2026-08-17", "2026-08-24"]);
+  });
+
+  it("excludes dates already covered by an active placement", () => {
+    expect(
+      remainingOccurrenceDates(
+        line({ days_of_week: [1], start_date: "2026-08-03", end_date: "2026-08-24" }),
+        "2026-08-01",
+        ["2026-08-10", "2026-08-24"],
+      ),
+    ).toEqual(["2026-08-03", "2026-08-17"]);
+  });
+
+  it("is empty for an open-ended line with no end_date", () => {
+    expect(remainingOccurrenceDates(line({ end_date: null }), "2026-08-01", [])).toEqual([]);
+  });
+
+  it("is empty for a non-day-of-week line (occurrence_count_override set)", () => {
+    expect(remainingOccurrenceDates(line({ occurrence_count_override: 12 }), "2026-08-01", [])).toEqual([]);
+  });
+
+  it("respects the maxDates safety cap", () => {
+    const result = remainingOccurrenceDates(
+      line({ days_of_week: [1], start_date: "2026-08-03", end_date: "2027-01-31" }),
+      "2026-08-01",
+      [],
+      3,
+    );
+    expect(result).toHaveLength(3);
   });
 });
 

@@ -188,7 +188,7 @@ export default async function ContractDetailPage({
                       </ul>
                     )}
 
-                    {placeable.ok && placeable.breaks.length > 0 && contract.copy.length > 0 && (
+                    {contract.copy.length > 0 && (
                       <form action={autoFillScheduleLineAction} className="mt-1">
                         <input type="hidden" name="contract_id" value={contract.id} />
                         <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
@@ -196,10 +196,11 @@ export default async function ContractDetailPage({
                           Auto-fill remaining
                         </Button>
                         <FieldHint>
-                          Places approved, in-date copy into every eligible open break right now — awaiting-slot
-                          makegoods for this line first, then fresh occurrences up to the expected count. Never
-                          places this underwriter (or its industry) right after another credit from the same one
-                          in a break that already holds one.
+                          Generates every Log rundown this line&apos;s remaining campaign needs (if they don&apos;t
+                          already exist), then places approved, in-date copy into them — awaiting-slot makegoods
+                          first, then fresh occurrences up to the expected count. Never places this underwriter (or
+                          its industry) right after another credit from the same one in a break that already holds
+                          one.
                         </FieldHint>
                       </form>
                     )}

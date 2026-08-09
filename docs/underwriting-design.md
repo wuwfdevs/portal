@@ -190,11 +190,15 @@ not just displayed as a warning after the fact. A lightweight
 flags when another underwriter in the same `category` already has a
 placement scheduled nearby, purely informational — never a hard block, and
 never triggered by the same underwriter's own other placements. As of
-2026-08-09, a schedule line (or every active schedule line at once, from
-the dashboard) can also be **auto-filled**: the same write path, driven by
-a rules-based planner instead of a person picking one break at a time —
-see CLAUDE.md's dated note and `lib/underwriting/auto-fill-plan.ts`. Manual
-placement stays available for picking a specific break by hand.
+2026-08-09, a schedule line (one line, one contract's whole set of lines,
+or every active contract's lines at once, from the dashboard) can also be
+**auto-filled**: the same write path, driven by a rules-based planner
+instead of a person picking one break at a time — see CLAUDE.md's dated
+note and `lib/underwriting/auto-fill-plan.ts`. Manual placement stays
+available for picking a specific break by hand. Auto-fill isn't limited to
+whatever rundowns already exist, either — it provisions its own remaining-
+campaign inventory in Log first (§6's "Provisioning inventory in Log, not
+just filling it").
 
 ### D. Reviewing pre-broadcast conflicts (traffic staff)
 A dashboard of schedule lines that can't currently be placed — insufficient
@@ -367,6 +371,22 @@ breaks(schedule_line_id)` is how the contract page finds eligible open
 breaks — an underwriting-only caller has no RLS access to Log's rundown
 tables at all, so this read is security definer too. `log_list_programs()`
 is the human-readable program picker (§ below) for the same reason.
+
+**Provisioning inventory in Log, not just filling it (2026-08-09).** Every
+path above assumes an eligible rundown already exists. It didn't have to —
+`log_get_program_schedule_context(program_id)` reads a program's
+`log_schedule` entries, `log_clock_versions`, and active
+`log_local_opportunities` (all `has_log_access`-gated otherwise) plus which
+air dates already have a rundown, and
+`log_generate_rundown_for_underwriting(...)` inserts exactly what
+`generateRundown()` itself inserts, idempotent on the same
+`(program_id, air_date)` constraint. Deciding *what* a rundown should
+contain is never reimplemented in SQL: `lib/underwriting/rundown-
+provisioning.ts` calls Log's own pure generation functions directly
+(`buildRundownBreakDrafts`, `resolveCurrentVersion`,
+`isScheduleEntryActiveOn` — dependency-free, and this is one monolith, so
+nothing is duplicated), computes the break drafts itself, and only crosses
+the RLS boundary for the read and the write. See CLAUDE.md's dated note.
 
 **Read from Log.** The exception queue and affidavit generation both read
 `log_broadcast_events` through two additive `select` policies:

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { listPlaceableRundownBreaks, placeCredit } from "./placement";
+import { ensureRundownsForScheduleLine } from "./rundown-provisioning";
 import {
   getContract,
   getScheduleLineAutoFillDemand,
@@ -32,6 +33,10 @@ import {
 export interface AutoFillResult {
   placedCount: number;
   makegoodsResolvedCount: number;
+  /** New Log rundowns this run provisioned to have somewhere eligible to place into — see rundown-provisioning.ts. */
+  rundownsGeneratedCount: number;
+  /** Dates this schedule line still needs but has no active Log schedule entry, or no clock version in effect, to generate a rundown against. */
+  unschedulableAirDates: string[];
   skipped: AutoFillSkippedBreak[];
   demandExceedsSupply: boolean;
   errors: string[];
@@ -40,6 +45,8 @@ export interface AutoFillResult {
 const EMPTY_RESULT: AutoFillResult = {
   placedCount: 0,
   makegoodsResolvedCount: 0,
+  rundownsGeneratedCount: 0,
+  unschedulableAirDates: [],
   skipped: [],
   demandExceedsSupply: false,
   errors: [],
@@ -75,18 +82,37 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
     return { ...EMPTY_RESULT, errors: ["This schedule line's underwriter no longer exists."] };
   }
 
-  const [demand, placeable, placements, copyByContract] = await Promise.all([
+  const [demand, placements, copyByContract] = await Promise.all([
     getScheduleLineAutoFillDemand(scheduleLine),
-    listPlaceableRundownBreaks(scheduleLine.id),
     listPlacementsForScheduleLine(scheduleLine.id),
     listCopyLinkedToContracts([scheduleLine.contract_id]),
   ]);
 
+  // Provision the rundowns this line's remaining campaign needs *before*
+  // asking what's eligible — otherwise auto-fill can only ever place into
+  // whatever a Log producer already happened to generate by hand. Only
+  // worth doing when there's real demand left (a fulfilled line has
+  // nothing more to provision for).
+  let rundownsGeneratedCount = 0;
+  let unschedulableAirDates: string[] = [];
+  const provisioningErrors: string[] = [];
+  if (demand.awaitingSlotMakegoodIds.length > 0 || (demand.freshOccurrencesNeeded ?? 0) > 0) {
+    const provisioning = await ensureRundownsForScheduleLine(
+      scheduleLine,
+      placements.map((placement) => placement.placement_date),
+    );
+    rundownsGeneratedCount = provisioning.generatedCount;
+    unschedulableAirDates = provisioning.unschedulableAirDates;
+    provisioningErrors.push(...provisioning.errors);
+  }
+
+  const placeable = await listPlaceableRundownBreaks(scheduleLine.id);
+
   if (!placeable.ok) {
-    return { ...EMPTY_RESULT, errors: [placeable.message] };
+    return { ...EMPTY_RESULT, rundownsGeneratedCount, unschedulableAirDates, errors: [...provisioningErrors, placeable.message] };
   }
   if (placeable.breaks.length === 0) {
-    return EMPTY_RESULT;
+    return { ...EMPTY_RESULT, rundownsGeneratedCount, unschedulableAirDates, errors: provisioningErrors };
   }
 
   // Never the same underwriter, or the same industry, back to back within
@@ -143,7 +169,7 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
   const supabase = await createClient();
   let placedCount = 0;
   let makegoodsResolvedCount = 0;
-  const errors: string[] = [];
+  const errors: string[] = [...provisioningErrors];
 
   for (const item of plan.items) {
     const result = await placeCredit({ breakId: item.breakId, scheduleLineId: scheduleLine.id, copyId: item.copyId });
@@ -176,6 +202,8 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
   return {
     placedCount,
     makegoodsResolvedCount,
+    rundownsGeneratedCount,
+    unschedulableAirDates,
     skipped: plan.skipped,
     demandExceedsSupply: plan.demandExceedsSupply,
     errors,
@@ -210,6 +238,8 @@ async function runAutoFillOverLines(scheduleLines: UwContractScheduleLineRow[]):
     (acc, { result }) => ({
       placedCount: acc.placedCount + result.placedCount,
       makegoodsResolvedCount: acc.makegoodsResolvedCount + result.makegoodsResolvedCount,
+      rundownsGeneratedCount: acc.rundownsGeneratedCount + result.rundownsGeneratedCount,
+      unschedulableAirDates: [...acc.unschedulableAirDates, ...result.unschedulableAirDates],
       skipped: [...acc.skipped, ...result.skipped],
       demandExceedsSupply: acc.demandExceedsSupply || result.demandExceedsSupply,
       errors: [...acc.errors, ...result.errors],

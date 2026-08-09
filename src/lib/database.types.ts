@@ -2292,6 +2292,60 @@ export interface Database {
         Args: { p_rundown_id: string };
         Returns: boolean;
       };
+      /** Added by 20260809150000_underwriting_rundown_provisioning.sql — everything lib/underwriting/rundown-provisioning.ts needs to resolve a program's schedule/clock/local-opportunity context itself, past Log's has_log_access-gated tables. */
+      log_get_program_schedule_context: {
+        Args: { p_program_id: string };
+        Returns:
+          | {
+              ok: true;
+              schedule_entries: {
+                id: string;
+                clock_template_id: string;
+                entry_type: LogScheduleEntryType;
+                days_of_week: number[];
+                start_date: string;
+                end_date: string | null;
+                air_time: string;
+                duration_minutes: number;
+              }[];
+              clock_versions: {
+                id: string;
+                clock_template_id: string;
+                variant: LogClockVersionVariant;
+                effective_from: string;
+                effective_to: string | null;
+              }[];
+              local_opportunities: {
+                id: string;
+                clock_version_id: string;
+                position: number;
+                label: string;
+                requirement: LogOpportunityRequirement;
+                timing_mode: "fixed" | "float";
+                start_offset_seconds: number;
+                duration_seconds: number;
+                earliest_start_offset_seconds: number | null;
+                latest_start_offset_seconds: number | null;
+                permitted_content_types: string[];
+                allow_multiple: boolean;
+              }[];
+              existing_rundown_dates: string[];
+            }
+          | { error: string };
+      };
+      /** Added by the same migration — inserts the same shape generateRundown() itself inserts, idempotent on log_rundowns' (program_id, air_date) constraint. Break drafts arrive precomputed (buildRundownBreakDrafts()). */
+      log_generate_rundown_for_underwriting: {
+        Args: {
+          p_program_id: string;
+          p_schedule_entry_id: string;
+          p_clock_version_id: string;
+          p_air_date: string;
+          p_shift_start_at: string;
+          p_shift_end_at: string;
+          p_break_drafts: Record<string, unknown>[];
+        };
+        Returns: { ok: true; rundown_id: string; already_existed: boolean } | { error: string };
+      };
       /** Gated by has_log_access, not has_underwriting_access — see 20260809130000_underwriting_credit_relocation.sql. Moves an already-placed, not-yet-aired credit to a different open break in the same rundown. */
       log_relocate_underwriting_credit: {
         Args: { p_item_id: string; p_destination_break_id: string };

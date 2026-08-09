@@ -73,9 +73,10 @@ export default async function UnderwritingDashboardPage({
         <div>
           <div className="text-sm font-semibold text-ink-900">Auto-fill scheduling</div>
           <p className="text-xs text-ink-500">
-            Places approved, in-date copy into every eligible open break for every active contract&apos;s schedule
-            lines — awaiting-slot makegoods first, then fresh occurrences up to each line&apos;s expected count.
-            Breaks can hold several underwriters at once, but never the same underwriter or industry back to back.
+            Generates whatever Log rundowns each active contract&apos;s remaining campaign needs, then places
+            approved, in-date copy into them — awaiting-slot makegoods first, then fresh occurrences up to each
+            line&apos;s expected count. Breaks can hold several underwriters at once, but never the same underwriter
+            or industry back to back.
           </p>
         </div>
         <form action={autoFillAllAction}>
