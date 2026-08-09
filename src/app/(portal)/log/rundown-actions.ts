@@ -474,8 +474,11 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
  * "Moved" is now a plain rundown edit, not a broadcast outcome — see
  * lib/log/mid-broadcast.ts's file header. Nothing is written to
  * log_broadcast_events, and nothing is left behind at the old spot.
- * Underwriting credits are excluded entirely: they're relocated through
- * Underwriting & Traffic's own placement/makegood mechanism instead.
+ * Underwriting credits are excluded here specifically — see
+ * relocateUnderwritingCredit below, which the board calls instead for that
+ * item kind. Credits need a security-definer boundary (they write into
+ * uw_scheduled_placements, which this tool has no ordinary RLS access to at
+ * all), not a bare update like this one.
  */
 export async function relocateRundownItem(
   itemId: string,
@@ -487,7 +490,7 @@ export async function relocateRundownItem(
   const item = await getRundownItem(itemId);
   if (!item) return { error: "That item no longer exists." };
   if (item.item_kind === "underwriting_credit") {
-    return { error: "Underwriting credits are moved from the Underwriting & Traffic tool." };
+    return { error: "Underwriting credits move through relocateUnderwritingCredit, not this action." };
   }
 
   const destinationBreak = await getRundownBreak(destinationBreakId);
@@ -538,6 +541,55 @@ export async function relocateRundownItem(
   );
   const failed = results.find((result) => result.error);
   if (failed?.error) return { error: "Could not move this item." };
+
+  return {};
+}
+
+const RELOCATE_CREDIT_ERRORS: Record<string, string> = {
+  unauthenticated: "Your session has expired — sign in again.",
+  forbidden: "You don't have access to Log.",
+  not_a_credit: "That item isn't an underwriting credit.",
+  already_aired: "This credit already aired — it can't be moved.",
+  unknown_placement: "Couldn't find this credit's scheduled placement.",
+  unknown_break: "That break no longer exists.",
+  same_break: "That's already where this credit is.",
+  different_rundown: "A credit can only move within the same rundown.",
+  break_not_eligible: "That break doesn't permit an underwriting credit.",
+  break_occupied: "That break is already occupied and doesn't allow more than one item.",
+  too_long: "This credit is longer than that break's remaining time allows.",
+};
+
+/**
+ * Relocates an already-placed underwriting credit to a different open break
+ * in the *same* rundown — the credit counterpart to relocateRundownItem
+ * above, called by the same breaks board for item_kind = 'underwriting_credit'.
+ * Unlike ordinary content, this can't be a bare update: it goes through
+ * log_relocate_underwriting_credit(), a security-definer function gated by
+ * has_log_access (not has_underwriting_access — see that migration's
+ * header for why the narrower operation gets the lighter gate), since this
+ * tool has no ordinary RLS access to uw_scheduled_placements at all.
+ *
+ * Works whether the credit hasn't aired yet or was already marked missed —
+ * a host recovering from a miss mid-broadcast uses this exact same path,
+ * not a separate "schedule a makegood" step (see the missed-credit callout
+ * in page.tsx). It only fails once the credit has actually aired.
+ */
+export async function relocateUnderwritingCredit(
+  itemId: string,
+  destinationBreakId: string,
+): Promise<{ error?: string }> {
+  await assertLogAccess();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("log_relocate_underwriting_credit", {
+    p_item_id: itemId,
+    p_destination_break_id: destinationBreakId,
+  });
+  if (error) return { error: "Could not move this credit." };
+  if (!data || "error" in data) {
+    const code = (data as { error?: string } | null)?.error;
+    return { error: (code && RELOCATE_CREDIT_ERRORS[code]) || "Could not move this credit." };
+  }
 
   return {};
 }

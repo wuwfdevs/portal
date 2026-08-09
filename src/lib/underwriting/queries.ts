@@ -183,7 +183,13 @@ export async function getContractFulfillment(
   const openExceptions = unwrapRead(exceptionsResult, "this contract's open exceptions") ?? [];
   const openMakegoods = unwrapRead(makegoodsResult, "this contract's open makegoods") ?? [];
 
-  const rundownItemIds = placements.map((placement) => placement.log_rundown_item_id);
+  // null for a cleared placement (log_clear_underwriting_credit nulls it on
+  // delete rather than cascading the row away — see
+  // 20260809130000_underwriting_credit_relocation.sql) — nothing to look up
+  // a broadcast event by in that case.
+  const rundownItemIds = placements
+    .map((placement) => placement.log_rundown_item_id)
+    .filter((id): id is string => id !== null);
   const events =
     rundownItemIds.length === 0
       ? []
@@ -631,6 +637,15 @@ export async function findAffidavitEvidence(
     ) ?? [];
   if (placements.length === 0) return [];
 
+  // A cleared placement's log_rundown_item_id is null (the item is gone,
+  // but the row survives — see 20260809130000_underwriting_credit_relocation.sql)
+  // — nothing was ever confirmed against it, so it contributes no evidence.
+  const livePlacements = placements.filter(
+    (placement): placement is typeof placement & { log_rundown_item_id: string } =>
+      placement.log_rundown_item_id !== null,
+  );
+  if (livePlacements.length === 0) return [];
+
   const events =
     unwrapRead(
       await supabase
@@ -638,13 +653,15 @@ export async function findAffidavitEvidence(
         .select("*")
         .in(
           "rundown_item_id",
-          placements.map((placement) => placement.log_rundown_item_id),
+          livePlacements.map((placement) => placement.log_rundown_item_id),
         )
         .order("recorded_at", { ascending: true }),
       "these placements' broadcast events",
     ) ?? [];
 
-  const placementByRundownItem = new Map(placements.map((placement) => [placement.log_rundown_item_id, placement]));
+  const placementByRundownItem = new Map(
+    livePlacements.map((placement) => [placement.log_rundown_item_id, placement]),
+  );
   return events.flatMap((event) => {
     const placement = placementByRundownItem.get(event.rundown_item_id);
     return placement ? [{ placement, broadcastEvent: event }] : [];
