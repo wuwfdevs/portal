@@ -7,6 +7,11 @@ import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { recordRundownItemOutcome } from "@/lib/log/capabilities";
+import {
+  getRundownDetail,
+  hasOpenUnderwritingExceptions,
+  listBroadcastEventsForItems,
+} from "@/lib/log/queries";
 import type { LogMissReason } from "@/lib/database.types";
 
 // Workflow G's mid-broadcast actions (docs/log-design.md): markAired and
@@ -26,16 +31,29 @@ function rundownPath(rundownId: string): string {
 
 /**
  * Freezes a reference version of the rundown — docs/log-design.md Workflow
- * H. Not a lock: markAired/markMissed below check nothing about status, so
- * "documented management corrections" (§15.3) after submission keep working
- * exactly as before. Fine to call again (e.g. after a late correction) — it
- * just re-stamps submitted_at/submitted_by.
+ * H. Not a lock for anything except underwriting: markAired/markMissed
+ * below check nothing about status, so "documented management corrections"
+ * (§15.3) after submission keep working exactly as before, and every other
+ * unresolved item is a review-list entry, not a block (see submission.ts).
+ * Underwriting credits are the one deliberate exception — a real,
+ * scoped reversal of that rule, not an oversight: a credit carries a
+ * contractual "must air" obligation ordinary content doesn't, so this is
+ * the one case where an unresolved problem should stop a rundown from
+ * closing out rather than just being flagged for review.
  */
 export async function submitRundown(formData: FormData): Promise<void> {
   const { profile } = await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   if (rundownId === "") failWith("/log", "Choose a rundown to submit.");
   const path = rundownPath(rundownId);
+
+  const hasOpenExceptions = await hasOpenUnderwritingExceptions(rundownId);
+  if (hasOpenExceptions) {
+    failWith(
+      path,
+      "This rundown has an unresolved underwriting exception — resolve it in Underwriting & Traffic before submitting.",
+    );
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -111,6 +129,50 @@ export async function markMissed(formData: FormData): Promise<void> {
     { confirmed: true },
   );
   if (!result.ok) failWith(path, result.message);
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+/**
+ * The wrap-up panel's underwriting attestation — one explicit click instead
+ * of confirming every untouched underwriting credit individually. Only ever
+ * writes aired_as_scheduled for a credit that has *no* broadcast event yet;
+ * anything already recorded (aired, or missed and now carrying whatever
+ * exception that opened) is left exactly as it is — this is "confirm the
+ * silence," never a way to overwrite a known problem. It does not bypass
+ * submitRundown's own open-exception check: attesting the untouched ones
+ * doesn't resolve an exception an already-missed credit opened, so
+ * submission can still be blocked afterward, correctly.
+ */
+export async function attestUnderwritingCredits(formData: FormData): Promise<void> {
+  const { profile } = await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  const path = rundownPath(rundownId);
+
+  const rundown = await getRundownDetail(rundownId);
+  if (!rundown) failWith(path, "That rundown no longer exists.");
+
+  const underwritingItemIds = rundown.breaks
+    .flatMap((brk) => brk.items)
+    .filter((item) => item.item_kind === "underwriting_credit")
+    .map((item) => item.id);
+  const events = await listBroadcastEventsForItems(underwritingItemIds);
+  const confirmedIds = new Set(events.map((event) => event.rundown_item_id));
+  const unconfirmedIds = underwritingItemIds.filter((id) => !confirmedIds.has(id));
+
+  if (unconfirmedIds.length > 0) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("log_broadcast_events").insert(
+      unconfirmedIds.map((itemId) => ({
+        rundown_item_id: itemId,
+        outcome: "aired_as_scheduled" as const,
+        confirmation_source: "host" as const,
+        recorded_by: profile.id,
+      })),
+    );
+    failIfError(error, path, "Could not attest these underwriting credits");
+  }
 
   revalidatePath(path);
   redirect(path);

@@ -2273,6 +2273,11 @@ export interface Database {
         Args: Record<string, never>;
         Returns: { ok: true; programs: { id: string; name: string }[] } | { error: string };
       };
+      /** Owned by Underwriting (reads uw_exceptions), gated to Log members — backs the rundown submission attestation. */
+      uw_has_open_exceptions_for_rundown: {
+        Args: { p_rundown_id: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       platform_role: PlatformRole;

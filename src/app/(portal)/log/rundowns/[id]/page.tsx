@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/input";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "@/lib/log/content-library";
 import {
   getRundownDetail,
+  hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
   listContentItems,
   listLocalOpportunitiesForVersion,
@@ -28,7 +29,13 @@ import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { LogPoller } from "../../log-poller";
-import { markAired, markMissed, startBroadcast, submitRundown } from "../../broadcast-actions";
+import {
+  attestUnderwritingCredits,
+  markAired,
+  markMissed,
+  startBroadcast,
+  submitRundown,
+} from "../../broadcast-actions";
 import {
   relocateRundownItem,
   removeRundownItem,
@@ -202,6 +209,14 @@ export default async function RundownDetailPage({
       )
     : [];
 
+  // The wrap-up panel's underwriting attestation — see broadcast-actions.ts's
+  // submitRundown/attestUnderwritingCredits for the write side.
+  const underwritingItems = allItems.filter((item) => item.item_kind === "underwriting_credit");
+  const unconfirmedUnderwritingCount = underwritingItems.filter(
+    (item) => (eventCountByItem.get(item.id) ?? 0) === 0,
+  ).length;
+  const hasOpenExceptions = live ? await hasOpenUnderwritingExceptions(rundown.id) : false;
+
   // Config for the breaks board's insertion points (insertion-point.tsx) —
   // replaces the old bottom-of-break "Add…" <select> + "Create a one-off
   // live read" <details> entirely. Null when the break can't take anything
@@ -220,62 +235,86 @@ export default async function RundownDetailPage({
     };
   };
 
-  // Aired/Missed are the only mid-broadcast outcomes left — "Move" is gone,
-  // replaced entirely by the breaks board's drag-and-drop (a plain rundown
-  // edit now, not a broadcast outcome; see lib/log/mid-broadcast.ts). Missed
-  // itself only still matters for underwriting credits: that's the one
-  // outcome the exception/makegood pipeline reacts to
-  // (uw_flag_exception_from_broadcast_event). For ordinary content, "missed"
-  // is just Remove — there's nothing downstream that needs a record of it.
-  const renderMidBroadcastActions = (item: RundownItemDetail, compact: boolean) => {
+  // Aired is the only mid-broadcast outcome ordinary content still shows —
+  // "Move" is gone, replaced entirely by the breaks board's drag-and-drop (a
+  // plain rundown edit now, not a broadcast outcome; see
+  // lib/log/mid-broadcast.ts), and "missed" for ordinary content is just
+  // Remove (stage 1) — nothing downstream needs a record of it.
+  //
+  // Underwriting credits get a visually distinct callout instead of blending
+  // in with ordinary content: they're the one item kind with a real
+  // contractual "must air" obligation, and the only kind whose outcome the
+  // exception/makegood pipeline reacts to
+  // (uw_flag_exception_from_broadcast_event). Flagging one as missed doesn't
+  // ask the host to fix it here — that trigger already opens a
+  // uw_exceptions row Underwriting & Traffic's own screens handle (a
+  // makegood, an accepted alternate, or a waiver); the host's job is just to
+  // say honestly whether it aired.
+  const renderMidBroadcastActions = (item: RundownItemDetail, compact: boolean, breakScheduledAt: string) => {
     const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
     if (!live || confirmed) return null;
-    const buttonClass = compact ? "px-2.5 py-1.5 text-xs" : undefined;
-    const detailsSummaryClass = compact
-      ? "inline-flex cursor-pointer items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700"
-      : "inline-flex cursor-pointer items-center rounded border border-line px-4 py-2.5 text-sm font-bold text-ink-700";
+
+    if (item.item_kind === "underwriting_credit") {
+      return (
+        <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+          <p className="mb-2 text-sm font-semibold text-ink-900">
+            Did this air at {formatStationTimestamp(breakScheduledAt)}?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <form action={markAired}>
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <input type="hidden" name="item_id" value={item.id} />
+              <Button type="submit">Yes, aired</Button>
+            </form>
+            <details className="inline-block">
+              <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
+                No — flag it
+              </summary>
+              <form
+                action={markMissed}
+                className="mt-2 flex flex-col gap-2 rounded border border-line bg-white p-3"
+              >
+                <input type="hidden" name="rundown_id" value={rundown.id} />
+                <input type="hidden" name="item_id" value={item.id} />
+                <Select name="reason" required defaultValue="">
+                  <option value="" disabled>
+                    Reason…
+                  </option>
+                  {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder="Brief note (optional)"
+                  className="rounded border border-line px-3 py-2 text-sm"
+                />
+                <Button type="submit" variant="secondary">
+                  Record missed
+                </Button>
+              </form>
+            </details>
+          </div>
+          <p className="mt-2 text-xs text-ink-700">
+            Flagging this opens an exception for Underwriting &amp; Traffic to resolve — a makegood, an
+            accepted alternate, or a waiver. Nothing more to do here.
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className={`flex flex-wrap gap-2 ${compact ? "mt-2" : "mt-3"}`}>
         <form action={markAired}>
           <input type="hidden" name="rundown_id" value={rundown.id} />
           <input type="hidden" name="item_id" value={item.id} />
-          <Button type="submit" className={buttonClass}>
+          <Button type="submit" className={compact ? "px-2.5 py-1.5 text-xs" : undefined}>
             Aired
           </Button>
         </form>
-
-        {item.item_kind === "underwriting_credit" && (
-          <details className="inline-block">
-            <summary className={detailsSummaryClass}>Missed</summary>
-            <form
-              action={markMissed}
-              className="mt-2 flex flex-col gap-2 rounded border border-line p-3"
-            >
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <input type="hidden" name="item_id" value={item.id} />
-              <Select name="reason" required defaultValue="">
-                <option value="" disabled>
-                  Reason…
-                </option>
-                {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <input
-                type="text"
-                name="notes"
-                placeholder="Brief note (optional)"
-                className="rounded border border-line px-3 py-2 text-sm"
-              />
-              <Button type="submit" variant="secondary">
-                Record missed
-              </Button>
-            </form>
-          </details>
-        )}
       </div>
     );
   };
@@ -359,7 +398,7 @@ export default async function RundownDetailPage({
               overrideDurationSeconds={item.override_duration_seconds}
               updateItemOverridesAction={updateItemOverrides}
               removeRundownItemAction={removeRundownItem}
-              midBroadcastActions={renderMidBroadcastActions(item, !isCurrent)}
+              midBroadcastActions={renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at)}
               readView={
                 isCurrent ? (
                   <CopyDisplay
@@ -590,15 +629,50 @@ export default async function RundownDetailPage({
             {unresolvedEntries.length > 0 && (
               <p className="mb-3 text-xs text-ink-500">
                 {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
-                need an aired, missed, or moved outcome — or content for a required break.
-                Submitting doesn&apos;t require resolving them first.
+                need an aired or missed outcome — or content for a required break. Submitting
+                doesn&apos;t require resolving them first.
               </p>
             )}
+
+            {underwritingItems.length > 0 && (
+              <div className="mb-3 rounded border border-line bg-panel-50 p-3">
+                <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
+                  Underwriting credits
+                </div>
+                {unconfirmedUnderwritingCount > 0 && (
+                  <>
+                    <p className="mb-2 text-xs text-ink-700">
+                      {unconfirmedUnderwritingCount} credit{unconfirmedUnderwritingCount === 1 ? "" : "s"}{" "}
+                      haven&apos;t been confirmed one way or the other. Attesting marks all of them
+                      aired as scheduled — never anything already recorded as aired or missed.
+                    </p>
+                    <form action={attestUnderwritingCredits}>
+                      <input type="hidden" name="rundown_id" value={rundown.id} />
+                      <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                        Attest {unconfirmedUnderwritingCount} aired as scheduled
+                      </Button>
+                    </form>
+                  </>
+                )}
+                {hasOpenExceptions && (
+                  <Alert variant="danger" className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}>
+                    This rundown has an unresolved underwriting exception. Submission is blocked
+                    until it&apos;s resolved in Underwriting &amp; Traffic — a makegood, an accepted
+                    alternate, or a waiver.
+                  </Alert>
+                )}
+                {unconfirmedUnderwritingCount === 0 && !hasOpenExceptions && (
+                  <p className="text-xs text-ink-500">Every credit is confirmed or resolved.</p>
+                )}
+              </div>
+            )}
+
             <form action={submitRundown}>
               <input type="hidden" name="rundown_id" value={rundown.id} />
               <Button
                 type="submit"
                 variant={rundown.status === "submitted" ? "secondary" : "primary"}
+                disabled={hasOpenExceptions}
               >
                 {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
               </Button>
