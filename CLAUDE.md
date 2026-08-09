@@ -1681,15 +1681,44 @@ directly (`buildRundownBreakDrafts`, `resolveCurrentVersion`,
 `isScheduleEntryActiveOn`; this is one monolith, so importing them here
 duplicates nothing), computes the break drafts itself, and only crosses
 the RLS boundary for the read and the write. `lib/underwriting/schedule-
-lines.ts`'s new `remainingOccurrenceDates()` (pure, tested) is what decides
-which calendar days still need provisioning: every remaining matching
-weekday through the line's own `end_date`, not just what the current run's
-demand needs — per WUWF's own call, one auto-fill click provisions and
-fills an entire remaining campaign at once, not incrementally week by week.
-Skipped for an open-ended line (no `end_date`) or one using
-`occurrence_count_override` (no deterministic day set to walk) — both keep
-filling only whatever already exists, unchanged. The per-line, per-contract,
-and dashboard-wide auto-fill buttons all pick this up for free, since all
+lines.ts`'s new `remainingOccurrenceDates()` (pure, tested) is the pure
+day-of-week/date-range walk this correction below still uses, just no
+longer as its own independent sizing pass.
+
+**Revision the same day: generation must be driven by the same planning
+pass that fills, not sized by a second, independent computation.** The
+first cut of provisioning ran as a separate pre-pass — walk every
+remaining matching day through the line's own `end_date`, generate a
+rundown for each missing one, *then* run the ordinary fill planner against
+the result. Direct pushback caught the real flaw: "rundowns should be
+created as underwriting credits are scheduled against them," and this
+shape wasn't that — "how much inventory to create" and "how much demand
+to fill" were two separately-reasoned numbers expected to just happen to
+agree, exactly the category of bug this feature had already shipped twice
+the same day (a per-break-vs-per-day mismatch, then an ignored
+`target_time`). Corrected in `20260809160000_underwriting_rundown_
+provisioning_returns_breaks.sql` (widens `log_generate_rundown_for_
+underwriting()` to return the breaks it just inserted, avoiding a second
+read) and a restructured `autoFillScheduleLine()`
+(`lib/underwriting/auto-fill.ts`): it now calls `planAutoFill()` *twice* —
+a cheap, in-memory **probe** against whatever inventory already exists,
+which sizes exactly how many requests it's still short
+(`remaining = totalRequests - probePlan.items.length`); then, only if
+`remaining > 0` and the line has a bounded campaign and at least one
+approved copy (no point generating inventory nothing could ever fill),
+`lib/underwriting/rundown-provisioning.ts`'s renamed
+`provisionRundownsForDates()` generates *exactly* `remaining` additional
+days (stopping the moment it reaches that count, skipping an unschedulable
+date without counting it) walking `remainingOccurrenceDates()`'s own
+output, excluding dates the probe already had inventory for; a second,
+**final** `planAutoFill()` call against the combined candidate set is the
+plan that actually executes. One computation drives both what gets
+generated and what gets filled — never two. This still fills an entire
+remaining campaign in one click on a fresh contract (the probe finds
+nothing, `remaining` is the full expected count, provisioning generates
+that many days), it just gets there by generation exactly tracking real
+shortfall instead of a parallel guess. The per-line, per-contract, and
+dashboard-wide auto-fill buttons all pick this up for free, since all
 three already funnel through the same `autoFillScheduleLine()`. The
 contract page's "Auto-fill remaining" button no longer hides itself when a
 line currently has zero eligible breaks — that used to mean "nothing to

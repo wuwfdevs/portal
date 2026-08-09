@@ -372,21 +372,26 @@ breaks — an underwriting-only caller has no RLS access to Log's rundown
 tables at all, so this read is security definer too. `log_list_programs()`
 is the human-readable program picker (§ below) for the same reason.
 
-**Provisioning inventory in Log, not just filling it (2026-08-09).** Every
-path above assumes an eligible rundown already exists. It didn't have to —
-`log_get_program_schedule_context(program_id)` reads a program's
-`log_schedule` entries, `log_clock_versions`, and active
+**Provisioning inventory in Log, not just filling it (2026-08-09, corrected
+the same day).** Every path above assumes an eligible rundown already
+exists. It didn't have to — `log_get_program_schedule_context(program_id)`
+reads a program's `log_schedule` entries, `log_clock_versions`, and active
 `log_local_opportunities` (all `has_log_access`-gated otherwise) plus which
 air dates already have a rundown, and
 `log_generate_rundown_for_underwriting(...)` inserts exactly what
-`generateRundown()` itself inserts, idempotent on the same
-`(program_id, air_date)` constraint. Deciding *what* a rundown should
-contain is never reimplemented in SQL: `lib/underwriting/rundown-
-provisioning.ts` calls Log's own pure generation functions directly
-(`buildRundownBreakDrafts`, `resolveCurrentVersion`,
+`generateRundown()` itself inserts (and returns the breaks it just
+inserted), idempotent on the same `(program_id, air_date)` constraint.
+Deciding *what* a rundown should contain is never reimplemented in SQL:
+`lib/underwriting/rundown-provisioning.ts` calls Log's own pure generation
+functions directly (`buildRundownBreakDrafts`, `resolveCurrentVersion`,
 `isScheduleEntryActiveOn` — dependency-free, and this is one monolith, so
 nothing is duplicated), computes the break drafts itself, and only crosses
-the RLS boundary for the read and the write. See CLAUDE.md's dated note.
+the RLS boundary for the read and the write. Generation is sized by a real
+planning probe, not a second independent computation — `autoFillScheduleLine()`
+plans against existing inventory first, and asks for exactly the shortfall
+that plan reports before planning again for real. See CLAUDE.md's dated
+note (both the original entry and its same-day revision) for the full
+account of why that distinction matters.
 
 **Read from Log.** The exception queue and affidavit generation both read
 `log_broadcast_events` through two additive `select` policies:

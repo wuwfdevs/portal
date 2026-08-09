@@ -3,21 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "@/lib/log/schedule";
 import { resolveCurrentVersion, type ClockVersionLike } from "@/lib/log/clock-versions";
 import { buildRundownBreakDrafts, type RundownOpportunityLike } from "@/lib/log/rundown-generation";
-import { stationLocalDateTimeToUTC, stationTodayISO } from "@/lib/log/timezone";
-import { remainingOccurrenceDates } from "./schedule-lines";
+import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import type { UwContractScheduleLineRow } from "./queries";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 /**
- * Ensures a Log rundown exists for every remaining calendar day a schedule
- * line's campaign still needs (docs/underwriting-design.md §7's auto-fill
- * scheduler now provisions its own inventory, rather than only ever
- * filling into rundowns a Log producer already happened to build by hand).
- * Every date is provisioned up to the line's own end_date in one pass, not
- * just what the current run's immediate demand needs — the whole remaining
- * campaign gets its rundown scaffolding at once, so a later run's demand
- * (a makegood, newly-approved copy) always has somewhere to land without
- * its own provisioning pass.
+ * Generates exactly as many new Log rundowns as auto-fill's own planning
+ * pass is still short — never a separate, independently-sized pre-pass.
+ * The previous shape provisioned a schedule line's *entire* remaining
+ * campaign as one blind pass up front, sized from its own date-range walk,
+ * completely independent of how many credits the fill loop would actually
+ * place this run. That's two separate computations expected to just agree
+ * — exactly the category of bug this feature already shipped twice the
+ * same day (a per-break-vs-per-day mismatch, then an ignored target_time).
+ * lib/underwriting/auto-fill.ts now plans against whatever inventory
+ * already exists first, and calls provisionRundownsForDates() only for the
+ * exact remaining shortfall that first pass reports — rundowns get created
+ * as credits are actually scheduled against them, one computation, not two.
  *
  * Nothing about "what a rundown should contain" is reimplemented here —
  * every interesting decision (which clock version is in effect, how local
@@ -29,7 +31,8 @@ import type { LogScheduleEntryType } from "@/lib/database.types";
  * rundown + its breaks) cross the Log/Underwriting RLS boundary, through
  * log_get_program_schedule_context() and
  * log_generate_rundown_for_underwriting()
- * (20260809150000_underwriting_rundown_provisioning.sql).
+ * (20260809150000_underwriting_rundown_provisioning.sql and
+ * 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql).
  */
 
 interface ScheduleEntryContext extends ScheduleEntryLike {
@@ -55,18 +58,41 @@ interface ProgramScheduleContext {
   existing_rundown_dates: string[];
 }
 
+/** A newly (or already) provisioned break, ready to feed straight into an AutoFillBreakCandidate — no adjacency concern since nothing else can already occupy a break this fresh. */
+export interface ProvisionedBreak {
+  breakId: string;
+  airDate: string;
+  minutesOfDay: number;
+  remainingSeconds: number;
+}
+
 export interface RundownProvisioningResult {
   generatedCount: number;
-  /** Dates this schedule line needs but has no active Log schedule entry, or no clock version in effect, to generate against — a real gap for a traffic staffer to raise with Log, not something auto-fill can resolve on its own. */
+  provisionedBreaks: ProvisionedBreak[];
+  /** Dates tried but with no active Log schedule entry, or no clock version in effect, to generate against — a real gap for a traffic staffer to raise with Log, not something auto-fill can resolve on its own. */
   unschedulableAirDates: string[];
   errors: string[];
 }
 
 const EMPTY_PROVISIONING_RESULT: RundownProvisioningResult = {
   generatedCount: 0,
+  provisionedBreaks: [],
   unschedulableAirDates: [],
   errors: [],
 };
+
+/** A break's scheduled_at (UTC instant) as minutes since midnight in the station's own timezone. */
+export function minutesOfDayInStationTime(iso: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(iso));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
 
 /**
  * Picks the schedule entry actually in effect on a given date, when more
@@ -83,14 +109,23 @@ function pickScheduleEntry(entries: ScheduleEntryContext[], dateISO: string): Sc
   return active.reduce((latest, entry) => (entry.start_date > latest.start_date ? entry : latest));
 }
 
-export async function ensureRundownsForScheduleLine(
+/**
+ * Generates rundowns for candidateDates, in order, stopping as soon as
+ * targetCount new ones have been generated (an unschedulable date is
+ * skipped and doesn't count against the target — the next candidate date
+ * is tried instead). candidateDates should already exclude any date that
+ * has an active placement or an existing eligible break — the caller
+ * (autoFillScheduleLine) computes that exclusion, since it's the one that
+ * knows what "already covered" means for both reasons.
+ */
+export async function provisionRundownsForDates(
   scheduleLine: UwContractScheduleLineRow,
-  coveredAirDates: string[],
+  candidateDates: string[],
+  targetCount: number,
 ): Promise<RundownProvisioningResult> {
-  if (scheduleLine.program_id == null) return EMPTY_PROVISIONING_RESULT; // no single program to generate a rundown for
-
-  const dates = remainingOccurrenceDates(scheduleLine, stationTodayISO(), coveredAirDates);
-  if (dates.length === 0) return EMPTY_PROVISIONING_RESULT;
+  if (scheduleLine.program_id == null || targetCount <= 0 || candidateDates.length === 0) {
+    return EMPTY_PROVISIONING_RESULT;
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("log_get_program_schedule_context", {
@@ -104,14 +139,16 @@ export async function ensureRundownsForScheduleLine(
   }
   const context = data as ProgramScheduleContext;
   const existingDates = new Set(context.existing_rundown_dates);
-  const missingDates = dates.filter((date) => !existingDates.has(date));
-  if (missingDates.length === 0) return EMPTY_PROVISIONING_RESULT;
 
   let generatedCount = 0;
+  const provisionedBreaks: ProvisionedBreak[] = [];
   const unschedulableAirDates: string[] = [];
   const errors: string[] = [];
 
-  for (const airDate of missingDates) {
+  for (const airDate of candidateDates) {
+    if (generatedCount >= targetCount) break;
+    if (existingDates.has(airDate)) continue; // shouldn't be in candidateDates at all, but stay safe
+
     const scheduleEntry = pickScheduleEntry(context.schedule_entries, airDate);
     if (!scheduleEntry) {
       unschedulableAirDates.push(airDate);
@@ -148,8 +185,23 @@ export async function ensureRundownsForScheduleLine(
       );
       continue;
     }
-    if (!(genData as { already_existed: boolean }).already_existed) generatedCount++;
+
+    const result = genData as {
+      already_existed: boolean;
+      breaks: { break_id: string; permitted_content_types: string[]; scheduled_at: string; available_duration_seconds: number }[];
+    };
+    if (!result.already_existed) generatedCount++;
+
+    for (const brk of result.breaks) {
+      if (!brk.permitted_content_types.includes("underwriting_credit")) continue;
+      provisionedBreaks.push({
+        breakId: brk.break_id,
+        airDate,
+        minutesOfDay: minutesOfDayInStationTime(brk.scheduled_at),
+        remainingSeconds: brk.available_duration_seconds,
+      });
+    }
   }
 
-  return { generatedCount, unschedulableAirDates, errors };
+  return { generatedCount, provisionedBreaks, unschedulableAirDates, errors };
 }

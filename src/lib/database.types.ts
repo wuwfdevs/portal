@@ -2333,7 +2333,7 @@ export interface Database {
             }
           | { error: string };
       };
-      /** Added by the same migration — inserts the same shape generateRundown() itself inserts, idempotent on log_rundowns' (program_id, air_date) constraint. Break drafts arrive precomputed (buildRundownBreakDrafts()). */
+      /** Added by 20260809150000_underwriting_rundown_provisioning.sql, widened by 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql to return the resulting breaks — inserts the same shape generateRundown() itself inserts, idempotent on log_rundowns' (program_id, air_date) constraint. Break drafts arrive precomputed (buildRundownBreakDrafts()). */
       log_generate_rundown_for_underwriting: {
         Args: {
           p_program_id: string;
@@ -2344,7 +2344,19 @@ export interface Database {
           p_shift_end_at: string;
           p_break_drafts: Record<string, unknown>[];
         };
-        Returns: { ok: true; rundown_id: string; already_existed: boolean } | { error: string };
+        Returns:
+          | {
+              ok: true;
+              rundown_id: string;
+              already_existed: boolean;
+              breaks: {
+                break_id: string;
+                permitted_content_types: string[];
+                scheduled_at: string;
+                available_duration_seconds: number;
+              }[];
+            }
+          | { error: string };
       };
       /** Gated by has_log_access, not has_underwriting_access — see 20260809130000_underwriting_credit_relocation.sql. Moves an already-placed, not-yet-aired credit to a different open break in the same rundown. */
       log_relocate_underwriting_credit: {
