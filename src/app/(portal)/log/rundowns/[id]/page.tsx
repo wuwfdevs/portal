@@ -194,13 +194,13 @@ export default async function RundownDetailPage({
     item_count: brk.items.length,
   }));
 
-  // NPR is fetched regardless of live status — a host planning a break
-  // ahead of air wants to see (and pick a look-ahead from) upcoming stories
-  // the same way they'd plan around a promo or a weather item, not just
-  // once the broadcast has started. Weather has no equivalent build-time
-  // use, so it stays live-only.
+  // Both NPR and weather are fetched regardless of live status — a host
+  // planning a break ahead of air wants to see (and pick a look-ahead from)
+  // upcoming stories, and to add and check today's weather item, the same
+  // way they'd plan around a promo, not just once the broadcast has
+  // started.
   const [weather, npr] = await Promise.all([
-    live ? getCurrentWeatherReading() : Promise.resolve(null),
+    getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
   ]);
   const nprLookaheadItems: NprLookaheadItem[] = npr?.kind === "found" ? npr.items : [];
@@ -482,7 +482,8 @@ export default async function RundownDetailPage({
                         item.override_script ??
                         item.contentItem?.script ??
                         copy?.script ??
-                        item.live_read_script;
+                        item.live_read_script ??
+                        (item.item_kind === "weather" ? (weather.reading?.live_read_text ?? null) : null);
                       const masterDuration = item.contentItem
                         ? computeTotalDurationSeconds(
                             item.contentItem.components,
@@ -639,15 +640,38 @@ export default async function RundownDetailPage({
 
       <div className="rounded border border-line p-4">
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Weather</div>
-        {!live ? (
-          <p className="text-xs text-ink-400">Shown once the broadcast starts.</p>
-        ) : weather?.reading ? (
+        {weather.reading ? (
           <>
             <p className="text-sm text-ink-700">{weather.reading.condensed_text}</p>
             <p className="mt-1 text-xs text-ink-400">
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
             </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                Full forecast
+              </summary>
+              <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
+                {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
+                  <p className="font-semibold text-ink-900">
+                    {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
+                    {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
+                    {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
+                  </p>
+                )}
+                <p>{weather.reading.conditions_summary}</p>
+                {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
+                {weather.reading.hazards && (
+                  <p className="font-semibold text-danger">{weather.reading.hazards}</p>
+                )}
+                <p className="whitespace-pre-wrap border-t border-line pt-1.5">
+                  {weather.reading.live_read_text}
+                </p>
+                <p className="text-ink-400">
+                  Valid through {formatStationTimestamp(weather.reading.valid_through_at)}
+                </p>
+              </div>
+            </details>
           </>
         ) : (
           <p className="text-xs text-ink-400">No reading yet.</p>
