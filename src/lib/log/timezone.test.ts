@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatStationDateLong,
   formatStationTimestamp,
+  shiftDateISO,
   stationLocalDateTimeToUTC,
   stationTodayISO,
 } from "./timezone";
@@ -33,6 +34,24 @@ describe("formatStationTimestamp", () => {
     const result = formatStationTimestamp("2026-08-07T11:27:00.000Z");
     expect(result).toContain("6:27");
     expect(result).not.toContain("11:27");
+  });
+});
+
+describe("shiftDateISO", () => {
+  it("advances one day within a month", () => {
+    expect(shiftDateISO("2026-08-07", 1)).toBe("2026-08-08");
+  });
+
+  it("goes back one day across a month boundary", () => {
+    expect(shiftDateISO("2026-08-01", -1)).toBe("2026-07-31");
+  });
+
+  it("rolls forward across a year boundary", () => {
+    expect(shiftDateISO("2026-12-31", 1)).toBe("2027-01-01");
+  });
+
+  it("is a no-op for a zero shift", () => {
+    expect(shiftDateISO("2026-08-07", 0)).toBe("2026-08-07");
   });
 });
 
