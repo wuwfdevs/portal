@@ -69,7 +69,7 @@ export interface ProvisionedBreak {
 export interface RundownProvisioningResult {
   generatedCount: number;
   provisionedBreaks: ProvisionedBreak[];
-  /** Dates tried but with no active Log schedule entry, or no clock version in effect, to generate against — a real gap for a traffic staffer to raise with Log, not something auto-fill can resolve on its own. */
+  /** Dates tried but with no active Log schedule entry, no clock version in effect, or no underwriting-eligible local opportunity on that clock at all — a real gap for a traffic staffer to raise with Log, not something auto-fill can resolve on its own. */
   unschedulableAirDates: string[];
   errors: string[];
 }
@@ -163,6 +163,18 @@ export async function provisionRundownsForDates(
       continue;
     }
     const opportunities = context.local_opportunities.filter((o) => o.clock_version_id === version.id);
+    // A clock with no underwriting-eligible local opportunity at all (e.g.
+    // a program WUWF hasn't defined any local avails for yet — several of
+    // the seeded NPR clocks are still in exactly this state, see
+    // CLAUDE.md's Log domain redesign note) can never hold a credit no
+    // matter how many days get generated. Bail out before writing a
+    // rundown nobody can use, and say so plainly rather than silently
+    // generating empty scaffolding and leaving demandExceedsSupply to
+    // speak for itself.
+    if (!opportunities.some((o) => o.permitted_content_types.includes("underwriting_credit"))) {
+      unschedulableAirDates.push(airDate);
+      continue;
+    }
 
     const shiftStartAt = stationLocalDateTimeToUTC(airDate, scheduleEntry.air_time);
     const shiftEndAt = new Date(new Date(shiftStartAt).getTime() + scheduleEntry.duration_minutes * 60_000).toISOString();

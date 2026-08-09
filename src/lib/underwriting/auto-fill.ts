@@ -46,7 +46,7 @@ export interface AutoFillResult {
   makegoodsResolvedCount: number;
   /** New Log rundowns this run provisioned to cover a real shortfall — see rundown-provisioning.ts. */
   rundownsGeneratedCount: number;
-  /** Dates this schedule line still needs but has no active Log schedule entry, or no clock version in effect, to generate a rundown against. */
+  /** Dates this schedule line still needs but has no active Log schedule entry, no clock version in effect, or no underwriting-eligible local opportunity on that clock at all. */
   unschedulableAirDates: string[];
   skipped: AutoFillSkippedBreak[];
   demandExceedsSupply: boolean;
