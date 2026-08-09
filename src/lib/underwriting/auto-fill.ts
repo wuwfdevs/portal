@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { listPlaceableRundownBreaks, placeCredit } from "./placement";
 import {
   getContract,
@@ -43,6 +44,25 @@ const EMPTY_RESULT: AutoFillResult = {
   demandExceedsSupply: false,
   errors: [],
 };
+
+/** A break's scheduled_at (UTC instant) as minutes since midnight in the station's own timezone — see collapseToOnePerDay's use of this against a schedule line's own targetTimeMinutes. */
+function minutesOfDayInStationTime(iso: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(iso));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+/** A schedule line's target_time ("HH:MM:SS", already station-local wall-clock — no timezone conversion needed) as minutes since midnight. */
+function minutesFromTimeString(time: string): number {
+  const [hourStr, minuteStr] = time.split(":");
+  return Number(hourStr) * 60 + Number(minuteStr);
+}
 
 /** Runs the scheduler for one schedule line: gathers its current demand, its underwriter/category, and its eligible open breaks (with each one's current last item, for the adjacency rule below), plans an assignment, then executes it. */
 export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineRow): Promise<AutoFillResult> {
@@ -97,6 +117,7 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
     return {
       breakId: brk.break_id,
       airDate: brk.air_date,
+      minutesOfDay: minutesOfDayInStationTime(brk.scheduled_at),
       remainingSeconds: brk.remaining_seconds,
       lastItemUnderwriterId: lastItem?.underwriterId ?? null,
       lastItemCategory: lastItem?.category ?? null,
@@ -110,6 +131,11 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
       freshOccurrencesNeeded: demand.freshOccurrencesNeeded,
       underwriterId: underwriter.id,
       category: underwriter.category,
+      targetTimeMinutes: scheduleLine.target_time ? minutesFromTimeString(scheduleLine.target_time) : null,
+      // Active (non-superseded — see listPlacementsForScheduleLine) placements
+      // this line already has, by their own air date — a day already spoken
+      // for is dropped from consideration entirely, fresh or makegood.
+      coveredAirDates: placements.map((placement) => placement.placement_date),
     },
     copyCandidates,
   );

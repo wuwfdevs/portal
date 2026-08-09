@@ -33,6 +33,22 @@
 // into the same break in a single pass: every item on one line shares that
 // line's underwriter, so the same-underwriter rule already rules that out
 // structurally — this file doesn't need special-case logic for it.
+//
+// AT MOST ONE CREDIT PER CALENDAR DAY, per schedule line — a real bug fix,
+// not a style choice. "Monday ~7:49am x26 weeks" means one credit that
+// Monday, but a program's local opportunities can recur every hour (e.g.
+// Morning Edition's generic post-newscast avails), so a single Monday's
+// rundown can offer several eligible breaks — one at 5:06am, one at
+// 6:06am, one at 7:06am, and so on. Confirmed live in production: the
+// first version of this planner had no day-level cap at all and filled
+// every one of those breaks in a single run, consuming 26 weeks' worth of
+// demand against one calendar day. collapseToOnePerDay() picks the single
+// break per day closest to the line's own target_time (or the earliest, if
+// the line has none) before demand is ever assigned to a break, and drops
+// any day the line already has an active placement on outright — that
+// day's slot is spoken for, whether or not it later airs compliantly (a
+// missed one is resolved by its own makegood claiming a *different* day,
+// never a second credit stacked onto the same one).
 
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
@@ -50,6 +66,8 @@ export interface AutoFillBreakCandidate {
   breakId: string;
   /** YYYY-MM-DD — checked against a candidate's effective_from/effective_to, the same as log_place_underwriting_credit() checks against the rundown's own air_date. */
   airDate: string;
+  /** Minutes since midnight, station-local time (see lib/log/timezone.ts) — compared against the schedule line's own targetTimeMinutes to pick the best of several same-day candidates. */
+  minutesOfDay: number;
   remainingSeconds: number;
   /** Underwriter id of whichever credit currently holds this break's highest position, if any — null for an empty break or one whose last item isn't a credit. */
   lastItemUnderwriterId: string | null;
@@ -60,12 +78,16 @@ export interface AutoFillBreakCandidate {
 export interface AutoFillDemand {
   /** Makegood ids awaiting a slot on this schedule line, oldest first. */
   awaitingSlotMakegoodIds: string[];
-  /** Brand-new occurrences still needed beyond what's already pending or awaiting a makegood slot. Null for an open-ended schedule line — fill every eligible break available instead of stopping at a target. */
+  /** Brand-new occurrences still needed beyond what's already pending or awaiting a makegood slot. Null for an open-ended schedule line — fill every eligible day available instead of stopping at a target. */
   freshOccurrencesNeeded: number | null;
   /** This schedule line's own underwriter — checked against each candidate break's last item so the same underwriter never runs back to back within one break. */
   underwriterId: string;
   /** That underwriter's category, if set — checked the same way so two underwriters from the same industry never run back to back within one break. */
   category: string | null;
+  /** The schedule line's own target_time, as minutes since midnight station-local — null if the line has none set. Picks which of several same-day breaks is "the" one for that day. */
+  targetTimeMinutes: number | null;
+  /** air_date (YYYY-MM-DD) values this schedule line already has an active (non-superseded) placement on — dropped from consideration entirely, fresh or makegood. */
+  coveredAirDates: string[];
 }
 
 export type AutoFillPlanItemReason = "makegood" | "fresh";
@@ -86,9 +108,9 @@ export interface AutoFillSkippedBreak {
 
 export interface AutoFillPlan {
   items: AutoFillPlanItem[];
-  /** Breaks that had demand queued for them but were passed over — either an adjacency conflict, or no linked copy fit (approved, in date, short enough). */
+  /** Breaks that had demand queued for them but were passed over — either an adjacency conflict, or no linked copy fit (approved, in date, short enough). Breaks dropped by collapseToOnePerDay for having a same-day sibling, or for a day already covered, never appear here — they were never really "considered" for this pass. */
   skipped: AutoFillSkippedBreak[];
-  /** True when demand (makegoods + fresh occurrences) outlasted the eligible breaks available this pass. */
+  /** True when demand (makegoods + fresh occurrences) outlasted the eligible days available this pass. */
   demandExceedsSupply: boolean;
 }
 
@@ -106,24 +128,58 @@ function isCopyEligible(copy: AutoFillCopyCandidate, brk: AutoFillBreakCandidate
 }
 
 /**
- * Assigns eligible breaks (assumed soonest-first, matching
- * log_list_placeable_rundown_breaks' own order) to queued demand —
- * makegoods first, then fresh occurrences — choosing whichever eligible
- * linked copy has been used least so far to rotate fairly between a
- * contract's messages. A break that would put the same underwriter or the
- * same industry back to back, or has no eligible copy, is skipped and the
- * same request tries the next break instead of being dropped.
+ * Reduces a flat list of eligible breaks (assumed soonest-first) to at most
+ * one per calendar day — whichever is closest to targetTimeMinutes (ties
+ * broken by whichever appeared first), or simply the first-seen break of
+ * the day when the line has no target_time. Days already in
+ * coveredAirDates are dropped outright. Result stays soonest-first.
+ */
+export function collapseToOnePerDay(
+  breaks: AutoFillBreakCandidate[],
+  targetTimeMinutes: number | null,
+  coveredAirDates: string[],
+): AutoFillBreakCandidate[] {
+  const covered = new Set(coveredAirDates);
+  const byDay = new Map<string, AutoFillBreakCandidate>();
+
+  for (const brk of breaks) {
+    if (covered.has(brk.airDate)) continue;
+    const existing = byDay.get(brk.airDate);
+    if (!existing) {
+      byDay.set(brk.airDate, brk);
+      continue;
+    }
+    if (targetTimeMinutes == null) continue; // first-seen (soonest) already wins with no target to compare against
+
+    const existingDistance = Math.abs(existing.minutesOfDay - targetTimeMinutes);
+    const candidateDistance = Math.abs(brk.minutesOfDay - targetTimeMinutes);
+    if (candidateDistance < existingDistance) byDay.set(brk.airDate, brk);
+  }
+
+  return [...byDay.values()].sort((a, b) => (a.airDate === b.airDate ? a.minutesOfDay - b.minutesOfDay : a.airDate < b.airDate ? -1 : 1));
+}
+
+/**
+ * Assigns eligible breaks — first collapsed to at most one per calendar day
+ * (see collapseToOnePerDay) — to queued demand — makegoods first, then
+ * fresh occurrences — choosing whichever eligible linked copy has been
+ * used least so far to rotate fairly between a contract's messages. A
+ * break that would put the same underwriter or the same industry back to
+ * back, or has no eligible copy, is skipped and the same request tries the
+ * next day's break instead of being dropped.
  */
 export function planAutoFill(
   breaks: AutoFillBreakCandidate[],
   demand: AutoFillDemand,
   copyCandidates: AutoFillCopyCandidate[],
 ): AutoFillPlan {
+  const dailyBreaks = collapseToOnePerDay(breaks, demand.targetTimeMinutes, demand.coveredAirDates);
+
   const requests: AutoFillRequest[] = demand.awaitingSlotMakegoodIds.map((makegoodId) => ({
     reason: "makegood" as const,
     makegoodId,
   }));
-  const freshCount = demand.freshOccurrencesNeeded ?? breaks.length;
+  const freshCount = demand.freshOccurrencesNeeded ?? dailyBreaks.length;
   for (let i = 0; i < freshCount; i++) requests.push({ reason: "fresh" });
 
   const usageCounts = new Map(copyCandidates.map((copy) => [copy.id, copy.existingUsageCount]));
@@ -131,7 +187,7 @@ export function planAutoFill(
   const skipped: AutoFillSkippedBreak[] = [];
   let requestIndex = 0;
 
-  for (const brk of breaks) {
+  for (const brk of dailyBreaks) {
     if (requestIndex >= requests.length) break;
 
     if (brk.lastItemUnderwriterId === demand.underwriterId) {
