@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { autoFillAllAction } from "./auto-fill-actions";
 import {
   listContracts,
   listCopy,
@@ -26,7 +29,12 @@ const CONFLICT_LABEL: Record<ScheduleLineConflictReason, string> = {
  * schedule line's expected occurrence count. Spacing/daypart/true inventory
  * accounting stay out — see that module's own header.
  */
-export default async function UnderwritingDashboardPage() {
+export default async function UnderwritingDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const { notice } = await searchParams;
   const [contracts, copy, scheduleLines, openExceptions] = await Promise.all([
     listContracts(),
     listCopy(),
@@ -59,6 +67,22 @@ export default async function UnderwritingDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {notice && <Alert variant="info">{notice}</Alert>}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-line p-4">
+        <div>
+          <div className="text-sm font-semibold text-ink-900">Auto-fill scheduling</div>
+          <p className="text-xs text-ink-500">
+            Places approved, in-date copy into every eligible open break for every active contract&apos;s schedule
+            lines — awaiting-slot makegoods first, then fresh occurrences up to each line&apos;s expected count.
+            Breaks can hold several underwriters at once, but never the same underwriter or industry back to back.
+          </p>
+        </div>
+        <form action={autoFillAllAction}>
+          <Button type="submit">Auto-fill everything</Button>
+        </form>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded border border-line p-4">
           <div className="text-2xl font-bold text-ink-900">{activeContracts}</div>

@@ -165,7 +165,12 @@
 // (20260808200000_underwriting_redesign.sql). The three boundary functions
 // were renamed/retyped (log_list_placeable_rundown_items ->
 // log_list_placeable_rundown_breaks, log_place_underwriting_credit's args
-// changed shape) and log_list_programs was added.
+// changed shape) and log_list_programs was added. Hand-updated again on
+// 2026-08-09 for 20260809140000_underwriting_break_adjacency.sql:
+// log_list_placeable_rundown_breaks' return shape gained last_item_id
+// (nullable) on each break, for the auto-fill scheduler's same-underwriter/
+// same-industry adjacency check — no local instance running to regenerate
+// against.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -2255,6 +2260,11 @@ export interface Database {
                 label: string;
                 program_name: string;
                 remaining_seconds: number;
+                // Added by 20260809140000_underwriting_break_adjacency.sql —
+                // the id of whichever item currently holds this break's
+                // highest position, for the auto-fill scheduler's
+                // same-underwriter/same-industry adjacency check.
+                last_item_id: string | null;
               }[];
             }
           | { error: string };

@@ -1,7 +1,9 @@
 # Underwriting & Traffic — Product & Engineering Design
 
 Status: **Milestone 1 shipped in full, then redesigned (2026-08-07/08)
-grounded in a real WUWF underwriting agreement.** Second of the three tools
+grounded in a real WUWF underwriting agreement; the automatic rules-based
+scheduler (§7) has since landed too (2026-08-09) — see CLAUDE.md's dated
+note.** Second of the three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
 Rundown and Traffic System spec into, following `docs/log-design.md` in the
 strategy doc's build order (§6) — this tool depends on Log's rundown and
@@ -179,7 +181,7 @@ dates, and approval status; link additional copy to every contract allowed
 to use it. Expired or unapproved copy cannot be scheduled without an
 explicit manager-checked override.
 
-### C. Placing credits into the rundown (traffic staff, milestone 1: manual)
+### C. Placing credits into the rundown (traffic staff, manual or auto-fill)
 From a contract's schedule line, a traffic staffer picks an eligible Log
 rundown break on an eligible date and places the credit. Eligibility
 (program, day-of-week, duration fit) is checked at the moment of placement,
@@ -187,7 +189,12 @@ not just displayed as a warning after the fact. A lightweight
 **competitive-adjacency advisory** (new — `lib/underwriting/adjacency.ts`)
 flags when another underwriter in the same `category` already has a
 placement scheduled nearby, purely informational — never a hard block, and
-never triggered by the same underwriter's own other placements.
+never triggered by the same underwriter's own other placements. As of
+2026-08-09, a schedule line (or every active schedule line at once, from
+the dashboard) can also be **auto-filled**: the same write path, driven by
+a rules-based planner instead of a person picking one break at a time —
+see CLAUDE.md's dated note and `lib/underwriting/auto-fill-plan.ts`. Manual
+placement stays available for picking a specific break by hand.
 
 ### D. Reviewing pre-broadcast conflicts (traffic staff)
 A dashboard of schedule lines that can't currently be placed — insufficient
@@ -417,21 +424,32 @@ placement is never silently counted as fulfilled while an exception or
 makegood against it is still open; `behind` wins over `fulfilled` in that
 case even if the raw completed count already meets the target.
 
-### Competitive adjacency is advisory, not a rules engine
+### Competitive adjacency is advisory for a human, enforced for the scheduler
 
 `lib/underwriting/adjacency.ts`'s `checkCompetitiveAdjacency()` flags when
 another underwriter sharing the current one's `category` already has a
-nearby placement — purely informational (an `Alert`, never a block), and
-never triggered by the same underwriter's own other placements. This is
-deliberately not a scheduling constraint or a spacing rule engine; WUWF
-asked for a simple advisory, not automated enforcement.
+nearby placement — purely informational (an `Alert`, never a block) on the
+*manual* placement form, and never triggered by the same underwriter's own
+other placements. This is deliberately not a scheduling constraint or a
+spacing rule engine; WUWF asked for a simple advisory there, not automated
+enforcement, since a human is already looking at the screen. Auto-fill
+(§7) has no human in the loop at the moment it places a credit, so the
+same real promise — the reference agreement's own "does not run adjacent
+to a business with similar services or products" — is an *enforced* rule
+there instead, scoped to within one break (see CLAUDE.md's dated note and
+`lib/underwriting/auto-fill-plan.ts`). The two aren't the same check: the
+manual advisory is program-wide and coarse; the auto-fill rule is exact,
+since it only ever needs to know whichever item currently holds a
+candidate break's last position.
 
 ### Milestone 1 (and this redesign) ships the real write path, not a fake one
 
-Manual placement and the eventual automatic scheduler (§7) produce the
-*same* `uw_scheduled_placements`/`log_rundown_items` rows through the *same*
-`log_place_underwriting_credit()` function — a human choosing the break
-today, a rules engine choosing it later.
+Manual placement and the automatic scheduler (§7, landed 2026-08-09) produce
+the *same* `uw_scheduled_placements`/`log_rundown_items` rows through the
+*same* `log_place_underwriting_credit()` function — a human choosing the
+break today, a rules engine choosing it later. `lib/underwriting/
+auto-fill-plan.ts` is the rules engine's pure planning half; `lib/
+underwriting/auto-fill.ts` is what actually calls the RPC.
 
 ### Affidavits are a certified document, not a generated PDF
 
@@ -468,8 +486,6 @@ curation).
 
 ### What's deliberately not in the architecture
 
-- **No automatic rules-based scheduler.** The manual write path is real, the
-  automation on top of it is a follow-up slice.
 - **No PDF generation.**
 - **No direct automation-system export or as-run reconciliation.**
 - **No billing, invoicing, receivables, or commissions.** Permanent
@@ -491,16 +507,19 @@ pre-broadcast conflict review; the post-broadcast exception queue reading
 Log's broadcast events; makegood tracking; derived fulfillment; and
 browser-printable certified affidavits with a durable evidence link.
 
-**Deferred, matching the strategy doc's build order:**
+**Shipped since, beyond milestone 1:**
 
-1. **Automatic rules-based scheduling** — a follow-up slice once manual
-   placement has validated the eligibility rules against more of WUWF's real
-   contract patterns beyond the one reference agreement.
-2. **True PDF/document generation for affidavits.**
-3. **Automation-system export and as-run reconciliation.**
-4. **Scheduled proof-of-performance delivery** — no notification/scheduling
+1. **Automatic rules-based scheduling** (2026-08-09) — see CLAUDE.md's
+   dated note and `lib/underwriting/auto-fill-plan.ts`/`auto-fill.ts`.
+   Reuses `log_place_underwriting_credit()` unchanged; no new migration.
+
+**Still deferred, matching the strategy doc's build order:**
+
+1. **True PDF/document generation for affidavits.**
+2. **Automation-system export and as-run reconciliation.**
+3. **Scheduled proof-of-performance delivery** — no notification/scheduling
    layer exists in this repo yet to build it on.
-5. **A real competitive-adjacency rules engine**, if the advisory turns out
+4. **A real competitive-adjacency rules engine**, if the advisory turns out
    to be insufficient in practice.
 
 **Open questions specific to this tool:**
