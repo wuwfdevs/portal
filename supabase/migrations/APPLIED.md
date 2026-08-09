@@ -98,6 +98,7 @@ repo and a project's history, not the version number.
 | `20260808210000_log_morning_edition_opportunities.sql`            | 2026-08-07 | 2026-08-07 |
 | `20260808220000_log_rundown_breaks_dedup_and_unique.sql`          | 2026-08-07 | 2026-08-07 |
 | `20260808230000_log_morning_edition_weather.sql`                  | 2026-08-07 | 2026-08-07 |
+| `20260808240000_log_rundown_items_npr_lookahead.sql`               | 2026-08-09 | 2026-08-09 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
