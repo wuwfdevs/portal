@@ -1932,6 +1932,30 @@ per eligible slot — a content-item picker plus the same hour/day scoping —
 alongside the existing "Mark eligible"/"Edit" actions, with pinned items
 listed inline and individually removable.
 
+**Log: content library field trim (2026-08-10).** A direct review of
+`log_content_items`/`log_content_components`, prompted by a user question
+about what several of its fields were actually for, found seven columns
+that were captured on the create/edit form and echoed back on the library
+detail page's `<dl>` but never read by any filter, sort, or eligibility
+decision anywhere in the app or in a SQL function:
+`priority`/`frequency_guidance`/`reusable`/`geography_tags`/`subject_tags`/
+`reporter_or_editor`, plus `dad_cart_number` (on both tables) — which was,
+if anything, worse off than the rest, since it was never even surfaced on
+the rundown/console screen where a host would actually need to look up
+what to cue in ENCO/DAD. `eligible_program_ids` was the one field of the
+seven actually load-bearing — `lib/log/rundown-eligibility.ts` used it to
+restrict a content item to specific programs — but it was cut too, on
+review: there is no real WUWF content that is only eligible on specific
+programs, so modeling that restriction was a mistaken assumption from when
+the content library was first built, not a real requirement.
+`20260810150000_log_content_library_field_trim.sql` drops all eight
+columns; `isContentItemEligibleForSlot`/`filterEligibleContent` lost the
+program-matching check and its `programId` parameter along with it, and
+the content-item form, library detail page, and component form all lost
+the corresponding fields. `community_issue_tags` is untouched — not part
+of this review, and still free text pending FCC Reporting's taxonomy per
+docs/log-design.md §6.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

@@ -186,7 +186,13 @@
 // opportunity_assignments/content_items, new log_insert_rundown_items_for_
 // underwriting function) against the Supabase MCP server's
 // `generate_typescript_types` output for the live preview project,
-// field-by-field diffed; every field matched.
+// field-by-field diffed; every field matched. Hand-updated again on
+// 2026-08-10 for 20260810150000_log_content_library_field_trim.sql:
+// log_content_items dropped eligible_program_ids/priority/
+// frequency_guidance/reusable/geography_tags/subject_tags/
+// reporter_or_editor/dad_cart_number (none were ever read for any filter,
+// sort, or eligibility decision — see CLAUDE.md); log_content_components
+// dropped dad_cart_number for the same reason.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1673,22 +1679,13 @@ export interface Database {
           content_type: LogContentType;
           title: string;
           script: string | null;
-          /** Optional identifier for this item's recorded audio in ENCO/DAD, WUWF's playback system of record — the portal does not store or play the audio itself. */
-          dad_cart_number: string | null;
           summary: string | null;
           expected_duration_seconds: number | null;
           effective_from: string;
           effective_to: string | null;
           owner_id: string | null;
           approval_status: LogApprovalStatus;
-          eligible_program_ids: string[];
-          priority: number | null;
-          frequency_guidance: string | null;
-          reusable: boolean;
-          geography_tags: string[];
-          subject_tags: string[];
           community_issue_tags: string[];
-          reporter_or_editor: string | null;
           created_at: string;
           updated_at: string;
           created_by: string | null;
@@ -1709,8 +1706,6 @@ export interface Database {
           duration_seconds: number;
           required: boolean;
           script: string | null;
-          /** Optional identifier for this component's recorded audio in ENCO/DAD. Only meaningful for component_type = recorded_audio. */
-          dad_cart_number: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]> & {
           content_item_id: string;

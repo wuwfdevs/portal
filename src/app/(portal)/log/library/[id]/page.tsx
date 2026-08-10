@@ -3,20 +3,14 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { FieldHint, Label, Select } from "@/components/ui/input";
 import {
   COMPONENT_TYPE_LABEL,
   CONTENT_TYPE_LABEL,
   computeTotalDurationSeconds,
 } from "@/lib/log/content-library";
-import { getContentItemDetail, listPrograms } from "@/lib/log/queries";
-import {
-  addComponent,
-  setApprovalStatus,
-  setItemDadCartNumber,
-  updateComponent,
-  updateContentItem,
-} from "../../library-actions";
+import { getContentItemDetail } from "@/lib/log/queries";
+import { addComponent, setApprovalStatus, updateComponent, updateContentItem } from "../../library-actions";
 import { ComponentForm } from "../component-form";
 import { ContentItemForm } from "../content-item-form";
 import type { LogApprovalStatus } from "@/lib/database.types";
@@ -42,7 +36,6 @@ export default async function ContentItemDetailPage({
   const detailPath = `/log/library/${item.id}`;
   const isEditingItem = edit === "item";
   const editingComponentId = editComponent ?? null;
-  const programs = isEditingItem ? await listPrograms() : [];
 
   const totalDuration = computeTotalDurationSeconds(item.components, item.expected_duration_seconds);
 
@@ -66,13 +59,7 @@ export default async function ContentItemDetailPage({
         {error && <Alert className="mb-4">{error}</Alert>}
 
         {isEditingItem ? (
-          <ContentItemForm
-            action={updateContentItem}
-            programs={programs}
-            submitLabel="Save changes"
-            item={item}
-            cancelHref={detailPath}
-          />
+          <ContentItemForm action={updateContentItem} submitLabel="Save changes" item={item} cancelHref={detailPath} />
         ) : (
           <div className="rounded border border-line">
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
@@ -100,59 +87,16 @@ export default async function ContentItemDetailPage({
                     {item.effective_to ? ` – ${item.effective_to}` : ""}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-ink-400">Priority</dt>
-                  <dd>{item.priority ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-400">Reusable</dt>
-                  <dd>{item.reusable ? "Yes" : "No"}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-400">Reporter / editor</dt>
-                  <dd>{item.reporter_or_editor ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-400">Frequency guidance</dt>
-                  <dd>{item.frequency_guidance ?? "—"}</dd>
-                </div>
               </dl>
-              {(item.geography_tags.length > 0 ||
-                item.subject_tags.length > 0 ||
-                item.community_issue_tags.length > 0) && (
+              {item.community_issue_tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {[...item.geography_tags, ...item.subject_tags, ...item.community_issue_tags].map(
-                    (tag) => (
-                      <Badge key={tag} variant="accent">
-                        {tag}
-                      </Badge>
-                    ),
-                  )}
+                  {item.community_issue_tags.map((tag) => (
+                    <Badge key={tag} variant="accent">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               )}
-            </div>
-
-            <div className="border-t border-line px-5 py-4">
-              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">ENCO/DAD</div>
-              <form action={setItemDadCartNumber} className="flex items-end gap-3">
-                <input type="hidden" name="content_item_id" value={item.id} />
-                <div className="flex-1">
-                  <Label htmlFor="dad_cart_number">Cart number</Label>
-                  <Input
-                    id="dad_cart_number"
-                    name="dad_cart_number"
-                    defaultValue={item.dad_cart_number ?? ""}
-                    placeholder="e.g. 4021"
-                  />
-                  <FieldHint>
-                    ENCO/DAD is WUWF&apos;s audio playback system of record — hosts play this item from
-                    there, not the portal. This is just a reference identifier.
-                  </FieldHint>
-                </div>
-                <Button type="submit" variant="secondary">
-                  Save
-                </Button>
-              </form>
             </div>
           </div>
         )}
@@ -194,9 +138,6 @@ export default async function ContentItemDetailPage({
                         </Link>
                       </div>
                       {component.script && <p className="text-xs text-ink-700">{component.script}</p>}
-                      {component.dad_cart_number && (
-                        <p className="text-xs text-ink-500">ENCO/DAD cart: {component.dad_cart_number}</p>
-                      )}
                     </>
                   )}
                 </li>

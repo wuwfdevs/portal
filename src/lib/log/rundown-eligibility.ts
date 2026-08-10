@@ -18,34 +18,32 @@ export interface EligibilityContentItemLike {
   approval_status: string;
   effective_from: string;
   effective_to: string | null;
-  eligible_program_ids: string[];
 }
 
 /**
- * Whether `item` may fill `brk` for a broadcast of `programId` airing on
- * `airDateISO`. All four conditions — approved, permitted content type,
- * effective on the air date, and (if the item restricts itself) eligible for
- * this program — must hold.
+ * Whether `item` may fill `brk` airing on `airDateISO`. All three
+ * conditions — approved, permitted content type, and effective on the air
+ * date — must hold. Content is never restricted to specific programs: an
+ * earlier `eligible_program_ids` field modeled that, but no real WUWF
+ * content turned out to need it, so it was removed (see CLAUDE.md's Log
+ * content-library field trim).
  */
 export function isContentItemEligibleForSlot(
   item: EligibilityContentItemLike,
   brk: EligibilityBreakLike,
-  programId: string,
   airDateISO: string,
 ): boolean {
   if (item.approval_status !== "approved") return false;
   if (!brk.permitted_content_types.includes(item.content_type)) return false;
   if (item.effective_from > airDateISO) return false;
   if (item.effective_to !== null && item.effective_to < airDateISO) return false;
-  if (item.eligible_program_ids.length > 0 && !item.eligible_program_ids.includes(programId)) return false;
   return true;
 }
 
 export function filterEligibleContent<T extends EligibilityContentItemLike>(
   items: T[],
   brk: EligibilityBreakLike,
-  programId: string,
   airDateISO: string,
 ): T[] {
-  return items.filter((item) => isContentItemEligibleForSlot(item, brk, programId, airDateISO));
+  return items.filter((item) => isContentItemEligibleForSlot(item, brk, airDateISO));
 }

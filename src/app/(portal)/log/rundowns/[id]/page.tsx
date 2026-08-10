@@ -280,7 +280,7 @@ export default async function RundownDetailPage({
   // live read" <details> entirely. Null when the break can't take anything
   // more, same canAddMore gate the old dropdown used.
   const buildInsertConfig = (brk: RundownBreakDetail): InsertConfig | null => {
-    const eligible = filterEligibleContent(approvedContent, brk, rundown.program_id, rundown.air_date);
+    const eligible = filterEligibleContent(approvedContent, brk, rundown.air_date);
 
     return {
       rundownId: rundown.id,
