@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogProducer } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import type { LogClockVersionVariant, LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
 const LIST_PATH = "/log/clocks";
@@ -123,24 +123,6 @@ export async function addClockSlot(formData: FormData): Promise<void> {
 }
 
 const REQUIREMENTS: LogOpportunityRequirement[] = ["optional", "required"];
-
-/**
- * The full set of values a producer may choose from for a local
- * opportunity's permitted_content_types checkbox group — every
- * LogContentType (the content library's own kinds), plus the two sentinel
- * strings the column also has to accept even though they aren't in that
- * enum: 'underwriting_credit' (Underwriting & Traffic's own placements —
- * see log_place_underwriting_credit()) and 'weather' (Log's own
- * WEATHER_ITEM_SENTINEL path — see lib/log/content-library.ts). A plain
- * text[] column can't enforce this at the database layer, which is exactly
- * why a checkbox group replaces the free-text comma-separated input this
- * form used to have.
- */
-export const PERMITTED_CONTENT_TYPE_OPTIONS: { value: string; label: string }[] = [
-  ...Object.entries(CONTENT_TYPE_LABEL).map(([value, label]) => ({ value, label })),
-  { value: "underwriting_credit", label: "Underwriting credit" },
-  { value: "weather", label: "Weather" },
-];
 
 function readPermittedContentTypes(formData: FormData): string[] {
   const allowed = new Set(PERMITTED_CONTENT_TYPE_OPTIONS.map((option) => option.value));

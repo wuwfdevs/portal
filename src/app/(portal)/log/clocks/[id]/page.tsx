@@ -9,13 +9,13 @@ import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
 import { getClockTemplateDetail, type LogLocalOpportunityWithSlot } from "@/lib/log/queries";
+import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import {
   addClockSlot,
   addLocalOpportunity,
   createClockVersion,
   deactivateLocalOpportunity,
   updateLocalOpportunity,
-  PERMITTED_CONTENT_TYPE_OPTIONS,
 } from "../../clock-actions";
 
 const VARIANT_LABEL: Record<string, string> = {
