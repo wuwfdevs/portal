@@ -104,14 +104,23 @@ export function planAssignedContentPlacements(
 ): PlannedRundownItem[] {
   if (insertedBreaks.length === 0 || assignments.length === 0) return [];
 
+  // Keyed on parsed instants, not raw strings — a freshly-built draft's
+  // scheduled_at always comes from Date.prototype.toISOString()
+  // ("...T10:42:30.000Z"), but a break read back from Postgres (through a
+  // security-definer RPC's jsonb, or through PostgREST after an insert)
+  // renders the same instant differently ("...T10:42:30+00:00", no
+  // milliseconds). Raw string equality never matched, so this function
+  // silently placed nothing, ever — the same bug class
+  // selectMissingBreakDrafts (rundown-generation.ts) already had to fix
+  // once for exactly this reason. See CLAUDE.md's dated note.
   const draftByKey = new Map(
-    drafts.map((draft) => [`${draft.local_opportunity_id}|${draft.scheduled_at}`, draft]),
+    drafts.map((draft) => [`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`, draft]),
   );
   const dayOfWeek = dayOfWeekForDateISO(airDateISO);
   const rows: PlannedRundownItem[] = [];
 
   for (const brk of insertedBreaks) {
-    const draft = draftByKey.get(`${brk.local_opportunity_id}|${brk.scheduled_at}`);
+    const draft = draftByKey.get(`${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`);
     if (!draft) continue;
 
     const applicable = selectApplicableAssignments(

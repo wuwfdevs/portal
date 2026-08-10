@@ -244,4 +244,24 @@ describe("planAssignedContentPlacements", () => {
     );
     expect(rows).toHaveLength(0);
   });
+
+  it("matches a break to its draft even when scheduled_at is formatted differently than a fresh draft's toISOString() — the confirmed production bug", () => {
+    // A break read back from Postgres (a security-definer RPC's jsonb, or
+    // PostgREST after an insert) renders a timestamptz with no milliseconds
+    // and "+00:00" instead of "Z" — a real, different string from what
+    // Date.prototype.toISOString() produces for the same instant. Comparing
+    // those strings directly (the original bug) meant draftByKey.get(...)
+    // never matched anything, so no assigned content — legal IDs included —
+    // was ever placed, on either placement path. See
+    // rundown-generation.test.ts's identical case for selectMissingBreakDrafts,
+    // the earlier fix for the same bug class.
+    const rows = planAssignedContentPlacements(
+      [insertedBreak({ id: "b1", local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:00:00+00:00" })],
+      [draft({ local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:00:00.000Z" })],
+      [assignment({ id: "a1", local_opportunity_id: "o1", content_item_id: "legal-id" })],
+      new Map([["legal-id", legalId]]),
+      "2026-08-07",
+    );
+    expect(rows).toHaveLength(1);
+  });
 });
