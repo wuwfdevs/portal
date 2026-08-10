@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildRundownBreakDrafts, selectMissingBreakDrafts, type RundownOpportunityLike } from "./rundown-generation";
+import {
+  buildRundownBreakDrafts,
+  selectLegalIdBreakDraftsPerHour,
+  selectMissingBreakDrafts,
+  type RundownBreakDraft,
+  type RundownOpportunityLike,
+} from "./rundown-generation";
 
 function opportunity(overrides: Partial<RundownOpportunityLike> & { id: string }): RundownOpportunityLike {
   return {
-    position: 1,
-    label: "Local cover",
+    slot_position: 1,
+    slot_label: "Local cover",
     requirement: "optional",
     timing_mode: "fixed",
     start_offset_seconds: 0,
@@ -12,7 +18,6 @@ function opportunity(overrides: Partial<RundownOpportunityLike> & { id: string }
     earliest_start_offset_seconds: null,
     latest_start_offset_seconds: null,
     permitted_content_types: [],
-    allow_multiple: true,
     ...overrides,
   };
 }
@@ -30,7 +35,7 @@ describe("buildRundownBreakDrafts", () => {
 
   it("places a single-hour shift's fixed opportunity at shift start + offset, rejoining at start + duration", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", position: 1, start_offset_seconds: 90, duration_seconds: 30 })],
+      [opportunity({ id: "o1", slot_position: 1, start_offset_seconds: 90, duration_seconds: 30 })],
       "2026-08-07T09:00:00.000Z",
       60,
     );
@@ -41,6 +46,24 @@ describe("buildRundownBreakDrafts", () => {
       available_duration_seconds: 30,
       network_rejoin_at: "2026-08-07T09:02:00.000Z",
     });
+  });
+
+  it("takes its label from the referenced slot, not an authored one", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1", slot_label: "Music Bed" })],
+      "2026-08-07T09:00:00.000Z",
+      60,
+    );
+    expect(drafts[0]!.label).toBe("Music Bed");
+  });
+
+  it("falls back to a generic label when the slot has none", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1", slot_label: null })],
+      "2026-08-07T09:00:00.000Z",
+      60,
+    );
+    expect(drafts[0]!.label).toBe("Local opportunity");
   });
 
   it("places a floating opportunity at its earliest permitted start and rejoins from its latest", () => {
@@ -64,7 +87,7 @@ describe("buildRundownBreakDrafts", () => {
 
   it("repeats every opportunity once per hour across a multi-hour shift", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", position: 1, start_offset_seconds: 60 })],
+      [opportunity({ id: "o1", slot_position: 1, start_offset_seconds: 60 })],
       "2026-08-07T05:00:00.000Z",
       240,
     );
@@ -91,9 +114,9 @@ describe("buildRundownBreakDrafts", () => {
     expect(drafts[0]!.requirement).toBe("required");
   });
 
-  it("keeps hour repetitions ordered ahead of same-hour opportunity position", () => {
+  it("keeps hour repetitions ordered ahead of same-hour opportunity slot position", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", position: 1 }), opportunity({ id: "o2", position: 5 })],
+      [opportunity({ id: "o1", slot_position: 1 }), opportunity({ id: "o2", slot_position: 5 })],
       "2026-08-07T09:00:00.000Z",
       120,
     );
@@ -105,7 +128,7 @@ describe("buildRundownBreakDrafts", () => {
 describe("selectMissingBreakDrafts", () => {
   it("keeps every draft when the rundown has no existing breaks yet", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1" }), opportunity({ id: "o2", position: 2 })],
+      [opportunity({ id: "o1" }), opportunity({ id: "o2", slot_position: 2 })],
       "2026-08-07T09:00:00.000Z",
       60,
     );
@@ -114,7 +137,7 @@ describe("selectMissingBreakDrafts", () => {
 
   it("drops a draft that already has a matching break (a rundown generated before this opportunity existed)", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1" }), opportunity({ id: "o2", position: 2 })],
+      [opportunity({ id: "o1" }), opportunity({ id: "o2", slot_position: 2 })],
       "2026-08-07T09:00:00.000Z",
       60,
     );
@@ -154,5 +177,45 @@ describe("selectMissingBreakDrafts", () => {
       { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },
     ]);
     expect(missing).toHaveLength(0);
+  });
+});
+
+function breakDraft(overrides: Partial<RundownBreakDraft> & { local_opportunity_id: string }): RundownBreakDraft {
+  return {
+    hour_index: 0,
+    position: 1,
+    label: "Some break",
+    requirement: "optional",
+    permitted_content_types: [],
+    scheduled_at: "2026-08-07T09:00:00.000Z",
+    available_duration_seconds: 30,
+    network_rejoin_at: "2026-08-07T09:00:30.000Z",
+    ...overrides,
+  };
+}
+
+describe("selectLegalIdBreakDraftsPerHour", () => {
+  it("picks the draft whose network_rejoin_at is latest within each hour", () => {
+    const drafts = [
+      breakDraft({ local_opportunity_id: "o1", hour_index: 0, network_rejoin_at: "2026-08-07T09:20:00.000Z" }),
+      breakDraft({ local_opportunity_id: "o2", hour_index: 0, network_rejoin_at: "2026-08-07T09:58:30.000Z" }),
+      breakDraft({ local_opportunity_id: "o3", hour_index: 0, network_rejoin_at: "2026-08-07T09:45:00.000Z" }),
+    ];
+    const picked = selectLegalIdBreakDraftsPerHour(drafts);
+    expect(picked).toHaveLength(1);
+    expect(picked[0]!.local_opportunity_id).toBe("o2");
+  });
+
+  it("picks one per hour across a multi-hour shift", () => {
+    const drafts = [
+      breakDraft({ local_opportunity_id: "o1", hour_index: 0, network_rejoin_at: "2026-08-07T09:58:00.000Z" }),
+      breakDraft({ local_opportunity_id: "o1", hour_index: 1, network_rejoin_at: "2026-08-07T10:58:00.000Z" }),
+    ];
+    const picked = selectLegalIdBreakDraftsPerHour(drafts);
+    expect(picked.map((d) => d.hour_index).sort()).toEqual([0, 1]);
+  });
+
+  it("returns nothing for an empty draft set", () => {
+    expect(selectLegalIdBreakDraftsPerHour([])).toHaveLength(0);
   });
 });

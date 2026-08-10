@@ -12,6 +12,7 @@ import {
   listContentItems,
   listLocalOpportunitiesForVersion,
   listUnderwritingCopyForItems,
+  toRundownOpportunity,
   type RundownBreakDetail,
   type RundownItemDetail,
 } from "@/lib/log/queries";
@@ -143,7 +144,9 @@ export default async function RundownDetailPage({
   // what's already here so the page can tell "this clock genuinely has no
   // opportunities" apart from "this rundown is just out of sync" and offer
   // the fix for the latter — see syncRundownBreaks in rundown-actions.ts.
-  const currentOpportunities = await listLocalOpportunitiesForVersion(rundown.clock_version_id);
+  const currentOpportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(
+    toRundownOpportunity,
+  );
   const shiftDurationMinutes = Math.round(
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
@@ -263,8 +266,6 @@ export default async function RundownDetailPage({
   // live read" <details> entirely. Null when the break can't take anything
   // more, same canAddMore gate the old dropdown used.
   const buildInsertConfig = (brk: RundownBreakDetail): InsertConfig | null => {
-    const canAddMore = brk.allow_multiple || brk.items.length === 0;
-    if (!canAddMore) return null;
     const eligible = filterEligibleContent(approvedContent, brk, rundown.program_id, rundown.air_date);
 
     return {
@@ -392,6 +393,10 @@ export default async function RundownDetailPage({
         <Badge variant="muted">
           Covered by {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"}
         </Badge>
+      ) : status === "preempted_by_previous" ? (
+        <Badge variant="warning">
+          Preempted by {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"}
+        </Badge>
       ) : (
         <Badge variant="success">{fit.remainingSeconds}s to spare</Badge>
       );
@@ -495,7 +500,6 @@ export default async function RundownDetailPage({
       scheduledAt: brk.scheduled_at,
       label: `${formatStationTimestamp(brk.scheduled_at)} — ${brk.label}`,
       permittedContentTypes: brk.permitted_content_types,
-      allowMultiple: brk.allow_multiple,
       isCurrent,
       headerNode: (
         <div className="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-50 px-5 py-3">
@@ -525,6 +529,14 @@ export default async function RundownDetailPage({
                 "the previous break"}{" "}
               runs long enough to cover this window too. Still open if you&apos;d rather place something
               here instead.
+            </span>
+          )}
+          {status === "preempted_by_previous" && (
+            <span className="text-xs text-ink-700">
+              Network content here got bumped by an accident of timing — the content in{" "}
+              {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"} ran longer than
+              its own window and reached into this one. Nobody deliberately chose to skip this. Still open
+              if you&apos;d rather place something here instead.
             </span>
           )}
         </div>
@@ -563,6 +575,11 @@ export default async function RundownDetailPage({
         {summary.overCount > 0 && (
           <Badge variant="danger">
             {summary.overCount} running over ({summary.totalOverSeconds}s total)
+          </Badge>
+        )}
+        {summary.preemptedBreaks > 0 && (
+          <Badge variant="warning">
+            {summary.preemptedBreaks} preempting network content — review
           </Badge>
         )}
       </div>

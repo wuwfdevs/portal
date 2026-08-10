@@ -59,10 +59,8 @@ export interface BreakBoardBreak {
   /** Plain-text label for the "Move to…" select's <option> — headerNode is a rendered node, not usable there. */
   label: string;
   permittedContentTypes: string[];
-  allowMultiple: boolean;
   headerNode: ReactNode;
   statusNode: ReactNode;
-  /** Null when the break can't take anything more (occupied and not allow_multiple) — no insertion points render at all then. */
   insertConfig: InsertConfig | null;
   isCurrent: boolean;
   items: BreakBoardItem[];
@@ -121,8 +119,6 @@ export function RundownBreaksBoard({
             rundown_id: brk.rundownId,
             scheduled_at: brk.scheduledAt,
             permitted_content_types: brk.permittedContentTypes,
-            allow_multiple: brk.allowMultiple,
-            item_count: order[brk.id]?.length ?? 0,
           },
           sourceBreakId,
           sourceBreak.rundownId,
@@ -143,8 +139,6 @@ export function RundownBreaksBoard({
           id: brk.id,
           scheduled_at: brk.scheduledAt,
           permitted_content_types: brk.permittedContentTypes,
-          allow_multiple: brk.allowMultiple,
-          item_count: order[brk.id]?.length ?? 0,
         },
         sourceBreakId,
         kind,
@@ -260,7 +254,7 @@ export function RundownBreaksBoard({
           const itemIds = order[brk.id] ?? [];
           const insertConfig = brk.insertConfig;
           return (
-            <BreakDropZone key={brk.id} brk={brk} itemIds={itemIds}>
+            <BreakDropZone key={brk.id} brk={brk}>
               {(itemIds.length > 0 || insertConfig) && (
                 <ul className="flex flex-col gap-3 px-5 py-4">
                   {insertConfig && itemIds.length === 0 && (
@@ -299,14 +293,12 @@ export function RundownBreaksBoard({
 
 function BreakDropZone({
   brk,
-  itemIds,
   children,
 }: {
   brk: BreakBoardBreak;
-  itemIds: string[];
   children: ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: brk.id, disabled: itemIds.length > 0 && !brk.allowMultiple });
+  const { setNodeRef, isOver } = useDroppable({ id: brk.id });
 
   return (
     <li

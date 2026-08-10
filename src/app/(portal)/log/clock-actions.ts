@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogProducer } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { LogClockVersionVariant, LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
 const LIST_PATH = "/log/clocks";
@@ -124,60 +125,62 @@ export async function addClockSlot(formData: FormData): Promise<void> {
 const REQUIREMENTS: LogOpportunityRequirement[] = ["optional", "required"];
 
 /**
- * Adds a WUWF local-substitution opportunity over a clock version — the
- * overlay that replaces fill_mode (see 20260808120000_log_local_
- * opportunities.sql and CLAUDE.md's "Log domain redesign" note). Unlike
- * clock slots, opportunities are editable in place (update, not insert-only)
- * — see deactivateLocalOpportunity below.
+ * The full set of values a producer may choose from for a local
+ * opportunity's permitted_content_types checkbox group — every
+ * LogContentType (the content library's own kinds), plus the two sentinel
+ * strings the column also has to accept even though they aren't in that
+ * enum: 'underwriting_credit' (Underwriting & Traffic's own placements —
+ * see log_place_underwriting_credit()) and 'weather' (Log's own
+ * WEATHER_ITEM_SENTINEL path — see lib/log/content-library.ts). A plain
+ * text[] column can't enforce this at the database layer, which is exactly
+ * why a checkbox group replaces the free-text comma-separated input this
+ * form used to have.
+ */
+export const PERMITTED_CONTENT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  ...Object.entries(CONTENT_TYPE_LABEL).map(([value, label]) => ({ value, label })),
+  { value: "underwriting_credit", label: "Underwriting credit" },
+  { value: "weather", label: "Weather" },
+];
+
+function readPermittedContentTypes(formData: FormData): string[] {
+  const allowed = new Set(PERMITTED_CONTENT_TYPE_OPTIONS.map((option) => option.value));
+  return formData.getAll("permitted_content_types").map(String).filter((value) => allowed.has(value));
+}
+
+/**
+ * Marks an existing network slot as eligible for local content — a WUWF
+ * local opportunity is now always a reference to a real network slot, not
+ * an independently-authored time range (see 20260809170000_log_local_
+ * opportunities_slot_based.sql and CLAUDE.md's dated note): offset,
+ * duration, timing, and label all come from the slot itself, so an
+ * opportunity can never drift out of sync with the clock it describes.
+ * Confirmed directly: any slot, including a required one like a newscast,
+ * can be marked eligible and filled independently — there's no "only as
+ * part of a group" mode. Unlike clock slots themselves, opportunities are
+ * editable in place (update, not insert-only) — see
+ * deactivateLocalOpportunity below.
  */
 export async function addLocalOpportunity(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const versionId = field(formData, "clock_version_id");
+  const slotId = field(formData, "slot_id");
   const path = templatePath(templateId);
-
-  const position = Number.parseInt(field(formData, "position"), 10);
-  const startOffsetSeconds = Number.parseInt(field(formData, "start_offset_seconds"), 10);
-  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
-  const label = field(formData, "label");
-  if (label === "") failWith(path, "Give this opportunity a short label.");
-  if (!Number.isFinite(position) || !Number.isFinite(startOffsetSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-    failWith(path, "Give the opportunity a position, start offset, and a duration greater than zero.");
-  }
+  if (slotId === "") failWith(path, "Choose which network slot this opportunity marks eligible.");
 
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
-  const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
-  if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
-
-  const earliestRaw = optionalField(formData, "earliest_start_offset_seconds");
-  const latestRaw = optionalField(formData, "latest_start_offset_seconds");
-  if (timingMode === "float" && (earliestRaw === null || latestRaw === null)) {
-    failWith(path, "A floating opportunity needs both an earliest and latest permitted start.");
-  }
-
-  const permittedContentTypes = field(formData, "permitted_content_types")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
 
   const supabase = await createClient();
   const { error } = await supabase.from("log_local_opportunities").insert({
     clock_version_id: versionId,
-    position,
-    label,
+    slot_id: slotId,
     requirement,
-    timing_mode: timingMode,
-    start_offset_seconds: startOffsetSeconds,
-    duration_seconds: durationSeconds,
-    earliest_start_offset_seconds: timingMode === "float" ? Number.parseInt(earliestRaw!, 10) : null,
-    latest_start_offset_seconds: timingMode === "float" ? Number.parseInt(latestRaw!, 10) : null,
-    permitted_content_types: permittedContentTypes,
-    allow_multiple: formData.get("allow_multiple") === "on",
+    permitted_content_types: readPermittedContentTypes(formData),
     notes: optionalField(formData, "notes"),
     created_by: profile.id,
   });
-  failIfError(error, path, "Could not add the local opportunity");
+  failIfError(error, path, "Could not mark this slot eligible for local content");
 
   revalidatePath(path);
   redirect(path);
@@ -186,9 +189,10 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
 /**
  * Edits a WUWF local-substitution opportunity in place — the RLS layer has
  * allowed this since the opportunity was split from the network clock (see
- * addLocalOpportunity above), but no action or form ever exercised it until
- * now. Same field set and validation as addLocalOpportunity, applied as an
- * update against an existing row instead of an insert.
+ * addLocalOpportunity above). Which slot an opportunity marks eligible is
+ * its identity, not an editable field — to point at a different slot,
+ * deactivate this one and mark the other slot eligible instead. Only
+ * requirement/permitted_content_types/notes can change here.
  */
 export async function updateLocalOpportunity(formData: FormData): Promise<void> {
   await assertLogProducer();
@@ -196,45 +200,15 @@ export async function updateLocalOpportunity(formData: FormData): Promise<void> 
   const opportunityId = field(formData, "opportunity_id");
   const path = templatePath(templateId);
 
-  const position = Number.parseInt(field(formData, "position"), 10);
-  const startOffsetSeconds = Number.parseInt(field(formData, "start_offset_seconds"), 10);
-  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
-  const label = field(formData, "label");
-  if (label === "") failWith(path, "Give this opportunity a short label.");
-  if (!Number.isFinite(position) || !Number.isFinite(startOffsetSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-    failWith(path, "Give the opportunity a position, start offset, and a duration greater than zero.");
-  }
-
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
-  const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
-  if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
-
-  const earliestRaw = optionalField(formData, "earliest_start_offset_seconds");
-  const latestRaw = optionalField(formData, "latest_start_offset_seconds");
-  if (timingMode === "float" && (earliestRaw === null || latestRaw === null)) {
-    failWith(path, "A floating opportunity needs both an earliest and latest permitted start.");
-  }
-
-  const permittedContentTypes = field(formData, "permitted_content_types")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("log_local_opportunities")
     .update({
-      position,
-      label,
       requirement,
-      timing_mode: timingMode,
-      start_offset_seconds: startOffsetSeconds,
-      duration_seconds: durationSeconds,
-      earliest_start_offset_seconds: timingMode === "float" ? Number.parseInt(earliestRaw!, 10) : null,
-      latest_start_offset_seconds: timingMode === "float" ? Number.parseInt(latestRaw!, 10) : null,
-      permitted_content_types: permittedContentTypes,
-      allow_multiple: formData.get("allow_multiple") === "on",
+      permitted_content_types: readPermittedContentTypes(formData),
       notes: optionalField(formData, "notes"),
     })
     .eq("id", opportunityId);

@@ -29,8 +29,6 @@ export interface MoveDestinationBreakLike {
   id: string;
   scheduled_at: string;
   permitted_content_types: string[];
-  allow_multiple: boolean;
-  item_count: number;
 }
 
 export function isValidMoveDestination(
@@ -41,7 +39,6 @@ export function isValidMoveDestination(
   nowISO: string | null,
 ): boolean {
   if (destination.id === sourceBreakId) return false;
-  if (!destination.allow_multiple && destination.item_count > 0) return false;
   if (nowISO !== null && new Date(destination.scheduled_at).getTime() <= new Date(nowISO).getTime())
     return false;
 
@@ -83,8 +80,6 @@ export interface CreditRelocationBreakLike {
   rundown_id: string;
   scheduled_at: string;
   permitted_content_types: string[];
-  allow_multiple: boolean;
-  item_count: number;
 }
 
 export function isValidCreditRelocationDestination(
@@ -96,7 +91,6 @@ export function isValidCreditRelocationDestination(
   if (destination.id === sourceBreakId) return false;
   if (destination.rundown_id !== sourceRundownId) return false;
   if (!destination.permitted_content_types.includes("underwriting_credit")) return false;
-  if (!destination.allow_multiple && destination.item_count > 0) return false;
   if (nowISO !== null && new Date(destination.scheduled_at).getTime() <= new Date(nowISO).getTime())
     return false;
   return true;

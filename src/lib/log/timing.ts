@@ -7,6 +7,26 @@
 // unresolved. A *required* one left empty is a genuine unresolved
 // obligation. Those are two different things, and this module is where
 // that distinction is actually computed — see computeBreakStatus.
+//
+// Spillover (2026-08-10 revision, see CLAUDE.md's dated note): when an item
+// runs longer than its own break, the overage can spill into one or more
+// immediately-following, empty, contiguous breaks — chaining through as
+// many as it takes, not just one. Each break it reaches is genuinely,
+// partially consumed (never an all-or-nothing "does the whole overage fit
+// in the very next break" check) — a break that absorbs only part of an
+// overrun still has its remaining capacity available for something else.
+// Which requirement a target break carries changes what a host sees, not
+// what happens: requirement = 'required' means local content is mandatory
+// there, full stop — any local content, including spillover, satisfies
+// that, so it's absorbed silently (status 'covered_by_previous'). But
+// requirement = 'optional' usually means real network content (a newscast,
+// a segment) is sitting underneath that a host may or may not choose to
+// preempt — nothing forced it off the air this time, so it's absorbed but
+// flagged ('preempted_by_previous'), not silently hidden. A source break's
+// own overrun only reads as resolved ('filled' instead of 'over') once the
+// chain fully accounts for it; if the chain runs out of eligible neighbors
+// first, the source stays honestly 'over' even though whatever it did
+// manage to spill into keeps its own partial-consumption status.
 
 export interface BreakFit {
   availableDurationSeconds: number;
@@ -35,7 +55,8 @@ export type BreakStatus =
   | "unresolved_required"
   | "filled"
   | "over"
-  | "covered_by_previous";
+  | "covered_by_previous"
+  | "preempted_by_previous";
 
 export interface BreakStatusLike {
   requirement: "optional" | "required";
@@ -80,50 +101,76 @@ export interface BreakStatusResult {
 }
 
 /**
- * Per-break status for a whole rundown, aware of spillover into an
- * immediately-following break: a host doesn't merge or configure anything —
- * they just place a longer piece of content than one break's own window,
- * and if the very next break is empty, optional, and starts exactly where
- * this one's network-rejoin point is (no gap), that next break reads as
- * 'covered_by_previous' instead of independently flagging 'carrying_network'
- * while this one flags 'over'. A required break, one that already has
- * content, or one separated by a gap is never eligible to be covered this
- * way. Only a single hop is absorbed — if the overage doesn't fit even
- * after folding in the next break's own window, both breaks are left with
- * their honest, unabsorbed status rather than silently reaching further.
+ * Per-break status for a whole rundown, aware of spillover chaining through
+ * as many immediately-following, empty, contiguous breaks as it takes — see
+ * this file's header for the full account of the 2026-08-10 revision. For
+ * each break whose own items run over its own window, walks forward through
+ * breaks that are empty (no items of their own, and not already claimed by
+ * an earlier break's own spillover) and start exactly where the previous
+ * one in the chain rejoins the network (no gap): each absorbs as much of
+ * the remaining overage as its own capacity allows — partially if that's
+ * all it has room for — and the walk continues only if there's still
+ * overage left and room to keep going. A break already holding its own
+ * content, or one separated by a gap, ends the chain there. The source
+ * break reads 'filled' (its overrun resolved) only once the chain accounts
+ * for the whole overage; otherwise it stays honestly 'over', independent of
+ * whatever partial credit a downstream break still gets for what it did
+ * absorb. A break that received spillover reads 'covered_by_previous' if
+ * its own requirement is 'required' (any local content, spillover
+ * included, satisfies "must not be bare network") or 'preempted_by_previous'
+ * if 'optional' (real network content got bumped by an accident of timing,
+ * not a deliberate choice — worth a host's attention, not hidden).
  */
 export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusResult[] {
   const sorted = [...breaks].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
-  const results: BreakStatusResult[] = sorted.map((b) => {
-    const fit = computeBreakFit(b.available_duration_seconds, b.occupied_duration_seconds);
-    return {
-      id: b.id,
-      fit,
-      status: computeBreakStatus({ requirement: b.requirement, item_count: b.item_count, fit }),
-      coveredByBreakId: null,
-    };
-  });
+  const ownOccupied = sorted.map((b) => b.occupied_duration_seconds ?? 0);
+  const spilloverConsumed = sorted.map(() => 0);
+  const coveredBy: (string | null)[] = sorted.map(() => null);
+  const resolved = sorted.map(() => false);
 
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const current = sorted[i]!;
-    const currentResult = results[i]!;
-    if (currentResult.status !== "over") continue;
+  for (let i = 0; i < sorted.length; i++) {
+    const overflow0 = ownOccupied[i]! - sorted[i]!.available_duration_seconds;
+    if (overflow0 <= 0) continue;
 
-    const next = sorted[i + 1]!;
-    const nextResult = results[i + 1]!;
-    const eligible =
-      next.item_count === 0 &&
-      next.requirement === "optional" &&
-      next.scheduled_at === current.network_rejoin_at &&
-      currentResult.fit.overSeconds <= next.available_duration_seconds;
-    if (!eligible) continue;
+    let remaining = overflow0;
+    let sourceId = sorted[i]!.id;
+    let rejoinAt = sorted[i]!.network_rejoin_at;
+    let j = i + 1;
+    while (remaining > 0 && j < sorted.length) {
+      const next = sorted[j]!;
+      const alreadyClaimed = ownOccupied[j]! > 0 || spilloverConsumed[j]! > 0;
+      if (next.scheduled_at !== rejoinAt || alreadyClaimed) break;
 
-    currentResult.status = "filled";
-    nextResult.status = "covered_by_previous";
-    nextResult.coveredByBreakId = current.id;
+      const capacity = next.available_duration_seconds;
+      const consume = Math.min(remaining, capacity);
+      spilloverConsumed[j] = consume;
+      coveredBy[j] = sourceId;
+      remaining -= consume;
+
+      if (consume < capacity) break; // this break's own window absorbed the rest — no need to reach further
+      sourceId = next.id;
+      rejoinAt = next.network_rejoin_at;
+      j += 1;
+    }
+
+    resolved[i] = remaining <= 0;
   }
 
-  return results;
+  return sorted.map((b, i) => {
+    const totalOccupied = ownOccupied[i]! + spilloverConsumed[i]!;
+    const fit = computeBreakFit(b.available_duration_seconds, totalOccupied);
+    let status: BreakStatus;
+    if (spilloverConsumed[i]! > 0) {
+      status = b.requirement === "required" ? "covered_by_previous" : "preempted_by_previous";
+    } else if (fit.overSeconds > 0) {
+      status = resolved[i]! ? "filled" : "over";
+    } else if (b.item_count === 0) {
+      status = b.requirement === "required" ? "unresolved_required" : "carrying_network";
+    } else {
+      status = "filled";
+    }
+    return { id: b.id, fit, status, coveredByBreakId: coveredBy[i]! };
+  });
 }
 
 export type RundownSummaryBreakLike = SpilloverBreakLike;
@@ -137,6 +184,8 @@ export interface RundownSummary {
   unresolvedRequiredBreaks: number;
   overCount: number;
   totalOverSeconds: number;
+  /** Optional breaks preempted by a previous break's overrun — filled, but worth a host's attention since real network content (not just an unused avail) got bumped by an accident of timing, not a deliberate choice. */
+  preemptedBreaks: number;
   /** No unresolved required breaks and nothing running over its available time. */
   ready: boolean;
 }
@@ -148,13 +197,20 @@ export function computeRundownSummary(breaks: RundownSummaryBreakLike[]): Rundow
   let unresolvedRequiredBreaks = 0;
   let overCount = 0;
   let totalOverSeconds = 0;
+  let preemptedBreaks = 0;
 
   for (const result of computeBreakStatuses(breaks)) {
-    if (result.status === "filled" || result.status === "over" || result.status === "covered_by_previous") {
+    if (
+      result.status === "filled" ||
+      result.status === "over" ||
+      result.status === "covered_by_previous" ||
+      result.status === "preempted_by_previous"
+    ) {
       filledBreaks++;
     }
     if (result.status === "carrying_network") carryingNetworkBreaks++;
     if (result.status === "unresolved_required") unresolvedRequiredBreaks++;
+    if (result.status === "preempted_by_previous") preemptedBreaks++;
     if (result.status === "over") {
       overCount++;
       totalOverSeconds += result.fit.overSeconds;
@@ -168,6 +224,7 @@ export function computeRundownSummary(breaks: RundownSummaryBreakLike[]): Rundow
     unresolvedRequiredBreaks,
     overCount,
     totalOverSeconds,
+    preemptedBreaks,
     ready: unresolvedRequiredBreaks === 0 && overCount === 0,
   };
 }

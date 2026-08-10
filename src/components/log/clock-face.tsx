@@ -9,7 +9,7 @@ import {
   CATEGORY_LABEL,
   type ClockFaceCategory,
 } from "@/lib/log/clock-face";
-import type { LogClockSlotRow, LogLocalOpportunityRow } from "@/lib/log/queries";
+import type { LogClockSlotRow, LogLocalOpportunityWithSlot } from "@/lib/log/queries";
 
 // A circular diagram of one clock version, in the same spirit as the NPR
 // network clock PDFs this tool's seed data was transcribed from (see
@@ -48,7 +48,7 @@ export function ClockFace({
   opportunities = [],
 }: {
   slots: LogClockSlotRow[];
-  opportunities?: LogLocalOpportunityRow[];
+  opportunities?: LogLocalOpportunityWithSlot[];
 }) {
   const networkSegments = buildClockFaceSegments(
     slots,
@@ -60,11 +60,15 @@ export function ClockFace({
     R_NETWORK_OUTER,
     R_NETWORK_INNER,
   );
+  // An opportunity carries no offset/duration of its own — its ring segment
+  // is always drawn from its referenced network slot's own window (see
+  // CLAUDE.md's dated note), so a locally-eligible slot's outer-ring arc
+  // always lines up exactly with its inner-ring network segment.
   const opportunitySegments = buildClockFaceSegments(
     opportunities,
     TOTAL_SECONDS,
     categorizeOpportunity,
-    slotRenderWindow,
+    (opportunity) => slotRenderWindow(opportunity.slot),
     CENTER,
     CENTER,
     R_OPPORTUNITY_OUTER,
@@ -122,7 +126,8 @@ export function ClockFace({
         {opportunitySegments.map((segment, index) => {
           const color = CATEGORY_COLOR[segment.category];
           const opportunity = segment.slot;
-          const title = `${opportunity.label} (${opportunity.requirement}) — starts ${formatOffset(opportunity.start_offset_seconds)}, ${formatOffset(opportunity.duration_seconds)} available${opportunity.timing_mode === "float" ? ` (floats between ${formatOffset(opportunity.earliest_start_offset_seconds ?? 0)} and ${formatOffset(opportunity.latest_start_offset_seconds ?? 0)})` : ""}`;
+          const label = opportunity.slot.label ?? "Local opportunity";
+          const title = `${label} (${opportunity.requirement}) — starts ${formatOffset(opportunity.slot.start_offset_seconds ?? 0)}, ${formatOffset(opportunity.slot.duration_seconds)} available${opportunity.slot.timing_mode === "float" ? ` (floats between ${formatOffset(opportunity.slot.earliest_start_offset_seconds ?? 0)} and ${formatOffset(opportunity.slot.latest_start_offset_seconds ?? 0)})` : ""}`;
           return (
             <path
               key={`opportunity-${index}`}

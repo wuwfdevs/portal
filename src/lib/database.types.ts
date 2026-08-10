@@ -170,7 +170,15 @@
 // log_list_placeable_rundown_breaks' return shape gained last_item_id
 // (nullable) on each break, for the auto-fill scheduler's same-underwriter/
 // same-industry adjacency check — no local instance running to regenerate
-// against.
+// against. Hand-updated again on 2026-08-10 for
+// 20260809170000_log_local_opportunities_slot_based.sql: log_local_
+// opportunities dropped position/label/timing_mode/start_offset_seconds/
+// duration_seconds/earliest_/latest_start_offset_seconds/allow_multiple in
+// favor of a single slot_id reference (a local opportunity now marks an
+// existing network slot as locally eligible, rather than authoring an
+// independent time range); log_rundown_breaks dropped allow_multiple
+// entirely (no item-count cap anywhere — the only real limit is remaining
+// duration).
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1585,16 +1593,10 @@ export interface Database {
         Row: {
           id: string;
           clock_version_id: string;
-          position: number;
-          label: string;
+          /** The network slot this opportunity marks as locally eligible — unique, one opportunity per slot. Offset/duration/timing/label are always the referenced slot's own. */
+          slot_id: string;
           requirement: LogOpportunityRequirement;
-          timing_mode: LogSlotTimingMode;
-          start_offset_seconds: number;
-          duration_seconds: number;
-          earliest_start_offset_seconds: number | null;
-          latest_start_offset_seconds: number | null;
           permitted_content_types: string[];
-          allow_multiple: boolean;
           notes: string | null;
           active: boolean;
           created_at: string;
@@ -1603,10 +1605,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["log_local_opportunities"]["Row"]> & {
           clock_version_id: string;
-          position: number;
-          label: string;
-          start_offset_seconds: number;
-          duration_seconds: number;
+          slot_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["log_local_opportunities"]["Row"]>;
         Relationships: [];
@@ -1797,7 +1796,6 @@ export interface Database {
           label: string;
           requirement: LogOpportunityRequirement;
           permitted_content_types: string[];
-          allow_multiple: boolean;
           scheduled_at: string;
           available_duration_seconds: number;
           network_rejoin_at: string;
@@ -2318,16 +2316,15 @@ export interface Database {
               local_opportunities: {
                 id: string;
                 clock_version_id: string;
-                position: number;
-                label: string;
+                slot_position: number;
+                slot_label: string | null;
                 requirement: LogOpportunityRequirement;
                 timing_mode: "fixed" | "float";
-                start_offset_seconds: number;
+                start_offset_seconds: number | null;
                 duration_seconds: number;
                 earliest_start_offset_seconds: number | null;
                 latest_start_offset_seconds: number | null;
                 permitted_content_types: string[];
-                allow_multiple: boolean;
               }[];
               existing_rundown_dates: string[];
             }

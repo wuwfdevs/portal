@@ -1,33 +1,39 @@
 // Pure rundown-generation logic — no Supabase import, colocated test. Given
 // a clock version's local opportunities (WUWF's own overlay — see
-// lib/log/local-opportunities.ts and 20260808120000_log_local_opportunities.sql)
-// and a shift's start time/length, produces the draft log_rundown_breaks
-// rows generation should insert. See docs/log-design.md §4B (Workflow E)
-// and CLAUDE.md's "the clock template repeats each hour" note on
-// log_schedule.duration_minutes.
+// lib/log/local-opportunities.ts and 20260808120000_log_local_opportunities.sql,
+// slot-keyed as of 20260809170000_log_local_opportunities_slot_based.sql —
+// see CLAUDE.md's dated note) and a shift's start time/length, produces the
+// draft log_rundown_breaks rows generation should insert. See
+// docs/log-design.md §4B (Workflow E) and CLAUDE.md's "the clock template
+// repeats each hour" note on log_schedule.duration_minutes.
 //
 // Every local opportunity gets a break — including optional ones — because
 // the break itself is what the builder and console render ("carrying
 // network" if nothing gets placed in it). What generation does NOT do is
-// manufacture a break for the network clock's own required/automatic
-// content: log_clock_slots never feeds this function at all anymore. See
-// the clock face diagram (lib/log/clock-face.ts) for the full network
+// manufacture a break for a network slot with no local opportunity marked
+// against it: an opportunity is now always slot-keyed, so this function
+// never sees the network clock's own automatic majority at all. See the
+// clock face diagram (lib/log/clock-face.ts) for the full network
 // structure, opportunities included, rendered for context.
 
 import type { LogOpportunityRequirement } from "@/lib/database.types";
 
+// Slot-keyed (2026-08-10): an opportunity's offset/duration/label/timing are
+// always its referenced network slot's own — never hand-typed, never able to
+// drift out of sync with the clock. slot_position is the slot's own
+// position, reused as this opportunity's stable ordering key now that the
+// opportunity itself carries no position of its own.
 export interface RundownOpportunityLike {
   id: string;
-  position: number;
-  label: string;
+  slot_position: number;
+  slot_label: string | null;
   requirement: LogOpportunityRequirement;
   timing_mode: "fixed" | "float";
-  start_offset_seconds: number;
+  start_offset_seconds: number | null;
   duration_seconds: number;
   earliest_start_offset_seconds: number | null;
   latest_start_offset_seconds: number | null;
   permitted_content_types: string[];
-  allow_multiple: boolean;
 }
 
 export interface RundownBreakDraft {
@@ -37,7 +43,6 @@ export interface RundownBreakDraft {
   label: string;
   requirement: LogOpportunityRequirement;
   permitted_content_types: string[];
-  allow_multiple: boolean;
   scheduled_at: string;
   available_duration_seconds: number;
   network_rejoin_at: string;
@@ -52,9 +57,9 @@ export interface RundownBreakDraft {
  */
 function nominalStartOffsetSeconds(opportunity: RundownOpportunityLike): number {
   if (opportunity.timing_mode === "float") {
-    return opportunity.earliest_start_offset_seconds ?? opportunity.start_offset_seconds;
+    return opportunity.earliest_start_offset_seconds ?? opportunity.start_offset_seconds ?? 0;
   }
-  return opportunity.start_offset_seconds;
+  return opportunity.start_offset_seconds ?? 0;
 }
 
 /**
@@ -66,10 +71,10 @@ function nominalStartOffsetSeconds(opportunity: RundownOpportunityLike): number 
  */
 function rejoinOffsetSeconds(opportunity: RundownOpportunityLike): number {
   if (opportunity.timing_mode === "float") {
-    const latest = opportunity.latest_start_offset_seconds ?? opportunity.start_offset_seconds;
+    const latest = opportunity.latest_start_offset_seconds ?? opportunity.start_offset_seconds ?? 0;
     return latest + opportunity.duration_seconds;
   }
-  return opportunity.start_offset_seconds + opportunity.duration_seconds;
+  return (opportunity.start_offset_seconds ?? 0) + opportunity.duration_seconds;
 }
 
 /**
@@ -96,11 +101,10 @@ export function buildRundownBreakDrafts(
       drafts.push({
         local_opportunity_id: opportunity.id,
         hour_index: hourIndex,
-        position: hourIndex * 10_000 + opportunity.position,
-        label: opportunity.label,
+        position: hourIndex * 10_000 + opportunity.slot_position,
+        label: opportunity.slot_label ?? "Local opportunity",
         requirement: opportunity.requirement,
         permitted_content_types: opportunity.permitted_content_types,
-        allow_multiple: opportunity.allow_multiple,
         scheduled_at: new Date(shiftStartMs + startSeconds * 1000).toISOString(),
         available_duration_seconds: opportunity.duration_seconds,
         network_rejoin_at: new Date(shiftStartMs + rejoinSeconds * 1000).toISOString(),
@@ -149,4 +153,28 @@ export function selectMissingBreakDrafts(
   return drafts.filter(
     (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
   );
+}
+
+/**
+ * For each hour a generated set of drafts spans, the single draft whose
+ * network_rejoin_at is latest — the network's own trailing Silence/Music
+ * Bed slot right before the next hour's Billboard, which every seeded clock
+ * has (see CLAUDE.md's clock-seed correction history). This is where the
+ * station's legal ID is placed automatically at generation time (see
+ * rundown-actions.ts) — a station-wide FCC obligation, not an editorial
+ * call a producer authors per clock, so it's derived here rather than
+ * marked by a flag on any one opportunity. A clock whose final slot isn't
+ * itself marked as a local opportunity has no candidate for that hour —
+ * legal-ID auto-placement simply doesn't happen until a producer marks it
+ * eligible.
+ */
+export function selectLegalIdBreakDraftsPerHour(drafts: RundownBreakDraft[]): RundownBreakDraft[] {
+  const latestByHour = new Map<number, RundownBreakDraft>();
+  for (const draft of drafts) {
+    const current = latestByHour.get(draft.hour_index);
+    if (!current || draft.network_rejoin_at > current.network_rejoin_at) {
+      latestByHour.set(draft.hour_index, draft);
+    }
+  }
+  return Array.from(latestByHour.values());
 }
