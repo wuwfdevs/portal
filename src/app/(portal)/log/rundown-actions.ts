@@ -6,22 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import {
-  buildRundownBreakDrafts,
-  selectLegalIdBreakDraftsPerHour,
-  selectMissingBreakDrafts,
-  type RundownBreakDraft,
-} from "@/lib/log/rundown-generation";
-import {
-  computeEffectiveDurationSeconds,
-  computeTotalDurationSeconds,
-  WEATHER_ITEM_SENTINEL,
-} from "@/lib/log/content-library";
+import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
+import { computeEffectiveDurationSeconds, WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
+import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
 import {
-  getCanonicalLegalIdContentItem,
   getClockTemplateDetail,
   getContentItemDetail,
   getRundownBreak,
@@ -96,59 +87,6 @@ async function placeNewItemAtPosition(
   finalOrder.splice(insertAt === -1 ? finalOrder.length : insertAt, 0, newItemId);
 
   return renumberBreakItems(supabase, finalOrder);
-}
-
-/**
- * Auto-places the station's single canonical "house" legal ID into whichever
- * newly-inserted break is the last local opportunity of each hour — a
- * station-wide FCC obligation, not an editorial call a producer authors per
- * clock, so it happens automatically at generation time rather than being
- * left as another required opportunity a host has to remember (see
- * CLAUDE.md's dated note and lib/log/rundown-generation.ts's
- * selectLegalIdBreakDraftsPerHour). Best-effort: a failure here never fails
- * the rundown generation that triggered it — the break still exists and a
- * host can place the legal ID by hand — matching this repo's existing
- * "an embedding failure is never fatal to the write that triggered it"
- * precedent (lib/transcription/indexing.ts) for a secondary enhancement
- * layered on a primary write that already succeeded. insertedBreaks only
- * ever contains genuinely new rows (upsert + ignoreDuplicates never returns
- * a pre-existing one), so this never re-places the legal ID into a break
- * that's already been generated before.
- */
-async function placeLegalIdIfApplicable(
-  supabase: SupabaseServerClient,
-  insertedBreaks: { id: string; local_opportunity_id: string; scheduled_at: string }[],
-  drafts: RundownBreakDraft[],
-): Promise<void> {
-  if (insertedBreaks.length === 0) return;
-  const legalIdDrafts = selectLegalIdBreakDraftsPerHour(drafts);
-  if (legalIdDrafts.length === 0) return;
-
-  const legalId = await getCanonicalLegalIdContentItem();
-  if (!legalId) return;
-
-  const targetKeys = new Set(legalIdDrafts.map((draft) => `${draft.local_opportunity_id}|${draft.scheduled_at}`));
-  const targetBreakIds = insertedBreaks
-    .filter((brk) => targetKeys.has(`${brk.local_opportunity_id}|${brk.scheduled_at}`))
-    .map((brk) => brk.id);
-  if (targetBreakIds.length === 0) return;
-
-  const plannedDurationSeconds = computeTotalDurationSeconds(legalId.components, legalId.expected_duration_seconds);
-  if (!plannedDurationSeconds || plannedDurationSeconds <= 0) return;
-
-  const { error } = await supabase.from("log_rundown_items").insert(
-    targetBreakIds.map((breakId) => ({
-      break_id: breakId,
-      position: 1,
-      item_kind: "content" as const,
-      content_item_id: legalId.id,
-      planned_duration_seconds: plannedDurationSeconds,
-      placement_status: "replaceable" as const,
-    })),
-  );
-  if (error) {
-    console.error("Could not auto-place the legal ID:", error.message);
-  }
 }
 
 /**
@@ -236,7 +174,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
       "/log",
       "Rundown created, but its local-opportunity breaks could not be generated",
     );
-    await placeLegalIdIfApplicable(supabase, insertedBreaks ?? [], drafts);
+    await placeAssignedContent(supabase, insertedBreaks ?? [], drafts, airDate);
   }
 
   revalidatePath("/log");
@@ -298,7 +236,7 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
       )
       .select("id, local_opportunity_id, scheduled_at");
     failIfError(error, path, "Could not sync this rundown's breaks");
-    await placeLegalIdIfApplicable(supabase, insertedBreaks ?? [], drafts);
+    await placeAssignedContent(supabase, insertedBreaks ?? [], drafts, rundown.air_date);
   }
 
   revalidatePath(path);

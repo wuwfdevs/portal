@@ -8,15 +8,39 @@ import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
-import { getClockTemplateDetail, type LogLocalOpportunityWithSlot } from "@/lib/log/queries";
+import {
+  getClockTemplateDetail,
+  listContentItems,
+  listOpportunityAssignmentsForVersion,
+  type LogContentItemRow,
+  type LogLocalOpportunityWithSlot,
+  type OpportunityAssignmentWithContentTitle,
+} from "@/lib/log/queries";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import {
   addClockSlot,
   addLocalOpportunity,
+  assignOpportunityContent,
   createClockVersion,
   deactivateLocalOpportunity,
+  deactivateOpportunityAssignment,
   updateLocalOpportunity,
 } from "../../clock-actions";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatDayScope(daysOfWeek: number[]): string {
+  if (daysOfWeek.length === 0) return "every day";
+  return daysOfWeek
+    .slice()
+    .sort((a, b) => a - b)
+    .map((day) => DAY_LABELS[day] ?? String(day))
+    .join(", ");
+}
+
+function formatHourScope(hourIndex: number | null): string {
+  return hourIndex === null ? "every hour" : `hour ${hourIndex + 1} of the shift`;
+}
 
 const VARIANT_LABEL: Record<string, string> = {
   weekday: "Weekday",
@@ -38,14 +62,23 @@ export default async function ClockTemplateDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; edit?: string; markEligible?: string }>;
+  searchParams: Promise<{ error?: string; edit?: string; markEligible?: string; assign?: string }>;
 }) {
   const { id } = await params;
-  const { error, edit, markEligible } = await searchParams;
+  const { error, edit, markEligible, assign } = await searchParams;
   const { isProducer } = await requireLogAccess();
   const template = await getClockTemplateDetail(id);
   if (!template) notFound();
   const basePath = `/log/clocks/${template.id}`;
+
+  const contentItems = isProducer ? await listContentItems({ approvalStatus: "approved" }) : [];
+  const assignmentsByVersion = new Map(
+    await Promise.all(
+      template.versions.map(
+        async (version) => [version.id, await listOpportunityAssignmentsForVersion(version.id)] as const,
+      ),
+    ),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,6 +102,12 @@ export default async function ClockTemplateDetailPage({
         const opportunityBySlotId = new Map(
           version.opportunities.map((opportunity) => [opportunity.slot_id, opportunity]),
         );
+        const assignmentsByOpportunity = new Map<string, OpportunityAssignmentWithContentTitle[]>();
+        for (const assignment of assignmentsByVersion.get(version.id) ?? []) {
+          const existing = assignmentsByOpportunity.get(assignment.local_opportunity_id);
+          if (existing) existing.push(assignment);
+          else assignmentsByOpportunity.set(assignment.local_opportunity_id, [assignment]);
+        }
 
         return (
           <div key={version.id} className="rounded border border-line">
@@ -115,6 +154,8 @@ export default async function ClockTemplateDetailPage({
                           const opportunity = opportunityBySlotId.get(slot.id) ?? null;
                           const isEditing = isProducer && edit === opportunity?.id;
                           const isMarking = isProducer && markEligible === slot.id;
+                          const isAssigning = isProducer && assign === opportunity?.id;
+                          const assignments = opportunity ? (assignmentsByOpportunity.get(opportunity.id) ?? []) : [];
                           return (
                             <Fragment key={slot.id}>
                               <Row>
@@ -144,6 +185,33 @@ export default async function ClockTemplateDetailPage({
                                               .join(", ")
                                           : "anything"}
                                       </span>
+                                      {assignments.length > 0 && (
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                          {assignments.map((assignment) => (
+                                            <div key={assignment.id} className="flex items-center gap-1.5 text-xs">
+                                              <span className="text-ink-700">
+                                                Pinned: {assignment.contentItemTitle}{" "}
+                                                <span className="text-ink-400">
+                                                  ({formatHourScope(assignment.hour_index)},{" "}
+                                                  {formatDayScope(assignment.days_of_week)})
+                                                </span>
+                                              </span>
+                                              {isProducer && (
+                                                <form action={deactivateOpportunityAssignment}>
+                                                  <input type="hidden" name="clock_template_id" value={template.id} />
+                                                  <input type="hidden" name="assignment_id" value={assignment.id} />
+                                                  <button
+                                                    type="submit"
+                                                    className="rounded text-ink-400 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
+                                                  >
+                                                    Remove
+                                                  </button>
+                                                </form>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   ) : (
                                     <span className="text-xs text-ink-400">Not locally eligible</span>
@@ -159,6 +227,12 @@ export default async function ClockTemplateDetailPage({
                                             className="text-xs font-semibold text-brand-link hover:underline"
                                           >
                                             {isEditing ? "Cancel" : "Edit"}
+                                          </Link>
+                                          <Link
+                                            href={isAssigning ? basePath : `${basePath}?assign=${opportunity.id}`}
+                                            className="text-xs font-semibold text-brand-link hover:underline"
+                                          >
+                                            {isAssigning ? "Cancel" : "Pin content"}
                                           </Link>
                                           <form action={deactivateLocalOpportunity}>
                                             <input type="hidden" name="clock_template_id" value={template.id} />
@@ -210,6 +284,17 @@ export default async function ClockTemplateDetailPage({
                                       defaultPermittedTypes={[]}
                                       defaultNotes={null}
                                       submitLabel="Mark eligible"
+                                    />
+                                  </Cell>
+                                </Row>
+                              )}
+                              {isAssigning && opportunity && (
+                                <Row key={`${slot.id}-assign`}>
+                                  <Cell colSpan={isProducer ? 7 : 6} className="bg-panel-50/60">
+                                    <AssignmentForm
+                                      templateId={template.id}
+                                      opportunityId={opportunity.id}
+                                      contentItems={contentItems}
                                     />
                                   </Cell>
                                 </Row>
@@ -381,6 +466,63 @@ function OpportunityForm({
       </div>
       <div className="flex justify-end">
         <Button type="submit">{submitLabel}</Button>
+      </div>
+    </form>
+  );
+}
+
+function AssignmentForm({
+  templateId,
+  opportunityId,
+  contentItems,
+}: {
+  templateId: string;
+  opportunityId: string;
+  contentItems: LogContentItemRow[];
+}) {
+  return (
+    <form action={assignOpportunityContent} className="flex flex-col gap-4 py-1">
+      <input type="hidden" name="clock_template_id" value={templateId} />
+      <input type="hidden" name="opportunity_id" value={opportunityId} />
+      <div>
+        <Label htmlFor={`assign-content-${opportunityId}`}>Content item</Label>
+        <Select id={`assign-content-${opportunityId}`} name="content_item_id" required defaultValue="">
+          <option value="" disabled>
+            Choose an approved content item…
+          </option>
+          {contentItems.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor={`assign-hour-${opportunityId}`}>Hour of the shift</Label>
+        <Input id={`assign-hour-${opportunityId}`} name="hour_index" type="number" min={0} />
+        <FieldHint>
+          0-based (0 = the shift&apos;s first hour, 1 = its second, and so on). Leave blank for every hour the
+          opportunity recurs — legal ID&apos;s own case.
+        </FieldHint>
+      </div>
+      <div>
+        <Label>Days</Label>
+        <div className="mt-1 grid grid-cols-4 gap-x-4 gap-y-1.5 sm:grid-cols-7">
+          {DAY_LABELS.map((label, day) => (
+            <label key={day} className="flex items-center gap-2 text-sm text-ink-700">
+              <input type="checkbox" name="days_of_week" value={day} className="h-4 w-4" />
+              {label}
+            </label>
+          ))}
+        </div>
+        <FieldHint>Leave every box unchecked for every day.</FieldHint>
+      </div>
+      <div>
+        <Label htmlFor={`assign-notes-${opportunityId}`}>Notes</Label>
+        <Input id={`assign-notes-${opportunityId}`} name="notes" maxLength={280} />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit">Pin content</Button>
       </div>
     </form>
   );
