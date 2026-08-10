@@ -7,7 +7,11 @@ import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
-import { computeEffectiveDurationSeconds, WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
+import {
+  computeEffectiveDurationSeconds,
+  WEATHER_DEFAULT_DURATION_SECONDS,
+  WEATHER_ITEM_SENTINEL,
+} from "@/lib/log/content-library";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
@@ -285,7 +289,7 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
         break_id: breakId,
         position: nextPosition,
         item_kind: "weather",
-        planned_duration_seconds: 20,
+        planned_duration_seconds: WEATHER_DEFAULT_DURATION_SECONDS,
         placement_status: "editable",
       })
       .select("id")

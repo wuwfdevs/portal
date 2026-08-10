@@ -26,6 +26,15 @@ import type { LogComponentType, LogContentType } from "@/lib/database.types";
  */
 export const WEATHER_ITEM_SENTINEL = "__weather__";
 
+/**
+ * A weather item's planned duration when first placed — there's no
+ * per-component breakdown for weather the way there is for library content
+ * (no log_content_items row at all), so this is the one fixed default,
+ * shared with the "for this airing" edit form's own prefill so it matches
+ * what a freshly-placed weather item actually got.
+ */
+export const WEATHER_DEFAULT_DURATION_SECONDS = 20;
+
 export const CONTENT_TYPE_LABEL: Record<LogContentType, string> = {
   news: "News",
   station_promo: "Station promo",

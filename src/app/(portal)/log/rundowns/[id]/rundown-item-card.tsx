@@ -37,6 +37,10 @@ export interface RundownItemCardBaseProps {
   removable: boolean;
   overrideScript: string | null;
   overrideDurationSeconds: number | null;
+  /** The item's un-overridden default (master content script, or today's weather text) — prefills the edit form when there's no override yet, instead of starting blank. */
+  defaultScript: string | null;
+  /** The item's un-overridden default duration — same prefill reasoning as defaultScript. */
+  defaultDurationSeconds: number | null;
   updateItemOverridesAction: (formData: FormData) => void;
   removeRundownItemAction: (formData: FormData) => void;
   readView: ReactNode;
@@ -57,6 +61,8 @@ export function RundownItemCard({
   removable,
   overrideScript,
   overrideDurationSeconds,
+  defaultScript,
+  defaultDurationSeconds,
   updateItemOverridesAction,
   removeRundownItemAction,
   readView,
@@ -103,14 +109,14 @@ export function RundownItemCard({
                   name="override_script"
                   rows={3}
                   placeholder="Script for this airing only"
-                  defaultValue={overrideScript ?? ""}
+                  defaultValue={overrideScript ?? defaultScript ?? ""}
                 />
                 <Input
                   name="override_duration_seconds"
                   type="number"
                   min={1}
                   placeholder="Duration (s)"
-                  defaultValue={overrideDurationSeconds ?? ""}
+                  defaultValue={overrideDurationSeconds ?? defaultDurationSeconds ?? ""}
                   className="w-32"
                 />
               </form>

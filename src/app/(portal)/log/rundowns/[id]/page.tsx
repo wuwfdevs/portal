@@ -4,7 +4,11 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
-import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "@/lib/log/content-library";
+import {
+  CONTENT_TYPE_LABEL,
+  computeTotalDurationSeconds,
+  WEATHER_DEFAULT_DURATION_SECONDS,
+} from "@/lib/log/content-library";
 import {
   getRundownDetail,
   hasOpenUnderwritingExceptions,
@@ -444,6 +448,17 @@ export default async function RundownDetailPage({
       const itemTiming = itemTimingByBreakAndId.get(brk.id)?.get(item.id) ?? null;
       const startLabel = itemTiming ? formatStationClockTime(itemTiming.startAt) : null;
 
+      // What the "Edit for this airing" form should prefill when this item
+      // has no override yet — the un-overridden default it's currently
+      // running with, so opening the form to tweak just one field doesn't
+      // present as blank and silently drop the rest on save.
+      const defaultScript =
+        item.item_kind === "weather"
+          ? (weather.reading?.live_read_text ?? null)
+          : (item.contentItem?.script ?? null);
+      const defaultDurationSeconds =
+        item.item_kind === "weather" ? WEATHER_DEFAULT_DURATION_SECONDS : masterDuration;
+
       const readView = (
         <>
           {nprSourceStale && (
@@ -508,6 +523,8 @@ export default async function RundownDetailPage({
           removable: item.item_kind !== "underwriting_credit",
           overrideScript: item.override_script,
           overrideDurationSeconds: item.override_duration_seconds,
+          defaultScript,
+          defaultDurationSeconds,
           updateItemOverridesAction: updateItemOverrides,
           removeRundownItemAction: removeRundownItem,
           midBroadcastActions: renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at),
