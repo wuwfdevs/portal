@@ -178,7 +178,15 @@
 // existing network slot as locally eligible, rather than authoring an
 // independent time range); log_rundown_breaks dropped allow_multiple
 // entirely (no item-count cap anywhere — the only real limit is remaining
-// duration).
+// duration). Hand-reconciled again on 2026-08-10 for
+// 20260810120000_log_opportunity_assignments.sql (new log_opportunity_
+// assignments table, log_generate_rundown_for_underwriting's breaks gained
+// local_opportunity_id) and 20260810130000_log_opportunity_assignment_
+// placement_boundary.sql (log_get_program_schedule_context widened with
+// opportunity_assignments/content_items, new log_insert_rundown_items_for_
+// underwriting function) against the Supabase MCP server's
+// `generate_typescript_types` output for the live preview project,
+// field-by-field diffed; every field matched.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1610,6 +1618,28 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_local_opportunities"]["Row"]>;
         Relationships: [];
       };
+      log_opportunity_assignments: {
+        Row: {
+          id: string;
+          local_opportunity_id: string;
+          content_item_id: string;
+          /** Which hour repetition of the opportunity this applies to (0-based); null means every hour. */
+          hour_index: number | null;
+          /** 0=Sunday..6=Saturday; empty means every day. */
+          days_of_week: number[];
+          notes: string | null;
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_opportunity_assignments"]["Row"]> & {
+          local_opportunity_id: string;
+          content_item_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_opportunity_assignments"]["Row"]>;
+        Relationships: [];
+      };
       log_schedule: {
         Row: {
           id: string;
@@ -2290,7 +2320,7 @@ export interface Database {
         Args: { p_rundown_id: string };
         Returns: boolean;
       };
-      /** Added by 20260809150000_underwriting_rundown_provisioning.sql — everything lib/underwriting/rundown-provisioning.ts needs to resolve a program's schedule/clock/local-opportunity context itself, past Log's has_log_access-gated tables. */
+      /** Added by 20260809150000_underwriting_rundown_provisioning.sql — everything lib/underwriting/rundown-provisioning.ts needs to resolve a program's schedule/clock/local-opportunity context itself, past Log's has_log_access-gated tables. Widened by 20260810130000_log_opportunity_assignment_placement_boundary.sql to also return active opportunity assignments and the content items they reference, so planAssignedContentPlacements() can plan assigned-content placement (legal ID included) for auto-fill-provisioned rundowns. */
       log_get_program_schedule_context: {
         Args: { p_program_id: string };
         Returns:
@@ -2326,11 +2356,24 @@ export interface Database {
                 latest_start_offset_seconds: number | null;
                 permitted_content_types: string[];
               }[];
+              opportunity_assignments: {
+                id: string;
+                local_opportunity_id: string;
+                content_item_id: string;
+                hour_index: number | null;
+                days_of_week: number[];
+                active: boolean;
+              }[];
+              content_items: {
+                id: string;
+                expected_duration_seconds: number | null;
+                components: { component_type: LogComponentType; duration_seconds: number; required: boolean }[];
+              }[];
               existing_rundown_dates: string[];
             }
           | { error: string };
       };
-      /** Added by 20260809150000_underwriting_rundown_provisioning.sql, widened by 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql to return the resulting breaks — inserts the same shape generateRundown() itself inserts, idempotent on log_rundowns' (program_id, air_date) constraint. Break drafts arrive precomputed (buildRundownBreakDrafts()). */
+      /** Added by 20260809150000_underwriting_rundown_provisioning.sql, widened by 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql to return the resulting breaks, and again by 20260810120000_log_opportunity_assignments.sql to include each break's local_opportunity_id — inserts the same shape generateRundown() itself inserts, idempotent on log_rundowns' (program_id, air_date) constraint. Break drafts arrive precomputed (buildRundownBreakDrafts()). */
       log_generate_rundown_for_underwriting: {
         Args: {
           p_program_id: string;
@@ -2348,12 +2391,18 @@ export interface Database {
               already_existed: boolean;
               breaks: {
                 break_id: string;
+                local_opportunity_id: string;
                 permitted_content_types: string[];
                 scheduled_at: string;
                 available_duration_seconds: number;
               }[];
             }
           | { error: string };
+      };
+      /** Added by 20260810130000_log_opportunity_assignment_placement_boundary.sql — writes precomputed log_rundown_items rows (planned in TS by planAssignedContentPlacements) past RLS for an underwriting-only caller. */
+      log_insert_rundown_items_for_underwriting: {
+        Args: { p_items: Record<string, unknown>[] };
+        Returns: { ok: true; inserted: number } | { error: string };
       };
       /** Gated by has_log_access, not has_underwriting_access — see 20260809130000_underwriting_credit_relocation.sql. Moves an already-placed, not-yet-aired credit to a different open break in the same rundown. */
       log_relocate_underwriting_credit: {

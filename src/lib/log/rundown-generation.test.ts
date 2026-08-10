@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRundownBreakDrafts,
-  selectLegalIdBreakDraftsPerHour,
   selectMissingBreakDrafts,
-  type RundownBreakDraft,
   type RundownOpportunityLike,
 } from "./rundown-generation";
 
@@ -177,45 +175,5 @@ describe("selectMissingBreakDrafts", () => {
       { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },
     ]);
     expect(missing).toHaveLength(0);
-  });
-});
-
-function breakDraft(overrides: Partial<RundownBreakDraft> & { local_opportunity_id: string }): RundownBreakDraft {
-  return {
-    hour_index: 0,
-    position: 1,
-    label: "Some break",
-    requirement: "optional",
-    permitted_content_types: [],
-    scheduled_at: "2026-08-07T09:00:00.000Z",
-    available_duration_seconds: 30,
-    network_rejoin_at: "2026-08-07T09:00:30.000Z",
-    ...overrides,
-  };
-}
-
-describe("selectLegalIdBreakDraftsPerHour", () => {
-  it("picks the draft whose network_rejoin_at is latest within each hour", () => {
-    const drafts = [
-      breakDraft({ local_opportunity_id: "o1", hour_index: 0, network_rejoin_at: "2026-08-07T09:20:00.000Z" }),
-      breakDraft({ local_opportunity_id: "o2", hour_index: 0, network_rejoin_at: "2026-08-07T09:58:30.000Z" }),
-      breakDraft({ local_opportunity_id: "o3", hour_index: 0, network_rejoin_at: "2026-08-07T09:45:00.000Z" }),
-    ];
-    const picked = selectLegalIdBreakDraftsPerHour(drafts);
-    expect(picked).toHaveLength(1);
-    expect(picked[0]!.local_opportunity_id).toBe("o2");
-  });
-
-  it("picks one per hour across a multi-hour shift", () => {
-    const drafts = [
-      breakDraft({ local_opportunity_id: "o1", hour_index: 0, network_rejoin_at: "2026-08-07T09:58:00.000Z" }),
-      breakDraft({ local_opportunity_id: "o1", hour_index: 1, network_rejoin_at: "2026-08-07T10:58:00.000Z" }),
-    ];
-    const picked = selectLegalIdBreakDraftsPerHour(drafts);
-    expect(picked.map((d) => d.hour_index).sort()).toEqual([0, 1]);
-  });
-
-  it("returns nothing for an empty draft set", () => {
-    expect(selectLegalIdBreakDraftsPerHour([])).toHaveLength(0);
   });
 });

@@ -154,27 +154,3 @@ export function selectMissingBreakDrafts(
     (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
   );
 }
-
-/**
- * For each hour a generated set of drafts spans, the single draft whose
- * network_rejoin_at is latest — the network's own trailing Silence/Music
- * Bed slot right before the next hour's Billboard, which every seeded clock
- * has (see CLAUDE.md's clock-seed correction history). This is where the
- * station's legal ID is placed automatically at generation time (see
- * rundown-actions.ts) — a station-wide FCC obligation, not an editorial
- * call a producer authors per clock, so it's derived here rather than
- * marked by a flag on any one opportunity. A clock whose final slot isn't
- * itself marked as a local opportunity has no candidate for that hour —
- * legal-ID auto-placement simply doesn't happen until a producer marks it
- * eligible.
- */
-export function selectLegalIdBreakDraftsPerHour(drafts: RundownBreakDraft[]): RundownBreakDraft[] {
-  const latestByHour = new Map<number, RundownBreakDraft>();
-  for (const draft of drafts) {
-    const current = latestByHour.get(draft.hour_index);
-    if (!current || draft.network_rejoin_at > current.network_rejoin_at) {
-      latestByHour.set(draft.hour_index, draft);
-    }
-  }
-  return Array.from(latestByHour.values());
-}

@@ -217,3 +217,71 @@ export async function deactivateLocalOpportunity(formData: FormData): Promise<vo
   revalidatePath(path);
   redirect(path);
 }
+
+const DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
+
+function readDaysOfWeek(formData: FormData): number[] {
+  return formData
+    .getAll("days_of_week")
+    .map((value) => Number.parseInt(String(value), 10))
+    .filter((value) => DAYS_OF_WEEK.includes(value));
+}
+
+/**
+ * Pins a content-library item to a local opportunity — the general
+ * mechanism legal-ID auto-placement is now just one instance of, not a
+ * content-type-specific heuristic (see CLAUDE.md's dated note and
+ * lib/log/opportunity-assignments.ts). Generation places it automatically
+ * from then on via lib/log/opportunity-assignment-placement.ts (Log's own
+ * path) and lib/underwriting/rundown-provisioning.ts (auto-fill-provisioned
+ * rundowns). An empty hour_index means every hour the opportunity recurs;
+ * an empty days_of_week means every day.
+ */
+export async function assignOpportunityContent(formData: FormData): Promise<void> {
+  const { profile } = await assertLogProducer();
+  const templateId = field(formData, "clock_template_id");
+  const opportunityId = field(formData, "opportunity_id");
+  const path = templatePath(templateId);
+  if (opportunityId === "") failWith(path, "Choose which opportunity to pin content to.");
+
+  const contentItemId = field(formData, "content_item_id");
+  if (contentItemId === "") failWith(path, "Choose a content item to pin.");
+
+  const hourIndexRaw = optionalField(formData, "hour_index");
+  const hourIndex = hourIndexRaw === null ? null : Number.parseInt(hourIndexRaw, 10);
+  if (hourIndex !== null && (!Number.isFinite(hourIndex) || hourIndex < 0)) {
+    failWith(path, "Hour must be zero or a positive whole number, or left blank for every hour.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("log_opportunity_assignments").insert({
+    local_opportunity_id: opportunityId,
+    content_item_id: contentItemId,
+    hour_index: hourIndex,
+    days_of_week: readDaysOfWeek(formData),
+    notes: optionalField(formData, "notes"),
+    created_by: profile.id,
+  });
+  failIfError(error, path, "Could not pin this content item");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+/** Deactivates a content assignment (doesn't delete it) — same lifecycle as deactivateLocalOpportunity. */
+export async function deactivateOpportunityAssignment(formData: FormData): Promise<void> {
+  await assertLogProducer();
+  const templateId = field(formData, "clock_template_id");
+  const assignmentId = field(formData, "assignment_id");
+  const path = templatePath(templateId);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_opportunity_assignments")
+    .update({ active: false })
+    .eq("id", assignmentId);
+  failIfError(error, path, "Could not remove this content assignment");
+
+  revalidatePath(path);
+  redirect(path);
+}

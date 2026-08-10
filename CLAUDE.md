@@ -1858,6 +1858,80 @@ events existed in preview (two harmless test rows in production) — the same
 "no real production data yet" status this exact tool's `uw_scheduled_
 placements` table has already been cleared under twice before.
 
+**Log: legal-ID auto-placement generalized into content assignments
+(2026-08-10), superseding the note above.** The previous mechanism
+(`selectLegalIdBreakDraftsPerHour`/`placeLegalIdIfApplicable`/
+`getCanonicalLegalIdContentItem`, all now deleted) had two real bugs, both
+found by comparing preview data against what the app claimed rather than by
+inspection: it only ever ran from the Log route's own `generateRundown`/
+`syncRundownBreaks` — never from Underwriting's own auto-fill rundown
+provisioning (`lib/underwriting/rundown-provisioning.ts` →
+`log_generate_rundown_for_underwriting()`), so **0 of the 75 Morning
+Edition rundowns auto-fill had generated in preview ever got a legal ID
+placed**; and its "whichever marked opportunity has the latest
+`network_rejoin_at` is the trailing pre-Billboard slot" heuristic assumed a
+producer had marked that exact slot eligible, which for Morning Edition
+nobody had — it would have targeted the ~49:35 story window instead (whose
+`permitted_content_types` didn't even include `legal_id`), ignoring the
+purpose-built `required` 42:30 opportunity that already existed for this.
+
+The fix generalizes rather than patches: `log_opportunity_assignments`
+(`20260810120000_log_opportunity_assignments.sql`) pins a specific
+content-library item to a specific local opportunity, with an optional
+`hour_index` (which repetition of the opportunity within a multi-hour
+shift — null means every hour) and `days_of_week` (empty means every day,
+same convention as `log_schedule.days_of_week`) — the same shape that
+covers Unearthing Florida ("Fridays during the second Morning Edition
+hour") and BirdNote ("daily during the second Morning Edition hour"), two
+real content items that had sat in the library since Phase 2 unused by
+anything. RLS is producer-gated select/insert/update, same shape as
+`log_local_opportunities`; no delete, deactivate via `active` instead.
+Legal ID is now just one assignment row, not a special case — the
+migration conditionally backfills it (pins whichever `log_content_items`
+row is the most-recently-approved `legal_id` to whatever `required`
+opportunity currently permits `legal_id`) only where both pieces already
+exist, which turned out to be true on production (a real approved legal ID
+item already existed there) but not on preview, where earlier ad hoc
+testing had edited the 42:30 opportunity's `permitted_content_types` away
+from `legal_id` entirely — preview's pin was created by hand afterward,
+pointed at the clock's real top-of-hour trailing Music Bed slot instead
+(the same slot the old heuristic could never reliably find), verified via
+a full generate-and-place round trip against the live preview database
+before being kept.
+
+`lib/log/opportunity-assignments.ts` (pure, tested, no Supabase import) is
+the shared logic both placement paths call directly rather than duplicate
+or reimplement in SQL: `selectApplicableAssignments` matches an
+assignment against a break's opportunity/hour/day, and
+`planAssignedContentPlacements` turns a freshly-generated set of breaks
+into the `log_rundown_items` rows to insert, given assignments and content
+items (with components, for `computeTotalDurationSeconds`) supplied by the
+caller. `lib/log/opportunity-assignment-placement.ts`'s `placeAssignedContent`
+is the thin Log-access-session wrapper (ordinary RLS-scoped reads/write) used
+by `rundown-actions.ts`. Underwriting's own auto-fill provisioning needed a
+real two-way RLS boundary instead, the same shape as every other Log/
+Underwriting crossing: `log_get_program_schedule_context()` was widened to
+also return active opportunity assignments and the content items they
+reference (`20260810130000_log_opportunity_assignment_placement_boundary.sql`),
+and a new `log_insert_rundown_items_for_underwriting()` writes whatever
+`planAssignedContentPlacements` computes in TS past RLS — nothing about
+*what* to place is decided in SQL, only the read and the write cross the
+boundary. That same migration's first version of the widened
+`log_get_program_schedule_context()` shipped a real regression, caught
+immediately while verifying the feature end to end against preview before
+it reached production: it was based on the function's shape from before
+`20260809170000_log_local_opportunities_slot_based.sql` had already
+rewritten its `local_opportunities` query to join `log_clock_slots` (that
+migration's own comment on the function said as much), so every call
+started erroring with "column o.position does not exist." Fixed the same
+day by `20260810140000_log_get_program_schedule_context_slot_join_fix.sql`,
+applied to both projects before the broken version ever reached production.
+
+The clock detail screen (`/log/clocks/[id]`) gained a "Pin content" action
+per eligible slot — a content-item picker plus the same hour/day scoping —
+alongside the existing "Mark eligible"/"Edit" actions, with pinned items
+listed inline and individually removable.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

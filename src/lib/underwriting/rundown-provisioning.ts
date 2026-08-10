@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "@/lib/log/schedule";
 import { resolveCurrentVersion, type ClockVersionLike } from "@/lib/log/clock-versions";
 import { buildRundownBreakDrafts, type RundownOpportunityLike } from "@/lib/log/rundown-generation";
+import {
+  planAssignedContentPlacements,
+  type ContentItemForPlacement,
+  type OpportunityAssignmentLike,
+} from "@/lib/log/opportunity-assignments";
 import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import type { UwContractScheduleLineRow } from "./queries";
 import type { LogScheduleEntryType } from "@/lib/database.types";
@@ -23,16 +28,21 @@ import type { LogScheduleEntryType } from "@/lib/database.types";
  *
  * Nothing about "what a rundown should contain" is reimplemented here —
  * every interesting decision (which clock version is in effect, how local
- * opportunities expand across a multi-hour shift) reuses Log's own pure
- * functions directly (this is one monolith; they're dependency-free, so
- * importing them here duplicates nothing). Only the read (what schedule
- * entries/clock versions/local opportunities exist for this program, and
- * which air_dates already have a rundown) and the write (insert the
- * rundown + its breaks) cross the Log/Underwriting RLS boundary, through
- * log_get_program_schedule_context() and
- * log_generate_rundown_for_underwriting()
- * (20260809150000_underwriting_rundown_provisioning.sql and
- * 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql).
+ * opportunities expand across a multi-hour shift, and — since
+ * 20260810130000 — which log_opportunity_assignments match a freshly
+ * generated break) reuses Log's own pure functions directly (this is one
+ * monolith; they're dependency-free, so importing them here duplicates
+ * nothing). Only the read (what schedule entries/clock versions/local
+ * opportunities/opportunity assignments/content items exist for this
+ * program, and which air_dates already have a rundown) and the write
+ * (insert the rundown + its breaks, and separately, any assigned content —
+ * legal ID included — into whichever breaks just got created) cross the
+ * Log/Underwriting RLS boundary, through log_get_program_schedule_context(),
+ * log_generate_rundown_for_underwriting(), and
+ * log_insert_rundown_items_for_underwriting()
+ * (20260809150000_underwriting_rundown_provisioning.sql,
+ * 20260809160000_underwriting_rundown_provisioning_returns_breaks.sql, and
+ * 20260810130000_log_opportunity_assignment_placement_boundary.sql).
  */
 
 interface ScheduleEntryContext extends ScheduleEntryLike {
@@ -51,10 +61,16 @@ interface LocalOpportunityContext extends RundownOpportunityLike {
   clock_version_id: string;
 }
 
+interface ContentItemContext extends ContentItemForPlacement {
+  id: string;
+}
+
 interface ProgramScheduleContext {
   schedule_entries: ScheduleEntryContext[];
   clock_versions: ClockVersionContext[];
   local_opportunities: LocalOpportunityContext[];
+  opportunity_assignments: OpportunityAssignmentLike[];
+  content_items: ContentItemContext[];
   existing_rundown_dates: string[];
 }
 
@@ -200,9 +216,47 @@ export async function provisionRundownsForDates(
 
     const result = genData as {
       already_existed: boolean;
-      breaks: { break_id: string; permitted_content_types: string[]; scheduled_at: string; available_duration_seconds: number }[];
+      breaks: {
+        break_id: string;
+        local_opportunity_id: string;
+        permitted_content_types: string[];
+        scheduled_at: string;
+        available_duration_seconds: number;
+      }[];
     };
-    if (!result.already_existed) generatedCount++;
+    if (!result.already_existed) {
+      generatedCount++;
+      // Only ever runs against a genuinely new rundown's breaks — gated on
+      // already_existed rather than an upsert's own .select(), the same
+      // "insertedBreaks must never contain a pre-existing row" guarantee
+      // rundown-actions.ts's own callers give planAssignedContentPlacements.
+      // This is the fix for the confirmed production bug: auto-fill-
+      // provisioned rundowns never got a legal ID (or any other pinned
+      // content) placed at all, because this path never planned or wrote
+      // anything equivalent before. See CLAUDE.md's dated note.
+      const contentItemsById = new Map(
+        context.content_items.map((item) => [item.id, { expected_duration_seconds: item.expected_duration_seconds, components: item.components }]),
+      );
+      const plannedItems = planAssignedContentPlacements(
+        result.breaks.map((brk) => ({
+          id: brk.break_id,
+          local_opportunity_id: brk.local_opportunity_id,
+          scheduled_at: brk.scheduled_at,
+        })),
+        drafts,
+        context.opportunity_assignments,
+        contentItemsById,
+        airDate,
+      );
+      if (plannedItems.length > 0) {
+        const { error: placeError } = await supabase.rpc("log_insert_rundown_items_for_underwriting", {
+          p_items: plannedItems as unknown as Record<string, unknown>[],
+        });
+        if (placeError) {
+          errors.push(`Rundown generated for ${airDate}, but its assigned content could not be placed: ${placeError.message}`);
+        }
+      }
+    }
 
     for (const brk of result.breaks) {
       if (!brk.permitted_content_types.includes("underwriting_credit")) continue;

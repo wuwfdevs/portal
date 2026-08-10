@@ -20,6 +20,7 @@ export type LogLocalOpportunityRow = Database["public"]["Tables"]["log_local_opp
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
+export type LogOpportunityAssignmentRow = Database["public"]["Tables"]["log_opportunity_assignments"]["Row"];
 export type LogNprEpisodeRow = Database["public"]["Tables"]["log_npr_episodes"]["Row"];
 export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode_items"]["Row"];
 export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
@@ -249,29 +250,44 @@ export async function getContentItemDetail(id: string): Promise<ContentItemDetai
 }
 
 /**
- * The single canonical "house" legal ID — auto-placed at generation time
- * into the last local opportunity of every hour (see rundown-actions.ts's
- * placeLegalIdIfApplicable and rundown-generation.ts's
- * selectLegalIdBreakDraftsPerHour). Most-recently-approved match if more
- * than one exists; null (auto-placement simply skipped, same "not
- * configured" treatment this repo gives every other optional integration)
- * if none does yet.
+ * Several content items plus their components at once, keyed by id — the
+ * bulk counterpart to getContentItemDetail, used by
+ * lib/log/opportunity-assignment-placement.ts so placing several assigned
+ * items across a freshly-generated rundown's breaks doesn't do it one query
+ * per item. Silently drops any id that no longer resolves (a deactivated or
+ * deleted item an assignment still points at) rather than erroring — that
+ * assignment just doesn't place anything this run, the same "best effort"
+ * treatment placement already gives a failed write.
  */
-export async function getCanonicalLegalIdContentItem(): Promise<ContentItemDetail | null> {
+export async function getContentItemsWithComponents(
+  ids: string[],
+): Promise<Map<string, ContentItemDetail>> {
+  if (ids.length === 0) return new Map();
   const supabase = await createClient();
-  const item = unwrapRead(
-    await supabase
-      .from("log_content_items")
-      .select("*")
-      .eq("content_type", "legal_id")
-      .eq("approval_status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    "the canonical legal ID",
+  const items =
+    unwrapRead(
+      await supabase.from("log_content_items").select("*").in("id", ids),
+      "these content items",
+    ) ?? [];
+  const components =
+    unwrapRead(
+      await supabase.from("log_content_components").select("*").in("content_item_id", ids),
+      "these content items' components",
+    ) ?? [];
+
+  const componentsByItem = new Map<string, LogContentComponentRow[]>();
+  for (const component of components) {
+    const existing = componentsByItem.get(component.content_item_id);
+    if (existing) existing.push(component);
+    else componentsByItem.set(component.content_item_id, [component]);
+  }
+
+  return new Map(
+    items.map((item) => [
+      item.id,
+      { ...item, components: (componentsByItem.get(item.id) ?? []).sort((a, b) => a.sequence - b.sequence) },
+    ]),
   );
-  if (!item) return null;
-  return getContentItemDetail(item.id);
 }
 
 export interface NprEpisodeCacheEntry {
@@ -385,6 +401,50 @@ export async function listLocalOpportunitiesForVersion(
   return opportunities.sort(
     (a, b) => (a.slot.start_offset_seconds ?? 0) - (b.slot.start_offset_seconds ?? 0),
   );
+}
+
+export interface OpportunityAssignmentWithContentTitle extends LogOpportunityAssignmentRow {
+  contentItemTitle: string;
+}
+
+/**
+ * Every active assignment (see lib/log/opportunity-assignments.ts) pinning
+ * a content item to one of this clock version's local opportunities, for
+ * the clock detail screen — joined to the content item's title since a bare
+ * id isn't useful to a producer reading the list. Not scoped further by
+ * opportunity; the caller groups by local_opportunity_id.
+ */
+export async function listOpportunityAssignmentsForVersion(
+  clockVersionId: string,
+): Promise<OpportunityAssignmentWithContentTitle[]> {
+  const supabase = await createClient();
+  const opportunities = await listLocalOpportunitiesForVersion(clockVersionId);
+  const opportunityIds = opportunities.map((opportunity) => opportunity.id);
+  if (opportunityIds.length === 0) return [];
+
+  const assignments =
+    unwrapRead(
+      await supabase
+        .from("log_opportunity_assignments")
+        .select("*")
+        .in("local_opportunity_id", opportunityIds)
+        .eq("active", true),
+      "this clock version's content assignments",
+    ) ?? [];
+  if (assignments.length === 0) return [];
+
+  const contentItemIds = [...new Set(assignments.map((assignment) => assignment.content_item_id))];
+  const items =
+    unwrapRead(
+      await supabase.from("log_content_items").select("id, title").in("id", contentItemIds),
+      "these assignments' content items",
+    ) ?? [];
+  const titleById = new Map(items.map((item) => [item.id, item.title]));
+
+  return assignments.map((assignment) => ({
+    ...assignment,
+    contentItemTitle: titleById.get(assignment.content_item_id) ?? "Unknown content item",
+  }));
 }
 
 /** Every rundown for a given air date — the Today screen's per-program status column. */
