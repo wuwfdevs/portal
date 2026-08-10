@@ -15,14 +15,12 @@ export function CopyDisplay({
   script,
   summary,
   startLabel,
-  endLabel,
 }: {
   title: string;
   script: string | null;
   summary: string | null;
-  /** Pre-formatted hh:mm:ss station-clock labels (formatStationClockTime) — null when this item's timing couldn't be computed. */
+  /** Pre-formatted hh:mm:ss station-clock label (formatStationClockTime) — null when this item's timing couldn't be computed. */
   startLabel: string | null;
-  endLabel: string | null;
 }) {
   const [sizeIndex, setSizeIndex] = useState(1);
 
@@ -55,9 +53,9 @@ export function CopyDisplay({
           </button>
         </div>
       </div>
-      {startLabel && endLabel && (
+      {startLabel && (
         <p className={`${SIZES[sizeIndex]} mb-1 font-mono font-extrabold text-brand-link tabular-nums`}>
-          {startLabel}–{endLabel}
+          {startLabel}
         </p>
       )}
       <p className={`${SIZES[sizeIndex]} font-bold text-ink-900`}>{title}</p>

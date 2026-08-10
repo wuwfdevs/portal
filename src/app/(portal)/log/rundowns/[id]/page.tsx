@@ -75,13 +75,6 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
   submitted: "success",
 };
 
-const ITEM_KIND_LABEL: Record<string, string> = {
-  content: "Content",
-  live_read: "Live read",
-  weather: "Weather",
-  underwriting_credit: "Underwriting credit",
-};
-
 const STATE_LABEL: Record<LiveTimingState, string> = {
   on_time: "On time",
   running_long: "Running long",
@@ -450,7 +443,6 @@ export default async function RundownDetailPage({
 
       const itemTiming = itemTimingByBreakAndId.get(brk.id)?.get(item.id) ?? null;
       const startLabel = itemTiming ? formatStationClockTime(itemTiming.startAt) : null;
-      const endLabel = itemTiming ? formatStationClockTime(itemTiming.endAt) : null;
 
       const readView = (
         <>
@@ -465,17 +457,15 @@ export default async function RundownDetailPage({
               script={effectiveScript}
               summary={item.contentItem?.summary ?? null}
               startLabel={startLabel}
-              endLabel={endLabel}
             />
           ) : (
             <div className="min-w-0">
-              {startLabel && endLabel && (
+              {startLabel && (
                 <p className="mb-1 font-mono text-base font-extrabold text-ink-900 tabular-nums">
-                  {startLabel}–{endLabel}
+                  {startLabel}
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="accent">{ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}</Badge>
                 {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
                 <span className="text-base font-semibold text-ink-900">{title}</span>
               </div>
