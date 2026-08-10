@@ -88,6 +88,49 @@ export async function createContentItem(formData: FormData): Promise<void> {
   redirect(detailPath(data.id));
 }
 
+/**
+ * Edits a content item's own fields in place — approval_status has its own
+ * dedicated form below (retiring is a status change, not a content edit),
+ * and dad_cart_number keeps its own small form too, so this covers
+ * everything else the "new content item" form collects.
+ */
+export async function updateContentItem(formData: FormData): Promise<void> {
+  await assertLogAccess();
+  const id = field(formData, "content_item_id");
+  const path = detailPath(id);
+  const title = field(formData, "title");
+  if (title === "") failWith(path, "Give the item a title.");
+  const contentType = field(formData, "content_type") as LogContentType;
+  if (!CONTENT_TYPES.includes(contentType)) failWith(path, "That is not a recognized content type.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_content_items")
+    .update({
+      content_type: contentType,
+      title,
+      script: optionalField(formData, "script"),
+      summary: optionalField(formData, "summary"),
+      expected_duration_seconds: optionalInt(formData, "expected_duration_seconds"),
+      effective_from: optionalField(formData, "effective_from") ?? undefined,
+      effective_to: optionalField(formData, "effective_to"),
+      eligible_program_ids: formData.getAll("eligible_program_ids").map(String),
+      priority: optionalInt(formData, "priority"),
+      frequency_guidance: optionalField(formData, "frequency_guidance"),
+      reusable: formData.get("reusable") === "on",
+      geography_tags: splitTags(formData, "geography_tags"),
+      subject_tags: splitTags(formData, "subject_tags"),
+      community_issue_tags: splitTags(formData, "community_issue_tags"),
+      reporter_or_editor: optionalField(formData, "reporter_or_editor"),
+    })
+    .eq("id", id);
+  failIfError(error, path, "Could not update the content item");
+
+  revalidatePath(path);
+  revalidatePath(LIST_PATH);
+  redirect(path);
+}
+
 const APPROVAL_STATUSES: LogApprovalStatus[] = ["draft", "approved", "retired"];
 
 export async function setApprovalStatus(formData: FormData): Promise<void> {
@@ -131,6 +174,37 @@ export async function addComponent(formData: FormData): Promise<void> {
     dad_cart_number: optionalField(formData, "dad_cart_number"),
   });
   failIfError(error, path, "Could not add the component");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+export async function updateComponent(formData: FormData): Promise<void> {
+  await assertLogAccess();
+  const componentId = field(formData, "component_id");
+  const contentItemId = field(formData, "content_item_id");
+  const path = detailPath(contentItemId);
+  const componentType = field(formData, "component_type") as LogComponentType;
+  if (!COMPONENT_TYPES.includes(componentType)) failWith(path, "That is not a recognized component type.");
+  const sequence = Number.parseInt(field(formData, "sequence"), 10);
+  const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
+  if (!Number.isFinite(sequence) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    failWith(path, "Give the component a sequence and a duration greater than zero.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("log_content_components")
+    .update({
+      component_type: componentType,
+      sequence,
+      duration_seconds: durationSeconds,
+      required: formData.get("required") === "on",
+      script: optionalField(formData, "script"),
+      dad_cart_number: optionalField(formData, "dad_cart_number"),
+    })
+    .eq("id", componentId);
+  failIfError(error, path, "Could not update the component");
 
   revalidatePath(path);
   redirect(path);
