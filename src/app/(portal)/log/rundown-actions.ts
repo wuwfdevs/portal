@@ -6,12 +6,22 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
-import { computeEffectiveDurationSeconds, WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
+import {
+  buildRundownBreakDrafts,
+  selectLegalIdBreakDraftsPerHour,
+  selectMissingBreakDrafts,
+  type RundownBreakDraft,
+} from "@/lib/log/rundown-generation";
+import {
+  computeEffectiveDurationSeconds,
+  computeTotalDurationSeconds,
+  WEATHER_ITEM_SENTINEL,
+} from "@/lib/log/content-library";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
 import {
+  getCanonicalLegalIdContentItem,
   getClockTemplateDetail,
   getContentItemDetail,
   getRundownBreak,
@@ -19,8 +29,8 @@ import {
   getRundownForProgramOnDate,
   getRundownItem,
   getScheduleEntry,
-  listItemsForBreak,
   listLocalOpportunitiesForVersion,
+  toRundownOpportunity,
 } from "@/lib/log/queries";
 import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import type { LogContentType } from "@/lib/database.types";
@@ -89,6 +99,59 @@ async function placeNewItemAtPosition(
 }
 
 /**
+ * Auto-places the station's single canonical "house" legal ID into whichever
+ * newly-inserted break is the last local opportunity of each hour — a
+ * station-wide FCC obligation, not an editorial call a producer authors per
+ * clock, so it happens automatically at generation time rather than being
+ * left as another required opportunity a host has to remember (see
+ * CLAUDE.md's dated note and lib/log/rundown-generation.ts's
+ * selectLegalIdBreakDraftsPerHour). Best-effort: a failure here never fails
+ * the rundown generation that triggered it — the break still exists and a
+ * host can place the legal ID by hand — matching this repo's existing
+ * "an embedding failure is never fatal to the write that triggered it"
+ * precedent (lib/transcription/indexing.ts) for a secondary enhancement
+ * layered on a primary write that already succeeded. insertedBreaks only
+ * ever contains genuinely new rows (upsert + ignoreDuplicates never returns
+ * a pre-existing one), so this never re-places the legal ID into a break
+ * that's already been generated before.
+ */
+async function placeLegalIdIfApplicable(
+  supabase: SupabaseServerClient,
+  insertedBreaks: { id: string; local_opportunity_id: string; scheduled_at: string }[],
+  drafts: RundownBreakDraft[],
+): Promise<void> {
+  if (insertedBreaks.length === 0) return;
+  const legalIdDrafts = selectLegalIdBreakDraftsPerHour(drafts);
+  if (legalIdDrafts.length === 0) return;
+
+  const legalId = await getCanonicalLegalIdContentItem();
+  if (!legalId) return;
+
+  const targetKeys = new Set(legalIdDrafts.map((draft) => `${draft.local_opportunity_id}|${draft.scheduled_at}`));
+  const targetBreakIds = insertedBreaks
+    .filter((brk) => targetKeys.has(`${brk.local_opportunity_id}|${brk.scheduled_at}`))
+    .map((brk) => brk.id);
+  if (targetBreakIds.length === 0) return;
+
+  const plannedDurationSeconds = computeTotalDurationSeconds(legalId.components, legalId.expected_duration_seconds);
+  if (!plannedDurationSeconds || plannedDurationSeconds <= 0) return;
+
+  const { error } = await supabase.from("log_rundown_items").insert(
+    targetBreakIds.map((breakId) => ({
+      break_id: breakId,
+      position: 1,
+      item_kind: "content" as const,
+      content_item_id: legalId.id,
+      planned_duration_seconds: plannedDurationSeconds,
+      placement_status: "replaceable" as const,
+    })),
+  );
+  if (error) {
+    console.error("Could not auto-place the legal ID:", error.message);
+  }
+}
+
+/**
  * Generates (or, if one already exists, just links to) the rundown for a
  * schedule entry's program on a given air date — docs/log-design.md
  * Workflow E. Idempotent: log_rundowns' unique (program_id, air_date)
@@ -114,7 +177,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
   const version = template ? resolveCurrentVersion(template.versions, airDate) : null;
   if (!version) failWith("/log", "This program's clock has no version in effect on that date.");
 
-  const opportunities = await listLocalOpportunitiesForVersion(version.id);
+  const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(toRundownOpportunity);
 
   const shiftStartAt = stationLocalDateTimeToUTC(airDate, scheduleEntry.air_time);
   const shiftEndAt = new Date(
@@ -151,26 +214,29 @@ export async function generateRundown(formData: FormData): Promise<void> {
     // under a concurrent double-submit, not only when the application's own
     // "is this missing?" check gets it right. See
     // 20260808220000_log_rundown_breaks_dedup_and_unique.sql.
-    const { error: breaksError } = await supabase.from("log_rundown_breaks").upsert(
-      drafts.map((draft) => ({
-        rundown_id: rundown.id,
-        local_opportunity_id: draft.local_opportunity_id,
-        position: draft.position,
-        label: draft.label,
-        requirement: draft.requirement,
-        permitted_content_types: draft.permitted_content_types,
-        allow_multiple: draft.allow_multiple,
-        scheduled_at: draft.scheduled_at,
-        available_duration_seconds: draft.available_duration_seconds,
-        network_rejoin_at: draft.network_rejoin_at,
-      })),
-      { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
-    );
+    const { data: insertedBreaks, error: breaksError } = await supabase
+      .from("log_rundown_breaks")
+      .upsert(
+        drafts.map((draft) => ({
+          rundown_id: rundown.id,
+          local_opportunity_id: draft.local_opportunity_id,
+          position: draft.position,
+          label: draft.label,
+          requirement: draft.requirement,
+          permitted_content_types: draft.permitted_content_types,
+          scheduled_at: draft.scheduled_at,
+          available_duration_seconds: draft.available_duration_seconds,
+          network_rejoin_at: draft.network_rejoin_at,
+        })),
+        { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
+      )
+      .select("id, local_opportunity_id, scheduled_at");
     failIfError(
       breaksError,
       "/log",
       "Rundown created, but its local-opportunity breaks could not be generated",
     );
+    await placeLegalIdIfApplicable(supabase, insertedBreaks ?? [], drafts);
   }
 
   revalidatePath("/log");
@@ -196,7 +262,7 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith("/log", "That rundown no longer exists.");
 
-  const opportunities = await listLocalOpportunitiesForVersion(rundown.clock_version_id);
+  const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(toRundownOpportunity);
   const shiftDurationMinutes = Math.round(
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
@@ -214,22 +280,25 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
     // braces alongside selectMissingBreakDrafts' own check, since two
     // concurrent clicks of "Sync them in now" could otherwise both compute
     // the same "missing" set before either write lands.
-    const { error } = await supabase.from("log_rundown_breaks").upsert(
-      missing.map((draft) => ({
-        rundown_id: rundown.id,
-        local_opportunity_id: draft.local_opportunity_id,
-        position: draft.position,
-        label: draft.label,
-        requirement: draft.requirement,
-        permitted_content_types: draft.permitted_content_types,
-        allow_multiple: draft.allow_multiple,
-        scheduled_at: draft.scheduled_at,
-        available_duration_seconds: draft.available_duration_seconds,
-        network_rejoin_at: draft.network_rejoin_at,
-      })),
-      { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
-    );
+    const { data: insertedBreaks, error } = await supabase
+      .from("log_rundown_breaks")
+      .upsert(
+        missing.map((draft) => ({
+          rundown_id: rundown.id,
+          local_opportunity_id: draft.local_opportunity_id,
+          position: draft.position,
+          label: draft.label,
+          requirement: draft.requirement,
+          permitted_content_types: draft.permitted_content_types,
+          scheduled_at: draft.scheduled_at,
+          available_duration_seconds: draft.available_duration_seconds,
+          network_rejoin_at: draft.network_rejoin_at,
+        })),
+        { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
+      )
+      .select("id, local_opportunity_id, scheduled_at");
     failIfError(error, path, "Could not sync this rundown's breaks");
+    await placeLegalIdIfApplicable(supabase, insertedBreaks ?? [], drafts);
   }
 
   revalidatePath(path);
@@ -497,9 +566,6 @@ export async function relocateRundownItem(
   if (!destinationBreak) return { error: "That break no longer exists." };
 
   if (item.break_id !== destinationBreakId) {
-    const destinationItems = await listItemsForBreak(destinationBreakId);
-    const alreadyThere = destinationItems.filter((existing) => existing.id !== itemId);
-
     let kind: RelocatableItemKind = "live_read";
     let contentType: string | null = null;
     if (item.item_kind === "content" && item.content_item_id) {
@@ -513,14 +579,13 @@ export async function relocateRundownItem(
     // nowISO is null here (not the "already in the past" gate) — that check
     // is a client-side UX hint only, same reasoning duration-fit warnings
     // use elsewhere in Log: the schema and this write don't need to enforce
-    // it to stay correct. Capacity and content-type eligibility do.
+    // it to stay correct. Content-type eligibility does — there's no
+    // capacity cap to check anymore (see CLAUDE.md's dated note).
     const eligible = isValidMoveDestination(
       {
         id: destinationBreak.id,
         scheduled_at: destinationBreak.scheduled_at,
         permitted_content_types: destinationBreak.permitted_content_types,
-        allow_multiple: destinationBreak.allow_multiple,
-        item_count: alreadyThere.length,
       },
       item.break_id,
       kind,

@@ -38,6 +38,24 @@ export const CONTENT_TYPE_LABEL: Record<LogContentType, string> = {
   host_created: "Host-created",
 };
 
+/**
+ * The full set of values a producer may choose from for a local
+ * opportunity's permitted_content_types checkbox group (clock-actions.ts,
+ * clocks/[id]/page.tsx) — every LogContentType above, plus the two sentinel
+ * strings the column also has to accept even though they aren't in that
+ * enum: 'underwriting_credit' (Underwriting & Traffic's own placements —
+ * see log_place_underwriting_credit()) and 'weather' (WEATHER_ITEM_SENTINEL
+ * above). A plain text[] column can't enforce this at the database layer,
+ * which is exactly why a checkbox group replaces a free-text comma-
+ * separated input for it. Lives here, not in clock-actions.ts: a "use
+ * server" file may only export async functions, and this is plain data.
+ */
+export const PERMITTED_CONTENT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  ...Object.entries(CONTENT_TYPE_LABEL).map(([value, label]) => ({ value, label })),
+  { value: "underwriting_credit", label: "Underwriting credit" },
+  { value: "weather", label: "Weather" },
+];
+
 export const COMPONENT_TYPE_LABEL: Record<LogComponentType, string> = {
   live_intro: "Live intro",
   recorded_audio: "Recorded audio",

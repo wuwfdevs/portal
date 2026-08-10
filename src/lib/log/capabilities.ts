@@ -64,9 +64,6 @@ export const buildRundownItem = defineCapability({
     if (!brk) return { ok: false, message: "That break no longer exists." };
 
     const existingItems = await listItemsForBreak(input.breakId);
-    if (existingItems.length > 0 && !brk.allow_multiple) {
-      return { ok: false, message: "That break is already occupied." };
-    }
 
     const contentItem = await getContentItemDetail(input.contentItemId);
     if (!contentItem) return { ok: false, message: "That content item no longer exists." };

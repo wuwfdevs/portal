@@ -1750,6 +1750,114 @@ Log producer adds a local opportunity to All Things Considered's own clock
 the 108-minute mark would match, the same mechanism Morning Edition's own
 opportunities already use.
 
+**Log: local opportunities redesigned to be slot-keyed, not an
+independently-authored time range (2026-08-10)** — a direct product
+correction, not a bug fix, requested directly after the domain redesign
+above had already shipped. `20260809170000_log_local_opportunities_slot_
+based.sql`: `log_local_opportunities` dropped every fillability column it
+carried alongside its own offsets (`position`/`label`/`timing_mode`/
+`start_offset_seconds`/`duration_seconds`/`earliest_`/`latest_start_offset_
+seconds`) in favor of a single `slot_id` reference (unique — one opportunity
+per slot). Offset, duration, timing mode, and label are now always the
+referenced network slot's own immutable values, so an opportunity can never
+drift out of sync with the clock it describes the way a hand-typed offset
+could — the exact bug class three separate clock-seed correction migrations
+already had to fix. A real local opportunity that spans more than one
+network element (the Morning Edition story window that covers a cross-promo
+tail, a Music Bed, and both Newscast 3 and 4 — see the domain redesign note
+above) is now several separate slot-keyed rows, one per slot, rather than
+one row with a custom range; `20260809180000_log_morning_edition_
+opportunities_slot_based.sql` re-seeds Morning Edition's 5 real
+opportunities under this shape (the 4-slot story window becoming 4 rows),
+resolving each slot by `(clock_version_id, start_offset_seconds)` rather
+than a hardcoded id — `log_clock_slots.id` is `gen_random_uuid()`-assigned
+per environment, confirmed directly when a first attempt hardcoding
+preview's own slot ids failed its FK constraint immediately against
+production's different ids for the identical clock. Confirmed directly with
+WUWF: any slot marked eligible this way — including a required one, like a
+newscast — can always be filled independently on its own; there is no "only
+as part of a group" mode, which is what makes per-slot rows a strictly more
+expressive replacement for the custom-range model, not a lossy one.
+
+The same migration also drops `allow_multiple` entirely, from both
+`log_local_opportunities` and `log_rundown_breaks` — direct product
+correction again: "there is never a scenario in which we need to restrain a
+slot to a single item." The only real limit on how many items occupy a
+break is remaining duration, already computed by `lib/log/timing.ts`, never
+an authored flag. This also simplified `lib/log/mid-broadcast.ts` (its
+capacity checks are gone, not just their `allow_multiple` branch) and the
+Underwriting boundary functions that inherited the same gate
+(`log_place_underwriting_credit`, `log_list_placeable_rundown_breaks`,
+`log_relocate_underwriting_credit`) — all `create or replace`'d in the same
+migration, alongside `log_get_program_schedule_context`, which needed a
+join to `log_clock_slots` to keep reading opportunity offset/duration/label/
+timing at all once those columns moved off `log_local_opportunities`.
+
+Spillover (`lib/log/timing.ts`'s `computeBreakStatuses`) was reworked at the
+same time, correcting a polarity mistake caught mid-design: silent
+absorption belongs on a **required** target, not an optional one —
+`requirement = 'required'` means local content is mandatory in that window,
+full stop, so an overrunning item's spillover (itself local content)
+satisfies that silently (`covered_by_previous`). `requirement = 'optional'`
+usually sits over real network content (a newscast, a segment) nobody chose
+to preempt this time, so spillover reaching it is still absorbed but now
+flagged (`preempted_by_previous`, a new status, surfaced as a distinct
+warning-colored badge and tallied in `computeRundownSummary`'s new
+`preemptedBreaks` count) rather than silently hidden — nothing blocks the
+overrun, per the standing "human control during live radio" principle, it's
+just not disguised as a non-event. Spillover also now chains through as
+many contiguous, empty breaks as it takes (previously capped at one hop) and
+partially consumes a break's capacity rather than an all-or-nothing "does
+the whole overage fit in the very next break" check — a break that absorbs
+only part of an overrun still has its own remaining capacity open for
+something else. A source break's own overrun reads `filled` only once the
+chain fully accounts for it; if the chain runs out of eligible neighbors
+first, the source stays honestly `over`, independent of whatever partial
+credit a downstream break still gets for what it did absorb.
+
+The station's legal ID is now auto-placed at rundown-generation time
+instead of being one more required opportunity a host has to remember:
+`lib/log/rundown-generation.ts`'s `selectLegalIdBreakDraftsPerHour` picks,
+for each hour a rundown spans, whichever local-opportunity break ends
+latest — the network's own trailing Silence/Music Bed slot right before the
+next hour's Billboard, which every seeded clock already has (see the
+clock-seed correction history) — and `rundown-actions.ts`'s
+`placeLegalIdIfApplicable` inserts the single canonical "house" legal ID
+content item (`lib/log/queries.ts`'s `getCanonicalLegalIdContentItem`, the
+most-recently-approved `log_content_items` row with `content_type =
+'legal_id'`) into it, best-effort — a failure never fails the rundown
+generation that triggered it, matching this repo's "an embedding failure is
+never fatal to the write that triggered it" precedent for a secondary
+enhancement layered on an already-succeeded primary write. Requires a
+producer to have separately marked that final slot locally eligible, same
+as any other opportunity — there's no special-cased "always insert a break
+here" path.
+
+The clock template detail screen's local-opportunity authoring UI moved
+from a freestanding "add an opportunity" form with typed offsets to an
+inline "mark eligible" action per row of the network-structure table
+(`src/app/(portal)/log/clocks/[id]/page.tsx`) — picking a slot is now
+selecting a table row, not retyping its offset/duration by hand, which is
+also what makes the offset-drift bug class structurally impossible rather
+than just less likely. `permitted_content_types` also became a checkbox
+group (`PERMITTED_CONTENT_TYPE_OPTIONS` in `clock-actions.ts` — every
+`LogContentType` plus the two sentinel values the column also has to accept,
+`underwriting_credit` and `weather`) instead of a free-text comma-separated
+input, closing a real typo-silently-permits-nothing gap the old form had.
+
+Both migrations found real preview and production data that needed
+explicit handling, not silent overwriting: preview carried 77 generated
+rundowns/1520 breaks/86 `uw_scheduled_placements` from exercising auto-fill
+against the real Autumn Beck Blackledge contract, and production carried a
+smaller version of the same (4 rundowns, 3 placements, 2
+`log_broadcast_events` from earlier mid-broadcast testing) — all cleared
+before the `ALTER TABLE`, since every `log_rundown_breaks` row's
+`scheduled_at`/`available_duration_seconds`/`network_rejoin_at` had been
+computed from opportunity columns about to be dropped, and zero broadcast
+events existed in preview (two harmless test rows in production) — the same
+"no real production data yet" status this exact tool's `uw_scheduled_
+placements` table has already been cleared under twice before.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

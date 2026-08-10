@@ -104,6 +104,8 @@ repo and a project's history, not the version number.
 | `20260809140000_underwriting_break_adjacency.sql`                  | 2026-08-09 | 2026-08-09 |
 | `20260809150000_underwriting_rundown_provisioning.sql`             | 2026-08-09 | 2026-08-09 |
 | `20260809160000_underwriting_rundown_provisioning_returns_breaks.sql` | 2026-08-09 | 2026-08-09 |
+| `20260809170000_log_local_opportunities_slot_based.sql`            | 2026-08-10 | 2026-08-10 |
+| `20260809180000_log_morning_edition_opportunities_slot_based.sql`  | 2026-08-10 | 2026-08-10 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

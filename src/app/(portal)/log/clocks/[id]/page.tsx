@@ -8,7 +8,8 @@ import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { ClockFace } from "@/components/log/clock-face";
 import { requireLogAccess } from "@/lib/log/access";
-import { getClockTemplateDetail } from "@/lib/log/queries";
+import { getClockTemplateDetail, type LogLocalOpportunityWithSlot } from "@/lib/log/queries";
+import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import {
   addClockSlot,
   addLocalOpportunity,
@@ -25,15 +26,22 @@ const VARIANT_LABEL: Record<string, string> = {
   special_event: "Special event",
 };
 
+function formatOffset(seconds: number | null): string {
+  if (seconds === null) return "—";
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder === 0 ? `${minutes}:00` : `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
 export default async function ClockTemplateDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; edit?: string }>;
+  searchParams: Promise<{ error?: string; edit?: string; markEligible?: string }>;
 }) {
   const { id } = await params;
-  const { error, edit } = await searchParams;
+  const { error, edit, markEligible } = await searchParams;
   const { isProducer } = await requireLogAccess();
   const template = await getClockTemplateDetail(id);
   if (!template) notFound();
@@ -57,272 +65,167 @@ export default async function ClockTemplateDetailPage({
         </div>
       )}
 
-      {template.versions.map((version) => (
-        <div key={version.id} className="rounded border border-line">
-          <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-            <Badge variant="accent">{VARIANT_LABEL[version.variant] ?? version.variant}</Badge>
-            <span className="text-sm font-bold text-ink-900">
-              Effective {version.effective_from}
-              {version.effective_to ? ` – ${version.effective_to}` : ""}
-            </span>
-          </div>
+      {template.versions.map((version) => {
+        const opportunityBySlotId = new Map(
+          version.opportunities.map((opportunity) => [opportunity.slot_id, opportunity]),
+        );
 
-          {version.slots.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-ink-500">No slots yet.</p>
-          ) : (
-            <div className="flex flex-col gap-6 p-5 xl:flex-row xl:items-start">
-              <div className="mx-auto w-full max-w-[560px] xl:mx-0 xl:w-[560px] xl:shrink-0">
-                <ClockFace slots={version.slots} opportunities={version.opportunities} />
-              </div>
-              <div className="min-w-0 flex-1 space-y-6">
-                <div className="overflow-x-auto">
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
-                    Network structure
-                  </h3>
-                  <Table>
-                    <thead>
-                      <HeaderRow>
-                        <Th>#</Th>
-                        <Th>Label</Th>
-                        <Th>Start</Th>
-                        <Th>Duration</Th>
-                        <Th>Timing</Th>
-                      </HeaderRow>
-                    </thead>
-                    <tbody>
-                      {version.slots.map((slot) => (
-                        <Row key={slot.id}>
-                          <Cell>{slot.position}</Cell>
-                          <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
-                          <Cell>{slot.start_offset_seconds ?? "—"}s</Cell>
-                          <Cell>{slot.duration_seconds}s</Cell>
-                          <Cell className="text-ink-500">
-                            {slot.timing_mode === "float"
-                              ? `floats ${slot.earliest_start_offset_seconds}–${slot.latest_start_offset_seconds}s`
-                              : "fixed"}
-                          </Cell>
-                        </Row>
-                      ))}
-                    </tbody>
-                  </Table>
+        return (
+          <div key={version.id} className="rounded border border-line">
+            <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
+              <Badge variant="accent">{VARIANT_LABEL[version.variant] ?? version.variant}</Badge>
+              <span className="text-sm font-bold text-ink-900">
+                Effective {version.effective_from}
+                {version.effective_to ? ` – ${version.effective_to}` : ""}
+              </span>
+            </div>
+
+            {version.slots.length === 0 ? (
+              <p className="px-5 py-4 text-sm text-ink-500">No slots yet.</p>
+            ) : (
+              <div className="flex flex-col gap-6 p-5 xl:flex-row xl:items-start">
+                <div className="mx-auto w-full max-w-[560px] xl:mx-0 xl:w-[560px] xl:shrink-0">
+                  <ClockFace slots={version.slots} opportunities={version.opportunities} />
                 </div>
-
-                <div className="overflow-x-auto">
+                <div className="min-w-0 flex-1">
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
-                    WUWF local opportunities
+                    Network structure &amp; local eligibility
                   </h3>
-                  {version.opportunities.length === 0 ? (
-                    <p className="text-sm text-ink-500">
-                      None yet — this clock is currently all network feed, no local substitution windows.
-                    </p>
-                  ) : (
+                  <p className="mb-3 text-xs text-ink-500">
+                    Every slot below is a fact about the network clock. A slot marked eligible is WUWF&apos;s
+                    own local-substitution overlay on top of it — see{" "}
+                    <span className="italic">mark eligible</span> on any slot, including a required one like a
+                    newscast.
+                  </p>
+                  <div className="overflow-x-auto">
                     <Table>
                       <thead>
                         <HeaderRow>
+                          <Th>#</Th>
                           <Th>Label</Th>
-                          <Th>Requirement</Th>
-                          <Th>Window</Th>
-                          <Th>Permits</Th>
+                          <Th>Start</Th>
+                          <Th>Duration</Th>
+                          <Th>Timing</Th>
+                          <Th>Local eligibility</Th>
                           {isProducer && <Th>&nbsp;</Th>}
                         </HeaderRow>
                       </thead>
                       <tbody>
-                        {version.opportunities.map((opportunity) => (
-                          <Fragment key={opportunity.id}>
-                            <Row>
-                              <Cell className="font-semibold text-ink-900">{opportunity.label}</Cell>
-                              <Cell>
-                                <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
-                                  {opportunity.requirement}
-                                </Badge>
-                              </Cell>
-                              <Cell>
-                                {opportunity.timing_mode === "float"
-                                  ? `floats ${opportunity.earliest_start_offset_seconds}–${opportunity.latest_start_offset_seconds}s, ${opportunity.duration_seconds}s`
-                                  : `${opportunity.start_offset_seconds}s, ${opportunity.duration_seconds}s`}
-                              </Cell>
-                              <Cell className="text-ink-500">
-                                {opportunity.permitted_content_types.length > 0
-                                  ? opportunity.permitted_content_types.join(", ")
-                                  : "anything"}
-                              </Cell>
-                              {isProducer && (
+                        {version.slots.map((slot) => {
+                          const opportunity = opportunityBySlotId.get(slot.id) ?? null;
+                          const isEditing = isProducer && edit === opportunity?.id;
+                          const isMarking = isProducer && markEligible === slot.id;
+                          return (
+                            <Fragment key={slot.id}>
+                              <Row>
+                                <Cell>{slot.position}</Cell>
+                                <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
+                                <Cell>{formatOffset(slot.start_offset_seconds)}</Cell>
+                                <Cell>{formatOffset(slot.duration_seconds)}</Cell>
+                                <Cell className="text-ink-500">
+                                  {slot.timing_mode === "float"
+                                    ? `floats ${formatOffset(slot.earliest_start_offset_seconds)}–${formatOffset(slot.latest_start_offset_seconds)}`
+                                    : "fixed"}
+                                </Cell>
                                 <Cell>
-                                  <div className="flex items-center gap-3 whitespace-nowrap">
-                                    <Link
-                                      href={edit === opportunity.id ? basePath : `${basePath}?edit=${opportunity.id}`}
-                                      className="text-xs font-semibold text-brand-link hover:underline"
-                                    >
-                                      {edit === opportunity.id ? "Cancel" : "Edit"}
-                                    </Link>
-                                    <form action={deactivateLocalOpportunity}>
-                                      <input type="hidden" name="clock_template_id" value={template.id} />
-                                      <input type="hidden" name="opportunity_id" value={opportunity.id} />
-                                      <button
-                                        type="submit"
-                                        className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-                                      >
-                                        Deactivate
-                                      </button>
-                                    </form>
-                                  </div>
+                                  {opportunity ? (
+                                    <div className="flex flex-col gap-1">
+                                      <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
+                                        {opportunity.requirement}
+                                      </Badge>
+                                      <span className="text-xs text-ink-500">
+                                        {opportunity.permitted_content_types.length > 0
+                                          ? opportunity.permitted_content_types
+                                              .map(
+                                                (value) =>
+                                                  PERMITTED_CONTENT_TYPE_OPTIONS.find((o) => o.value === value)
+                                                    ?.label ?? value,
+                                              )
+                                              .join(", ")
+                                          : "anything"}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-ink-400">Not locally eligible</span>
+                                  )}
                                 </Cell>
-                              )}
-                            </Row>
-                            {isProducer && edit === opportunity.id && (
-                              <Row key={`${opportunity.id}-edit`}>
-                                <Cell colSpan={5} className="bg-panel-50/60">
-                                  <form
-                                    action={updateLocalOpportunity}
-                                    className="flex flex-col gap-4 py-1"
-                                  >
-                                    <input type="hidden" name="clock_template_id" value={template.id} />
-                                    <input type="hidden" name="opportunity_id" value={opportunity.id} />
-                                    <div>
-                                      <Label htmlFor={`opp-edit-label-${opportunity.id}`}>Label</Label>
-                                      <Input
-                                        id={`opp-edit-label-${opportunity.id}`}
-                                        name="label"
-                                        required
-                                        maxLength={120}
-                                        defaultValue={opportunity.label}
-                                      />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <Label htmlFor={`opp-edit-position-${opportunity.id}`}>Position</Label>
-                                        <Input
-                                          id={`opp-edit-position-${opportunity.id}`}
-                                          name="position"
-                                          type="number"
-                                          required
-                                          min={1}
-                                          defaultValue={opportunity.position}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-requirement-${opportunity.id}`}>Requirement</Label>
-                                        <Select
-                                          id={`opp-edit-requirement-${opportunity.id}`}
-                                          name="requirement"
-                                          defaultValue={opportunity.requirement}
+                                {isProducer && (
+                                  <Cell>
+                                    <div className="flex items-center gap-3 whitespace-nowrap">
+                                      {opportunity ? (
+                                        <>
+                                          <Link
+                                            href={isEditing ? basePath : `${basePath}?edit=${opportunity.id}`}
+                                            className="text-xs font-semibold text-brand-link hover:underline"
+                                          >
+                                            {isEditing ? "Cancel" : "Edit"}
+                                          </Link>
+                                          <form action={deactivateLocalOpportunity}>
+                                            <input type="hidden" name="clock_template_id" value={template.id} />
+                                            <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                                            <button
+                                              type="submit"
+                                              className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
+                                            >
+                                              Deactivate
+                                            </button>
+                                          </form>
+                                        </>
+                                      ) : (
+                                        <Link
+                                          href={isMarking ? basePath : `${basePath}?markEligible=${slot.id}`}
+                                          className="text-xs font-semibold text-brand-link hover:underline"
                                         >
-                                          <option value="optional">Optional — network continues if unused</option>
-                                          <option value="required">Required — a genuine local obligation</option>
-                                        </Select>
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-start-${opportunity.id}`}>Start offset (s)</Label>
-                                        <Input
-                                          id={`opp-edit-start-${opportunity.id}`}
-                                          name="start_offset_seconds"
-                                          type="number"
-                                          required
-                                          min={0}
-                                          defaultValue={opportunity.start_offset_seconds}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-duration-${opportunity.id}`}>Duration (s)</Label>
-                                        <Input
-                                          id={`opp-edit-duration-${opportunity.id}`}
-                                          name="duration_seconds"
-                                          type="number"
-                                          required
-                                          min={1}
-                                          defaultValue={opportunity.duration_seconds}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-timing-${opportunity.id}`}>Timing</Label>
-                                        <Select
-                                          id={`opp-edit-timing-${opportunity.id}`}
-                                          name="timing_mode"
-                                          defaultValue={opportunity.timing_mode}
-                                        >
-                                          <option value="fixed">Fixed</option>
-                                          <option value="float">Floating window</option>
-                                        </Select>
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-multiple-${opportunity.id}`}>Multiple items?</Label>
-                                        <label
-                                          className="mt-2 flex items-center gap-2 text-sm text-ink-700"
-                                        >
-                                          <input
-                                            id={`opp-edit-multiple-${opportunity.id}`}
-                                            type="checkbox"
-                                            name="allow_multiple"
-                                            defaultChecked={opportunity.allow_multiple}
-                                            className="h-4 w-4"
-                                          />
-                                          Allow more than one item
-                                        </label>
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-earliest-${opportunity.id}`}>
-                                          Earliest start (s, float only)
-                                        </Label>
-                                        <Input
-                                          id={`opp-edit-earliest-${opportunity.id}`}
-                                          name="earliest_start_offset_seconds"
-                                          type="number"
-                                          defaultValue={opportunity.earliest_start_offset_seconds ?? undefined}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`opp-edit-latest-${opportunity.id}`}>
-                                          Latest start (s, float only)
-                                        </Label>
-                                        <Input
-                                          id={`opp-edit-latest-${opportunity.id}`}
-                                          name="latest_start_offset_seconds"
-                                          type="number"
-                                          defaultValue={opportunity.latest_start_offset_seconds ?? undefined}
-                                        />
-                                      </div>
+                                          {isMarking ? "Cancel" : "Mark eligible"}
+                                        </Link>
+                                      )}
                                     </div>
-                                    <div>
-                                      <Label htmlFor={`opp-edit-types-${opportunity.id}`}>
-                                        Permitted content types
-                                      </Label>
-                                      <Input
-                                        id={`opp-edit-types-${opportunity.id}`}
-                                        name="permitted_content_types"
-                                        placeholder="legal_id, psa, underwriting_credit"
-                                        defaultValue={opportunity.permitted_content_types.join(", ")}
-                                      />
-                                      <FieldHint>Comma-separated. Leave blank to permit anything.</FieldHint>
-                                    </div>
-                                    <div>
-                                      <Label htmlFor={`opp-edit-notes-${opportunity.id}`}>Notes</Label>
-                                      <Input
-                                        id={`opp-edit-notes-${opportunity.id}`}
-                                        name="notes"
-                                        maxLength={280}
-                                        defaultValue={opportunity.notes ?? undefined}
-                                      />
-                                    </div>
-                                    <div className="flex justify-end">
-                                      <Button type="submit">Save changes</Button>
-                                    </div>
-                                  </form>
-                                </Cell>
+                                  </Cell>
+                                )}
                               </Row>
-                            )}
-                          </Fragment>
-                        ))}
+                              {isEditing && opportunity && (
+                                <Row key={`${slot.id}-edit`}>
+                                  <Cell colSpan={isProducer ? 7 : 6} className="bg-panel-50/60">
+                                    <OpportunityForm
+                                      action={updateLocalOpportunity}
+                                      templateId={template.id}
+                                      opportunityId={opportunity.id}
+                                      defaultRequirement={opportunity.requirement}
+                                      defaultPermittedTypes={opportunity.permitted_content_types}
+                                      defaultNotes={opportunity.notes}
+                                      submitLabel="Save changes"
+                                    />
+                                  </Cell>
+                                </Row>
+                              )}
+                              {isMarking && (
+                                <Row key={`${slot.id}-mark`}>
+                                  <Cell colSpan={isProducer ? 7 : 6} className="bg-panel-50/60">
+                                    <OpportunityForm
+                                      action={addLocalOpportunity}
+                                      templateId={template.id}
+                                      versionId={version.id}
+                                      slotId={slot.id}
+                                      defaultRequirement="optional"
+                                      defaultPermittedTypes={[]}
+                                      defaultNotes={null}
+                                      submitLabel="Mark eligible"
+                                    />
+                                  </Cell>
+                                </Row>
+                              )}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                     </Table>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {isProducer && (
-            <div className="grid grid-cols-1 gap-0 border-t border-line lg:grid-cols-2 lg:divide-x lg:divide-line">
-              <details className="px-5 py-4">
+            {isProducer && (
+              <details className="border-t border-line px-5 py-4">
                 <summary className="cursor-pointer text-xs font-semibold text-brand-link">
                   Add a network slot
                 </summary>
@@ -365,91 +268,18 @@ export default async function ClockTemplateDetailPage({
                     </div>
                   </div>
                   <FieldHint>
-                    This describes only the network&apos;s own structure — no fill/assignment mode anymore.
-                    See &quot;Add a local opportunity&quot; for WUWF&apos;s own substitution windows.
+                    This describes only the network&apos;s own structure. Mark a slot eligible for local
+                    content from the table above once it exists.
                   </FieldHint>
                   <div className="flex justify-end">
                     <Button type="submit">Add slot</Button>
                   </div>
                 </form>
               </details>
-
-              <details className="px-5 py-4">
-                <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                  Add a local opportunity
-                </summary>
-                <form action={addLocalOpportunity} className="mt-4 flex flex-col gap-4">
-                  <input type="hidden" name="clock_template_id" value={template.id} />
-                  <input type="hidden" name="clock_version_id" value={version.id} />
-                  <div>
-                    <Label htmlFor={`opp-label-${version.id}`}>Label</Label>
-                    <Input id={`opp-label-${version.id}`} name="label" required maxLength={120} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor={`opp-position-${version.id}`}>Position</Label>
-                      <Input id={`opp-position-${version.id}`} name="position" type="number" required min={1} />
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-requirement-${version.id}`}>Requirement</Label>
-                      <Select id={`opp-requirement-${version.id}`} name="requirement" defaultValue="optional">
-                        <option value="optional">Optional — network continues if unused</option>
-                        <option value="required">Required — a genuine local obligation</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-start-${version.id}`}>Start offset (s)</Label>
-                      <Input id={`opp-start-${version.id}`} name="start_offset_seconds" type="number" required min={0} />
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-duration-${version.id}`}>Duration (s)</Label>
-                      <Input id={`opp-duration-${version.id}`} name="duration_seconds" type="number" required min={1} />
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-timing-${version.id}`}>Timing</Label>
-                      <Select id={`opp-timing-${version.id}`} name="timing_mode" defaultValue="fixed">
-                        <option value="fixed">Fixed</option>
-                        <option value="float">Floating window</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-multiple-${version.id}`}>Multiple items?</Label>
-                      <label className="mt-2 flex items-center gap-2 text-sm text-ink-700">
-                        <input id={`opp-multiple-${version.id}`} type="checkbox" name="allow_multiple" defaultChecked className="h-4 w-4" />
-                        Allow more than one item
-                      </label>
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-earliest-${version.id}`}>Earliest start (s, float only)</Label>
-                      <Input id={`opp-earliest-${version.id}`} name="earliest_start_offset_seconds" type="number" />
-                    </div>
-                    <div>
-                      <Label htmlFor={`opp-latest-${version.id}`}>Latest start (s, float only)</Label>
-                      <Input id={`opp-latest-${version.id}`} name="latest_start_offset_seconds" type="number" />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor={`opp-types-${version.id}`}>Permitted content types</Label>
-                    <Input
-                      id={`opp-types-${version.id}`}
-                      name="permitted_content_types"
-                      placeholder="legal_id, psa, underwriting_credit"
-                    />
-                    <FieldHint>Comma-separated. Leave blank to permit anything.</FieldHint>
-                  </div>
-                  <div>
-                    <Label htmlFor={`opp-notes-${version.id}`}>Notes</Label>
-                    <Input id={`opp-notes-${version.id}`} name="notes" maxLength={280} />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="submit">Add opportunity</Button>
-                  </div>
-                </form>
-              </details>
-            </div>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
 
       {isProducer && (
         <div className="max-w-md rounded border border-line">
@@ -480,7 +310,7 @@ export default async function ClockTemplateDetailPage({
             </div>
             <FieldHint>
               A version is immutable once created — a correction is a new version, not an edit. Local
-              opportunities are defined separately, per version, above.
+              eligibility is marked per slot, per version, above.
             </FieldHint>
             <div className="flex justify-end border-t border-line pt-4">
               <Button type="submit">Start version</Button>
@@ -489,5 +319,69 @@ export default async function ClockTemplateDetailPage({
         </div>
       )}
     </div>
+  );
+}
+
+function OpportunityForm({
+  action,
+  templateId,
+  opportunityId,
+  versionId,
+  slotId,
+  defaultRequirement,
+  defaultPermittedTypes,
+  defaultNotes,
+  submitLabel,
+}: {
+  action: (formData: FormData) => Promise<void>;
+  templateId: string;
+  opportunityId?: string;
+  versionId?: string;
+  slotId?: string;
+  defaultRequirement: LogLocalOpportunityWithSlot["requirement"];
+  defaultPermittedTypes: string[];
+  defaultNotes: string | null;
+  submitLabel: string;
+}) {
+  const idPrefix = opportunityId ?? slotId ?? "new";
+  return (
+    <form action={action} className="flex flex-col gap-4 py-1">
+      <input type="hidden" name="clock_template_id" value={templateId} />
+      {opportunityId && <input type="hidden" name="opportunity_id" value={opportunityId} />}
+      {versionId && <input type="hidden" name="clock_version_id" value={versionId} />}
+      {slotId && <input type="hidden" name="slot_id" value={slotId} />}
+      <div>
+        <Label htmlFor={`opp-requirement-${idPrefix}`}>Requirement</Label>
+        <Select id={`opp-requirement-${idPrefix}`} name="requirement" defaultValue={defaultRequirement}>
+          <option value="optional">Optional — network continues if unused</option>
+          <option value="required">Required — a genuine local obligation</option>
+        </Select>
+      </div>
+      <div>
+        <Label>Permitted content types</Label>
+        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+          {PERMITTED_CONTENT_TYPE_OPTIONS.map((option) => (
+            <label key={option.value} className="flex items-center gap-2 text-sm text-ink-700">
+              <input
+                type="checkbox"
+                name="permitted_content_types"
+                value={option.value}
+                defaultChecked={defaultPermittedTypes.includes(option.value)}
+                className="h-4 w-4"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+        <FieldHint>Leave every box unchecked to permit anything.</FieldHint>
+      </div>
+      <div>
+        <Label htmlFor={`opp-notes-${idPrefix}`}>Notes</Label>
+        <Input id={`opp-notes-${idPrefix}`} name="notes" maxLength={280} defaultValue={defaultNotes ?? undefined} />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit">{submitLabel}</Button>
+      </div>
+    </form>
   );
 }

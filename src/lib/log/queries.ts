@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -52,9 +53,34 @@ export async function listClockTemplates(): Promise<LogClockTemplateRow[]> {
   );
 }
 
+// Slot-keyed (2026-08-10): an opportunity's own row carries only slot_id,
+// requirement, permitted_content_types — its offset/duration/label/timing
+// are always the referenced slot's own, joined in here rather than
+// duplicated, so they can never drift out of sync with the clock. See
+// CLAUDE.md's dated note.
+export interface LogLocalOpportunityWithSlot extends LogLocalOpportunityRow {
+  slot: LogClockSlotRow;
+}
+
+/** Adapts a slot-joined opportunity row into the shape lib/log/rundown-generation.ts's pure functions expect — offset/duration/label/timing always come from the referenced slot. */
+export function toRundownOpportunity(opportunity: LogLocalOpportunityWithSlot): RundownOpportunityLike {
+  return {
+    id: opportunity.id,
+    slot_position: opportunity.slot.position,
+    slot_label: opportunity.slot.label,
+    requirement: opportunity.requirement,
+    timing_mode: opportunity.slot.timing_mode,
+    start_offset_seconds: opportunity.slot.start_offset_seconds,
+    duration_seconds: opportunity.slot.duration_seconds,
+    earliest_start_offset_seconds: opportunity.slot.earliest_start_offset_seconds,
+    latest_start_offset_seconds: opportunity.slot.latest_start_offset_seconds,
+    permitted_content_types: opportunity.permitted_content_types,
+  };
+}
+
 export interface ClockVersionWithSlots extends LogClockVersionRow {
   slots: LogClockSlotRow[];
-  opportunities: LogLocalOpportunityRow[];
+  opportunities: LogLocalOpportunityWithSlot[];
 }
 
 export interface ClockTemplateDetail extends LogClockTemplateRow {
@@ -83,7 +109,7 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
   if (versions.length === 0) return { ...template, versions: [] };
 
   const versionIds = versions.map((version) => version.id);
-  const [slots, opportunities] = await Promise.all([
+  const [slots, rawOpportunities] = await Promise.all([
     unwrapRead(
       await supabase.from("log_clock_slots").select("*").in("clock_version_id", versionIds).order("position"),
       "this clock template's slots",
@@ -93,11 +119,27 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
         .from("log_local_opportunities")
         .select("*")
         .in("clock_version_id", versionIds)
-        .eq("active", true)
-        .order("position"),
+        .eq("active", true),
       "this clock template's local opportunities",
     ) ?? [],
   ]);
+
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+  // Joined in application code, not a PostgREST embed — matches this
+  // codebase's own convention throughout (getRundownDetail, etc.); the
+  // hand-maintained database.types.ts carries no Relationships metadata for
+  // embeds to type-check against.
+  const opportunities: LogLocalOpportunityWithSlot[] = rawOpportunities.flatMap((opportunity) => {
+    const slot = slotById.get(opportunity.slot_id);
+    return slot ? [{ ...opportunity, slot }] : [];
+  });
+  // Chronological, not authoring order — an opportunity carries no position
+  // of its own anymore; its referenced slot's start_offset_seconds is the
+  // only honest ordering key (see listLocalOpportunitiesForVersion's own
+  // comment for the real Morning Edition mismatch this avoids).
+  opportunities.sort(
+    (a, b) => (a.slot.start_offset_seconds ?? 0) - (b.slot.start_offset_seconds ?? 0),
+  );
 
   const slotsByVersion = new Map<string, LogClockSlotRow[]>();
   for (const slot of slots) {
@@ -105,7 +147,7 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
     if (existing) existing.push(slot);
     else slotsByVersion.set(slot.clock_version_id, [slot]);
   }
-  const opportunitiesByVersion = new Map<string, LogLocalOpportunityRow[]>();
+  const opportunitiesByVersion = new Map<string, LogLocalOpportunityWithSlot[]>();
   for (const opportunity of opportunities) {
     const existing = opportunitiesByVersion.get(opportunity.clock_version_id);
     if (existing) existing.push(opportunity);
@@ -206,6 +248,32 @@ export async function getContentItemDetail(id: string): Promise<ContentItemDetai
   return { ...item, components };
 }
 
+/**
+ * The single canonical "house" legal ID — auto-placed at generation time
+ * into the last local opportunity of every hour (see rundown-actions.ts's
+ * placeLegalIdIfApplicable and rundown-generation.ts's
+ * selectLegalIdBreakDraftsPerHour). Most-recently-approved match if more
+ * than one exists; null (auto-placement simply skipped, same "not
+ * configured" treatment this repo gives every other optional integration)
+ * if none does yet.
+ */
+export async function getCanonicalLegalIdContentItem(): Promise<ContentItemDetail | null> {
+  const supabase = await createClient();
+  const item = unwrapRead(
+    await supabase
+      .from("log_content_items")
+      .select("*")
+      .eq("content_type", "legal_id")
+      .eq("approval_status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    "the canonical legal ID",
+  );
+  if (!item) return null;
+  return getContentItemDetail(item.id);
+}
+
 export interface NprEpisodeCacheEntry {
   episode: LogNprEpisodeRow;
   items: LogNprEpisodeItemRow[];
@@ -283,27 +351,39 @@ export async function listClockSlotsForVersion(clockVersionId: string): Promise<
 
 /**
  * The active local opportunities for one clock version, in chronological
- * order — WUWF's own overlay, for both the clock face diagram and rundown
- * generation. Ordered by start_offset_seconds (the nominal/diagram-shown
- * start — see that column's comment), not `position`: `position` is just
- * the order a producer entered opportunities in and is not guaranteed to
- * track when they actually occur — the real Morning Edition seed itself
- * has this exact mismatch (the required local-ID opportunity was entered
- * after both story windows even though it airs between them), which
- * ordering by `position` rendered out of chronological order downstream.
+ * order, each joined to the network slot it marks eligible — WUWF's own
+ * overlay, for both the clock face diagram and rundown generation
+ * (buildRundownBreakDrafts needs each opportunity's slot-derived offset/
+ * duration/label/timing, since the opportunity itself carries none of its
+ * own — see CLAUDE.md's dated note). Ordered by the referenced slot's own
+ * start_offset_seconds, not any authored position: the real Morning Edition
+ * seed itself has a case where a required local-ID opportunity was entered
+ * after both story windows even though it airs between them, which
+ * ordering by authoring order rendered out of chronological order
+ * downstream.
  */
-export async function listLocalOpportunitiesForVersion(clockVersionId: string): Promise<LogLocalOpportunityRow[]> {
+export async function listLocalOpportunitiesForVersion(
+  clockVersionId: string,
+): Promise<LogLocalOpportunityWithSlot[]> {
   const supabase = await createClient();
-  return (
+  const [rawOpportunities, slots] = await Promise.all([
     unwrapRead(
       await supabase
         .from("log_local_opportunities")
         .select("*")
         .eq("clock_version_id", clockVersionId)
-        .eq("active", true)
-        .order("start_offset_seconds"),
+        .eq("active", true),
       "this clock version's local opportunities",
-    ) ?? []
+    ) ?? [],
+    listClockSlotsForVersion(clockVersionId),
+  ]);
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+  const opportunities: LogLocalOpportunityWithSlot[] = rawOpportunities.flatMap((opportunity) => {
+    const slot = slotById.get(opportunity.slot_id);
+    return slot ? [{ ...opportunity, slot }] : [];
+  });
+  return opportunities.sort(
+    (a, b) => (a.slot.start_offset_seconds ?? 0) - (b.slot.start_offset_seconds ?? 0),
   );
 }
 
