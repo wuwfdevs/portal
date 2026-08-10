@@ -141,6 +141,18 @@ function readPermittedContentTypes(formData: FormData): string[] {
  * part of a group" mode. Unlike clock slots themselves, opportunities are
  * editable in place (update, not insert-only) — see
  * deactivateLocalOpportunity below.
+ *
+ * Upserts on slot_id rather than a bare insert: slot_id is unique forever
+ * (log_local_opportunities_slot_id_key), and deactivating an opportunity
+ * doesn't delete its row, only flips active to false — so a slot that was
+ * ever marked eligible and later deactivated already has a row waiting on
+ * that same slot_id. A plain insert to mark it eligible again hit that
+ * constraint head-on ("duplicate key value violates unique constraint
+ * log_local_opportunities_slot_id_key"), a real, confirmed bug: the clock
+ * detail screen's own read (getClockTemplateDetail) only shows active = true
+ * opportunities, so a producer sees an ordinary "not yet eligible" slot with
+ * no sign the row already exists. Upserting reactivates and overwrites that
+ * row with this call's own values instead of trying to create a second one.
  */
 export async function addLocalOpportunity(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
@@ -154,14 +166,18 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("log_local_opportunities").insert({
-    clock_version_id: versionId,
-    slot_id: slotId,
-    requirement,
-    permitted_content_types: readPermittedContentTypes(formData),
-    notes: optionalField(formData, "notes"),
-    created_by: profile.id,
-  });
+  const { error } = await supabase.from("log_local_opportunities").upsert(
+    {
+      clock_version_id: versionId,
+      slot_id: slotId,
+      requirement,
+      permitted_content_types: readPermittedContentTypes(formData),
+      notes: optionalField(formData, "notes"),
+      created_by: profile.id,
+      active: true,
+    },
+    { onConflict: "slot_id" },
+  );
   failIfError(error, path, "Could not mark this slot eligible for local content");
 
   revalidatePath(path);
