@@ -10,7 +10,18 @@ import { useState } from "react";
 
 const SIZES = ["text-lg", "text-2xl", "text-4xl"] as const;
 
-export function CopyDisplay({ title, script, summary }: { title: string; script: string | null; summary: string | null }) {
+export function CopyDisplay({
+  title,
+  script,
+  summary,
+  startLabel,
+}: {
+  title: string;
+  script: string | null;
+  summary: string | null;
+  /** Pre-formatted hh:mm:ss station-clock label (formatStationClockTime) — null when this item's timing couldn't be computed. */
+  startLabel: string | null;
+}) {
   const [sizeIndex, setSizeIndex] = useState(1);
 
   function adjust(delta: number) {
@@ -42,6 +53,11 @@ export function CopyDisplay({ title, script, summary }: { title: string; script:
           </button>
         </div>
       </div>
+      {startLabel && (
+        <p className={`${SIZES[sizeIndex]} mb-1 font-mono font-extrabold text-brand-link tabular-nums`}>
+          {startLabel}
+        </p>
+      )}
       <p className={`${SIZES[sizeIndex]} font-bold text-ink-900`}>{title}</p>
       {script && <p className={`${SIZES[sizeIndex]} mt-3 whitespace-pre-wrap leading-relaxed text-ink-900`}>{script}</p>}
       {!script && summary && <p className={`${SIZES[sizeIndex]} mt-3 text-ink-700`}>{summary}</p>}

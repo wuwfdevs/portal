@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatStationClockTime,
   formatStationDateLong,
   formatStationTimestamp,
   shiftDateISO,
@@ -34,6 +35,18 @@ describe("formatStationTimestamp", () => {
     const result = formatStationTimestamp("2026-08-07T11:27:00.000Z");
     expect(result).toContain("6:27");
     expect(result).not.toContain("11:27");
+  });
+});
+
+describe("formatStationClockTime", () => {
+  it("renders 24-hour hh:mm:ss in Central time, with no weekday or zone name", () => {
+    // Same instant as the formatStationTimestamp case above: 11:27 UTC = 6:27 CDT.
+    expect(formatStationClockTime("2026-08-07T11:27:05.000Z")).toBe("06:27:05");
+  });
+
+  it("zero-pads a midnight hour rather than showing 24", () => {
+    // 05:00 UTC = 00:00 CDT.
+    expect(formatStationClockTime("2026-08-07T05:00:09.000Z")).toBe("00:00:09");
   });
 });
 

@@ -173,6 +173,35 @@ export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusR
   });
 }
 
+export interface ItemTimingLike {
+  id: string;
+  durationSeconds: number;
+}
+
+export interface ItemTiming {
+  id: string;
+  startAt: string;
+  endAt: string;
+}
+
+/**
+ * Each item's own start/end instant within a break, derived from the
+ * break's scheduled_at and each item's planned duration in on-air order —
+ * pure and recomputed on every render, the same rule the rest of this
+ * module follows, never stored. An item's start is simply the sum of every
+ * earlier item's duration within the same break; this says nothing about
+ * whether the break is actually running on time — see console-timing.ts for
+ * the *live* on-time/running-long state that reacts to the real clock.
+ */
+export function computeItemTimings(breakScheduledAt: string, items: ItemTimingLike[]): ItemTiming[] {
+  let cursorMs = new Date(breakScheduledAt).getTime();
+  return items.map((item) => {
+    const startAt = new Date(cursorMs).toISOString();
+    cursorMs += item.durationSeconds * 1000;
+    return { id: item.id, startAt, endAt: new Date(cursorMs).toISOString() };
+  });
+}
+
 export type RundownSummaryBreakLike = SpilloverBreakLike;
 
 export interface RundownSummary {
