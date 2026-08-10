@@ -68,15 +68,7 @@ export async function createContentItem(formData: FormData): Promise<void> {
       effective_from: optionalField(formData, "effective_from") ?? undefined,
       effective_to: optionalField(formData, "effective_to"),
       owner_id: profile.id,
-      eligible_program_ids: formData.getAll("eligible_program_ids").map(String),
-      priority: optionalInt(formData, "priority"),
-      frequency_guidance: optionalField(formData, "frequency_guidance"),
-      reusable: formData.get("reusable") === "on",
-      geography_tags: splitTags(formData, "geography_tags"),
-      subject_tags: splitTags(formData, "subject_tags"),
       community_issue_tags: splitTags(formData, "community_issue_tags"),
-      reporter_or_editor: optionalField(formData, "reporter_or_editor"),
-      dad_cart_number: optionalField(formData, "dad_cart_number"),
       created_by: profile.id,
     })
     .select("id")
@@ -91,8 +83,7 @@ export async function createContentItem(formData: FormData): Promise<void> {
 /**
  * Edits a content item's own fields in place — approval_status has its own
  * dedicated form below (retiring is a status change, not a content edit),
- * and dad_cart_number keeps its own small form too, so this covers
- * everything else the "new content item" form collects.
+ * so this covers everything else the "new content item" form collects.
  */
 export async function updateContentItem(formData: FormData): Promise<void> {
   await assertLogAccess();
@@ -114,14 +105,7 @@ export async function updateContentItem(formData: FormData): Promise<void> {
       expected_duration_seconds: optionalInt(formData, "expected_duration_seconds"),
       effective_from: optionalField(formData, "effective_from") ?? undefined,
       effective_to: optionalField(formData, "effective_to"),
-      eligible_program_ids: formData.getAll("eligible_program_ids").map(String),
-      priority: optionalInt(formData, "priority"),
-      frequency_guidance: optionalField(formData, "frequency_guidance"),
-      reusable: formData.get("reusable") === "on",
-      geography_tags: splitTags(formData, "geography_tags"),
-      subject_tags: splitTags(formData, "subject_tags"),
       community_issue_tags: splitTags(formData, "community_issue_tags"),
-      reporter_or_editor: optionalField(formData, "reporter_or_editor"),
     })
     .eq("id", id);
   failIfError(error, path, "Could not update the content item");
@@ -171,7 +155,6 @@ export async function addComponent(formData: FormData): Promise<void> {
     duration_seconds: durationSeconds,
     required: formData.get("required") === "on",
     script: optionalField(formData, "script"),
-    dad_cart_number: optionalField(formData, "dad_cart_number"),
   });
   failIfError(error, path, "Could not add the component");
 
@@ -201,31 +184,9 @@ export async function updateComponent(formData: FormData): Promise<void> {
       duration_seconds: durationSeconds,
       required: formData.get("required") === "on",
       script: optionalField(formData, "script"),
-      dad_cart_number: optionalField(formData, "dad_cart_number"),
     })
     .eq("id", componentId);
   failIfError(error, path, "Could not update the component");
-
-  revalidatePath(path);
-  redirect(path);
-}
-
-/**
- * Updates a content item's own ENCO/DAD cart reference in place — ENCO/DAD
- * is WUWF's playback system of record (CLAUDE.md's "Log domain redesign"
- * note); the portal never stores or plays the audio itself.
- */
-export async function setItemDadCartNumber(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const id = field(formData, "content_item_id");
-  const path = detailPath(id);
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("log_content_items")
-    .update({ dad_cart_number: optionalField(formData, "dad_cart_number") })
-    .eq("id", id);
-  failIfError(error, path, "Could not update the DAD cart reference");
 
   revalidatePath(path);
   redirect(path);

@@ -8,7 +8,11 @@
 // app confirmed the log-media bucket was write-only with nothing ever
 // reading the audio back, so it was removed outright in favor of
 // dad_cart_number, a plain descriptive reference to the item's identifier
-// in ENCO/DAD.
+// in ENCO/DAD. dad_cart_number itself was removed in the content-library
+// field trim (see CLAUDE.md) once it turned out to have the same problem
+// one level up — captured on the form, echoed on the library detail page,
+// but never surfaced on the one screen (the rundown/console) where a host
+// would actually need to look up what to cue.
 
 import type { LogComponentType, LogContentType } from "@/lib/database.types";
 

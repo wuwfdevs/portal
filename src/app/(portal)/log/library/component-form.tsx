@@ -67,20 +67,9 @@ export function ComponentForm({
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor={`component_script-${idSuffix}`}>Script</Label>
-          <Input id={`component_script-${idSuffix}`} name="script" defaultValue={component?.script ?? ""} />
-        </div>
-        <div>
-          <Label htmlFor={`component_dad_cart_number-${idSuffix}`}>ENCO/DAD cart</Label>
-          <Input
-            id={`component_dad_cart_number-${idSuffix}`}
-            name="dad_cart_number"
-            placeholder="e.g. 4021"
-            defaultValue={component?.dad_cart_number ?? ""}
-          />
-        </div>
+      <div>
+        <Label htmlFor={`component_script-${idSuffix}`}>Script</Label>
+        <Input id={`component_script-${idSuffix}`} name="script" defaultValue={component?.script ?? ""} />
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input
