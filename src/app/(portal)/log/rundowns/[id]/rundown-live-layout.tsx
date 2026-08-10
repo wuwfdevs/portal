@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components/log/text-scale";
 
 // The persistent nav a host needs reachable at any scroll position, on any
 // screen size — the mobile sidebar reorder alone (page.tsx's earlier fix)
@@ -57,61 +58,68 @@ export function RundownLiveLayout({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-        <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
-        {stateLabel && stateVariant && <Badge variant={stateVariant}>{stateLabel}</Badge>}
-        {hasCurrentBreak && (
-          <button
-            type="button"
-            onClick={jumpToNow}
-            className="text-xs font-semibold text-brand-link"
-          >
-            Jump to now →
-          </button>
-        )}
-        <div className="ml-auto flex gap-1 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setTab("rundown")}
-            className={cn(
-              "rounded px-2.5 py-1 text-xs font-bold",
-              tab === "rundown" ? "bg-brand-surface text-brand-link" : "text-ink-500",
-            )}
-          >
-            Rundown
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("context")}
-            className={cn(
-              "rounded px-2.5 py-1 text-xs font-bold",
-              tab === "context" ? "bg-brand-surface text-brand-link" : "text-ink-500",
-            )}
-          >
-            Context
-          </button>
+    <TextScaleProvider>
+      <div className="flex flex-col gap-4">
+        <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
+          {stateLabel && stateVariant && <Badge variant={stateVariant}>{stateLabel}</Badge>}
+          {hasCurrentBreak && (
+            <button
+              type="button"
+              onClick={jumpToNow}
+              className="text-xs font-semibold text-brand-link"
+            >
+              Jump to now →
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <TextScaleControl />
+            <div className="flex gap-1 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setTab("rundown")}
+                className={cn(
+                  "rounded px-2.5 py-1 text-xs font-bold",
+                  tab === "rundown" ? "bg-brand-surface text-brand-link" : "text-ink-500",
+                )}
+              >
+                Rundown
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("context")}
+                className={cn(
+                  "rounded px-2.5 py-1 text-xs font-bold",
+                  tab === "context" ? "bg-brand-surface text-brand-link" : "text-ink-500",
+                )}
+              >
+                Context
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div
-          className={cn(
-            "min-w-0 lg:order-1 lg:block lg:flex-1",
-            tab === "rundown" ? "block" : "hidden",
-          )}
-        >
-          {mainContent}
-        </div>
-        <div
-          className={cn(
-            "w-full shrink-0 flex-col gap-4 lg:sticky lg:top-16 lg:order-2 lg:flex lg:w-80 lg:self-start",
-            tab === "context" ? "flex" : "hidden",
-          )}
-        >
-          {sidebarContent}
-        </div>
+        <TextScaleZoom>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div
+              className={cn(
+                "min-w-0 lg:order-1 lg:block lg:flex-1",
+                tab === "rundown" ? "block" : "hidden",
+              )}
+            >
+              {mainContent}
+            </div>
+            <div
+              className={cn(
+                "w-full shrink-0 flex-col gap-4 lg:sticky lg:top-16 lg:order-2 lg:flex lg:w-80 lg:self-start",
+                tab === "context" ? "flex" : "hidden",
+              )}
+            >
+              {sidebarContent}
+            </div>
+          </div>
+        </TextScaleZoom>
       </div>
-    </div>
+    </TextScaleProvider>
   );
 }

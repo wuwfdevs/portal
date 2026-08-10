@@ -52,6 +52,27 @@ export function formatStationTimestamp(iso: string): string {
 }
 
 /**
+ * Formats an instant as a bare station-local clock time, hh:mm:ss, 24-hour —
+ * no weekday, no zone name. For displays a host reads at a glance against a
+ * physical studio clock (the live "current time" widget, a break's own
+ * scheduled/rejoin time, an individual item's start/end time) where the
+ * calendar day is self-evident and an AM/PM misread is exactly the kind of
+ * mistake that costs air time. formatStationTimestamp (weekday + AM/PM +
+ * zone) stays the right call for administrative timestamps (weather/NPR
+ * "last updated," a submitted-at record) that can be read out of context and
+ * need the zone spelled out.
+ */
+export function formatStationClockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/**
  * Adds (or, with a negative count, subtracts) whole days to a calendar date
  * (YYYY-MM-DD), for prev/next-day navigation. Pure calendar-date arithmetic —
  * anchored at noon UTC like formatStationDateLong so it never has to reason

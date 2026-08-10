@@ -3,6 +3,7 @@ import {
   computeBreakFit,
   computeBreakStatus,
   computeBreakStatuses,
+  computeItemTimings,
   computeRundownSummary,
   type RundownSummaryBreakLike,
   type SpilloverBreakLike,
@@ -346,6 +347,34 @@ function summaryBreak(overrides: Partial<RundownSummaryBreakLike> = {}): Rundown
     ...overrides,
   };
 }
+
+describe("computeItemTimings", () => {
+  it("starts the first item exactly at the break's own scheduled time", () => {
+    const [first] = computeItemTimings("2026-08-09T10:00:00.000Z", [{ id: "a", durationSeconds: 30 }]);
+    expect(first).toMatchObject({
+      id: "a",
+      startAt: "2026-08-09T10:00:00.000Z",
+      endAt: "2026-08-09T10:00:30.000Z",
+    });
+  });
+
+  it("stacks each following item's start at the previous item's end, in order", () => {
+    const timings = computeItemTimings("2026-08-09T10:00:00.000Z", [
+      { id: "a", durationSeconds: 30 },
+      { id: "b", durationSeconds: 15 },
+      { id: "c", durationSeconds: 45 },
+    ]);
+    expect(timings).toEqual([
+      { id: "a", startAt: "2026-08-09T10:00:00.000Z", endAt: "2026-08-09T10:00:30.000Z" },
+      { id: "b", startAt: "2026-08-09T10:00:30.000Z", endAt: "2026-08-09T10:00:45.000Z" },
+      { id: "c", startAt: "2026-08-09T10:00:45.000Z", endAt: "2026-08-09T10:01:30.000Z" },
+    ]);
+  });
+
+  it("returns an empty list for an empty break", () => {
+    expect(computeItemTimings("2026-08-09T10:00:00.000Z", [])).toEqual([]);
+  });
+});
 
 describe("computeRundownSummary", () => {
   it("is ready when every required break is filled and nothing runs over", () => {

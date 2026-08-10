@@ -143,7 +143,7 @@ export function RundownItemCard({
           ) : (
             <>
               {durationSeconds !== null && (
-                <span className="mr-1 font-mono text-xs font-semibold text-ink-900">
+                <span className="mr-1 font-mono text-sm font-semibold text-ink-900">
                   {durationSeconds}s
                 </span>
               )}

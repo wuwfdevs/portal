@@ -24,11 +24,12 @@ import {
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
-import { computeBreakStatuses, computeRundownSummary } from "@/lib/log/timing";
+import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationClockTime, formatStationTimestamp } from "@/lib/log/timezone";
+import { StationClock } from "@/components/log/station-clock";
 import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
@@ -176,6 +177,22 @@ export default async function RundownDetailPage({
   );
   const breakLabelById = new Map(rundown.breaks.map((brk) => [brk.id, brk.label]));
 
+  // Each item's own on-air start/end time, prominent on its card — derived
+  // from the break's scheduled_at plus every earlier item's duration in the
+  // same break (lib/log/timing.ts's computeItemTimings), keyed per break so
+  // two breaks' items never collide.
+  const itemTimingByBreakAndId = new Map(
+    rundown.breaks.map((brk) => [
+      brk.id,
+      new Map(
+        computeItemTimings(
+          brk.scheduled_at,
+          brk.items.map((item) => ({ id: item.id, durationSeconds: itemDuration(item) })),
+        ).map((timing) => [timing.id, timing]),
+      ),
+    ]),
+  );
+
   const summary = computeRundownSummary(
     rundown.breaks.map((brk) => ({
       id: brk.id,
@@ -308,7 +325,7 @@ export default async function RundownDetailPage({
       return (
         <div className={`rounded border-2 border-danger bg-danger/5 p-3 ${compact ? "mt-2" : "mt-3"}`}>
           <p className="text-sm font-semibold text-ink-900">
-            Missed at {formatStationTimestamp(breakScheduledAt)}.
+            Missed at {formatStationClockTime(breakScheduledAt)}.
           </p>
           <p className="mt-1 text-xs text-ink-700">
             Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule it into another
@@ -323,7 +340,7 @@ export default async function RundownDetailPage({
     return (
       <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
         <p className="mb-2 text-sm font-semibold text-ink-900">
-          Did this air at {formatStationTimestamp(breakScheduledAt)}?
+          Did this air at {formatStationClockTime(breakScheduledAt)}?
         </p>
         <div className="flex flex-wrap gap-2">
           <form action={markAired}>
@@ -431,6 +448,10 @@ export default async function RundownDetailPage({
           ? item.item_kind
           : "underwriting_credit";
 
+      const itemTiming = itemTimingByBreakAndId.get(brk.id)?.get(item.id) ?? null;
+      const startLabel = itemTiming ? formatStationClockTime(itemTiming.startAt) : null;
+      const endLabel = itemTiming ? formatStationClockTime(itemTiming.endAt) : null;
+
       const readView = (
         <>
           {nprSourceStale && (
@@ -439,13 +460,24 @@ export default async function RundownDetailPage({
             </Badge>
           )}
           {isCurrent ? (
-            <CopyDisplay title={title} script={effectiveScript} summary={item.contentItem?.summary ?? null} />
+            <CopyDisplay
+              title={title}
+              script={effectiveScript}
+              summary={item.contentItem?.summary ?? null}
+              startLabel={startLabel}
+              endLabel={endLabel}
+            />
           ) : (
             <div className="min-w-0">
+              {startLabel && endLabel && (
+                <p className="mb-1 font-mono text-base font-extrabold text-ink-900 tabular-nums">
+                  {startLabel}–{endLabel}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="accent">{ITEM_KIND_LABEL[item.item_kind] ?? item.item_kind}</Badge>
                 {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
-                <span className="text-sm font-semibold text-ink-900">{title}</span>
+                <span className="text-base font-semibold text-ink-900">{title}</span>
               </div>
               {item.contentItem && (
                 <div className="mt-0.5 text-xs text-ink-400">
@@ -459,7 +491,7 @@ export default async function RundownDetailPage({
                 </div>
               )}
               {effectiveScript && (
-                <p className="mt-1.5 whitespace-pre-wrap text-xs text-ink-700">{effectiveScript}</p>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
               )}
             </div>
           )}
@@ -498,19 +530,19 @@ export default async function RundownDetailPage({
       id: brk.id,
       rundownId: rundown.id,
       scheduledAt: brk.scheduled_at,
-      label: `${formatStationTimestamp(brk.scheduled_at)} — ${brk.label}`,
+      label: `${formatStationClockTime(brk.scheduled_at)} — ${brk.label}`,
       permittedContentTypes: brk.permitted_content_types,
       isCurrent,
       headerNode: (
         <div className="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-50 px-5 py-3">
           {isCurrent && <Badge variant="warning">Live now</Badge>}
-          <span className="font-mono text-sm font-bold text-ink-900">
-            {formatStationTimestamp(brk.scheduled_at)}
+          <span className="font-mono text-base font-bold text-ink-900 tabular-nums">
+            {formatStationClockTime(brk.scheduled_at)}
           </span>
-          <span className="text-sm font-semibold text-ink-900">{brk.label}</span>
+          <span className="text-base font-semibold text-ink-900">{brk.label}</span>
           <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
-          <span className="ml-auto text-xs text-ink-500">
-            Rejoin network by {formatStationTimestamp(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
+          <span className="ml-auto text-sm text-ink-500">
+            Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
             available
           </span>
         </div>
@@ -619,11 +651,15 @@ export default async function RundownDetailPage({
 
   const sidebarContent = (
     <>
+      <StationClock />
+
       <div className="rounded border border-line p-4">
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
           Network rejoin
         </div>
-        <p className="text-sm text-ink-700">{formatStationTimestamp(rundown.shift_end_at)}</p>
+        <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+          {formatStationClockTime(rundown.shift_end_at)}
+        </p>
       </div>
 
       <div className="rounded border border-line p-4">
