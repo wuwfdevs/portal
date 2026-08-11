@@ -418,7 +418,20 @@ program checked so far** — no exception process, no rep conversation
 required, unlike some newscasts (below). Morning Edition's own seeded
 opportunities #1 and #2 above already anchor to Music Bed slots for exactly
 this reason, and that pattern generalizes to future clocks' Music Bed slots
-too.
+too. Billboard, Return, and Promo carry the identical contractual right, in
+the same clause, with no program-specific carve-out — WUWF confirmed
+(2026-08-11) that all four element types should be marked eligible and
+`optional` across every clock, not only the three documented ones. Applied
+directly to `log_local_opportunities` (ordinary data, not a migration —
+this table is editable in place, same as a producer's own action through
+`/log/clocks/[id]`): 60 previously-unmarked Music Bed/Billboard/Return/Promo
+slots across every seeded program got a new `optional` opportunity, and
+Morning Edition's own Music Bed opportunities (found marked `required` —
+a real inconsistency with both the design intent above and every other
+program's convention) were corrected to `optional` to match. Newscast 3's
+existing `optional` opportunity on Morning Edition and weekday All Things
+Considered (see below) was deliberately left as-is — WUWF's call, not
+changed.
 
 Two things these terms name that the schema doesn't model, left to a
 producer's own judgment for now rather than built speculatively (same
