@@ -10,7 +10,6 @@ const TABS = [
   { href: "/log/library", label: "Library" },
   { href: "/log/npr", label: "NPR" },
   { href: "/log/weather", label: "Weather" },
-  { href: "/log/inventory", label: "Inventory" },
 ] as const;
 
 export function NavTabs() {
