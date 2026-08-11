@@ -110,6 +110,8 @@ repo and a project's history, not the version number.
 | `20260810130000_log_opportunity_assignment_placement_boundary.sql` | 2026-08-10 | 2026-08-10 |
 | `20260810140000_log_get_program_schedule_context_slot_join_fix.sql` | 2026-08-10 | 2026-08-10 |
 | `20260810150000_log_content_library_field_trim.sql`                | 2026-08-10 | 2026-08-10 |
+| `20260810160000_log_clock_seed_swap_corrections_3.sql`             | 2026-08-10 | 2026-08-10 |
+| `20260810170000_log_syndicated_local_opportunities.sql`            | 2026-08-10 | 2026-08-10 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
