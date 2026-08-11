@@ -397,11 +397,29 @@ against Morning Edition's clock version:
    opportunity in this seed whose unfilled state is genuinely unresolved,
    exercising `requirement = required` end to end.
 
-Only Morning Edition is seeded — inventing opportunities for the other
-twelve network clocks without real operational confirmation from WUWF would
-be exactly the "manufacture local slots" mistake this redesign exists to
-fix. A producer adds them for any other clock from `/log/clocks/[id]` once
-WUWF confirms where they actually are.
+Only Morning Edition was seeded at the time this section was first written —
+inventing opportunities for the other twelve network clocks without real
+operational confirmation from WUWF would have been exactly the "manufacture
+local slots" mistake this redesign exists to fix. That confirmation has
+since arrived twice, independently (see the two notes below): a provider
+clock audit (`20260810170000_log_syndicated_local_opportunities.sql`) seeded
+22 more templates, and WUWF's own instruction the same week extended Music
+Bed/Billboard/Return/Promo eligibility to every clock. A producer still adds
+or edits any opportunity from `/log/clocks/[id]` for anything the audit and
+this instruction didn't cover.
+
+**Provider clock audit seeds 22 more templates (2026-08-10, a parallel
+session — see `20260810170000_log_syndicated_local_opportunities.sql`'s own
+header for the full account).** Sourced from
+`WUWF_broadcast_clocks_and_local_break_eligibility_VERIFIED.xlsx`, a
+program-by-program audit, applied as a proper migration (unlike the ad hoc
+data changes below) because it was a bulk, sourced, one-time seed — the same
+precedent Morning Edition's own opportunities migration set. It deliberately
+left **every clock's Billboard, and ME/ATC/WE/Weekend ATC's Return slot**
+unseeded, pending a WUWF policy decision — see the next note for that
+decision. It also flagged specific slots the audit found are *not* eligible
+despite a Music-Bed-like label — e.g. Echoes' Hour 1 junction (59:00–60:00)
+is "explicitly Protected/network content," unlike its Hour 2 counterpart.
 
 **NPR broadcast-rights context, checked against the model (2026-08-11).**
 WUWF's own NPR program terms for *Morning Edition*, *All Things Considered*,
@@ -432,6 +450,21 @@ program's convention) were corrected to `optional` to match. Newscast 3's
 existing `optional` opportunity on Morning Edition and weekday All Things
 Considered (see below) was deliberately left as-is — WUWF's call, not
 changed.
+
+**Cross-session conflict found and fixed the same day.** This blanket
+Music Bed/Billboard/Return/Promo pass ran independently of, and briefly
+overlapping with, the provider clock audit above — both landed the same
+week without either session aware of the other. No row-level collision
+(the `slot_id` unique constraint plus each side's own idempotent-insert
+guard made that structurally impossible), but the label-only matching here
+missed one thing the audit's slot-by-slot sourcing caught: it marked
+Echoes' Hour 1 junction (59:00–60:00) eligible, which the audit had already
+identified by name as "Protected/network content... not eligible," unlike
+its Hour 2 counterpart. Deactivated (not deleted — the standard precedent
+for this table) once found, in both preview and production, with a note
+recording why. Worth remembering: a blanket label match is not a substitute
+for the audit's own per-slot sourcing when the two disagree — the audit
+wins.
 
 Two things these terms name that the schema doesn't model, left to a
 producer's own judgment for now rather than built speculatively (same
