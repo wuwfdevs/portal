@@ -2,6 +2,9 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
+import { resolveCurrentVersion } from "@/lib/log/clock-versions";
+import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { stationTodayISO } from "@/lib/log/timezone";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -660,4 +663,142 @@ export async function listBroadcastEventsForItems(rundownItemIds: string[]): Pro
       "these rundown items' broadcast events",
     ) ?? []
   );
+}
+
+export interface ClockCapacityInput {
+  clockTemplateId: string;
+  clockTemplateName: string;
+  programNames: string[];
+  slots: LogClockSlotRow[];
+  opportunities: LogLocalOpportunityWithSlot[];
+}
+
+/**
+ * One entry per clock template actually scheduled today, with its current
+ * version's full slot list and active local opportunities — everything
+ * lib/log/inventory-report.ts's computeClockCapacity needs to split one
+ * clock cycle into local-eligible vs. network seconds. Scoped to "today"
+ * because log_local_opportunities isn't versioned (a plain `active`
+ * boolean, editable in place) — there is no honest way to ask what was
+ * configured as of a past date, only what's configured now. Several
+ * schedule entries can share one clock template (e.g. a program's weekday
+ * and Friday slots), so this groups by template and lists every program
+ * name that currently uses it rather than assuming a 1:1 mapping.
+ */
+export async function listCurrentClockCapacityInputs(): Promise<ClockCapacityInput[]> {
+  const supabase = await createClient();
+  const today = stationTodayISO();
+
+  const scheduleEntries = await listScheduleEntries();
+  const activeToday = scheduleEntries.filter((entry) => isScheduleEntryActiveOn(entry, today));
+  if (activeToday.length === 0) return [];
+
+  const programNamesByTemplate = new Map<string, Set<string>>();
+  for (const entry of activeToday) {
+    const existing = programNamesByTemplate.get(entry.clock_template_id);
+    if (existing) existing.add(entry.programName);
+    else programNamesByTemplate.set(entry.clock_template_id, new Set([entry.programName]));
+  }
+  const templateIds = [...programNamesByTemplate.keys()];
+
+  const versions =
+    unwrapRead(
+      await supabase.from("log_clock_versions").select("*").in("clock_template_id", templateIds),
+      "these clock templates' versions",
+    ) ?? [];
+
+  const currentVersionByTemplate = new Map<string, LogClockVersionRow>();
+  for (const templateId of templateIds) {
+    const current = resolveCurrentVersion(
+      versions.filter((version) => version.clock_template_id === templateId),
+      today,
+    );
+    if (current) currentVersionByTemplate.set(templateId, current);
+  }
+  const versionIds = [...currentVersionByTemplate.values()].map((version) => version.id);
+  if (versionIds.length === 0) return [];
+
+  const [slots, rawOpportunities, templates] = await Promise.all([
+    unwrapRead(
+      await supabase.from("log_clock_slots").select("*").in("clock_version_id", versionIds),
+      "these clocks' slots",
+    ) ?? [],
+    unwrapRead(
+      await supabase
+        .from("log_local_opportunities")
+        .select("*")
+        .in("clock_version_id", versionIds)
+        .eq("active", true),
+      "these clocks' active local opportunities",
+    ) ?? [],
+    unwrapRead(
+      await supabase.from("log_clock_templates").select("*").in("id", templateIds),
+      "these clock templates",
+    ) ?? [],
+  ]);
+
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+  const opportunities: LogLocalOpportunityWithSlot[] = rawOpportunities.flatMap((opportunity) => {
+    const slot = slotById.get(opportunity.slot_id);
+    return slot ? [{ ...opportunity, slot }] : [];
+  });
+  const templateNameById = new Map(templates.map((template) => [template.id, template.name]));
+
+  return [...currentVersionByTemplate.entries()].map(([templateId, version]) => ({
+    clockTemplateId: templateId,
+    clockTemplateName: templateNameById.get(templateId) ?? "Unknown clock",
+    programNames: [...(programNamesByTemplate.get(templateId) ?? [])].sort(),
+    slots: slots.filter((slot) => slot.clock_version_id === version.id),
+    opportunities: opportunities.filter((opportunity) => opportunity.clock_version_id === version.id),
+  }));
+}
+
+export interface InventoryReportData {
+  rundowns: LogRundownRow[];
+  breaks: LogRundownBreakRow[];
+  items: LogRundownItemRow[];
+}
+
+/**
+ * Batched read for the inventory trend report (lib/log/inventory-report.ts's
+ * computeInventoryTrend): every rundown generated in the date range
+ * (optionally scoped to one program), with their breaks and placed items.
+ * Three queries regardless of how many rundowns fall in range — same
+ * batching discipline as getRundownDetail, just across many rundowns at
+ * once instead of one.
+ */
+export async function listInventoryReportData(
+  startDateISO: string,
+  endDateISO: string,
+  programId?: string,
+): Promise<InventoryReportData> {
+  const supabase = await createClient();
+
+  let rundownsQuery = supabase
+    .from("log_rundowns")
+    .select("*")
+    .gte("air_date", startDateISO)
+    .lte("air_date", endDateISO);
+  if (programId) rundownsQuery = rundownsQuery.eq("program_id", programId);
+
+  const rundowns = unwrapRead(await rundownsQuery, "rundowns in this date range") ?? [];
+  if (rundowns.length === 0) return { rundowns: [], breaks: [], items: [] };
+
+  const rundownIds = rundowns.map((rundown) => rundown.id);
+  const breaks =
+    unwrapRead(
+      await supabase.from("log_rundown_breaks").select("*").in("rundown_id", rundownIds),
+      "these rundowns' breaks",
+    ) ?? [];
+
+  const breakIds = breaks.map((brk) => brk.id);
+  const items =
+    breakIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("log_rundown_items").select("*").in("break_id", breakIds),
+          "these rundowns' placed items",
+        ) ?? []);
+
+  return { rundowns, breaks, items };
 }
