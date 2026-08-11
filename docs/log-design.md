@@ -397,11 +397,105 @@ against Morning Edition's clock version:
    opportunity in this seed whose unfilled state is genuinely unresolved,
    exercising `requirement = required` end to end.
 
-Only Morning Edition is seeded — inventing opportunities for the other
-twelve network clocks without real operational confirmation from WUWF would
-be exactly the "manufacture local slots" mistake this redesign exists to
-fix. A producer adds them for any other clock from `/log/clocks/[id]` once
-WUWF confirms where they actually are.
+Only Morning Edition was seeded at the time this section was first written —
+inventing opportunities for the other twelve network clocks without real
+operational confirmation from WUWF would have been exactly the "manufacture
+local slots" mistake this redesign exists to fix. That confirmation has
+since arrived twice, independently (see the two notes below): a provider
+clock audit (`20260810170000_log_syndicated_local_opportunities.sql`) seeded
+22 more templates, and WUWF's own instruction the same week extended Music
+Bed/Billboard/Return/Promo eligibility to every clock. A producer still adds
+or edits any opportunity from `/log/clocks/[id]` for anything the audit and
+this instruction didn't cover.
+
+**Provider clock audit seeds 22 more templates (2026-08-10, a parallel
+session — see `20260810170000_log_syndicated_local_opportunities.sql`'s own
+header for the full account).** Sourced from
+`WUWF_broadcast_clocks_and_local_break_eligibility_VERIFIED.xlsx`, a
+program-by-program audit, applied as a proper migration (unlike the ad hoc
+data changes below) because it was a bulk, sourced, one-time seed — the same
+precedent Morning Edition's own opportunities migration set. It deliberately
+left **every clock's Billboard, and ME/ATC/WE/Weekend ATC's Return slot**
+unseeded, pending a WUWF policy decision — see the next note for that
+decision. It also flagged specific slots the audit found are *not* eligible
+despite a Music-Bed-like label — e.g. Echoes' Hour 1 junction (59:00–60:00)
+is "explicitly Protected/network content," unlike its Hour 2 counterpart.
+
+**NPR broadcast-rights context, checked against the model (2026-08-11).**
+WUWF's own NPR program terms for *Morning Edition*, *All Things Considered*,
+and *Weekend Edition* (the three clocks currently seeded), plus NPR's
+General Terms and Conditions for Use of NPR Member Benefits, were checked
+against this design — they confirm it rather than change it. NPR's terms
+grant WUWF a *right* to cover certain elements (billboards, newscast/
+headlines, returns, promos, **music beds**, and individual Stories within
+permitted segments); which of those rights WUWF actually exercises as a
+`log_local_opportunities` row is WUWF's own operational decision, exactly
+the "WUWF's own overlay" framing above. Confirmed: **a Music Bed slot is
+always within WUWF's rights to mark as a local opportunity, on every
+program checked so far** — no exception process, no rep conversation
+required, unlike some newscasts (below). Morning Edition's own seeded
+opportunities #1 and #2 above already anchor to Music Bed slots for exactly
+this reason, and that pattern generalizes to future clocks' Music Bed slots
+too. Billboard, Return, and Promo carry the identical contractual right, in
+the same clause, with no program-specific carve-out — WUWF confirmed
+(2026-08-11) that all four element types should be marked eligible and
+`optional` across every clock, not only the three documented ones. Applied
+directly to `log_local_opportunities` (ordinary data, not a migration —
+this table is editable in place, same as a producer's own action through
+`/log/clocks/[id]`): 60 previously-unmarked Music Bed/Billboard/Return/Promo
+slots across every seeded program got a new `optional` opportunity, and
+Morning Edition's own Music Bed opportunities (found marked `required` —
+a real inconsistency with both the design intent above and every other
+program's convention) were corrected to `optional` to match. Newscast 3's
+existing `optional` opportunity on Morning Edition and weekday All Things
+Considered (see below) was deliberately left as-is — WUWF's call, not
+changed.
+
+**Cross-session conflict found and fixed the same day.** This blanket
+Music Bed/Billboard/Return/Promo pass ran independently of, and briefly
+overlapping with, the provider clock audit above — both landed the same
+week without either session aware of the other. No row-level collision
+(the `slot_id` unique constraint plus each side's own idempotent-insert
+guard made that structurally impossible), but the label-only matching here
+missed one thing the audit's slot-by-slot sourcing caught: it marked
+Echoes' Hour 1 junction (59:00–60:00) eligible, which the audit had already
+identified by name as "Protected/network content... not eligible," unlike
+its Hour 2 counterpart. Deactivated (not deleted — the standard precedent
+for this table) once found, in both preview and production, with a note
+recording why. Worth remembering: a blanket label match is not a substitute
+for the audit's own per-slot sourcing when the two disagree — the audit
+wins.
+
+Two things these terms name that the schema doesn't model, left to a
+producer's own judgment for now rather than built speculatively (same
+"human control during live radio" principle, §1.2 — no concrete need has
+surfaced yet):
+
+- **Newscast coverage is tiered, not flat eligible/ineligible.** Only
+  specific numbered newscasts are freely coverable at any time — Newscast 2
+  on all three programs, plus Newscast 4 on weekday Morning Edition and
+  weekday All Things Considered. Every other newscast requires breaking
+  local news, an on-air pledge drive, or "a good faith conversation with
+  your Member Partnership Representative" first. `log_local_opportunities`
+  has no "conditionally eligible" concept — the app won't warn a producer
+  who marks an unauthorized newscast slot eligible either way.
+- **A per-hour aggregate local-coverage time cap exists and isn't tracked.**
+  Morning Edition: up to 11:53 of 38:00 total segment time per hour. All
+  Things Considered (weekday): up to 12:25 of 40:30 per hour (no cap on
+  ATC's weekend edition or on Weekend Edition at all). Nothing in
+  `computeBreakStatuses` or elsewhere sums locally-covered minutes across a
+  rundown's breaks against this ceiling — every opportunity is evaluated
+  independently.
+- **All Things Considered can generate a one-off cutaway opportunity that
+  exists in no clock version.** Per ATC's own program terms: when a piece
+  covers both the C and D segments, ATC signals a replacement cutaway
+  opportunity — at least 4 minutes, preceded by a music button — via that
+  day's program rundown, not via the standing clock. That's a per-episode,
+  NPR-rundown-signaled opportunity; `log_local_opportunities` (pinned to a
+  specific `log_clock_slots` row, versioned against a clock version) has no
+  way to express one that doesn't correspond to any fixed slot. Moot today
+  since ATC has no seeded local opportunities at all yet; worth remembering
+  once WUWF confirms ATC's real local avails.
 
 ### `log_schedule`
 `id`, `program_id`, `clock_template_id`, `entry_type` (`recurring` |
