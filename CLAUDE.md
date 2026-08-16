@@ -220,8 +220,9 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
-**Sourcework (Phases 1–3b landed; Phases 4–6 are a roadmap, not authorized to
-start without their own design doc first — see below):** the Transcription
+**Sourcework (Phases 1–3b landed; Phase 4 is designed but not authorized to
+start — see `docs/sourcework-design.md` §9; Phases 5–6 remain a roadmap,
+each needing its own design doc first — see below):** the Transcription
 Workspace's data model has been generalized underneath its unchanged UI. Read
 `docs/sourcework-design.md` before touching any of `sw_*` or the transcription
 tables it rekeyed. In short: **Source** (`sw_sources` — immutable original
