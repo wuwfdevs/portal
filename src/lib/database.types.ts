@@ -192,7 +192,16 @@
 // frequency_guidance/reusable/geography_tags/subject_tags/
 // reporter_or_editor/dad_cart_number (none were ever read for any filter,
 // sort, or eligibility decision — see CLAUDE.md); log_content_components
-// dropped dad_cart_number for the same reason.
+// dropped dad_cart_number for the same reason. Hand-reconciled again on
+// 2026-08-16 for Sourcework Phase 4/5 (supabase/migrations/
+// 20260816120000_sourcework_research_questions.sql,
+// 20260816130000_sourcework_themes.sql): sw_research_questions/
+// sw_data_points/sw_data_point_excerpts/sw_themes/sw_theme_data_points,
+// against the Supabase MCP server's `generate_typescript_types` output for
+// the live production project, field-by-field diffed; every field matched.
+// tw_search()'s Args/Returns shape is unchanged (the new 'data_point' hit
+// kind is just another value of the existing untyped `kind: string`
+// column) — no update needed there.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -876,6 +885,94 @@ export interface Database {
           page_number: number;
         };
         Update: Partial<Database["public"]["Tables"]["sw_excerpt_document_locations"]["Row"]>;
+        Relationships: [];
+      };
+      sw_research_questions: {
+        Row: {
+          id: string;
+          project_id: string;
+          prompt: string;
+          position: number;
+          /** Deactivate-don't-delete — no delete grant. See docs/sourcework-design.md §9.2. */
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_research_questions"]["Row"]> & {
+          project_id: string;
+          prompt: string;
+          position: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_research_questions"]["Row"]>;
+        Relationships: [];
+      };
+      sw_data_points: {
+        Row: {
+          id: string;
+          project_id: string;
+          research_question_id: string | null;
+          summary: string;
+          /** Generated column (summary) — read-only. */
+          search: string;
+          /** pgvector column; written as a "[0.1,...]" literal, never read back into JS. */
+          embedding: string | null;
+          embedding_stale: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_data_points"]["Row"]> & {
+          project_id: string;
+          summary: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_data_points"]["Row"]>;
+        Relationships: [];
+      };
+      sw_data_point_excerpts: {
+        Row: {
+          data_point_id: string;
+          excerpt_id: string;
+          added_at: string;
+          added_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_data_point_excerpts"]["Row"]> & {
+          data_point_id: string;
+          excerpt_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_data_point_excerpts"]["Row"]>;
+        Relationships: [];
+      };
+      sw_themes: {
+        Row: {
+          id: string;
+          title: string;
+          notes: string | null;
+          parent_theme_id: string | null;
+          /** Which research question this theme answers, if any — see docs/sourcework-analysis-design.md §1. */
+          research_question_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]> & {
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]>;
+        Relationships: [];
+      };
+      sw_theme_data_points: {
+        Row: {
+          theme_id: string;
+          data_point_id: string;
+          added_at: string;
+          added_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_theme_data_points"]["Row"]> & {
+          theme_id: string;
+          data_point_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_theme_data_points"]["Row"]>;
         Relationships: [];
       };
       ep_form_fields: {
