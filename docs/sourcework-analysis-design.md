@@ -34,6 +34,21 @@ budget cuts to the inspection office. Nothing before this phase gives a
 reporter a place to say a set of findings *means* something together — that
 gap is exactly why Phase 4 alone is a thinner deliverable than it looks.
 
+**The actual deliverable this whole model is aimed at: for each research
+question, the meta-theme(s) that answer it.** Research questions (Phase 4)
+are what a reporter set out to find out; data points and themes are the
+*process* that gets from raw material to an answer, not the answer itself.
+A project isn't "done" when its data points are collected, or even when
+they're grouped into themes — it's done, in the sense this tool cares
+about, when each research question has one or more meta-themes standing
+against it as its answer. This is why `sw_themes` gains
+`research_question_id` below (§3): not a minor convenience field, but the
+column that actually closes the loop this system exists to close. A theme
+with no research question attached is still meaningful (an emergent
+finding that didn't fit the original list, per §1's CAQDAS framing below),
+but the primary, intended path is research question → data points →
+theme(s) → the meta-theme(s) that answer it.
+
 **What this phase deliberately does not attempt**, each cut for a stated
 reason rather than quietly dropped:
 
@@ -120,6 +135,10 @@ sw_themes
                                            -- what a top-level meta-theme's
                                            -- "synthesis" write-up is, see below
   parent_theme_id uuid references sw_themes on delete set null
+  research_question_id uuid references sw_research_questions on delete set null
+                                           -- which question this theme
+                                           -- answers, if any — see §1's
+                                           -- "actual deliverable" framing
   created_by uuid references profiles(id) on delete set null
   created_at timestamptz not null default now()
   updated_at timestamptz not null default now()
@@ -150,6 +169,21 @@ Notes on the choices:
   codes some material directly, not only through its children); forcing a
   strict two-level "meta-themes hold only themes, themes hold only data
   points" split would be an arbitrary rule this design doesn't need.
+- **`research_question_id` is a single nullable FK on every theme, not
+  restricted to top-level ones.** Reopens what an earlier pass of this
+  design left out — see §9's now-resolved open question. Not constrained to
+  "only a theme with no `parent_theme_id` may answer a question," even
+  though that's the common case in practice (§1's "actual deliverable"
+  framing): a simple investigation with a shallow hierarchy might have a
+  single, non-nested theme directly answer a question, and nothing is
+  gained by forbidding that with a check constraint. Single FK, not a join
+  table, for the identical reasoning `sw_data_points.research_question_id`
+  already used (`docs/sourcework-design.md` §9.2) — kept consistent between
+  the two tables rather than picking a different cardinality for a
+  structurally similar relationship. A research question stays project-
+  scoped (Phase 4) while the theme answering it may not be (§2 above) —
+  that's not a conflict: the theme still names *which* project's question
+  it's answering, even while its own supporting data points range wider.
 - **No depth limit on `parent_theme_id`.** The product concept is two
   levels (theme, meta-theme), but nothing breaks if a reporter nests a
   third level, and there's no concrete reason to add a check constraint
@@ -227,6 +261,13 @@ inside the project-workspace shape"):
 
 - Title and `notes` (editable inline, like `ProjectDetails`' existing
   title/description edit pattern).
+- **"Answers…"** — a research-question picker (any project's active
+  questions, not just one project's — search by prompt text or project
+  title, since this list is tool-wide the same way the data-point picker
+  below is), showing the linked question's prompt and its project when set,
+  with a plain "Doesn't answer a specific question" state when not. This is
+  the field §1's "actual deliverable" framing exists for — it's given equal
+  visual weight to the title, not tucked into a secondary details panel.
 - A parent-theme picker ("Group under…"), listing every other theme as a
   candidate parent, excluding itself and its own descendants (a plain
   cycle check in the update action — self-referential trees need this,
@@ -241,6 +282,21 @@ inside the project-workspace shape"):
   which is deliberately scoped to one project's attached sources (§9.3),
   this one is tool-wide by design, since a theme's whole purpose can be
   connecting data points across projects.
+
+**The reverse rollup lives on Phase 4's own Research tab, not here.**
+`docs/sourcework-design.md` §9.5's research-question list gains an
+"Answered by: `<theme title>`, `<theme title>`" line under each question
+(linking into this phase's theme detail route) — the read that actually
+delivers §1's "actual deliverable" framing: a reporter looking at one
+project's questions sees, right there, which ones already have an answer
+and which are still open. This needs one new read
+(`listThemesAnsweringQuestions(questionIds)` in this phase's
+`lib/transcription/themes.ts`, called from Phase 4's `listResearchQuestions`
+call site) rather than a new screen — the Themes tab (this section) is
+where a theme gets *built*; the Research tab is where its *answer* is
+*read*, matching the same "build here, read the rollup there" split
+`computeAggregateProjectStatus` already draws between a project's sources
+and its one status badge.
 
 ### 6. Server-side work
 
@@ -262,8 +318,9 @@ New `lib/transcription/themes.ts`, alongside `research.ts`
 New `[id]`-less `themes/actions.ts` (these aren't inside any one project's
 route segment, matching the new top-level route): `createTheme(title)`,
 `updateTheme(id, title, notes)`, `setThemeParent(id, parentId | null)`
-(rejects a cycle), `deleteTheme(id)`, `attachDataPointToTheme(themeId,
-dataPointId)`, `detachDataPointFromTheme(themeId, dataPointId)`. All
+(rejects a cycle), `setThemeResearchQuestion(id, researchQuestionId |
+null)`, `deleteTheme(id)`, `attachDataPointToTheme(themeId, dataPointId)`,
+`detachDataPointFromTheme(themeId, dataPointId)`. All
 `requireToolAccess("transcription")`-gated first, `failIfError`/`failWith`
 for the `?error=` convention, same as every other Sourcework action.
 
@@ -316,11 +373,12 @@ compose without rework in either direction.
    with several data points) need more visual structure once someone's
    actually used it with real material? §5 kept this deliberately simple;
    worth a second look once there's real content to test it against.
-2. **Should a theme be able to link to a research question directly**
-   (beyond the indirect path through its data points, each of which may or
-   may not answer one)? Not modeled here — a theme's connection to "what
-   was I trying to find out" is currently only visible by opening each of
-   its data points individually.
+2. ~~Should a theme be able to link to a research question directly?~~
+   **Resolved, no longer open**: yes — `sw_themes.research_question_id`
+   (§3), because a research question's answer being a theme (specifically,
+   typically, a meta-theme) is §1's actual stated deliverable, not a
+   secondary nicety. Confirmed directly by the product owner while this
+   design was being reviewed.
 3. **Cross-project data-point picking (§5) has no guardrail against
    picking something the reporter doesn't actually have context on** —
    unlike Phase 4's project-scoped picker, where everything offered is

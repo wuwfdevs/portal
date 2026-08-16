@@ -1319,7 +1319,19 @@ like every other Sourcework route:
 `components/editorial/reorder-buttons.tsx`, reused as-is — this is exactly
 the "plain up/down button" ordered-list pattern the settings screens
 already use, not a new component), each row: the prompt text, an inline
-edit form, and a deactivate toggle (no delete button, per §9.2). An "Add a
+edit form, a deactivate toggle (no delete button, per §9.2), and — once
+Phase 5 exists — an **"Answered by: `<theme title>`, `<theme title>`"**
+line (or "Not yet answered" when the list is empty), each name linking into
+`docs/sourcework-analysis-design.md`'s theme detail route.
+This is the one line this whole phase is really building toward
+(`docs/sourcework-analysis-design.md` §1's "actual deliverable" framing:
+data points and themes are the process, a research question's list of
+answering meta-themes is the point) — a reporter should be able to look at
+this list alone and see which questions are settled and which are still
+open, without opening a single theme. Powered by a Phase-5-side read
+(`listThemesAnsweringQuestions`, see that doc's §5/§6) — nothing about this
+list's own query changes; it's an additional prop threaded in from a second
+data source. Before Phase 5 ships, this line is simply absent. An "Add a
 research question" form appends at the end. Deactivated questions collapse
 into a "Show deactivated" disclosure below the active list, matching the
 usual "don't clutter the primary list with retired rows" convention.
