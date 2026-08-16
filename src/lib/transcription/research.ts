@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database, SwExcerptLocatorKind } from "@/lib/database.types";
@@ -7,6 +8,8 @@ import type { Database, SwExcerptLocatorKind } from "@/lib/database.types";
 // of research questions, plus data points — a reporter's own articulated
 // findings, grounded by zero or more excerpts, optionally answering one
 // research question. Reads only; writes live in [id]/research-actions.ts.
+
+type Client = SupabaseClient<Database>;
 
 export type SwResearchQuestion = Database["public"]["Tables"]["sw_research_questions"]["Row"];
 
@@ -35,36 +38,20 @@ export interface DataPointExcerptRef {
   sourceId: string;
 }
 
-export interface ProjectDataPoint {
-  id: string;
-  summary: string;
-  researchQuestionId: string | null;
-  createdAt: string;
-  excerpts: DataPointExcerptRef[];
-}
-
 /**
- * A project's data points, oldest first, each with its grounding excerpts
- * (§9.3 — a data point may have none, which the Research tab shows as an
- * "Add evidence" prompt rather than an empty list). Flat queries, per this
+ * Resolves each of a set of data points' grounding excerpts, keyed by data
+ * point id. Shared by listDataPoints below and Phase 5's getThemeDetail
+ * (lib/transcription/themes.ts) — the same chip data either screen renders,
+ * so this is the one place it's assembled. Flat queries, per this
  * codebase's established "PostgREST embedding doesn't type reliably"
  * convention (listLibraryClips already follows the same shape).
  */
-export async function listDataPoints(projectId: string): Promise<ProjectDataPoint[]> {
-  const supabase = await createClient();
+export async function resolveExcerptRefsForDataPoints(
+  supabase: Client,
+  dataPointIds: string[],
+): Promise<Map<string, DataPointExcerptRef[]>> {
+  if (dataPointIds.length === 0) return new Map();
 
-  const dataPoints =
-    unwrapRead(
-      await supabase
-        .from("sw_data_points")
-        .select("id, summary, research_question_id, created_at")
-        .eq("project_id", projectId)
-        .order("created_at"),
-      "this project's data points",
-    ) ?? [];
-  if (dataPoints.length === 0) return [];
-
-  const dataPointIds = dataPoints.map((dp) => dp.id);
   const links =
     unwrapRead(
       await supabase
@@ -73,18 +60,17 @@ export async function listDataPoints(projectId: string): Promise<ProjectDataPoin
         .in("data_point_id", dataPointIds),
       "these data points' grounding excerpts",
     ) ?? [];
+  if (links.length === 0) return new Map();
 
   const excerptIds = [...new Set(links.map((link) => link.excerpt_id))];
   const excerpts =
-    excerptIds.length === 0
-      ? []
-      : (unwrapRead(
-          await supabase
-            .from("sw_source_excerpts")
-            .select("id, title, locator_kind, start_ms, end_ms, source_id")
-            .in("id", excerptIds),
-          "these excerpts",
-        ) ?? []);
+    unwrapRead(
+      await supabase
+        .from("sw_source_excerpts")
+        .select("id, title, locator_kind, start_ms, end_ms, source_id")
+        .in("id", excerptIds),
+      "these excerpts",
+    ) ?? [];
 
   const documentExcerptIds = excerpts
     .filter((excerpt) => excerpt.locator_kind === "document")
@@ -109,29 +95,62 @@ export async function listDataPoints(projectId: string): Promise<ProjectDataPoin
   }
 
   const excerptById = new Map(excerpts.map((excerpt) => [excerpt.id, excerpt]));
-  const excerptIdsByDataPoint = new Map<string, string[]>();
+  const result = new Map<string, DataPointExcerptRef[]>();
   for (const link of links) {
-    const list = excerptIdsByDataPoint.get(link.data_point_id) ?? [];
-    list.push(link.excerpt_id);
-    excerptIdsByDataPoint.set(link.data_point_id, list);
+    const excerpt = excerptById.get(link.excerpt_id);
+    if (!excerpt) continue;
+    const list = result.get(link.data_point_id) ?? [];
+    list.push({
+      excerptId: excerpt.id,
+      title: excerpt.title,
+      locatorKind: excerpt.locator_kind,
+      startMs: excerpt.start_ms,
+      endMs: excerpt.end_ms,
+      pageNumber: firstPageByExcerptId.get(excerpt.id) ?? null,
+      sourceId: excerpt.source_id,
+    });
+    result.set(link.data_point_id, list);
   }
+  return result;
+}
+
+export interface ProjectDataPoint {
+  id: string;
+  summary: string;
+  researchQuestionId: string | null;
+  createdAt: string;
+  excerpts: DataPointExcerptRef[];
+}
+
+/**
+ * A project's data points, oldest first, each with its grounding excerpts
+ * (§9.3 — a data point may have none, which the Research tab shows as an
+ * "Add evidence" prompt rather than an empty list).
+ */
+export async function listDataPoints(projectId: string): Promise<ProjectDataPoint[]> {
+  const supabase = await createClient();
+
+  const dataPoints =
+    unwrapRead(
+      await supabase
+        .from("sw_data_points")
+        .select("id, summary, research_question_id, created_at")
+        .eq("project_id", projectId)
+        .order("created_at"),
+      "this project's data points",
+    ) ?? [];
+  if (dataPoints.length === 0) return [];
+
+  const excerptsByDataPoint = await resolveExcerptRefsForDataPoints(
+    supabase,
+    dataPoints.map((dp) => dp.id),
+  );
 
   return dataPoints.map((dataPoint) => ({
     id: dataPoint.id,
     summary: dataPoint.summary,
     researchQuestionId: dataPoint.research_question_id,
     createdAt: dataPoint.created_at,
-    excerpts: (excerptIdsByDataPoint.get(dataPoint.id) ?? [])
-      .map((excerptId) => excerptById.get(excerptId))
-      .filter((excerpt): excerpt is NonNullable<typeof excerpt> => Boolean(excerpt))
-      .map((excerpt) => ({
-        excerptId: excerpt.id,
-        title: excerpt.title,
-        locatorKind: excerpt.locator_kind,
-        startMs: excerpt.start_ms,
-        endMs: excerpt.end_ms,
-        pageNumber: firstPageByExcerptId.get(excerpt.id) ?? null,
-        sourceId: excerpt.source_id,
-      })),
+    excerpts: excerptsByDataPoint.get(dataPoint.id) ?? [],
   }));
 }

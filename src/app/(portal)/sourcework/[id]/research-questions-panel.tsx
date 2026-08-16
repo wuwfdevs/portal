@@ -11,6 +11,8 @@ import {
   updateResearchQuestion,
 } from "./research-actions";
 import type { SwResearchQuestion } from "@/lib/transcription/research";
+import type { ThemesAnsweringQuestion } from "@/lib/transcription/themes";
+import Link from "next/link";
 
 const REORDER_BUTTON_CLASSES =
   "flex h-6 w-6 items-center justify-center rounded border border-line text-ink-500 " +
@@ -25,9 +27,18 @@ const REORDER_BUTTON_CLASSES =
 export function ResearchQuestionsPanel({
   projectId,
   questions,
+  answeringThemesByQuestionId,
 }: {
   projectId: string;
   questions: SwResearchQuestion[];
+  /**
+   * Which theme(s) answer each question, if any — the reverse rollup from
+   * Phase 5 (docs/sourcework-analysis-design.md §1's "actual deliverable"
+   * framing). A plain object, not a Map: this crossed the server/client
+   * component boundary in the page. Optional so this component keeps
+   * working, minus the rollup line, if a caller doesn't have it yet.
+   */
+  answeringThemesByQuestionId?: Record<string, ThemesAnsweringQuestion[]>;
 }) {
   const router = useRouter();
   const [showDeactivated, setShowDeactivated] = useState(false);
@@ -49,6 +60,7 @@ export function ResearchQuestionsPanel({
             question={question}
             isFirst={index === 0}
             isLast={index === active.length - 1}
+            answeringThemes={answeringThemesByQuestionId?.[question.id] ?? []}
             onChanged={() => router.refresh()}
           />
         ))}
@@ -73,6 +85,7 @@ export function ResearchQuestionsPanel({
                   question={question}
                   isFirst
                   isLast
+                  answeringThemes={answeringThemesByQuestionId?.[question.id] ?? []}
                   onChanged={() => router.refresh()}
                 />
               ))}
@@ -88,11 +101,13 @@ function QuestionRow({
   question,
   isFirst,
   isLast,
+  answeringThemes,
   onChanged,
 }: {
   question: SwResearchQuestion;
   isFirst: boolean;
   isLast: boolean;
+  answeringThemes: ThemesAnsweringQuestion[];
   onChanged: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -159,13 +174,33 @@ function QuestionRow({
         </div>
       ) : (
         <div className="flex items-start justify-between gap-3">
-          <p
-            className={
-              question.active ? "text-sm text-ink-900" : "text-sm text-ink-400 line-through"
-            }
-          >
-            {question.prompt}
-          </p>
+          <div>
+            <p
+              className={
+                question.active ? "text-sm text-ink-900" : "text-sm text-ink-400 line-through"
+              }
+            >
+              {question.prompt}
+            </p>
+            {answeringThemes.length > 0 ? (
+              <p className="mt-1 text-xs text-ink-500">
+                Answered by:{" "}
+                {answeringThemes.map((theme, index) => (
+                  <span key={theme.id}>
+                    {index > 0 && ", "}
+                    <Link
+                      href={`/sourcework/themes/${theme.id}`}
+                      className="italic text-brand-link hover:underline"
+                    >
+                      {theme.title}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            ) : (
+              question.active && <p className="mt-1 text-xs italic text-ink-400">Not yet answered</p>
+            )}
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {question.active && (
               <div className="flex gap-1">

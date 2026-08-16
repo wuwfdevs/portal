@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById } from "@/lib/transcription/projects";
 import { listResearchQuestions, listDataPoints } from "@/lib/transcription/research";
+import { listThemesAnsweringQuestions } from "@/lib/transcription/themes";
 import { ResearchQuestionsPanel } from "../research-questions-panel";
 import { DataPointsPanel } from "../data-points-panel";
 
@@ -21,6 +22,14 @@ export default async function ResearchPage({ params }: { params: Promise<{ id: s
     listResearchQuestions(id),
     listDataPoints(id),
   ]);
+  // The "Answered by" rollup (docs/sourcework-analysis-design.md §1's "actual
+  // deliverable" framing) — a Phase-5-side read, kept as an additional prop
+  // rather than folded into listResearchQuestions itself, so the two phases'
+  // reads stay independent. Converted to a plain object: a Map doesn't
+  // survive the server/client component boundary.
+  const answeringThemesByQuestionId = Object.fromEntries(
+    await listThemesAnsweringQuestions(questions.map((question) => question.id)),
+  );
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -40,7 +49,11 @@ export default async function ResearchPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="flex max-w-2xl flex-col gap-10">
-        <ResearchQuestionsPanel projectId={id} questions={questions} />
+        <ResearchQuestionsPanel
+          projectId={id}
+          questions={questions}
+          answeringThemesByQuestionId={answeringThemesByQuestionId}
+        />
         <DataPointsPanel projectId={id} questions={questions} dataPoints={dataPoints} />
       </div>
     </div>
