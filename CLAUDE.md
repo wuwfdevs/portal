@@ -220,12 +220,8 @@ foundation — not a placeholder. See `docs/transcription-workspace-design.md` f
 product design and phased plan before extending it; check that plan's phase
 boundaries before building ahead of the current phase.
 
-**Sourcework (Phases 1–3b landed; Phases 4 and 5 are both designed but not
-authorized to start — see `docs/sourcework-design.md` §9 and
-`docs/sourcework-analysis-design.md`, written together since a Phase 4 data
-point isn't very meaningful without Phase 5's thematic grouping layered on
-top; Phase 6 remains a roadmap, needing its own design doc first — see
-below):** the Transcription
+**Sourcework (Phases 1–5 landed; Phase 6 remains a roadmap, needing its own
+design doc first — see below):** the Transcription
 Workspace's data model has been generalized underneath its unchanged UI. Read
 `docs/sourcework-design.md` before touching any of `sw_*` or the transcription
 tables it rekeyed. In short: **Source** (`sw_sources` — immutable original
@@ -350,6 +346,35 @@ transcription/`, and their imports are untouched; so are internal identifiers
 (`ClipRail`, `clip-actions.ts`, `listLibraryClips`, the `?tab=clips`/`?clip=` query
 params, the `kind = 'clip'` search-result value) — only strings a user actually reads,
 plus the URL they navigate to, changed.
+
+**Sourcework Phases 4 and 5 (research questions/data points, and themes/
+meta-themes) have landed together** (2026-08-16), designed and built in one
+pass rather than sequentially — a Phase 4 data point on its own has little
+payoff without Phase 5's synthesis layer to group it into (see both design
+docs' §1). `20260816120000_sourcework_research_questions.sql` adds
+`sw_research_questions` (project-scoped, deactivate-don't-delete),
+`sw_data_points` (freely deletable, carries `search`/`embedding` like
+`sw_source_excerpts`), and `sw_data_point_excerpts` (the many-to-many
+evidence join); `20260816130000_sourcework_themes.sql` adds `sw_themes`
+(NOT project-scoped — membership derives entirely from which data points a
+theme groups, which can span projects) and `sw_theme_data_points`. A new
+`/sourcework/[id]/research` route holds a project's research questions and
+data points; a new tool-wide "Themes" tab (`/sourcework?tab=themes`) and
+`/sourcework/themes/[id]` hold themes, nested by parent (a "meta-theme" is
+just a theme with children, no separate table). **The actual deliverable
+the whole model is built toward**: each research question's list page shows
+"Answered by: `<theme>`" or "Not yet answered", reading `sw_themes.
+research_question_id` — confirmed directly with the product owner mid-design
+that this rollup, not the data points or themes themselves, is the real
+output. `tw_search()`'s seventh revision adds a `data_point` hit kind;
+themes are deliberately left out of that shared search index (a theme often
+has no single owning project, which `tw_search`'s per-hit `project_id`
+column assumes every other kind has) — the Themes tab has its own
+client-side filter instead. Cycle detection for the parent-theme picker
+(`wouldCreateThemeCycle`, `lib/transcription/theme-hierarchy.ts`) is pure
+and tested, doing double duty as both the picker's option filter and the
+write path's validation. Both migrations applied to and verified against
+both Supabase projects; see `supabase/migrations/APPLIED.md`.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
