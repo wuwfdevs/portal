@@ -82,10 +82,17 @@ reason rather than quietly dropped:
   exists, for a genuinely different need (structured post/comment bodies
   read back through a whitelist renderer); nothing here asks for bold text
   or lists inside a synthesis note.
-- **Automatic theme suggestion.** An LLM proposing groupings from a data
-  point's text is a real, plausible future feature — the same "no concrete
-  need yet" call Phase 4 (§9.1) already made about automatic extraction from
-  excerpts. Left out here for the same reason.
+- **Automatic theme suggestion, in this pass.** An LLM proposing groupings
+  from a data point's text is left out of this build, the same call Phase 4
+  (§9.1) made about automatic extraction from excerpts — see that section
+  for the confirmed intended shape ("Suggest data points"/"Suggest themes"
+  as reporter-triggered UI actions, human-confirmed, not a capability-layer
+  or background-job feature). The same reasoning applies here symmetrically:
+  a "Suggest themes" button would draft candidate groupings from a
+  project's (or a broader set's) data points for a reporter to accept,
+  landing on the *same* `createTheme`/`attachDataPointToTheme` actions this
+  phase already built (`sourcework/themes/actions.ts`) — no schema or
+  action-signature change needed to add it later.
 
 ## 2. Resolving Phase 5's own open question: are themes project-scoped?
 

@@ -1115,11 +1115,29 @@ attempt: grouping data points into themes or meta-themes, any notion of
 deferred to its own design doc per §5, informed by real CAQDAS prior art
 this phase deliberately doesn't reach for yet. It also does not attempt
 automatic extraction — turning a passage a reporter is looking at into a
-suggested data point via an LLM call is a real, plausible future feature,
-but nothing today generates a data point except a reporter typing one;
-§8.14 already named this as out of scope for 3b and it stays out of scope
-here too, for the same "no concrete need yet" reasoning §7.2's alignment
-hover and 3a's other deferrals used.
+suggested data point via an LLM call — in this pass; §8.14 already named
+this as out of scope for 3b.
+
+**Confirmed intended direction, not built yet: an incremental "Suggest data
+points" UI action**, per the product owner (2026-08-16) — a button on a
+project's excerpts that drafts candidate data points via an LLM call for
+the reporter to review, edit, and confirm before anything is written. Not a
+capability layer entry (`lib/capabilities/`) — that layer is for
+cross-tool/agent-invoked writes (design doc `docs/agent-capabilities-
+design.md`), and this is neither: it's reporter-initiated, in this tool's
+own UI, human-confirmed before any row exists. The right shape is the same
+one `lib/transcription/document-ingest.ts`'s OCR pipeline already uses — a
+developer-authored pipeline a UI button triggers, per §2's standing design
+decision — landing on the *same* `createDataPoint` action this phase
+already built (`[id]/research-actions.ts`) once a reporter accepts a
+suggestion, not a new write path. Nothing in this phase's schema or actions
+needs to change to support it later: `createDataPoint(projectId, summary,
+researchQuestionId)` already takes exactly the shape an accepted suggestion
+would supply. Worth deciding *when* this is actually built (not now): does
+`sw_data_points` need a provenance column (`suggested_by_ai` or similar) to
+distinguish an AI-drafted-then-edited data point from one a reporter wrote
+from scratch — a real question, deliberately left open rather than
+speculatively answered here.
 
 **Why this is the phase that pays off Phase 3a's multi-source project
 model.** §1's original motivation was a source mattering to more than one
