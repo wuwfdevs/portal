@@ -119,7 +119,7 @@ function DataPointCard({
   }
 
   return (
-    <li className="rounded border border-line bg-white p-4">
+    <li id={`data-point-${dataPoint.id}`} className="scroll-mt-6 rounded border border-line bg-white p-4">
       {isEditing ? (
         <div>
           <Textarea

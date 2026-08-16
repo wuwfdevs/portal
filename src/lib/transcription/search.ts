@@ -13,10 +13,12 @@ import { getEmbeddingProvider, toVectorLiteral } from "./embeddings";
  * has clipped — just a place in the audio where the query comes up;
  * "document" is the same idea for a window of extracted document text
  * (docs/sourcework-design.md §8.8); "clip" means someone saved and titled a
- * passage (audio or document); "project" means nothing in the source
- * matched but the recording/document's own title or background did.
+ * passage (audio or document); "data_point" means a Phase 4 finding — the
+ * reporter's own claim, not a verbatim quote (docs/sourcework-design.md
+ * §9.7); "project" means nothing in the source matched but the recording/
+ * document's own title or background did.
  */
-export type SearchResultKind = "clip" | "transcript" | "document" | "project";
+export type SearchResultKind = "clip" | "transcript" | "document" | "data_point" | "project";
 
 export interface SearchResult {
   kind: SearchResultKind;

@@ -15,6 +15,7 @@ const KIND_BADGE: Record<
   clip: { label: "Excerpt", variant: "accent" },
   transcript: { label: "In transcript", variant: "neutral" },
   document: { label: "In document", variant: "neutral" },
+  data_point: { label: "Data point", variant: "accent" },
   project: { label: "Project", variant: "muted" },
 };
 
@@ -28,6 +29,8 @@ const KIND_BADGE: Record<
  * workspace seeks/navigates there on load; `clip` additionally opens that
  * clip in the rail so it can be re-trimmed or re-exported without a second
  * hunt (document excerpts don't have an analogous rail to open into yet).
+ * `data_point` has no source/location at all (docs/sourcework-design.md
+ * §9.7) — it links to the Research tab instead, anchored to the card.
  */
 export function resultHref(result: {
   kind: SearchResultKind;
@@ -37,6 +40,10 @@ export function resultHref(result: {
   startMs: number | null;
   pageNumber: number | null;
 }): string {
+  if (result.kind === "data_point") {
+    return `/sourcework/${result.projectId}/research#data-point-${result.id}`;
+  }
+
   const params = new URLSearchParams();
   if (result.sourceId) params.set("source", result.sourceId);
   if (result.startMs !== null) params.set("t", String(result.startMs));
