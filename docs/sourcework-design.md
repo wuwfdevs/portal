@@ -1,7 +1,10 @@
 # Sourcework — Design and Phased Plan
 
 Status: **Phases 1–3b shipped. Phase 4 is designed, not yet built — see §9.
-Phases 5–6 remain a roadmap, not a spec** — each needs its own design doc
+Phase 5 is designed too, not yet built — see `docs/sourcework-analysis-
+design.md`, written alongside §9 rather than after it (a data point isn't a
+very meaningful deliverable without something to group it into a pattern).
+Phase 6 remains a roadmap, not a spec** — it needs its own design doc
 reviewed before implementation starts, the same way Remote Interview and
 Audience Listening each got one. **Phase 3 has been split into 3a and 3b**
 (§5) — 3a (Source Library and a multi-source Project UI) shipped first, see
@@ -152,12 +155,15 @@ unscoped, same as before.
 company: research questions (project-scoped), data points, and a
 many-to-many join between data points and the excerpts that ground them.
 
-**Phase 5 (not started — needs `docs/sourcework-analysis-design.md`)** —
-themes, meta-themes, synthesis. Genuinely new product surface, not a
-refactor — informed by CAQDAS prior art (NVivo/Atlas.ti/MAXQDA/Dedoose:
-codebook vs. emergent coding, memos, saturation). Open question for that doc:
-can a theme span multiple `tw_projects` (an entire investigation), or is it
-project-scoped like research questions in Phase 4?
+**Phase 5 (designed, not started — see `docs/sourcework-analysis-
+design.md`)** — themes, meta-themes, synthesis. Genuinely new product
+surface, not a refactor — informed by CAQDAS prior art (NVivo/Atlas.ti/
+MAXQDA/Dedoose: codebook vs. emergent coding, memos, saturation), most of
+which that design deliberately doesn't adopt — see its §1. Its own open
+question ("can a theme span multiple `tw_projects`, or is it project-scoped
+like research questions in Phase 4?") is resolved there, in its §2: a theme
+is not project-scoped at all — membership is derived entirely from which
+data points it groups, which can span more than one project.
 
 **Phase 6 (not started, highest risk)** — Audience Listening's `al_answers`
 handoff (currently one-off `tw_projects` rows via `startTranscriptionForProject()`,
@@ -1234,15 +1240,17 @@ blocking its creation — advisory, never a hard constraint, the same posture
 Underwriting's competitive-adjacency check and Log's submission-readiness
 review both take (CLAUDE.md: "never a block," "a checkpoint, not a lock").
 
-**Scope is one project, not the whole tool.** An excerpt picker for a data
-point only offers excerpts from sources *currently* attached to that data
-point's own project — reusing `listLibraryClips(projectId)` unchanged,
-which already scopes to a project's attached sources (§7.3). Reaching
-across projects for evidence is exactly the kind of cross-project
-reach Phase 5's own open question ("can a theme span multiple
-`tw_projects`?") is still deciding how to handle — Phase 4 deliberately
-doesn't get ahead of that by letting a data point pull evidence from
-outside its project.
+**Scope is one project, not the whole tool — deliberately asymmetric with
+Phase 5's themes.** An excerpt picker for a data point only offers excerpts
+from sources *currently* attached to that data point's own project —
+reusing `listLibraryClips(projectId)` unchanged, which already scopes to a
+project's attached sources (§7.3). `docs/sourcework-analysis-design.md` §2
+resolves themes the other way — not project-scoped at all, since a theme's
+whole purpose can be connecting data points across projects. That's not an
+inconsistency between the two phases: a data point's own evidence is
+naturally grounded in the one story it was written for, while a theme's job
+is to notice patterns *across* stories. Each table is scoped to match what
+it actually represents, not to match the other.
 
 **A source detached from the project after grounding a data point stays
 grounding it.** `removeSourceFromProject` (§7.3) already lets a reporter
