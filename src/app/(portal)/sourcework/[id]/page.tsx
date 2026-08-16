@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import {
@@ -126,6 +127,12 @@ export default async function TranscriptionProjectPage({
       </div>
       <div className="flex items-start gap-3">
         <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
+        <Link
+          href={`/sourcework/${project.id}/research`}
+          className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-ink-700 hover:border-ink-300"
+        >
+          Research
+        </Link>
         {canDelete && (
           <ProjectActionsMenu projectId={project.id} label={deleteLabel} warning={deleteWarning} />
         )}

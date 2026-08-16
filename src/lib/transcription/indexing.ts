@@ -318,6 +318,71 @@ export async function embedPendingForProject(supabase: Client, projectId: string
 }
 
 /**
+ * Embeds a project's stale data points (Sourcework Phase 4 —
+ * docs/sourcework-design.md §9.7). Deliberately separate from embedPending
+ * above rather than folded into it: every existing pass in this module is
+ * keyed by sourceId, but a data point is project-scoped and its evidence can
+ * legitimately span more than one of a project's sources (§9.3), so there's
+ * no single source to key this pass off of. Same shape otherwise —
+ * stale-flag-driven, MAX_EMBEDS_PER_PASS capped, swallows its own errors.
+ */
+export async function embedPendingDataPoints(
+  supabase: Client,
+  projectId: string,
+): Promise<{ embedded: number; embeddingError?: string }> {
+  const provider = getEmbeddingProvider();
+  if (!provider) return { embedded: 0 };
+
+  try {
+    const { data: staleDataPoints } = await supabase
+      .from("sw_data_points")
+      .select("id, summary")
+      .eq("project_id", projectId)
+      .eq("embedding_stale", true)
+      .limit(MAX_EMBEDS_PER_PASS);
+
+    const rows = staleDataPoints ?? [];
+    if (rows.length === 0) return { embedded: 0 };
+
+    const { data: project } = await supabase
+      .from("tw_projects")
+      .select("title, description")
+      .eq("id", projectId)
+      .maybeSingle();
+    // No single interviewDate: a data point's evidence can span more than
+    // one source, each with its own — see §9.3. The heading falls back to
+    // just the project title/description, same as buildEmbeddingInput
+    // already does when interviewDate is absent.
+    const projectContext: ChunkProjectContext = {
+      title: project?.title ?? "",
+      interviewDate: null,
+      description: project?.description ?? null,
+    };
+
+    const inputs = rows.map((row) => buildEmbeddingInput(projectContext, row.summary));
+    const vectors = await provider.embed(inputs);
+
+    await Promise.all(
+      rows.map((row, index) =>
+        supabase
+          .from("sw_data_points")
+          .update({ embedding: toVectorLiteral(vectors[index]!), embedding_stale: false })
+          .eq("id", row.id),
+      ),
+    );
+
+    return { embedded: rows.length };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[transcription] data point embedding pass failed", {
+      projectId,
+      error: message,
+    });
+    return { embedded: 0, embeddingError: message };
+  }
+}
+
+/**
  * Best-effort re-embed for one representation and its source's excerpts —
  * for callers that already know which representation they just wrote to.
  * Unlike embedPendingForProject, this never guesses "the project's primary
