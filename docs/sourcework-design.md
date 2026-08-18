@@ -1,13 +1,16 @@
 # Sourcework — Design and Phased Plan
 
-Status: **Phases 1–3b shipped. Phases 4–6 are a roadmap, not a spec** — each
-needs its own design doc (this one included) reviewed before implementation
-starts, the same way Remote Interview and Audience Listening each got one.
-**Phase 3 has been split into 3a and 3b** (§5) — 3a (Source Library and a
-multi-source Project UI) shipped first, see §7; **3b (PDF documents, a
-document-processing pipeline, page-aware structured text) is designed and
-shipped, see §8.** Translation, bundled into the original single Phase 3, is
-deferred past 3b — see §8.1.
+Status: **Phases 1–3b shipped. Phase 4 is designed, not yet built — see §9.
+Phase 5 is designed too, not yet built — see `docs/sourcework-analysis-
+design.md`, written alongside §9 rather than after it (a data point isn't a
+very meaningful deliverable without something to group it into a pattern).
+Phase 6 remains a roadmap, not a spec** — it needs its own design doc
+reviewed before implementation starts, the same way Remote Interview and
+Audience Listening each got one. **Phase 3 has been split into 3a and 3b**
+(§5) — 3a (Source Library and a multi-source Project UI) shipped first, see
+§7; **3b (PDF documents, a document-processing pipeline, page-aware
+structured text) is designed and shipped, see §8.** Translation, bundled
+into the original single Phase 3, is deferred past 3b — see §8.1.
 
 This document generalizes the Transcription Workspace's data model into
 Sourcework: a provenance-preserving foundation for turning source material
@@ -148,16 +151,19 @@ explicitly **deferred**, not part of 3b; it remains a future transformation
 on any text-kind representation (transcript or document_text), unpicked and
 unscoped, same as before.
 
-**Phase 4 (not started)** — `sw_source_excerpts` gains company: `research_
-questions` (project-scoped), `sw_data_points`, `sw_data_point_excerpts` as a
-many-to-many join.
+**Phase 4 (designed, not started — see §9)** — `sw_source_excerpts` gains
+company: research questions (project-scoped), data points, and a
+many-to-many join between data points and the excerpts that ground them.
 
-**Phase 5 (not started — needs `docs/sourcework-analysis-design.md`)** —
-themes, meta-themes, synthesis. Genuinely new product surface, not a
-refactor — informed by CAQDAS prior art (NVivo/Atlas.ti/MAXQDA/Dedoose:
-codebook vs. emergent coding, memos, saturation). Open question for that doc:
-can a theme span multiple `tw_projects` (an entire investigation), or is it
-project-scoped like research questions in Phase 4?
+**Phase 5 (designed, not started — see `docs/sourcework-analysis-
+design.md`)** — themes, meta-themes, synthesis. Genuinely new product
+surface, not a refactor — informed by CAQDAS prior art (NVivo/Atlas.ti/
+MAXQDA/Dedoose: codebook vs. emergent coding, memos, saturation), most of
+which that design deliberately doesn't adopt — see its §1. Its own open
+question ("can a theme span multiple `tw_projects`, or is it project-scoped
+like research questions in Phase 4?") is resolved there, in its §2: a theme
+is not project-scoped at all — membership is derived entirely from which
+data points it groups, which can span more than one project.
 
 **Phase 6 (not started, highest risk)** — Audience Listening's `al_answers`
 handoff (currently one-off `tw_projects` rows via `startTranscriptionForProject()`,
@@ -1079,3 +1085,418 @@ content into research data points (Phase 4); table-to-spreadsheet
 workflows; detailed human correction of OCR at the individual block level
 (§8.7's stated tradeoff); broad image/chart interpretation; Phase 4/5/6
 work of any kind.
+
+## 9. Phase 4 design — Research questions and data points (designed, not started)
+
+Status: **designed 2026-08-16, not yet built.** Not reviewed with the
+product owner the way §7.4's open questions were before Phase 3a's build —
+treat §9.9 below as genuinely open until someone signs off on it, not as a
+formality. Grounded in what Phases 1–3b actually shipped (read §7 and §8
+first) and in §5's one-paragraph scope for this phase: `sw_source_excerpts`
+gains company — research questions, data points, and a many-to-many join
+between the two.
+
+### 9.1 What this phase is, and isn't
+
+A reporter working a project can now write down what they're actually
+trying to find out (a short ordered list of research questions, scoped to
+one project — CAQDAS prior art calls this a "research question," Phase 5's
+own open question about whether a *theme* can span multiple projects
+already confirms research questions are project-scoped, not tool-wide), and
+record a finding — the reporter's own articulated claim, grounded by one or
+more excerpts as evidence — as a data point. A data point can answer one of
+the project's research questions, or none (an interesting finding that
+doesn't fit the fixed list is still worth keeping, the same "emergent"
+category CAQDAS tools distinguish from the fixed "codebook").
+
+This is a **collection** phase, not a **synthesis** phase. It does not
+attempt: grouping data points into themes or meta-themes, any notion of
+"saturation," memos, or synthesis writing — that's Phase 5, explicitly
+deferred to its own design doc per §5, informed by real CAQDAS prior art
+this phase deliberately doesn't reach for yet. It also does not attempt
+automatic extraction — turning a passage a reporter is looking at into a
+suggested data point via an LLM call — in this pass; §8.14 already named
+this as out of scope for 3b.
+
+**Confirmed intended direction, not built yet: an incremental "Suggest data
+points" UI action**, per the product owner (2026-08-16) — a button on a
+project's excerpts that drafts candidate data points via an LLM call for
+the reporter to review, edit, and confirm before anything is written. Not a
+capability layer entry (`lib/capabilities/`) — that layer is for
+cross-tool/agent-invoked writes (design doc `docs/agent-capabilities-
+design.md`), and this is neither: it's reporter-initiated, in this tool's
+own UI, human-confirmed before any row exists. The right shape is the same
+one `lib/transcription/document-ingest.ts`'s OCR pipeline already uses — a
+developer-authored pipeline a UI button triggers, per §2's standing design
+decision — landing on the *same* `createDataPoint` action this phase
+already built (`[id]/research-actions.ts`) once a reporter accepts a
+suggestion, not a new write path. Nothing in this phase's schema or actions
+needs to change to support it later: `createDataPoint(projectId, summary,
+researchQuestionId)` already takes exactly the shape an accepted suggestion
+would supply. Worth deciding *when* this is actually built (not now): does
+`sw_data_points` need a provenance column (`suggested_by_ai` or similar) to
+distinguish an AI-drafted-then-edited data point from one a reporter wrote
+from scratch — a real question, deliberately left open rather than
+speculatively answered here.
+
+**Why this is the phase that pays off Phase 3a's multi-source project
+model.** §1's original motivation was a source mattering to more than one
+project; Phase 3a's payoff was the reverse direction, a project referencing
+more than one source. Phase 4 is the first place that actually matters
+product-wise: a data point can be grounded by excerpts from *different*
+sources attached to the same project — "both the interview and the
+document corroborate X" is a single finding with two pieces of evidence,
+each traceable back to where it came from. Nothing before this phase gave a
+reporter a place to say that.
+
+### 9.2 Data model: three new tables
+
+```sql
+sw_research_questions
+  id uuid pk
+  project_id uuid not null references tw_projects on delete cascade
+  prompt text not null
+  position integer not null
+  active boolean not null default true
+  created_by uuid references profiles(id) on delete set null
+  created_at timestamptz not null default now()
+  updated_at timestamptz not null default now()
+  unique (project_id, position)
+
+sw_data_points
+  id uuid pk
+  project_id uuid not null references tw_projects on delete cascade
+  research_question_id uuid references sw_research_questions on delete set null
+  summary text not null
+  created_by uuid references profiles(id) on delete set null
+  created_at timestamptz not null default now()
+  updated_at timestamptz not null default now()
+  search tsvector generated always as (to_tsvector('english', summary)) stored
+  embedding extensions.vector(1536)
+  embedding_stale boolean not null default true
+
+sw_data_point_excerpts
+  data_point_id uuid not null references sw_data_points on delete cascade
+  excerpt_id uuid not null references sw_source_excerpts on delete cascade
+  added_at timestamptz not null default now()
+  added_by uuid references profiles(id) on delete set null
+  primary key (data_point_id, excerpt_id)
+```
+
+Notes on the choices:
+
+- **`research_question_id` is a single nullable FK, not a join table.**
+  §2's "provenance chains are many-to-many, once analysis exists" is about
+  excerpts→data points and (Phase 5) data points→themes — it was never a
+  claim about questions→data points, and §5's own phrasing names exactly
+  one join table for this phase (`sw_data_point_excerpts`). A data point
+  answering more than one research question at once is a real but rarer
+  case than "which passages support this finding," and nothing in this
+  phase's brief asks for it — a nullable FK is the smaller, honest model,
+  revisit only if a real need for a many-to-many surfaces.
+- **`sw_research_questions` follows the deactivate-don't-delete precedent**
+  `log_content_items`/`ep_criteria` already established for configuration
+  rows other tables can reference (CLAUDE.md, "Log: content library field
+  trim" and earlier entries) — an `active` flag, no delete grant. A data
+  point can reference a since-deactivated question without the reference
+  ever dangling, and a stale question just stops showing up in the create
+  form's picker.
+- **`sw_data_points` and `sw_data_point_excerpts` are freely deletable**,
+  matching `sw_source_excerpts`' own grant (`select, insert, update, delete`
+  since the `tw_clips` migration) and `sw_project_sources`' attach/detach
+  shape — a data point is closer in kind to an excerpt (a reporter's own
+  editorial artifact, wrong or superseded ones just get removed) than to a
+  tool's shared configuration.
+- **No `on delete cascade` from `sw_source_excerpts` into
+  `sw_data_point_excerpts` losing the whole data point** — deleting one
+  piece of evidence (`clip-actions.ts`'s existing `deleteClip`) only removes
+  that join row; the data point and its other evidence, if any, survive.
+  Matches `sw_project_sources`' own "detaching a source doesn't delete the
+  project" shape.
+- **`search`/`embedding`/`embedding_stale` on `sw_data_points` mirror
+  `sw_source_excerpts` exactly** (§8.8's "everything OPENAI_API_KEY-optional
+  stays optional" applies unchanged) — see §9.7. `sw_research_questions`
+  gets neither: a project's question list is short and browsed directly, the
+  same reason `ep_criteria`/`ep_form_fields` have no search of their own.
+- **No document-vs-temporal branching anywhere in this phase.**
+  `sw_data_point_excerpts.excerpt_id` references `sw_source_excerpts`
+  generically, regardless of `locator_kind` — a data point can be grounded
+  by a transcript clip and a PDF excerpt in the same list with no
+  kind-specific code, the same "generalization falls out for free" §8.7's
+  closing paragraph already noted for the search index. This phase sits one
+  level above source-kind concerns entirely.
+- **`updated_at` triggers on both new base tables**, reusing the existing
+  generic `set_updated_at()` function the way every other `sw_`/`tw_` table
+  does (see `sw_source_excerpts`' renamed trigger for the pattern) —
+  `sw_data_point_excerpts` needs none, it has no mutable columns.
+- **An `embedding_stale`-flagging trigger on `sw_data_points`**, mirroring
+  `sw_flag_source_excerpt_embedding()`: `before update of summary`, sets
+  `embedding_stale := true` when `summary` actually changed. Insert needs no
+  trigger — the column default is already `true`.
+
+### 9.3 What a data point is, and isn't, relative to an excerpt
+
+Worth stating plainly, since the two are easy to blur: an **excerpt** is a
+quoted or extracted passage, unedited, tied to one source at one location —
+what someone said, or what a document says, verbatim. A **data point** is
+the reporter's own articulated claim or finding, in the reporter's own
+words, that one or more excerpts support. "She said the bridge inspection
+was delayed twice" (an excerpt, verbatim) versus "The county missed both of
+its own inspection deadlines" (a data point, the reporter's synthesis,
+grounded by that excerpt and maybe a second one from a records document).
+`sw_data_points.summary` is a single text field, not a title-plus-body pair
+like an excerpt's `title`/`excerpt_text` — a data point states one claim,
+it doesn't need the two-part "what to call this clip" / "what it says"
+shape an excerpt does.
+
+**A data point may exist with zero excerpts.** Requiring at least one at
+creation would force a reporter to have already found their evidence before
+writing down what they're looking for, which is backwards for a lot of real
+research work (jot the claim, go find what supports it). The Research tab
+shows an "Add evidence" prompt on an ungrounded data point rather than
+blocking its creation — advisory, never a hard constraint, the same posture
+Underwriting's competitive-adjacency check and Log's submission-readiness
+review both take (CLAUDE.md: "never a block," "a checkpoint, not a lock").
+
+**Scope is one project, not the whole tool — deliberately asymmetric with
+Phase 5's themes.** An excerpt picker for a data point only offers excerpts
+from sources *currently* attached to that data point's own project —
+reusing `listLibraryClips(projectId)` unchanged, which already scopes to a
+project's attached sources (§7.3). `docs/sourcework-analysis-design.md` §2
+resolves themes the other way — not project-scoped at all, since a theme's
+whole purpose can be connecting data points across projects. That's not an
+inconsistency between the two phases: a data point's own evidence is
+naturally grounded in the one story it was written for, while a theme's job
+is to notice patterns *across* stories. Each table is scoped to match what
+it actually represents, not to match the other.
+
+**A source detached from the project after grounding a data point stays
+grounding it.** `removeSourceFromProject` (§7.3) already lets a reporter
+detach a source without deleting it or its excerpts. If a data point was
+already grounded by that source's excerpt, the join row is left alone — the
+finding doesn't retroactively lose its evidence because the source's
+*attachment* status changed later. This is the same accepted, narrow drift
+§8.7 already accepted for a reprocessed document's stale `block_id`: real,
+worth naming, not worth building reconciliation machinery for in this
+phase. A detached source's excerpts simply stop appearing in the *picker*
+for new attachments, same as any other source no longer in scope.
+
+### 9.4 RLS
+
+Same collaborative sub-resource model every `sw_`/`tw_` table already uses
+— no new elevated role, matching how ordinary excerpt/clip creation has
+never needed one:
+
+```sql
+create policy sw_research_questions_select on public.sw_research_questions
+  for select to authenticated
+  using (private.has_transcription_access(auth.uid()));
+create policy sw_research_questions_insert on public.sw_research_questions
+  for insert to authenticated
+  with check (private.has_transcription_access(auth.uid()));
+create policy sw_research_questions_update on public.sw_research_questions
+  for update to authenticated
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
+grant select, insert, update on public.sw_research_questions to authenticated;
+-- no delete grant — deactivate via `active`, matching log_content_items.
+
+create policy sw_data_points_member_all on public.sw_data_points
+  for all to authenticated
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
+grant select, insert, update, delete on public.sw_data_points to authenticated;
+
+create policy sw_data_point_excerpts_member_all on public.sw_data_point_excerpts
+  for all to authenticated
+  using (private.has_transcription_access(auth.uid()))
+  with check (private.has_transcription_access(auth.uid()));
+grant select, insert, update, delete on public.sw_data_point_excerpts to authenticated;
+```
+
+No new predicate in the `private` schema — `private.has_transcription_access`
+already exists and already means "a member of this tool," which is exactly
+the boundary every table here needs.
+
+### 9.5 Screen: the Research tab
+
+A new route, `/sourcework/[id]/research`, linked from a "Research" button
+in the project header (alongside the existing `ProjectActionsMenu`) —
+**a separate page, not a query-param tab inside the existing project
+page.** The existing page is source-centric (`SourceCardGrid`, a pill row,
+one active source's workspace body); research questions and data points are
+project-wide, not source-scoped, so there's no single active source for
+them to sit alongside. `/sourcework/sources/[id]` already established the
+precedent of a dedicated route for a concern that doesn't fit the
+pill-and-active-source shape.
+
+Two sections on one page, both `requireToolAccess("transcription")`-gated
+like every other Sourcework route:
+
+**Research questions** — an ordered list (`ReorderButtons`,
+`components/editorial/reorder-buttons.tsx`, reused as-is — this is exactly
+the "plain up/down button" ordered-list pattern the settings screens
+already use, not a new component), each row: the prompt text, an inline
+edit form, a deactivate toggle (no delete button, per §9.2), and — once
+Phase 5 exists — an **"Answered by: `<theme title>`, `<theme title>`"**
+line (or "Not yet answered" when the list is empty), each name linking into
+`docs/sourcework-analysis-design.md`'s theme detail route.
+This is the one line this whole phase is really building toward
+(`docs/sourcework-analysis-design.md` §1's "actual deliverable" framing:
+data points and themes are the process, a research question's list of
+answering meta-themes is the point) — a reporter should be able to look at
+this list alone and see which questions are settled and which are still
+open, without opening a single theme. Powered by a Phase-5-side read
+(`listThemesAnsweringQuestions`, see that doc's §5/§6) — nothing about this
+list's own query changes; it's an additional prop threaded in from a second
+data source. Before Phase 5 ships, this line is simply absent. An "Add a
+research question" form appends at the end. Deactivated questions collapse
+into a "Show deactivated" disclosure below the active list, matching the
+usual "don't clutter the primary list with retired rows" convention.
+
+**Data points** — a card per data point: the summary text, a small "Answers:
+`<question prompt>`" line when `research_question_id` is set (nothing shown
+when it's null — not "No question," which would read as an error state for
+what's actually a normal, expected case), and its grounding excerpts listed
+underneath, each as a small chip linking back to
+`/sourcework/[id]?source=<sourceId>&t=<startMs>` (temporal) or
+`&page=<pageNumber>` (document) — reopening the source at the right place,
+the same deep-link shape §8.7 already established for document excerpts. A
+data point with no excerpts shows the "Add evidence" prompt from §9.3
+instead of an empty list. "+ Attach an excerpt" opens a picker scoped to
+`listLibraryClips(projectId)` (§9.3), excluding excerpts already attached
+to *this* data point; each attached excerpt gets its own small remove
+control. "+ New data point" is a plain form: summary text, an optional
+research-question `<select>` (active questions only), submitted with no
+excerpts yet — evidence gets attached afterward from the card, per §9.3's
+"may exist with zero excerpts" call.
+
+No word-level selection UI, no drag-and-drop, no kanban board — this is a
+list of cards with plain forms, matching the "reorder buttons over DnD
+absent a concrete need" precedent (CLAUDE.md's Academic Partnerships
+entry) and Editorial Planning's own settings screens.
+
+### 9.6 Server-side work
+
+New `[id]/research-actions.ts`, alongside the existing
+`[id]/clip-actions.ts`/`[id]/source-actions.ts` per-project-workspace
+pattern, all asserting `requireToolAccess("transcription")` first and using
+`failIfError`/`failWith` for the `?error=` bounce-back convention:
+
+- `createResearchQuestion(projectId, prompt)` / `updateResearchQuestion(id,
+  prompt)` / `setResearchQuestionActive(id, active)` /
+  `reorderResearchQuestion(id, direction)` — the last following the exact
+  swap-adjacent-`position` pattern `editorial/settings/actions.ts` already
+  uses three times (rubric, criteria, pillars): find the row's index in the
+  active-and-ordered list, swap with its neighbor, rewrite every row whose
+  position actually changed.
+- `createDataPoint(projectId, summary, researchQuestionId?)` /
+  `updateDataPointSummary(id, summary)` / `setDataPointResearchQuestion(id,
+  researchQuestionId | null)` / `deleteDataPoint(id)`.
+- `attachExcerptToDataPoint(dataPointId, excerptId)` /
+  `detachExcerptFromDataPoint(dataPointId, excerptId)` — plain inserts/
+  deletes into `sw_data_point_excerpts`, no new RPC needed (unlike, say,
+  Log/Underwriting's cross-tool boundary functions, this join is entirely
+  within one tool's own RLS).
+- Reads live in `lib/transcription/research.ts` (new, alongside
+  `projects.ts`/`clips.ts`): `listResearchQuestions(projectId)`,
+  `listDataPoints(projectId)` (joins in each data point's attached excerpts
+  and their source/location info for the chip links, flat queries per the
+  existing "PostgREST embedding doesn't type reliably" convention
+  `listLibraryClips` already follows).
+- No new capability in `lib/transcription/capabilities.ts` — see §9.8.
+
+Edits to `summary` flow through `embedPendingDataPoints` (§9.7) the same
+way clip edits already call `embedPendingForProject` — best-effort, never
+blocking the write.
+
+### 9.7 Search and embedding generalization
+
+**A data point is project-scoped, not source-scoped — `embedPending`
+(`lib/transcription/indexing.ts`) can't cover it as written.** Every
+existing embedding pass in this module is keyed by `sourceId` (chunks via
+their representation's source, excerpts via `source_id` directly);
+`sw_data_points.project_id` is the only thing a data point actually has,
+and, per §9.3, its evidence can legitimately span more than one of a
+project's sources. Rather than force a project-scoped concept through a
+source-scoped function, this phase adds a parallel, project-keyed pass:
+
+```ts
+// lib/transcription/indexing.ts
+export async function embedPendingDataPoints(
+  supabase: Client,
+  projectId: string,
+): Promise<{ embedded: number; embeddingError?: string }>
+```
+
+Same shape as `embedPending` (stale-flag-driven, `MAX_EMBEDS_PER_PASS`
+capped, swallows its own errors, embeds against `buildClipEmbeddingInput`-
+style project-context-prefixed input — reusing that function directly,
+since a data point's summary wants the identical "project title/date/
+description" heading a clip's excerpt text already gets), called from
+`research-actions.ts` after a summary edit, keyed on `project_id` instead
+of resolving a primary source the way `embedPendingForProject` does. No
+existing caller needs to change — this is additive, not a rework of the
+source-scoped path chunks and excerpts still use.
+
+**`tw_search` gains a fifth hit kind, `'data_point'`** (alongside the
+existing `transcript`/`document`/`clip`/`project` — its seventh revision in
+this migration lineage: `20260731181000_sourcework_documents_search.sql`
+and `20260803130000_tw_search_scoping.sql`'s own comments count five and
+six, per the precedent §8.8's revision count already named). Simpler than
+the excerpt case: a data point already carries
+`project_id` directly, so there's no lateral "which project references this
+source" resolution to do — join straight to `tw_projects`. No
+`start_ms`/`page_number` to populate (a data point has no single location;
+its evidence chips already carry their own). `snippet` is the summary text
+itself.
+
+`SearchResultKind` gains `'data_point'`; `SearchResult` needs no new field.
+`KIND_BADGE` gains `data_point: { label: "Data point", variant:
+"informative" }`; `resultHref()` for a data point kind points at
+`/sourcework/[projectId]/research#data-point-[id]` (an anchor into §9.5's
+list — no query param needed since the Research tab isn't itself
+source-scoped).
+
+**Research questions are not indexed.** A project's question list is short
+and browsed directly on its own tab, the same reasoning §9.2 already gave
+for leaving `search`/`embedding` off that table entirely — nothing here
+needs a fifth-and-sixth hit kind, just a fifth.
+
+### 9.8 Capability layer
+
+No new capability. Mirrors §8.12's reasoning exactly: nothing outside this
+tool has a concrete reason today to programmatically create a research
+question or a data point, the way Audience Listening's handoff needed
+`startTranscriptionForProject`. `sourcework.project.search` stays this
+tool's only registered capability until a real cross-tool need for one of
+these appears — adding one later is additive, not a redesign, per the same
+closing note §8.12 already makes.
+
+### 9.9 Open questions — genuinely unresolved, needs review before implementation
+
+Unlike §7.4 (resolved with the product owner before Phase 3a was built),
+this phase has not been through that round trip yet. These are this
+design's own best answers, not confirmed ones:
+
+1. **Should a data point be able to answer more than one research
+   question?** §9.2 chose a single nullable FK on the reasoning that
+   nothing in this phase's brief asks for many-to-many here. Worth
+   confirming against a real multi-question project before building, since
+   changing this later means a real migration (FK column → join table), not
+   a config flip.
+2. **Does deleting a research question need a confirmation step**, the way
+   deleting an Academic Partnerships submission does, or is deactivate-
+   don't-delete (no delete path at all) enough on its own? This design
+   assumes the latter is sufficient since nothing is ever actually lost —
+   worth a second look once someone's used the screen.
+3. **Is an "Add evidence" nudge on an ungrounded data point enough, or
+   should the project's aggregate status/badge reflect ungrounded data
+   points the way it already reflects source processing failures?** This
+   design deliberately kept it advisory-only (§9.3) but a reporter finishing
+   a project with several ungrounded claims might want a stronger signal.
+4. **Should the excerpt picker surface which *other* data points an excerpt
+   is already attached to**, so a reporter can see at a glance that a
+   passage is already grounding a different finding? Not designed here —
+   a real but secondary need, easy to add to `listLibraryClips`'s existing
+   read without a schema change if it turns out to matter.

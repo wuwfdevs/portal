@@ -2,15 +2,18 @@ import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { listProjects, listSources } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
+import { listThemes } from "@/lib/transcription/themes";
 import { searchArchive, isSemanticSearchConfigured } from "@/lib/transcription/search";
 import { SearchResults } from "@/components/transcription/search-results";
 import { ClipLibrary } from "@/components/transcription/clip-library";
 import { SourceLibrary } from "@/components/transcription/source-library";
+import { ThemeLibrary } from "@/components/transcription/theme-library";
 import { ProjectTable } from "@/components/transcription/project-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NewThemeForm } from "./themes/new-theme-form";
 
-type Tab = "projects" | "sources" | "clips";
+type Tab = "projects" | "sources" | "clips" | "themes";
 
 export default async function TranscriptionListPage({
   searchParams,
@@ -20,17 +23,21 @@ export default async function TranscriptionListPage({
   await requireToolAccess("transcription");
   const { q, tab } = await searchParams;
   const query = q?.trim() ?? "";
-  const activeTab: Tab = tab === "clips" ? "clips" : tab === "sources" ? "sources" : "projects";
+  const activeTab: Tab =
+    tab === "clips" ? "clips" : tab === "sources" ? "sources" : tab === "themes" ? "themes" : "projects";
 
   // A query searches the whole archive at once — transcripts, clips, and
   // project metadata in one ranked list (design doc §3F) — so it replaces the
   // tab content rather than filtering it. Without a query, the tabs are the
-  // browse surface.
-  const [results, projects, sources, clips] = await Promise.all([
+  // browse surface. Themes are deliberately not part of that archive-wide
+  // search (docs/sourcework-analysis-design.md §7) — this tab's own filter
+  // is the only way to find one.
+  const [results, projects, sources, clips, themes] = await Promise.all([
     query ? searchArchive(query) : Promise.resolve([]),
     !query && activeTab === "projects" ? listProjects() : Promise.resolve([]),
     !query && activeTab === "sources" ? listSources() : Promise.resolve([]),
     !query && activeTab === "clips" ? listLibraryClips() : Promise.resolve([]),
+    !query && activeTab === "themes" ? listThemes() : Promise.resolve([]),
   ]);
 
   return (
@@ -82,12 +89,18 @@ export default async function TranscriptionListPage({
             <TabLink tab="projects" activeTab={activeTab} label="Projects" />
             <TabLink tab="sources" activeTab={activeTab} label="Sources" />
             <TabLink tab="clips" activeTab={activeTab} label="Excerpts" />
+            <TabLink tab="themes" activeTab={activeTab} label="Themes" />
           </nav>
 
           {activeTab === "clips" ? (
             <ClipLibrary clips={clips} />
           ) : activeTab === "sources" ? (
             <SourceLibrary sources={sources} />
+          ) : activeTab === "themes" ? (
+            <>
+              <NewThemeForm />
+              <ThemeLibrary themes={themes} />
+            </>
           ) : (
             <ProjectTable projects={projects} />
           )}
