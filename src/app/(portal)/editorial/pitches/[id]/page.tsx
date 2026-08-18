@@ -13,8 +13,9 @@ import {
 } from "@/lib/editorial/data";
 import { STORY_PLAN_STATUS_LABEL } from "@/lib/editorial/story-plan";
 import { aggregateReviews, computeAdjustedScore } from "@/lib/editorial/scoring";
-import { formatDate, formatScore } from "@/lib/editorial/format";
+import { formatDate } from "@/lib/editorial/format";
 import { PitchValues } from "@/components/editorial/pitch-values";
+import { ScoreStats } from "@/components/editorial/score-stats";
 import {
   PitchStatusBadge,
   OutcomeBadge,
@@ -245,7 +246,7 @@ export default async function PitchDetailPage({
                 scores: scoresByReview.get(review.id) ?? [],
               })),
             );
-            const { adjustedScore } = computeAdjustedScore({
+            const { adjustedScore, modifierApplied } = computeAdjustedScore({
               coreAverage: aggregate.average,
               modifierAverage: aggregate.modifierAverage,
               minCoreScoreForModifier: settings.modifier_min_core_score,
@@ -261,22 +262,27 @@ export default async function PitchDetailPage({
                   </Link>
                   <MeetingStatusBadge status={meeting!.status} />
                   <div className="flex-1" />
-                  {meeting!.status !== "open" && (
-                    <span className="text-sm text-ink-500">
-                      Core {formatScore(aggregate.average)}
-                      {aggregate.modifierAverage !== null &&
-                        ` · Modifier ${formatScore(aggregate.modifierAverage)} · Adjusted ${formatScore(adjustedScore)}`}
-                    </span>
-                  )}
                   <OutcomeBadge outcome={round.outcome} />
                 </div>
+                {meeting!.status !== "open" && (
+                  <div className="mt-3.5">
+                    <ScoreStats
+                      core={aggregate.average}
+                      modifier={aggregate.modifierAverage}
+                      adjusted={adjustedScore}
+                      spread={aggregate.spread}
+                      reviewerCount={aggregate.reviewerCount}
+                      modifierApplied={modifierApplied}
+                    />
+                  </div>
+                )}
                 {round.outcome === "assigned" && round.assigned_to && (
                   <p className="mt-1.5 text-xs text-ink-500">
                     Assigned to {names.get(round.assigned_to) ?? "—"}
                   </p>
                 )}
                 {round.rationale && (
-                  <p className="mt-1.5 text-xs text-ink-500">{round.rationale}</p>
+                  <p className="mt-3 text-[13px] leading-relaxed text-ink-500">{round.rationale}</p>
                 )}
                 {roundReviews.some((review) => review.comment) && (
                   <ul className="mt-2 flex flex-col gap-1 border-t border-line pt-2">

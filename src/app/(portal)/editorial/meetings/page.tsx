@@ -7,7 +7,6 @@ import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createMeeting } from "./actions";
 
 export default async function MeetingsPage({
@@ -98,50 +97,38 @@ export default async function MeetingsPage({
             : "An editor will create the first one."}
         </div>
       ) : (
-        <TableFrame>
-          <Table className="min-w-[560px]">
-            <thead>
-              <HeaderRow>
-                <Th>Meeting</Th>
-                <Th>Status</Th>
-                <Th>Profile</Th>
-                <Th>Slate</Th>
-                <Th>Assigned</Th>
-              </HeaderRow>
-            </thead>
-            <tbody>
-              {meetingRows.map((meeting) => {
-                const stats = slateStats.get(meeting.id) ?? { total: 0, assigned: 0 };
-                return (
-                  <Row key={meeting.id}>
-                    <Cell>
-                      <Link
-                        href={`/editorial/meetings/${meeting.id}`}
-                        className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
-                      >
-                        {formatDate(meeting.meeting_date)}
-                      </Link>
-                    </Cell>
-                    <Cell>
-                      <MeetingStatusBadge status={meeting.status} />
-                    </Cell>
-                    <Cell className="text-ink-500">
-                      {profileById.get(meeting.rubric_profile_id)?.name ?? "—"}
-                    </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {stats.total === 0
-                        ? "Empty"
-                        : `${stats.total} ${stats.total === 1 ? "pitch" : "pitches"}`}
-                    </Cell>
-                    <Cell className="tabular-nums text-ink-500">
-                      {meeting.status === "concluded" ? stats.assigned : "—"}
-                    </Cell>
-                  </Row>
-                );
-              })}
-            </tbody>
-          </Table>
-        </TableFrame>
+        <div className="rounded border border-line">
+          {meetingRows.map((meeting) => {
+            const stats = slateStats.get(meeting.id) ?? { total: 0, assigned: 0 };
+            const slateLine =
+              stats.total === 0
+                ? "Empty"
+                : `${stats.total} ${stats.total === 1 ? "pitch" : "pitches"}`;
+            return (
+              <Link
+                key={meeting.id}
+                href={`/editorial/meetings/${meeting.id}`}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-panel-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-serif text-[15px] font-bold text-ink-900">
+                    {formatDate(meeting.meeting_date)}
+                  </div>
+                  <div className="mt-1 text-xs text-ink-400">
+                    {profileById.get(meeting.rubric_profile_id)?.name ?? "—"}
+                  </div>
+                </div>
+                <MeetingStatusBadge status={meeting.status} />
+                <div className="w-32 shrink-0 text-right text-xs text-ink-500">
+                  {slateLine}
+                  {meeting.status === "concluded" && stats.assigned > 0 && (
+                    <> · {stats.assigned} assigned</>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       )}
     </div>
   );

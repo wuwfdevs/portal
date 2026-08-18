@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PitchValues } from "@/components/editorial/pitch-values";
+import { PitchValues, fieldsWithValues } from "@/components/editorial/pitch-values";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
@@ -27,6 +27,11 @@ import { submitReview } from "../actions";
  * The independent-review UI while a meeting is open. Each reviewer sees the
  * slate with their own saved scores only — colleagues' reviews are hidden by
  * RLS until scoring closes, so nothing here needs to filter them.
+ *
+ * A reviewer works one pitch at a time, so the expanded pitch leads with its
+ * summary and keeps the rest of the submission behind a disclosure: the scoring
+ * scale is what the screen is for, and it should not open below a screenful of
+ * form fields.
  */
 export function ScoringSection({
   meetingId,
@@ -51,19 +56,42 @@ export function ScoringSection({
   const modifierCriteria = criteria.filter((c) => c.criterion_type === "modifier");
   const scoredCount = slate.filter(({ entry }) => ownReviewByEntry.has(entry.id)).length;
   const allScored = scoredCount === slate.length;
+  const showProgress = canReview && slate.length > 0;
 
   return (
     <section>
-      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-bold text-ink-900">Review the slate</h3>
-        {canReview && slate.length > 0 && (
-          <span
-            className={allScored ? "text-xs font-semibold text-success-fg" : "text-xs text-ink-500"}
+      <h3 className="mb-2.5 text-sm font-bold text-ink-900">Review the slate</h3>
+
+      {showProgress && (
+        <div className="mb-5">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span
+              className={
+                allScored
+                  ? "text-[13px] font-semibold text-success-fg"
+                  : "text-[13px] font-semibold text-ink-500"
+              }
+            >
+              {allScored
+                ? `All ${slate.length} scored`
+                : `${scoredCount} of ${slate.length} scored`}
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuenow={scoredCount}
+            aria-valuemin={0}
+            aria-valuemax={slate.length}
+            aria-label="Pitches you have scored"
+            className="h-1.5 overflow-hidden rounded-full bg-panel-100"
           >
-            {allScored ? "All scored" : `Scored ${scoredCount} of ${slate.length}`}
-          </span>
-        )}
-      </div>
+            <div
+              className="h-full rounded-full bg-brand-primary transition-[width]"
+              style={{ width: `${Math.round((scoredCount / slate.length) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {canReview && coreCriteria.length === 0 && (
         <Alert variant="info" className="mb-3">
@@ -81,24 +109,26 @@ export function ScoringSection({
       <div className="flex flex-col gap-2.5">
         {slate.map(({ entry, pitch }) => {
           const own = ownReviewByEntry.get(entry.id);
+          const values = valuesByPitch.get(pitch.id) ?? [];
+          const hasMoreFields = fieldsWithValues(fields, values).length > 1;
           return (
             <details key={entry.id} className="group rounded border border-line open:shadow-sm">
-              <summary className="flex cursor-pointer list-none items-center gap-3 rounded px-4 py-3 hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center gap-3 rounded px-4 py-3.5 hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
                 <span
                   aria-hidden="true"
                   className="text-ink-400 transition-transform group-open:rotate-90"
                 >
                   ›
                 </span>
-                <span className="min-w-0 flex-1 text-sm font-semibold text-ink-900">
+                <span className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink-900">
                   {pitch.title}
                 </span>
                 {canReview && (
                   <span
                     className={
                       own
-                        ? "whitespace-nowrap text-xs font-semibold text-success-fg"
-                        : "whitespace-nowrap text-xs font-semibold text-ink-400"
+                        ? "whitespace-nowrap text-xs font-bold text-success-fg"
+                        : "whitespace-nowrap text-xs font-bold text-ink-400"
                     }
                   >
                     {own ? "✓ Scored" : "Not scored"}
@@ -106,8 +136,20 @@ export function ScoringSection({
                 )}
               </summary>
 
-              <div className="border-t border-line p-4">
-                <PitchValues fields={fields} values={valuesByPitch.get(pitch.id) ?? []} />
+              <div className="flex flex-col gap-4 border-t border-line p-4">
+                <div>
+                  <PitchValues fields={fields} values={values} slice="lead" />
+                  {hasMoreFields && (
+                    <details className="mt-2">
+                      <summary className="w-fit cursor-pointer list-none text-xs font-bold text-brand-link hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                        Show pitch details
+                      </summary>
+                      <div className="mt-2.5">
+                        <PitchValues fields={fields} values={values} slice="rest" />
+                      </div>
+                    </details>
+                  )}
+                </div>
 
                 {canReview && coreCriteria.length > 0 && (
                   <ReviewForm
@@ -150,6 +192,9 @@ function ReviewForm({
   const [concernFlags, setConcernFlags] = useState<Set<EpConcernFlag>>(
     new Set(own?.review.concern_flags ?? []),
   );
+  const scoredModifier = modifierCriteria.some(
+    (criterion) => ownScores.get(criterion.id) !== undefined,
+  );
 
   const toggleFlag = (flag: EpConcernFlag) => {
     setConcernFlags((prev) => {
@@ -161,11 +206,11 @@ function ReviewForm({
   };
 
   return (
-    <form action={submitReview} className="mt-5 border-t border-line pt-4">
+    <form action={submitReview}>
       <input type="hidden" name="meeting_id" value={meetingId} />
       <input type="hidden" name="entry_id" value={entryId} />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2.5 border-t border-line pt-3.5">
         {coreCriteria.map((criterion) => (
           <ScoreField
             key={criterion.id}
@@ -177,33 +222,42 @@ function ReviewForm({
         ))}
 
         {modifierCriteria.length > 0 && (
-          <div className="rounded border border-dashed border-line px-3 py-3">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-500">
-              Institutional modifier — optional, scored separately from the criteria above
-            </p>
-            {modifierCriteria.map((criterion) => (
-              <ScoreField
-                key={criterion.id}
-                criterion={criterion}
-                settings={settings}
-                defaultValue={ownScores.get(criterion.id)}
-                required={false}
-              />
-            ))}
-          </div>
+          // Collapsed by default: the modifier is optional and scored separately,
+          // and an always-open box reads as a fourth criterion the reviewer owes
+          // a number to.
+          <details open={scoredModifier}>
+            <summary className="w-fit cursor-pointer list-none py-1 text-xs font-bold text-brand-link hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+              + Institutional modifier <span className="font-normal text-ink-400">· optional</span>
+            </summary>
+            <div className="mt-2 flex flex-col gap-2.5">
+              {modifierCriteria.map((criterion) => (
+                <ScoreField
+                  key={criterion.id}
+                  criterion={criterion}
+                  settings={settings}
+                  defaultValue={ownScores.get(criterion.id)}
+                  required={false}
+                />
+              ))}
+            </div>
+          </details>
         )}
+      </div>
 
-        <fieldset>
-          <legend className="text-xs font-semibold text-ink-700">Recommendation</legend>
+      <div className="mt-4 flex flex-col gap-3 border-t border-line pt-3.5">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-400">Wrap up</p>
+
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
           <Select
             name="recommendation"
             required
+            aria-label="Recommendation"
             value={recommendation}
             onChange={(event) => setRecommendation(event.target.value as EpRecommendation)}
-            className="mt-1.5"
+            className="w-52 py-2"
           >
             <option value="" disabled>
-              Choose…
+              Recommendation…
             </option>
             {RECOMMENDATIONS.map((value) => (
               <option key={value} value={value}>
@@ -211,43 +265,34 @@ function ReviewForm({
               </option>
             ))}
           </Select>
-        </fieldset>
 
-        <fieldset>
-          <legend className="text-xs font-semibold text-ink-700">
-            Concerns <span className="font-normal text-ink-400">optional</span>
-          </legend>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
+          <fieldset className="flex flex-wrap gap-1.5">
+            <legend className="sr-only">Concerns (optional)</legend>
             {CONCERN_FLAGS.map((flag) => (
-              <label key={flag} className="flex items-center gap-1.5 text-xs text-ink-700">
+              <label key={flag} className="cursor-pointer">
                 <input
                   type="checkbox"
                   name="concern_flags"
                   value={flag}
                   checked={concernFlags.has(flag)}
                   onChange={() => toggleFlag(flag)}
-                  className="h-3.5 w-3.5"
+                  className="peer sr-only"
                 />
-                {CONCERN_FLAG_LABEL[flag]}
+                <span className="inline-flex rounded-full border border-line px-2.5 py-1.5 text-[11.5px] text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-danger peer-checked:bg-danger/[0.08] peer-checked:font-semibold peer-checked:text-danger peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+                  {CONCERN_FLAG_LABEL[flag]}
+                </span>
               </label>
             ))}
-          </div>
-        </fieldset>
+          </fieldset>
+        </div>
 
         <div>
-          <label
-            htmlFor={`comment_${entryId}`}
-            className="mb-1.5 block text-xs font-semibold text-ink-700"
-          >
-            Comment
-            <span className="ml-1.5 font-normal text-ink-400">
-              optional · visible to the room after scoring closes
-            </span>
-          </label>
           <Textarea
             id={`comment_${entryId}`}
             name="comment"
             rows={2}
+            aria-label="Comment"
+            placeholder="Comment — optional, visible to the room after scoring closes"
             defaultValue={own?.review.comment ?? ""}
           />
           {concernFlags.size > 0 && (
@@ -267,6 +312,11 @@ function ReviewForm({
   );
 }
 
+/**
+ * One criterion on a single line — label left, scale right — so a reviewer
+ * reads down a column of buttons rather than scrolling past a stack of
+ * label-above-scale blocks.
+ */
 function ScoreField({
   criterion,
   settings,
@@ -286,55 +336,60 @@ function ScoreField({
 
   return (
     <fieldset>
-      <legend className="text-xs font-semibold text-ink-700">
-        {criterion.name}
-        {criterion.criterion_type === "core" && criterion.weight !== 1 && (
-          <span className="ml-1.5 font-normal text-ink-400">×{criterion.weight}</span>
-        )}
+      <legend className="sr-only">
+        {criterion.name} — {scaleMin} lowest, {scaleMax} highest
       </legend>
-      {criterion.guidance && (
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-400">{criterion.guidance}</p>
-      )}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {!required && (
-          <label className="relative cursor-pointer text-sm" title="Leave unscored">
-            <input
-              type="radio"
-              name={`score_${criterion.id}`}
-              value=""
-              defaultChecked={defaultValue === undefined}
-              className="peer sr-only"
-            />
-            <span className="flex h-9 w-9 items-center justify-center rounded border border-dashed border-line text-[11px] font-semibold text-ink-400 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
-              N/A
-            </span>
-          </label>
-        )}
-        {scaleValues.map((value) => (
-          <label
-            key={value}
-            className="relative cursor-pointer text-sm"
-            title={anchors[String(value)] ?? undefined}
-          >
-            <input
-              type="radio"
-              name={`score_${criterion.id}`}
-              value={value}
-              required={required}
-              defaultChecked={defaultValue === value}
-              className="peer sr-only"
-            />
-            <span className="flex h-9 w-9 items-center justify-center rounded border border-line font-semibold text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
-              {value}
-            </span>
-          </label>
-        ))}
-        <span className="ml-1 text-[11px] text-ink-400">
-          {scaleMin} lowest · {scaleMax} highest
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+        <span
+          aria-hidden="true"
+          className="w-28 shrink-0 text-[13px] font-semibold text-ink-700"
+          title={criterion.guidance ?? undefined}
+        >
+          {criterion.name}
+          {criterion.criterion_type === "core" && criterion.weight !== 1 && (
+            <span className="ml-1 font-normal text-ink-400">×{criterion.weight}</span>
+          )}
         </span>
+        <div className="flex flex-wrap gap-1.5">
+          {!required && (
+            <label className="cursor-pointer" title="Leave unscored">
+              <input
+                type="radio"
+                name={`score_${criterion.id}`}
+                value=""
+                defaultChecked={defaultValue === undefined}
+                className="peer sr-only"
+              />
+              <span className="flex h-[30px] items-center justify-center rounded border border-dashed border-line px-2.5 text-[11px] font-semibold text-ink-400 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+                N/A
+              </span>
+            </label>
+          )}
+          {scaleValues.map((value) => (
+            <label
+              key={value}
+              className="cursor-pointer"
+              title={anchors[String(value)] ?? `${criterion.name}: ${value}`}
+            >
+              <input
+                type="radio"
+                name={`score_${criterion.id}`}
+                value={value}
+                required={required}
+                defaultChecked={defaultValue === value}
+                className="peer sr-only"
+              />
+              <span className="flex h-[30px] w-[30px] items-center justify-center rounded border border-line text-[12.5px] font-semibold text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+                {value}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
-      {anchors[String(defaultValue)] && (
-        <p className="mt-1 text-[11px] italic text-ink-400">{anchors[String(defaultValue)]}</p>
+      {criterion.guidance && (
+        <p className="ml-[7.875rem] mt-1 text-[11px] leading-snug text-ink-400">
+          {criterion.guidance}
+        </p>
       )}
     </fieldset>
   );
