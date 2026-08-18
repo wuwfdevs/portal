@@ -19,14 +19,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import {
-  addPitchToSlate,
-  closeScoring,
-  concludeMeeting,
-  removePitchFromSlate,
-  updateMeetingNotes,
-} from "../actions";
+import { closeScoring, concludeMeeting, updateMeetingNotes } from "../actions";
 import { ScoringSection } from "./scoring-section";
 import { AgendaSection, type AgendaItem } from "./agenda-section";
 
@@ -45,6 +38,16 @@ export default async function MeetingPage({
   if (!bundle) notFound();
   const { meeting, slate, reviewsByEntry } = bundle;
   const isEditor = role === "editor";
+
+  // Open pitches not yet on the slate — the scoring screen's own "+ Add
+  // pitch" control, so there is one list of pitches for an editor to manage
+  // rather than a second "build the slate" section duplicating this one.
+  const candidates =
+    isEditor && meeting.status === "open"
+      ? (await listPitchesWithActivity(["open"])).filter(
+          (candidate) => !slate.some(({ pitch }) => pitch.id === candidate.pitch.id),
+        )
+      : [];
 
   const [allCriteria, activeCriteria, settings, fields, members, profiles] = await Promise.all([
     listCriteria(),
@@ -148,37 +151,29 @@ export default async function MeetingPage({
       </p>
 
       {meeting.status === "open" ? (
-        <>
-          {slate.length === 0 ? (
-            <div className="mb-5 max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
-              No pitches on the slate yet.
-              {isEditor ? " Add some from the backlog below." : " An editor is still building it."}
-            </div>
-          ) : (
-            <ScoringSection
-              meetingId={meeting.id}
-              slate={slate}
-              fields={fields}
-              valuesByPitch={valuesByPitch}
-              criteria={activeCriteria}
-              settings={settings}
-              ownReviewByEntry={
-                new Map(
-                  slate
-                    .map(({ entry }) => {
-                      const own = (reviewsByEntry.get(entry.id) ?? []).find(
-                        ({ review }) => review.reviewer_id === profile.id,
-                      );
-                      return own ? ([entry.id, own] as const) : null;
-                    })
-                    .filter((item): item is [string, (typeof allReviews)[number]] => item !== null),
-                )
-              }
-              canReview={role !== "contributor"}
-            />
-          )}
-          {isEditor && <SlateBuilder meetingId={meeting.id} slate={slate} />}
-        </>
+        <ScoringSection
+          meetingId={meeting.id}
+          slate={slate}
+          fields={fields}
+          valuesByPitch={valuesByPitch}
+          criteria={activeCriteria}
+          settings={settings}
+          ownReviewByEntry={
+            new Map(
+              slate
+                .map(({ entry }) => {
+                  const own = (reviewsByEntry.get(entry.id) ?? []).find(
+                    ({ review }) => review.reviewer_id === profile.id,
+                  );
+                  return own ? ([entry.id, own] as const) : null;
+                })
+                .filter((item): item is [string, (typeof allReviews)[number]] => item !== null),
+            )
+          }
+          canReview={role !== "contributor"}
+          isEditor={isEditor}
+          candidates={candidates}
+        />
       ) : (
         <AgendaSection
           meetingId={meeting.id}
@@ -215,108 +210,5 @@ export default async function MeetingPage({
         )}
       </section>
     </div>
-  );
-}
-
-/** Editor-only: pick open pitches onto the slate while the meeting is open. */
-async function SlateBuilder({
-  meetingId,
-  slate,
-}: {
-  meetingId: string;
-  slate: { entry: { id: string }; pitch: { id: string; title: string } }[];
-}) {
-  const onSlate = new Set(slate.map(({ pitch }) => pitch.id));
-  const candidates = (await listPitchesWithActivity(["open"])).filter(
-    (candidate) => !onSlate.has(candidate.pitch.id),
-  );
-
-  return (
-    <section className="mt-8">
-      <h3 className="mb-2.5 text-sm font-bold text-ink-900">Build the slate</h3>
-
-      {slate.length > 0 && (
-        <div className="mb-4 rounded border border-line">
-          <div className="border-b border-line bg-panel-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-ink-500">
-            On the slate ({slate.length})
-          </div>
-          {slate.map(({ entry, pitch }) => (
-            <form
-              key={entry.id}
-              action={removePitchFromSlate}
-              className="flex items-center gap-3 border-b border-line px-4 py-2.5 text-sm last:border-b-0"
-            >
-              <input type="hidden" name="meeting_id" value={meetingId} />
-              <input type="hidden" name="entry_id" value={entry.id} />
-              <span className="min-w-0 flex-1 truncate text-ink-700">{pitch.title}</span>
-              <button
-                type="submit"
-                className="rounded text-xs font-semibold text-danger hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-              >
-                Remove
-              </button>
-            </form>
-          ))}
-        </div>
-      )}
-
-      {candidates.length === 0 ? (
-        <p className="text-sm text-ink-400">
-          {slate.length > 0
-            ? "Every open pitch is already on the slate."
-            : "There are no open pitches in the backlog to add."}
-        </p>
-      ) : (
-        <TableFrame>
-          <Table className="min-w-[560px]">
-            <thead>
-              <HeaderRow>
-                <Th>Open pitch</Th>
-                <Th>Submitted by</Th>
-                <Th>Deferred</Th>
-                <Th>
-                  <span className="sr-only">Add</span>
-                </Th>
-              </HeaderRow>
-            </thead>
-            <tbody>
-              {candidates.map((candidate) => (
-                <Row key={candidate.pitch.id}>
-                  <Cell>
-                    <Link
-                      href={`/editorial/pitches/${candidate.pitch.id}`}
-                      className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
-                    >
-                      {candidate.pitch.title}
-                    </Link>
-                    {candidate.stale && (
-                      <span className="ml-2 align-middle">
-                        <Badge variant="danger">Stale</Badge>
-                      </span>
-                    )}
-                  </Cell>
-                  <Cell className="text-ink-500">{candidate.submitterName ?? "—"}</Cell>
-                  <Cell className="tabular-nums text-ink-500">
-                    {candidate.deferralCount > 0 ? `${candidate.deferralCount}×` : "—"}
-                  </Cell>
-                  <Cell>
-                    <form action={addPitchToSlate}>
-                      <input type="hidden" name="meeting_id" value={meetingId} />
-                      <input type="hidden" name="pitch_id" value={candidate.pitch.id} />
-                      <button
-                        type="submit"
-                        className="rounded text-xs font-semibold text-brand-link hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-                      >
-                        + Add
-                      </button>
-                    </form>
-                  </Cell>
-                </Row>
-              ))}
-            </tbody>
-          </Table>
-        </TableFrame>
-      )}
-    </section>
   );
 }

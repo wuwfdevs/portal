@@ -15,18 +15,24 @@ import type {
   CriterionRow,
   FormFieldRow,
   MeetingPitchRow,
+  PitchListEntry,
   PitchRow,
   PitchValueRow,
   ReviewWithScores,
   SettingsRow,
 } from "@/lib/editorial/data";
 import type { EpConcernFlag, EpRecommendation } from "@/lib/database.types";
-import { submitReview } from "../actions";
+import { addPitchToSlate, removePitchFromSlate, submitReview } from "../actions";
 
 /**
- * The independent-review UI while a meeting is open. Each reviewer sees the
- * slate with their own saved scores only — colleagues' reviews are hidden by
- * RLS until scoring closes, so nothing here needs to filter them.
+ * The independent-review UI while a meeting is open — and, for an editor, the
+ * only place the slate itself is built. A separate "build the slate" list
+ * next to this one made the same pitches show up twice; instead, adding is a
+ * small "+ Add pitch" control next to the heading and removing is a link
+ * inside each pitch's own expanded row, so there is one list of pitches, not
+ * two. Each reviewer sees the slate with their own saved scores only —
+ * colleagues' reviews are hidden by RLS until scoring closes, so nothing here
+ * needs to filter them.
  *
  * A reviewer works one pitch at a time, so the expanded pitch leads with its
  * summary and keeps the rest of the submission behind a disclosure: the scoring
@@ -42,6 +48,8 @@ export function ScoringSection({
   settings,
   ownReviewByEntry,
   canReview,
+  isEditor,
+  candidates,
 }: {
   meetingId: string;
   slate: { entry: MeetingPitchRow; pitch: PitchRow }[];
@@ -51,6 +59,10 @@ export function ScoringSection({
   settings: SettingsRow;
   ownReviewByEntry: Map<string, ReviewWithScores>;
   canReview: boolean;
+  /** Whether the slate itself (not just scores) can be edited from this screen. */
+  isEditor: boolean;
+  /** Open pitches not yet on the slate — the "+ Add pitch" control's choices. */
+  candidates: PitchListEntry[];
 }) {
   const coreCriteria = criteria.filter((c) => c.criterion_type === "core");
   const modifierCriteria = criteria.filter((c) => c.criterion_type === "modifier");
@@ -60,7 +72,10 @@ export function ScoringSection({
 
   return (
     <section>
-      <h3 className="mb-2.5 text-sm font-bold text-ink-900">Review the slate</h3>
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-ink-900">Review the slate</h3>
+        {isEditor && <AddPitchControl meetingId={meetingId} candidates={candidates} />}
+      </div>
 
       {showProgress && (
         <div className="mb-5">
@@ -106,67 +121,138 @@ export function ScoringSection({
         </p>
       )}
 
-      <div className="flex flex-col gap-2.5">
-        {slate.map(({ entry, pitch }) => {
-          const own = ownReviewByEntry.get(entry.id);
-          const values = valuesByPitch.get(pitch.id) ?? [];
-          const hasMoreFields = fieldsWithValues(fields, values).length > 1;
-          return (
-            <details key={entry.id} className="group rounded border border-line open:shadow-sm">
-              <summary className="flex cursor-pointer list-none items-center gap-3 rounded px-4 py-3.5 hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
-                <span
-                  aria-hidden="true"
-                  className="text-ink-400 transition-transform group-open:rotate-90"
-                >
-                  ›
-                </span>
-                <span className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink-900">
-                  {pitch.title}
-                </span>
-                {canReview && (
+      {slate.length === 0 ? (
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+          No pitches on the slate yet.{" "}
+          {isEditor ? "Add one above." : "An editor is still building it."}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {slate.map(({ entry, pitch }) => {
+            const own = ownReviewByEntry.get(entry.id);
+            const values = valuesByPitch.get(pitch.id) ?? [];
+            const hasMoreFields = fieldsWithValues(fields, values).length > 1;
+            return (
+              <details key={entry.id} className="group rounded border border-line open:shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center gap-3 rounded px-4 py-3.5 hover:bg-panel-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
                   <span
-                    className={
-                      own
-                        ? "whitespace-nowrap text-xs font-bold text-success-fg"
-                        : "whitespace-nowrap text-xs font-bold text-ink-400"
-                    }
+                    aria-hidden="true"
+                    className="text-ink-400 transition-transform group-open:rotate-90"
                   >
-                    {own ? "✓ Scored" : "Not scored"}
+                    ›
                   </span>
-                )}
-              </summary>
+                  <span className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink-900">
+                    {pitch.title}
+                  </span>
+                  {canReview && (
+                    <span
+                      className={
+                        own
+                          ? "whitespace-nowrap text-xs font-bold text-success-fg"
+                          : "whitespace-nowrap text-xs font-bold text-ink-400"
+                      }
+                    >
+                      {own ? "✓ Scored" : "Not scored"}
+                    </span>
+                  )}
+                </summary>
 
-              <div className="flex flex-col gap-4 border-t border-line p-4">
-                <div>
-                  <PitchValues fields={fields} values={values} slice="lead" />
-                  {hasMoreFields && (
-                    <details className="mt-2">
-                      <summary className="w-fit cursor-pointer list-none text-xs font-bold text-brand-link hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
-                        Show pitch details
-                      </summary>
-                      <div className="mt-2.5">
-                        <PitchValues fields={fields} values={values} slice="rest" />
-                      </div>
-                    </details>
+                <div className="flex flex-col gap-4 border-t border-line p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <PitchValues fields={fields} values={values} slice="lead" />
+                      {hasMoreFields && (
+                        <details className="mt-2">
+                          <summary className="w-fit cursor-pointer list-none text-xs font-bold text-brand-link hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                            Show pitch details
+                          </summary>
+                          <div className="mt-2.5">
+                            <PitchValues fields={fields} values={values} slice="rest" />
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                    {isEditor && (
+                      <form action={removePitchFromSlate}>
+                        <input type="hidden" name="meeting_id" value={meetingId} />
+                        <input type="hidden" name="entry_id" value={entry.id} />
+                        <button
+                          type="submit"
+                          className="shrink-0 rounded text-xs font-semibold text-danger hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {canReview && coreCriteria.length > 0 && (
+                    <ReviewForm
+                      meetingId={meetingId}
+                      entryId={entry.id}
+                      coreCriteria={coreCriteria}
+                      modifierCriteria={modifierCriteria}
+                      settings={settings}
+                      own={own}
+                    />
                   )}
                 </div>
-
-                {canReview && coreCriteria.length > 0 && (
-                  <ReviewForm
-                    meetingId={meetingId}
-                    entryId={entry.id}
-                    coreCriteria={coreCriteria}
-                    modifierCriteria={modifierCriteria}
-                    settings={settings}
-                    own={own}
-                  />
-                )}
-              </div>
-            </details>
-          );
-        })}
-      </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * The slate's one add affordance: a small toggle next to the "Review the
+ * slate" heading that reveals a picker over open backlog pitches. Kept as a
+ * <details> rather than component state so opening it doesn't need this
+ * file's "use client" boundary to do anything more than it already does for
+ * the review form below.
+ */
+function AddPitchControl({
+  meetingId,
+  candidates,
+}: {
+  meetingId: string;
+  candidates: PitchListEntry[];
+}) {
+  if (candidates.length === 0) {
+    return <p className="text-xs text-ink-400">No open pitches available to add.</p>;
+  }
+
+  return (
+    <details className="relative">
+      <summary className="inline-flex w-fit cursor-pointer list-none items-center rounded border border-brand-link px-3 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+        + Add pitch
+      </summary>
+      <form
+        action={addPitchToSlate}
+        className="absolute right-0 z-10 mt-2 flex w-72 flex-col gap-2.5 rounded border border-line bg-white p-3 shadow-md"
+      >
+        <input type="hidden" name="meeting_id" value={meetingId} />
+        <Select name="pitch_id" required aria-label="Pitch to add to the slate" defaultValue="">
+          <option value="" disabled>
+            Choose a pitch…
+          </option>
+          {candidates.map((candidate) => (
+            <option key={candidate.pitch.id} value={candidate.pitch.id}>
+              {candidate.pitch.title}
+              {candidate.stale ? " · Stale" : ""}
+              {candidate.deferralCount > 0 ? ` · Deferred ${candidate.deferralCount}×` : ""}
+            </option>
+          ))}
+        </Select>
+        <div className="flex justify-end">
+          <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+            Add to slate
+          </Button>
+        </div>
+      </form>
+    </details>
   );
 }
 
