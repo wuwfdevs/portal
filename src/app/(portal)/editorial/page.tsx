@@ -66,22 +66,24 @@ export default async function BacklogPage({
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="flex flex-wrap gap-1 rounded-full bg-panel-50 p-1">
-          {VIEWS.map((v) => (
-            <Link
-              key={v.key}
-              href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
-              aria-current={v.key === view ? "page" : undefined}
-              className={cn(
-                "rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
-                v.key === view
-                  ? "bg-white text-brand-link shadow-sm"
-                  : "text-ink-500 hover:text-ink-900",
-              )}
-            >
-              {v.label} <span className="font-normal opacity-60">{countFor(v.key)}</span>
-            </Link>
-          ))}
+        <div className="w-full min-w-0 sm:w-auto">
+          <div className="flex gap-1 overflow-x-auto rounded-full bg-panel-50 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {VIEWS.map((v) => (
+              <Link
+                key={v.key}
+                href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
+                aria-current={v.key === view ? "page" : undefined}
+                className={cn(
+                  "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
+                  v.key === view
+                    ? "bg-white text-brand-link shadow-sm"
+                    : "text-ink-500 hover:text-ink-900",
+                )}
+              >
+                {v.label} <span className="font-normal opacity-60">{countFor(v.key)}</span>
+              </Link>
+            ))}
+          </div>
         </div>
         <div className="flex-1" />
         <Link href="/editorial/pitches/new">
