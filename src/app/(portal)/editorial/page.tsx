@@ -5,13 +5,12 @@ import {
   listPitchesWithActivity,
   type PitchListEntry,
 } from "@/lib/editorial/data";
-import { formatAge, formatShortDate } from "@/lib/editorial/format";
+import { formatAgeLong, formatAgo } from "@/lib/editorial/format";
 import { archiveSelectedPitches } from "./pitches/actions";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 
 type BacklogView = "open" | "stale" | "assigned" | "archived";
@@ -56,74 +55,33 @@ export default async function BacklogPage({
 
   const countFor = (key: BacklogView): number => (key === "stale" ? staleCount : counts[key]);
 
-  const table = (
-    <TableFrame>
-      <Table className="min-w-[720px]">
-        <thead>
-          <HeaderRow>
-            {canBulkArchive && (
-              <Th className="w-10">
-                <span className="sr-only">Select</span>
-              </Th>
-            )}
-            <Th>Title</Th>
-            <Th>Submitted by</Th>
-            <Th>Age</Th>
-            {view === "assigned" ? (
-              <Th>Assigned to</Th>
-            ) : view === "archived" ? (
-              <Th>Reason</Th>
-            ) : (
-              <>
-                <Th>Last reviewed</Th>
-                <Th>Deferred</Th>
-              </>
-            )}
-          </HeaderRow>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <BacklogRow
-              key={entry.pitch.id}
-              entry={entry}
-              view={view}
-              selectable={canBulkArchive}
-            />
-          ))}
-        </tbody>
-      </Table>
-    </TableFrame>
+  const list = (
+    <div className="rounded border border-line">
+      {entries.map((entry) => (
+        <BacklogRow key={entry.pitch.id} entry={entry} view={view} selectable={canBulkArchive} />
+      ))}
+    </div>
   );
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {VIEWS.map((v) => {
-            const count = countFor(v.key);
-            return (
-              <Link
-                key={v.key}
-                href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
-                aria-current={v.key === view ? "page" : undefined}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                  v.key === view
-                    ? "bg-brand-surface text-brand-link"
-                    : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
-                )}
-              >
-                {v.label}
-                {count > 0 && (
-                  <span
-                    className={cn("ml-1.5", v.key === view ? "text-brand-link/70" : "text-ink-400")}
-                  >
-                    {count}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex flex-wrap gap-1 rounded-full bg-panel-50 p-1">
+          {VIEWS.map((v) => (
+            <Link
+              key={v.key}
+              href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
+              aria-current={v.key === view ? "page" : undefined}
+              className={cn(
+                "rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
+                v.key === view
+                  ? "bg-white text-brand-link shadow-sm"
+                  : "text-ink-500 hover:text-ink-900",
+              )}
+            >
+              {v.label} <span className="font-normal opacity-60">{countFor(v.key)}</span>
+            </Link>
+          ))}
         </div>
         <div className="flex-1" />
         <Link href="/editorial/pitches/new">
@@ -156,7 +114,7 @@ export default async function BacklogPage({
         </div>
       ) : canBulkArchive ? (
         <form action={archiveSelectedPitches}>
-          {table}
+          {list}
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2.5">
             <Input
               name="reason"
@@ -170,10 +128,24 @@ export default async function BacklogPage({
           </div>
         </form>
       ) : (
-        table
+        list
       )}
     </div>
   );
+}
+
+/**
+ * The one right-aligned status string a row ends with. Each view answers a
+ * different question about the same pitch — who has it (Assigned), why it left
+ * (Archived), how long it has gone unlooked-at (Open/Stale) — so the columns
+ * those used to be collapse into one line rather than a wider table.
+ */
+function rowStatus(entry: PitchListEntry, view: BacklogView): string {
+  if (view === "assigned") return entry.assigneeName ? `→ ${entry.assigneeName}` : "Unassigned";
+  if (view === "archived") return entry.pitch.archived_reason ?? "No reason recorded";
+  if (!entry.lastReviewedAt) return "Never reviewed";
+  const reviewed = `Reviewed ${formatAgo(entry.lastReviewedAt)}`;
+  return entry.deferralCount > 0 ? `${reviewed} · Deferred ${entry.deferralCount}×` : reviewed;
 }
 
 function BacklogRow({
@@ -187,49 +159,40 @@ function BacklogRow({
 }) {
   const { pitch } = entry;
   return (
-    <Row>
+    <div className="flex items-start gap-3.5 border-b border-line px-5 py-4 last:border-b-0 hover:bg-panel-50">
       {selectable && (
-        <Cell>
-          <input
-            type="checkbox"
-            name="pitch_id"
-            value={pitch.id}
-            aria-label={`Select ${pitch.title}`}
-            className="h-4 w-4"
-          />
-        </Cell>
+        <input
+          type="checkbox"
+          name="pitch_id"
+          value={pitch.id}
+          aria-label={`Select ${pitch.title}`}
+          className="mt-1 h-4 w-4 shrink-0 accent-brand-primary"
+        />
       )}
-      <Cell>
-        <Link
-          href={`/editorial/pitches/${pitch.id}`}
-          className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
-        >
-          {pitch.title}
-        </Link>
-        {entry.stale && view === "open" && (
-          <span className="ml-2 align-middle">
-            <Badge variant="danger">Stale</Badge>
-          </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/editorial/pitches/${pitch.id}`}
+            className="text-[15px] font-semibold text-ink-900 hover:text-brand-link hover:underline"
+          >
+            {pitch.title}
+          </Link>
+          {entry.stale && view === "open" && <Badge variant="danger">Stale</Badge>}
+        </div>
+        <p className="mt-1 text-[13px] text-ink-500">
+          {entry.submitterName ?? "A former member"}
+          <span aria-hidden="true"> · </span>
+          {formatAgeLong(pitch.created_at)}
+        </p>
+      </div>
+      <div
+        className={cn(
+          "shrink-0 pt-0.5 text-right text-xs text-ink-400",
+          view === "archived" ? "max-w-[14rem]" : "whitespace-nowrap",
         )}
-      </Cell>
-      <Cell className="text-ink-500">{entry.submitterName ?? "—"}</Cell>
-      <Cell className="whitespace-nowrap tabular-nums text-ink-500">
-        {formatAge(pitch.created_at)}
-      </Cell>
-      {view === "assigned" ? (
-        <Cell className="text-ink-500">{entry.assigneeName ?? "—"}</Cell>
-      ) : view === "archived" ? (
-        <Cell className="text-ink-500">{pitch.archived_reason ?? "—"}</Cell>
-      ) : (
-        <>
-          <Cell className="whitespace-nowrap text-ink-500">
-            {entry.lastReviewedAt ? formatShortDate(entry.lastReviewedAt) : "Never"}
-          </Cell>
-          <Cell className="tabular-nums text-ink-500">
-            {entry.deferralCount > 0 ? `${entry.deferralCount}×` : "—"}
-          </Cell>
-        </>
-      )}
-    </Row>
+      >
+        {rowStatus(entry, view)}
+      </div>
+    </div>
   );
 }
