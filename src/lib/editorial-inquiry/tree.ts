@@ -205,9 +205,14 @@ export function visibleQuestions(questions: QuestionRecord[]): QuestionRecord[] 
   return questions.filter((q) => !hidden.has(q.id));
 }
 
-/** Active siblings/children a generation prompt should avoid duplicating. */
-export function activeChildren(questions: QuestionRecord[], parentId: string): QuestionRecord[] {
-  return questions.filter((q) => q.parentId === parentId && q.status !== "rejected");
+/**
+ * All children of a node, for a generation prompt's do-not-duplicate list —
+ * rejected ones included: a rejected angle is a dead one the reporter
+ * already turned down, which the model should know not to re-propose, not
+ * an opening it's free to fill again.
+ */
+export function childrenOf(questions: QuestionRecord[], parentId: string): QuestionRecord[] {
+  return questions.filter((q) => q.parentId === parentId);
 }
 
 const COLUMN_WIDTH = 340;

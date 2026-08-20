@@ -670,3 +670,9 @@ The selection consequence is deliberate: growing a sibling selects the
 parent and lands the model's reply in the parent's thread — the natural
 home for "why these children exist." Reframe and Discuss still live on the
 node itself for "improve this one."
+
+Same-day addendum: rejected questions now appear on the do-not-duplicate
+list too, labeled "[rejected by the reporter]" and framed as dead angles
+never to be re-proposed — previously they were filtered out entirely, so
+the model could innocently re-propose an angle the reporter had already
+turned down.

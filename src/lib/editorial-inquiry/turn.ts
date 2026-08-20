@@ -18,8 +18,8 @@ import {
 } from "./queries";
 import { listCurrentCoreCriteria } from "./editorial-planning";
 import {
-  activeChildren,
   ancestryPath,
+  childrenOf,
   inheritedContextNotes,
   type ContextNoteRecord,
   type QuestionRecord,
@@ -141,12 +141,13 @@ async function loadTurnContext(
   // calibrated for (create a new child of this parent, distinct from the
   // ones it has), now reached only from the parent. Other modes list the
   // siblings, excluding the question itself: it's already named as the one
-  // being acted on.
+  // being acted on. Rejected questions are on the list too, labeled — a
+  // rejected angle is one the reporter turned down, not an opening.
   const relatedParentId = mode === "drilldown" ? question.id : question.parentId;
   const existingRelated = relatedParentId
-    ? activeChildren(detail.questions, relatedParentId)
+    ? childrenOf(detail.questions, relatedParentId)
         .filter((q) => q.id !== question.id)
-        .map((q) => q.text)
+        .map((q) => ({ text: q.text, rejected: q.status === "rejected" }))
     : [];
 
   const inheritedContext = inheritedContextNotes(

@@ -92,6 +92,12 @@ export interface ChatTurnMessage {
   body: string;
 }
 
+export interface RelatedQuestionContext {
+  text: string;
+  /** The reporter rejected this angle — a dead line, not an open one. */
+  rejected: boolean;
+}
+
 /** Everything one reasoning call needs — see design doc §7. */
 export interface EditorialTurnContext {
   pillarName: string;
@@ -100,8 +106,8 @@ export interface EditorialTurnContext {
   ancestry: AncestryEntry[];
   /** Context notes inherited down this branch (own + every ancestor's), labeled by evidentiary status. */
   inheritedContext: InheritedNoteContext[];
-  /** Active children (drilldown) or siblings (discuss/evaluate) already at this position, to avoid duplicating. */
-  existingRelated: string[];
+  /** Children (drilldown) or siblings (discuss/evaluate) already at this position — rejected ones included, labeled. */
+  existingRelated: RelatedQuestionContext[];
   /** Prior turns in this question's discuss thread, oldest first. */
   priorMessages: ChatTurnMessage[];
   /** WUWF's current core editorial criteria, from Editorial Planning — prose guidance, never a scoring target. */
@@ -190,7 +196,9 @@ function criteriaBlock(criteria: EditorialCriterionContext[]): string {
 function contextBlock(context: EditorialTurnContext): string {
   const ancestryLines = context.ancestry.map((a) => `- (depth ${a.depth}) ${a.text}`).join("\n");
   const existing = context.existingRelated.length
-    ? context.existingRelated.map((t) => `- ${t}`).join("\n")
+    ? context.existingRelated
+        .map((q) => `- ${q.rejected ? "[rejected by the reporter] " : ""}${q.text}`)
+        .join("\n")
     : "(none yet)";
   const notes = context.inheritedContext.length
     ? context.inheritedContext
@@ -207,7 +215,7 @@ Guiding question for the whole inquiry: "${context.guidingQuestion}"
 Path from the guiding question down to the question being acted on (the last line is the one being acted on):
 ${ancestryLines}
 
-Already at this position in the tree — any question you propose must be genuinely distinct from ALL of these; a reworded variation of one is a duplicate:
+Already at this position in the tree — any question you propose must be genuinely distinct from ALL of these; a reworded variation of one is a duplicate. An entry marked [rejected by the reporter] is a dead angle they already turned down: never re-propose it or a variation of it:
 ${existing}
 
 Context inherited on this branch, each labeled with its evidentiary status:
