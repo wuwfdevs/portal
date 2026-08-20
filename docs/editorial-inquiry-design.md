@@ -228,10 +228,20 @@ Every action from milestone 1 is preserved. What each one _means_ changed.
   material supports — not narrower, not broader, a different way in. It must
   not invent a new factual premise to justify the branch existing. **The model
   can decline** (§7) if the available context doesn't support one.
-- **Drill down** — identify a more specific, still-unresolved question beneath
-  the selected node that meaningfully moves it toward reportability — responding
-  to whatever is currently keeping it from being a strong story question, not a
-  generic narrowing paraphrase. Can also decline.
+- **Drill down** — propose the next question _down_, one level at a time
+  (clarified 2026-08-20, after a real turn leapt from a fresh root straight
+  to a fully-scoped story question): from the guiding question, a drill-down
+  normally surfaces a **line of inquiry** grounded in a real development —
+  that intermediate level is what makes the tree worth having, the durable
+  frame a reporter follows across several stories — and from a line of
+  inquiry it moves toward, or lands on, a story question, responding to
+  whatever is currently keeping it from being one, not a generic narrowing
+  paraphrase. The reply names which level the proposed question sits at. Can
+  also decline. The same incident exposed a harder rule now in the prompt:
+  the tool call is the model's _only_ way to change the canvas — it must
+  never present a proposed question in prose alone, and never claim to have
+  added something without calling the tool that turn (it did both, including
+  a confabulated "Added." with no call behind it).
 - **Discuss** — conversational and node-scoped, same as before, now doing real
   editorial work: challenge an assumption, distinguish a claim from a fact,
   identify what evidence is missing, recognize that new context changes what the
