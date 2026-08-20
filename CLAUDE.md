@@ -2171,6 +2171,26 @@ regularly wrote no prose alongside a tool call (8 of 10 audited turns stored
 an empty assistant body) and the old fallback only covered
 diagnosis/assessment.
 
+**Editorial Inquiry: Branch consolidated into Drill down, and the canvas
+node redesigned (2026-08-20) — see `docs/editorial-inquiry-design.md` §15;
+this note is a pointer.** Branch is no longer a turn mode, directive, or
+button anywhere: a sibling is grown by running Drill down on the parent,
+whose framing absorbed Branch's §14 distinctness calibration (mandatory
+fresh search when children already exist, the model's own earlier proposals
+named as taken territory) — prompted by a real drill-down producing a
+near-duplicate of an existing child through exactly the path that
+calibration never covered. `branch` survives only as a discuss-turn action
+kind (and in the DB enum), and old stored Branch directives still render as
+their muted directive line. The node's radial quick-menu is gone too,
+replaced by mindmap-style hover affordances: a right-edge fork on leaf
+nodes (child), a bottom-edge fork on non-root nodes (sibling — the same
+drilldown turn run on the parent), reject as a corner ×, and no Discuss
+icon — clicking the node opens the inspector panel itself (the same pass
+fixed the canvas background's deselect handler swallowing every node
+click, which is why plain node clicks had never opened the panel at all).
+The manual "write your own" fallback now always writes a child
+(`addQuestionManually` lost its sibling kind). No migration.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),

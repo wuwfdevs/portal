@@ -33,14 +33,11 @@ export interface CanvasProps {
   layout: TreeLayout;
   selectedId: string | null;
   contextCounts: Map<string, number>;
-  pendingByQuestion: Map<string, "branch" | "drilldown" | "evaluate">;
+  pendingByQuestion: Map<string, "drilldown" | "evaluate">;
   onSelect: (id: string | null) => void;
-  onBranch: (id: string) => void;
   onDrillDown: (id: string) => void;
   onReject: (id: string) => void;
-  onDiscuss: (id: string) => void;
   onMove: (id: string, manualDx: number, manualDy: number) => void;
-  canBranchFor: (node: LaidOutQuestion) => boolean;
   canDrillDownFor: (node: LaidOutQuestion) => boolean;
   canRejectFor: (node: LaidOutQuestion) => boolean;
 }
@@ -51,12 +48,9 @@ export function Canvas({
   contextCounts,
   pendingByQuestion,
   onSelect,
-  onBranch,
   onDrillDown,
   onReject,
-  onDiscuss,
   onMove,
-  canBranchFor,
   canDrillDownFor,
   canRejectFor,
 }: CanvasProps) {
@@ -72,6 +66,15 @@ export function Canvas({
   );
 
   const nodesById = useMemo(() => new Map(layout.nodes.map((n) => [n.id, n])), [layout.nodes]);
+
+  // The right-edge fork only shows on a LEAF (Whimsical's pattern): once a
+  // node has children, another child is grown as a sibling from one of them
+  // (the bottom fork), keeping each affordance spatially unambiguous. An
+  // internal node can still be drilled from the inspector panel.
+  const parentIds = useMemo(
+    () => new Set(layout.nodes.map((n) => n.parentId).filter(Boolean)),
+    [layout.nodes],
+  );
 
   function handleNodeDragStart(node: LaidOutQuestion, event: React.MouseEvent) {
     event.stopPropagation();
@@ -180,6 +183,7 @@ export function Canvas({
           const displayNode = delta
             ? { ...node, x: node.x + delta.dx, y: node.y + delta.dy }
             : node;
+          const parent = node.parentId ? nodesById.get(node.parentId) : undefined;
           return (
             <QuestionNode
               key={node.id}
@@ -189,12 +193,11 @@ export function Canvas({
               pending={pendingByQuestion.get(node.id) ?? null}
               onSelect={() => handleSelect(node.id)}
               onDragStart={(e) => handleNodeDragStart(node, e)}
-              onBranch={() => onBranch(node.id)}
               onDrillDown={() => onDrillDown(node.id)}
+              onAddSibling={() => node.parentId && onDrillDown(node.parentId)}
               onReject={() => onReject(node.id)}
-              onDiscuss={() => onDiscuss(node.id)}
-              canBranch={canBranchFor(node)}
-              canDrillDown={canDrillDownFor(node)}
+              canDrillDown={canDrillDownFor(node) && !parentIds.has(node.id)}
+              canAddSibling={parent ? canDrillDownFor(parent) : false}
               canReject={canRejectFor(node)}
             />
           );

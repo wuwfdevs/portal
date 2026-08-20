@@ -28,7 +28,7 @@ export interface InheritedNoteView {
   sourceLabel: string | null;
 }
 
-export type BusyKind = "branch" | "drilldown" | "evaluate" | "reject" | "promote" | null;
+export type BusyKind = "drilldown" | "evaluate" | "reject" | "promote" | null;
 
 export type PanelView = "discussion" | "context";
 
@@ -55,19 +55,17 @@ export interface InspectorPanelProps {
   onSaveContext: () => void;
   savingContext: boolean;
 
-  canBranch: boolean;
   canDrillDown: boolean;
   canReject: boolean;
   canPromote: boolean;
   busy: BusyKind;
-  onBranch: () => void;
   onDrillDown: () => void;
   onEvaluate: () => void;
   onReject: () => void;
   onPromote: () => void;
 
-  manualAddOpen: "sibling" | "child" | null;
-  onOpenManualAdd: (kind: "sibling" | "child") => void;
+  manualAddOpen: boolean;
+  onOpenManualAdd: () => void;
   onCloseManualAdd: () => void;
   manualAddText: string;
   onManualAddTextChange: (value: string) => void;
@@ -297,17 +295,6 @@ function ContextView(
       <div>
         <SectionLabel>Ask the model</SectionLabel>
         <div className="flex flex-wrap gap-1.5">
-          {props.canBranch && (
-            <Button
-              variant="secondary"
-              className={COMPACT_BUTTON}
-              onClick={props.onBranch}
-              disabled={actionsDisabled}
-              title="A genuinely different angle at this level, grounded in context or a fresh search"
-            >
-              {props.busy === "branch" ? "Branching…" : "Branch"}
-            </Button>
-          )}
           {props.canDrillDown && (
             <Button
               variant="secondary"
@@ -375,39 +362,29 @@ function ContextView(
 }
 
 /**
- * The reporter-authored alternatives, gathered on one muted line so they
- * don't compete with the primary actions: write a question by hand (the
- * model-unavailable fallback, design doc §13) or attach context.
+ * The reporter-authored alternative, on one muted line so it doesn't
+ * compete with the primary actions: write a question by hand (the
+ * model-unavailable fallback, design doc §13). Always a child of the
+ * selected question — a sibling is written from the parent, same as
+ * Drill down.
  */
 function AddYourOwn(props: InspectorPanelProps) {
+  if (!props.canDrillDown) return null;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-        {props.canBranch && (
-          <button
-            type="button"
-            onClick={() => props.onOpenManualAdd("sibling")}
-            className="text-brand-link hover:underline"
-          >
-            Write a sibling question
-          </button>
-        )}
-        {props.canDrillDown && (
-          <button
-            type="button"
-            onClick={() => props.onOpenManualAdd("child")}
-            className="text-brand-link hover:underline"
-          >
-            Write a child question
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={props.onOpenManualAdd}
+          className="text-brand-link hover:underline"
+        >
+          Write a question beneath this one
+        </button>
       </div>
 
       {props.manualAddOpen && (
         <div className="flex flex-col gap-2 rounded border border-line bg-panel-50 p-3">
-          <div className="text-xs font-semibold text-ink-700">
-            {props.manualAddOpen === "sibling" ? "New sibling question" : "New child question"}
-          </div>
+          <div className="text-xs font-semibold text-ink-700">New child question</div>
           <Textarea
             rows={2}
             value={props.manualAddText}
@@ -572,19 +549,15 @@ const ACTION_KIND_LABELS: Record<NonNullable<ChatMessageRecord["actionKind"]>, s
 };
 
 /** What the working indicator says before the first token arrives, per mode. */
-const WORKING_LABELS: Record<"branch" | "drilldown" | "evaluate" | "discuss", string> = {
-  branch:
-    "Looking for a genuinely different angle — checking this branch's context and searching for current developments…",
+const WORKING_LABELS: Record<"drilldown" | "evaluate" | "discuss", string> = {
   drilldown:
     "Looking for a narrower, more reportable question — checking context and searching for current developments…",
   evaluate: "Weighing this as a story question against WUWF's current criteria…",
   discuss: "Reading your message — may search for current developments…",
 };
 
-function activeTurnMode(
-  props: InspectorPanelProps,
-): "branch" | "drilldown" | "evaluate" | "discuss" | null {
-  if (props.busy === "branch" || props.busy === "drilldown" || props.busy === "evaluate") {
+function activeTurnMode(props: InspectorPanelProps): "drilldown" | "evaluate" | "discuss" | null {
+  if (props.busy === "drilldown" || props.busy === "evaluate") {
     return props.busy;
   }
   if (props.chatSending) return "discuss";

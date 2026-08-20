@@ -10,7 +10,11 @@
 
 export type DirectiveMode = "branch" | "drilldown" | "evaluate";
 
-export const BRANCH_DIRECTIVE =
+// No longer sent — the Branch action was consolidated into Drill down from
+// the parent (design doc §15). Kept here so stored branch directives in
+// existing threads still render as "You asked for another angle" rather
+// than reverting to a full user bubble.
+const BRANCH_DIRECTIVE =
   "Branch: look for a genuinely different angle here, grounded in what's already established. If the material doesn't support one, say so.";
 export const DRILLDOWN_DIRECTIVE =
   "Drill down: find a more specific, still-unresolved question beneath this one that moves it toward reportability. If there isn't one yet, say so.";

@@ -59,12 +59,13 @@ export async function startNewInquiry(formData: FormData): Promise<void> {
 /**
  * The manual fallback when the model is unavailable or a reporter just
  * wants to type their own angle — see design doc §13. Bypasses ai.ts
- * entirely; the reporter's own text becomes the new sibling/child, with no
- * diagnosis (nothing generated it) and no citations (nothing was searched).
+ * entirely; the reporter's own text becomes a new child of the selected
+ * question (a sibling is written from the parent, same as Drill down — §15),
+ * with no diagnosis (nothing generated it) and no citations (nothing was
+ * searched).
  */
 export async function addQuestionManually(
   questionId: string,
-  kind: "sibling" | "child",
   text: string,
 ): Promise<ActionResult<QuestionRecord>> {
   try {
@@ -79,18 +80,6 @@ export async function addQuestionManually(
       .eq("id", questionId)
       .single();
     if (error || !questionRow) throw new Error("Could not find that question.");
-
-    if (kind === "sibling") {
-      if (!questionRow.parent_id) throw new Error("The guiding question has no sibling to add.");
-      const created = await insertQuestion({
-        inquiryId: questionRow.inquiry_id,
-        parentId: questionRow.parent_id,
-        depth: questionRow.depth,
-        text: trimmed,
-        createdBy: profile.id,
-      });
-      return ok(created);
-    }
 
     const created = await insertQuestion({
       inquiryId: questionRow.inquiry_id,

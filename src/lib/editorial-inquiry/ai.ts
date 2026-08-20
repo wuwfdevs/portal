@@ -4,7 +4,7 @@ import { humanizeOpenAIError } from "@/lib/openai-error";
 import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
 // Editorial Inquiry's reasoning engine — one function, runEditorialTurn(),
-// handles Branch, Drill down, Evaluate, and every ordinary Discuss turn. See
+// handles Drill down, Evaluate, and every ordinary Discuss turn. See
 // docs/editorial-inquiry-design.md §7 for the full rationale; the short
 // version: milestone 1 used the Responses API's strict JSON-schema structured
 // output (text.format.type: "json_schema") for two separate calls (a
@@ -63,7 +63,10 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
-export type TurnMode = "discuss" | "branch" | "drilldown" | "evaluate";
+// "branch" is no longer a turn mode — the dedicated Branch action was
+// consolidated into Drill down from the parent (design doc §15). It survives
+// as a ProposedAction kind: a discuss turn can still propose a sibling.
+export type TurnMode = "discuss" | "drilldown" | "evaluate";
 
 export interface AncestryEntry {
   depth: number;
@@ -97,7 +100,7 @@ export interface EditorialTurnContext {
   ancestry: AncestryEntry[];
   /** Context notes inherited down this branch (own + every ancestor's), labeled by evidentiary status. */
   inheritedContext: InheritedNoteContext[];
-  /** Active siblings (for branch) or children (for drilldown) already at this position, to avoid duplicating. */
+  /** Active children (drilldown) or siblings (discuss/evaluate) already at this position, to avoid duplicating. */
   existingRelated: string[];
   /** Prior turns in this question's discuss thread, oldest first. */
   priorMessages: ChatTurnMessage[];
@@ -184,7 +187,7 @@ function criteriaBlock(criteria: EditorialCriterionContext[]): string {
   return `WUWF's current core editorial criteria — use them to INFORM judgment and critique. Never reverse-engineer a question to sound like it would score well, and never emit a score or rating yourself.\n${lines}`;
 }
 
-function contextBlock(mode: TurnMode, context: EditorialTurnContext): string {
+function contextBlock(context: EditorialTurnContext): string {
   const ancestryLines = context.ancestry.map((a) => `- (depth ${a.depth}) ${a.text}`).join("\n");
   const existing = context.existingRelated.length
     ? context.existingRelated.map((t) => `- ${t}`).join("\n")
@@ -198,49 +201,24 @@ function contextBlock(mode: TurnMode, context: EditorialTurnContext): string {
         .join("\n")
     : "(none)";
 
-  // Branch turns are handed the PARENT's context chain, not the departing
-  // sibling's (see loadTurnContext in turn.ts) — label it honestly so the
-  // model doesn't read the parent's notes as "this branch's."
-  const existingHeader =
-    mode === "branch"
-      ? "Already under that parent — the selected question included. Genuinely distinct means distinct from ALL of these:"
-      : "Already at this position in the tree — do not duplicate one of these angles:";
-  const notesHeader =
-    mode === "branch"
-      ? "Context the new branch will inherit (the parent's chain — the selected sibling's own notes are deliberately not shown), each labeled with its evidentiary status:"
-      : "Context inherited on this branch, each labeled with its evidentiary status:";
-
   return `WUWF coverage pillar: ${context.pillarName}
 Guiding question for the whole inquiry: "${context.guidingQuestion}"
 
 Path from the guiding question down to the question being acted on (the last line is the one being acted on):
 ${ancestryLines}
 
-${existingHeader}
+Already at this position in the tree — any question you propose must be genuinely distinct from ALL of these; a reworded variation of one is a duplicate:
 ${existing}
 
-${notesHeader}
+Context inherited on this branch, each labeled with its evidentiary status:
 ${notes}
 
 ${criteriaBlock(context.criteria)}`;
 }
 
-/**
- * Branch inserts the new question as another child of the PARENT — name that
- * parent explicitly so the model reasons from it. Without this, "a different
- * angle" reliably produced variations of the selected sibling instead of
- * genuinely distinct lines under the parent (an observed failure).
- */
-function branchAnchor(mode: TurnMode, context: EditorialTurnContext): string {
-  if (mode !== "branch" || context.ancestry.length < 2) return "";
-  const parent = context.ancestry[context.ancestry.length - 2]!;
-  return `\n\nThe new branch will sit alongside the selected question as another child of: "${parent.text}"`;
-}
-
 const MODE_FRAMING: Record<TurnMode, string> = {
   discuss: `An ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, separate claim from fact, identify missing evidence, search if current information would help, or just answer plainly. At most ONE propose_editorial_action call, only if the conversation genuinely warrants it — most turns warrant none. Exception: when the reporter asks you to add a question or note to the canvas/tree, that IS the warrant — call the tool (kind "drilldown", "branch", or "context" as fits) with the agreed text; replying without the call adds nothing.`,
-  branch: `The reporter clicked Branch: propose another, genuinely DISTINCT child of the selected question's PARENT — a different line under the same parent, exploring different territory. Reason from the PARENT question; the selected question is only the sibling you're branching away from, never the thing to rephrase, vary, or take "a different angle on." The context notes below are the PARENT's chain — what the new node will actually inherit; the departing sibling's own notes are deliberately withheld, so do not reconstruct its territory from memory of the conversation. ALWAYS search for a current development first: a genuinely distinct line needs its own fresh real-world signal, and re-using the material that grounds an existing sibling reliably produces a variation of that sibling instead. If search and the parent's context both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, you MUST call propose_editorial_action with kind "branch" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
-  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. FIRST check whether the question already meets the story-question bar: if it does, there is nothing below it but reporting tasks — do NOT propose one; say it's story-ready and call kind "promote" to nominate it (the reporter confirms). Never propose a question that is substantially the acted-on question reworded — if nothing genuinely narrower and still story-shaped exists, that is a promote, a diagnosis, or a plain decline, never a paraphrase. Say in your reply which level the proposed question sits at and what would advance it next. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
+  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. FIRST check whether the question already meets the story-question bar: if it does, there is nothing below it but reporting tasks — do NOT propose one; say it's story-ready and call kind "promote" to nominate it (the reporter confirms). Never propose a question that is substantially the acted-on question reworded — if nothing genuinely narrower and still story-shaped exists, that is a promote, a diagnosis, or a plain decline, never a paraphrase. When questions ALREADY sit beneath this one (listed below), the new question must explore genuinely DISTINCT territory from ALL of them — never a rephrase, variation, or adjacent angle on one, and your own earlier proposals in this conversation are taken territory, not a track to continue. In that case ALWAYS search first — a genuinely distinct line needs its own fresh real-world signal, and re-using the material that grounded an existing question reliably produces a variation of it — and if search and the attached context both come up empty, decline plainly. Say in your reply which level the proposed question sits at and what would advance it next. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
   evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score. When BOTH judgments come out favorable, call kind "promote" to nominate it as a validated story question (the reporter confirms) — a favorable evaluation that stops at prose leaves the reporter guessing whether you meant it. Otherwise kind "assessment" carries the editorial-value discussion if substantive. One tool call total — pick the most decision-relevant kind and cover the rest in prose.`,
 };
 
@@ -359,10 +337,10 @@ function extractProposedAction(response: OpenAI.Responses.Response): ProposedAct
 }
 
 /**
- * One turn of editorial reasoning about one question — Branch, Drill down,
- * Evaluate, or an ordinary Discuss message all funnel through here (design
- * doc §7). `userMessage` is either the reporter's own words (discuss) or a
- * fixed canned directive (branch/drilldown/evaluate — see directives.ts) so
+ * One turn of editorial reasoning about one question — Drill down, Evaluate,
+ * or an ordinary Discuss message all funnel through here (design doc §7).
+ * `userMessage` is either the reporter's own words (discuss) or a
+ * fixed canned directive (drilldown/evaluate — see directives.ts) so
  * every mode runs through the identical pipeline and lands in the same
  * visible thread. An async generator, not a Promise: reply tokens are
  * yielded as "delta" events while the model works, then one terminal
@@ -407,12 +385,12 @@ ${EVIDENTIARY_DISCIPLINE}
 
 You are working on exactly one question: "${question.text}"${diagnosisNote}${rootFraming}
 
-${MODE_FRAMING[mode]}${branchAnchor(mode, context)}
+${MODE_FRAMING[mode]}
 
 Prior conversation on this question, oldest first:
 ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
 
-${contextBlock(mode, context)}`;
+${contextBlock(context)}`;
 
   let response: OpenAI.Responses.Response;
   try {

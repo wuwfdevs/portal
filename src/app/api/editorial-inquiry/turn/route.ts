@@ -5,11 +5,7 @@ import {
   streamEditorialTurnEvents,
   type EditorialTurnStreamEvent,
 } from "@/lib/editorial-inquiry/turn";
-import {
-  BRANCH_DIRECTIVE,
-  DRILLDOWN_DIRECTIVE,
-  EVALUATE_DIRECTIVE,
-} from "@/lib/editorial-inquiry/directives";
+import { DRILLDOWN_DIRECTIVE, EVALUATE_DIRECTIVE } from "@/lib/editorial-inquiry/directives";
 
 /**
  * Editorial Inquiry's turn endpoint — the streaming counterpart to what were
@@ -22,7 +18,7 @@ import {
  * session every page/action uses; streamEditorialTurnEvents itself calls
  * assertToolAccess before touching anything.
  *
- * The canned directives for the three button modes are resolved HERE, not
+ * The canned directives for the two button modes are resolved HERE, not
  * accepted from the client — the client names a mode, never the directive
  * text, so the stored user message always matches directives.ts exactly
  * (the inspector recognizes directive messages by exact body match).
@@ -33,12 +29,11 @@ export const maxDuration = 120;
 
 const bodySchema = z.object({
   questionId: z.string().uuid(),
-  mode: z.enum(["discuss", "branch", "drilldown", "evaluate"]),
+  mode: z.enum(["discuss", "drilldown", "evaluate"]),
   message: z.string().trim().min(1).max(4000).optional(),
 });
 
 const DIRECTIVES = {
-  branch: BRANCH_DIRECTIVE,
   drilldown: DRILLDOWN_DIRECTIVE,
   evaluate: EVALUATE_DIRECTIVE,
 } as const;

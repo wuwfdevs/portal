@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  canBranch as canBranchRule,
   canDrillDown as canDrillDownRule,
   canPromote as canPromoteRule,
   canReject as canRejectRule,
@@ -42,7 +41,7 @@ import {
   rejectQuestion,
 } from "./actions";
 
-type StreamTurnMode = "branch" | "drilldown" | "evaluate" | "discuss";
+type StreamTurnMode = "drilldown" | "evaluate" | "discuss";
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -66,12 +65,12 @@ export function InquiryWorkspace({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Intent-driven, not a free-floating preference: selecting a node lands on
   // Context (its profile — question, diagnosis, actions, evidence), while
-  // starting a turn or clicking the canvas Discuss icon lands on Discussion.
+  // starting a turn lands on Discussion.
   const [panelView, setPanelView] = useState<PanelView>("context");
   const [error, setError] = useState<string | null>(null);
 
   const [pendingByQuestion, setPendingByQuestion] = useState<
-    Record<string, "branch" | "drilldown" | "evaluate">
+    Record<string, "drilldown" | "evaluate">
   >({});
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
@@ -83,7 +82,7 @@ export function InquiryWorkspace({
   const [contextText, setContextText] = useState("");
   const [savingContext, setSavingContext] = useState(false);
 
-  const [manualAddOpen, setManualAddOpen] = useState<"sibling" | "child" | null>(null);
+  const [manualAddOpen, setManualAddOpen] = useState(false);
   const [manualAddText, setManualAddText] = useState("");
   const [savingManualAdd, setSavingManualAdd] = useState(false);
 
@@ -132,17 +131,11 @@ export function InquiryWorkspace({
     setPanelView("context");
     setContextPanelOpen(false);
     setContextText("");
-    setManualAddOpen(null);
+    setManualAddOpen(false);
     setManualAddText("");
     // The thread still loads eagerly on selection so switching to the
     // Discussion view (or starting a turn) never waits on it.
     if (id) void loadThreadOnce(id);
-  }
-
-  /** The canvas's Discuss icon: select the node AND land on its conversation. */
-  function discussQuestion(id: string) {
-    selectQuestion(id);
-    setPanelView("discussion");
   }
 
   function applyTurnOutcome(id: string, outcome: EditorialTurnOutcome) {
@@ -284,11 +277,6 @@ export function InquiryWorkspace({
   // THIS question's thread, and yanking selection away hid it (a reported
   // confusion). The new node appears on the canvas; clicking it is the
   // reporter's own move.
-  function handleBranch(id: string) {
-    selectQuestion(id);
-    void runTurn(id, "branch");
-  }
-
   function handleDrillDown(id: string) {
     selectQuestion(id);
     void runTurn(id, "drilldown");
@@ -344,11 +332,11 @@ export function InquiryWorkspace({
   async function handleSubmitManualAdd() {
     if (!selectedId || !manualAddOpen || !manualAddText.trim()) return;
     setSavingManualAdd(true);
-    const result = await addQuestionManually(selectedId, manualAddOpen, manualAddText);
+    const result = await addQuestionManually(selectedId, manualAddText);
     setSavingManualAdd(false);
     if (result.ok) {
       setQuestions((qs) => [...qs, result.data]);
-      setManualAddOpen(null);
+      setManualAddOpen(false);
       setManualAddText("");
       selectQuestion(result.data.id);
     } else {
@@ -458,12 +446,9 @@ export function InquiryWorkspace({
           contextCounts={contextCounts}
           pendingByQuestion={pendingMap}
           onSelect={selectQuestion}
-          onBranch={handleBranch}
           onDrillDown={handleDrillDown}
           onReject={handleReject}
-          onDiscuss={discussQuestion}
           onMove={handleMove}
-          canBranchFor={canBranchRule}
           canDrillDownFor={canDrillDownRule}
           canRejectFor={canRejectRule}
         />
@@ -486,20 +471,18 @@ export function InquiryWorkspace({
           onContextTextChange={setContextText}
           onSaveContext={handleSaveContext}
           savingContext={savingContext}
-          canBranch={selectedQuestion ? canBranchRule(selectedQuestion) : false}
           canDrillDown={selectedQuestion ? canDrillDownRule(selectedQuestion) : false}
           canReject={selectedQuestion ? canRejectRule(selectedQuestion) : false}
           canPromote={selectedQuestion ? canPromoteRule(selectedQuestion) : false}
           busy={busy}
-          onBranch={() => selectedId && handleBranch(selectedId)}
           onDrillDown={() => selectedId && handleDrillDown(selectedId)}
           onEvaluate={() => selectedId && handleEvaluate(selectedId)}
           onReject={() => selectedId && handleReject(selectedId)}
           onPromote={() => selectedId && handlePromote(selectedId)}
           manualAddOpen={manualAddOpen}
-          onOpenManualAdd={setManualAddOpen}
+          onOpenManualAdd={() => setManualAddOpen(true)}
           onCloseManualAdd={() => {
-            setManualAddOpen(null);
+            setManualAddOpen(false);
             setManualAddText("");
           }}
           manualAddText={manualAddText}
