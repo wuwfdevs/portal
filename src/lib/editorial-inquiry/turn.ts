@@ -36,6 +36,12 @@ import {
 
 const TOOL_KEY = "editorial-inquiry";
 
+// See the comment where these apply: they bound how much of a question's
+// discuss thread each turn re-sends to the model. ~12 messages × ~1k tokens
+// keeps a worst-case replay near 12k tokens instead of unbounded.
+const MAX_REPLAYED_MESSAGES = 12;
+const MAX_REPLAYED_MESSAGE_CHARS = 4000;
+
 export interface EditorialTurnOutcome {
   userMessage: ChatMessageRecord;
   assistantMessage: ChatMessageRecord;
@@ -163,9 +169,20 @@ export async function* streamEditorialTurnEvents(
         .eq("question_id", questionId)
         .order("created_at")
     ).data ?? [];
-  const priorMessages: ChatTurnMessage[] = priorRows.map((row) => ({
+  // Replay only the thread's recent tail, with long bodies clipped — the
+  // whole thread was re-sent on every turn, growing without bound, which is
+  // how one long discussion walked straight into the org's OpenAI
+  // tokens-per-minute cap (observed live: one turn requesting ~20k tokens
+  // against a 100k TPM limit). The durable conclusions of older turns
+  // already reach the model another way: diagnoses live on the question row
+  // and attached findings live on as context notes, both carried in the
+  // prompt regardless of thread length.
+  const priorMessages: ChatTurnMessage[] = priorRows.slice(-MAX_REPLAYED_MESSAGES).map((row) => ({
     role: row.role as "user" | "assistant",
-    body: row.body,
+    body:
+      row.body.length > MAX_REPLAYED_MESSAGE_CHARS
+        ? `${row.body.slice(0, MAX_REPLAYED_MESSAGE_CHARS)} […]`
+        : row.body,
   }));
 
   const turn = streamEditorialTurn(

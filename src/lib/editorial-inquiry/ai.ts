@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { humanizeOpenAIError } from "@/lib/openai-error";
 import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
 // Editorial Inquiry's reasoning engine — one function, runEditorialTurn(),
@@ -384,34 +385,39 @@ ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none 
 
 ${contextBlock(context)}`;
 
-  const stream = client.responses.stream({
-    model: MODEL,
-    instructions,
-    input: userMessage,
-    max_output_tokens: MAX_OUTPUT_TOKENS,
-    // Deviates from this repo's usual "low" reasoning effort (see chat.ts) —
-    // deliberately: distinguishing evidentiary status, diagnosing a specific
-    // one of ten reasons, and keeping two editorial judgments separate is a
-    // more demanding reasoning task than a single generation or a general
-    // tool-calling loop.
-    reasoning: { effort: "medium" },
-    store: false,
-    tools: [{ type: "web_search" }, PROPOSE_ACTION_TOOL],
-    tool_choice: "auto",
-    include: ["web_search_call.action.sources"],
-  });
+  let response: OpenAI.Responses.Response;
+  try {
+    const stream = client.responses.stream({
+      model: MODEL,
+      instructions,
+      input: userMessage,
+      max_output_tokens: MAX_OUTPUT_TOKENS,
+      // Deviates from this repo's usual "low" reasoning effort (see chat.ts) —
+      // deliberately: distinguishing evidentiary status, diagnosing a specific
+      // one of ten reasons, and keeping two editorial judgments separate is a
+      // more demanding reasoning task than a single generation or a general
+      // tool-calling loop.
+      reasoning: { effort: "medium" },
+      store: false,
+      tools: [{ type: "web_search" }, PROPOSE_ACTION_TOOL],
+      tool_choice: "auto",
+      include: ["web_search_call.action.sources"],
+    });
 
-  for await (const event of stream) {
-    if (event.type === "response.output_text.delta") {
-      yield { type: "delta", text: event.delta };
+    for await (const event of stream) {
+      if (event.type === "response.output_text.delta") {
+        yield { type: "delta", text: event.delta };
+      }
     }
-  }
 
-  // Same cast as chat.ts's streaming loop: ResponseStream's finalResponse()
-  // types output as ParsedResponseOutputItem<null>[] (it supports
-  // .parse()-based structured outputs this call never uses); runtime shape
-  // matches the plain Response the extract helpers expect.
-  const response = (await stream.finalResponse()) as unknown as OpenAI.Responses.Response;
+    // Same cast as chat.ts's streaming loop: ResponseStream's finalResponse()
+    // types output as ParsedResponseOutputItem<null>[] (it supports
+    // .parse()-based structured outputs this call never uses); runtime shape
+    // matches the plain Response the extract helpers expect.
+    response = (await stream.finalResponse()) as unknown as OpenAI.Responses.Response;
+  } catch (error) {
+    throw humanizeOpenAIError(error);
+  }
 
   if (response.status === "failed") {
     throw new Error(response.error?.message ?? "The assistant failed to respond.");
