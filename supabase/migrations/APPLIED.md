@@ -114,6 +114,7 @@ repo and a project's history, not the version number.
 | `20260810170000_log_syndicated_local_opportunities.sql`               | 2026-08-10 | 2026-08-10 |
 | `20260811130000_log_music_bed_billboard_return_promo_eligibility.sql` | 2026-08-11 | 2026-08-11 |
 | `20260820120000_editorial_inquiry.sql`                                | 2026-08-20 | 2026-08-20 |
+| `20260820130000_editorial_inquiry_grounded_reasoning.sql`             | 2026-08-20 | 2026-08-20 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

@@ -1,7 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { labelForDepth, type LaidOutQuestion } from "@/lib/editorial-inquiry/tree";
+import {
+  labelForDepth,
+  labelForDiagnosis,
+  type LaidOutQuestion,
+} from "@/lib/editorial-inquiry/tree";
 
 export const NODE_WIDTH = 240;
 
@@ -16,7 +20,7 @@ interface QuickAction {
   tone: "blue" | "danger" | "neutral";
 }
 
-function ExploreIcon() {
+function BranchIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -84,14 +88,14 @@ export interface QuestionNodeProps {
   node: LaidOutQuestion;
   selected: boolean;
   contextCount: number;
-  pending: "explore" | "drill" | "discuss" | null;
+  pending: "branch" | "drilldown" | "evaluate" | null;
   onSelect: () => void;
   onDragStart: (event: React.MouseEvent) => void;
-  onExplore: () => void;
+  onBranch: () => void;
   onDrillDown: () => void;
   onReject: () => void;
   onDiscuss: () => void;
-  canExplore: boolean;
+  canBranch: boolean;
   canDrillDown: boolean;
   canReject: boolean;
 }
@@ -103,11 +107,11 @@ export function QuestionNode({
   pending,
   onSelect,
   onDragStart,
-  onExplore,
+  onBranch,
   onDrillDown,
   onReject,
   onDiscuss,
-  canExplore,
+  canBranch,
   canDrillDown,
   canReject,
 }: QuestionNodeProps) {
@@ -118,13 +122,13 @@ export function QuestionNode({
 
   const actions: QuickAction[] = [
     {
-      key: "explore",
-      title: "Explore a related question",
-      disabled: !canExplore,
-      onClick: onExplore,
-      icon: <ExploreIcon />,
+      key: "branch",
+      title: "Branch: look for a different angle here",
+      disabled: !canBranch,
+      onClick: onBranch,
+      icon: <BranchIcon />,
       offset: { x: 6, y: -46 },
-      tone: canExplore ? "blue" : "neutral",
+      tone: canBranch ? "blue" : "neutral",
     },
     {
       key: "drill",
@@ -195,9 +199,9 @@ export function QuestionNode({
           {node.text}
         </div>
         <div className="mt-2 flex items-center gap-2">
-          {node.hasAssumption && (
+          {node.diagnosisKind && (
             <span
-              title="Rests on an unexamined assumption"
+              title={labelForDiagnosis(node.diagnosisKind)}
               className="flex h-4 w-4 items-center justify-center rounded-full bg-success-bg text-[11px] font-bold text-brand-link"
             >
               !

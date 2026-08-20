@@ -4,8 +4,12 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import {
+  EVIDENTIARY_STATUSES,
   labelForDepth,
+  labelForDiagnosis,
+  labelForEvidentiaryStatus,
   type ContextNoteKind,
+  type EvidentiaryStatus,
   type QuestionRecord,
 } from "@/lib/editorial-inquiry/tree";
 import type { ChatMessageRecord } from "@/lib/editorial-inquiry/queries";
@@ -14,9 +18,14 @@ export interface InheritedNoteView {
   id: string;
   kind: ContextNoteKind;
   body: string;
+  evidentiaryStatus: EvidentiaryStatus;
+  sourceTitle: string | null;
+  sourceUrl: string | null;
   inherited: boolean;
   sourceLabel: string | null;
 }
+
+export type BusyKind = "branch" | "drilldown" | "evaluate" | "reject" | "promote" | null;
 
 export interface InspectorPanelProps {
   collapsed: boolean;
@@ -29,18 +38,21 @@ export interface InspectorPanelProps {
   onCloseContextPanel: () => void;
   contextType: ContextNoteKind;
   onContextTypeChange: (kind: ContextNoteKind) => void;
+  contextEvidentiaryStatus: EvidentiaryStatus;
+  onContextEvidentiaryStatusChange: (status: EvidentiaryStatus) => void;
   contextText: string;
   onContextTextChange: (value: string) => void;
   onSaveContext: () => void;
   savingContext: boolean;
 
-  canExplore: boolean;
+  canBranch: boolean;
   canDrillDown: boolean;
   canReject: boolean;
   canPromote: boolean;
-  busy: "explore" | "drill" | "reject" | "promote" | null;
-  onExplore: () => void;
+  busy: BusyKind;
+  onBranch: () => void;
   onDrillDown: () => void;
+  onEvaluate: () => void;
   onReject: () => void;
   onPromote: () => void;
 
@@ -63,6 +75,10 @@ export interface InspectorPanelProps {
   onApplyReframe: (message: ChatMessageRecord) => void;
   applyingReframeId: string | null;
 
+  canDevelopIntoPitch: boolean;
+  onDevelopIntoPitch: () => void;
+  developingIntoPitch: boolean;
+
   error: string | null;
 }
 
@@ -73,9 +89,9 @@ const CONTEXT_TYPE_OPTIONS: { value: ContextNoteKind; label: string }[] = [
 ];
 
 const SUGGESTION_CHIPS = [
-  "This assumes the answer",
+  "I keep hearing this from sources — is there actually something here?",
+  "What's happening right now that bears on this?",
   "We already know this",
-  "Suggest another angle",
 ];
 
 export function InspectorPanel(props: InspectorPanelProps) {
@@ -143,9 +159,10 @@ function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }
           {badgeLabel}
         </div>
         <div className="font-serif text-base leading-snug text-ink-900">{selected.text}</div>
-        {selected.hasAssumption && (
+        {selected.diagnosisKind && (
           <div className="mt-2 rounded bg-success-bg px-2.5 py-2 text-xs leading-relaxed text-brand-link">
-            Assumption: {selected.assumptionText}
+            <span className="font-bold">{labelForDiagnosis(selected.diagnosisKind)}.</span>{" "}
+            {selected.diagnosisNote}
           </div>
         )}
       </div>
@@ -153,20 +170,23 @@ function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }
       <div className="flex flex-wrap gap-2">
         <Button
           variant="secondary"
-          onClick={props.onExplore}
-          disabled={!props.canExplore || props.busy !== null}
+          onClick={props.onBranch}
+          disabled={!props.canBranch || props.busy !== null}
         >
-          {props.busy === "explore" ? "Exploring…" : "Explore"}
+          {props.busy === "branch" ? "Branching…" : "Branch"}
         </Button>
         <Button
           variant="secondary"
           onClick={props.onDrillDown}
           disabled={!props.canDrillDown || props.busy !== null}
         >
-          {props.busy === "drill" ? "Drilling down…" : "Drill down"}
+          {props.busy === "drilldown" ? "Drilling down…" : "Drill down"}
         </Button>
         <Button variant="secondary" onClick={props.onToggleDiscuss}>
           {props.discussOpen ? "Close discussion" : "Discuss"}
+        </Button>
+        <Button variant="secondary" onClick={props.onEvaluate} disabled={props.busy !== null}>
+          {props.busy === "evaluate" ? "Evaluating…" : "Evaluate"}
         </Button>
         <Button
           variant="secondary"
@@ -188,6 +208,7 @@ function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }
       <ManualAdd {...props} />
       <ContextSection {...props} />
       {props.discussOpen && <DiscussSection {...props} />}
+      {isPromoted && <DevelopIntoPitch {...props} />}
     </div>
   );
 }
@@ -196,7 +217,7 @@ function ManualAdd(props: InspectorPanelProps) {
   if (!props.manualAddOpen) {
     return (
       <div className="flex flex-wrap gap-3 text-xs">
-        {props.canExplore && (
+        {props.canBranch && (
           <button
             type="button"
             onClick={() => props.onOpenManualAdd("sibling")}
@@ -275,7 +296,20 @@ function ContextSection(props: InspectorPanelProps) {
           <span className="mr-1 text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
             {entry.kind}
           </span>
-          {entry.body}
+          <span className="mr-1 rounded-full bg-panel-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-500 uppercase">
+            {labelForEvidentiaryStatus(entry.evidentiaryStatus)}
+          </span>
+          <div className="mt-1">{entry.body}</div>
+          {entry.sourceUrl && (
+            <a
+              href={entry.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 block truncate text-brand-link hover:underline"
+            >
+              {entry.sourceTitle ?? entry.sourceUrl}
+            </a>
+          )}
         </div>
       ))}
       <div className="flex gap-1.5">
@@ -294,6 +328,24 @@ function ContextSection(props: InspectorPanelProps) {
             {option.label}
           </button>
         ))}
+      </div>
+      <div>
+        <div className="mb-1 text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
+          How solid is this?
+        </div>
+        <select
+          value={props.contextEvidentiaryStatus}
+          onChange={(e) =>
+            props.onContextEvidentiaryStatusChange(e.target.value as EvidentiaryStatus)
+          }
+          className="w-full rounded border border-line bg-white px-2 py-1.5 text-[13px] text-ink-900"
+        >
+          {EVIDENTIARY_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {labelForEvidentiaryStatus(status)}
+            </option>
+          ))}
+        </select>
       </div>
       <Textarea
         rows={3}
@@ -316,10 +368,23 @@ function ContextSection(props: InspectorPanelProps) {
   );
 }
 
+const ACTION_KIND_LABELS: Record<NonNullable<ChatMessageRecord["actionKind"]>, string> = {
+  branch: "→ branched into a new sibling question",
+  drilldown: "→ drilled down into a new child question",
+  context: "→ attached as context on this branch",
+  reframe: "→ proposed a reframe",
+  diagnosis: "→ diagnosed this question",
+  assessment: "→ editorial assessment",
+};
+
 function DiscussSection(props: InspectorPanelProps) {
   return (
     <div className="flex flex-col gap-2.5 border-t border-line pt-3">
       <div className="text-xs font-bold text-ink-700">Discuss this question</div>
+      <p className="text-[11px] leading-relaxed text-ink-400">
+        Bring something you&apos;ve encountered, ask what&apos;s currently developing, or challenge
+        what&apos;s here.
+      </p>
 
       {props.chatLoading && <div className="text-xs text-ink-400">Loading discussion…</div>}
 
@@ -332,14 +397,34 @@ function DiscussSection(props: InspectorPanelProps) {
             >
               <div
                 className={cn(
-                  "max-w-[88%] rounded px-2.5 py-2 text-[13px] leading-snug",
+                  "max-w-[92%] rounded px-2.5 py-2 text-[13px] leading-snug",
                   message.role === "user"
                     ? "bg-brand-surface text-brand-link"
-                    : "bg-panel-50 text-ink-700",
+                    : message.actionKind === "diagnosis" || message.actionKind === "assessment"
+                      ? "bg-panel-100 text-ink-700"
+                      : "bg-panel-50 text-ink-700",
                 )}
               >
                 {message.body}
               </div>
+              {message.citations && message.citations.length > 0 && (
+                <div className="mt-1 flex max-w-[92%] flex-col gap-0.5">
+                  <div className="text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+                    Sources
+                  </div>
+                  {message.citations.map((citation, index) => (
+                    <a
+                      key={`${citation.url}-${index}`}
+                      href={citation.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-[11px] text-brand-link hover:underline"
+                    >
+                      {citation.title}
+                    </a>
+                  ))}
+                </div>
+              )}
               {message.actionKind === "reframe" && !message.appliedAt && (
                 <button
                   type="button"
@@ -355,16 +440,13 @@ function DiscussSection(props: InspectorPanelProps) {
               {message.actionKind === "reframe" && message.appliedAt && (
                 <div className="mt-1 text-[11px] text-ink-400">→ applied to this question</div>
               )}
-              {message.actionKind === "sibling" && (
-                <div className="mt-1 text-[11px] text-ink-400">
-                  → added a sibling question to the tree
-                </div>
-              )}
-              {message.actionKind === "context" && (
-                <div className="mt-1 text-[11px] text-ink-400">
-                  → attached as context on this branch
-                </div>
-              )}
+              {message.actionKind &&
+                message.actionKind !== "reframe" &&
+                ACTION_KIND_LABELS[message.actionKind] && (
+                  <div className="mt-1 text-[11px] text-ink-400">
+                    {ACTION_KIND_LABELS[message.actionKind]}
+                  </div>
+                )}
             </div>
           ))}
           {props.chatLog.length === 0 && (
@@ -396,7 +478,7 @@ function DiscussSection(props: InspectorPanelProps) {
               if (props.chatInput.trim()) props.onSendChat();
             }
           }}
-          placeholder="Tell the model what you think…"
+          placeholder="Tell the model what you think, or ask it to search…"
           className="flex-1 rounded border border-line px-2.5 py-2 text-[13px] focus:border-brand-primary focus:outline-none"
         />
         <Button
@@ -406,6 +488,29 @@ function DiscussSection(props: InspectorPanelProps) {
           {props.chatSending ? "Sending…" : "Send"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function DevelopIntoPitch(props: InspectorPanelProps) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <div className="text-xs font-bold text-ink-700">Develop into pitch</div>
+      {props.canDevelopIntoPitch ? (
+        <>
+          <p className="text-[11px] leading-relaxed text-ink-400">
+            Opens Editorial Planning&apos;s pitch form, prefilled with this question and what the
+            inquiry knows — review and submit it there.
+          </p>
+          <Button onClick={props.onDevelopIntoPitch} disabled={props.developingIntoPitch}>
+            {props.developingIntoPitch ? "Preparing…" : "Develop into pitch"}
+          </Button>
+        </>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-ink-400">
+          Ask an administrator for Editorial Planning access to develop this into a pitch.
+        </p>
+      )}
     </div>
   );
 }

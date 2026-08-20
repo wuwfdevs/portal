@@ -33,14 +33,14 @@ export interface CanvasProps {
   layout: TreeLayout;
   selectedId: string | null;
   contextCounts: Map<string, number>;
-  pendingByQuestion: Map<string, "explore" | "drill" | "discuss">;
+  pendingByQuestion: Map<string, "branch" | "drilldown" | "evaluate">;
   onSelect: (id: string | null) => void;
-  onExplore: (id: string) => void;
+  onBranch: (id: string) => void;
   onDrillDown: (id: string) => void;
   onReject: (id: string) => void;
   onDiscuss: (id: string) => void;
   onMove: (id: string, manualDx: number, manualDy: number) => void;
-  canExploreFor: (node: LaidOutQuestion) => boolean;
+  canBranchFor: (node: LaidOutQuestion) => boolean;
   canDrillDownFor: (node: LaidOutQuestion) => boolean;
   canRejectFor: (node: LaidOutQuestion) => boolean;
 }
@@ -51,12 +51,12 @@ export function Canvas({
   contextCounts,
   pendingByQuestion,
   onSelect,
-  onExplore,
+  onBranch,
   onDrillDown,
   onReject,
   onDiscuss,
   onMove,
-  canExploreFor,
+  canBranchFor,
   canDrillDownFor,
   canRejectFor,
 }: CanvasProps) {
@@ -189,11 +189,11 @@ export function Canvas({
               pending={pendingByQuestion.get(node.id) ?? null}
               onSelect={() => handleSelect(node.id)}
               onDragStart={(e) => handleNodeDragStart(node, e)}
-              onExplore={() => onExplore(node.id)}
+              onBranch={() => onBranch(node.id)}
               onDrillDown={() => onDrillDown(node.id)}
               onReject={() => onReject(node.id)}
               onDiscuss={() => onDiscuss(node.id)}
-              canExplore={canExploreFor(node)}
+              canBranch={canBranchFor(node)}
               canDrillDown={canDrillDownFor(node)}
               canReject={canRejectFor(node)}
             />

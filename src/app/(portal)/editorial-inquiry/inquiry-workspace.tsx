@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  canBranch as canBranchRule,
   canDrillDown as canDrillDownRule,
-  canExplore as canExploreRule,
   canPromote as canPromoteRule,
   canReject as canRejectRule,
   computeTreeLayout,
@@ -11,6 +12,7 @@ import {
   inheritedContextNotes,
   type ContextNoteKind,
   type ContextNoteRecord,
+  type EvidentiaryStatus,
   type QuestionRecord,
 } from "@/lib/editorial-inquiry/tree";
 import type {
@@ -18,20 +20,24 @@ import type {
   InquiryDetail,
   InquirySummary,
 } from "@/lib/editorial-inquiry/queries";
+import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
 import { Canvas } from "./canvas";
-import { InspectorPanel, type InheritedNoteView } from "./inspector-panel";
+import { InspectorPanel, type BusyKind, type InheritedNoteView } from "./inspector-panel";
 import { InquirySwitcher } from "./inquiry-switcher";
 import {
   addContextNote,
   addQuestionManually,
   applyReframe,
+  branchQuestion,
   drillDownQuestion,
-  exploreQuestion,
+  evaluateQuestion,
+  getPitchHandoffUrl,
   loadDiscussThread,
   moveQuestion,
   promoteQuestion,
   rejectQuestion,
   sendDiscussMessage,
+  type EditorialTurnOutcome,
 } from "./actions";
 
 function truncate(text: string, max: number): string {
@@ -41,24 +47,31 @@ function truncate(text: string, max: number): string {
 export function InquiryWorkspace({
   inquiries,
   detail,
+  guidingQuestionOptions,
+  canDevelopIntoPitch,
 }: {
   inquiries: InquirySummary[];
   detail: InquiryDetail;
+  guidingQuestionOptions: GuidingQuestionOption[];
+  canDevelopIntoPitch: boolean;
 }) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<QuestionRecord[]>(detail.questions);
   const [contextNotes, setContextNotes] = useState<ContextNoteRecord[]>(detail.contextNotes);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [pendingByQuestion, setPendingByQuestion] = useState<Record<string, "explore" | "drill">>(
-    {},
-  );
+  const [pendingByQuestion, setPendingByQuestion] = useState<
+    Record<string, "branch" | "drilldown" | "evaluate">
+  >({});
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
 
   const [contextPanelOpen, setContextPanelOpen] = useState(false);
   const [contextType, setContextType] = useState<ContextNoteKind>("note");
+  const [contextEvidentiaryStatus, setContextEvidentiaryStatus] =
+    useState<EvidentiaryStatus>("hunch");
   const [contextText, setContextText] = useState("");
   const [savingContext, setSavingContext] = useState(false);
 
@@ -72,6 +85,7 @@ export function InquiryWorkspace({
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [applyingReframeId, setApplyingReframeId] = useState<string | null>(null);
+  const [developingIntoPitch, setDevelopingIntoPitch] = useState(false);
 
   const layout = useMemo(() => computeTreeLayout(questions), [questions]);
   const pendingMap = useMemo(() => new Map(Object.entries(pendingByQuestion)), [pendingByQuestion]);
@@ -86,6 +100,9 @@ export function InquiryWorkspace({
       id: entry.note.id,
       kind: entry.note.kind,
       body: entry.note.body,
+      evidentiaryStatus: entry.note.evidentiaryStatus,
+      sourceTitle: entry.note.sourceTitle,
+      sourceUrl: entry.note.sourceUrl,
       inherited: entry.inherited,
       sourceLabel: entry.inherited
         ? truncate(questions.find((q) => q.id === entry.sourceQuestionId)?.text ?? "", 40)
@@ -101,18 +118,51 @@ export function InquiryWorkspace({
     setManualAddText("");
   }
 
-  async function handleExplore(id: string) {
+  function applyTurnOutcome(id: string, outcome: EditorialTurnOutcome) {
+    setChatThreads((t) => ({
+      ...t,
+      [id]: [...(t[id] ?? []), outcome.userMessage, outcome.assistantMessage],
+    }));
+    if (outcome.createdQuestion) {
+      const created = outcome.createdQuestion;
+      setQuestions((qs) => [...qs, created]);
+    }
+    if (outcome.createdContextNote) {
+      const created = outcome.createdContextNote;
+      setContextNotes((n) => [...n, created]);
+    }
+    if (outcome.updatedQuestion) {
+      const updated = outcome.updatedQuestion;
+      setQuestions((qs) => qs.map((q) => (q.id === updated.id ? updated : q)));
+    }
+  }
+
+  // Awaited, not fire-and-forget: applyTurnOutcome() below appends the new
+  // turn onto whatever's already in chatThreads[id]. If the thread load were
+  // still in flight when the (much slower, LLM-backed) action resolved and
+  // called applyTurnOutcome first, the load's own resolution would land
+  // afterward and silently overwrite the just-added turn. Awaiting it first
+  // (only when the thread isn't already cached) makes that ordering
+  // impossible rather than merely unlikely.
+  async function ensureDiscussOpenAndLoaded(id: string) {
+    setDiscussOpenId(id);
+    if (!chatThreads[id]) await loadThread(id);
+  }
+
+  async function handleBranch(id: string) {
     setError(null);
-    setPendingByQuestion((p) => ({ ...p, [id]: "explore" }));
-    const result = await exploreQuestion(id);
+    setPendingByQuestion((p) => ({ ...p, [id]: "branch" }));
+    selectQuestion(id);
+    await ensureDiscussOpenAndLoaded(id);
+    const result = await branchQuestion(id);
     setPendingByQuestion((p) => {
       const next = { ...p };
       delete next[id];
       return next;
     });
     if (result.ok) {
-      setQuestions((qs) => [...qs, result.data]);
-      selectQuestion(result.data.id);
+      applyTurnOutcome(id, result.data);
+      if (result.data.createdQuestion) selectQuestion(result.data.createdQuestion.id);
     } else {
       setError(result.error);
     }
@@ -120,7 +170,9 @@ export function InquiryWorkspace({
 
   async function handleDrillDown(id: string) {
     setError(null);
-    setPendingByQuestion((p) => ({ ...p, [id]: "drill" }));
+    setPendingByQuestion((p) => ({ ...p, [id]: "drilldown" }));
+    selectQuestion(id);
+    await ensureDiscussOpenAndLoaded(id);
     const result = await drillDownQuestion(id);
     setPendingByQuestion((p) => {
       const next = { ...p };
@@ -128,8 +180,26 @@ export function InquiryWorkspace({
       return next;
     });
     if (result.ok) {
-      setQuestions((qs) => [...qs, result.data]);
-      selectQuestion(result.data.id);
+      applyTurnOutcome(id, result.data);
+      if (result.data.createdQuestion) selectQuestion(result.data.createdQuestion.id);
+    } else {
+      setError(result.error);
+    }
+  }
+
+  async function handleEvaluate(id: string) {
+    setError(null);
+    setPendingByQuestion((p) => ({ ...p, [id]: "evaluate" }));
+    selectQuestion(id);
+    await ensureDiscussOpenAndLoaded(id);
+    const result = await evaluateQuestion(id);
+    setPendingByQuestion((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
+    if (result.ok) {
+      applyTurnOutcome(id, result.data);
     } else {
       setError(result.error);
     }
@@ -185,7 +255,12 @@ export function InquiryWorkspace({
     if (!selectedId || !contextText.trim()) return;
     setError(null);
     setSavingContext(true);
-    const result = await addContextNote(selectedId, contextType, contextText);
+    const result = await addContextNote(
+      selectedId,
+      contextType,
+      contextText,
+      contextEvidentiaryStatus,
+    );
     setSavingContext(false);
     if (result.ok) {
       setContextNotes((n) => [...n, result.data]);
@@ -224,19 +299,8 @@ export function InquiryWorkspace({
     const result = await sendDiscussMessage(id, text);
     setChatSending(false);
     if (result.ok) {
-      setChatThreads((t) => ({
-        ...t,
-        [id]: [...(t[id] ?? []), result.data.userMessage, result.data.assistantMessage],
-      }));
+      applyTurnOutcome(id, result.data);
       setChatInput("");
-      if (result.data.createdQuestion) {
-        const created = result.data.createdQuestion;
-        setQuestions((qs) => [...qs, created]);
-      }
-      if (result.data.createdContextNote) {
-        const created = result.data.createdContextNote;
-        setContextNotes((n) => [...n, created]);
-      }
     } else {
       setError(result.error);
     }
@@ -264,8 +328,20 @@ export function InquiryWorkspace({
     }
   }
 
+  async function handleDevelopIntoPitch(id: string) {
+    setError(null);
+    setDevelopingIntoPitch(true);
+    const result = await getPitchHandoffUrl(id);
+    setDevelopingIntoPitch(false);
+    if (result.ok) {
+      router.push(result.data);
+    } else {
+      setError(result.error);
+    }
+  }
+
   const discussOpen = discussOpenId !== null && discussOpenId === selectedId;
-  const busy: "explore" | "drill" | "reject" | "promote" | null = selectedId
+  const busy: BusyKind = selectedId
     ? (pendingByQuestion[selectedId] ??
       (rejectingId === selectedId ? "reject" : promotingId === selectedId ? "promote" : null))
     : null;
@@ -275,7 +351,11 @@ export function InquiryWorkspace({
       <div className="flex h-14 flex-shrink-0 items-center gap-3 border-b border-line px-5">
         <span className="font-serif text-base font-bold text-ink-900">Inquiry</span>
         <span className="h-5 w-px bg-line" />
-        <InquirySwitcher inquiries={inquiries} activeId={detail.inquiry.id} />
+        <InquirySwitcher
+          inquiries={inquiries}
+          activeId={detail.inquiry.id}
+          guidingQuestionOptions={guidingQuestionOptions}
+        />
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -285,12 +365,12 @@ export function InquiryWorkspace({
           contextCounts={contextCounts}
           pendingByQuestion={pendingMap}
           onSelect={selectQuestion}
-          onExplore={handleExplore}
+          onBranch={handleBranch}
           onDrillDown={handleDrillDown}
           onReject={handleReject}
           onDiscuss={handleToggleDiscuss}
           onMove={handleMove}
-          canExploreFor={canExploreRule}
+          canBranchFor={canBranchRule}
           canDrillDownFor={canDrillDownRule}
           canRejectFor={canRejectRule}
         />
@@ -305,17 +385,20 @@ export function InquiryWorkspace({
           onCloseContextPanel={() => setContextPanelOpen(false)}
           contextType={contextType}
           onContextTypeChange={setContextType}
+          contextEvidentiaryStatus={contextEvidentiaryStatus}
+          onContextEvidentiaryStatusChange={setContextEvidentiaryStatus}
           contextText={contextText}
           onContextTextChange={setContextText}
           onSaveContext={handleSaveContext}
           savingContext={savingContext}
-          canExplore={selectedQuestion ? canExploreRule(selectedQuestion) : false}
+          canBranch={selectedQuestion ? canBranchRule(selectedQuestion) : false}
           canDrillDown={selectedQuestion ? canDrillDownRule(selectedQuestion) : false}
           canReject={selectedQuestion ? canRejectRule(selectedQuestion) : false}
           canPromote={selectedQuestion ? canPromoteRule(selectedQuestion) : false}
           busy={busy}
-          onExplore={() => selectedId && handleExplore(selectedId)}
+          onBranch={() => selectedId && handleBranch(selectedId)}
           onDrillDown={() => selectedId && handleDrillDown(selectedId)}
+          onEvaluate={() => selectedId && handleEvaluate(selectedId)}
           onReject={() => selectedId && handleReject(selectedId)}
           onPromote={() => selectedId && handlePromote(selectedId)}
           manualAddOpen={manualAddOpen}
@@ -338,6 +421,9 @@ export function InquiryWorkspace({
           chatSending={chatSending}
           onApplyReframe={handleApplyReframe}
           applyingReframeId={applyingReframeId}
+          canDevelopIntoPitch={canDevelopIntoPitch}
+          onDevelopIntoPitch={() => selectedId && handleDevelopIntoPitch(selectedId)}
+          developingIntoPitch={developingIntoPitch}
           error={error}
         />
       </div>

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ancestryPath,
+  canBranch,
   canDrillDown,
-  canExplore,
   canPromote,
   canReject,
   computeTreeLayout,
@@ -22,8 +22,8 @@ function question(overrides: Partial<QuestionRecord> & Pick<QuestionRecord, "id"
     depth: 0,
     text: "Some question",
     status: "active",
-    hasAssumption: false,
-    assumptionText: null,
+    diagnosisKind: null,
+    diagnosisNote: null,
     reframedFromText: null,
     manualDx: null,
     manualDy: null,
@@ -52,18 +52,18 @@ describe("labelForDepth", () => {
   });
 });
 
-describe("canReject / canPromote / canGrow", () => {
+describe("canReject / canPromote / canBranch / canDrillDown", () => {
   it("never allows rejecting or promoting the root", () => {
     expect(canReject(root)).toBe(false);
     expect(canPromote(root)).toBe(false);
   });
 
-  it("allows rejecting a line of inquiry but not promoting it", () => {
+  it("allows both rejecting and promoting a line of inquiry — depth no longer gates promotion", () => {
     expect(canReject(line1)).toBe(true);
-    expect(canPromote(line1)).toBe(false);
+    expect(canPromote(line1)).toBe(true);
   });
 
-  it("allows both on a depth-2+ active question", () => {
+  it("allows both on a deeper active question too", () => {
     expect(canReject(q1)).toBe(true);
     expect(canPromote(q1)).toBe(true);
   });
@@ -73,10 +73,10 @@ describe("canReject / canPromote / canGrow", () => {
     expect(canPromote({ ...q1, status: "promoted" })).toBe(false);
   });
 
-  it("disallows exploring the root — it has no parent to share a sibling under", () => {
-    expect(canExplore(root)).toBe(false);
-    expect(canExplore(line1)).toBe(true);
-    expect(canExplore(rejected)).toBe(false);
+  it("disallows branching the root — it has no parent to share a sibling under", () => {
+    expect(canBranch(root)).toBe(false);
+    expect(canBranch(line1)).toBe(true);
+    expect(canBranch(rejected)).toBe(false);
   });
 
   it("allows drilling down from any active question, including the root", () => {
@@ -160,6 +160,9 @@ function note(
   return {
     kind: "note",
     body: "Some context",
+    evidentiaryStatus: "hunch",
+    sourceTitle: null,
+    sourceUrl: null,
     createdBy: null,
     createdAt: "2026-08-20T00:00:00Z",
     ...overrides,

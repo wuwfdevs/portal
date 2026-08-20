@@ -1,336 +1,496 @@
 # Editorial Inquiry — design
 
-## 1. The problem we're solving
+**Status: revised (2026-08-20), superseding this document's own first version from
+the same day.** Milestone 1 shipped a working canvas — question tree, six actions,
+AI generation — but its editorial model was too thin: it started from a freely typed
+seed question and let a model invent progressively narrower questions with no
+grounding in anything real, no connection to what WUWF actually considers strong
+journalism, and no way to decline. This revision keeps the interaction shell (the
+canvas is still the record, the panel is still docked, the actions are still
+Explore/Drill down/Reject/Promote/Add context/Discuss under the hood) and replaces
+the reasoning underneath it. §§1–4 below describe the current model; anywhere this
+document says "no longer," "removed," or "replaced," that is what changed and why.
 
-A reporter usually starts a story from something too broad to report: a guiding
-question like "how does a region sustain service members, families, and
-communities amid national-defense demands?" Getting from there to a concrete,
-reportable story question — "how many junior-enlisted families near NAS
-Pensacola have taken on second jobs since BAH was last recalculated in 2023,
-and what does that cost the base in retention?" — is iterative, and today it
-happens in a reporter's head, a notebook, or a chat transcript that has no
-structure once the conversation is over.
+## 1. What this tool is
 
-Editorial Inquiry gives that process a durable, navigable shape: a **question
-tree**, not a chat log. A reporter starts from one seed guiding question and
-works outward — generating related angles, narrowing a question into
-something specific, rejecting dead ends, promoting validated questions, and
-discussing a single question with an AI collaborator that can challenge an
-assumption, concede a point, or spin off a new angle. The tree is the record
-of the reporting process, not a transcript of talking to a model.
+A grounded editorial reasoning workspace. It helps a WUWF reporter move from
+something real — an observation, a document, a hunch, a source's offhand remark,
+something happening right now — toward a properly scoped, investigable reporting
+question, in the context of one of WUWF's own durable guiding questions and its
+current editorial priorities.
 
-## 2. Product model
+The **tree is the persistent intellectual structure**: guiding question at the
+root, lines of inquiry beneath it, story questions beneath those, each with its
+own attached evidence and its own discussion history. The **conversation pane is
+the primary discovery and reasoning interface** — where a reporter brings material,
+asks the model to look for current developments, and works out with it what's
+actually known, what's still unresolved, and whether a candidate question is
+genuinely ready to report. Structural tree actions (branch, drill down, reframe,
+promote) are things that happen _as a result of_ that reasoning, not a button that
+manufactures a plausible-sounding question on demand.
 
-### The tree
+## 2. Editorial Planning is the source of truth
 
-- **Root** — the seed guiding question. One per inquiry, created when the
-  inquiry starts, never rejected or promoted (it isn't a story question
-  itself).
-- Every other node is a **question** at some depth under the root. Depth 1 is
-  a "line of inquiry" — a durable angle on the guiding question. Depth 2 and
-  beyond are narrower questions descending from one.
-- **Status**: `active` (the default), `rejected` (a dead end — kept in the
-  data, hidden from the canvas along with its descendants, never deleted),
-  or `promoted` (a validated, reportable story question).
+Editorial Inquiry does not define, store, or duplicate WUWF's coverage priorities
+or story-evaluation criteria. Those already exist, are actively maintained, and
+have one home: **Editorial Planning**.
 
-### Actions, per question
+- **WUWF's guiding questions live on `ep_pillars`** (`docs/editorial-planning-design.md`
+  §10.1) — each of WUWF's six coverage pillars (Growth and Resilience, Public
+  Health and Well-Being, Military Affairs, Public Safety and Civil Liberties,
+  Affordability and Opportunity, Power and Politics) carries an optional
+  `guiding_question`. An inquiry in this tool is **associated with one selected
+  pillar**, not an independently typed strategic framework — starting a new
+  inquiry means picking a pillar, not writing a guiding question from scratch (§5).
+- **WUWF's editorial criteria live on `ep_criteria`**, grouped into rubric
+  profiles (`ep_rubric_profiles` — Strategic/Enterprise is the default). Editorial
+  Inquiry reads the default profile's active **core** criteria — name,
+  description, guidance — as prose context for the model's judgment. It never
+  reads weights, scales, or anchors (those exist to produce a numeric review
+  score in Editorial Planning's own weekly meeting; Editorial Inquiry has no
+  meeting and produces no score) and it never asks the model to emit one. §1's
+  standing rule, restated because it is easy to get backwards: **the rubric
+  informs critique, it does not become a target to reverse-engineer.** A model
+  that quietly optimizes a question to "read like it would score well" has
+  broken the tool's purpose, even if nobody ever sees a number.
 
-- **Explore** — ask the model for a new **sibling**: a different angle at the
-  same depth, same parent. Doesn't narrow or broaden the question, reframes
-  the same level of the tree.
-- **Drill down** — ask the model for a new **child**: a question one level
-  deeper that narrows the current one into something more specific.
-- **Reject** — mark `rejected`. Depth 0 (the root) can never be rejected;
-  everything else can, as long as it's still `active`. Descendants stay in
-  the data but disappear from the canvas with their rejected ancestor.
-- **Promote** — mark `promoted`. Requires depth ≥ 2: a line of inquiry
-  (depth 1) is a thematic frame, not yet something a reporter could take into
-  the field, so it isn't eligible until it's been drilled down at least once.
-- **Add context** — attach a note, link, or excerpt to a question. Context
-  **inherits down the branch**: anything attached to an ancestor is visible
-  on every descendant. There's no separate "whole-inquiry" bucket — attaching
-  a note to the root is how a reporter covers the whole inquiry, because
-  every question descends from it.
-- **Discuss** — a conversational thread scoped to exactly one question. The
-  model can reply plainly, propose a **reframe** (a rewritten version of the
-  question the reporter applies with one click — never automatic), spin off
-  a new **sibling** (added to the tree immediately, the same shape as
-  Explore), or attach a **context** note (added immediately, the same shape
-  as Add Context). The thread persists per question and reopens with its
-  full history.
+### How the read works
 
-### Structural cues
+Both tables' RLS was, until this revision, scoped to `editorial-planning` tool
+members only (`private.ep_has_access`). A reporter using Editorial Inquiry does
+not necessarily hold an `editorial-planning` grant — Editorial Planning's
+`contributor` role is separate membership, and requiring it just to see WUWF's own
+public-facing pillar list would make the "one source of truth" promise hollow for
+anyone without a second grant. The migration for this revision adds narrow,
+additive `select` policies on `ep_pillars`, `ep_criteria`, and `ep_rubric_profiles`
+admitting `private.has_editorial_inquiry_access(auth.uid())` alongside the existing
+`ep_has_access` predicate — the same "one more `select` policy for a specific
+cross-tool read" shape as `tools_select_proposed_for_roadmap` and
+`log_broadcast_events_select_for_underwriting`. Nothing about who can _write_ those
+tables changes; Editorial Inquiry members still can't touch Editorial Planning's
+configuration, and neither read policy is scoped to only the default profile —
+that filter happens in the query, not RLS, matching how every other config
+table in this repo lets application code decide what subset it wants.
 
-Each node shows, at a glance: whether it (or something it inherited) rests on
-an **unexamined assumption** the model flagged when it generated the
-question; how many context notes are attached, own plus inherited; and its
-status, each styled distinctly (active / rejected — greyed, struck through /
-promoted — lime, WUWF's highlight color).
+Because RLS is the only thing gating those reads (`lib/editorial/data.ts`'s own
+functions assert nothing beyond RLS — see that file), Editorial Inquiry's own
+`lib/editorial-inquiry/editorial-planning.ts` calls `listPillars`/`listCriteria`/
+`getDefaultRubricProfile` from `@/lib/editorial/data.ts` directly rather than
+re-implementing the query. There is exactly one function that knows how to read a
+WUWF guiding question or a WUWF criterion, and it lives in Editorial Planning.
 
-### Multiple inquiries
+### The handoff back
 
-A reporter works more than one inquiry in parallel. Clicking the guiding
-question in the header opens a switcher: every saved inquiry, plus a field to
-start a new one by typing a custom seed question. Each inquiry has its own
-independent tree, context, and discussion history — nothing is shared across
-inquiries except the reporter's account.
+A promoted story question can be **developed into a pitch** — a deliberate,
+reporter-initiated action, never automatic (§6). This goes through Editorial
+Planning's own `editorial.pitch.save` capability (`lib/editorial/capabilities.ts`),
+the same entry point the pitch form itself uses and the one already documented as
+meant for exactly this kind of cross-tool call. It is gated by that capability's
+own `assertEditorialRole("contributor")` — a reporter with no `editorial-planning`
+access at all gets a clear "you need Editorial Planning access to do this" message,
+not a bypass. See §6.
 
-## 3. Architecture
+## 3. Grounding: signal before invention
 
-### Access
+Milestone 1's actual failure mode: a reporter picks "Explore" or "Drill down," and
+the model invents a plausible-sounding narrower question with nothing behind it —
+starting from `GUIDING QUESTION → GENERATE SOMETHING THAT SOUNDS LIKE A STORY`.
+That produces fluent nonsense a newsroom can't actually report, because nothing
+about it is true yet.
 
-Invite-only, like every tool except Roadmap: a `tool_access` grant is the
-ticket in (`private.has_editorial_inquiry_access`, mirroring
-`private.has_academic_partnerships_access`). **No elevated role.** Unlike
-Log's producer or Academic Partnerships' coordinator, nothing in this tool's
-milestone 1 needs a privileged action gated apart from ordinary membership —
-every action (grow the tree, reject, promote, add context, discuss) is
-something any reporter with access does for their own inquiries. If a real
-need for one surfaces later (e.g., an editor-only "delete inquiry"), it's
-added then, the same way Underwriting's manager role wasn't defined until
-Slice 2 gave it something to gate.
+The reasoning order this tool now enforces, every time:
 
-Inquiries are **shared within the tool**, not per-reporter siloed: any member
-can open, extend, or discuss any inquiry. A small newsroom's editorial
-process benefits from that visibility the same way Sourcework's projects and
-Log's content library are shared, not owned. `created_by` on each row is
-provenance, not an access boundary.
+```
+REAL-WORLD SIGNAL (reporter-supplied or web-discovered)
+        +
+WUWF GUIDING QUESTION (the selected pillar's own question)
+        ↓
+WHAT IS ACTUALLY KNOWN?
+        ↓
+WHAT REMAINS UNKNOWN OR UNRESOLVED?
+        ↓
+LINES OF INQUIRY
+        ↓
+PROPERLY SCOPED STORY QUESTIONS
+        ↓
+EDITORIAL EVALUATION
+```
 
-### The canvas: no new dependency
+A branch or drill-down the model proposes has to trace back to something in that
+chain — the inherited context on the branch it's growing from, or something it
+just found. It is not entitled to invent a new factual premise to justify another
+branch existing (§6). If the material on hand doesn't support a genuinely
+different angle, the model says so instead of manufacturing one (§7).
 
-The interaction model — infinite pan/zoom canvas, draggable nodes, a
-tree-layout algorithm, a minimap, a docked collapsible inspector — is fully
-worked out in the concept mockup
-(`WUWF Inquiry Canvas Concepts.dc.html`, prototyped with Claude Design) and
-implemented there in plain state/DOM logic: manual `translate()/scale()` CSS
-transforms for pan/zoom, a from-scratch tree-layout pass (position each node
-by depth × column width, vertically centered under its children, jittered
-and offset by any manual drag), SVG bezier paths for edges, and a minimap
-that's just the same layout rescaled into a small box. None of it depends on
-a canvas, virtualization, or pan/zoom library — this repo has none, and
-CLAUDE.md asks for a specific reason before adding one. There isn't one
-here: the mockup's from-scratch approach is a straightforward client
-component, so Editorial Inquiry's canvas is built the same way, ported from
-the mockup's logic into real React state (`useState`/`useRef` in place of
-the mockup's own `setState`), not a new dependency.
+### Two ways in
 
-Manual node repositioning **persists**: unlike the single-session mockup,
-`ei_questions.manual_dx/manual_dy` store a reporter's drag offset from the
-computed layout position, so rearranging the canvas survives a reload. Null
-(the default) means "use the computed layout position."
+- **Reporter-led discovery** — the reporter brings something they encountered: an
+  observation, a hunch, a document, a link, a data point, prior reporting, a
+  quote, a source's offhand remark, a partially formed idea. They paste or
+  describe it in the conversation pane attached to whichever question it bears
+  on (usually the root, if it's about the whole guiding question).
+- **Search-led discovery** — the reporter asks the model to look for what's
+  currently happening that bears on the guiding question ("what's developing
+  right now on military-family housing?"). The model has a web-search tool
+  available on every conversation turn and decides for itself when a question
+  needs current information to answer well — this is not a separate mode with
+  its own button, just a capability the model can reach for.
 
-### Talking to the model
+Both land in the same place: the conversation pane attached to a question, which
+is where discovery actually happens. "Crystallizing" a useful finding — attaching
+it as a context note that then inherits down the branch — is one of the actions a
+conversation turn can take (§6), not a separate step the reporter has to remember.
 
-`openai` is already a dependency (the in-portal agent chat,
-`src/lib/agent/chat.ts`, and Sourcework's embeddings both use it), so this
-tool's AI calls reuse it rather than hand-rolling `fetch()` — but the calling
-shape is different from the agent chat on purpose. The agent chat is a
-general tool-calling loop over portal capabilities, streamed, with no
-structured output. Editorial Inquiry's model calls are narrow and structured:
-"generate one sibling question," "generate one child question," "take one
-turn in a discussion and decide whether it implies a tree action." Each of
-those has one well-defined shape of answer, so `lib/editorial-inquiry/ai.ts`
-uses the Responses API's JSON-schema structured output
-(`text: { format: { type: "json_schema", ... , strict: true } }`) rather than
-free-text parsing — this repo's first use of structured output, noted
-explicitly in the module's own comment since nothing else here does it yet.
-Calls are synchronous `responses.create()`, not streamed: a discuss turn or a
-generated question is a few sentences, not a long-form reply worth
-token-by-token rendering, and this keeps the Server Action model (await, then
-return a result) that the rest of the interactive UI below already uses.
+## 4. Evidentiary status: context isn't all the same kind of true
 
-Same optional-key posture as every other integration in this repo: if
-`OPENAI_API_KEY` is unset, every AI-backed action (`explore`, `drillDown`,
-`sendChatMessage`) fails clearly with "The assistant isn't configured yet,"
-the same message `chat.ts` already uses — never a silent no-op, and manual
-tree-building (typing a question directly, the fallback path — see §7) still
-works.
+Undisciplined grounding is worse than none — an unverified reporter aside
+("I keep hearing NAS Pensacola is using much less of its land than it used to")
+must never silently become a load-bearing fact three branches later. Every context
+note now carries an **evidentiary status**, alongside the existing `kind`
+(note/link/excerpt, which describes the note's _form_; status describes its
+_epistemic weight_ — orthogonal, both kept):
 
-Every generation call is given the ancestry chain from root to the question
-acted on (so the model has the full frame, not just one question in
-isolation), the active siblings/children at that node (so it doesn't
-regenerate a duplicate angle), and every context note inherited down that
-branch. A discuss turn additionally gets the thread's prior messages. The
-model is instructed in NPR-member-station voice: calm, factual, precise,
-investigatable — no hype, no rhetorical questions posing as findings.
+| status             | means                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `hunch`            | A reporter's instinct or impression, nothing behind it yet                                           |
+| `source_claim`     | Something a source said, not independently verified                                                  |
+| `established_fact` | Confirmed from supplied material the reporter trusts (a document, prior reporting, direct knowledge) |
+| `web_finding`      | Found via the model's web search — carries `source_title`/`source_url` for the reporter to check     |
+| `inference`        | Something the model or reporter reasoned to, not directly observed                                   |
+| `open_question`    | A known unknown worth tracking, not a claim at all                                                   |
 
-### Interactive Server Actions, not redirect-based ones
+The model is instructed to classify every context note it attaches this way, and
+must never treat a `hunch` or `source_claim` as though it were `established_fact`
+when reasoning about what's known — see the reasoning order in §3. A reporter
+adding a note manually picks the status themselves (defaulting to `hunch` for a
+bare assertion, the deliberately humble default). Web-derived material keeps its
+title/URL so a reporter can trace exactly what the model is relying on rather than
+taking a bare claim on faith.
 
-This is a canvas, not a form-per-page screen: reloading the page on every
-action would drop pan/zoom/selection state. So `actions.ts` follows the
-pattern Roadmap's kanban board established for exactly this reason
-(`movePostStatus()`) — plain async functions returning
-`{ok: true, data} | {ok: false, error}`, called directly from the client
-canvas component (`startTransition` wraps the call), never `redirect()` or
-`FormData`. There's no non-JS `<form>` fallback for canvas actions, matching
-the kanban boards' own precedent of pairing a "courtesy" keyboard/no-JS path
-only where one is easy to reach (the multi-inquiry switcher and "new
-inquiry" field, which are ordinary form-shaped surfaces, do use the
-`failIfError`/`failWith` redirect pattern like the rest of the portal).
+## 5. Editorial levels
 
-### Capabilities
+- **Guiding question** — a durable, broad question that organizes sustained
+  coverage over time. Intentionally too large for one story. Comes from a WUWF
+  pillar (§2), never independently typed.
+- **Line of inquiry** — a meaningful dimension, tension, mechanism, uncertainty,
+  change, or relationship within the guiding question. Capable of producing
+  multiple stories over time. Normally still too broad to be one central
+  reporting question on its own.
+- **Story question** — the central unknown of one finite reporting project. To be
+  a _good_ one it should be: genuinely open (not answer-presupposing), specific
+  enough to investigate, consequential, appropriately bounded, grounded in a real
+  uncertainty/tension/mechanism/decision/change/discrepancy, answerable through
+  realistic reporting (sources, documents, records, data, observation), capable
+  of producing discovery rather than illustrating something already known, and
+  clear enough that a reporter can tell what evidence would answer it.
 
-Not part of milestone 1. Every other tool added its first `defineCapability`
-entries in a phase _after_ its own milestone 1 landed (Academic Partnerships,
-Log). If Editorial Inquiry's actions are worth driving from the in-portal
-agent later, that's a follow-up phase with its own instruction, not assumed
-here.
+**Tree depth describes structure, not editorial quality.** A depth-3 question can
+still be a bad story question — vague, compound, answer-already-known, whatever
+— and a depth-1 line of inquiry that a reporter has genuinely narrowed through
+conversation (not just by clicking "drill down" repeatedly) can be ready sooner
+than its position in the tree suggests. Milestone 1's rule that promoting
+required depth ≥ 2 has been **removed** for exactly this reason (§6, §8) — the
+former rule mistook "has been drilled down enough times" for "is a good question,"
+which are not the same claim.
 
-## 4. Data model
+### Diagnosing a weak story question
 
-Tables are prefixed `ei_`.
+The model is expected to name _why_ a candidate isn't ready yet, not just hand
+back a vaguer "more specific version." Ten recognized reasons, stored on the node
+once diagnosed (`ei_questions.diagnosis_kind`/`diagnosis_note`):
+
+`still_thematic` · `too_broad` · `compound_question` · `unverified_premise` ·
+`already_known` · `unclear_stakes` · `no_uncertainty` · `implausible_reporting_path`
+· `trivial` · `descriptive_not_investigative`
+
+When it applies, the model should try to fix that specific problem — narrow the
+compound question into its real parts, name what would need verifying first,
+surface the actual uncertainty — rather than producing a generic rewording.
+
+### Two separate judgments, kept apart
+
+1. **Is this a well-formed, reportable story question?** — structural: the
+   criteria above.
+2. **Would answering it likely make a strong WUWF story?** — editorial: judged
+   against Editorial Planning's current criteria (§2), in prose, never a score.
+
+A well-formed question can still be low-value journalism. A high-impact topic can
+still lack a workable reporting question. Conflating them (as milestone 1's single
+"promote" gate implicitly did) hides which problem a weak node actually has. The
+inspector's **Evaluate** action asks for both explicitly, one at a time.
+
+## 6. Actions, reframed
+
+Every action from milestone 1 is preserved. What each one _means_ changed.
+
+- **Branch** (was "Explore") — given the same established context and parent
+  question, identify a genuinely different question or line of inquiry the
+  material supports — not narrower, not broader, a different way in. It must
+  not invent a new factual premise to justify the branch existing. **The model
+  can decline** (§7) if the available context doesn't support one.
+- **Drill down** — identify a more specific, still-unresolved question beneath
+  the selected node that meaningfully moves it toward reportability — responding
+  to whatever is currently keeping it from being a strong story question, not a
+  generic narrowing paraphrase. Can also decline.
+- **Discuss** — conversational and node-scoped, same as before, now doing real
+  editorial work: challenge an assumption, distinguish a claim from a fact,
+  identify what evidence is missing, recognize that new context changes what the
+  interesting question even is, propose a reframe, diagnose why a branch is weak,
+  search the web when current information would help, or conclude a line is
+  exhausted. This is also where reporter-led and search-led discovery happen
+  (§3) — it is the tool's primary surface, not a side panel.
+- **Evaluate** (new) — ask explicitly for the two judgments in §5: is this
+  well-formed, and would it likely make a strong WUWF story against Editorial
+  Planning's current criteria. Available on any active question, not gated by
+  depth.
+- **Add context** — unchanged mechanically (inherits down the branch, root
+  covers the whole inquiry), extended with evidentiary status (§4).
+- **Reject** — unchanged: marks a line of thought not worth pursuing, hides it
+  and its descendants from the canvas, never deletes. Root still can't be
+  rejected.
+- **Promote** — the reporter's own judgment that a question has matured into a
+  viable central reporting question. **No longer gated on depth** (§5, §8) —
+  only that it's `active` and not the root. The model's Evaluate output informs
+  this; it does not decide it.
+- **Develop into pitch** (new) — see §8.
+
+### Letting the model decline
+
+A rigorous assigning editor does not answer "give me another angle" with another
+angle every time. Branch, Drill down, and Evaluate all route through the same
+underlying reasoning call (§9), and none of them force a structural action: the
+model may reply in prose only when there isn't enough grounding yet, the obvious
+branches would duplicate what's already there, a premise needs verifying first,
+current information is needed and search didn't surface enough, the line looks
+exhausted, or the node is already better treated as a story question than
+decomposed further. A decline is a real, useful outcome — often paired with a
+`diagnosis` (§5) explaining what's actually missing — not an error state.
+
+## 7. The reasoning engine
+
+One Server Action-facing call handles Branch, Drill down, Evaluate, and every
+ordinary Discuss turn — the same reasoning, differently framed. This replaces
+milestone 1's two separate mechanisms (a strict-JSON-schema generator for
+Explore/Drill down, a different strict-JSON-schema turn for Discuss) with one:
+`lib/editorial-inquiry/ai.ts`'s `runEditorialTurn()`.
+
+**Why not structured JSON output for everything, this time:** milestone 1's
+`text.format.type: "json_schema"` approach can't coexist cleanly with the two
+things this revision actually needs — natural prose (with inline web citations)
+and a tool the model can freely choose to call zero or one time. So this revision
+uses the Responses API's ordinary tool-calling shape instead — the same general
+mechanism `src/lib/agent/chat.ts` already uses for the in-portal agent, though
+the tool set and turn structure are different, purpose-built for this tool's
+narrower job:
+
+- **`web_search`** (OpenAI's built-in tool, `type: "web_search"`) — resolved
+  entirely server-side by OpenAI within the same API call; nothing in this repo
+  executes a search or holds a search-provider key. Citations arrive as
+  `url_citation` annotations on the reply's output text (title + URL + character
+  range), stored on `ei_chat_messages.citations` and rendered as a small sources
+  list under the reply.
+- **`propose_editorial_action`** (a custom function tool, `strict: true`) — the
+  model's one chance per turn to propose a structural action: `branch`,
+  `drilldown`, `context`, `reframe`, `diagnosis`, or `assessment`. Calling it is
+  optional (`tool_choice: "auto"`, `parallel_tool_calls: false` caps it at one);
+  a turn with no call is a plain reply — a decline, by construction, not a
+  special case to detect.
+
+One `responses.create()` call (not streamed, matching every other Server Action
+here — a reply is a few sentences to a paragraph, not worth token-by-token
+rendering) can therefore return, in one round trip: zero or more resolved web
+searches, a prose reply with citations, and at most one proposed action. Nothing
+about a proposed action executes itself — `actions.ts` reads it and performs the
+matching write (insert a question, insert a context note, stage a pending
+reframe) exactly as milestone 1's discuss turn already did for `sibling`/
+`context`/`reframe`; `branch`/`drilldown`/`context` execute immediately,
+`reframe` waits for an explicit Apply click, and `diagnosis`/`assessment` write
+onto the question or render inline respectively rather than mutating the tree.
+
+**Every call's instructions carry:** the reasoning order (§3), the editorial-level
+definitions and the ten diagnosis reasons (§5), WUWF's current core criteria from
+Editorial Planning as prose guidance — never a scoring target (§2) — the ancestry
+chain from the guiding question down to the node being acted on, every inherited
+context note labeled with its evidentiary status (§4), active siblings/children
+to avoid duplicating, and (for Discuss) the thread's prior turns. Branch/Drill
+down/Evaluate are framed as a canned directive from the reporter (e.g. "Branch:
+look for a genuinely different angle here." as the turn's user-authored text) so
+they run through the identical conversational pipeline and land in the same
+visible thread — a decline is something the reporter sees and can respond to, not
+a silent no-op.
+
+Same optional-key posture as every integration in this repo: absent
+`OPENAI_API_KEY`, every AI-backed action fails clearly rather than doing nothing
+silently, and the manual "type your own" fallback (§10) still works.
+
+## 8. Connecting back to Editorial Planning
+
+A promoted story question isn't the end of the workflow — it's the point where an
+inquiry has produced something Editorial Planning's own pipeline can pick up.
+**Develop into pitch**, available on any `promoted` question, opens a small review
+panel (not a full second form) prefilled from what the inquiry actually knows:
+
+- **Title** and **central reporting question** — the story question's own text.
+- **Primary coverage pillar** — the inquiry's linked pillar's current name
+  (looked up live at submission time, not the snapshot — see §9 for why the
+  snapshot exists at all — so it always matches one of Editorial Planning's
+  presently-valid options).
+- **Sources/materials** — a draft assembled from the branch's inherited context
+  notes (evidentiary status shown inline), editable before submit.
+- **Why now** — a draft assembled from notes tagged `established_fact` or
+  `web_finding` specifically (the ones that read as an actual development, not a
+  hunch), editable — never fabricated if nothing qualifies.
+- **Reporting approach**, **relevant perspectives** — left blank for the reporter
+  to write fresh; nothing in the tree stands in for a reporter's own judgment
+  here.
+
+Submitting calls Editorial Planning's own `editorial.pitch.save` capability
+(§2) — the same write path the pitch form itself uses, so a developed pitch is
+an ordinary `open` pitch afterward, editable like any other. **This is always
+reporter-initiated.** No promotion, however confident the model's Evaluate
+output, automatically creates a pitch — "the reporter should choose when an
+inquiry is ready to cross that boundary" is the literal product requirement, not
+a courtesy default.
+
+## 9. Data model
+
+Tables stay prefixed `ei_`. Everything below either replaces or extends
+milestone 1's original schema (`docs/editorial-inquiry-design.md`'s prior
+version) — see the migration file
+(`supabase/migrations/<this revision>.sql`) for the exact `alter table`s.
 
 ### `ei_inquiries`
 
-One row per guiding question a reporter has started. `seed_question` is the
-inquiry's identity — there's no separate title field; the switcher shows a
-truncated `seed_question`, matching the mockup.
+| column                     | type                                    | notes                                                                                                                                                                                                                                         |
+| -------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | uuid pk                                 |                                                                                                                                                                                                                                               |
+| `pillar_id`                | uuid → `ep_pillars`, on delete set null | the selected WUWF guiding question's pillar; nullable only so a deleted pillar doesn't cascade away real inquiry history                                                                                                                      |
+| `pillar_name_snapshot`     | text not null                           | the pillar's name at the moment the inquiry started                                                                                                                                                                                           |
+| `guiding_question_text`    | text not null                           | the pillar's `guiding_question` at that same moment — this, not a live join, is what grounds the tree, so editing a pillar's wording in Editorial Planning later can't retroactively change what an existing inquiry has been reasoning about |
+| `created_by`               | uuid → profiles, on delete set null     | provenance only                                                                                                                                                                                                                               |
+| `created_at`, `updated_at` | timestamptz                             |                                                                                                                                                                                                                                               |
 
-| column                     | type                                | notes           |
-| -------------------------- | ----------------------------------- | --------------- |
-| `id`                       | uuid pk                             |                 |
-| `seed_question`            | text not null                       |                 |
-| `created_by`               | uuid → profiles, on delete set null | provenance only |
-| `created_at`, `updated_at` | timestamptz                         |                 |
-
-Creating an inquiry also creates its root `ei_questions` row (depth 0,
-`text = seed_question`) in the same transaction, via a `security definer`
-function (`ei_create_inquiry`) — kept as one function rather than two
-separate client writes so the tree never has a moment where an inquiry
-exists with no root, or vice versa.
+`seed_question` (milestone 1's free-typed guiding question) is **removed** — an
+inquiry is associated with a pillar, never an independently typed one (§2). The
+switcher's list now shows `pillar_name_snapshot` (a stable short label; a pillar's
+own name changes far less often than its guiding-question wording, and a picker
+grouped by pillar name is what a reporter actually scans for). Creating an
+inquiry (`ei_create_inquiry(p_pillar_id)`, still one `security definer` function
+seeding both the inquiry and its root question atomically) looks up the pillar,
+requires it to be `active` and to have a non-null `guiding_question` (a pillar
+without one yet isn't offered in the picker — see §10 — but the function checks
+again server-side rather than trusting the client), and snapshots both fields.
 
 ### `ei_questions`
 
-One row per node.
+Same shape as milestone 1 (`id`/`inquiry_id`/`parent_id`/`depth`/`text`/`status`/
+`manual_dx`/`manual_dy`/`created_by`/timestamps), with one change:
 
-| column                     | type                                             | notes                                                                                                       |
-| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `id`                       | uuid pk                                          |                                                                                                             |
-| `inquiry_id`               | uuid → ei_inquiries, on delete cascade           |                                                                                                             |
-| `parent_id`                | uuid → ei_questions, on delete cascade, nullable | null only for the root                                                                                      |
-| `depth`                    | integer not null                                 | 0 = root, 1 = line of inquiry, 2+ = question                                                                |
-| `text`                     | text not null                                    |                                                                                                             |
-| `status`                   | text not null, default `active`                  | `active` / `rejected` / `promoted`                                                                          |
-| `has_assumption`           | boolean not null, default false                  | set by the model at generation time, or by a discuss turn                                                   |
-| `assumption_text`          | text nullable                                    | the assumption itself, shown in the inspector's callout                                                     |
-| `reframed_from_text`       | text nullable                                    | previous `text`, set when a discuss-proposed reframe is applied — a one-deep breadcrumb, not a full history |
-| `manual_dx`, `manual_dy`   | double precision nullable                        | persisted canvas drag offset from the computed layout position; null = auto-laid-out                        |
-| `created_by`               | uuid → profiles, on delete set null              | who took the action that created this node (root: whoever started the inquiry)                              |
-| `created_at`, `updated_at` | timestamptz                                      |                                                                                                             |
+- `has_assumption boolean` / `assumption_text text` are **removed**.
+- `diagnosis_kind text` (nullable, one of the ten reasons in §5) and
+  `diagnosis_note text` (nullable, the model's specific explanation) **replace**
+  them — `unverified_premise` is the direct successor of the old boolean flag,
+  now one of ten recognized reasons instead of the only one the tool could name.
 
-Constraints: `parent_id is null` iff `depth = 0` (exactly one root shape);
-`status = 'rejected'` requires `depth >= 1`; `status = 'promoted'` requires
-`depth >= 2`.
+Constraints: root shape unchanged (`parent_id is null` iff `depth = 0`).
+**Removed**: the separate depth ≥ 1 (reject) and depth ≥ 2 (promote) checks,
+replaced by one shared rule — `status = 'active' or depth >= 1` — since a
+rejected or promoted question can never be the root, but nothing about _how
+deep_ it is bears on whether either status is allowed (§5, §8).
 
 ### `ei_context_notes`
 
-A note, link, or excerpt attached to one question. Inheritance down a branch
-is computed by walking `parent_id` at read time (the same ancestry-path
-logic the canvas layout already needs), not denormalized onto every
-descendant — the tree is shallow enough in practice that this is a handful
-of rows per query, not a performance concern worth a materialized path.
+Adds, alongside the unchanged `id`/`question_id`/`kind`/`body`/`created_by`/
+`created_at`:
 
-| column        | type                                   | notes                                                             |
-| ------------- | -------------------------------------- | ----------------------------------------------------------------- |
-| `id`          | uuid pk                                |                                                                   |
-| `question_id` | uuid → ei_questions, on delete cascade | the question it's attached to; visible on it and every descendant |
-| `kind`        | text not null, default `note`          | `note` / `link` / `excerpt`                                       |
-| `body`        | text not null                          |                                                                   |
-| `created_by`  | uuid → profiles, on delete set null    |                                                                   |
-| `created_at`  | timestamptz                            |                                                                   |
+| column               | type                           | notes                                                                                                  |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `evidentiary_status` | text not null, default `hunch` | `hunch` / `source_claim` / `established_fact` / `web_finding` / `inference` / `open_question` — see §4 |
+| `source_title`       | text nullable                  | set only for `web_finding` notes the model attaches                                                    |
+| `source_url`         | text nullable                  | ″                                                                                                      |
 
-Insert + select only, no update/delete — a context note is a small, immutable
-annotation; correcting one is adding a new one, the same "no delete, add
-instead" posture `log_content_items` and `ep_criteria` take on their own
-lifecycle fields.
+Still insert + select only — a context note's evidentiary status is set once,
+at the moment it's attached, by whoever attaches it (the reporter picks one
+manually; the model classifies its own).
 
 ### `ei_chat_messages`
 
-The discuss thread, scoped to one question.
+Adds `citations jsonb` (nullable — `{title, url}[]`, from `url_citation`
+annotations on a reply that used web search; independent of `action_kind`, since
+a plain reply can still cite sources). `action_kind`'s allowed values widen from
+`reframe`/`sibling`/`context` to `branch` (renamed from `sibling` — a sibling
+_is_ a branch, but the old name described the tree mechanics, not the editorial
+meaning), `drilldown` (new — Drill down now runs through this same thread instead
+of writing a question with no visible turn), `context`, `reframe`, `diagnosis`
+(new — writes onto the acted-on question's `diagnosis_kind`/`diagnosis_note`
+directly, informational, no separate apply step since it never overwrites
+reporter-authored text), and `assessment` (new — the Evaluate action's editorial-
+value discussion, rendered distinctly, purely informational). `branch`/
+`drilldown`/`context` still execute immediately (`applied_at` set at insert);
+`reframe` still waits for an explicit click; `diagnosis`/`assessment` have no
+"applied" concept at all (nothing pending) — `applied_at` is set immediately for
+both, same as the immediate-execution kinds, since there's no separate step.
 
-| column           | type                                   | notes                                                                                                                                                                                                     |
-| ---------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`             | uuid pk                                |                                                                                                                                                                                                           |
-| `question_id`    | uuid → ei_questions, on delete cascade |                                                                                                                                                                                                           |
-| `role`           | text not null                          | `user` / `assistant`                                                                                                                                                                                      |
-| `body`           | text not null                          |                                                                                                                                                                                                           |
-| `action_kind`    | text nullable                          | `reframe` / `sibling` / `context` — what an assistant turn proposed or did; null for a plain reply and for every user message                                                                             |
-| `action_payload` | jsonb nullable                         | `{text}` for a pending reframe; `{questionId}` for a sibling already created; `{contextNoteId}` for a context note already attached                                                                       |
-| `applied_at`     | timestamptz nullable                   | when a `reframe` was applied to the question. Set immediately, at insert time, for `sibling`/`context` (those execute as part of the same turn); stays null for `reframe` until the reporter clicks Apply |
-| `created_by`     | uuid → profiles, on delete set null    | null for assistant messages                                                                                                                                                                               |
-| `created_at`     | timestamptz                            |                                                                                                                                                                                                           |
+## 10. Screens
 
-`sibling` and `context` actions execute immediately (mirroring the mockup:
-"→ added a sibling question to the tree" / "→ attached as context on this
-branch" appear as accomplished facts, not proposals); `reframe` is the one
-action kind that waits for an explicit click, because it overwrites the
-question's own text rather than adding something alongside it.
+Still one screen, `/editorial-inquiry`, same full-bleed canvas + docked
+inspector layout as milestone 1. What changed:
 
-## 5. Screens
+- **Starting an inquiry** is now a pillar picker, not a free-text field: each
+  active `ep_pillars` row with a non-null `guiding_question` (§9) is shown as a
+  choice — name plus its guiding question — in the switcher's "new inquiry"
+  section. A pillar with no guiding question yet is omitted, with a one-line
+  note pointing at Editorial Planning rather than letting Editorial Inquiry
+  invent one.
+- **The inspector's action row** gains **Evaluate** alongside Explore→Branch,
+  Drill down, Discuss, Reject, Promote (unchanged position/style, six buttons
+  instead of five).
+- **Diagnosis** renders as a callout on the node/inspector wherever milestone
+  1 showed the old assumption flag — same visual treatment (a small flagged
+  badge plus an expandable explanation), now naming one of ten reasons instead
+  of one.
+- **Assistant messages carrying `diagnosis`/`assessment`** render with their own
+  distinct, non-actionable style (no "apply"/execution language, since neither
+  mutates the tree directly) rather than the reframe/branch/context styling.
+- **Citations** appear as a compact "Sources" list under any reply that used web
+  search.
+- **Develop into pitch** is a new panel section on a `promoted` question — see
+  §8 for its exact fields.
+- The radial quick-menu on the canvas itself is unchanged (branch / drill down /
+  discuss / reject — the four cheap hover actions); Evaluate and Promote stay
+  panel-only, same reasoning as milestone 1 (a considered action, not a
+  hover-away click).
 
-One screen: `/editorial-inquiry`, full-bleed under the portal header (no
-page padding, unlike every other tool — the canvas needs the space). Its own
-compact header holds the WUWF-style inquiry switcher (click the current seed
-question to open a list of saved inquiries plus a "start a new inquiry"
-field). Below that: the pan/zoom canvas on the left, filling remaining
-width, and the docked inspector panel on the right (340px, collapsible via
-an edge handle, per the mockup). Each node shows a hover-revealed radial
-quick-menu (explore / drill down / discuss / reject — the four
-tree-mutating actions cheap enough to not need the panel open; promote and
-add-context stay panel-only, since promoting is a considered decision and
-context entry needs a text field). No second screen, no settings — nothing
-in milestone 1 needs one.
+## 11. What's preserved from milestone 1, unchanged
 
-## 6. Milestone 1, and what is left
+Per the brief driving this revision: the visual branching question tree, the
+canvas as durable record, conversation over chat-as-the-product, reporter control
+over every model proposal (nothing auto-applies except immediate branch/drill-
+down/context/diagnosis/assessment writes, which were already immediate in
+milestone 1 and stay that way — only reframe waits), the ability to reject and
+reframe, context inherited through branches, shared newsroom inquiries (§2 of the
+prior version — unchanged, still no elevated role), and a lightweight,
+purpose-built interaction rather than a generic project-management surface. The
+canvas itself needed no new dependency then and needs none now — same from-scratch
+pan/zoom/layout code, same reasoning against CLAUDE.md's dependency discipline.
 
-Milestone 1 is the whole product model in §2: the tree, all six actions,
-AI-backed explore/drill-down/discuss, context inheritance, the canvas
-(pan/zoom/drag/minimap), the docked inspector, the radial quick-menu, and
-the multi-inquiry switcher. Unlike several other tools' milestone 1, this
-isn't sliced further — the actions described are one cohesive interaction
-loop (a canvas that can't reject or promote isn't a smaller usable version
-of this tool, it's a different, less useful one), and the AI integration is
-the point of the product, not an enhancement layered on top of a
-CRUD-only slice.
+## 12. Deliberately deferred
 
-**Deliberately deferred**, not part of milestone 1:
+- The capability layer / MCP exposure for Editorial Inquiry's own actions.
+- Any elevated role.
+- A "show rejected" browsing view.
+- Automatic pitch creation on promotion (§8 — always reporter-initiated).
+- A numeric or bucketed editorial-value score of any kind (§1, §2, §5) — this is
+  a standing constraint on the _product_, not a milestone boundary; it should
+  not be revisited without the same explicit instruction that removed the old
+  score-shaped thinking in the first place.
 
-- The capability layer / MCP exposure (see §3).
-- Any elevated role (no need identified yet — see §3).
-- Exporting or printing an inquiry, or a "promoted questions" rollup view
-  across inquiries — nothing in the brief asks for one yet, and Editorial
-  Planning's pitch backlog is a separate, unrelated tool this doesn't feed
-  into automatically.
-- Sharing an inquiry outside the portal, or per-reporter inquiry privacy —
-  inquiries are shared within the tool, full stop (see §3).
-- A generated-question quality/moderation review step — the model's output
-  goes straight into the tree, the same trust level this repo already
-  extends to Log's NPR/weather integrations and Sourcework's ASR output.
-- A way to browse what's been rejected. §2 is explicit that reject "hides"
-  a node and its descendants from view rather than deleting them, and
-  milestone 1 takes that literally — a rejected node disappears from the
-  canvas entirely, not just greyed out, matching the concept mockup's own
-  layout pass (`hidden` includes the rejected node's own id, not only its
-  descendants). The rows stay queryable directly in the database, but
-  there's no in-app "show rejected" toggle or list yet; add one if a real
-  need for reviewing dead ends surfaces.
+## 13. The fallback when the model is unavailable
 
-## 7. Out of scope (from the brief, restated for reference)
-
-- A chat-log-first interface — the tree is the record, not a transcript.
-- A "whole inquiry" context bucket separate from the root question.
-- Deleting a rejected question or its descendants — rejection hides, it
-  never deletes (§2).
-- Any tool other than the ones already in the portal reusing this tool's
-  question tree.
-
-## 8. A note on the fallback when the model is unavailable
-
-If `OPENAI_API_KEY` is unset (or a call fails), Explore/Drill down/Discuss
-fail clearly rather than silently doing nothing (§3) — but a reporter isn't
-otherwise blocked. The inspector's "Add context" path and, for milestone 1,
-a plain "type a question directly" affordance on Explore/Drill down (typing
-bypasses the model and inserts the reporter's own text as the new
-sibling/child) mean the tree can still be built by hand. This mirrors this
-repo's standing rule that an optional external dependency's absence must
-never make a tool's core loop unusable, only its AI-assisted shortcut.
+Unchanged in spirit from milestone 1: if `OPENAI_API_KEY` is unset or a call
+fails, every AI-backed action fails clearly. The reporter can still add context
+manually (with its own evidentiary status), and Branch/Drill down still offer a
+"type your own" affordance that bypasses the model entirely and inserts the
+reporter's own text (with no diagnosis and no citations, since none was
+generated) — the tool's core loop never depends on the model being configured,
+only its reasoning assistance does.

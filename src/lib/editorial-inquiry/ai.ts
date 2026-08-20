@@ -1,30 +1,41 @@
 import "server-only";
 import OpenAI from "openai";
+import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
-// Editorial Inquiry's three model-backed operations: generate a sibling
-// question (Explore), generate a child question (Drill down), and take one
-// turn in a question's discuss thread. Reuses the `openai` dependency
-// src/lib/agent/chat.ts already brought in, but the calling shape is
-// different on purpose — see docs/editorial-inquiry-design.md §3. The agent
-// chat is a streamed, free-text tool-calling loop; every call here has one
-// well-defined answer shape, so this is this repo's first use of the
-// Responses API's JSON-schema structured output
-// (`text.format.type: "json_schema"`) rather than parsing free text. Calls
-// are synchronous `responses.create()`, not streamed — a generated question
-// or a discuss reply is a few sentences, not worth token-by-token rendering,
-// and it keeps the plain "await, then return a result" Server Action shape
-// the canvas UI already uses for every other mutation.
+// Editorial Inquiry's reasoning engine — one function, runEditorialTurn(),
+// handles Branch, Drill down, Evaluate, and every ordinary Discuss turn. See
+// docs/editorial-inquiry-design.md §7 for the full rationale; the short
+// version: milestone 1 used the Responses API's strict JSON-schema structured
+// output (text.format.type: "json_schema") for two separate calls (a
+// generator and a discuss turn). That approach can't cleanly produce natural
+// prose with inline web citations alongside an optional structural action, so
+// this revision uses the API's ordinary tool-calling shape instead — the same
+// general mechanism src/lib/agent/chat.ts already uses for the in-portal
+// agent, purpose-built here with a narrower, fixed tool set:
 //
-// Same optional-key posture as every other integration in this repo: absent
+//   - `web_search` — OpenAI's built-in tool. Resolved entirely server-side
+//     within the same API call; nothing in this repo executes a search or
+//     holds a search-provider key. Citations arrive as `url_citation`
+//     annotations on the reply's output text.
+//   - `propose_editorial_action` — a custom function tool, strict JSON
+//     schema. The model's one chance per turn to propose a structural action
+//     (branch/drilldown/context/reframe/diagnosis/assessment). Calling it is
+//     always optional (tool_choice: "auto") — a turn with no call is a plain
+//     reply, which is a decline by construction, not a special case to detect
+//     (design doc §6 "Letting the model decline").
+//
+// One non-streamed responses.create() call therefore returns, in one round
+// trip: zero or more resolved web searches, a prose reply with citations, and
+// at most one proposed action. Nothing about a proposed action executes
+// itself — the caller (this tool's actions.ts) reads it and performs the
+// matching write, exactly as milestone 1's discuss turn already did.
+//
+// Same optional-key posture as every integration in this repo: absent
 // OPENAI_API_KEY, every call here throws the same message chat.ts's
-// getOpenAIClient() throws, so an AI-backed action fails clearly rather than
-// silently doing nothing.
+// getOpenAIClient() throws.
 
 const MODEL = "gpt-5.4-mini";
-const MAX_OUTPUT_TOKENS = 1024;
-
-const VOICE =
-  'You are an editorial research assistant for a public radio newsroom, in NPR-member-station voice: calm, factual, precise, investigatable. No hype, no rhetorical flourishes, no emoji. A "story question" is something a reporter could actually go find out — specific enough to eventually point at documents, people, or data, not just a topic restated as a question.';
+const MAX_OUTPUT_TOKENS = 2048;
 
 let openaiClient: OpenAI | null = null;
 
@@ -38,101 +49,25 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
-/** Everything a generation or discuss call needs to answer well — see design doc §3. */
-export interface QuestionContext {
-  seedQuestion: string;
-  /** Root-first path down to the question being acted on, the last entry. */
-  ancestry: { depth: number; text: string }[];
-  /** Active siblings/children already at this position, so the model doesn't repeat an angle. */
-  existingRelated: string[];
-  /** Context notes inherited down this branch (own + every ancestor's). */
-  inheritedContext: { kind: string; body: string }[];
-}
+export type TurnMode = "discuss" | "branch" | "drilldown" | "evaluate";
 
-function contextBlock(context: QuestionContext): string {
-  const ancestryLines = context.ancestry.map((a) => `- (depth ${a.depth}) ${a.text}`).join("\n");
-  const existing = context.existingRelated.length
-    ? context.existingRelated.map((t) => `- ${t}`).join("\n")
-    : "(none yet)";
-  const notes = context.inheritedContext.length
-    ? context.inheritedContext.map((n) => `- [${n.kind}] ${n.body}`).join("\n")
-    : "(none)";
-  return `Guiding question for the whole inquiry: "${context.seedQuestion}"
-
-Path from the guiding question down to the question being acted on (the last line is the one being acted on):
-${ancestryLines}
-
-Already at this position in the tree — do not repeat one of these angles:
-${existing}
-
-Context notes attached to this branch:
-${notes}`;
-}
-
-function failedResponseError(response: {
-  status?: string;
-  error?: { message?: string } | null;
-}): Error {
-  return new Error(response.error?.message ?? "The assistant failed to respond.");
-}
-
-export interface GeneratedQuestion {
+export interface AncestryEntry {
+  depth: number;
   text: string;
-  hasAssumption: boolean;
-  assumptionText: string | null;
 }
 
-const GENERATED_QUESTION_SCHEMA = {
-  type: "object",
-  properties: {
-    question: { type: "string" },
-    has_assumption: { type: "boolean" },
-    assumption_text: { type: ["string", "null"] },
-  },
-  required: ["question", "has_assumption", "assumption_text"],
-  additionalProperties: false,
-} as const;
+export interface InheritedNoteContext {
+  kind: string;
+  body: string;
+  evidentiaryStatus: EvidentiaryStatus;
+  sourceTitle: string | null;
+  sourceUrl: string | null;
+}
 
-/** Explore (a sibling angle) or drill down (a narrower child) — one new question. */
-export async function generateRelatedQuestion(
-  kind: "sibling" | "child",
-  context: QuestionContext,
-): Promise<GeneratedQuestion> {
-  const client = getOpenAIClient();
-  const instructions =
-    kind === "sibling"
-      ? `${VOICE}\n\nGenerate ONE new sibling question for the question being acted on: a different angle at the same level, under the same parent — not narrower, not broader, a genuinely different way in. If the new question quietly rests on an assumption worth flagging, say so.`
-      : `${VOICE}\n\nGenerate ONE new child question for the question being acted on: something one level more specific that narrows it toward a concrete, reportable story question. If the new question quietly rests on an assumption worth flagging, say so.`;
-
-  const response = await client.responses.create({
-    model: MODEL,
-    instructions,
-    input: contextBlock(context),
-    max_output_tokens: MAX_OUTPUT_TOKENS,
-    reasoning: { effort: "low" },
-    store: false,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "generated_question",
-        schema: GENERATED_QUESTION_SCHEMA,
-        strict: true,
-      },
-    },
-  });
-
-  if (response.status === "failed") throw failedResponseError(response);
-
-  const parsed = JSON.parse(response.output_text) as {
-    question: string;
-    has_assumption: boolean;
-    assumption_text: string | null;
-  };
-  return {
-    text: parsed.question.trim(),
-    hasAssumption: parsed.has_assumption,
-    assumptionText: parsed.has_assumption ? parsed.assumption_text : null,
-  };
+export interface EditorialCriterionContext {
+  name: string;
+  description: string;
+  guidance: string | null;
 }
 
 export interface ChatTurnMessage {
@@ -140,65 +75,286 @@ export interface ChatTurnMessage {
   body: string;
 }
 
-export type DiscussAction =
-  | { kind: "reframe"; text: string }
-  | { kind: "sibling"; text: string }
-  | { kind: "context"; text: string }
-  | null;
-
-export interface DiscussResult {
-  reply: string;
-  action: DiscussAction;
+/** Everything one reasoning call needs — see design doc §7. */
+export interface EditorialTurnContext {
+  pillarName: string;
+  guidingQuestion: string;
+  /** Root-first path down to the question being acted on, the last entry. */
+  ancestry: AncestryEntry[];
+  /** Context notes inherited down this branch (own + every ancestor's), labeled by evidentiary status. */
+  inheritedContext: InheritedNoteContext[];
+  /** Active siblings (for branch) or children (for drilldown) already at this position, to avoid duplicating. */
+  existingRelated: string[];
+  /** Prior turns in this question's discuss thread, oldest first. */
+  priorMessages: ChatTurnMessage[];
+  /** WUWF's current core editorial criteria, from Editorial Planning — prose guidance, never a scoring target. */
+  criteria: EditorialCriterionContext[];
 }
 
-const DISCUSS_SCHEMA = {
-  type: "object",
-  properties: {
-    reply: { type: "string" },
-    action: {
-      type: "object",
-      properties: {
-        kind: { type: "string", enum: ["none", "reframe", "sibling", "context"] },
-        text: { type: ["string", "null"] },
+export interface ProposedAction {
+  kind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment";
+  text: string | null;
+  evidentiaryStatus: EvidentiaryStatus | null;
+  sourceTitle: string | null;
+  sourceUrl: string | null;
+  diagnosisKind: DiagnosisKind | null;
+}
+
+export interface TurnCitation {
+  title: string;
+  url: string;
+}
+
+export interface EditorialTurnResult {
+  reply: string;
+  citations: TurnCitation[];
+  action: ProposedAction | null;
+}
+
+const DIAGNOSIS_KINDS = [
+  "still_thematic",
+  "too_broad",
+  "compound_question",
+  "unverified_premise",
+  "already_known",
+  "unclear_stakes",
+  "no_uncertainty",
+  "implausible_reporting_path",
+  "trivial",
+  "descriptive_not_investigative",
+] as const;
+
+const EVIDENTIARY_STATUSES = [
+  "hunch",
+  "source_claim",
+  "established_fact",
+  "web_finding",
+  "inference",
+  "open_question",
+] as const;
+
+const VOICE = `You are an editorial reasoning assistant for a public radio newsroom (WUWF), in NPR-member-station voice: calm, factual, precise, investigatable. No hype, no rhetorical flourishes, no emoji.`;
+
+const REASONING_ORDER = `Your reasoning must follow this order, every time — never skip straight from the guiding question to a plausible-sounding invented question:
+
+  REAL-WORLD SIGNAL (something the reporter brought, or something you found)
+          +
+  WUWF'S GUIDING QUESTION (the durable question this whole inquiry organizes)
+          ->
+  WHAT IS ACTUALLY KNOWN?
+          ->
+  WHAT REMAINS UNKNOWN OR UNRESOLVED?
+          ->
+  LINES OF INQUIRY
+          ->
+  PROPERLY SCOPED STORY QUESTIONS
+          ->
+  EDITORIAL EVALUATION
+
+A branch or drill-down you propose has to trace back to something in that chain — the inherited context on the branch it's growing from, or something you just found by searching. You are not entitled to invent a new factual premise just to justify another branch existing. If the material on hand doesn't support a genuinely different or narrower angle, say so plainly instead of manufacturing one — declining is a normal, expected outcome, not a failure.`;
+
+const EDITORIAL_LEVELS = `Three levels, and it matters which one a question is at:
+
+- GUIDING QUESTION: durable, broad, organizes sustained coverage over time. Intentionally too large for one story. Never something you propose — it comes from a WUWF coverage pillar.
+- LINE OF INQUIRY: a meaningful dimension, tension, mechanism, uncertainty, change, or relationship within the guiding question. Capable of producing multiple stories over time. Normally still too broad to be one central reporting question on its own.
+- STORY QUESTION: the central unknown of one finite reporting project. A GOOD one is: genuinely open (not answer-presupposing), specific enough to investigate, consequential, appropriately bounded, grounded in a real uncertainty/tension/mechanism/decision/change/discrepancy, answerable through realistic reporting (sources, documents, records, data, observation), capable of producing discovery rather than illustrating something already known, and clear enough that a reporter can tell what evidence would answer it.
+
+Tree depth describes structure, not editorial quality. A deeply-nested question can still be a bad story question; a shallow one a reporter has genuinely narrowed through conversation can be ready sooner than its position suggests. Never treat "this has been drilled down enough times" as a substitute for actually checking the criteria above.`;
+
+const DIAGNOSIS_GUIDE = `When a question is not yet a strong story question, name the specific reason rather than handing back a vaguer restatement. The ten recognized reasons: still_thematic (still a topic/theme, not an investigable question), too_broad, compound_question (actually contains two or three separate questions), unverified_premise (assumes something not yet confirmed), already_known (the answer is already substantially established), unclear_stakes, no_uncertainty (nothing genuinely unresolved), implausible_reporting_path (no realistic way to actually answer it), trivial (specific but not consequential), descriptive_not_investigative (would produce description rather than discovery). When you diagnose one of these, try to fix that SPECIFIC problem when you propose a branch or drill-down — narrow a compound question into its real parts, name what needs verifying first, surface the actual uncertainty — not a generic narrower paraphrase.`;
+
+const EVIDENTIARY_DISCIPLINE = `Context attached to this inquiry is not all the same kind of true. Classify everything by evidentiary status: hunch (a reporter's instinct, nothing behind it yet), source_claim (something a source said, not independently verified), established_fact (confirmed from material the reporter trusts), web_finding (found via your own web search — always keep the title/URL), inference (something reasoned to, not directly observed), open_question (a known unknown, not a claim at all). NEVER treat a hunch or source_claim as though it were an established_fact when reasoning about what's actually known — that is exactly the failure this discipline exists to prevent. When you attach new context, classify it honestly; when a reporter's own words assert something as fact, and it hasn't been verified, treat it as a hunch or source_claim, not a fact, even if they state it confidently.`;
+
+function criteriaBlock(criteria: EditorialCriterionContext[]): string {
+  if (criteria.length === 0) {
+    return "(WUWF's current editorial criteria are not available right now — reason about newsworthiness and public value in general terms instead.)";
+  }
+  const lines = criteria
+    .map((c) => `- ${c.name}: ${c.description}${c.guidance ? ` (${c.guidance})` : ""}`)
+    .join("\n");
+  return `WUWF's current core editorial criteria — this is what WUWF considers strong journalism. Use it to INFORM judgment and critique. Never treat it as a target to reverse-engineer: do not shape a question to sound like it would score well against these criteria, and never emit a score or numeric rating against them yourself.\n${lines}`;
+}
+
+function contextBlock(context: EditorialTurnContext): string {
+  const ancestryLines = context.ancestry.map((a) => `- (depth ${a.depth}) ${a.text}`).join("\n");
+  const existing = context.existingRelated.length
+    ? context.existingRelated.map((t) => `- ${t}`).join("\n")
+    : "(none yet)";
+  const notes = context.inheritedContext.length
+    ? context.inheritedContext
+        .map((n) => {
+          const source = n.sourceUrl ? ` [${n.sourceTitle ?? n.sourceUrl}](${n.sourceUrl})` : "";
+          return `- [${n.evidentiaryStatus}] ${n.body}${source}`;
+        })
+        .join("\n")
+    : "(none)";
+
+  return `WUWF coverage pillar: ${context.pillarName}
+Guiding question for the whole inquiry: "${context.guidingQuestion}"
+
+Path from the guiding question down to the question being acted on (the last line is the one being acted on):
+${ancestryLines}
+
+Already at this position in the tree — do not duplicate one of these angles:
+${existing}
+
+Context inherited on this branch, each labeled with its evidentiary status:
+${notes}
+
+${criteriaBlock(context.criteria)}`;
+}
+
+const MODE_FRAMING: Record<TurnMode, string> = {
+  discuss: `This is an ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, distinguish a claim from a fact, identify what evidence is missing, search the web if current information would help answer them, or just answer plainly. You may, at most once, additionally propose ONE structural action via propose_editorial_action if the conversation genuinely warrants one (a branch, a drill-down, attaching what they told you as context, a reframe, a diagnosis of what's blocking readiness, or an editorial assessment) — most turns warrant none at all.`,
+  branch: `The reporter clicked Branch on this question: given the same established context and parent question, identify a genuinely different question or line of inquiry the material actually supports — not narrower, not broader, a different way in. It must not invent a new factual premise to justify the branch existing. If nothing in the current context or a quick search supports a genuinely different angle, say so plainly in your reply and do not call propose_editorial_action at all (or call it with kind "diagnosis" if there's something specific blocking it). If you do find a real branch, call propose_editorial_action with kind "branch".`,
+  drilldown: `The reporter clicked Drill down on this question: identify a more specific, still-unresolved question beneath it that meaningfully moves it toward reportability — responding to whatever is currently keeping it from being a strong story question (see the diagnosis reasons below), not a generic narrower paraphrase. If the question can't be usefully narrowed right now, say so and either call propose_editorial_action with kind "diagnosis" naming the specific reason, or don't call it at all. If you do find a real next question, call propose_editorial_action with kind "drilldown".`,
+  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments, both in your reply text. First: is this a well-formed, reportable story question by the structural criteria (open, specific, consequential, bounded, grounded in a real uncertainty, answerable through realistic reporting, capable of discovery, evidence-legible)? If not, name which of the ten diagnosis reasons applies. Second, and only after the first: would answering it likely make a strong WUWF story, reasoned against WUWF's current editorial criteria below — in prose, never a score. These are different questions with possibly different answers; do not collapse them into one verdict. If the first judgment finds a real problem, call propose_editorial_action with kind "diagnosis". Regardless, if you have something substantive to say about the second judgment, call propose_editorial_action with kind "assessment" carrying that discussion as its text (in addition to, or instead of, a diagnosis call — but only one call total, so if both apply, use whichever is more decision-relevant right now and cover the other in your reply text alone).`,
+};
+
+const PROPOSE_ACTION_TOOL = {
+  type: "function" as const,
+  name: "propose_editorial_action",
+  description:
+    "Optionally propose ONE structural action arising from this turn. Do not call this at all if a plain reply is enough — declining to act is a normal, expected outcome, not something to avoid.",
+  strict: true,
+  parameters: {
+    type: "object",
+    properties: {
+      kind: {
+        type: "string",
+        enum: ["branch", "drilldown", "context", "reframe", "diagnosis", "assessment"],
+        description:
+          "branch/drilldown: a new question (give its full text). context: attach what the reporter told you as a context note. reframe: propose a rewritten version of the CURRENT question (the reporter applies it, you don't). diagnosis: explain what's blocking story-readiness, naming one of the ten reasons. assessment: a qualitative editorial-value discussion against current criteria, never a score.",
       },
-      required: ["kind", "text"],
-      additionalProperties: false,
+      text: {
+        type: ["string", "null"],
+        description:
+          "The new question's full text (branch/drilldown), the context note's body (context), the reframed question's full text (reframe), or the assessment discussion (assessment). Null for diagnosis — diagnosis_kind names the reason instead.",
+      },
+      evidentiary_status: {
+        type: ["string", "null"],
+        enum: [...EVIDENTIARY_STATUSES, null],
+        description:
+          "Required (non-null) only when kind is context — your honest classification of what you're attaching.",
+      },
+      source_title: {
+        type: ["string", "null"],
+        description:
+          "Only when kind is context and evidentiary_status is web_finding: the source's title.",
+      },
+      source_url: {
+        type: ["string", "null"],
+        description:
+          "Only when kind is context and evidentiary_status is web_finding: the source's URL.",
+      },
+      diagnosis_kind: {
+        type: ["string", "null"],
+        enum: [...DIAGNOSIS_KINDS, null],
+        description: "Required (non-null) only when kind is diagnosis.",
+      },
     },
+    required: [
+      "kind",
+      "text",
+      "evidentiary_status",
+      "source_title",
+      "source_url",
+      "diagnosis_kind",
+    ],
+    additionalProperties: false,
   },
-  required: ["reply", "action"],
-  additionalProperties: false,
-} as const;
+};
+
+function extractCitations(response: OpenAI.Responses.Response): TurnCitation[] {
+  const citations: TurnCitation[] = [];
+  for (const item of response.output) {
+    if (item.type !== "message") continue;
+    for (const part of item.content) {
+      if (part.type !== "output_text") continue;
+      for (const annotation of part.annotations ?? []) {
+        if (annotation.type === "url_citation") {
+          citations.push({ title: annotation.title, url: annotation.url });
+        }
+      }
+    }
+  }
+  return citations;
+}
+
+function extractReplyText(response: OpenAI.Responses.Response): string {
+  const parts: string[] = [];
+  for (const item of response.output) {
+    if (item.type !== "message") continue;
+    for (const part of item.content) {
+      if (part.type === "output_text") parts.push(part.text);
+    }
+  }
+  return parts.join("\n\n").trim();
+}
+
+function extractProposedAction(response: OpenAI.Responses.Response): ProposedAction | null {
+  for (const item of response.output) {
+    if (item.type !== "function_call" || item.name !== "propose_editorial_action") continue;
+    try {
+      const parsed = JSON.parse(item.arguments) as {
+        kind: ProposedAction["kind"];
+        text: string | null;
+        evidentiary_status: EvidentiaryStatus | null;
+        source_title: string | null;
+        source_url: string | null;
+        diagnosis_kind: DiagnosisKind | null;
+      };
+      return {
+        kind: parsed.kind,
+        text: parsed.text?.trim() || null,
+        evidentiaryStatus: parsed.evidentiary_status,
+        sourceTitle: parsed.source_title,
+        sourceUrl: parsed.source_url,
+        diagnosisKind: parsed.diagnosis_kind,
+      };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 /**
- * One turn of a discuss thread scoped to one question. The model may reply
- * plainly, or additionally propose a reframe (the reporter applies it with a
- * click — never automatic), spin off a sibling, or attach a context note
- * (both of the latter execute immediately, per design doc §2/§4).
+ * One turn of editorial reasoning about one question — Branch, Drill down,
+ * Evaluate, or an ordinary Discuss message all funnel through here (design
+ * doc §7). `userMessage` is either the reporter's own words (discuss) or a
+ * fixed canned directive (branch/drilldown/evaluate — see actions.ts) so
+ * every mode runs through the identical pipeline and lands in the same
+ * visible thread.
  */
-export async function runDiscussTurn(
-  question: { text: string; hasAssumption: boolean; assumptionText: string | null },
-  context: QuestionContext,
-  priorMessages: ChatTurnMessage[],
+export async function runEditorialTurn(
+  mode: TurnMode,
+  question: { text: string; diagnosisKind: DiagnosisKind | null; diagnosisNote: string | null },
+  context: EditorialTurnContext,
   userMessage: string,
-): Promise<DiscussResult> {
+): Promise<EditorialTurnResult> {
   const client = getOpenAIClient();
-  const assumptionNote = question.hasAssumption
-    ? ` It's currently flagged as resting on an assumption: "${question.assumptionText}".`
+
+  const diagnosisNote = question.diagnosisKind
+    ? `\n\nThis question is currently diagnosed as "${question.diagnosisKind}"${question.diagnosisNote ? `: ${question.diagnosisNote}` : ""}.`
     : "";
+
   const instructions = `${VOICE}
 
-You are discussing exactly one question with the reporter: "${question.text}"${assumptionNote}
+${REASONING_ORDER}
 
-Reply plainly to what the reporter said — challenge an assumption, concede a fair point, or just answer. You may, at most once per turn, additionally take ONE of these actions:
-- "reframe": propose a rewritten version of THIS question for the reporter to apply — use this when they've surfaced a real problem with how it's framed. You are proposing it, not applying it.
-- "sibling": spin off a new, different-angle question at the same level as this one, under the same parent — use this when the discussion surfaces a genuinely different angle worth its own branch (e.g. another stakeholder's perspective). Executes immediately.
-- "context": attach what the reporter just told you as a context note on this question's branch — use this when they've given you a fact, source, or observation worth remembering rather than something that changes the question itself. Executes immediately.
-- "none": just reply, no tree action.
+${EDITORIAL_LEVELS}
 
-When you take an action, "text" is the full text of the reframe/sibling question or the context note's body. Otherwise "text" is null.
+${DIAGNOSIS_GUIDE}
+
+${EVIDENTIARY_DISCIPLINE}
+
+You are working on exactly one question: "${question.text}"${diagnosisNote}
+
+${MODE_FRAMING[mode]}
 
 Prior conversation on this question, oldest first:
-${priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
+${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
 
 ${contextBlock(context)}`;
 
@@ -207,22 +363,25 @@ ${contextBlock(context)}`;
     instructions,
     input: userMessage,
     max_output_tokens: MAX_OUTPUT_TOKENS,
-    reasoning: { effort: "low" },
+    // Deviates from this repo's usual "low" reasoning effort (see chat.ts) —
+    // deliberately: distinguishing evidentiary status, diagnosing a specific
+    // one of ten reasons, and keeping two editorial judgments separate is a
+    // more demanding reasoning task than a single generation or a general
+    // tool-calling loop.
+    reasoning: { effort: "medium" },
     store: false,
-    text: {
-      format: { type: "json_schema", name: "discuss_turn", schema: DISCUSS_SCHEMA, strict: true },
-    },
+    tools: [{ type: "web_search" }, PROPOSE_ACTION_TOOL],
+    tool_choice: "auto",
+    include: ["web_search_call.action.sources"],
   });
 
-  if (response.status === "failed") throw failedResponseError(response);
+  if (response.status === "failed") {
+    throw new Error(response.error?.message ?? "The assistant failed to respond.");
+  }
 
-  const parsed = JSON.parse(response.output_text) as {
-    reply: string;
-    action: { kind: "none" | "reframe" | "sibling" | "context"; text: string | null };
+  return {
+    reply: extractReplyText(response),
+    citations: extractCitations(response),
+    action: extractProposedAction(response),
   };
-  const action: DiscussAction =
-    parsed.action.kind === "none" || !parsed.action.text
-      ? null
-      : { kind: parsed.action.kind, text: parsed.action.text.trim() };
-  return { reply: parsed.reply.trim(), action };
 }

@@ -5,10 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import {
-  generateRelatedQuestion,
-  runDiscussTurn,
+  runEditorialTurn,
   type ChatTurnMessage,
-  type QuestionContext,
+  type EditorialTurnContext,
+  type TurnMode,
 } from "@/lib/editorial-inquiry/ai";
 import {
   getInquiryDetail,
@@ -16,11 +16,18 @@ import {
   type ChatMessageRecord,
 } from "@/lib/editorial-inquiry/queries";
 import {
+  getActivePillarName,
+  listCurrentCoreCriteria,
+} from "@/lib/editorial-inquiry/editorial-planning";
+import { buildPitchHandoffDraft, pitchHandoffUrl } from "@/lib/editorial-inquiry/pitch-handoff";
+import {
   activeChildren,
   ancestryPath,
   inheritedContextNotes,
   type ContextNoteKind,
   type ContextNoteRecord,
+  type DiagnosisKind,
+  type EvidentiaryStatus,
   type QuestionRecord,
 } from "@/lib/editorial-inquiry/tree";
 
@@ -42,22 +49,104 @@ function err<T>(error: unknown): ActionResult<T> {
 /** Real HTML form, redirect-based like the rest of the portal — see design doc §3. */
 export async function startNewInquiry(formData: FormData): Promise<void> {
   await assertToolAccess(TOOL_KEY);
-  const seedQuestion = String(formData.get("seed_question") ?? "").trim();
-  if (!seedQuestion) failWith(LIST_PATH, "A guiding question is required to start an inquiry.");
+  const pillarId = String(formData.get("pillar_id") ?? "").trim();
+  if (!pillarId) failWith(LIST_PATH, "Choose a guiding question to start an inquiry.");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("ei_create_inquiry", {
-    p_seed_question: seedQuestion,
-  });
+  const { data, error } = await supabase.rpc("ei_create_inquiry", { p_pillar_id: pillarId });
   failIfError(error, LIST_PATH, "Could not start that inquiry");
 
   redirect(`${LIST_PATH}?inquiry=${data!.id}`);
 }
 
-async function loadQuestionAndContext(
+function toQuestionRecord(data: {
+  id: string;
+  inquiry_id: string;
+  parent_id: string | null;
+  depth: number;
+  text: string;
+  status: string;
+  diagnosis_kind: string | null;
+  diagnosis_note: string | null;
+  reframed_from_text: string | null;
+  manual_dx: number | null;
+  manual_dy: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}): QuestionRecord {
+  return {
+    id: data.id,
+    inquiryId: data.inquiry_id,
+    parentId: data.parent_id,
+    depth: data.depth,
+    text: data.text,
+    status: data.status as QuestionRecord["status"],
+    diagnosisKind: data.diagnosis_kind as DiagnosisKind | null,
+    diagnosisNote: data.diagnosis_note,
+    reframedFromText: data.reframed_from_text,
+    manualDx: data.manual_dx,
+    manualDy: data.manual_dy,
+    createdBy: data.created_by,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+function toContextNoteRecord(data: {
+  id: string;
+  question_id: string;
+  kind: string;
+  body: string;
+  evidentiary_status: string;
+  source_title: string | null;
+  source_url: string | null;
+  created_by: string | null;
+  created_at: string;
+}): ContextNoteRecord {
+  return {
+    id: data.id,
+    questionId: data.question_id,
+    kind: data.kind as ContextNoteKind,
+    body: data.body,
+    evidentiaryStatus: data.evidentiary_status as EvidentiaryStatus,
+    sourceTitle: data.source_title,
+    sourceUrl: data.source_url,
+    createdBy: data.created_by,
+    createdAt: data.created_at,
+  };
+}
+
+function toChatMessageRecord(row: {
+  id: string;
+  question_id: string;
+  role: string;
+  body: string;
+  action_kind: string | null;
+  action_payload: unknown;
+  citations: unknown;
+  applied_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}): ChatMessageRecord {
+  return {
+    id: row.id,
+    questionId: row.question_id,
+    role: row.role as "user" | "assistant",
+    body: row.body,
+    actionKind: row.action_kind as ChatMessageRecord["actionKind"],
+    actionPayload: row.action_payload as Record<string, unknown> | null,
+    citations: row.citations as { title: string; url: string }[] | null,
+    appliedAt: row.applied_at,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+  };
+}
+
+async function loadTurnContext(
   questionId: string,
-  kind: "sibling" | "child" | "discuss",
-): Promise<{ inquiryId: string; question: QuestionRecord; context: QuestionContext }> {
+  mode: TurnMode,
+): Promise<{ inquiryId: string; question: QuestionRecord; context: EditorialTurnContext }> {
   const supabase = await createClient();
   const { data: questionRow, error } = await supabase
     .from("ei_questions")
@@ -79,7 +168,7 @@ async function loadQuestionAndContext(
       return { depth: q.depth, text: q.text };
     });
 
-  const relatedParentId = kind === "child" ? question.id : question.parentId;
+  const relatedParentId = mode === "drilldown" ? question.id : question.parentId;
   const existingRelated = relatedParentId
     ? activeChildren(detail.questions, relatedParentId)
         .filter((q) => q.id !== question.id)
@@ -90,16 +179,27 @@ async function loadQuestionAndContext(
     detail.questions,
     detail.contextNotes,
     questionId,
-  ).map((r) => ({ kind: r.note.kind, body: r.note.body }));
+  ).map((r) => ({
+    kind: r.note.kind,
+    body: r.note.body,
+    evidentiaryStatus: r.note.evidentiaryStatus,
+    sourceTitle: r.note.sourceTitle,
+    sourceUrl: r.note.sourceUrl,
+  }));
+
+  const criteria = await listCurrentCoreCriteria();
 
   return {
     inquiryId: questionRow.inquiry_id,
     question,
     context: {
-      seedQuestion: detail.inquiry.seedQuestion,
+      pillarName: detail.inquiry.pillarName,
+      guidingQuestion: detail.inquiry.guidingQuestion,
       ancestry,
-      existingRelated,
       inheritedContext,
+      existingRelated,
+      priorMessages: [],
+      criteria,
     },
   };
 }
@@ -109,8 +209,6 @@ async function insertQuestion(params: {
   parentId: string;
   depth: number;
   text: string;
-  hasAssumption: boolean;
-  assumptionText: string | null;
   createdBy: string;
 }): Promise<QuestionRecord> {
   const supabase = await createClient();
@@ -121,80 +219,19 @@ async function insertQuestion(params: {
       parent_id: params.parentId,
       depth: params.depth,
       text: params.text,
-      has_assumption: params.hasAssumption,
-      assumption_text: params.assumptionText,
       created_by: params.createdBy,
     })
     .select("*")
     .single();
   if (error || !data) throw new Error(error?.message ?? "Could not add that question.");
-  return {
-    id: data.id,
-    inquiryId: data.inquiry_id,
-    parentId: data.parent_id,
-    depth: data.depth,
-    text: data.text,
-    status: data.status as QuestionRecord["status"],
-    hasAssumption: data.has_assumption,
-    assumptionText: data.assumption_text,
-    reframedFromText: data.reframed_from_text,
-    manualDx: data.manual_dx,
-    manualDy: data.manual_dy,
-    createdBy: data.created_by,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
-}
-
-/** Explore: a new sibling angle, generated by the model. */
-export async function exploreQuestion(questionId: string): Promise<ActionResult<QuestionRecord>> {
-  try {
-    const { profile } = await assertToolAccess(TOOL_KEY);
-    const { inquiryId, question, context } = await loadQuestionAndContext(questionId, "sibling");
-    if (question.depth < 1 || !question.parentId) {
-      throw new Error("The guiding question has no sibling to explore.");
-    }
-    const generated = await generateRelatedQuestion("sibling", context);
-    const created = await insertQuestion({
-      inquiryId,
-      parentId: question.parentId,
-      depth: question.depth,
-      text: generated.text,
-      hasAssumption: generated.hasAssumption,
-      assumptionText: generated.assumptionText,
-      createdBy: profile.id,
-    });
-    return ok(created);
-  } catch (error) {
-    return err(error);
-  }
-}
-
-/** Drill down: a new, narrower child, generated by the model. */
-export async function drillDownQuestion(questionId: string): Promise<ActionResult<QuestionRecord>> {
-  try {
-    const { profile } = await assertToolAccess(TOOL_KEY);
-    const { inquiryId, question, context } = await loadQuestionAndContext(questionId, "child");
-    const generated = await generateRelatedQuestion("child", context);
-    const created = await insertQuestion({
-      inquiryId,
-      parentId: question.id,
-      depth: question.depth + 1,
-      text: generated.text,
-      hasAssumption: generated.hasAssumption,
-      assumptionText: generated.assumptionText,
-      createdBy: profile.id,
-    });
-    return ok(created);
-  } catch (error) {
-    return err(error);
-  }
+  return toQuestionRecord(data);
 }
 
 /**
  * The manual fallback when the model is unavailable or a reporter just
- * wants to type their own angle — see design doc §8. Bypasses ai.ts
- * entirely; the reporter's own text becomes the new sibling/child.
+ * wants to type their own angle — see design doc §13. Bypasses ai.ts
+ * entirely; the reporter's own text becomes the new sibling/child, with no
+ * diagnosis (nothing generated it) and no citations (nothing was searched).
  */
 export async function addQuestionManually(
   questionId: string,
@@ -221,8 +258,6 @@ export async function addQuestionManually(
         parentId: questionRow.parent_id,
         depth: questionRow.depth,
         text: trimmed,
-        hasAssumption: false,
-        assumptionText: null,
         createdBy: profile.id,
       });
       return ok(created);
@@ -233,8 +268,6 @@ export async function addQuestionManually(
       parentId: questionRow.id,
       depth: questionRow.depth + 1,
       text: trimmed,
-      hasAssumption: false,
-      assumptionText: null,
       createdBy: profile.id,
     });
     return ok(created);
@@ -299,6 +332,7 @@ export async function addContextNote(
   questionId: string,
   kind: ContextNoteKind,
   body: string,
+  evidentiaryStatus: EvidentiaryStatus,
 ): Promise<ActionResult<ContextNoteRecord>> {
   try {
     const { profile } = await assertToolAccess(TOOL_KEY);
@@ -308,18 +342,17 @@ export async function addContextNote(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("ei_context_notes")
-      .insert({ question_id: questionId, kind, body: trimmed, created_by: profile.id })
+      .insert({
+        question_id: questionId,
+        kind,
+        body: trimmed,
+        evidentiary_status: evidentiaryStatus,
+        created_by: profile.id,
+      })
       .select("*")
       .single();
     if (error || !data) throw new Error(error?.message ?? "Could not add that context.");
-    return ok({
-      id: data.id,
-      questionId: data.question_id,
-      kind: data.kind as ContextNoteKind,
-      body: data.body,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-    });
+    return ok(toContextNoteRecord(data));
   } catch (error) {
     return err(error);
   }
@@ -337,60 +370,45 @@ export async function loadDiscussThread(
   }
 }
 
-function toChatMessageRecord(row: {
-  id: string;
-  question_id: string;
-  role: string;
-  body: string;
-  action_kind: string | null;
-  action_payload: unknown;
-  applied_at: string | null;
-  created_by: string | null;
-  created_at: string;
-}): ChatMessageRecord {
-  return {
-    id: row.id,
-    questionId: row.question_id,
-    role: row.role as "user" | "assistant",
-    body: row.body,
-    actionKind: row.action_kind as ChatMessageRecord["actionKind"],
-    actionPayload: row.action_payload as Record<string, unknown> | null,
-    appliedAt: row.applied_at,
-    createdBy: row.created_by,
-    createdAt: row.created_at,
-  };
-}
-
-export interface DiscussTurnResult {
+export interface EditorialTurnOutcome {
   userMessage: ChatMessageRecord;
   assistantMessage: ChatMessageRecord;
-  /** Set when the model spun off a sibling immediately, per design doc §4. */
+  /** Set when the model branched/drilled down immediately (design doc §7/§9). */
   createdQuestion: QuestionRecord | null;
   /** Set when the model attached a context note immediately. */
   createdContextNote: ContextNoteRecord | null;
+  /** Set when the model wrote a diagnosis onto the acted-on question. */
+  updatedQuestion: QuestionRecord | null;
 }
 
-/** One turn of a question's discuss thread — see design doc §2/§4 for what each action kind does. */
-export async function sendDiscussMessage(
+/**
+ * The one place every editorial turn runs — Branch, Drill down, Evaluate,
+ * and ordinary Discuss messages all call this with a different `mode` and
+ * `userMessage` (a canned directive for the first three, the reporter's own
+ * words for the last). See design doc §7.
+ */
+async function performEditorialTurn(
   questionId: string,
-  message: string,
-): Promise<ActionResult<DiscussTurnResult>> {
+  mode: TurnMode,
+  userMessage: string,
+): Promise<ActionResult<EditorialTurnOutcome>> {
   try {
     const { profile } = await assertToolAccess(TOOL_KEY);
-    const trimmed = message.trim();
+    const trimmed = userMessage.trim();
     if (!trimmed) throw new Error("A message is required.");
 
-    const { inquiryId, question, context } = await loadQuestionAndContext(questionId, "discuss");
+    const { inquiryId, question, context } = await loadTurnContext(questionId, mode);
     const supabase = await createClient();
 
-    const priorRows = (
-      await supabase
-        .from("ei_chat_messages")
-        .select("*")
-        .eq("question_id", questionId)
-        .order("created_at")
-    ).data;
-    const priorMessages: ChatTurnMessage[] = (priorRows ?? []).map((row) => ({
+    const priorRows =
+      (
+        await supabase
+          .from("ei_chat_messages")
+          .select("*")
+          .eq("question_id", questionId)
+          .order("created_at")
+      ).data ?? [];
+    const priorMessages: ChatTurnMessage[] = priorRows.map((row) => ({
       role: row.role as "user" | "assistant",
       body: row.body,
     }));
@@ -403,64 +421,86 @@ export async function sendDiscussMessage(
     if (userError || !userRow)
       throw new Error(userError?.message ?? "Could not send that message.");
 
-    const result = await runDiscussTurn(
+    const result = await runEditorialTurn(
+      mode,
       {
         text: question.text,
-        hasAssumption: question.hasAssumption,
-        assumptionText: question.assumptionText,
+        diagnosisKind: question.diagnosisKind,
+        diagnosisNote: question.diagnosisNote,
       },
-      context,
-      priorMessages,
+      { ...context, priorMessages },
       trimmed,
     );
 
     let createdQuestion: QuestionRecord | null = null;
     let createdContextNote: ContextNoteRecord | null = null;
+    let updatedQuestion: QuestionRecord | null = null;
     let actionPayload: Record<string, unknown> | null = null;
     let appliedAt: string | null = null;
 
-    if (result.action?.kind === "sibling") {
+    const action = result.action;
+    if (action?.kind === "branch" && action.text) {
       if (!question.parentId) {
-        // The root has no sibling to spin off — treat as a plain reply.
+        // The root has no sibling to branch into — nothing to do.
       } else {
         createdQuestion = await insertQuestion({
           inquiryId,
           parentId: question.parentId,
           depth: question.depth,
-          text: result.action.text,
-          hasAssumption: false,
-          assumptionText: null,
+          text: action.text,
           createdBy: profile.id,
         });
         actionPayload = { questionId: createdQuestion.id };
         appliedAt = new Date().toISOString();
       }
-    } else if (result.action?.kind === "context") {
+    } else if (action?.kind === "drilldown" && action.text) {
+      createdQuestion = await insertQuestion({
+        inquiryId,
+        parentId: question.id,
+        depth: question.depth + 1,
+        text: action.text,
+        createdBy: profile.id,
+      });
+      actionPayload = { questionId: createdQuestion.id };
+      appliedAt = new Date().toISOString();
+    } else if (action?.kind === "context" && action.text) {
       const { data: noteRow, error: noteError } = await supabase
         .from("ei_context_notes")
         .insert({
           question_id: questionId,
           kind: "note",
-          body: result.action.text,
+          body: action.text,
+          evidentiary_status: action.evidentiaryStatus ?? "inference",
+          source_title: action.sourceTitle,
+          source_url: action.sourceUrl,
           created_by: profile.id,
         })
         .select("*")
         .single();
       if (noteError || !noteRow)
         throw new Error(noteError?.message ?? "Could not attach that context.");
-      createdContextNote = {
-        id: noteRow.id,
-        questionId: noteRow.question_id,
-        kind: noteRow.kind as ContextNoteKind,
-        body: noteRow.body,
-        createdBy: noteRow.created_by,
-        createdAt: noteRow.created_at,
-      };
+      createdContextNote = toContextNoteRecord(noteRow);
       actionPayload = { contextNoteId: createdContextNote.id };
       appliedAt = new Date().toISOString();
-    } else if (result.action?.kind === "reframe") {
-      actionPayload = { text: result.action.text };
+    } else if (action?.kind === "reframe" && action.text) {
+      actionPayload = { text: action.text };
       // appliedAt stays null — the reporter applies a reframe explicitly.
+    } else if (action?.kind === "diagnosis" && action.diagnosisKind) {
+      const { data: updatedRow, error: diagnosisError } = await supabase
+        .from("ei_questions")
+        .update({ diagnosis_kind: action.diagnosisKind, diagnosis_note: result.reply })
+        .eq("id", questionId)
+        .select("*")
+        .single();
+      if (diagnosisError || !updatedRow) {
+        throw new Error(diagnosisError?.message ?? "Could not record that diagnosis.");
+      }
+      updatedQuestion = toQuestionRecord(updatedRow);
+      actionPayload = { diagnosisKind: action.diagnosisKind };
+      appliedAt = new Date().toISOString();
+    } else if (action?.kind === "assessment" && action.text) {
+      actionPayload = { text: action.text };
+      appliedAt = new Date().toISOString();
     }
 
     const { data: assistantRow, error: assistantError } = await supabase
@@ -469,8 +509,11 @@ export async function sendDiscussMessage(
         question_id: questionId,
         role: "assistant",
         body: result.reply,
-        action_kind: result.action?.kind ?? null,
+        action_kind: actionPayload ? action!.kind : null,
         action_payload: actionPayload,
+        citations: result.citations.length
+          ? (result.citations as unknown as Record<string, unknown>[])
+          : null,
         applied_at: appliedAt,
       })
       .select("*")
@@ -484,10 +527,43 @@ export async function sendDiscussMessage(
       assistantMessage: toChatMessageRecord(assistantRow),
       createdQuestion,
       createdContextNote,
+      updatedQuestion,
     });
   } catch (error) {
     return err(error);
   }
+}
+
+const BRANCH_DIRECTIVE =
+  "Branch: look for a genuinely different angle here, grounded in what's already established. If the material doesn't support one, say so.";
+const DRILLDOWN_DIRECTIVE =
+  "Drill down: find a more specific, still-unresolved question beneath this one that moves it toward reportability. If there isn't one yet, say so.";
+const EVALUATE_DIRECTIVE =
+  "Evaluate this as a candidate story question: is it well-formed and reportable, and separately, would answering it likely make a strong WUWF story given our current editorial priorities?";
+
+export async function branchQuestion(
+  questionId: string,
+): Promise<ActionResult<EditorialTurnOutcome>> {
+  return performEditorialTurn(questionId, "branch", BRANCH_DIRECTIVE);
+}
+
+export async function drillDownQuestion(
+  questionId: string,
+): Promise<ActionResult<EditorialTurnOutcome>> {
+  return performEditorialTurn(questionId, "drilldown", DRILLDOWN_DIRECTIVE);
+}
+
+export async function evaluateQuestion(
+  questionId: string,
+): Promise<ActionResult<EditorialTurnOutcome>> {
+  return performEditorialTurn(questionId, "evaluate", EVALUATE_DIRECTIVE);
+}
+
+export async function sendDiscussMessage(
+  questionId: string,
+  message: string,
+): Promise<ActionResult<EditorialTurnOutcome>> {
+  return performEditorialTurn(questionId, "discuss", message);
 }
 
 /** Applies a discuss-proposed reframe: overwrites the question's text, records the prior text as a breadcrumb. */
@@ -522,22 +598,51 @@ export async function applyReframe(
       .eq("id", messageId);
     if (messageError) throw new Error(messageError.message);
 
-    return ok({
-      id: updated.id,
-      inquiryId: updated.inquiry_id,
-      parentId: updated.parent_id,
-      depth: updated.depth,
-      text: updated.text,
-      status: updated.status as QuestionRecord["status"],
-      hasAssumption: updated.has_assumption,
-      assumptionText: updated.assumption_text,
-      reframedFromText: updated.reframed_from_text,
-      manualDx: updated.manual_dx,
-      manualDy: updated.manual_dy,
-      createdBy: updated.created_by,
-      createdAt: updated.created_at,
-      updatedAt: updated.updated_at,
+    return ok(toQuestionRecord(updated));
+  } catch (error) {
+    return err(error);
+  }
+}
+
+/**
+ * Develop a promoted question into an Editorial Planning pitch (design doc
+ * §8). Does not write ep_pitches directly — hands off to Editorial
+ * Planning's own editorial.pitch.save capability, the same write path the
+ * pitch form itself uses, so a developed pitch is an ordinary `open` pitch
+ * afterward. Always reporter-initiated: called only when the reporter clicks
+ * through, never automatically on promotion.
+ */
+export async function getPitchHandoffUrl(questionId: string): Promise<ActionResult<string>> {
+  try {
+    await assertToolAccess(TOOL_KEY);
+    const supabase = await createClient();
+    const { data: questionRow, error } = await supabase
+      .from("ei_questions")
+      .select("*")
+      .eq("id", questionId)
+      .single();
+    if (error || !questionRow) throw new Error("Could not find that question.");
+    if (questionRow.status !== "promoted") {
+      throw new Error("Only a promoted question can be developed into a pitch.");
+    }
+
+    const detail = await getInquiryDetail(questionRow.inquiry_id);
+    if (!detail) throw new Error("Could not find that question's inquiry.");
+
+    const pillarName =
+      (await getActivePillarName(detail.inquiry.pillarId)) ?? detail.inquiry.pillarName;
+    const inheritedNotes = inheritedContextNotes(
+      detail.questions,
+      detail.contextNotes,
+      questionId,
+    ).map((r) => r.note);
+
+    const draft = buildPitchHandoffDraft({
+      storyQuestion: { text: questionRow.text },
+      pillarName,
+      inheritedNotes,
     });
+    return ok(pitchHandoffUrl(draft));
   } catch (error) {
     return err(error);
   }

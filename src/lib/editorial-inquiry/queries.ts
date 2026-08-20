@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
-import type { ContextNoteRecord, QuestionRecord } from "./tree";
+import type { ContextNoteRecord, DiagnosisKind, EvidentiaryStatus, QuestionRecord } from "./tree";
 
 /**
  * Data access for Editorial Inquiry. Every read goes through the RLS-scoped
@@ -10,7 +10,8 @@ import type { ContextNoteRecord, QuestionRecord } from "./tree";
  * decides what comes back — these functions add shape, not authorization.
  * Reads are unwrapped rather than defaulted to `[]`, per CLAUDE.md: a query
  * that errors and falls back to empty renders exactly like a healthy empty
- * inquiry.
+ * inquiry. Reads of Editorial Planning's own tables (guiding questions,
+ * criteria) live in editorial-planning.ts, not here — see that file.
  */
 
 export type EiInquiryRow = Database["public"]["Tables"]["ei_inquiries"]["Row"];
@@ -20,7 +21,9 @@ export type EiChatMessageRow = Database["public"]["Tables"]["ei_chat_messages"][
 
 export interface InquirySummary {
   id: string;
-  seedQuestion: string;
+  pillarId: string | null;
+  pillarName: string;
+  guidingQuestion: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,8 +36,8 @@ function toQuestionRecord(row: EiQuestionRow): QuestionRecord {
     depth: row.depth,
     text: row.text,
     status: row.status as QuestionRecord["status"],
-    hasAssumption: row.has_assumption,
-    assumptionText: row.assumption_text,
+    diagnosisKind: row.diagnosis_kind as DiagnosisKind | null,
+    diagnosisNote: row.diagnosis_note,
     reframedFromText: row.reframed_from_text,
     manualDx: row.manual_dx,
     manualDy: row.manual_dy,
@@ -50,8 +53,22 @@ function toContextNoteRecord(row: EiContextNoteRow): ContextNoteRecord {
     questionId: row.question_id,
     kind: row.kind as ContextNoteRecord["kind"],
     body: row.body,
+    evidentiaryStatus: row.evidentiary_status as EvidentiaryStatus,
+    sourceTitle: row.source_title,
+    sourceUrl: row.source_url,
     createdBy: row.created_by,
     createdAt: row.created_at,
+  };
+}
+
+function toInquirySummary(row: EiInquiryRow): InquirySummary {
+  return {
+    id: row.id,
+    pillarId: row.pillar_id,
+    pillarName: row.pillar_name_snapshot,
+    guidingQuestion: row.guiding_question_text,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -63,12 +80,7 @@ export async function listInquiries(): Promise<InquirySummary[]> {
       await supabase.from("ei_inquiries").select("*").order("updated_at", { ascending: false }),
       "the saved inquiries",
     ) ?? [];
-  return rows.map((row) => ({
-    id: row.id,
-    seedQuestion: row.seed_question,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
+  return rows.map(toInquirySummary);
 }
 
 export interface InquiryDetail {
@@ -109,12 +121,7 @@ export async function getInquiryDetail(inquiryId: string): Promise<InquiryDetail
     : [];
 
   return {
-    inquiry: {
-      id: inquiryRow.id,
-      seedQuestion: inquiryRow.seed_question,
-      createdAt: inquiryRow.created_at,
-      updatedAt: inquiryRow.updated_at,
-    },
+    inquiry: toInquirySummary(inquiryRow),
     questions: questionRows.map(toQuestionRecord),
     contextNotes: contextNoteRows.map(toContextNoteRecord),
   };
@@ -125,8 +132,9 @@ export interface ChatMessageRecord {
   questionId: string;
   role: "user" | "assistant";
   body: string;
-  actionKind: "reframe" | "sibling" | "context" | null;
+  actionKind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment" | null;
   actionPayload: Record<string, unknown> | null;
+  citations: { title: string; url: string }[] | null;
   appliedAt: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -151,6 +159,7 @@ export async function getQuestionChat(questionId: string): Promise<ChatMessageRe
     body: row.body,
     actionKind: row.action_kind as ChatMessageRecord["actionKind"],
     actionPayload: row.action_payload as Record<string, unknown> | null,
+    citations: row.citations as { title: string; url: string }[] | null,
     appliedAt: row.applied_at,
     createdBy: row.created_by,
     createdAt: row.created_at,

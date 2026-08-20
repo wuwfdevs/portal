@@ -199,6 +199,16 @@
 // preview project, field-by-field diffed; every field matched. Kept this
 // file's own compact Insert/Update-as-Partial<Row> idiom rather than the
 // generator's fully-spelled-out blocks, matching every other table here.
+// Hand-reconciled again on 2026-08-20 for
+// 20260820130000_editorial_inquiry_grounded_reasoning.sql: ei_inquiries
+// dropped seed_question for pillar_id/pillar_name_snapshot/
+// guiding_question_text; ei_questions dropped has_assumption/assumption_text
+// for diagnosis_kind/diagnosis_note; ei_context_notes gained
+// evidentiary_status/source_title/source_url; ei_chat_messages gained
+// citations; ei_create_inquiry's Args changed from p_seed_question (text) to
+// p_pillar_id (uuid) — against the Supabase MCP server's
+// `generate_typescript_types` output for the live preview project,
+// field-by-field diffed; every field matched.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -2149,7 +2159,9 @@ export interface Database {
       ei_inquiries: {
         Row: {
           id: string;
-          seed_question: string;
+          pillar_id: string | null;
+          pillar_name_snapshot: string;
+          guiding_question_text: string;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2157,7 +2169,8 @@ export interface Database {
         // No insert grant to `authenticated` — the only way a row is created
         // is ei_create_inquiry() below, which also seeds the root question.
         Insert: Partial<Database["public"]["Tables"]["ei_inquiries"]["Row"]> & {
-          seed_question: string;
+          pillar_name_snapshot: string;
+          guiding_question_text: string;
         };
         Update: Partial<Database["public"]["Tables"]["ei_inquiries"]["Row"]>;
         Relationships: [
@@ -2166,6 +2179,13 @@ export interface Database {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ei_inquiries_pillar_id_fkey";
+            columns: ["pillar_id"];
+            isOneToOne: false;
+            referencedRelation: "ep_pillars";
             referencedColumns: ["id"];
           },
         ];
@@ -2178,8 +2198,8 @@ export interface Database {
           depth: number;
           text: string;
           status: string;
-          has_assumption: boolean;
-          assumption_text: string | null;
+          diagnosis_kind: string | null;
+          diagnosis_note: string | null;
           reframed_from_text: string | null;
           manual_dx: number | null;
           manual_dy: number | null;
@@ -2223,6 +2243,9 @@ export interface Database {
           question_id: string;
           kind: string;
           body: string;
+          evidentiary_status: string;
+          source_title: string | null;
+          source_url: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -2257,6 +2280,7 @@ export interface Database {
           body: string;
           action_kind: string | null;
           action_payload: Record<string, unknown> | null;
+          citations: Record<string, unknown>[] | null;
           applied_at: string | null;
           created_by: string | null;
           created_at: string;
@@ -2552,13 +2576,17 @@ export interface Database {
         Returns: { ok: true; item_id: string; placement_id: string } | { error: string };
       };
       /**
-       * The only way an ei_inquiries row is created (20260820120000_editorial_inquiry.sql)
-       * — inserts it and its depth-0 root ei_questions row together. Raises
-       * (not a jsonb error) if the caller lacks access or the seed question
-       * is blank.
+       * The only way an ei_inquiries row is created — inserts it (snapshotting
+       * the pillar's name/guiding_question) and its depth-0 root ei_questions
+       * row together. Signature changed from p_seed_question (text) to
+       * p_pillar_id (uuid) in 20260820130000_editorial_inquiry_grounded_
+       * reasoning.sql — an inquiry is tied to a WUWF guiding question (a
+       * pillar), never independently typed. Raises (not a jsonb error) if the
+       * caller lacks access, the pillar isn't active, or it has no guiding
+       * question set yet.
        */
       ei_create_inquiry: {
-        Args: { p_seed_question: string };
+        Args: { p_pillar_id: string };
         Returns: Database["public"]["Tables"]["ei_inquiries"]["Row"];
       };
     };

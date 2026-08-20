@@ -10,6 +10,71 @@
 export type QuestionStatus = "active" | "rejected" | "promoted";
 export type ContextNoteKind = "note" | "link" | "excerpt";
 
+/**
+ * Why a question isn't yet a strong story question — see
+ * docs/editorial-inquiry-design.md §5. unverified_premise is the direct
+ * successor of milestone 1's boolean has_assumption flag, now one of ten
+ * recognized reasons instead of the only one the tool could name.
+ */
+export const DIAGNOSIS_KINDS = [
+  "still_thematic",
+  "too_broad",
+  "compound_question",
+  "unverified_premise",
+  "already_known",
+  "unclear_stakes",
+  "no_uncertainty",
+  "implausible_reporting_path",
+  "trivial",
+  "descriptive_not_investigative",
+] as const;
+export type DiagnosisKind = (typeof DIAGNOSIS_KINDS)[number];
+
+const DIAGNOSIS_LABELS: Record<DiagnosisKind, string> = {
+  still_thematic: "Still thematic, not yet investigable",
+  too_broad: "Too broad",
+  compound_question: "Actually two or three questions",
+  unverified_premise: "Assumes an unverified premise",
+  already_known: "The answer is already substantially known",
+  unclear_stakes: "Stakes are unclear",
+  no_uncertainty: "No meaningful uncertainty",
+  implausible_reporting_path: "Reporting path is implausible",
+  trivial: "Specific but trivial",
+  descriptive_not_investigative: "Would produce description, not discovery",
+};
+
+export function labelForDiagnosis(kind: DiagnosisKind): string {
+  return DIAGNOSIS_LABELS[kind];
+}
+
+/**
+ * Epistemic weight of a context note, orthogonal to its kind (note/link/
+ * excerpt, which describes form). See design doc §4 — never let a hunch
+ * silently read as an established fact.
+ */
+export const EVIDENTIARY_STATUSES = [
+  "hunch",
+  "source_claim",
+  "established_fact",
+  "web_finding",
+  "inference",
+  "open_question",
+] as const;
+export type EvidentiaryStatus = (typeof EVIDENTIARY_STATUSES)[number];
+
+const EVIDENTIARY_STATUS_LABELS: Record<EvidentiaryStatus, string> = {
+  hunch: "Hunch",
+  source_claim: "Source claim",
+  established_fact: "Established fact",
+  web_finding: "Web finding",
+  inference: "Inference",
+  open_question: "Open question",
+};
+
+export function labelForEvidentiaryStatus(status: EvidentiaryStatus): string {
+  return EVIDENTIARY_STATUS_LABELS[status];
+}
+
 export interface QuestionRecord {
   id: string;
   inquiryId: string;
@@ -17,8 +82,8 @@ export interface QuestionRecord {
   depth: number;
   text: string;
   status: QuestionStatus;
-  hasAssumption: boolean;
-  assumptionText: string | null;
+  diagnosisKind: DiagnosisKind | null;
+  diagnosisNote: string | null;
   reframedFromText: string | null;
   manualDx: number | null;
   manualDy: number | null;
@@ -32,6 +97,9 @@ export interface ContextNoteRecord {
   questionId: string;
   kind: ContextNoteKind;
   body: string;
+  evidentiaryStatus: EvidentiaryStatus;
+  sourceTitle: string | null;
+  sourceUrl: string | null;
   createdBy: string | null;
   createdAt: string;
 }
@@ -43,27 +111,37 @@ export function labelForDepth(depth: number): string {
   return "Question";
 }
 
-/** A line of inquiry (depth 1) is a thematic frame, not yet reportable — see design doc §2. */
-export function canPromote(question: Pick<QuestionRecord, "depth" | "status">): boolean {
-  return question.depth >= 2 && question.status === "active";
-}
-
-/** The root is the guiding question itself — never a dead end. */
-export function canReject(question: Pick<QuestionRecord, "depth" | "status">): boolean {
+/**
+ * The only structural rule left for either status: the root (the guiding
+ * question itself) can never be rejected or promoted. Whether a question is
+ * actually *ready* is an editorial judgment (the model's Evaluate output, and
+ * ultimately the reporter's), not a depth gate — milestone 1's "depth >= 2 to
+ * promote" rule mistook "has been drilled down enough times" for "is a good
+ * question." See design doc §5, §8.
+ */
+function canChangeStatus(question: Pick<QuestionRecord, "depth" | "status">): boolean {
   return question.depth >= 1 && question.status === "active";
 }
 
+export function canPromote(question: Pick<QuestionRecord, "depth" | "status">): boolean {
+  return canChangeStatus(question);
+}
+
+export function canReject(question: Pick<QuestionRecord, "depth" | "status">): boolean {
+  return canChangeStatus(question);
+}
+
 /**
- * Explore generates a sibling — meaningless on the root, which has no parent
+ * Branch generates a sibling — meaningless on the root, which has no parent
  * to share. Drill down always makes sense, including on the root (that's how
- * an inquiry gets its first lines of inquiry). Discuss is deliberately
- * unrestricted, matching the mockup's own quick-menu (its discuss button
- * never carries a `disabled` attribute the way explore/drill/reject do) — a
- * promoted question can still warrant a follow-up conversation. A rejected
- * question is moot here regardless, since visibleQuestions() already keeps
- * it off the canvas.
+ * an inquiry gets its first lines of inquiry). Discuss and Evaluate are
+ * deliberately unrestricted, matching the mockup's own quick-menu (its
+ * discuss button never carried a `disabled` attribute the way branch/drill/
+ * reject did) — a promoted question can still warrant a follow-up
+ * conversation or a second look. A rejected question is moot here
+ * regardless, since visibleQuestions() already keeps it off the canvas.
  */
-export function canExplore(question: Pick<QuestionRecord, "depth" | "status">): boolean {
+export function canBranch(question: Pick<QuestionRecord, "depth" | "status">): boolean {
   return question.depth >= 1 && question.status === "active";
 }
 
