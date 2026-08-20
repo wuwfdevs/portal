@@ -30,10 +30,17 @@ export interface InheritedNoteView {
 
 export type BusyKind = "branch" | "drilldown" | "evaluate" | "reject" | "promote" | null;
 
+export type PanelView = "discussion" | "context";
+
 export interface InspectorPanelProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   selected: QuestionRecord | null;
+
+  /** Which of the two panel views shows — owned by the workspace so intent
+   * (selecting a node vs. starting a turn) can drive it. */
+  view: PanelView;
+  onViewChange: (view: PanelView) => void;
 
   contextNotes: InheritedNoteView[];
   contextPanelOpen: boolean;
@@ -152,15 +159,46 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 const COMPACT_BUTTON = "px-3 py-1.5 text-xs";
 
+function PanelViewToggle({
+  view,
+  onChange,
+  contextCount,
+}: {
+  view: PanelView;
+  onChange: (view: PanelView) => void;
+  contextCount: number;
+}) {
+  const options: { value: PanelView; label: string }[] = [
+    { value: "discussion", label: "Discussion" },
+    { value: "context", label: contextCount > 0 ? `Context (${contextCount})` : "Context" },
+  ];
+  return (
+    <div className="flex gap-0.5 rounded border border-line bg-panel-50 p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "flex-1 rounded px-2 py-1 text-[11px] font-semibold",
+            view === option.value ? "bg-white text-ink-900 shadow-sm" : "text-ink-500",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }) {
-  const { selected } = props;
+  const { selected, view } = props;
   const isPromoted = selected.status === "promoted";
   const badgeLabel = isPromoted ? "Story question" : labelForDepth(selected.depth);
   const actionsDisabled = props.busy !== null || props.chatSending;
 
   // Keep the newest exchange in view while a reply streams in or a message
-  // lands on the thread already on screen — but never yank a fresh selection
-  // away from its question header.
+  // lands on the thread already on screen.
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSeen = useRef<{ questionId: string; count: number }>({ questionId: "", count: 0 });
   const chatCount = props.chatLog?.length ?? 0;
@@ -176,119 +214,161 @@ function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }
 
   return (
     <div className="flex h-full flex-col">
+      {/* The toggle stays fixed above the scroll area — Discussion is the
+          pure conversational surface (thread + composer, nothing else);
+          Context is the node's profile: what it is, its diagnosis, the
+          actions on it, and its evidence. Which view shows is intent-driven
+          from the workspace: selecting a node lands on Context ("what is
+          this?"), starting a turn or clicking the canvas Discuss icon lands
+          on Discussion. */}
+      <div className="flex-shrink-0 px-5 pt-4 pb-3">
+        <PanelViewToggle
+          view={view}
+          onChange={props.onViewChange}
+          contextCount={props.contextNotes.length}
+        />
+      </div>
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-4 p-5">
+        <div className="flex flex-col gap-4 px-5 pb-5">
           {props.error && (
             <div className="rounded border border-danger/30 bg-danger/[0.06] px-3 py-2 text-xs text-danger">
               {props.error}
             </div>
           )}
 
-          <div>
-            <div
-              className={cn(
-                "mb-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase",
-                isPromoted ? "bg-success-border text-ink-900" : "bg-brand-surface text-brand-link",
-              )}
-            >
-              {badgeLabel}
-            </div>
-            <div className="font-serif text-base leading-snug text-ink-900">{selected.text}</div>
-            {selected.diagnosisKind && (
-              <div className="mt-2 rounded bg-success-bg px-2.5 py-2 text-xs leading-relaxed text-brand-link">
-                <span className="font-bold">{labelForDiagnosis(selected.diagnosisKind)}.</span>{" "}
-                {selected.diagnosisNote}
-              </div>
-            )}
-          </div>
-
-          {isPromoted && <DevelopIntoPitch {...props} />}
-
-          <div>
-            <SectionLabel>Ask the model</SectionLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {props.canBranch && (
-                <Button
-                  variant="secondary"
-                  className={COMPACT_BUTTON}
-                  onClick={props.onBranch}
-                  disabled={actionsDisabled}
-                  title="A genuinely different angle at this level, grounded in context or a fresh search"
-                >
-                  {props.busy === "branch" ? "Branching…" : "Branch"}
-                </Button>
-              )}
-              {props.canDrillDown && (
-                <Button
-                  variant="secondary"
-                  className={COMPACT_BUTTON}
-                  onClick={props.onDrillDown}
-                  disabled={actionsDisabled}
-                  title="A narrower, more reportable question beneath this one"
-                >
-                  {props.busy === "drilldown" ? "Drilling down…" : "Drill down"}
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                className={COMPACT_BUTTON}
-                onClick={props.onEvaluate}
-                disabled={actionsDisabled}
-                title="Is this well-formed and reportable — and would it make a strong WUWF story?"
-              >
-                {props.busy === "evaluate" ? "Evaluating…" : "Evaluate"}
-              </Button>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-400">
-              Each runs in the discussion below. The model works from this branch&apos;s context,
-              searches for current developments, and can decline if the material doesn&apos;t
-              support one.
-            </p>
-          </div>
-
-          {(props.canPromote || props.canReject) && (
-            <div>
-              <SectionLabel>Your call</SectionLabel>
-              <div className="flex flex-wrap gap-1.5">
-                {props.canPromote && (
-                  <Button
-                    className={cn(
-                      COMPACT_BUTTON,
-                      "bg-success-border text-ink-900 hover:bg-success-border/90",
-                    )}
-                    onClick={props.onPromote}
-                    disabled={actionsDisabled}
-                    title="Mark this as a validated story question"
-                  >
-                    {props.busy === "promote" ? "Promoting…" : "Promote"}
-                  </Button>
-                )}
-                {props.canReject && (
-                  <Button
-                    variant="secondary"
-                    className={cn(
-                      COMPACT_BUTTON,
-                      "border-danger text-danger hover:bg-danger/[0.06]",
-                    )}
-                    onClick={props.onReject}
-                    disabled={actionsDisabled}
-                    title="Hide this question and everything under it — nothing is deleted"
-                  >
-                    {props.busy === "reject" ? "Rejecting…" : "Reject"}
-                  </Button>
-                )}
-              </div>
-            </div>
+          {view === "discussion" ? (
+            <DiscussThread {...props} />
+          ) : (
+            <ContextView
+              {...props}
+              selected={selected}
+              isPromoted={isPromoted}
+              badgeLabel={badgeLabel}
+              actionsDisabled={actionsDisabled}
+            />
           )}
-
-          <AddYourOwn {...props} />
-          <ContextSection {...props} />
-          <DiscussThread {...props} />
         </div>
       </div>
 
-      <DiscussComposer {...props} />
+      {view === "discussion" && <DiscussComposer {...props} />}
     </div>
+  );
+}
+
+/**
+ * The Context view — the selected node's profile: the question itself and
+ * its diagnosis, the actions that operate on it, the reporter-authored
+ * alternatives, and every context note on its branch.
+ */
+function ContextView(
+  props: InspectorPanelProps & {
+    selected: QuestionRecord;
+    isPromoted: boolean;
+    badgeLabel: string;
+    actionsDisabled: boolean;
+  },
+) {
+  const { selected, isPromoted, badgeLabel, actionsDisabled } = props;
+  return (
+    <>
+      <div>
+        <div
+          className={cn(
+            "mb-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase",
+            isPromoted ? "bg-success-border text-ink-900" : "bg-brand-surface text-brand-link",
+          )}
+        >
+          {badgeLabel}
+        </div>
+        <div className="font-serif text-base leading-snug text-ink-900">{selected.text}</div>
+        {selected.diagnosisKind && (
+          <div className="mt-2 rounded bg-success-bg px-2.5 py-2 text-xs leading-relaxed text-brand-link">
+            <span className="font-bold">{labelForDiagnosis(selected.diagnosisKind)}.</span>{" "}
+            {selected.diagnosisNote}
+          </div>
+        )}
+      </div>
+
+      {isPromoted && <DevelopIntoPitch {...props} />}
+
+      <div>
+        <SectionLabel>Ask the model</SectionLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {props.canBranch && (
+            <Button
+              variant="secondary"
+              className={COMPACT_BUTTON}
+              onClick={props.onBranch}
+              disabled={actionsDisabled}
+              title="A genuinely different angle at this level, grounded in context or a fresh search"
+            >
+              {props.busy === "branch" ? "Branching…" : "Branch"}
+            </Button>
+          )}
+          {props.canDrillDown && (
+            <Button
+              variant="secondary"
+              className={COMPACT_BUTTON}
+              onClick={props.onDrillDown}
+              disabled={actionsDisabled}
+              title="A narrower, more reportable question beneath this one"
+            >
+              {props.busy === "drilldown" ? "Drilling down…" : "Drill down"}
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            className={COMPACT_BUTTON}
+            onClick={props.onEvaluate}
+            disabled={actionsDisabled}
+            title="Is this well-formed and reportable — and would it make a strong WUWF story?"
+          >
+            {props.busy === "evaluate" ? "Evaluating…" : "Evaluate"}
+          </Button>
+        </div>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-ink-400">
+          Each runs in the Discussion view. The model works from this branch&apos;s context,
+          searches for current developments, and can decline if the material doesn&apos;t support
+          one.
+        </p>
+      </div>
+
+      {(props.canPromote || props.canReject) && (
+        <div>
+          <SectionLabel>Your call</SectionLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {props.canPromote && (
+              <Button
+                className={cn(
+                  COMPACT_BUTTON,
+                  "bg-success-border text-ink-900 hover:bg-success-border/90",
+                )}
+                onClick={props.onPromote}
+                disabled={actionsDisabled}
+                title="Mark this as a validated story question"
+              >
+                {props.busy === "promote" ? "Promoting…" : "Promote"}
+              </Button>
+            )}
+            {props.canReject && (
+              <Button
+                variant="secondary"
+                className={cn(COMPACT_BUTTON, "border-danger text-danger hover:bg-danger/[0.06]")}
+                onClick={props.onReject}
+                disabled={actionsDisabled}
+                title="Hide this question and everything under it — nothing is deleted"
+              >
+                {props.busy === "reject" ? "Rejecting…" : "Reject"}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <AddYourOwn {...props} />
+      <ContextSection {...props} />
+    </>
   );
 }
 
@@ -317,15 +397,6 @@ function AddYourOwn(props: InspectorPanelProps) {
             className="text-brand-link hover:underline"
           >
             Write a child question
-          </button>
-        )}
-        {!props.contextPanelOpen && (
-          <button
-            type="button"
-            onClick={props.onOpenContextPanel}
-            className="text-brand-link hover:underline"
-          >
-            + Add context
           </button>
         )}
       </div>
@@ -360,19 +431,36 @@ function AddYourOwn(props: InspectorPanelProps) {
 }
 
 /**
- * Context notes on this branch are always listed when any exist — they're
- * the grounding everything else reasons from, and hiding them behind the
- * add form (as this section originally did) buried them. The add form
- * itself opens from AddYourOwn's "+ Add context" link.
+ * The Context view: every note on this branch (own + inherited — the
+ * grounding everything else reasons from), plus the add form. Rendered as
+ * its own view behind the panel's Discussion/Context toggle.
  */
 function ContextSection(props: InspectorPanelProps) {
-  if (props.contextNotes.length === 0 && !props.contextPanelOpen) return null;
-
   return (
     <div className="flex flex-col gap-2">
-      <SectionLabel>
-        {props.selected?.depth === 0 ? "Context — whole inquiry" : "Context — this branch"}
-      </SectionLabel>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-ink-400">
+          {props.selected?.depth === 0
+            ? "Covers the whole inquiry"
+            : "This question and its branch"}
+        </span>
+        {!props.contextPanelOpen && (
+          <button
+            type="button"
+            onClick={props.onOpenContextPanel}
+            className="text-xs font-semibold text-brand-link hover:underline"
+          >
+            + Add context
+          </button>
+        )}
+      </div>
+      {props.contextNotes.length === 0 && !props.contextPanelOpen && (
+        <p className="text-xs leading-relaxed text-ink-400">
+          Nothing attached on this branch yet. Context is what grounds the model&apos;s reasoning —
+          an observation, a document, something sources keep saying, a finding from its own
+          searches.
+        </p>
+      )}
       {props.contextNotes.map((entry) => (
         <div
           key={entry.id}
@@ -505,9 +593,7 @@ function DiscussThread(props: InspectorPanelProps) {
   const threadEmpty = (props.chatLog?.length ?? 0) === 0;
 
   return (
-    <div className="flex flex-col gap-2.5 border-t border-line pt-3">
-      <SectionLabel>Discussion</SectionLabel>
-
+    <div className="flex flex-col gap-2.5">
       {props.chatLoading && <div className="text-xs text-ink-400">Loading discussion…</div>}
 
       {threadEmpty && !props.chatLoading && !turnMode && (

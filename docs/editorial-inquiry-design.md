@@ -475,22 +475,28 @@ inspector layout as milestone 1. What changed:
   section. A pillar with no guiding question yet is omitted, with a one-line
   note pointing at Editorial Planning rather than letting Editorial Inquiry
   invent one.
-- **The inspector groups its actions instead of one flat row** (revised again
-  the same day after a direct report that the panel was "impossibly
-  cluttered"): "Ask the model" (Branch / Drill down / the new Evaluate —
-  compact buttons, each rendered only when structurally possible, so the root
-  shows two, not six) sits above "Your call" (Promote / Reject, hidden on the
-  root where neither can apply), then reporter-authored alternatives (write a
-  question by hand, add context) as one muted link row. The **discussion is
-  always visible** for the selected question — it is the primary surface, so
-  the Discuss/Close-discussion toggle is gone and the composer is pinned to
-  the panel's bottom edge, always in view. Canned Branch/Drill down/Evaluate
-  directives render as a muted "↳ You asked for…" line, not a fake user
-  bubble; replies stream in token-by-token (§7) behind a mode-specific
-  working indicator, and assistant prose renders as markdown. Suggestion
-  chips and the two-ways-in helper text appear only while a thread is empty.
-  The portal-wide agent bubble no longer renders on this route — it sat
-  directly on the composer, and this screen has its own AI surface.
+- **The inspector is two views behind a toggle: Discussion and Context**
+  (revised twice the same day — first grouped-and-decluttered after a direct
+  report that the panel was "impossibly cluttered", then split into views at
+  a direct request once grounding notes meant the thread and the evidence
+  were burying each other in one column). **Discussion** is the pure
+  conversational surface: the thread plus the composer pinned to the panel's
+  bottom edge, nothing else — the canvas itself is the anchor for which
+  question is being discussed. **Context** is the node's profile: the
+  question and its diagnosis callout, "Ask the model" (Branch / Drill down /
+  Evaluate — compact buttons, each rendered only when structurally possible),
+  "Your call" (Promote / Reject, absent on the root), the write-your-own
+  links, and every context note on the branch with the add-context form.
+  The toggle is intent-driven, not a free preference: selecting a node lands
+  on Context ("what is this?"), while starting any turn or clicking the
+  canvas's Discuss icon lands on Discussion so streaming is never hidden.
+  Canned Branch/Drill down/Evaluate directives render as a muted "↳ You
+  asked for…" line, not a fake user bubble; replies stream in token-by-token
+  (§7) behind a mode-specific working indicator, and assistant prose renders
+  as markdown. Suggestion chips and the two-ways-in helper text appear only
+  while a thread is empty. The portal-wide agent bubble no longer renders on
+  this route — it sat directly on the composer, and this screen has its own
+  AI surface.
 - **Diagnosis** renders as a callout on the node/inspector wherever milestone
   1 showed the old assumption flag — same visual treatment (a small flagged
   badge plus an expandable explanation), now naming one of ten reasons instead
