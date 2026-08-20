@@ -167,7 +167,12 @@ export function QuestionNode({
     >
       <button
         type="button"
-        onClick={onSelect}
+        onClick={(e) => {
+          // The canvas's own background onClick deselects; without this the
+          // same click bubbles up and clears the selection it just made.
+          e.stopPropagation();
+          onSelect();
+        }}
         className={cn(
           "relative box-border w-full min-h-[92px] cursor-grab rounded p-3 text-left transition-shadow active:cursor-grabbing",
           isPromoted && "border-[1.5px] border-success-border bg-success-bg",
