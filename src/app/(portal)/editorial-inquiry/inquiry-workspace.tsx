@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   canBranch as canBranchRule,
@@ -20,6 +20,7 @@ import type {
   InquiryDetail,
   InquirySummary,
 } from "@/lib/editorial-inquiry/queries";
+import type { EditorialTurnOutcome, EditorialTurnStreamEvent } from "@/lib/editorial-inquiry/turn";
 import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
 import { Canvas } from "./canvas";
 import { InspectorPanel, type BusyKind, type InheritedNoteView } from "./inspector-panel";
@@ -28,17 +29,14 @@ import {
   addContextNote,
   addQuestionManually,
   applyReframe,
-  branchQuestion,
-  drillDownQuestion,
-  evaluateQuestion,
-  getPitchHandoffUrl,
   loadDiscussThread,
   moveQuestion,
+  getPitchHandoffUrl,
   promoteQuestion,
   rejectQuestion,
-  sendDiscussMessage,
-  type EditorialTurnOutcome,
 } from "./actions";
+
+type StreamTurnMode = "branch" | "drilldown" | "evaluate" | "discuss";
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -79,11 +77,19 @@ export function InquiryWorkspace({
   const [manualAddText, setManualAddText] = useState("");
   const [savingManualAdd, setSavingManualAdd] = useState(false);
 
-  const [discussOpenId, setDiscussOpenId] = useState<string | null>(null);
   const [chatThreads, setChatThreads] = useState<Record<string, ChatMessageRecord[]>>({});
   const [chatLoadingId, setChatLoadingId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  // The reporter's own message currently in flight — rendered as an
+  // optimistic bubble until the turn's terminal event replaces it with the
+  // persisted record.
+  const [inFlightChat, setInFlightChat] = useState<{ questionId: string; text: string } | null>(
+    null,
+  );
+  // The model's reply as it streams in, keyed to the question the turn runs
+  // on (selection can move mid-stream without mixing threads up).
+  const [streaming, setStreaming] = useState<{ questionId: string; text: string } | null>(null);
   const [applyingReframeId, setApplyingReframeId] = useState<string | null>(null);
   const [developingIntoPitch, setDevelopingIntoPitch] = useState(false);
 
@@ -116,6 +122,9 @@ export function InquiryWorkspace({
     setContextText("");
     setManualAddOpen(null);
     setManualAddText("");
+    // The discussion is always visible for the selected question, so its
+    // thread loads on selection rather than behind a Discuss toggle.
+    if (id) void loadThreadOnce(id);
   }
 
   function applyTurnOutcome(id: string, outcome: EditorialTurnOutcome) {
@@ -137,72 +146,149 @@ export function InquiryWorkspace({
     }
   }
 
-  // Awaited, not fire-and-forget: applyTurnOutcome() below appends the new
-  // turn onto whatever's already in chatThreads[id]. If the thread load were
-  // still in flight when the (much slower, LLM-backed) action resolved and
-  // called applyTurnOutcome first, the load's own resolution would land
-  // afterward and silently overwrite the just-added turn. Awaiting it first
-  // (only when the thread isn't already cached) makes that ordering
-  // impossible rather than merely unlikely.
-  async function ensureDiscussOpenAndLoaded(id: string) {
-    setDiscussOpenId(id);
-    if (!chatThreads[id]) await loadThread(id);
-  }
-
-  async function handleBranch(id: string) {
-    setError(null);
-    setPendingByQuestion((p) => ({ ...p, [id]: "branch" }));
-    selectQuestion(id);
-    await ensureDiscussOpenAndLoaded(id);
-    const result = await branchQuestion(id);
-    setPendingByQuestion((p) => {
-      const next = { ...p };
-      delete next[id];
-      return next;
-    });
+  async function loadThread(id: string) {
+    setChatLoadingId(id);
+    const result = await loadDiscussThread(id);
+    setChatLoadingId((cur) => (cur === id ? null : cur));
     if (result.ok) {
-      applyTurnOutcome(id, result.data);
-      if (result.data.createdQuestion) selectQuestion(result.data.createdQuestion.id);
+      setChatThreads((t) => ({ ...t, [id]: result.data }));
     } else {
       setError(result.error);
     }
   }
 
-  async function handleDrillDown(id: string) {
+  // Deduplicates concurrent loads of the same thread: selection triggers a
+  // load, and a turn started right afterward awaits the same promise instead
+  // of racing it. The await-before-turn ordering matters — applyTurnOutcome()
+  // appends onto whatever's in chatThreads[id], so a load resolving after the
+  // turn would silently overwrite the just-added messages.
+  const threadLoads = useRef<Map<string, Promise<void>>>(new Map());
+  function loadThreadOnce(id: string): Promise<void> {
+    if (chatThreads[id]) return Promise.resolve();
+    let inFlight = threadLoads.current.get(id);
+    if (!inFlight) {
+      inFlight = loadThread(id).finally(() => threadLoads.current.delete(id));
+      threadLoads.current.set(id, inFlight);
+    }
+    return inFlight;
+  }
+
+  /**
+   * One streaming editorial turn — Branch, Drill down, Evaluate, or a
+   * Discuss message. Mirrors agent-chat-widget's SSE parsing; deltas land in
+   * `streaming` so the reply renders as the model produces it, and nothing
+   * is added to the thread until the terminal `done` event carries the
+   * persisted records.
+   */
+  async function runTurn(id: string, mode: StreamTurnMode, message?: string): Promise<boolean> {
     setError(null);
-    setPendingByQuestion((p) => ({ ...p, [id]: "drilldown" }));
-    selectQuestion(id);
-    await ensureDiscussOpenAndLoaded(id);
-    const result = await drillDownQuestion(id);
-    setPendingByQuestion((p) => {
-      const next = { ...p };
-      delete next[id];
-      return next;
-    });
-    if (result.ok) {
-      applyTurnOutcome(id, result.data);
-      if (result.data.createdQuestion) selectQuestion(result.data.createdQuestion.id);
+    let succeeded = false;
+    if (mode === "discuss") {
+      setChatSending(true);
+      setInFlightChat({ questionId: id, text: message ?? "" });
     } else {
-      setError(result.error);
+      setPendingByQuestion((p) => ({ ...p, [id]: mode }));
+    }
+    setStreaming({ questionId: id, text: "" });
+    try {
+      await loadThreadOnce(id);
+      const response = await fetch("/api/editorial-inquiry/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: id, mode, message }),
+      });
+      if (!response.ok || !response.body) {
+        const data = await response.json().catch(() => null);
+        setError((data as { error?: string } | null)?.error ?? "Something went wrong.");
+        return false;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawTerminalEvent = false;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.trim();
+          if (!line.startsWith("data:")) continue;
+          let event: EditorialTurnStreamEvent;
+          try {
+            event = JSON.parse(line.slice("data:".length).trim()) as EditorialTurnStreamEvent;
+          } catch {
+            continue;
+          }
+          if (event.type === "delta") {
+            setStreaming((s) =>
+              s && s.questionId === id ? { ...s, text: s.text + (event.text ?? "") } : s,
+            );
+          } else if (event.type === "done") {
+            sawTerminalEvent = true;
+            succeeded = true;
+            applyTurnOutcome(id, event.outcome);
+          } else if (event.type === "error") {
+            sawTerminalEvent = true;
+            setError(event.message ?? "Something went wrong.");
+          }
+        }
+      }
+
+      if (!sawTerminalEvent) {
+        setError("The assistant stopped responding unexpectedly.");
+      }
+      return succeeded;
+    } catch {
+      setError("Couldn't reach the assistant. Try again.");
+      return false;
+    } finally {
+      setStreaming((s) => (s && s.questionId === id ? null : s));
+      if (mode === "discuss") {
+        setChatSending(false);
+        setInFlightChat(null);
+      } else {
+        setPendingByQuestion((p) => {
+          const next = { ...p };
+          delete next[id];
+          return next;
+        });
+      }
     }
   }
 
-  async function handleEvaluate(id: string) {
-    setError(null);
-    setPendingByQuestion((p) => ({ ...p, [id]: "evaluate" }));
+  // Selection deliberately stays on the acted-on question after a turn, even
+  // when it created a new node — the reply explaining what happened is on
+  // THIS question's thread, and yanking selection away hid it (a reported
+  // confusion). The new node appears on the canvas; clicking it is the
+  // reporter's own move.
+  function handleBranch(id: string) {
     selectQuestion(id);
-    await ensureDiscussOpenAndLoaded(id);
-    const result = await evaluateQuestion(id);
-    setPendingByQuestion((p) => {
-      const next = { ...p };
-      delete next[id];
-      return next;
+    void runTurn(id, "branch");
+  }
+
+  function handleDrillDown(id: string) {
+    selectQuestion(id);
+    void runTurn(id, "drilldown");
+  }
+
+  function handleEvaluate(id: string) {
+    selectQuestion(id);
+    void runTurn(id, "evaluate");
+  }
+
+  function handleSendChat(id: string, presetText?: string) {
+    const text = (presetText ?? chatInput).trim();
+    if (!text || chatSending) return;
+    setChatInput("");
+    void runTurn(id, "discuss", text).then((succeeded) => {
+      // A failed send restores what the reporter typed (unless they've
+      // already started typing something else) so nothing needs retyping.
+      if (!succeeded && !presetText) setChatInput((cur) => cur || text);
     });
-    if (result.ok) {
-      applyTurnOutcome(id, result.data);
-    } else {
-      setError(result.error);
-    }
   }
 
   async function handleReject(id: string) {
@@ -271,41 +357,6 @@ export function InquiryWorkspace({
     }
   }
 
-  async function loadThread(id: string) {
-    setChatLoadingId(id);
-    const result = await loadDiscussThread(id);
-    setChatLoadingId((cur) => (cur === id ? null : cur));
-    if (result.ok) {
-      setChatThreads((t) => ({ ...t, [id]: result.data }));
-    } else {
-      setError(result.error);
-    }
-  }
-
-  function handleToggleDiscuss(id: string) {
-    const opening = discussOpenId !== id;
-    selectQuestion(id);
-    setDiscussOpenId(opening ? id : null);
-    if (opening && !chatThreads[id]) {
-      void loadThread(id);
-    }
-  }
-
-  async function handleSendChat(id: string, presetText?: string) {
-    const text = (presetText ?? chatInput).trim();
-    if (!text) return;
-    setError(null);
-    setChatSending(true);
-    const result = await sendDiscussMessage(id, text);
-    setChatSending(false);
-    if (result.ok) {
-      applyTurnOutcome(id, result.data);
-      setChatInput("");
-    } else {
-      setError(result.error);
-    }
-  }
-
   async function handleApplyReframe(message: ChatMessageRecord) {
     if (!selectedId || message.actionKind !== "reframe" || !message.actionPayload) return;
     const text = (message.actionPayload as { text?: string }).text;
@@ -340,7 +391,6 @@ export function InquiryWorkspace({
     }
   }
 
-  const discussOpen = discussOpenId !== null && discussOpenId === selectedId;
   const busy: BusyKind = selectedId
     ? (pendingByQuestion[selectedId] ??
       (rejectingId === selectedId ? "reject" : promotingId === selectedId ? "promote" : null))
@@ -368,7 +418,7 @@ export function InquiryWorkspace({
           onBranch={handleBranch}
           onDrillDown={handleDrillDown}
           onReject={handleReject}
-          onDiscuss={handleToggleDiscuss}
+          onDiscuss={selectQuestion}
           onMove={handleMove}
           canBranchFor={canBranchRule}
           canDrillDownFor={canDrillDownRule}
@@ -411,14 +461,16 @@ export function InquiryWorkspace({
           onManualAddTextChange={setManualAddText}
           onSubmitManualAdd={handleSubmitManualAdd}
           savingManualAdd={savingManualAdd}
-          discussOpen={discussOpen}
-          onToggleDiscuss={() => selectedId && handleToggleDiscuss(selectedId)}
           chatLog={selectedId ? (chatThreads[selectedId] ?? null) : null}
           chatLoading={chatLoadingId !== null && chatLoadingId === selectedId}
           chatInput={chatInput}
           onChatInputChange={setChatInput}
           onSendChat={(presetText) => selectedId && handleSendChat(selectedId, presetText)}
           chatSending={chatSending}
+          inFlightChatText={
+            inFlightChat && inFlightChat.questionId === selectedId ? inFlightChat.text : null
+          }
+          streamingReply={streaming && streaming.questionId === selectedId ? streaming.text : null}
           onApplyReframe={handleApplyReframe}
           applyingReframeId={applyingReframeId}
           canDevelopIntoPitch={canDevelopIntoPitch}

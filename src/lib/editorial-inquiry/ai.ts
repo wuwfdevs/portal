@@ -24,11 +24,14 @@ import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 //     reply, which is a decline by construction, not a special case to detect
 //     (design doc §6 "Letting the model decline").
 //
-// One non-streamed responses.create() call therefore returns, in one round
-// trip: zero or more resolved web searches, a prose reply with citations, and
-// at most one proposed action. Nothing about a proposed action executes
-// itself — the caller (this tool's actions.ts) reads it and performs the
-// matching write, exactly as milestone 1's discuss turn already did.
+// One responses.stream() call therefore returns, in one round trip: zero or
+// more resolved web searches, a prose reply with citations, and at most one
+// proposed action. The reply streams token-by-token (the same
+// ResponseStream/finalResponse() pattern src/lib/agent/chat.ts uses) so the
+// route can forward deltas to the browser while web search and reasoning are
+// still running. Nothing about a proposed action executes itself — the
+// caller (this tool's turn.ts) reads it from the final response and performs
+// the matching write, exactly as milestone 1's discuss turn already did.
 //
 // Same optional-key posture as every integration in this repo: absent
 // OPENAI_API_KEY, every call here throws the same message chat.ts's
@@ -111,6 +114,10 @@ export interface EditorialTurnResult {
   action: ProposedAction | null;
 }
 
+/** What streamEditorialTurn yields: reply tokens as they arrive, then exactly one terminal result. */
+export type ReasoningStreamEvent =
+  { type: "delta"; text: string } | { type: "result"; result: EditorialTurnResult };
+
 const DIAGNOSIS_KINDS = [
   "still_thematic",
   "too_broad",
@@ -133,7 +140,9 @@ const EVIDENTIARY_STATUSES = [
   "open_question",
 ] as const;
 
-const VOICE = `You are an editorial reasoning assistant for a public radio newsroom (WUWF), in NPR-member-station voice: calm, factual, precise, investigatable. No hype, no rhetorical flourishes, no emoji.`;
+const VOICE = `You are an editorial reasoning assistant for WUWF, the public radio station serving Pensacola and Northwest Florida, in NPR-member-station voice: calm, factual, precise, investigatable. No hype, no rhetorical flourishes, no emoji. When you search the web, prioritize current, attributable developments in WUWF's own coverage area — local and regional sources over national think-pieces.
+
+ALWAYS write a short prose reply for the reporter, even when you call propose_editorial_action — your reply text is the only thing they read directly; a tool call with no accompanying prose reads as a blank message. Plain markdown formatting (short paragraphs, **bold**, lists) is fine; keep it tight.`;
 
 const REASONING_ORDER = `Your reasoning must follow this order, every time — never skip straight from the guiding question to a plausible-sounding invented question:
 
@@ -206,9 +215,9 @@ ${criteriaBlock(context.criteria)}`;
 
 const MODE_FRAMING: Record<TurnMode, string> = {
   discuss: `This is an ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, distinguish a claim from a fact, identify what evidence is missing, search the web if current information would help answer them, or just answer plainly. You may, at most once, additionally propose ONE structural action via propose_editorial_action if the conversation genuinely warrants one (a branch, a drill-down, attaching what they told you as context, a reframe, a diagnosis of what's blocking readiness, or an editorial assessment) — most turns warrant none at all.`,
-  branch: `The reporter clicked Branch on this question: given the same established context and parent question, identify a genuinely different question or line of inquiry the material actually supports — not narrower, not broader, a different way in. It must not invent a new factual premise to justify the branch existing. If nothing in the current context or a quick search supports a genuinely different angle, say so plainly in your reply and do not call propose_editorial_action at all (or call it with kind "diagnosis" if there's something specific blocking it). If you do find a real branch, call propose_editorial_action with kind "branch".`,
-  drilldown: `The reporter clicked Drill down on this question: identify a more specific, still-unresolved question beneath it that meaningfully moves it toward reportability — responding to whatever is currently keeping it from being a strong story question (see the diagnosis reasons below), not a generic narrower paraphrase. If the question can't be usefully narrowed right now, say so and either call propose_editorial_action with kind "diagnosis" naming the specific reason, or don't call it at all. If you do find a real next question, call propose_editorial_action with kind "drilldown".`,
-  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments, both in your reply text. First: is this a well-formed, reportable story question by the structural criteria (open, specific, consequential, bounded, grounded in a real uncertainty, answerable through realistic reporting, capable of discovery, evidence-legible)? If not, name which of the ten diagnosis reasons applies. Second, and only after the first: would answering it likely make a strong WUWF story, reasoned against WUWF's current editorial criteria below — in prose, never a score. These are different questions with possibly different answers; do not collapse them into one verdict. If the first judgment finds a real problem, call propose_editorial_action with kind "diagnosis". Regardless, if you have something substantive to say about the second judgment, call propose_editorial_action with kind "assessment" carrying that discussion as its text (in addition to, or instead of, a diagnosis call — but only one call total, so if both apply, use whichever is more decision-relevant right now and cover the other in your reply text alone).`,
+  branch: `The reporter clicked Branch on this question: given the same established context and parent question, identify a genuinely different question or line of inquiry the material actually supports — not narrower, not broader, a different way in. It must not invent a new factual premise to justify the branch existing — but "the material" is not limited to what's already attached: SEARCHING THE WEB FOR CURRENT DEVELOPMENTS IS PART OF THIS ACTION BY DEFAULT, especially when the inherited context is thin. Search first, then reason from what the context and your findings actually support. Only if both come up empty should you decline — say so plainly in your reply and do not call propose_editorial_action at all (or call it with kind "diagnosis" if there's something specific blocking it). If you do find a real branch, call propose_editorial_action with kind "branch", and attach what grounded it: cite your sources in the reply.`,
+  drilldown: `The reporter clicked Drill down on this question: identify a more specific, still-unresolved question beneath it that meaningfully moves it toward reportability — responding to whatever is currently keeping it from being a strong story question (see the diagnosis reasons below), not a generic narrower paraphrase. SEARCHING THE WEB FOR CURRENT DEVELOPMENTS IS PART OF THIS ACTION BY DEFAULT, especially when the inherited context is thin — a real development is usually what turns a thematic question into an investigable one. If the question can't be usefully narrowed even after checking, say so and either call propose_editorial_action with kind "diagnosis" naming the specific reason, or don't call it at all. If you do find a real next question, call propose_editorial_action with kind "drilldown", and cite in your reply whatever grounded it.`,
+  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments, both in your reply text. First: is this a well-formed, reportable story question by the structural criteria (open, specific, consequential, bounded, grounded in a real uncertainty, answerable through realistic reporting, capable of discovery, evidence-legible)? Search the web when it bears on the judgment — especially to check whether the answer is already substantially known, or whether a real current development grounds the question. If not well-formed, name which of the ten diagnosis reasons applies. Second, and only after the first: would answering it likely make a strong WUWF story, reasoned against WUWF's current editorial criteria below — in prose, never a score. These are different questions with possibly different answers; do not collapse them into one verdict. If the first judgment finds a real problem, call propose_editorial_action with kind "diagnosis". Regardless, if you have something substantive to say about the second judgment, call propose_editorial_action with kind "assessment" carrying that discussion as its text (in addition to, or instead of, a diagnosis call — but only one call total, so if both apply, use whichever is more decision-relevant right now and cover the other in your reply text alone).`,
 };
 
 const PROPOSE_ACTION_TOOL = {
@@ -323,21 +332,38 @@ function extractProposedAction(response: OpenAI.Responses.Response): ProposedAct
  * One turn of editorial reasoning about one question — Branch, Drill down,
  * Evaluate, or an ordinary Discuss message all funnel through here (design
  * doc §7). `userMessage` is either the reporter's own words (discuss) or a
- * fixed canned directive (branch/drilldown/evaluate — see actions.ts) so
+ * fixed canned directive (branch/drilldown/evaluate — see directives.ts) so
  * every mode runs through the identical pipeline and lands in the same
- * visible thread.
+ * visible thread. An async generator, not a Promise: reply tokens are
+ * yielded as "delta" events while the model works, then one terminal
+ * "result" event carries the full reply, citations, and proposed action —
+ * turn.ts persists nothing until that terminal event.
  */
-export async function runEditorialTurn(
+export async function* streamEditorialTurn(
   mode: TurnMode,
-  question: { text: string; diagnosisKind: DiagnosisKind | null; diagnosisNote: string | null },
+  question: {
+    text: string;
+    depth: number;
+    diagnosisKind: DiagnosisKind | null;
+    diagnosisNote: string | null;
+  },
   context: EditorialTurnContext,
   userMessage: string,
-): Promise<EditorialTurnResult> {
+): AsyncGenerator<ReasoningStreamEvent> {
   const client = getOpenAIClient();
 
   const diagnosisNote = question.diagnosisKind
     ? `\n\nThis question is currently diagnosed as "${question.diagnosisKind}"${question.diagnosisNote ? `: ${question.diagnosisNote}` : ""}.`
     : "";
+
+  // The root IS the guiding question — durable and intentionally too large
+  // for one story. Without this, a brand-new inquiry's first drill-down
+  // reliably came back "still_thematic" — technically true of every guiding
+  // question by definition, and a dead end for the reporter who just started.
+  const rootFraming =
+    question.depth === 0
+      ? `\n\nThe question being acted on is the inquiry's root — WUWF's guiding question itself. Being thematic and broad is its nature, not a defect: never diagnose the root as still_thematic or too_broad. Work beneath it instead — help the reporter find grounded lines of inquiry, or say plainly what real-world signal would be needed to open one.`
+      : "";
 
   const instructions = `${VOICE}
 
@@ -349,7 +375,7 @@ ${DIAGNOSIS_GUIDE}
 
 ${EVIDENTIARY_DISCIPLINE}
 
-You are working on exactly one question: "${question.text}"${diagnosisNote}
+You are working on exactly one question: "${question.text}"${diagnosisNote}${rootFraming}
 
 ${MODE_FRAMING[mode]}
 
@@ -358,7 +384,7 @@ ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none 
 
 ${contextBlock(context)}`;
 
-  const response = await client.responses.create({
+  const stream = client.responses.stream({
     model: MODEL,
     instructions,
     input: userMessage,
@@ -375,13 +401,28 @@ ${contextBlock(context)}`;
     include: ["web_search_call.action.sources"],
   });
 
+  for await (const event of stream) {
+    if (event.type === "response.output_text.delta") {
+      yield { type: "delta", text: event.delta };
+    }
+  }
+
+  // Same cast as chat.ts's streaming loop: ResponseStream's finalResponse()
+  // types output as ParsedResponseOutputItem<null>[] (it supports
+  // .parse()-based structured outputs this call never uses); runtime shape
+  // matches the plain Response the extract helpers expect.
+  const response = (await stream.finalResponse()) as unknown as OpenAI.Responses.Response;
+
   if (response.status === "failed") {
     throw new Error(response.error?.message ?? "The assistant failed to respond.");
   }
 
-  return {
-    reply: extractReplyText(response),
-    citations: extractCitations(response),
-    action: extractProposedAction(response),
+  yield {
+    type: "result",
+    result: {
+      reply: extractReplyText(response),
+      citations: extractCitations(response),
+      action: extractProposedAction(response),
+    },
   };
 }

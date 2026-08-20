@@ -28,7 +28,7 @@ export interface InquirySummary {
   updatedAt: string;
 }
 
-function toQuestionRecord(row: EiQuestionRow): QuestionRecord {
+export function toQuestionRecord(row: EiQuestionRow): QuestionRecord {
   return {
     id: row.id,
     inquiryId: row.inquiry_id,
@@ -47,7 +47,7 @@ function toQuestionRecord(row: EiQuestionRow): QuestionRecord {
   };
 }
 
-function toContextNoteRecord(row: EiContextNoteRow): ContextNoteRecord {
+export function toContextNoteRecord(row: EiContextNoteRow): ContextNoteRecord {
   return {
     id: row.id,
     questionId: row.question_id,
@@ -140,7 +140,22 @@ export interface ChatMessageRecord {
   createdAt: string;
 }
 
-/** One question's discuss thread, oldest first — loaded lazily when the inspector opens Discuss. */
+export function toChatMessageRecord(row: EiChatMessageRow): ChatMessageRecord {
+  return {
+    id: row.id,
+    questionId: row.question_id,
+    role: row.role as "user" | "assistant",
+    body: row.body,
+    actionKind: row.action_kind as ChatMessageRecord["actionKind"],
+    actionPayload: row.action_payload as Record<string, unknown> | null,
+    citations: row.citations as { title: string; url: string }[] | null,
+    appliedAt: row.applied_at,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+  };
+}
+
+/** One question's discuss thread, oldest first — loaded lazily when the inspector shows a question. */
 export async function getQuestionChat(questionId: string): Promise<ChatMessageRecord[]> {
   const supabase = await createClient();
   const rows =
@@ -152,16 +167,5 @@ export async function getQuestionChat(questionId: string): Promise<ChatMessageRe
         .order("created_at"),
       "this question's discussion",
     ) ?? [];
-  return rows.map((row) => ({
-    id: row.id,
-    questionId: row.question_id,
-    role: row.role as "user" | "assistant",
-    body: row.body,
-    actionKind: row.action_kind as ChatMessageRecord["actionKind"],
-    actionPayload: row.action_payload as Record<string, unknown> | null,
-    citations: row.citations as { title: string; url: string }[] | null,
-    appliedAt: row.applied_at,
-    createdBy: row.created_by,
-    createdAt: row.created_at,
-  }));
+  return rows.map(toChatMessageRecord);
 }
