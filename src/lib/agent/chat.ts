@@ -1,6 +1,7 @@
 import "server-only";
 import OpenAI from "openai";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { humanizeOpenAIError } from "@/lib/openai-error";
 import { connectAgentMcpClient } from "./mcp-client";
 import { buildAgentToolBridge, type AgentToolBridge } from "./tool-bridge";
 import type { Profile } from "@/lib/auth/session";
@@ -111,25 +112,33 @@ export async function* streamAgentTurn(
     }
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const stream = openai.responses.stream({
-        model: MODEL,
-        instructions: INSTRUCTIONS,
-        input: history,
-        tools: bridge.agentTools,
-        tool_choice: "auto",
-        parallel_tool_calls: false,
-        max_output_tokens: MAX_OUTPUT_TOKENS,
-        reasoning: { effort: "low" },
-        store: false,
-      });
+      let response;
+      try {
+        const stream = openai.responses.stream({
+          model: MODEL,
+          instructions: INSTRUCTIONS,
+          input: history,
+          tools: bridge.agentTools,
+          tool_choice: "auto",
+          parallel_tool_calls: false,
+          max_output_tokens: MAX_OUTPUT_TOKENS,
+          reasoning: { effort: "low" },
+          store: false,
+        });
 
-      for await (const event of stream) {
-        if (event.type === "response.output_text.delta") {
-          yield { type: "delta", text: event.delta };
+        for await (const event of stream) {
+          if (event.type === "response.output_text.delta") {
+            yield { type: "delta", text: event.delta };
+          }
         }
-      }
 
-      const response = await stream.finalResponse();
+        response = await stream.finalResponse();
+      } catch (error) {
+        // A raw SDK failure (most notably a 429 against the org's shared
+        // token-per-minute cap) reached the widget verbatim — org id, token
+        // counts, billing URL and all. See lib/openai-error.ts.
+        throw humanizeOpenAIError(error);
+      }
 
       if (response.status === "failed") {
         yield {
