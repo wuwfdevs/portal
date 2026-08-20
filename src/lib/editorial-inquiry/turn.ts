@@ -230,6 +230,37 @@ export async function* streamEditorialTurnEvents(
   let appliedAt: string | null = null;
 
   const action = result.action;
+
+  // A branch/drilldown's grounding travels WITH the new node as a context
+  // note — a bare question with its rationale buried in the parent's thread
+  // was unintelligible on its own (a reported problem), and a note on the
+  // node also inherits down whatever grows beneath it, which is exactly how
+  // evidence is supposed to flow (design doc §4).
+  async function insertGroundingNote(questionId: string): Promise<ContextNoteRecord | null> {
+    if (!action?.grounding) return null;
+    const { data: noteRow, error: noteError } = await supabase
+      .from("ei_context_notes")
+      .insert({
+        question_id: questionId,
+        kind: "note",
+        body: action.grounding,
+        evidentiary_status:
+          action.evidentiaryStatus ?? (action.sourceUrl ? "web_finding" : "inference"),
+        source_title: action.sourceTitle,
+        source_url: action.sourceUrl,
+        created_by: profile.id,
+      })
+      .select("*")
+      .single();
+    if (noteError || !noteRow) {
+      // The question itself was created — a failed grounding note shouldn't
+      // fail the whole turn. Log and move on.
+      console.error("Editorial Inquiry: grounding note insert failed:", noteError);
+      return null;
+    }
+    return toContextNoteRecord(noteRow);
+  }
+
   if (action?.kind === "branch" && action.text) {
     if (!question.parentId) {
       // The root has no sibling to branch into — nothing to do.
@@ -241,6 +272,7 @@ export async function* streamEditorialTurnEvents(
         text: action.text,
         createdBy: profile.id,
       });
+      createdContextNote = await insertGroundingNote(createdQuestion.id);
       actionPayload = { questionId: createdQuestion.id };
       appliedAt = new Date().toISOString();
     }
@@ -252,6 +284,7 @@ export async function* streamEditorialTurnEvents(
       text: action.text,
       createdBy: profile.id,
     });
+    createdContextNote = await insertGroundingNote(createdQuestion.id);
     actionPayload = { questionId: createdQuestion.id };
     appliedAt = new Date().toISOString();
   } else if (action?.kind === "context" && action.text) {

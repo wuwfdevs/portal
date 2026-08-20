@@ -223,11 +223,15 @@ inspector's **Evaluate** action asks for both explicitly, one at a time.
 
 Every action from milestone 1 is preserved. What each one _means_ changed.
 
-- **Branch** (was "Explore") — given the same established context and parent
-  question, identify a genuinely different question or line of inquiry the
-  material supports — not narrower, not broader, a different way in. It must
-  not invent a new factual premise to justify the branch existing. **The model
-  can decline** (§7) if the available context doesn't support one.
+- **Branch** (was "Explore") — propose another, genuinely _distinct_ child of
+  the selected question's **parent** (clarified 2026-08-20: the insert
+  mechanics always put the new node under the parent, but the prompt anchored
+  the model's reasoning on the selected node, so "a different angle" reliably
+  came back as a variation of the selected question rather than a different
+  line under the same parent — the prompt now names the parent question
+  explicitly and forbids rephrasing the sibling). It must not invent a new
+  factual premise to justify the branch existing. **The model can decline**
+  (§7) if the available context doesn't support one.
 - **Drill down** — propose the next question _down_, one level at a time
   (clarified 2026-08-20, after a real turn leapt from a fresh root straight
   to a fully-scoped story question): from the guiding question, a drill-down
@@ -241,7 +245,14 @@ Every action from milestone 1 is preserved. What each one _means_ changed.
   the tool call is the model's _only_ way to change the canvas — it must
   never present a proposed question in prose alone, and never claim to have
   added something without calling the tool that turn (it did both, including
-  a confabulated "Added." with no call behind it).
+  a confabulated "Added." with no call behind it). Both Branch and Drill
+  down also carry a required **grounding** argument — 1–3 sentences of what
+  the new question traces to, with source when it came from search — which
+  lands on the new node as a context note (same day: a node holding only its
+  question text, with all its rationale buried in the parent's thread, was
+  unintelligible on its own; as a context note the grounding also inherits
+  down whatever grows beneath the node, per §4, and no schema change was
+  needed).
 - **Discuss** — conversational and node-scoped, same as before, now doing real
   editorial work: challenge an assumption, distinguish a claim from a fact,
   identify what evidence is missing, recognize that new context changes what the
