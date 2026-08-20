@@ -39,7 +39,17 @@ import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 // getOpenAIClient() throws.
 
 const MODEL = "gpt-5.4-mini";
-const MAX_OUTPUT_TOKENS = 2048;
+// max_output_tokens includes reasoning tokens, not just the visible reply —
+// at 2048, a real multi-search turn burned the whole budget on reasoning and
+// was truncated (status "incomplete") before writing any reply or action at
+// all, which is what an all-empty-reasoning-items turn in the OpenAI logs
+// was. Sized so reasoning across several search rounds still leaves room for
+// the reply.
+const MAX_OUTPUT_TOKENS = 8192;
+// Each internal web-search round re-processes the entire conversation, so
+// unbounded searching multiplies input tokens (8 rounds ≈ 37k input observed
+// against a 100k TPM org cap). Enough for real grounding, bounded.
+const MAX_WEB_SEARCHES = 4;
 
 let openaiClient: OpenAI | null = null;
 
@@ -141,39 +151,23 @@ const EVIDENTIARY_STATUSES = [
   "open_question",
 ] as const;
 
-const VOICE = `You are an editorial reasoning assistant for WUWF, the public radio station serving Pensacola and Northwest Florida, in NPR-member-station voice: calm, factual, precise, investigatable. No hype, no rhetorical flourishes, no emoji. When you search the web, prioritize current, attributable developments in WUWF's own coverage area — local and regional sources over national think-pieces.
+// Kept deliberately tight: with the built-in web_search tool, the API
+// re-processes these instructions once per internal search round, so every
+// token here is billed several times per turn (a real turn was observed
+// re-billing an earlier, wordier version of this prompt ~8x for ~37k input
+// tokens). Condense, don't add.
 
-ALWAYS write a short prose reply for the reporter, even when you call propose_editorial_action — your reply text is the only thing they read directly; a tool call with no accompanying prose reads as a blank message. Plain markdown formatting (short paragraphs, **bold**, lists) is fine; keep it tight.`;
+const VOICE = `You are an editorial reasoning assistant for WUWF, the public radio station serving Pensacola and Northwest Florida. Voice: calm, factual, precise — NPR member station; no hype, no emoji. When searching the web, prefer current, attributable developments in WUWF's coverage area — local and regional sources over national think-pieces.
 
-const REASONING_ORDER = `Your reasoning must follow this order, every time — never skip straight from the guiding question to a plausible-sounding invented question:
+ALWAYS write a short prose reply for the reporter, even when you call propose_editorial_action — a tool call with no prose reads as a blank message. Plain markdown is fine; keep it tight.`;
 
-  REAL-WORLD SIGNAL (something the reporter brought, or something you found)
-          +
-  WUWF'S GUIDING QUESTION (the durable question this whole inquiry organizes)
-          ->
-  WHAT IS ACTUALLY KNOWN?
-          ->
-  WHAT REMAINS UNKNOWN OR UNRESOLVED?
-          ->
-  LINES OF INQUIRY
-          ->
-  PROPERLY SCOPED STORY QUESTIONS
-          ->
-  EDITORIAL EVALUATION
+const REASONING_ORDER = `Reason in this order, every time: real-world signal (brought by the reporter, or found by your search) + the guiding question -> what is actually known -> what remains unknown or unresolved -> lines of inquiry -> properly scoped story questions -> editorial evaluation. Never skip straight from the guiding question to a plausible-sounding invented question. Anything you propose must trace back to inherited context or something you just found — never a factual premise invented to justify a branch. If the material doesn't support a genuinely different or narrower angle, say so plainly; declining is a normal, expected outcome.`;
 
-A branch or drill-down you propose has to trace back to something in that chain — the inherited context on the branch it's growing from, or something you just found by searching. You are not entitled to invent a new factual premise just to justify another branch existing. If the material on hand doesn't support a genuinely different or narrower angle, say so plainly instead of manufacturing one — declining is a normal, expected outcome, not a failure.`;
+const EDITORIAL_LEVELS = `Three levels: a GUIDING QUESTION is durable, broad, organizes sustained coverage, intentionally too large for one story — never something you propose. A LINE OF INQUIRY is a meaningful dimension, tension, mechanism, or uncertainty within it — can yield multiple stories, usually still too broad to be one reporting question. A STORY QUESTION is the central unknown of one finite reporting project: genuinely open, specific, consequential, bounded, grounded in a real uncertainty or tension, answerable through realistic reporting (sources, documents, records, data, observation), capable of discovery rather than illustration, and clear enough that a reporter can tell what evidence would answer it. Tree depth describes structure, not quality — never treat "drilled down enough times" as story-readiness.`;
 
-const EDITORIAL_LEVELS = `Three levels, and it matters which one a question is at:
+const DIAGNOSIS_GUIDE = `When a question isn't yet a strong story question, name the specific reason — one of: still_thematic, too_broad, compound_question, unverified_premise, already_known, unclear_stakes, no_uncertainty, implausible_reporting_path, trivial, descriptive_not_investigative. When you then propose a branch or drill-down, fix that SPECIFIC problem (split the compound question, name what needs verifying, surface the real uncertainty) — not a generic narrower paraphrase.`;
 
-- GUIDING QUESTION: durable, broad, organizes sustained coverage over time. Intentionally too large for one story. Never something you propose — it comes from a WUWF coverage pillar.
-- LINE OF INQUIRY: a meaningful dimension, tension, mechanism, uncertainty, change, or relationship within the guiding question. Capable of producing multiple stories over time. Normally still too broad to be one central reporting question on its own.
-- STORY QUESTION: the central unknown of one finite reporting project. A GOOD one is: genuinely open (not answer-presupposing), specific enough to investigate, consequential, appropriately bounded, grounded in a real uncertainty/tension/mechanism/decision/change/discrepancy, answerable through realistic reporting (sources, documents, records, data, observation), capable of producing discovery rather than illustrating something already known, and clear enough that a reporter can tell what evidence would answer it.
-
-Tree depth describes structure, not editorial quality. A deeply-nested question can still be a bad story question; a shallow one a reporter has genuinely narrowed through conversation can be ready sooner than its position suggests. Never treat "this has been drilled down enough times" as a substitute for actually checking the criteria above.`;
-
-const DIAGNOSIS_GUIDE = `When a question is not yet a strong story question, name the specific reason rather than handing back a vaguer restatement. The ten recognized reasons: still_thematic (still a topic/theme, not an investigable question), too_broad, compound_question (actually contains two or three separate questions), unverified_premise (assumes something not yet confirmed), already_known (the answer is already substantially established), unclear_stakes, no_uncertainty (nothing genuinely unresolved), implausible_reporting_path (no realistic way to actually answer it), trivial (specific but not consequential), descriptive_not_investigative (would produce description rather than discovery). When you diagnose one of these, try to fix that SPECIFIC problem when you propose a branch or drill-down — narrow a compound question into its real parts, name what needs verifying first, surface the actual uncertainty — not a generic narrower paraphrase.`;
-
-const EVIDENTIARY_DISCIPLINE = `Context attached to this inquiry is not all the same kind of true. Classify everything by evidentiary status: hunch (a reporter's instinct, nothing behind it yet), source_claim (something a source said, not independently verified), established_fact (confirmed from material the reporter trusts), web_finding (found via your own web search — always keep the title/URL), inference (something reasoned to, not directly observed), open_question (a known unknown, not a claim at all). NEVER treat a hunch or source_claim as though it were an established_fact when reasoning about what's actually known — that is exactly the failure this discipline exists to prevent. When you attach new context, classify it honestly; when a reporter's own words assert something as fact, and it hasn't been verified, treat it as a hunch or source_claim, not a fact, even if they state it confidently.`;
+const EVIDENTIARY_DISCIPLINE = `Classify all context by evidentiary status: hunch, source_claim, established_fact, web_finding (always keep title/URL), inference, open_question. Never treat a hunch or source_claim as an established fact when reasoning about what's known — an unverified assertion stays a hunch or source_claim even when the reporter states it confidently.`;
 
 function criteriaBlock(criteria: EditorialCriterionContext[]): string {
   if (criteria.length === 0) {
@@ -182,7 +176,7 @@ function criteriaBlock(criteria: EditorialCriterionContext[]): string {
   const lines = criteria
     .map((c) => `- ${c.name}: ${c.description}${c.guidance ? ` (${c.guidance})` : ""}`)
     .join("\n");
-  return `WUWF's current core editorial criteria — this is what WUWF considers strong journalism. Use it to INFORM judgment and critique. Never treat it as a target to reverse-engineer: do not shape a question to sound like it would score well against these criteria, and never emit a score or numeric rating against them yourself.\n${lines}`;
+  return `WUWF's current core editorial criteria — use them to INFORM judgment and critique. Never reverse-engineer a question to sound like it would score well, and never emit a score or rating yourself.\n${lines}`;
 }
 
 function contextBlock(context: EditorialTurnContext): string {
@@ -215,10 +209,10 @@ ${criteriaBlock(context.criteria)}`;
 }
 
 const MODE_FRAMING: Record<TurnMode, string> = {
-  discuss: `This is an ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, distinguish a claim from a fact, identify what evidence is missing, search the web if current information would help answer them, or just answer plainly. You may, at most once, additionally propose ONE structural action via propose_editorial_action if the conversation genuinely warrants one (a branch, a drill-down, attaching what they told you as context, a reframe, a diagnosis of what's blocking readiness, or an editorial assessment) — most turns warrant none at all.`,
-  branch: `The reporter clicked Branch on this question: given the same established context and parent question, identify a genuinely different question or line of inquiry the material actually supports — not narrower, not broader, a different way in. It must not invent a new factual premise to justify the branch existing — but "the material" is not limited to what's already attached: SEARCHING THE WEB FOR CURRENT DEVELOPMENTS IS PART OF THIS ACTION BY DEFAULT, especially when the inherited context is thin. Search first, then reason from what the context and your findings actually support. Only if both come up empty should you decline — say so plainly in your reply and do not call propose_editorial_action at all (or call it with kind "diagnosis" if there's something specific blocking it). If you do find a real branch, call propose_editorial_action with kind "branch", and attach what grounded it: cite your sources in the reply.`,
-  drilldown: `The reporter clicked Drill down on this question: identify a more specific, still-unresolved question beneath it that meaningfully moves it toward reportability — responding to whatever is currently keeping it from being a strong story question (see the diagnosis reasons below), not a generic narrower paraphrase. SEARCHING THE WEB FOR CURRENT DEVELOPMENTS IS PART OF THIS ACTION BY DEFAULT, especially when the inherited context is thin — a real development is usually what turns a thematic question into an investigable one. If the question can't be usefully narrowed even after checking, say so and either call propose_editorial_action with kind "diagnosis" naming the specific reason, or don't call it at all. If you do find a real next question, call propose_editorial_action with kind "drilldown", and cite in your reply whatever grounded it.`,
-  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments, both in your reply text. First: is this a well-formed, reportable story question by the structural criteria (open, specific, consequential, bounded, grounded in a real uncertainty, answerable through realistic reporting, capable of discovery, evidence-legible)? Search the web when it bears on the judgment — especially to check whether the answer is already substantially known, or whether a real current development grounds the question. If not well-formed, name which of the ten diagnosis reasons applies. Second, and only after the first: would answering it likely make a strong WUWF story, reasoned against WUWF's current editorial criteria below — in prose, never a score. These are different questions with possibly different answers; do not collapse them into one verdict. If the first judgment finds a real problem, call propose_editorial_action with kind "diagnosis". Regardless, if you have something substantive to say about the second judgment, call propose_editorial_action with kind "assessment" carrying that discussion as its text (in addition to, or instead of, a diagnosis call — but only one call total, so if both apply, use whichever is more decision-relevant right now and cover the other in your reply text alone).`,
+  discuss: `An ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, separate claim from fact, identify missing evidence, search if current information would help, or just answer plainly. At most ONE propose_editorial_action call, only if the conversation genuinely warrants it — most turns warrant none.`,
+  branch: `The reporter clicked Branch: find a genuinely different question or line of inquiry at this same level — not narrower, not broader, a different way in — supported by the inherited context or by what you find searching. Searching for current developments is part of this action by default, especially when context is thin. If context and search both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, call propose_editorial_action with kind "branch" and cite what grounded it in your reply.`,
+  drilldown: `The reporter clicked Drill down: find a more specific, still-unresolved question beneath this one that moves it toward reportability, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default — a real development is usually what makes a thematic question investigable. If it can't be usefully narrowed, say so and call kind "diagnosis" or nothing. Otherwise call propose_editorial_action with kind "drilldown" and cite what grounded it.`,
+  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score; kind "assessment" carries that discussion if substantive. One tool call total — pick the more decision-relevant kind and cover the other in prose.`,
 };
 
 const PROPOSE_ACTION_TOOL = {
@@ -406,7 +400,27 @@ ${contextBlock(context)}`;
       // retains each turn's content, queryable in the dashboard, for its
       // standard 30-day window.
       store: true,
-      tools: [{ type: "web_search" }, PROPOSE_ACTION_TOOL],
+      max_tool_calls: MAX_WEB_SEARCHES,
+      tools: [
+        {
+          type: "web_search",
+          // "low" injects a smaller slice of each search's results into
+          // context — citations still arrive; each round's results are
+          // re-billed on every subsequent round, so this compounds.
+          search_context_size: "low",
+          // Geolocates search toward the coverage area directly, which the
+          // prompt could only ask for. Central time, not Eastern — see
+          // lib/log/timezone.ts.
+          user_location: {
+            type: "approximate",
+            city: "Pensacola",
+            region: "Florida",
+            country: "US",
+            timezone: "America/Chicago",
+          },
+        },
+        PROPOSE_ACTION_TOOL,
+      ],
       tool_choice: "auto",
       include: ["web_search_call.action.sources"],
     });
@@ -435,12 +449,21 @@ ${contextBlock(context)}`;
     throw new Error(response.error?.message ?? "The assistant failed to respond.");
   }
 
-  yield {
-    type: "result",
-    result: {
-      reply: extractReplyText(response),
-      citations: extractCitations(response),
-      action: extractProposedAction(response),
-    },
+  const result: EditorialTurnResult = {
+    reply: extractReplyText(response),
+    citations: extractCitations(response),
+    action: extractProposedAction(response),
   };
+
+  // Truncated mid-reasoning with nothing usable produced — persisting this
+  // would store an empty exchange (and replay it as context on later turns).
+  // Better to fail the turn cleanly so nothing is written and a retry starts
+  // fresh. With a partial reply or an action, the turn proceeds as normal.
+  if (response.status === "incomplete" && !result.reply && !result.action) {
+    throw new Error(
+      "The model ran out of reasoning room before it could reply — try again. If this keeps happening, the turn's output budget needs raising.",
+    );
+  }
+
+  yield { type: "result", result };
 }

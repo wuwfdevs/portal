@@ -176,14 +176,20 @@ export async function* streamEditorialTurnEvents(
   // against a 100k TPM limit). The durable conclusions of older turns
   // already reach the model another way: diagnoses live on the question row
   // and attached findings live on as context notes, both carried in the
-  // prompt regardless of thread length.
-  const priorMessages: ChatTurnMessage[] = priorRows.slice(-MAX_REPLAYED_MESSAGES).map((row) => ({
-    role: row.role as "user" | "assistant",
-    body:
-      row.body.length > MAX_REPLAYED_MESSAGE_CHARS
-        ? `${row.body.slice(0, MAX_REPLAYED_MESSAGE_CHARS)} […]`
-        : row.body,
-  }));
+  // prompt regardless of thread length. Empty bodies (failed turns persisted
+  // before the truncation guard existed) are skipped outright — replaying
+  // "assistant: (nothing)" both wastes tokens and models blank replies as
+  // normal.
+  const priorMessages: ChatTurnMessage[] = priorRows
+    .filter((row) => row.body.trim().length > 0)
+    .slice(-MAX_REPLAYED_MESSAGES)
+    .map((row) => ({
+      role: row.role as "user" | "assistant",
+      body:
+        row.body.length > MAX_REPLAYED_MESSAGE_CHARS
+          ? `${row.body.slice(0, MAX_REPLAYED_MESSAGE_CHARS)} […]`
+          : row.body,
+    }));
 
   const turn = streamEditorialTurn(
     mode,
