@@ -723,6 +723,10 @@ export default async function RundownDetailPage({
           </ul>
         ) : npr?.kind === "unmapped" || npr?.kind === "not_configured" ? (
           <p className="text-xs text-ink-400">Not available for this program.</p>
+        ) : npr?.kind === "error" ? (
+          // A real fetch failure, not just "nothing yet" — hiding the message
+          // here once masked a broken CDS integration as an empty panel.
+          <p className="text-xs text-danger">Couldn&apos;t fetch NPR data. ({npr.message})</p>
         ) : (
           <p className="text-xs text-ink-400">No episode data yet.</p>
         )}
