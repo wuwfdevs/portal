@@ -134,9 +134,12 @@ export async function* streamAgentTurn(
 
         response = await stream.finalResponse();
       } catch (error) {
-        // A raw SDK failure (most notably a 429 against the org's shared
-        // token-per-minute cap) reached the widget verbatim — org id, token
-        // counts, billing URL and all. See lib/openai-error.ts.
+        // A raw SDK failure (most notably a rate limit against the org's
+        // shared token cap) reached the widget verbatim — org id, token
+        // counts, billing URL and all. Log the raw error (its response
+        // headers carry the org/project diagnostics), surface the humanized
+        // one. See lib/openai-error.ts.
+        console.error("Agent chat OpenAI call failed:", error);
         throw humanizeOpenAIError(error);
       }
 
