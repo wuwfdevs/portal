@@ -137,19 +137,14 @@ export function canReject(question: Pick<QuestionRecord, "depth" | "status">): b
 }
 
 /**
- * Branch generates a sibling — meaningless on the root, which has no parent
- * to share. Drill down always makes sense, including on the root (that's how
- * an inquiry gets its first lines of inquiry). Discuss and Evaluate are
- * deliberately unrestricted, matching the mockup's own quick-menu (its
- * discuss button never carried a `disabled` attribute the way branch/drill/
- * reject did) — a promoted question can still warrant a follow-up
- * conversation or a second look. A rejected question is moot here
+ * Drill down always makes sense on an active question, including the root —
+ * it's how an inquiry gets its lines of inquiry, and how a parent grows
+ * additional distinct children (the tree's only growth action since Branch
+ * was consolidated into it — design doc §15). Discuss and Evaluate are
+ * deliberately unrestricted — a promoted question can still warrant a
+ * follow-up conversation or a second look. A rejected question is moot here
  * regardless, since visibleQuestions() already keeps it off the canvas.
  */
-export function canBranch(question: Pick<QuestionRecord, "depth" | "status">): boolean {
-  return question.depth >= 1 && question.status === "active";
-}
-
 export function canDrillDown(question: Pick<QuestionRecord, "status">): boolean {
   return question.status === "active";
 }
@@ -210,9 +205,14 @@ export function visibleQuestions(questions: QuestionRecord[]): QuestionRecord[] 
   return questions.filter((q) => !hidden.has(q.id));
 }
 
-/** Active siblings/children a generation prompt should avoid duplicating. */
-export function activeChildren(questions: QuestionRecord[], parentId: string): QuestionRecord[] {
-  return questions.filter((q) => q.parentId === parentId && q.status !== "rejected");
+/**
+ * All children of a node, for a generation prompt's do-not-duplicate list —
+ * rejected ones included: a rejected angle is a dead one the reporter
+ * already turned down, which the model should know not to re-propose, not
+ * an opening it's free to fill again.
+ */
+export function childrenOf(questions: QuestionRecord[], parentId: string): QuestionRecord[] {
+  return questions.filter((q) => q.parentId === parentId);
 }
 
 const COLUMN_WIDTH = 340;

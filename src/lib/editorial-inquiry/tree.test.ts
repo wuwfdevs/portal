@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   ancestryPath,
-  canBranch,
   canDrillDown,
   canPromote,
   canReject,
@@ -65,7 +64,7 @@ describe("labelForDiagnosis", () => {
   });
 });
 
-describe("canReject / canPromote / canBranch / canDrillDown", () => {
+describe("canReject / canPromote / canDrillDown", () => {
   it("never allows rejecting or promoting the root", () => {
     expect(canReject(root)).toBe(false);
     expect(canPromote(root)).toBe(false);
@@ -84,12 +83,6 @@ describe("canReject / canPromote / canBranch / canDrillDown", () => {
   it("disallows reject/promote on a non-active question", () => {
     expect(canReject(rejected)).toBe(false);
     expect(canPromote({ ...q1, status: "promoted" })).toBe(false);
-  });
-
-  it("disallows branching the root — it has no parent to share a sibling under", () => {
-    expect(canBranch(root)).toBe(false);
-    expect(canBranch(line1)).toBe(true);
-    expect(canBranch(rejected)).toBe(false);
   });
 
   it("allows drilling down from any active question, including the root", () => {

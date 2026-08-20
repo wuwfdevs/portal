@@ -18,8 +18,8 @@ import {
 } from "./queries";
 import { listCurrentCoreCriteria } from "./editorial-planning";
 import {
-  activeChildren,
   ancestryPath,
+  childrenOf,
   inheritedContextNotes,
   type ContextNoteRecord,
   type QuestionRecord,
@@ -136,31 +136,24 @@ async function loadTurnContext(
       return { depth: q.depth, text: q.text };
     });
 
+  // Drilldown's do-not-duplicate list is the acted-on question's existing
+  // children — the same generative situation the retired Branch action was
+  // calibrated for (create a new child of this parent, distinct from the
+  // ones it has), now reached only from the parent. Other modes list the
+  // siblings, excluding the question itself: it's already named as the one
+  // being acted on. Rejected questions are on the list too, labeled — a
+  // rejected angle is one the reporter turned down, not an opening.
   const relatedParentId = mode === "drilldown" ? question.id : question.parentId;
   const existingRelated = relatedParentId
-    ? activeChildren(detail.questions, relatedParentId)
-        // Branch keeps the selected question ON the do-not-duplicate list —
-        // it's the single most important angle a "genuinely distinct" sibling
-        // must not rephrase (excluding it was how Branch reliably produced
-        // variations of the very question being branched away from). Other
-        // modes keep excluding it: it's already named as the one being acted
-        // on.
-        .filter((q) => mode === "branch" || q.id !== question.id)
-        .map((q) => q.text)
+    ? childrenOf(detail.questions, relatedParentId)
+        .filter((q) => q.id !== question.id)
+        .map((q) => ({ text: q.text, rejected: q.status === "rejected" }))
     : [];
 
-  // Branch reasons from — and its new node will actually inherit from — the
-  // PARENT's context chain. Handing the model the departing sibling's own
-  // notes anchored every "different angle" to that sibling's territory (an
-  // observed failure: a branch off an ALPR question re-grounded itself in the
-  // same ALPR article and proposed an adjacent ALPR angle), and the new node,
-  // as a child of the parent, never inherits those notes anyway.
-  const contextAnchorId =
-    mode === "branch" && question.parentId ? question.parentId : questionId;
   const inheritedContext = inheritedContextNotes(
     detail.questions,
     detail.contextNotes,
-    contextAnchorId,
+    questionId,
   ).map((r) => ({
     kind: r.note.kind,
     body: r.note.body,
@@ -187,10 +180,10 @@ async function loadTurnContext(
 }
 
 /**
- * The one place every editorial turn runs — Branch, Drill down, Evaluate,
- * and ordinary Discuss messages all stream through here with a different
+ * The one place every editorial turn runs — Drill down, Evaluate, and
+ * ordinary Discuss messages all stream through here with a different
  * `mode` and `userMessage` (a canned directive from directives.ts for the
- * first three, the reporter's own words for the last). See design doc §7.
+ * first two, the reporter's own words for the last). See design doc §7.
  */
 export async function* streamEditorialTurnEvents(
   questionId: string,
@@ -304,6 +297,9 @@ export async function* streamEditorialTurnEvents(
     return toContextNoteRecord(noteRow);
   }
 
+  // kind "branch" is reachable from discuss turns only — the dedicated
+  // Branch mode is gone (design doc §15), but the model can still propose a
+  // sibling conversationally, and it still inserts under the parent.
   if (action?.kind === "branch" && action.text) {
     if (!question.parentId) {
       // The root has no sibling to branch into — nothing to do.

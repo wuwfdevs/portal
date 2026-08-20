@@ -609,3 +609,70 @@ earlier empty-bubble fix that covered diagnosis/assessment only).
 `turn.ts`'s `fallbackAssistantBody()` now synthesizes a readable message
 from the action's own text/grounding for every action kind, so a
 prose-less turn can no longer store a blank exchange.
+
+## 15. Branch consolidated into Drill down (2026-08-20)
+
+Branch is no longer a first-class action. Drill down, run on the parent, is
+how a sibling is grown — one growth action for the whole tree, referenced to
+whichever node it's triggered from.
+
+Two things forced the question on the same day. First, structurally: after
+§14's calibration, Branch(X) and Drill down(parent of X) insert a node at
+the same position, and nearly all of Branch's calibration machinery — the
+parent-chain re-anchoring, the deliberately withheld sibling notes, the
+prompt naming the parent explicitly — existed to compensate for the action
+operating *from the child*. Run from the parent, every one of those
+properties holds by construction: the context chain naturally is the
+parent's, and all existing children naturally sit on the do-not-duplicate
+list. §14 patched the symptom; this removes the cause. Second, empirically:
+a real drill-down from a parent with one existing child produced a
+near-duplicate of that child — the same failure class §14 fixed for Branch,
+surfacing through the one path the calibration never covered (drilldown had
+a one-line dedup list but none of Branch's distinctness rules, reasoned
+from the identical parent context that produced the first child, with its
+own earlier proposal replayed in the thread as an anchor).
+
+What changed:
+
+- **The drilldown framing absorbed Branch's calibration.** When questions
+  already sit beneath the acted-on one, the new question must explore
+  genuinely distinct territory from all of them — the model's own earlier
+  proposals are named as taken territory, not a track to continue — a fresh
+  search is mandatory in that case, and declining stays a normal outcome.
+  The context block's do-not-duplicate header now states that a reworded
+  variation of an existing question *is* a duplicate, which also tightens
+  discuss-turn proposals.
+- **`branch` is gone as a turn mode** (`TurnMode`, the SSE route's enum,
+  the canned directive) but **stays in the model's discuss-turn action
+  vocabulary and the database enum** — "add a sibling of this to the
+  canvas" is still something a reporter can ask for conversationally, and
+  it still inserts under the parent. Stored Branch directives in existing
+  threads still render as their muted "You asked for another angle" line.
+- **The canvas node's radial quick-menu is gone**, replaced by the standard
+  mindmap hover affordances (the Whimsical pattern): a fork button at a
+  **leaf** node's right edge grows a child beneath it; a fork at any
+  non-root node's bottom edge grows a sibling below it — the same drilldown
+  turn, run on the node or on its parent; and reject is a small × in the
+  card's top-right corner (still reject, not delete — §6 unchanged). The
+  right fork is leaf-only so the two never both mean "new child of the same
+  parent": extending a chain happens at its tip, opening a parallel line
+  happens from the sibling it parallels. An internal node can still be
+  drilled from the inspector panel, which keeps the full action set. The
+  Discuss icon went with the menu — clicking a node now opens the inspector
+  panel directly (a same-day fix: the canvas background's deselect handler
+  had been swallowing every node click), and the discussion is one toggle
+  away there.
+- **The panel's "write your own" fallback (§13) writes a child**, from
+  whichever node is selected — the manual sibling variant went the same way
+  as the model-backed one, for the same reason.
+
+The selection consequence is deliberate: growing a sibling selects the
+parent and lands the model's reply in the parent's thread — the natural
+home for "why these children exist." Reframe and Discuss still live on the
+node itself for "improve this one."
+
+Same-day addendum: rejected questions now appear on the do-not-duplicate
+list too, labeled "[rejected by the reporter]" and framed as dead angles
+never to be re-proposed — previously they were filtered out entirely, so
+the model could innocently re-propose an angle the reporter had already
+turned down.

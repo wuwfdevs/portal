@@ -9,57 +9,23 @@ import {
 
 export const NODE_WIDTH = 240;
 
-interface QuickAction {
-  key: string;
-  title: string;
-  disabled: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  /** Position of this button within the fan, relative to the trigger's center. */
-  offset: { x: number; y: number };
-  tone: "blue" | "danger" | "neutral";
-}
-
-function BranchIcon() {
+/**
+ * A rightward fork — the tree grows left-to-right, so growing a child reads
+ * as forking right; the sibling button rotates it to point down, the
+ * direction a new sibling appears in the layout.
+ */
+function ForkIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
-      className="h-3.5 w-3.5"
+      className={cn("h-3.5 w-3.5", className)}
     >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v8M8 12h8" />
-    </svg>
-  );
-}
-
-function DrillDownIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      className="h-3.5 w-3.5"
-    >
-      <path d="M7 8l5 5 5-5" />
-      <path d="M7 14l5 5 5-5" />
-    </svg>
-  );
-}
-
-function DiscussIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      className="h-3.5 w-3.5"
-    >
-      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+      <path d="M3 12h6" />
+      <path d="M9 12c3 0 3-5 6-5h6" />
+      <path d="M9 12c3 0 3 5 6 5h6" />
     </svg>
   );
 }
@@ -71,32 +37,27 @@ function RejectIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
-      className="h-3.5 w-3.5"
+      className="h-3 w-3"
     >
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
 }
 
-const TONE_CLASSES: Record<QuickAction["tone"], string> = {
-  blue: "bg-brand-surface text-brand-link",
-  danger: "bg-white text-danger border border-danger",
-  neutral: "bg-panel-100 text-ink-400",
-};
-
 export interface QuestionNodeProps {
   node: LaidOutQuestion;
   selected: boolean;
   contextCount: number;
-  pending: "branch" | "drilldown" | "evaluate" | null;
+  pending: "drilldown" | "evaluate" | null;
   onSelect: () => void;
   onDragStart: (event: React.MouseEvent) => void;
-  onBranch: () => void;
+  /** Grow a child beneath this node — a drilldown turn on this question. */
   onDrillDown: () => void;
+  /** Grow a sibling below this node — the same drilldown turn, run on the parent. */
+  onAddSibling: () => void;
   onReject: () => void;
-  onDiscuss: () => void;
-  canBranch: boolean;
   canDrillDown: boolean;
+  canAddSibling: boolean;
   canReject: boolean;
 }
 
@@ -107,12 +68,11 @@ export function QuestionNode({
   pending,
   onSelect,
   onDragStart,
-  onBranch,
   onDrillDown,
+  onAddSibling,
   onReject,
-  onDiscuss,
-  canBranch,
   canDrillDown,
+  canAddSibling,
   canReject,
 }: QuestionNodeProps) {
   const isRoot = node.depth === 0;
@@ -120,54 +80,20 @@ export function QuestionNode({
   const badgeLabel = isPromoted ? "Story question" : labelForDepth(node.depth);
   const showBadge = isPromoted || node.depth <= 1;
 
-  const actions: QuickAction[] = [
-    {
-      key: "branch",
-      title: "Branch: look for a different angle here",
-      disabled: !canBranch,
-      onClick: onBranch,
-      icon: <BranchIcon />,
-      offset: { x: 6, y: -46 },
-      tone: canBranch ? "blue" : "neutral",
-    },
-    {
-      key: "drill",
-      title: "Drill down into this question",
-      disabled: !canDrillDown,
-      onClick: onDrillDown,
-      icon: <DrillDownIcon />,
-      offset: { x: 38, y: -22 },
-      tone: canDrillDown ? "blue" : "neutral",
-    },
-    {
-      key: "discuss",
-      title: "Discuss this question",
-      disabled: false,
-      onClick: onDiscuss,
-      icon: <DiscussIcon />,
-      offset: { x: 38, y: 22 },
-      tone: "neutral",
-    },
-    {
-      key: "reject",
-      title: "Reject this question",
-      disabled: !canReject,
-      onClick: onReject,
-      icon: <RejectIcon />,
-      offset: { x: 6, y: 46 },
-      tone: canReject ? "danger" : "neutral",
-    },
-  ];
-
   return (
     <div
-      className="group/fan absolute"
+      className="group/node absolute"
       style={{ left: node.x, top: node.y, width: NODE_WIDTH, minHeight: node.height }}
       onMouseDown={onDragStart}
     >
       <button
         type="button"
-        onClick={onSelect}
+        onClick={(e) => {
+          // The canvas's own background onClick deselects; without this the
+          // same click bubbles up and clears the selection it just made.
+          e.stopPropagation();
+          onSelect();
+        }}
         className={cn(
           "relative box-border w-full min-h-[92px] cursor-grab rounded p-3 text-left transition-shadow active:cursor-grabbing",
           isPromoted && "border-[1.5px] border-success-border bg-success-bg",
@@ -230,39 +156,59 @@ export function QuestionNode({
         </div>
       </button>
 
-      {/* Hover-revealed radial quick-menu — always positioned, toggled by opacity/pointer-events so no per-node JS hover state is needed. */}
-      <div
-        className="pointer-events-none absolute top-1/2 right-[-90px] z-[3] h-[104px] w-[90px] -translate-y-1/2 opacity-0 transition-opacity group-hover/fan:pointer-events-auto group-hover/fan:opacity-100 group-focus-within/fan:pointer-events-auto group-focus-within/fan:opacity-100"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="absolute top-1/2 left-[10px] flex h-[22px] w-[22px] -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-sm text-ink-500 shadow-sm">
-          +
-        </div>
-        {actions.map((action) => (
-          <button
-            key={action.key}
-            type="button"
-            title={action.title}
-            aria-label={action.title}
-            disabled={action.disabled}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!action.disabled) action.onClick();
-            }}
-            className={cn(
-              "absolute top-1/2 left-[10px] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full shadow-sm",
-              action.disabled && "cursor-not-allowed opacity-60",
-              !action.disabled && TONE_CLASSES[action.tone],
-              action.disabled && TONE_CLASSES.neutral,
-            )}
-            style={{
-              transform: `translate(${action.offset.x}px, calc(-50% + ${action.offset.y}px))`,
-            }}
-          >
-            {action.icon}
-          </button>
-        ))}
-      </div>
+      {/* Hover-revealed affordances, mindmap-style (the Whimsical pattern):
+          a fork at the right edge grows a child beneath a LEAF node, a fork
+          at the bottom edge grows a sibling below any non-root node — the
+          same drilldown turn, referenced to this node or its parent — and
+          reject is tucked in the top-right corner. Everything else lives in
+          the inspector panel the node click opens. Toggled by
+          opacity/pointer-events so no per-node JS hover state is needed;
+          mousedown stops propagating so clicking one never starts a drag. */}
+      {canDrillDown && (
+        <button
+          type="button"
+          title="Drill down: grow the next question beneath this one"
+          aria-label="Drill down: grow the next question beneath this one"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDrillDown();
+          }}
+          className="pointer-events-none absolute top-1/2 right-[-14px] z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-brand-surface text-brand-link opacity-0 shadow-sm transition-opacity group-hover/node:pointer-events-auto group-hover/node:opacity-100 group-focus-within/node:pointer-events-auto group-focus-within/node:opacity-100"
+        >
+          <ForkIcon />
+        </button>
+      )}
+      {canAddSibling && (
+        <button
+          type="button"
+          title="Add a sibling: a genuinely different question at this level"
+          aria-label="Add a sibling: a genuinely different question at this level"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddSibling();
+          }}
+          className="pointer-events-none absolute bottom-[-14px] left-1/2 z-[3] flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full bg-brand-surface text-brand-link opacity-0 shadow-sm transition-opacity group-hover/node:pointer-events-auto group-hover/node:opacity-100 group-focus-within/node:pointer-events-auto group-focus-within/node:opacity-100"
+        >
+          <ForkIcon className="rotate-90" />
+        </button>
+      )}
+      {canReject && (
+        <button
+          type="button"
+          title="Reject this question — hides it and everything under it, nothing is deleted"
+          aria-label="Reject this question"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onReject();
+          }}
+          className="pointer-events-none absolute top-[-9px] right-[-9px] z-[3] flex h-6 w-6 items-center justify-center rounded-full border border-line bg-white text-ink-400 opacity-0 shadow-sm transition-opacity hover:border-danger hover:text-danger group-hover/node:pointer-events-auto group-hover/node:opacity-100 group-focus-within/node:pointer-events-auto group-focus-within/node:opacity-100"
+        >
+          <RejectIcon />
+        </button>
+      )}
     </div>
   );
 }
