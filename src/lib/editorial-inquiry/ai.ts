@@ -416,6 +416,11 @@ ${contextBlock(context)}`;
     // matches the plain Response the extract helpers expect.
     response = (await stream.finalResponse()) as unknown as OpenAI.Responses.Response;
   } catch (error) {
+    // The raw SDK error carries the diagnostic payload (org/project response
+    // headers, ratelimit counters) — log it server-side before replacing it
+    // with the user-facing message; Vercel logs are where that detail is
+    // actually read.
+    console.error("Editorial Inquiry OpenAI call failed:", error);
     throw humanizeOpenAIError(error);
   }
 
