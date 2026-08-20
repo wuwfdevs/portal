@@ -546,3 +546,66 @@ manually (with its own evidentiary status), and Branch/Drill down still offer a
 reporter's own text (with no diagnosis and no citations, since none was
 generated) — the tool's core loop never depends on the model being configured,
 only its reasoning assistance does.
+
+## 14. Calibration revision (2026-08-20)
+
+An audit of a real production inquiry (eleven questions grown over one
+session against the Public Safety and Civil Liberties pillar) surfaced four
+reliable failure modes. Each traced to something structural in this design's
+first implementation, not to model temperament, and each got a targeted fix
+the same day. The four, and what changed:
+
+**Branch produced variations of the sibling it was leaving.** Branch turns
+handed the model the *selected* question's inherited context chain —
+including its own notes — even though the new node, as a child of the
+parent, never inherits those notes. With all visible evidence living in the
+sibling's territory (and the directive saying "grounded in what's already
+established"), "a genuinely different angle" reliably came back as an
+adjacent angle on the same topic, re-grounded in the same article. Meanwhile
+the same inquiry's genuinely distinct lines all came from drilling down on
+the root, which had no anchoring context and searched fresh each time —
+proving the mechanism. Now: a Branch turn's inherited-context block is the
+**parent's** chain (what the new node will actually inherit), labeled as
+such; the departing sibling stays **on** the do-not-duplicate list (it was
+the one active child excluded from it); and the mode framing makes a fresh
+web search the default first move, dropping the old "especially when context
+is thin" qualifier, which cut exactly the wrong way — rich sibling-topic
+context is when escaping the territory most needs new signal.
+
+**Drill down converged to paraphrase.** There is no level below a story
+question, so once a chain reached story altitude, "one level down" had no
+destination and the model — biased to comply with an explicit click —
+rephrased the question instead of declining (one real depth-4 node was its
+depth-3 parent with the clauses reordered). The drill-down framing now
+requires checking the story-question bar *first*: a question that already
+meets it gets a promote nomination (below), never a narrower copy, and
+proposing "substantially the acted-on question reworded" is named as
+prohibited outright.
+
+**The model never promoted anything.** By construction: the action
+vocabulary had no promote kind and the prompt never mentioned promotion
+existing — a real Evaluate turn concluded a question was "structurally
+strong enough to report" and could do nothing about it. `action_kind` gains
+`'promote'` (migration `20260820140000_editorial_inquiry_reasoning_
+calibration.sql`): a **nomination**, applied_at-null until the reporter's
+confirming click (`applyPromotion` in the route's `actions.ts`), the same
+pending shape as reframe — §6's principle that promotion is the reporter's
+validation is unchanged. Evaluate is instructed to nominate when both of its
+judgments come out favorable; Drill down nominates instead of descending
+when the question is already story-ready.
+
+**Questions overshot into reporting tasks.** The diagnosis taxonomy was
+one-directional — all ten reasons described insufficient narrowing, so
+neither Evaluate nor Drill down could name "this is a records request, not a
+story." `diagnosis_kind` gains `too_narrow_process_step` (same migration),
+and §5's level definitions now state there is no level below a story
+question: beneath it sit reporting *tasks*, which belong in a reporting
+plan, never as tree nodes.
+
+One cross-cutting fix rode along: the model regularly emitted only the tool
+call with no prose (8 of 10 canned-directive turns in the audited inquiry
+stored an empty assistant body, despite the prompt demanding prose and an
+earlier empty-bubble fix that covered diagnosis/assessment only).
+`turn.ts`'s `fallbackAssistantBody()` now synthesizes a readable message
+from the action's own text/grounding for every action kind, so a
+prose-less turn can no longer store a blank exchange.

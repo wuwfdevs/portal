@@ -106,7 +106,7 @@ export interface EditorialTurnContext {
 }
 
 export interface ProposedAction {
-  kind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment";
+  kind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment" | "promote";
   text: string | null;
   /** branch/drilldown: what grounds the new question — becomes a context note on the new node. */
   grounding: string | null;
@@ -142,6 +142,7 @@ const DIAGNOSIS_KINDS = [
   "implausible_reporting_path",
   "trivial",
   "descriptive_not_investigative",
+  "too_narrow_process_step",
 ] as const;
 
 const EVIDENTIARY_STATUSES = [
@@ -167,9 +168,9 @@ The reporter works on a question-tree canvas, and calling propose_editorial_acti
 
 const REASONING_ORDER = `Reason in this order, every time: real-world signal (brought by the reporter, or found by your search) + the guiding question -> what is actually known -> what remains unknown or unresolved -> lines of inquiry -> properly scoped story questions -> editorial evaluation. Never skip straight from the guiding question to a plausible-sounding invented question. Anything you propose must trace back to inherited context or something you just found — never a factual premise invented to justify a branch. If the material doesn't support a genuinely different or narrower angle, say so plainly; declining is a normal, expected outcome.`;
 
-const EDITORIAL_LEVELS = `Three levels: a GUIDING QUESTION is durable, broad, organizes sustained coverage, intentionally too large for one story — never something you propose. A LINE OF INQUIRY is a meaningful dimension, tension, mechanism, or uncertainty within it — can yield multiple stories, usually still too broad to be one reporting question. A STORY QUESTION is the central unknown of one finite reporting project: genuinely open, specific, consequential, bounded, grounded in a real uncertainty or tension, answerable through realistic reporting (sources, documents, records, data, observation), capable of discovery rather than illustration, and clear enough that a reporter can tell what evidence would answer it. Tree depth describes structure, not quality — never treat "drilled down enough times" as story-readiness.`;
+const EDITORIAL_LEVELS = `Three levels: a GUIDING QUESTION is durable, broad, organizes sustained coverage, intentionally too large for one story — never something you propose. A LINE OF INQUIRY is a meaningful dimension, tension, mechanism, or uncertainty within it — can yield multiple stories, usually still too broad to be one reporting question. A STORY QUESTION is the central unknown of one finite reporting project: genuinely open, specific, consequential, bounded, grounded in a real uncertainty or tension, answerable through realistic reporting (sources, documents, records, data, observation), capable of discovery rather than illustration, and clear enough that a reporter can tell what evidence would answer it. There is NO level below a story question: beneath it sit reporting TASKS — a records request, a document pull, a yes/no verification step — which belong in a reporting plan, never as questions in this tree. A "question" whose answer is one step of reporting a larger story has overshot; the story question is the thing that step serves. Tree depth describes structure, not quality — never treat "drilled down enough times" as story-readiness.`;
 
-const DIAGNOSIS_GUIDE = `When a question isn't yet a strong story question, name the specific reason — one of: still_thematic, too_broad, compound_question, unverified_premise, already_known, unclear_stakes, no_uncertainty, implausible_reporting_path, trivial, descriptive_not_investigative. When you then propose a branch or drill-down, fix that SPECIFIC problem (split the compound question, name what needs verifying, surface the real uncertainty) — not a generic narrower paraphrase.`;
+const DIAGNOSIS_GUIDE = `When a question isn't a strong story question, name the specific reason — one of: still_thematic, too_broad, compound_question, unverified_premise, already_known, unclear_stakes, no_uncertainty, implausible_reporting_path, trivial, descriptive_not_investigative, too_narrow_process_step. The last one runs the OPPOSITE direction from the rest: the question has been narrowed past story level into a reporting task, and the fix is stepping back UP to the story that task serves, never narrowing further. For the others, when you then propose a branch or drill-down, fix that SPECIFIC problem (split the compound question, name what needs verifying, surface the real uncertainty) — not a generic narrower paraphrase.`;
 
 const EVIDENTIARY_DISCIPLINE = `Classify all context by evidentiary status: hunch, source_claim, established_fact, web_finding (always keep title/URL), inference, open_question. Never treat a hunch or source_claim as an established fact when reasoning about what's known — an unverified assertion stays a hunch or source_claim even when the reporter states it confidently.`;
 
@@ -183,7 +184,7 @@ function criteriaBlock(criteria: EditorialCriterionContext[]): string {
   return `WUWF's current core editorial criteria — use them to INFORM judgment and critique. Never reverse-engineer a question to sound like it would score well, and never emit a score or rating yourself.\n${lines}`;
 }
 
-function contextBlock(context: EditorialTurnContext): string {
+function contextBlock(mode: TurnMode, context: EditorialTurnContext): string {
   const ancestryLines = context.ancestry.map((a) => `- (depth ${a.depth}) ${a.text}`).join("\n");
   const existing = context.existingRelated.length
     ? context.existingRelated.map((t) => `- ${t}`).join("\n")
@@ -197,16 +198,28 @@ function contextBlock(context: EditorialTurnContext): string {
         .join("\n")
     : "(none)";
 
+  // Branch turns are handed the PARENT's context chain, not the departing
+  // sibling's (see loadTurnContext in turn.ts) — label it honestly so the
+  // model doesn't read the parent's notes as "this branch's."
+  const existingHeader =
+    mode === "branch"
+      ? "Already under that parent — the selected question included. Genuinely distinct means distinct from ALL of these:"
+      : "Already at this position in the tree — do not duplicate one of these angles:";
+  const notesHeader =
+    mode === "branch"
+      ? "Context the new branch will inherit (the parent's chain — the selected sibling's own notes are deliberately not shown), each labeled with its evidentiary status:"
+      : "Context inherited on this branch, each labeled with its evidentiary status:";
+
   return `WUWF coverage pillar: ${context.pillarName}
 Guiding question for the whole inquiry: "${context.guidingQuestion}"
 
 Path from the guiding question down to the question being acted on (the last line is the one being acted on):
 ${ancestryLines}
 
-Already at this position in the tree — do not duplicate one of these angles:
+${existingHeader}
 ${existing}
 
-Context inherited on this branch, each labeled with its evidentiary status:
+${notesHeader}
 ${notes}
 
 ${criteriaBlock(context.criteria)}`;
@@ -226,9 +239,9 @@ function branchAnchor(mode: TurnMode, context: EditorialTurnContext): string {
 
 const MODE_FRAMING: Record<TurnMode, string> = {
   discuss: `An ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, separate claim from fact, identify missing evidence, search if current information would help, or just answer plainly. At most ONE propose_editorial_action call, only if the conversation genuinely warrants it — most turns warrant none. Exception: when the reporter asks you to add a question or note to the canvas/tree, that IS the warrant — call the tool (kind "drilldown", "branch", or "context" as fits) with the agreed text; replying without the call adds nothing.`,
-  branch: `The reporter clicked Branch: propose another, genuinely DISTINCT child of the selected question's PARENT — a different line under the same parent, exploring different territory. Reason from the PARENT question; the selected question is only the sibling you're branching away from, never the thing to rephrase, vary, or take "a different angle on." Supported by inherited context or by what you find searching — searching for current developments is part of this action by default, especially when context is thin. If context and search both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, you MUST call propose_editorial_action with kind "branch" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
-  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. Say in your reply which level the proposed question sits at and what would advance it next. If it can't be usefully narrowed, say so and call kind "diagnosis" or nothing. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
-  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score; kind "assessment" carries that discussion if substantive. One tool call total — pick the more decision-relevant kind and cover the other in prose.`,
+  branch: `The reporter clicked Branch: propose another, genuinely DISTINCT child of the selected question's PARENT — a different line under the same parent, exploring different territory. Reason from the PARENT question; the selected question is only the sibling you're branching away from, never the thing to rephrase, vary, or take "a different angle on." The context notes below are the PARENT's chain — what the new node will actually inherit; the departing sibling's own notes are deliberately withheld, so do not reconstruct its territory from memory of the conversation. ALWAYS search for a current development first: a genuinely distinct line needs its own fresh real-world signal, and re-using the material that grounds an existing sibling reliably produces a variation of that sibling instead. If search and the parent's context both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, you MUST call propose_editorial_action with kind "branch" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
+  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. FIRST check whether the question already meets the story-question bar: if it does, there is nothing below it but reporting tasks — do NOT propose one; say it's story-ready and call kind "promote" to nominate it (the reporter confirms). Never propose a question that is substantially the acted-on question reworded — if nothing genuinely narrower and still story-shaped exists, that is a promote, a diagnosis, or a plain decline, never a paraphrase. Say in your reply which level the proposed question sits at and what would advance it next. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
+  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score. When BOTH judgments come out favorable, call kind "promote" to nominate it as a validated story question (the reporter confirms) — a favorable evaluation that stops at prose leaves the reporter guessing whether you meant it. Otherwise kind "assessment" carries the editorial-value discussion if substantive. One tool call total — pick the most decision-relevant kind and cover the rest in prose.`,
 };
 
 const PROPOSE_ACTION_TOOL = {
@@ -242,14 +255,14 @@ const PROPOSE_ACTION_TOOL = {
     properties: {
       kind: {
         type: "string",
-        enum: ["branch", "drilldown", "context", "reframe", "diagnosis", "assessment"],
+        enum: ["branch", "drilldown", "context", "reframe", "diagnosis", "assessment", "promote"],
         description:
-          "branch/drilldown: a new question (give its full text). context: attach what the reporter told you as a context note. reframe: propose a rewritten version of the CURRENT question (the reporter applies it, you don't). diagnosis: explain what's blocking story-readiness, naming one of the ten reasons. assessment: a qualitative editorial-value discussion against current criteria, never a score.",
+          "branch/drilldown: a new question (give its full text). context: attach what the reporter told you as a context note. reframe: propose a rewritten version of the CURRENT question (the reporter applies it, you don't). diagnosis: explain what's blocking story-readiness, naming one of the recognized reasons. assessment: a qualitative editorial-value discussion against current criteria, never a score. promote: nominate the CURRENT question as a validated, story-ready story question (the reporter confirms — use only when it genuinely meets the story-question bar).",
       },
       text: {
         type: ["string", "null"],
         description:
-          "The new question's full text (branch/drilldown), the context note's body (context), the reframed question's full text (reframe), or the assessment discussion (assessment). Null for diagnosis — diagnosis_kind names the reason instead.",
+          "The new question's full text (branch/drilldown), the context note's body (context), the reframed question's full text (reframe), the assessment discussion (assessment), or one or two sentences on why it's story-ready (promote). Null for diagnosis — diagnosis_kind names the reason instead.",
       },
       grounding: {
         type: ["string", "null"],
@@ -399,7 +412,7 @@ ${MODE_FRAMING[mode]}${branchAnchor(mode, context)}
 Prior conversation on this question, oldest first:
 ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
 
-${contextBlock(context)}`;
+${contextBlock(mode, context)}`;
 
   let response: OpenAI.Responses.Response;
   try {

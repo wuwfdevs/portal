@@ -8,8 +8,10 @@ import {
   computeTreeLayout,
   contextNoteCount,
   descendantIds,
+  DIAGNOSIS_KINDS,
   inheritedContextNotes,
   labelForDepth,
+  labelForDiagnosis,
   visibleQuestions,
   type ContextNoteRecord,
   type QuestionRecord,
@@ -49,6 +51,17 @@ describe("labelForDepth", () => {
     expect(labelForDepth(1)).toBe("Line of inquiry");
     expect(labelForDepth(2)).toBe("Question");
     expect(labelForDepth(5)).toBe("Question");
+  });
+});
+
+describe("labelForDiagnosis", () => {
+  it("labels every recognized diagnosis kind, including the over-narrowing one", () => {
+    for (const kind of DIAGNOSIS_KINDS) {
+      expect(labelForDiagnosis(kind)).toBeTruthy();
+    }
+    expect(labelForDiagnosis("too_narrow_process_step")).toBe(
+      "A reporting step, not a story question",
+    );
   });
 });
 

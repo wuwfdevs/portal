@@ -86,6 +86,8 @@ export interface InspectorPanelProps {
   streamingReply: string | null;
   onApplyReframe: (message: ChatMessageRecord) => void;
   applyingReframeId: string | null;
+  onApplyPromotion: (message: ChatMessageRecord) => void;
+  applyingPromotionId: string | null;
 
   canDevelopIntoPitch: boolean;
   onDevelopIntoPitch: () => void;
@@ -566,6 +568,7 @@ const ACTION_KIND_LABELS: Record<NonNullable<ChatMessageRecord["actionKind"]>, s
   reframe: "→ proposed a reframe",
   diagnosis: "→ diagnosed this question",
   assessment: "→ editorial assessment",
+  promote: "→ nominated as a story question",
 };
 
 /** What the working indicator says before the first token arrives, per mode. */
@@ -707,8 +710,30 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
       {message.actionKind === "reframe" && message.appliedAt && (
         <div className="mt-1 text-[11px] text-ink-400">→ applied to this question</div>
       )}
+      {/* A promote nomination waits for the reporter's confirming click, like
+          a reframe — the model never promotes on its own. */}
+      {message.actionKind === "promote" &&
+        (message.appliedAt ? (
+          <div className="mt-1 text-[11px] text-ink-400">→ promoted to story question</div>
+        ) : props.selected?.status === "active" ? (
+          <button
+            type="button"
+            onClick={() => props.onApplyPromotion(message)}
+            disabled={props.applyingPromotionId === message.id}
+            className="mt-1 rounded bg-success-border px-2.5 py-1.5 text-xs font-semibold text-ink-900 disabled:opacity-60"
+          >
+            {props.applyingPromotionId === message.id
+              ? "Promoting…"
+              : "Promote to story question"}
+          </button>
+        ) : (
+          <div className="mt-1 text-[11px] text-ink-400">
+            {ACTION_KIND_LABELS[message.actionKind]}
+          </div>
+        ))}
       {message.actionKind &&
         message.actionKind !== "reframe" &&
+        message.actionKind !== "promote" &&
         ACTION_KIND_LABELS[message.actionKind] && (
           <div className="mt-1 text-[11px] text-ink-400">
             {ACTION_KIND_LABELS[message.actionKind]}
