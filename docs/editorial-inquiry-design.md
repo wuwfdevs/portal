@@ -223,11 +223,15 @@ inspector's **Evaluate** action asks for both explicitly, one at a time.
 
 Every action from milestone 1 is preserved. What each one _means_ changed.
 
-- **Branch** (was "Explore") — given the same established context and parent
-  question, identify a genuinely different question or line of inquiry the
-  material supports — not narrower, not broader, a different way in. It must
-  not invent a new factual premise to justify the branch existing. **The model
-  can decline** (§7) if the available context doesn't support one.
+- **Branch** (was "Explore") — propose another, genuinely _distinct_ child of
+  the selected question's **parent** (clarified 2026-08-20: the insert
+  mechanics always put the new node under the parent, but the prompt anchored
+  the model's reasoning on the selected node, so "a different angle" reliably
+  came back as a variation of the selected question rather than a different
+  line under the same parent — the prompt now names the parent question
+  explicitly and forbids rephrasing the sibling). It must not invent a new
+  factual premise to justify the branch existing. **The model can decline**
+  (§7) if the available context doesn't support one.
 - **Drill down** — propose the next question _down_, one level at a time
   (clarified 2026-08-20, after a real turn leapt from a fresh root straight
   to a fully-scoped story question): from the guiding question, a drill-down
@@ -241,7 +245,14 @@ Every action from milestone 1 is preserved. What each one _means_ changed.
   the tool call is the model's _only_ way to change the canvas — it must
   never present a proposed question in prose alone, and never claim to have
   added something without calling the tool that turn (it did both, including
-  a confabulated "Added." with no call behind it).
+  a confabulated "Added." with no call behind it). Both Branch and Drill
+  down also carry a required **grounding** argument — 1–3 sentences of what
+  the new question traces to, with source when it came from search — which
+  lands on the new node as a context note (same day: a node holding only its
+  question text, with all its rationale buried in the parent's thread, was
+  unintelligible on its own; as a context note the grounding also inherits
+  down whatever grows beneath the node, per §4, and no schema change was
+  needed).
 - **Discuss** — conversational and node-scoped, same as before, now doing real
   editorial work: challenge an assumption, distinguish a claim from a fact,
   identify what evidence is missing, recognize that new context changes what the
@@ -464,22 +475,28 @@ inspector layout as milestone 1. What changed:
   section. A pillar with no guiding question yet is omitted, with a one-line
   note pointing at Editorial Planning rather than letting Editorial Inquiry
   invent one.
-- **The inspector groups its actions instead of one flat row** (revised again
-  the same day after a direct report that the panel was "impossibly
-  cluttered"): "Ask the model" (Branch / Drill down / the new Evaluate —
-  compact buttons, each rendered only when structurally possible, so the root
-  shows two, not six) sits above "Your call" (Promote / Reject, hidden on the
-  root where neither can apply), then reporter-authored alternatives (write a
-  question by hand, add context) as one muted link row. The **discussion is
-  always visible** for the selected question — it is the primary surface, so
-  the Discuss/Close-discussion toggle is gone and the composer is pinned to
-  the panel's bottom edge, always in view. Canned Branch/Drill down/Evaluate
-  directives render as a muted "↳ You asked for…" line, not a fake user
-  bubble; replies stream in token-by-token (§7) behind a mode-specific
-  working indicator, and assistant prose renders as markdown. Suggestion
-  chips and the two-ways-in helper text appear only while a thread is empty.
-  The portal-wide agent bubble no longer renders on this route — it sat
-  directly on the composer, and this screen has its own AI surface.
+- **The inspector is two views behind a toggle: Discussion and Context**
+  (revised twice the same day — first grouped-and-decluttered after a direct
+  report that the panel was "impossibly cluttered", then split into views at
+  a direct request once grounding notes meant the thread and the evidence
+  were burying each other in one column). **Discussion** is the pure
+  conversational surface: the thread plus the composer pinned to the panel's
+  bottom edge, nothing else — the canvas itself is the anchor for which
+  question is being discussed. **Context** is the node's profile: the
+  question and its diagnosis callout, "Ask the model" (Branch / Drill down /
+  Evaluate — compact buttons, each rendered only when structurally possible),
+  "Your call" (Promote / Reject, absent on the root), the write-your-own
+  links, and every context note on the branch with the add-context form.
+  The toggle is intent-driven, not a free preference: selecting a node lands
+  on Context ("what is this?"), while starting any turn or clicking the
+  canvas's Discuss icon lands on Discussion so streaming is never hidden.
+  Canned Branch/Drill down/Evaluate directives render as a muted "↳ You
+  asked for…" line, not a fake user bubble; replies stream in token-by-token
+  (§7) behind a mode-specific working indicator, and assistant prose renders
+  as markdown. Suggestion chips and the two-ways-in helper text appear only
+  while a thread is empty. The portal-wide agent bubble no longer renders on
+  this route — it sat directly on the composer, and this screen has its own
+  AI surface.
 - **Diagnosis** renders as a callout on the node/inspector wherever milestone
   1 showed the old assumption flag — same visual treatment (a small flagged
   badge plus an expandable explanation), now naming one of ten reasons instead

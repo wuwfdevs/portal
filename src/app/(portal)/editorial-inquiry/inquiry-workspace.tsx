@@ -23,7 +23,12 @@ import type {
 import type { EditorialTurnOutcome, EditorialTurnStreamEvent } from "@/lib/editorial-inquiry/turn";
 import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
 import { Canvas } from "./canvas";
-import { InspectorPanel, type BusyKind, type InheritedNoteView } from "./inspector-panel";
+import {
+  InspectorPanel,
+  type BusyKind,
+  type InheritedNoteView,
+  type PanelView,
+} from "./inspector-panel";
 import { InquirySwitcher } from "./inquiry-switcher";
 import {
   addContextNote,
@@ -58,6 +63,10 @@ export function InquiryWorkspace({
   const [contextNotes, setContextNotes] = useState<ContextNoteRecord[]>(detail.contextNotes);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Intent-driven, not a free-floating preference: selecting a node lands on
+  // Context (its profile — question, diagnosis, actions, evidence), while
+  // starting a turn or clicking the canvas Discuss icon lands on Discussion.
+  const [panelView, setPanelView] = useState<PanelView>("context");
   const [error, setError] = useState<string | null>(null);
 
   const [pendingByQuestion, setPendingByQuestion] = useState<
@@ -118,13 +127,20 @@ export function InquiryWorkspace({
 
   function selectQuestion(id: string | null) {
     setSelectedId(id);
+    setPanelView("context");
     setContextPanelOpen(false);
     setContextText("");
     setManualAddOpen(null);
     setManualAddText("");
-    // The discussion is always visible for the selected question, so its
-    // thread loads on selection rather than behind a Discuss toggle.
+    // The thread still loads eagerly on selection so switching to the
+    // Discussion view (or starting a turn) never waits on it.
     if (id) void loadThreadOnce(id);
+  }
+
+  /** The canvas's Discuss icon: select the node AND land on its conversation. */
+  function discussQuestion(id: string) {
+    selectQuestion(id);
+    setPanelView("discussion");
   }
 
   function applyTurnOutcome(id: string, outcome: EditorialTurnOutcome) {
@@ -182,6 +198,7 @@ export function InquiryWorkspace({
    */
   async function runTurn(id: string, mode: StreamTurnMode, message?: string): Promise<boolean> {
     setError(null);
+    setPanelView("discussion");
     let succeeded = false;
     if (mode === "discuss") {
       setChatSending(true);
@@ -418,7 +435,7 @@ export function InquiryWorkspace({
           onBranch={handleBranch}
           onDrillDown={handleDrillDown}
           onReject={handleReject}
-          onDiscuss={selectQuestion}
+          onDiscuss={discussQuestion}
           onMove={handleMove}
           canBranchFor={canBranchRule}
           canDrillDownFor={canDrillDownRule}
@@ -429,6 +446,8 @@ export function InquiryWorkspace({
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
           selected={selectedQuestion}
+          view={panelView}
+          onViewChange={setPanelView}
           contextNotes={selectedContextNotes}
           contextPanelOpen={contextPanelOpen}
           onOpenContextPanel={() => setContextPanelOpen(true)}

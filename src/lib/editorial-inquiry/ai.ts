@@ -108,6 +108,8 @@ export interface EditorialTurnContext {
 export interface ProposedAction {
   kind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment";
   text: string | null;
+  /** branch/drilldown: what grounds the new question — becomes a context note on the new node. */
+  grounding: string | null;
   evidentiaryStatus: EvidentiaryStatus | null;
   sourceTitle: string | null;
   sourceUrl: string | null;
@@ -210,10 +212,22 @@ ${notes}
 ${criteriaBlock(context.criteria)}`;
 }
 
+/**
+ * Branch inserts the new question as another child of the PARENT — name that
+ * parent explicitly so the model reasons from it. Without this, "a different
+ * angle" reliably produced variations of the selected sibling instead of
+ * genuinely distinct lines under the parent (an observed failure).
+ */
+function branchAnchor(mode: TurnMode, context: EditorialTurnContext): string {
+  if (mode !== "branch" || context.ancestry.length < 2) return "";
+  const parent = context.ancestry[context.ancestry.length - 2]!;
+  return `\n\nThe new branch will sit alongside the selected question as another child of: "${parent.text}"`;
+}
+
 const MODE_FRAMING: Record<TurnMode, string> = {
   discuss: `An ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, separate claim from fact, identify missing evidence, search if current information would help, or just answer plainly. At most ONE propose_editorial_action call, only if the conversation genuinely warrants it — most turns warrant none. Exception: when the reporter asks you to add a question or note to the canvas/tree, that IS the warrant — call the tool (kind "drilldown", "branch", or "context" as fits) with the agreed text; replying without the call adds nothing.`,
-  branch: `The reporter clicked Branch: find a genuinely different question or line of inquiry at this same level — not narrower, not broader, a different way in — supported by the inherited context or by what you find searching. Searching for current developments is part of this action by default, especially when context is thin. If context and search both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, you MUST call propose_editorial_action with kind "branch" — presenting it only in prose leaves the canvas unchanged — and cite what grounded it in your reply.`,
-  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. Say in your reply which level the proposed question sits at and what would advance it next. If it can't be usefully narrowed, say so and call kind "diagnosis" or nothing. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" — presenting it only in prose leaves the canvas unchanged — and cite what grounded it.`,
+  branch: `The reporter clicked Branch: propose another, genuinely DISTINCT child of the selected question's PARENT — a different line under the same parent, exploring different territory. Reason from the PARENT question; the selected question is only the sibling you're branching away from, never the thing to rephrase, vary, or take "a different angle on." Supported by inherited context or by what you find searching — searching for current developments is part of this action by default, especially when context is thin. If context and search both come up empty, decline plainly (no tool call, or kind "diagnosis" if something specific blocks it). If you find a real branch, you MUST call propose_editorial_action with kind "branch" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
+  drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. Say in your reply which level the proposed question sits at and what would advance it next. If it can't be usefully narrowed, say so and call kind "diagnosis" or nothing. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
   evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score; kind "assessment" carries that discussion if substantive. One tool call total — pick the more decision-relevant kind and cover the other in prose.`,
 };
 
@@ -237,21 +251,24 @@ const PROPOSE_ACTION_TOOL = {
         description:
           "The new question's full text (branch/drilldown), the context note's body (context), the reframed question's full text (reframe), or the assessment discussion (assessment). Null for diagnosis — diagnosis_kind names the reason instead.",
       },
+      grounding: {
+        type: ["string", "null"],
+        description:
+          "REQUIRED (non-null) when kind is branch/drilldown: 1-3 plain sentences stating what grounds this question — the concrete development, facts, or attached context it traces to. Attached to the new node as a context note so the node is understandable on its own, without this conversation. Null for other kinds.",
+      },
       evidentiary_status: {
         type: ["string", "null"],
         enum: [...EVIDENTIARY_STATUSES, null],
         description:
-          "Required (non-null) only when kind is context — your honest classification of what you're attaching.",
+          "Required (non-null) when kind is context, and alongside grounding for branch/drilldown — your honest classification of what you're attaching (web_finding when it came from your search).",
       },
       source_title: {
         type: ["string", "null"],
-        description:
-          "Only when kind is context and evidentiary_status is web_finding: the source's title.",
+        description: "When the attached context or grounding is a web_finding: the source's title.",
       },
       source_url: {
         type: ["string", "null"],
-        description:
-          "Only when kind is context and evidentiary_status is web_finding: the source's URL.",
+        description: "When the attached context or grounding is a web_finding: the source's URL.",
       },
       diagnosis_kind: {
         type: ["string", "null"],
@@ -262,6 +279,7 @@ const PROPOSE_ACTION_TOOL = {
     required: [
       "kind",
       "text",
+      "grounding",
       "evidentiary_status",
       "source_title",
       "source_url",
@@ -305,6 +323,7 @@ function extractProposedAction(response: OpenAI.Responses.Response): ProposedAct
       const parsed = JSON.parse(item.arguments) as {
         kind: ProposedAction["kind"];
         text: string | null;
+        grounding: string | null;
         evidentiary_status: EvidentiaryStatus | null;
         source_title: string | null;
         source_url: string | null;
@@ -313,6 +332,7 @@ function extractProposedAction(response: OpenAI.Responses.Response): ProposedAct
       return {
         kind: parsed.kind,
         text: parsed.text?.trim() || null,
+        grounding: parsed.grounding?.trim() || null,
         evidentiaryStatus: parsed.evidentiary_status,
         sourceTitle: parsed.source_title,
         sourceUrl: parsed.source_url,
@@ -374,7 +394,7 @@ ${EVIDENTIARY_DISCIPLINE}
 
 You are working on exactly one question: "${question.text}"${diagnosisNote}${rootFraming}
 
-${MODE_FRAMING[mode]}
+${MODE_FRAMING[mode]}${branchAnchor(mode, context)}
 
 Prior conversation on this question, oldest first:
 ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
