@@ -1965,6 +1965,150 @@ docs, but had no CLAUDE.md entry until now — same staleness this section's
 Underwriting entry above already explains, and now fixed in the strategy
 doc's §8 too. Read it before starting any of it.
 
+**Editorial Inquiry: milestone 1 has landed — the guardrail against building
+it is lifted.** An editorial workspace that turns one broad guiding question
+into concrete, reportable story questions through iterative collaboration
+with an AI model, built from a Claude Design concept mockup
+(`docs/editorial-inquiry-design.md` records the full product/architecture
+rationale; read it before touching any of it). The core object is a
+**question tree**, not a chat log: a reporter starts from a seed guiding
+question and grows it outward — Explore (a sibling angle), Drill down (a
+narrower child), Reject (hides a node and its descendants from the canvas,
+never deletes — `visibleQuestions()` in `lib/editorial-inquiry/tree.ts`),
+Promote (marks a validated story question, requires depth ≥ 2 — a "line of
+inquiry" at depth 1 is a thematic frame, not yet reportable), Add context
+(a note/link/excerpt that inherits down the branch it's attached to — the
+root's own context is how a reporter covers the whole inquiry, no separate
+bucket), and Discuss (a persisted thread scoped to one question, where the
+model can reply plainly or propose a reframe the reporter applies with a
+click, spin off a sibling, or attach context — the latter two execute
+immediately). Tables are `ei_*` (`20260820120000_editorial_inquiry.sql`),
+the route segment is `src/app/(portal)/editorial-inquiry/` gated by
+`requireToolAccess("editorial-inquiry")`, invite-only with **no elevated
+role** — every action here is ordinary membership, unlike most recent
+tools' producer/coordinator split. The interactive canvas (infinite
+pan/zoom, draggable nodes whose manual offset persists via
+`ei_questions.manual_dx/manual_dy`, a from-scratch tree-layout pass, a
+minimap, a hover-revealed radial quick-menu) is built with **no new
+dependency** — ported directly from the concept mockup's own plain
+state/DOM logic, since this repo has no canvas/pan-zoom library and none
+was needed. `lib/editorial-inquiry/ai.ts` is this repo's first use of the
+Responses API's JSON-schema structured output (`text.format.type:
+"json_schema"`) rather than free-text parsing, reusing the `openai`
+dependency the in-portal agent chat already brought in but calling it
+synchronously (not streamed) for three narrow operations: generate a
+sibling, generate a child, take one discuss turn. Same optional-key
+posture as every other integration: absent `OPENAI_API_KEY`, an AI-backed
+action fails clearly rather than silently no-opping, and a reporter can
+still build the tree by hand (`addQuestionManually` in the route's
+`actions.ts` — the "type your own" fallback in the inspector panel).
+Canvas mutations are plain async Server Actions returning
+`{ok, data} | {ok: false, error}`, called directly from the client and
+merged into local state optimistically — never `redirect()`/`FormData`,
+the same non-redirecting shape Roadmap's kanban board established, since a
+canvas reloading the page on every action would drop pan/zoom/selection
+state. The capability layer is deliberately not part of this milestone,
+matching every other tool's own sequencing (see below). Verified against
+the preview database directly by simulating RLS as both a granted and a
+non-granted user (`set local role authenticated` plus a forged
+`request.jwt.claims`) rather than a full browser click-through, which this
+sandbox couldn't complete — sign-in here is magic-link-only with no email
+inbox available; both the tree/RLS/constraint behavior and the full test
+suite (814 tests, `lib/editorial-inquiry/tree.test.ts` covers the pure
+layout/ancestry/status-rule logic) passed.
+
+**Editorial Inquiry: grounded-reasoning revision (2026-08-20), superseding
+several of the paragraph above's own claims — read
+`docs/editorial-inquiry-design.md` in full before touching this tool again;
+it was rewritten, not patched, and this note is a pointer, not a duplicate.**
+Milestone 1's editorial model was too thin: a freely typed seed question, a
+model that invented progressively narrower questions with nothing grounding
+them, and no way to decline. This revision keeps the interaction shell
+(canvas, docked panel, six actions) and replaces the reasoning underneath it,
+directly on the strength of an explicit instruction to do so — not a
+self-initiated redesign. Four things matter most:
+
+1. **Editorial Planning is now the source of truth for guiding questions and
+   editorial criteria — Editorial Inquiry duplicates neither.** An inquiry is
+   associated with a selected WUWF coverage pillar
+   (`ei_inquiries.pillar_id` → `ep_pillars`, plus `pillar_name_snapshot`/
+   `guiding_question_text` snapshotting the pillar at creation time so a later
+   edit in Editorial Planning can't retroactively change what an inquiry has
+   been reasoning about); `seed_question` is gone. `ei_create_inquiry()`'s
+   signature changed from `p_seed_question text` to `p_pillar_id uuid`.
+   `lib/editorial-inquiry/editorial-planning.ts` is the one place this tool
+   reaches into Editorial Planning's data (`listGuidingQuestionOptions()`,
+   `listCurrentCoreCriteria()`, `getActivePillarName()`), calling
+   `lib/editorial/data.ts`'s existing `listPillars`/`listCriteria`/
+   `getDefaultRubricProfile` directly rather than re-implementing the reads.
+   Those functions assert nothing beyond RLS, so
+   `20260820130000_editorial_inquiry_grounded_reasoning.sql` adds narrow,
+   additive `select` policies on `ep_pillars`/`ep_criteria`/
+   `ep_rubric_profiles` admitting `private.has_editorial_inquiry_access`
+   alongside Editorial Planning's own `ep_has_access` — the same shape as
+   `tools_select_proposed_for_roadmap`. Only core criteria (name/description/
+   guidance) are ever read — never weight, scale, or anchors, and the model
+   is explicitly instructed never to emit a score: "the rubric informs
+   critique, it does not become a target to reverse-engineer" (design doc §2).
+2. **Grounding, not invention.** Every reasoning call now follows a fixed
+   order — real-world signal (reporter-supplied or web-found) plus the
+   guiding question, then what's known, what's unresolved, lines of inquiry,
+   story questions, evaluation — instead of jumping straight from the guiding
+   question to a plausible-sounding invented one (design doc §3). Context
+   notes carry an **evidentiary status** (`ei_context_notes.evidentiary_status`
+   — hunch/source_claim/established_fact/web_finding/inference/open_question,
+   default `hunch`, plus `source_title`/`source_url` for web finds) so an
+   unverified reporter aside can never silently read as an established fact
+   three branches downstream (design doc §4). The model has OpenAI's built-in
+   `web_search` tool available on every turn, resolved entirely server-side —
+   nothing in this repo executes a search or holds a search-provider key —
+   with citations landing as `url_citation` annotations, stored on
+   `ei_chat_messages.citations` and rendered as a sources list.
+3. **The reasoning engine is now one function, not two.** Milestone 1's
+   separate strict-JSON-schema generator and discuss turn are gone;
+   `lib/editorial-inquiry/ai.ts`'s `runEditorialTurn()` handles Branch (was
+   Explore), Drill down, the new **Evaluate** action, and every ordinary
+   Discuss turn — a strict-schema generator can't cleanly produce natural
+   prose with inline citations alongside an optional action, so this uses the
+   Responses API's ordinary tool-calling shape instead (a built-in
+   `web_search` tool plus one custom `propose_editorial_action` function
+   tool), the same general mechanism `src/lib/agent/chat.ts` already uses for
+   the in-portal agent. **The model can decline** — calling no action at all
+   is a normal outcome by construction, not a special case (design doc §7).
+   When it does propose something, the action vocabulary widened from
+   `sibling`/`context`/`reframe` to `branch`/`drilldown`/`context`/`reframe`/
+   `diagnosis`/`assessment` — `diagnosis` writes directly onto the acted-on
+   question's new `diagnosis_kind`/`diagnosis_note` columns (ten reasons a
+   question isn't yet a strong story question — design doc §5 — replacing the
+   old boolean `has_assumption`/`assumption_text`, `unverified_premise` is
+   its direct successor) and `assessment` is the Evaluate action's qualitative
+   editorial-value discussion, deliberately prose-only, never a score.
+4. **Tree depth no longer gates promotion.** Milestone 1's "depth ≥ 2 to
+   promote" check constraint is gone, replaced by one shared rule — neither
+   reject nor promote can ever apply to the root, full stop — because depth
+   describes structure, not editorial quality (design doc §5, §8); a shallow
+   question a reporter has genuinely narrowed through conversation can be
+   ready sooner than a deep one reached by reflexively clicking Drill down.
+   `canPromote`/`canReject` in `lib/editorial-inquiry/tree.ts` are now the
+   same predicate. A promoted question gets a **Develop into pitch** action
+   (design doc §8) — deliberately not a direct `ep_pitches` insert:
+   `lib/editorial-inquiry/pitch-handoff.ts` (pure, tested) builds a URL to
+   Editorial Planning's own `/editorial/pitches/new`, which gained a small,
+   additive `searchParams` prefill (`initialTitle`/`initialValues`, already
+   plumbed through to `<PitchForm>` for its edit path — this just supplies
+   them from a query string too) rather than Editorial Inquiry duplicating
+   any part of that form or its field definitions. Never automatic on
+   promotion — always a reporter-initiated click that lands them on
+   Editorial Planning's real form to review and submit.
+
+Verified the same way as milestone 1 — RLS simulation as both a granted and
+non-granted user, plus this time a direct check that a user with only an
+`editorial-inquiry` grant (no `editorial-planning` grant at all) can read
+pillars/criteria/rubric profiles through the new policies and create an
+inquiry via `ei_create_inquiry()` — rather than a full browser click-through,
+which this sandbox still can't complete. Full test suite (821 tests) and
+`db:check` both pass.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -2069,6 +2213,10 @@ src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all su
                             requireToolAccess("academic-partnerships")
 src/app/(portal)/log/     Log (clocks, programs — slice 1 of its milestone 1; see above) —
                             its own route segment, gated by requireToolAccess("log")
+src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas) — its own
+                            route segment, gated by requireToolAccess("editorial-inquiry"),
+                            with its own full-bleed layout.tsx (no page padding — the canvas
+                            needs the space, unlike every other tool)
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -2125,6 +2273,18 @@ src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff
                            resolution (clock-versions.ts) and schedule-entry-active-on-a-date
                            logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
                            timing engine, content-eligibility filtering, etc. land here too
+src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and the reasoning
+                           engine (ai.ts, "server-only" — web_search + a custom function tool,
+                           not structured JSON output; see the tool's own CLAUDE.md entries),
+                           plus pure, tested modules: tree.ts (layout, ancestry, context
+                           inheritance, the reject/promote rules) and pitch-handoff.ts (the
+                           Develop-into-pitch URL builder). editorial-planning.ts is the one
+                           place this tool reads Editorial Planning's guiding
+                           questions/criteria — never a duplicate definition of either. No
+                           access.ts/roles.ts — this tool has no elevated role, so its route's
+                           actions.ts calls requireToolAccess("editorial-inquiry")/
+                           assertToolAccess(...) directly, the same flat shape Sourcework and
+                           Audience Listening already use
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)

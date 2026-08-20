@@ -51,6 +51,14 @@ const ICONS: Record<string, React.ReactNode> = {
       <polyline points="12 7 12 12 16 14" />
     </>
   ),
+  "editorial-inquiry": (
+    <>
+      <circle cx="12" cy="5" r="2.5" />
+      <circle cx="5" cy="19" r="2.5" />
+      <circle cx="19" cy="19" r="2.5" />
+      <path d="M12 7.5v4M12 11.5L5 16.5M12 11.5l7 5" />
+    </>
+  ),
 };
 
 const DEFAULT_ICON = (
