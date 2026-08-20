@@ -192,7 +192,13 @@
 // frequency_guidance/reusable/geography_tags/subject_tags/
 // reporter_or_editor/dad_cart_number (none were ever read for any filter,
 // sort, or eligibility decision — see CLAUDE.md); log_content_components
-// dropped dad_cart_number for the same reason.
+// dropped dad_cart_number for the same reason. Hand-reconciled again on
+// 2026-08-20 for 20260820120000_editorial_inquiry.sql (new tool: ei_inquiries/
+// ei_questions/ei_context_notes/ei_chat_messages, ei_create_inquiry()) against
+// the Supabase MCP server's `generate_typescript_types` output for the live
+// preview project, field-by-field diffed; every field matched. Kept this
+// file's own compact Insert/Update-as-Partial<Row> idiom rather than the
+// generator's fully-spelled-out blocks, matching every other table here.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -2137,6 +2143,147 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["uw_affidavit_line_items"]["Row"]>;
         Relationships: [];
       };
+      // Editorial Inquiry (20260820120000_editorial_inquiry.sql) — see
+      // docs/editorial-inquiry-design.md. No elevated role; every ei_* table
+      // is gated by private.has_editorial_inquiry_access alone.
+      ei_inquiries: {
+        Row: {
+          id: string;
+          seed_question: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // No insert grant to `authenticated` — the only way a row is created
+        // is ei_create_inquiry() below, which also seeds the root question.
+        Insert: Partial<Database["public"]["Tables"]["ei_inquiries"]["Row"]> & {
+          seed_question: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ei_inquiries"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "ei_inquiries_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ei_questions: {
+        Row: {
+          id: string;
+          inquiry_id: string;
+          parent_id: string | null;
+          depth: number;
+          text: string;
+          status: string;
+          has_assumption: boolean;
+          assumption_text: string | null;
+          reframed_from_text: string | null;
+          manual_dx: number | null;
+          manual_dy: number | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ei_questions"]["Row"]> & {
+          inquiry_id: string;
+          depth: number;
+          text: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ei_questions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "ei_questions_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ei_questions_inquiry_id_fkey";
+            columns: ["inquiry_id"];
+            isOneToOne: false;
+            referencedRelation: "ei_inquiries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ei_questions_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "ei_questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ei_context_notes: {
+        Row: {
+          id: string;
+          question_id: string;
+          kind: string;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ei_context_notes"]["Row"]> & {
+          question_id: string;
+          body: string;
+        };
+        // No update grant — insert + select only, see the migration.
+        Update: Partial<Database["public"]["Tables"]["ei_context_notes"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "ei_context_notes_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ei_context_notes_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "ei_questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ei_chat_messages: {
+        Row: {
+          id: string;
+          question_id: string;
+          role: string;
+          body: string;
+          action_kind: string | null;
+          action_payload: Record<string, unknown> | null;
+          applied_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ei_chat_messages"]["Row"]> & {
+          question_id: string;
+          role: string;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ei_chat_messages"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "ei_chat_messages_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ei_chat_messages_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "ei_questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -2403,6 +2550,16 @@ export interface Database {
       log_relocate_underwriting_credit: {
         Args: { p_item_id: string; p_destination_break_id: string };
         Returns: { ok: true; item_id: string; placement_id: string } | { error: string };
+      };
+      /**
+       * The only way an ei_inquiries row is created (20260820120000_editorial_inquiry.sql)
+       * — inserts it and its depth-0 root ei_questions row together. Raises
+       * (not a jsonb error) if the caller lacks access or the seed question
+       * is blank.
+       */
+      ei_create_inquiry: {
+        Args: { p_seed_question: string };
+        Returns: Database["public"]["Tables"]["ei_inquiries"]["Row"];
       };
     };
     Enums: {

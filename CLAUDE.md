@@ -1965,6 +1965,58 @@ docs, but had no CLAUDE.md entry until now — same staleness this section's
 Underwriting entry above already explains, and now fixed in the strategy
 doc's §8 too. Read it before starting any of it.
 
+**Editorial Inquiry: milestone 1 has landed — the guardrail against building
+it is lifted.** An editorial workspace that turns one broad guiding question
+into concrete, reportable story questions through iterative collaboration
+with an AI model, built from a Claude Design concept mockup
+(`docs/editorial-inquiry-design.md` records the full product/architecture
+rationale; read it before touching any of it). The core object is a
+**question tree**, not a chat log: a reporter starts from a seed guiding
+question and grows it outward — Explore (a sibling angle), Drill down (a
+narrower child), Reject (hides a node and its descendants from the canvas,
+never deletes — `visibleQuestions()` in `lib/editorial-inquiry/tree.ts`),
+Promote (marks a validated story question, requires depth ≥ 2 — a "line of
+inquiry" at depth 1 is a thematic frame, not yet reportable), Add context
+(a note/link/excerpt that inherits down the branch it's attached to — the
+root's own context is how a reporter covers the whole inquiry, no separate
+bucket), and Discuss (a persisted thread scoped to one question, where the
+model can reply plainly or propose a reframe the reporter applies with a
+click, spin off a sibling, or attach context — the latter two execute
+immediately). Tables are `ei_*` (`20260820120000_editorial_inquiry.sql`),
+the route segment is `src/app/(portal)/editorial-inquiry/` gated by
+`requireToolAccess("editorial-inquiry")`, invite-only with **no elevated
+role** — every action here is ordinary membership, unlike most recent
+tools' producer/coordinator split. The interactive canvas (infinite
+pan/zoom, draggable nodes whose manual offset persists via
+`ei_questions.manual_dx/manual_dy`, a from-scratch tree-layout pass, a
+minimap, a hover-revealed radial quick-menu) is built with **no new
+dependency** — ported directly from the concept mockup's own plain
+state/DOM logic, since this repo has no canvas/pan-zoom library and none
+was needed. `lib/editorial-inquiry/ai.ts` is this repo's first use of the
+Responses API's JSON-schema structured output (`text.format.type:
+"json_schema"`) rather than free-text parsing, reusing the `openai`
+dependency the in-portal agent chat already brought in but calling it
+synchronously (not streamed) for three narrow operations: generate a
+sibling, generate a child, take one discuss turn. Same optional-key
+posture as every other integration: absent `OPENAI_API_KEY`, an AI-backed
+action fails clearly rather than silently no-opping, and a reporter can
+still build the tree by hand (`addQuestionManually` in the route's
+`actions.ts` — the "type your own" fallback in the inspector panel).
+Canvas mutations are plain async Server Actions returning
+`{ok, data} | {ok: false, error}`, called directly from the client and
+merged into local state optimistically — never `redirect()`/`FormData`,
+the same non-redirecting shape Roadmap's kanban board established, since a
+canvas reloading the page on every action would drop pan/zoom/selection
+state. The capability layer is deliberately not part of this milestone,
+matching every other tool's own sequencing (see below). Verified against
+the preview database directly by simulating RLS as both a granted and a
+non-granted user (`set local role authenticated` plus a forged
+`request.jwt.claims`) rather than a full browser click-through, which this
+sandbox couldn't complete — sign-in here is magic-link-only with no email
+inbox available; both the tree/RLS/constraint behavior and the full test
+suite (814 tests, `lib/editorial-inquiry/tree.test.ts` covers the pure
+layout/ancestry/status-rule logic) passed.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -2069,6 +2121,10 @@ src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all su
                             requireToolAccess("academic-partnerships")
 src/app/(portal)/log/     Log (clocks, programs — slice 1 of its milestone 1; see above) —
                             its own route segment, gated by requireToolAccess("log")
+src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas) — its own
+                            route segment, gated by requireToolAccess("editorial-inquiry"),
+                            with its own full-bleed layout.tsx (no page padding — the canvas
+                            needs the space, unlike every other tool)
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with
@@ -2125,6 +2181,14 @@ src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff
                            resolution (clock-versions.ts) and schedule-entry-active-on-a-date
                            logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
                            timing engine, content-eligibility filtering, etc. land here too
+src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and OpenAI calls
+                           (ai.ts, "server-only", this repo's first structured-output use),
+                           plus the pure, tested tree module (tree.ts — layout, ancestry,
+                           context inheritance, the reject/promote depth rules). No
+                           access.ts/roles.ts — this tool has no elevated role, so its route's
+                           actions.ts calls requireToolAccess("editorial-inquiry")/
+                           assertToolAccess(...) directly, the same flat shape Sourcework and
+                           Audience Listening already use
 src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
                            (data.ts), the action failure helper (action-result.ts), plus pure,
                            tested modules (roles, scoring, staleness, form validation)
