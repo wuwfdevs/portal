@@ -2109,6 +2109,45 @@ inquiry via `ei_create_inquiry()` — rather than a full browser click-through,
 which this sandbox still can't complete. Full test suite (821 tests) and
 `db:check` both pass.
 
+**Editorial Inquiry: streaming turns and panel clarity (2026-08-20, same
+day, from direct user reports against the deployed revision).** Four
+connected fixes, no migration: (1) **editorial turns now stream** —
+`ai.ts`'s `streamEditorialTurn()` (an async generator over
+`responses.stream()`, the same ResponseStream pattern as
+`lib/agent/chat.ts`) is reached through a new SSE route,
+`src/app/api/editorial-inquiry/turn/` + `lib/editorial-inquiry/turn.ts`,
+replacing the four turn Server Actions outright (an action can't stream,
+and a web-search + medium-reasoning turn ran long enough that the silent
+wait read as a hang); nothing persists until the model's terminal result,
+so a dropped stream writes nothing and a retry can't duplicate half a
+turn. The canned Branch/Drill down/Evaluate directives moved to
+`lib/editorial-inquiry/directives.ts` (pure, tested) because the route
+resolves them server-side and the panel recognizes stored directive
+messages by exact body match, rendering them as a muted "you asked for…"
+line instead of a fake user bubble. (2) **Assistant replies render as
+markdown** via this repo's first markdown renderer — `src/lib/markdown.ts`
+(pure parser, tested, deliberately small subset, no underscore emphasis so
+snake_case survives) + `src/components/ui/markdown.tsx` (AST → React
+elements, no `dangerouslySetInnerHTML`, unsafe link schemes degrade to
+plain text) — the same parse-then-walk split as Roadmap's rich text. Do
+not swap it for a markdown dependency without a concrete need. (3) **The
+inspector panel was restructured for clarity**: grouped compact actions
+("Ask the model" / "Your call") that render only when structurally
+possible, an always-visible discussion with the composer pinned to the
+panel's bottom edge (the Discuss toggle is gone), chips/helper text only
+on an empty thread, and empty assistant bubbles fixed at the source —
+`turn.ts` falls back to a diagnosis/assessment action's own `text`
+argument when the model writes no prose, and the prompt now demands a
+prose reply outright. Search is framed as part of Branch/Drill down by
+default (not a fallback), the prompt knows WUWF serves Pensacola/Northwest
+Florida, and the root guiding question is never diagnosed as
+still_thematic/too_broad — being thematic is its nature, and a fresh
+inquiry's first drill-down reliably dead-ended on exactly that before.
+(4) **The portal agent bubble no longer renders on `/editorial-inquiry`**
+(`usePathname` check in `agent-chat-widget.tsx`) — its fixed bottom-right
+position sat directly on the panel's composer, and this screen has its own
+AI surface; the widget stays mounted so an already-open panel keeps state.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -2275,9 +2314,12 @@ src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff
                            timing engine, content-eligibility filtering, etc. land here too
 src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and the reasoning
                            engine (ai.ts, "server-only" — web_search + a custom function tool,
-                           not structured JSON output; see the tool's own CLAUDE.md entries),
-                           plus pure, tested modules: tree.ts (layout, ancestry, context
-                           inheritance, the reject/promote rules) and pitch-handoff.ts (the
+                           streamed; see the tool's own CLAUDE.md entries) with its
+                           persistence half (turn.ts, called only by the SSE route
+                           src/app/api/editorial-inquiry/turn/), plus pure, tested modules:
+                           tree.ts (layout, ancestry, context inheritance, the
+                           reject/promote rules), directives.ts (the canned Branch/Drill
+                           down/Evaluate turn directives), and pitch-handoff.ts (the
                            Develop-into-pitch URL builder). editorial-planning.ts is the one
                            place this tool reads Editorial Planning's guiding
                            questions/criteria — never a duplicate definition of either. No

@@ -268,11 +268,16 @@ decomposed further. A decline is a real, useful outcome — often paired with a
 
 ## 7. The reasoning engine
 
-One Server Action-facing call handles Branch, Drill down, Evaluate, and every
-ordinary Discuss turn — the same reasoning, differently framed. This replaces
+One streaming call handles Branch, Drill down, Evaluate, and every ordinary
+Discuss turn — the same reasoning, differently framed. This replaces
 milestone 1's two separate mechanisms (a strict-JSON-schema generator for
 Explore/Drill down, a different strict-JSON-schema turn for Discuss) with one:
-`lib/editorial-inquiry/ai.ts`'s `runEditorialTurn()`.
+`lib/editorial-inquiry/ai.ts`'s `streamEditorialTurn()`, reached through the
+SSE route `src/app/api/editorial-inquiry/turn/` (persistence in
+`lib/editorial-inquiry/turn.ts`) rather than a Server Action — an editorial
+turn runs web search plus medium-effort reasoning, long enough that a silent
+wait read as a hang, and a Server Action can't stream the reply
+token-by-token the way the in-portal agent's `/api/agent/chat` already does.
 
 **Why not structured JSON output for everything, this time:** milestone 1's
 `text.format.type: "json_schema"` approach can't coexist cleanly with the two
@@ -296,16 +301,23 @@ narrower job:
   a turn with no call is a plain reply — a decline, by construction, not a
   special case to detect.
 
-One `responses.create()` call (not streamed, matching every other Server Action
-here — a reply is a few sentences to a paragraph, not worth token-by-token
-rendering) can therefore return, in one round trip: zero or more resolved web
-searches, a prose reply with citations, and at most one proposed action. Nothing
-about a proposed action executes itself — `actions.ts` reads it and performs the
-matching write (insert a question, insert a context note, stage a pending
-reframe) exactly as milestone 1's discuss turn already did for `sibling`/
-`context`/`reframe`; `branch`/`drilldown`/`context` execute immediately,
-`reframe` waits for an explicit Apply click, and `diagnosis`/`assessment` write
-onto the question or render inline respectively rather than mutating the tree.
+One `responses.stream()` call can therefore return, in one round trip: zero or
+more resolved web searches, a prose reply with citations (streamed to the
+panel as the model produces it, then rendered as markdown — see
+`lib/markdown.ts`/`components/ui/markdown.tsx`), and at most one proposed
+action. Nothing persists until the model's terminal result — a dropped
+connection mid-stream writes nothing, so a retry can't duplicate half a turn —
+and nothing about a proposed action executes itself: `turn.ts` reads it and
+performs the matching write (insert a question, insert a context note, stage a
+pending reframe) exactly as milestone 1's discuss turn already did for
+`sibling`/`context`/`reframe`; `branch`/`drilldown`/`context` execute
+immediately, `reframe` waits for an explicit Apply click, and
+`diagnosis`/`assessment` write onto the question or render inline respectively
+rather than mutating the tree. For Branch and Drill down, searching for
+current developments is framed as part of the action by default — not a
+fallback the model may skip — since a thin branch otherwise either declines
+unhelpfully or invents; the model still declines when context and search both
+come up genuinely empty.
 
 **Every call's instructions carry:** the reasoning order (§3), the editorial-level
 definitions and the ten diagnosis reasons (§5), WUWF's current core criteria from
@@ -442,9 +454,22 @@ inspector layout as milestone 1. What changed:
   section. A pillar with no guiding question yet is omitted, with a one-line
   note pointing at Editorial Planning rather than letting Editorial Inquiry
   invent one.
-- **The inspector's action row** gains **Evaluate** alongside Explore→Branch,
-  Drill down, Discuss, Reject, Promote (unchanged position/style, six buttons
-  instead of five).
+- **The inspector groups its actions instead of one flat row** (revised again
+  the same day after a direct report that the panel was "impossibly
+  cluttered"): "Ask the model" (Branch / Drill down / the new Evaluate —
+  compact buttons, each rendered only when structurally possible, so the root
+  shows two, not six) sits above "Your call" (Promote / Reject, hidden on the
+  root where neither can apply), then reporter-authored alternatives (write a
+  question by hand, add context) as one muted link row. The **discussion is
+  always visible** for the selected question — it is the primary surface, so
+  the Discuss/Close-discussion toggle is gone and the composer is pinned to
+  the panel's bottom edge, always in view. Canned Branch/Drill down/Evaluate
+  directives render as a muted "↳ You asked for…" line, not a fake user
+  bubble; replies stream in token-by-token (§7) behind a mode-specific
+  working indicator, and assistant prose renders as markdown. Suggestion
+  chips and the two-ways-in helper text appear only while a thread is empty.
+  The portal-wide agent bubble no longer renders on this route — it sat
+  directly on the composer, and this screen has its own AI surface.
 - **Diagnosis** renders as a callout on the node/inspector wherever milestone
   1 showed the old assumption flag — same visual treatment (a small flagged
   badge plus an expandable explanation), now naming one of ten reasons instead
