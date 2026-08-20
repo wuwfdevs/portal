@@ -23,9 +23,10 @@ import type { Profile } from "@/lib/auth/session";
 // synchronous within the request, same as every Server Action. The full
 // conversation (an OpenAI.Responses.ResponseInputItem[]) round-trips through
 // the client on every call rather than relying on the Responses API's own
-// server-side state (`previous_response_id`/`store`) — `store: false` below
-// keeps OpenAI from retaining a second copy of the transcript we don't
-// control.
+// server-side state (`previous_response_id`) — `store: true` below is for
+// dashboard observability only (an explicit request, 2026-08-20, same as
+// Editorial Inquiry's ai.ts: the OpenAI Logs page only lists stored
+// responses), never a state mechanism this loop reads back.
 //
 // streamAgentTurn is an async generator, not a single Promise: each round
 // calls openai.responses.stream() (the SDK's ResponseStream helper — an
@@ -123,7 +124,7 @@ export async function* streamAgentTurn(
           parallel_tool_calls: false,
           max_output_tokens: MAX_OUTPUT_TOKENS,
           reasoning: { effort: "low" },
-          store: false,
+          store: true,
         });
 
         for await (const event of stream) {
