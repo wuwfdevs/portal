@@ -398,7 +398,15 @@ ${contextBlock(context)}`;
       // more demanding reasoning task than a single generation or a general
       // tool-calling loop.
       reasoning: { effort: "medium" },
-      store: false,
+      // Stored deliberately (an explicit request, 2026-08-20): the OpenAI
+      // dashboard's Logs page only lists stored responses, and with
+      // store: false these turns were invisible there — a real observability
+      // gap while debugging the org's rate-limit exhaustion. The tradeoff is
+      // real and accepted: OpenAI retains each turn's content, queryable in
+      // the dashboard, for its standard 30-day window. The portal agent's
+      // chat (lib/agent/chat.ts) still uses store: false — flipping it is a
+      // separate retention decision nobody has made.
+      store: true,
       tools: [{ type: "web_search" }, PROPOSE_ACTION_TOOL],
       tool_choice: "auto",
       include: ["web_search_call.action.sources"],
