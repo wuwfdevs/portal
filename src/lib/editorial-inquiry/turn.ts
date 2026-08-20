@@ -17,10 +17,12 @@ import {
   type ChatMessageRecord,
 } from "./queries";
 import { listCurrentCoreCriteria } from "./editorial-planning";
+import { directiveForBody } from "./directives";
 import {
   ancestryPath,
   childrenOf,
   inheritedContextNotes,
+  labelForDiagnosis,
   type ContextNoteRecord,
   type QuestionRecord,
 } from "./tree";
@@ -55,6 +57,14 @@ function fallbackAssistantBody(action: ProposedAction | null): string {
   if (!action) return "";
   switch (action.kind) {
     case "diagnosis":
+      // The schema now requires text for a diagnosis, but a model that omits
+      // it anyway must still produce a readable bubble — the kind's label is
+      // always available (a real turn sent text: null with no prose and
+      // stored a completely blank exchange).
+      return (
+        action.text ??
+        (action.diagnosisKind ? `Diagnosed: ${labelForDiagnosis(action.diagnosisKind)}.` : "")
+      );
     case "assessment":
       return action.text ?? "";
     case "branch":
@@ -216,8 +226,26 @@ export async function* streamEditorialTurnEvents(
   // before the truncation guard existed) are skipped outright — replaying
   // "assistant: (nothing)" both wastes tokens and models blank replies as
   // normal.
-  const priorMessages: ChatTurnMessage[] = priorRows
-    .filter((row) => row.body.trim().length > 0)
+  //
+  // Generation turns (drilldown/evaluate) additionally drop earlier
+  // canned-directive exchanges (the directive and its paired reply): each
+  // one re-anchors the model on the topic of its earlier proposals, and four
+  // consecutive drill-downs from one root all mining the same news event
+  // traced directly to this (design doc §16). What those exchanges produced
+  // reaches the model anyway — created questions are on the
+  // do-not-duplicate list and diagnoses live on the question row. The
+  // reporter's own discuss exchanges always replay, in every mode.
+  const nonEmptyRows = priorRows.filter((row) => row.body.trim().length > 0);
+  const replayRows: typeof nonEmptyRows = [];
+  for (let i = 0; i < nonEmptyRows.length; i++) {
+    const row = nonEmptyRows[i]!;
+    if (mode !== "discuss" && row.role === "user" && directiveForBody(row.body)) {
+      if (nonEmptyRows[i + 1]?.role === "assistant") i++;
+      continue;
+    }
+    replayRows.push(row);
+  }
+  const priorMessages: ChatTurnMessage[] = replayRows
     .slice(-MAX_REPLAYED_MESSAGES)
     .map((row) => ({
       role: row.role as "user" | "assistant",
@@ -348,6 +376,12 @@ export async function* streamEditorialTurnEvents(
   } else if (action?.kind === "reframe" && action.text) {
     actionPayload = { text: action.text };
     // appliedAt stays null — the reporter applies a reframe explicitly.
+  } else if (action?.kind === "diagnosis" && action.diagnosisKind && !question.parentId) {
+    // Never write a diagnosis onto the root — no diagnosis applies to a
+    // guiding question, and the prompt guard alone provably doesn't hold: a
+    // real turn wrote already_known onto a root, which then poisoned every
+    // later turn's prompt on it ("This question is currently diagnosed
+    // as..."). The reply text still stands; only the write is dropped.
   } else if (action?.kind === "diagnosis" && action.diagnosisKind) {
     // Prefer the tool call's own `text` argument for the stored note — the
     // model sometimes puts its whole explanation there and writes little or

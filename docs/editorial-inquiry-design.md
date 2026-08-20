@@ -676,3 +676,62 @@ list too, labeled "[rejected by the reporter]" and framed as dead angles
 never to be re-proposed — previously they were filtered out entirely, so
 the model could innocently re-propose an angle the reporter had already
 turned down.
+
+## 16. Anchor-breaking calibration (2026-08-20)
+
+A second same-day audit, from a real inquiry against the Power and Politics
+pillar: four consecutive drill-downs from the root all mined one news event
+(the Escambia data-center fight), at least one proposed question wasn't a
+power-and-governance question at all, and a fifth attempt appeared to
+produce nothing. The log of that fifth turn showed three distinct problems —
+one anchoring, one scoping, one a genuine pipeline bug.
+
+**Topic lock-in.** The first drill-down legitimately grounded itself in the
+data-center story; every later turn then replayed a thread that was 100%
+data-center content, which functionally told the model "this inquiry is
+about data centers." The distinctness rules only said what *not* to
+propose, and the mandated fresh search was skipped outright in the audited
+turn (zero web_search calls) in favor of the decline exit. Three fixes:
+generation turns (drilldown/evaluate) no longer replay earlier
+canned-directive exchanges — the directive and its paired reply — since
+everything they produced already reaches the model via the
+do-not-duplicate list and the question rows, while their topical gravity
+was the anchor (the reporter's own discuss exchanges still replay, in
+every mode); the drilldown framing now says that when existing children
+cluster around one topic, distinct means a *different domain of the
+guiding question entirely*, search queries must name other domains and
+must not contain the covered topic's terms (exclusion operators as backup
+where the search backend honors them); and the model moved from
+gpt-5.4-mini to **gpt-5.6-terra** — skipping a mandated search, writing no
+prose, and double-calling the action tool are instruction-following
+failures under long context that the mini tier makes far more often, and
+the ~2.7× per-turn cost (roughly 8¢ vs 3¢ worst-case) is noise at this
+tool's usage.
+
+**Pillar drift.** "How much water and electricity would a data center
+need, and who would pay" is an infrastructure question, not a
+power-and-governance one — the prompt carried the pillar and guiding
+question but never required a proposal to *probe* them. The shared
+reasoning order now states a proposal must be a genuine dimension of the
+guiding question (a newsworthy development whose central question belongs
+to a different coverage area is not a line of this inquiry), and the
+drilldown grounding must state how the proposed question probes it.
+
+**The blank turn.** The model wrote no prose and called the tool twice —
+first a diagnosis with `text: null` (which the schema itself instructed:
+"Null for diagnosis"), then a context note that was silently dropped
+(first call wins). `fallbackAssistantBody`'s diagnosis case returned
+`action.text ?? ""`, so the stored exchange was completely blank — and the
+diagnosis write put `already_known` onto the *root*, which then poisoned
+every later root turn's prompt ("This question is currently diagnosed
+as..."). Fixed at every layer that failed: the schema now *requires* text
+for a diagnosis (1–2 sentences applying the reason, stored as the
+diagnosis note); the fallback falls back to the diagnosis kind's label so
+a blank bubble is impossible under any action shape; the root can never be
+diagnosed — enforced in `turn.ts` (the write is dropped; the reply
+stands), not just in the prompt, which provably didn't hold; and the
+bogus `already_known` was cleared from the production root — along with a
+`still_thematic` found on a second production root (the Growth and
+Resilience inquiry), a pre-§14 artifact of the exact dead-end §14
+described, which had been silently poisoning that inquiry's turns the
+same way. Preview had no diagnosed roots.

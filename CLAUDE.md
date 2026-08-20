@@ -2191,6 +2191,21 @@ click, which is why plain node clicks had never opened the panel at all).
 The manual "write your own" fallback now always writes a child
 (`addQuestionManually` lost its sibling kind). No migration.
 
+**Editorial Inquiry: anchor-breaking calibration (2026-08-20) — see
+`docs/editorial-inquiry-design.md` §16; this note is a pointer.** A real
+inquiry's drill-downs all mined one news event, drifted off-pillar, and one
+turn stored a completely blank exchange. Fixes: generation turns no longer
+replay earlier canned-directive exchanges (the thread anchor); the
+drilldown framing demands a different domain of the guiding question when
+existing children share a topic (search queries must not contain the
+covered topic's terms) and a grounding that states how the proposal probes
+the guiding question; the model moved `gpt-5.4-mini` → `gpt-5.6-terra`;
+diagnosis `text` is now schema-required with a label-based fallback so a
+blank bubble is impossible; and the root can never be diagnosed — enforced
+in `turn.ts`, not just the prompt, after a real turn wrote `already_known`
+onto a root and poisoned its later prompts (that row was cleaned up in
+production directly). No migration.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
