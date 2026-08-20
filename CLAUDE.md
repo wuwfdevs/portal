@@ -2148,6 +2148,29 @@ inquiry's first drill-down reliably dead-ended on exactly that before.
 position sat directly on the panel's composer, and this screen has its own
 AI surface; the widget stays mounted so an already-open panel keeps state.
 
+**Editorial Inquiry: calibration revision (2026-08-20), from auditing a real
+production inquiry's turns — see `docs/editorial-inquiry-design.md` §14 for
+the full account; this note is a pointer.** Four reliable failure modes, all
+structural: Branch turns were handed the departing sibling's own context
+chain (which the new node never inherits), anchoring every "different angle"
+to the sibling's topic — Branch now reasons from the **parent's** chain,
+keeps the selected sibling on the do-not-duplicate list, and searches fresh
+by default; Drill down paraphrased story-level questions rather than
+declining (no level exists below a story question) — it now checks the
+story-question bar first and nominates promotion instead of descending; the
+model could never promote because no promote action existed in its
+vocabulary — `ei_chat_messages.action_kind` gains `'promote'`
+(`20260820140000_editorial_inquiry_reasoning_calibration.sql`), a
+nomination the reporter confirms via `applyPromotion` (applied_at-null until
+then, same pending shape as reframe — promotion stays the reporter's click);
+and the diagnosis taxonomy couldn't name over-narrowing —
+`ei_questions.diagnosis_kind` gains `too_narrow_process_step` (a reporting
+task, not a story; the fix direction is up). Cross-cutting: `turn.ts`'s
+`fallbackAssistantBody()` now covers every action kind, since the model
+regularly wrote no prose alongside a tool call (8 of 10 audited turns stored
+an empty assistant body) and the old fallback only covered
+diagnosis/assessment.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),

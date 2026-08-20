@@ -6,6 +6,7 @@ import {
   type ChatTurnMessage,
   type EditorialTurnContext,
   type EditorialTurnResult,
+  type ProposedAction,
   type TurnMode,
 } from "./ai";
 import {
@@ -41,6 +42,34 @@ const TOOL_KEY = "editorial-inquiry";
 // keeps a worst-case replay near 12k tokens instead of unbounded.
 const MAX_REPLAYED_MESSAGES = 12;
 const MAX_REPLAYED_MESSAGE_CHARS = 4000;
+
+/**
+ * The model is instructed to always write prose alongside a tool call, but
+ * in practice it regularly emits only the call — 8 of 10 canned-directive
+ * turns in one real inquiry stored an empty assistant body, which both reads
+ * as a blank bubble and strips the reply of the level-labeling the prompt
+ * asks for. The earlier fix covered diagnosis/assessment only; this covers
+ * every action kind with a readable summary of what the call itself carried.
+ */
+function fallbackAssistantBody(action: ProposedAction | null): string {
+  if (!action) return "";
+  switch (action.kind) {
+    case "diagnosis":
+    case "assessment":
+      return action.text ?? "";
+    case "branch":
+    case "drilldown":
+      return [action.text ? `Proposed: “${action.text}”` : "", action.grounding ?? ""]
+        .filter(Boolean)
+        .join("\n\n");
+    case "reframe":
+      return action.text ? `Proposed a reframe: “${action.text}”` : "";
+    case "context":
+      return action.text ? `Attached as context: “${action.text}”` : "";
+    case "promote":
+      return action.text ?? "This question looks ready to promote to a story question.";
+  }
+}
 
 export interface EditorialTurnOutcome {
   userMessage: ChatMessageRecord;
@@ -110,14 +139,28 @@ async function loadTurnContext(
   const relatedParentId = mode === "drilldown" ? question.id : question.parentId;
   const existingRelated = relatedParentId
     ? activeChildren(detail.questions, relatedParentId)
-        .filter((q) => q.id !== question.id)
+        // Branch keeps the selected question ON the do-not-duplicate list —
+        // it's the single most important angle a "genuinely distinct" sibling
+        // must not rephrase (excluding it was how Branch reliably produced
+        // variations of the very question being branched away from). Other
+        // modes keep excluding it: it's already named as the one being acted
+        // on.
+        .filter((q) => mode === "branch" || q.id !== question.id)
         .map((q) => q.text)
     : [];
 
+  // Branch reasons from — and its new node will actually inherit from — the
+  // PARENT's context chain. Handing the model the departing sibling's own
+  // notes anchored every "different angle" to that sibling's territory (an
+  // observed failure: a branch off an ALPR question re-grounded itself in the
+  // same ALPR article and proposed an adjacent ALPR angle), and the new node,
+  // as a child of the parent, never inherits those notes anyway.
+  const contextAnchorId =
+    mode === "branch" && question.parentId ? question.parentId : questionId;
   const inheritedContext = inheritedContextNotes(
     detail.questions,
     detail.contextNotes,
-    questionId,
+    contextAnchorId,
   ).map((r) => ({
     kind: r.note.kind,
     body: r.note.body,
@@ -332,16 +375,17 @@ export async function* streamEditorialTurnEvents(
   } else if (action?.kind === "assessment" && action.text) {
     actionPayload = { text: action.text };
     appliedAt = new Date().toISOString();
+  } else if (action?.kind === "promote") {
+    // A nomination only — promotion stays the reporter's explicit click
+    // (design doc §5), so like reframe this records the proposal and
+    // appliedAt stays null until they confirm. Guard mirrors canPromote():
+    // never the root, only an active question.
+    if (question.parentId && question.status === "active") {
+      actionPayload = { questionId: question.id };
+    }
   }
 
-  // A diagnosis or assessment whose whole substance arrived in the tool
-  // call's `text` argument still needs a readable message body — an empty
-  // assistant bubble was a real reported bug.
-  const assistantBody =
-    result.reply ||
-    ((action?.kind === "diagnosis" || action?.kind === "assessment") && action.text
-      ? action.text
-      : "");
+  const assistantBody = result.reply || fallbackAssistantBody(action);
 
   const { data: assistantRow, error: assistantError } = await supabase
     .from("ei_chat_messages")

@@ -132,7 +132,15 @@ export interface ChatMessageRecord {
   questionId: string;
   role: "user" | "assistant";
   body: string;
-  actionKind: "branch" | "drilldown" | "context" | "reframe" | "diagnosis" | "assessment" | null;
+  actionKind:
+    | "branch"
+    | "drilldown"
+    | "context"
+    | "reframe"
+    | "diagnosis"
+    | "assessment"
+    | "promote"
+    | null;
   actionPayload: Record<string, unknown> | null;
   citations: { title: string; url: string }[] | null;
   appliedAt: string | null;

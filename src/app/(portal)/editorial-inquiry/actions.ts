@@ -238,6 +238,38 @@ export async function applyReframe(
 }
 
 /**
+ * The reporter's confirming click on a model promote nomination (a turn's
+ * kind "promote" tool call) — same shape as applyReframe: the status write
+ * plus marking the nominating message applied. Promotion itself is still
+ * always this explicit reporter action, never the model's own write.
+ */
+export async function applyPromotion(
+  messageId: string,
+  questionId: string,
+): Promise<ActionResult<null>> {
+  try {
+    await assertToolAccess(TOOL_KEY);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("ei_questions")
+      .update({ status: "promoted" })
+      .eq("id", questionId)
+      .eq("status", "active");
+    if (error) throw new Error(error.message);
+
+    const { error: messageError } = await supabase
+      .from("ei_chat_messages")
+      .update({ applied_at: new Date().toISOString() })
+      .eq("id", messageId);
+    if (messageError) throw new Error(messageError.message);
+
+    return ok(null);
+  } catch (error) {
+    return err(error);
+  }
+}
+
+/**
  * Develop a promoted question into an Editorial Planning pitch (design doc
  * §8). Builds a prefilled URL to Editorial Planning's own pitch form rather
  * than writing ep_pitches directly — always reporter-initiated: called only

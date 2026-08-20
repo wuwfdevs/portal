@@ -11,10 +11,13 @@ export type QuestionStatus = "active" | "rejected" | "promoted";
 export type ContextNoteKind = "note" | "link" | "excerpt";
 
 /**
- * Why a question isn't yet a strong story question — see
+ * Why a question isn't a strong story question — see
  * docs/editorial-inquiry-design.md §5. unverified_premise is the direct
- * successor of milestone 1's boolean has_assumption flag, now one of ten
- * recognized reasons instead of the only one the tool could name.
+ * successor of milestone 1's boolean has_assumption flag.
+ * too_narrow_process_step is the one reason that runs the opposite
+ * direction from the rest: drilled past story level into a reporting task
+ * (a records request, a yes/no verification) — the fix is stepping back up,
+ * never narrowing further.
  */
 export const DIAGNOSIS_KINDS = [
   "still_thematic",
@@ -27,6 +30,7 @@ export const DIAGNOSIS_KINDS = [
   "implausible_reporting_path",
   "trivial",
   "descriptive_not_investigative",
+  "too_narrow_process_step",
 ] as const;
 export type DiagnosisKind = (typeof DIAGNOSIS_KINDS)[number];
 
@@ -41,6 +45,7 @@ const DIAGNOSIS_LABELS: Record<DiagnosisKind, string> = {
   implausible_reporting_path: "Reporting path is implausible",
   trivial: "Specific but trivial",
   descriptive_not_investigative: "Would produce description, not discovery",
+  too_narrow_process_step: "A reporting step, not a story question",
 };
 
 export function labelForDiagnosis(kind: DiagnosisKind): string {

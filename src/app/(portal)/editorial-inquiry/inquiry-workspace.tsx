@@ -33,6 +33,7 @@ import { InquirySwitcher } from "./inquiry-switcher";
 import {
   addContextNote,
   addQuestionManually,
+  applyPromotion,
   applyReframe,
   loadDiscussThread,
   moveQuestion,
@@ -100,6 +101,7 @@ export function InquiryWorkspace({
   // on (selection can move mid-stream without mixing threads up).
   const [streaming, setStreaming] = useState<{ questionId: string; text: string } | null>(null);
   const [applyingReframeId, setApplyingReframeId] = useState<string | null>(null);
+  const [applyingPromotionId, setApplyingPromotionId] = useState<string | null>(null);
   const [developingIntoPitch, setDevelopingIntoPitch] = useState(false);
 
   const layout = useMemo(() => computeTreeLayout(questions), [questions]);
@@ -396,6 +398,30 @@ export function InquiryWorkspace({
     }
   }
 
+  /** The confirming click on a model promote nomination — see applyPromotion. */
+  async function handleApplyPromotion(message: ChatMessageRecord) {
+    if (message.actionKind !== "promote") return;
+    const targetId =
+      (message.actionPayload as { questionId?: string } | null)?.questionId ?? message.questionId;
+    setError(null);
+    setApplyingPromotionId(message.id);
+    const result = await applyPromotion(message.id, targetId);
+    setApplyingPromotionId(null);
+    if (result.ok) {
+      setQuestions((qs) =>
+        qs.map((q) => (q.id === targetId ? { ...q, status: "promoted" } : q)),
+      );
+      setChatThreads((t) => ({
+        ...t,
+        [message.questionId]: (t[message.questionId] ?? []).map((m) =>
+          m.id === message.id ? { ...m, appliedAt: new Date().toISOString() } : m,
+        ),
+      }));
+    } else {
+      setError(result.error);
+    }
+  }
+
   async function handleDevelopIntoPitch(id: string) {
     setError(null);
     setDevelopingIntoPitch(true);
@@ -492,6 +518,8 @@ export function InquiryWorkspace({
           streamingReply={streaming && streaming.questionId === selectedId ? streaming.text : null}
           onApplyReframe={handleApplyReframe}
           applyingReframeId={applyingReframeId}
+          onApplyPromotion={handleApplyPromotion}
+          applyingPromotionId={applyingPromotionId}
           canDevelopIntoPitch={canDevelopIntoPitch}
           onDevelopIntoPitch={() => selectedId && handleDevelopIntoPitch(selectedId)}
           developingIntoPitch={developingIntoPitch}
