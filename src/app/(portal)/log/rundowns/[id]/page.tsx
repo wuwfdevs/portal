@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -21,7 +22,17 @@ import {
   type RundownBreakDetail,
   type RundownItemDetail,
 } from "@/lib/log/queries";
-import { buildSegmentWindows, estimateStoryOffsets, selectStoriesForWindow } from "@/lib/log/npr-story-times";
+import {
+  buildSegmentWindows,
+  episodeHourOffset,
+  estimateFloatLanding,
+  estimateStoryOffsets,
+  excludeBlockLengthRollups,
+  firstAiringByStory,
+  packedHourCount,
+  projectStoriesOntoShift,
+  selectAiringsInWindow,
+} from "@/lib/log/npr-story-times";
 import {
   computeLiveTimingState,
   type ConsoleBreakLike,
@@ -250,7 +261,8 @@ export default async function RundownDetailPage({
   ]);
 
   // Estimated per-story air times: pack the episode's stories, in order,
-  // into this clock's lettered segment windows across the shift's hours
+  // into this clock's lettered segment windows, then project onto the
+  // shift's actual hours via the program's feed anchor
   // (lib/log/npr-story-times.ts — CDS gives duration and order, never
   // explicit times, so these are estimates and always render with "~").
   const shiftStartMs = new Date(rundown.shift_start_at).getTime();
@@ -258,18 +270,31 @@ export default async function RundownDetailPage({
     1,
     Math.round((new Date(rundown.shift_end_at).getTime() - shiftStartMs) / 3_600_000),
   );
+  const segmentWindows = buildSegmentWindows(clockSlots, shiftHourCount);
   const storyEstimates =
     npr?.kind === "found"
       ? estimateStoryOffsets(
-          npr.items.map((item) => ({
-            npr_item_id: item.npr_item_id,
-            duration_seconds: item.duration_seconds,
-          })),
-          buildSegmentWindows(clockSlots, shiftHourCount),
+          excludeBlockLengthRollups(
+            npr.items.map((item) => ({
+              npr_item_id: item.npr_item_id,
+              duration_seconds: item.duration_seconds,
+            })),
+            segmentWindows,
+          ),
+          segmentWindows,
         )
       : [];
-  const hasStoryTimes = storyEstimates.some((estimate) => estimate.offsetSeconds !== null);
-  const estimateByNprItemId = new Map(storyEstimates.map((estimate) => [estimate.npr_item_id, estimate]));
+  const shiftAirings = projectStoriesOntoShift(
+    storyEstimates,
+    shiftHourCount,
+    episodeHourOffset(
+      rundown.shift_start_at,
+      rundown.programNprFeedStartHourEt,
+      packedHourCount(storyEstimates),
+    ),
+  );
+  const hasStoryTimes = shiftAirings.length > 0;
+  const firstAirings = firstAiringByStory(shiftAirings);
   const storyTimeLabel = (offsetSeconds: number | null): string | null =>
     offsetSeconds === null
       ? null
@@ -282,7 +307,7 @@ export default async function RundownDetailPage({
           title: item.title,
           teaser: item.teaser,
           estimatedTimeLabel: storyTimeLabel(
-            estimateByNprItemId.get(item.npr_item_id)?.offsetSeconds ?? null,
+            firstAirings.get(item.npr_item_id)?.offsetSeconds ?? null,
           ),
         }))
       : [];
@@ -301,9 +326,9 @@ export default async function RundownDetailPage({
     if (!hasStoryTimes) return nprLookaheadItems;
     const from = breakStartOffsets[index]!;
     const to = index + 1 < breakStartOffsets.length ? breakStartOffsets[index + 1]! : null;
-    return selectStoriesForWindow(storyEstimates, from, to).flatMap((estimate) => {
-      const item = lookaheadByNprItemId.get(estimate.npr_item_id);
-      return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(estimate.offsetSeconds) }] : [];
+    return selectAiringsInWindow(shiftAirings, from, to).flatMap((airing) => {
+      const item = lookaheadByNprItemId.get(airing.npr_item_id);
+      return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(airing.offsetSeconds) }] : [];
     });
   };
 
@@ -475,11 +500,76 @@ export default async function RundownDetailPage({
   // render and validate drops — built here, server-side, from the same data
   // the old inline rendering used, so nothing about what's shown changes,
   // only how relocation works.
+  // Where a floating break actually lands today, from the NPR story
+  // boundaries (see lib/log/npr-story-times.ts's estimateFloatLanding) — a
+  // float's scheduled_at snapshot is only its nominal placement, and the
+  // real position within its earliest/latest window is decided by where the
+  // network's stories break around it.
+  const opportunityById = new Map(currentOpportunities.map((opportunity) => [opportunity.id, opportunity]));
+  const floatHintForBreak = (brk: RundownBreakDetail, breakIndex: number): ReactNode => {
+    const opportunity = opportunityById.get(brk.local_opportunity_id);
+    if (
+      opportunity?.timing_mode !== "float" ||
+      opportunity.earliest_start_offset_seconds === null ||
+      opportunity.latest_start_offset_seconds === null
+    ) {
+      return null;
+    }
+    const breakOffset = breakStartOffsets[breakIndex]!;
+    const hourStart = Math.floor(breakOffset / 3600) * 3600;
+    const atOffset = (offsetSeconds: number) =>
+      formatStationTimeHM(new Date(shiftStartMs + offsetSeconds * 1000).toISOString());
+    const windowLabel = `${atOffset(hourStart + opportunity.earliest_start_offset_seconds)}–${atOffset(hourStart + opportunity.latest_start_offset_seconds)}`;
+    if (!hasStoryTimes) {
+      return (
+        <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
+          Floating break — the network places it anywhere in {windowLabel}.
+        </div>
+      );
+    }
+    const landing = estimateFloatLanding(
+      {
+        earliestOffsetSeconds: hourStart + opportunity.earliest_start_offset_seconds,
+        latestOffsetSeconds: hourStart + opportunity.latest_start_offset_seconds,
+        nominalOffsetSeconds: breakOffset,
+      },
+      shiftAirings,
+    );
+    const boundaryTitle = landing.boundaryStoryId
+      ? lookaheadByNprItemId.get(landing.boundaryStoryId)?.title
+      : null;
+    const spanningTitle = landing.spanningStoryId
+      ? lookaheadByNprItemId.get(landing.spanningStoryId)?.title
+      : null;
+    return (
+      <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
+        Floating break (window {windowLabel}) — {" "}
+        {landing.basis === "story_boundary" ? (
+          <>
+            estimated today at{" "}
+            <span className="font-mono font-semibold text-ink-700 tabular-nums">
+              ~{atOffset(landing.offsetSeconds)}
+            </span>
+            {boundaryTitle && <> after &ldquo;{boundaryTitle}&rdquo;</>}, from NPR story lengths.
+          </>
+        ) : spanningTitle ? (
+          <>
+            &ldquo;{spanningTitle}&rdquo; is estimated to run through this whole window, so the break
+            interrupts it — shown at its nominal ~{atOffset(landing.offsetSeconds)}.
+          </>
+        ) : (
+          <>no NPR story boundary maps into it today — shown at its nominal ~{atOffset(landing.offsetSeconds)}.</>
+        )}
+      </div>
+    );
+  };
+
   const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk, breakIndex) => {
     const result = breakStatusesById.get(brk.id);
     const fit = result!.fit;
     const status = result!.status;
     const isCurrent = live && brk.id === currentBreakId;
+    const floatHint = floatHintForBreak(brk, breakIndex);
 
     const statusBadge =
       status === "carrying_network" ? (
@@ -626,18 +716,23 @@ export default async function RundownDetailPage({
       permittedContentTypes: brk.permitted_content_types,
       isCurrent,
       headerNode: (
-        <div className="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-50 px-5 py-3">
-          {isCurrent && <Badge variant="warning">Live now</Badge>}
-          <span className="font-mono text-base font-bold text-ink-900 tabular-nums">
-            {formatStationClockTime(brk.scheduled_at)}
-          </span>
-          <span className="text-base font-semibold text-ink-900">{brk.label}</span>
-          <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
-          <span className="ml-auto text-sm text-ink-500">
-            Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
-            available
-          </span>
-        </div>
+        <>
+          <div
+            className={`flex flex-wrap items-center gap-2.5 bg-panel-50 px-5 py-3 ${floatHint ? "" : "border-b border-line"}`}
+          >
+            {isCurrent && <Badge variant="warning">Live now</Badge>}
+            <span className="font-mono text-base font-bold text-ink-900 tabular-nums">
+              {formatStationClockTime(brk.scheduled_at)}
+            </span>
+            <span className="text-base font-semibold text-ink-900">{brk.label}</span>
+            <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
+            <span className="ml-auto text-sm text-ink-500">
+              Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
+              available
+            </span>
+          </div>
+          {floatHint}
+        </>
       ),
       statusNode: (
         <div className="flex flex-wrap items-center gap-2 px-5 pt-3">

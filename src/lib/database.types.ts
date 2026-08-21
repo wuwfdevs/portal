@@ -210,7 +210,9 @@
 // `generate_typescript_types` output for the live preview project,
 // field-by-field diffed; every field matched. Hand-updated again on
 // 2026-08-21 for 20260821130000_log_npr_item_durations.sql:
-// log_npr_episode_items gained duration_seconds (integer, nullable).
+// log_npr_episode_items gained duration_seconds (integer, nullable) — and
+// again the same day for 20260821140000_log_npr_feed_start_hour.sql:
+// log_programs gained npr_feed_start_hour_et (smallint, nullable).
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1544,6 +1546,8 @@ export interface Database {
           kind: LogProgramKind;
           /** NPR Content Distribution Service collection id, if this is a mapped NPR network program — see supabase/migrations/20260807140000_log_npr_cds_correction.sql. */
           npr_collection_id: number | null;
+          /** The hour (0-23, Eastern) at which NPR's live feed starts this program's first episode hour — the anchor for mapping shift hours onto the episode's alternating hours. See supabase/migrations/20260821140000_log_npr_feed_start_hour.sql. */
+          npr_feed_start_hour_et: number | null;
           created_at: string;
           created_by: string | null;
         };

@@ -117,6 +117,10 @@ repo and a project's history, not the version number.
 | `20260820130000_editorial_inquiry_grounded_reasoning.sql`             | 2026-08-20 | 2026-08-20 |
 | `20260820140000_editorial_inquiry_reasoning_calibration.sql`          | 2026-08-20 | 2026-08-20 |
 | `20260821130000_log_npr_item_durations.sql`                           | 2026-08-21 | 2026-08-21 |
+| `20260821140000_log_npr_feed_start_hour.sql`                          | 2026-08-21 | 2026-08-21 |
+| `20260821150000_log_npr_feed_anchor_atc.sql`                          | 2026-08-21 | 2026-08-21 |
+| `20260821160000_log_atc_segment_b_junction_fix.sql`                   | 2026-08-21 | 2026-08-21 |
+| `20260821170000_log_atc_b_to_return_furniture.sql`                    | 2026-08-21 | 2026-08-21 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

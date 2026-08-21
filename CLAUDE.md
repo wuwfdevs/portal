@@ -969,29 +969,51 @@ and `moveRundownItem` are now thin adapters over these capabilities —
 `sendAnswerToSourcework`'s: the console button click is itself the human
 confirmation.
 
-**Log: NPR story times and break-scoped story surfaces (2026-08-21).** CDS
-supplies no per-story air times — only each story's audio duration (its
-primary audio asset's `duration`, now parsed by `providers/npr-response.ts`
-and stored as `log_npr_episode_items.duration_seconds`,
-`20260821130000_log_npr_item_durations.sql`) and the episode's item order.
-`lib/log/npr-story-times.ts` (pure, tested) derives **estimated** air times
-from that: it packs the stories, in order, into the program clock's lettered
-segment windows (`log_clock_slots.segment_label`) tiled across the rundown's
-shift hours, with a tolerant half-fit rule rather than strict bin-packing,
-and wraps windows in hours beyond the episode's own span back onto the
-packed hours (Morning Edition's 2-hour episode across a 4-hour shift — the
-repeat hours re-air the feed). Estimates always render with "~" and never
-pretend to seconds precision (`formatStationTimeHM`). Three surfaces
-consume them: `/log/npr` gained Est. air/Length columns (anchored to that
-program+date's generated rundown, which is what pins shift start and clock
-version — no rundown, no time column); the rundown screen's NPR sidebar
-panel now shows only the stories for the **upcoming break** by the
-station's current wall clock (falling back to the episode's first items
-when no times are derivable); and the per-break "Create live read"
-look-ahead picker offers only that break's stories — the ones estimated to
-air between it and the next break — not the whole episode, per direct
-product feedback. A clock with no `segment_label`ed slots produces no
-estimates and every surface degrades to the order-only behavior.
+**Log: NPR story times and break-scoped story surfaces (2026-08-21),
+calibrated the same day against the official NPR Rundowns App document for
+that morning's Morning Edition (supplied by WUWF after the first cut's
+times were visibly wrong).** CDS supplies no per-story air times — only
+each story's audio duration (its primary audio asset's `duration`, parsed
+by `providers/npr-response.ts` and stored as
+`log_npr_episode_items.duration_seconds`,
+`20260821130000_log_npr_item_durations.sql`) and the episode's item order
+(which the rundown document confirmed IS broadcast order, and whose
+durations track the official per-story timings within ~5s).
+`lib/log/npr-story-times.ts` (pure, tested — its test file encodes the
+official rundown as a calibration fixture) derives **estimated** air times:
+it packs the stories, in order, into the program clock's lettered segment
+windows (`log_clock_slots.segment_label`) with a tolerant half-fit rule,
+then projects episode hours onto the shift's hours. Two corrections from
+the calibration, both of which had made every time wrong: (1)
+`excludeBlockLengthRollups()` drops a **digital-only block-length rollup**
+(ME's "Morning news brief", whose 11:13 audio is the sum of the three real
+A-block stories after it and which appears nowhere in the official
+rundown) — identified structurally (≥90% of the largest segment window,
+with a guard so Fresh Air's one long interview is never dropped), not by
+title; and (2) NPR's multi-hour magazines **alternate episode hours on the
+live feed anchored Eastern** (the rundown labels 7:00 AM ET "HR1", so
+WUWF's 5:00 AM CT hour carries HR2) —
+`log_programs.npr_feed_start_hour_et`
+(`20260821140000_log_npr_feed_start_hour.sql`, backfilled only for Morning
+Edition = 5, the one anchor the document confirms) feeds
+`episodeHourOffset()`, and null falls back to shift-aligned. With both
+fixes the derivation reproduces the official rundown segment-for-segment,
+within a minute everywhere. Estimates always render with "~"
+(`formatStationTimeHM`). Three surfaces consume them: `/log/npr`'s Est.
+air/Length columns (anchored to that program+date's generated rundown —
+no rundown, no time column); the rundown screen's NPR sidebar (only the
+stories for the **upcoming break** by the station's wall clock); and the
+per-break "Create live read" look-ahead picker (only that break's
+stories), per direct product feedback. A clock with no `segment_label`ed
+slots produces no estimates and every surface degrades to the order-only
+behavior. Floating breaks get their own per-day estimate
+(`estimateFloatLanding`): a float's real position within its
+earliest/latest window is a story boundary, so the rundown screen shows
+where today's stories put it — or names the story it will interrupt when
+one runs through the whole window (the Fresh Air interview case), whose
+over-segment overflow the packer also chains through the following
+segments. If WUWF can get API/export access to the Rundowns App itself,
+ingesting real times should replace this estimation.
 
 **Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
 guardrail against building it is lifted.** This is the second of three tools
