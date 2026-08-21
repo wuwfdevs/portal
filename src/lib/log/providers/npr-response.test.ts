@@ -138,6 +138,31 @@ describe("parseCdsProgramEpisodeResponse", () => {
     expect(result).toEqual({ status: "not_found" });
   });
 
+  it("reads a transcluded item's document from its embed key (the real CDS shape)", () => {
+    const doc = episodeDoc({
+      items: [
+        {
+          href: "/v1/documents/nx-s1-5931262",
+          embed: {
+            id: "nx-s1-5931262",
+            title: "Morning news brief",
+            teaser: "The day's top stories.",
+            profiles: [{ href: "/v1/profiles/story", rels: ["type"] }],
+          },
+        },
+      ],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        npr_item_id: "nx-s1-5931262",
+        title: "Morning news brief",
+        teaser: "The day's top stories.",
+      }),
+    ]);
+  });
+
   it("derives an item id from a reference-shaped entry's href (CDS's own document id)", () => {
     const doc = episodeDoc({
       items: [{ href: "/v1/documents/nx-s1-999?fields=title", rels: ["item"] }],
