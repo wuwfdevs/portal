@@ -146,23 +146,52 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
     expect(estimateStoryOffsets(STORIES, []).every((e) => e.offsetSeconds === null)).toBe(true);
   });
 
-  it("places a story longer than an empty segment there anyway (it has to air somewhere)", () => {
-    const windows = buildSegmentWindows(
+  it("lets a story longer than its whole segment consume the following segments (the Fresh Air interview shape)", () => {
+    // Fresh Air's real fixed segments: A 510, B 768, C 420, D 475, E 655 —
+    // one ~35-minute interview spans A through D, and the review airs in E.
+    const freshAirWindows = buildSegmentWindows(
       [
-        { start_offset_seconds: 0, duration_seconds: 120, segment_label: "A", timing_mode: "fixed" },
-        { start_offset_seconds: 600, duration_seconds: 600, segment_label: "B", timing_mode: "fixed" },
+        { start_offset_seconds: 390, duration_seconds: 510, segment_label: "A", timing_mode: "fixed" },
+        { start_offset_seconds: 930, duration_seconds: 768, segment_label: "B", timing_mode: "fixed" },
+        { start_offset_seconds: 1800, duration_seconds: 420, segment_label: "C", timing_mode: "fixed" },
+        { start_offset_seconds: 2285, duration_seconds: 475, segment_label: "D", timing_mode: "fixed" },
+        { start_offset_seconds: 2820, duration_seconds: 655, segment_label: "E", timing_mode: "fixed" },
       ],
       1,
     );
     const result = estimateStoryOffsets(
       [
-        { npr_item_id: "long", duration_seconds: 300 },
-        { npr_item_id: "next", duration_seconds: 100 },
+        { npr_item_id: "interview", duration_seconds: 2100 },
+        { npr_item_id: "review", duration_seconds: 480 },
+      ],
+      freshAirWindows,
+    );
+    // The interview opens Segment A; its overflow consumes B and C and part
+    // of D, so the review lands in Segment E — not at Segment B's start.
+    expect(result[0]).toMatchObject({ offsetSeconds: 390, segmentLabel: "A" });
+    expect(result[1]).toMatchObject({ offsetSeconds: 2820, segmentLabel: "E" });
+  });
+
+  it("never leaks a small mid-window overshoot into the next segment's start", () => {
+    // The half-fit rule admits a story that overshoots a little (duration
+    // noise) — the next story still opens the next segment at the post.
+    const windows = buildSegmentWindows(
+      [
+        { start_offset_seconds: 0, duration_seconds: 600, segment_label: "A", timing_mode: "fixed" },
+        { start_offset_seconds: 900, duration_seconds: 600, segment_label: "B", timing_mode: "fixed" },
+      ],
+      1,
+    );
+    const result = estimateStoryOffsets(
+      [
+        { npr_item_id: "a1", duration_seconds: 400 },
+        { npr_item_id: "a2", duration_seconds: 260 }, // 660 total — 60s over, mostly fits
+        { npr_item_id: "b1", duration_seconds: 300 },
       ],
       windows,
     );
-    expect(result[0]).toMatchObject({ offsetSeconds: 0, segmentLabel: "A" });
-    expect(result[1]).toMatchObject({ offsetSeconds: 600, segmentLabel: "B" });
+    expect(result[1]).toMatchObject({ offsetSeconds: 400, segmentLabel: "A" });
+    expect(result[2]).toMatchObject({ offsetSeconds: 900, segmentLabel: "B" });
   });
 });
 

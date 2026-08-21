@@ -169,6 +169,26 @@ export function estimateStoryOffsets(
       hourIndex: window.hourIndex,
     });
 
+    // A story longer than the whole segment it opens (Fresh Air's one
+    // interview spanning A through D, resuming across the breaks) genuinely
+    // consumes the following segments too, so its overflow walks forward
+    // through them and the next story starts wherever it actually left off.
+    // This applies only to a story placed at the start of a window it can't
+    // fit — a mid-window estimate overshooting its segment by a little is
+    // duration noise, and the network pads to the post there (see the
+    // half-fit rule above), so small overflow never leaks into the next
+    // segment's start time.
+    if (filledSeconds === 0 && duration > window.capacitySeconds) {
+      let remainder = duration - window.capacitySeconds;
+      windowIndex++;
+      while (windowIndex < windows.length && remainder >= windows[windowIndex]!.capacitySeconds) {
+        remainder -= windows[windowIndex]!.capacitySeconds;
+        windowIndex++;
+      }
+      filledSeconds = windowIndex < windows.length ? remainder : 0;
+      continue;
+    }
+
     filledSeconds += duration;
     if (filledSeconds >= window.capacitySeconds) {
       windowIndex++;
