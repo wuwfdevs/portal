@@ -14,6 +14,8 @@ export interface NprEpisodeItem {
   npr_item_id: string;
   title: string;
   teaser: string | null;
+  /** The story's audio duration in whole seconds, when the document carries one — see extractAudioDurationSeconds. */
+  duration_seconds: number | null;
   raw: unknown;
 }
 
@@ -109,6 +111,40 @@ function idFromDocumentHref(record: Record<string, unknown>): string | null {
 }
 
 /**
+ * Extracts a story document's audio duration in seconds. A CDS story's
+ * `audio` field is an array of asset references (`{ href: "#/assets/<id>",
+ * rels: [...] }`) resolved against the document's own `assets` map, where
+ * the audio asset carries a numeric `duration` — confirmed against a live
+ * response on 2026-08-21. Prefers the reference marked `primary`; not every
+ * story has playable audio (a web-only version's asset has no duration), so
+ * null is a legitimate outcome, not an error.
+ */
+function extractAudioDurationSeconds(doc: Record<string, unknown>): number | null {
+  const audio = doc.audio;
+  const assets = doc.assets;
+  if (!Array.isArray(audio) || !isRecord(assets)) return null;
+
+  const references = audio.filter(isRecord);
+  const ordered = [
+    ...references.filter((ref) => Array.isArray(ref.rels) && ref.rels.includes("primary")),
+    ...references,
+  ];
+  for (const ref of ordered) {
+    const href = readString(ref, "href");
+    if (!href) continue;
+    const assetId = href.startsWith("#/assets/") ? href.slice("#/assets/".length) : null;
+    if (!assetId) continue;
+    const asset = assets[assetId];
+    if (!isRecord(asset)) continue;
+    const duration = asset.duration;
+    if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
+      return Math.round(duration);
+    }
+  }
+  return null;
+}
+
+/**
  * Normalizes one CDS item document. Drops an item with no usable id — the
  * stable NPR identity is the one thing this integration must never invent
  * (see docs/log-design.md §5, "do not use titles as identifiers") — but
@@ -128,8 +164,9 @@ function normalizeItem(raw: unknown): NprEpisodeItem | null {
 
   const title = readString(doc, "title") ?? "(untitled)";
   const teaser = readString(doc, "teaser") ?? readString(doc, "miniTeaser") ?? readString(doc, "description");
+  const duration_seconds = extractAudioDurationSeconds(doc);
 
-  return { npr_item_id, title, teaser, raw };
+  return { npr_item_id, title, teaser, duration_seconds, raw };
 }
 
 /**

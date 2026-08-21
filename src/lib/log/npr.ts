@@ -101,6 +101,7 @@ async function replaceEpisodeCache(
         npr_item_id: item.npr_item_id,
         title: item.title,
         teaser: item.teaser,
+        duration_seconds: item.duration_seconds,
         raw: item.raw,
       })),
     )

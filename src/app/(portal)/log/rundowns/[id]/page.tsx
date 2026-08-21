@@ -13,6 +13,7 @@ import {
   getRundownDetail,
   hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
+  listClockSlotsForVersion,
   listContentItems,
   listLocalOpportunitiesForVersion,
   listUnderwritingCopyForItems,
@@ -20,6 +21,7 @@ import {
   type RundownBreakDetail,
   type RundownItemDetail,
 } from "@/lib/log/queries";
+import { buildSegmentWindows, estimateStoryOffsets, selectStoriesForWindow } from "@/lib/log/npr-story-times";
 import {
   computeLiveTimingState,
   type ConsoleBreakLike,
@@ -32,7 +34,7 @@ import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from 
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
-import { formatStationClockTime, formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { StationClock } from "@/components/log/station-clock";
 import { LogPoller } from "../../log-poller";
 import {
@@ -241,12 +243,92 @@ export default async function RundownDetailPage({
   // upcoming stories, and to add and check today's weather item, the same
   // way they'd plan around a promo, not just once the broadcast has
   // started.
-  const [weather, npr] = await Promise.all([
+  const [weather, npr, clockSlots] = await Promise.all([
     getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
+    listClockSlotsForVersion(rundown.clock_version_id),
   ]);
-  const nprLookaheadItems: NprLookaheadItem[] = npr?.kind === "found" ? npr.items : [];
+
+  // Estimated per-story air times: pack the episode's stories, in order,
+  // into this clock's lettered segment windows across the shift's hours
+  // (lib/log/npr-story-times.ts — CDS gives duration and order, never
+  // explicit times, so these are estimates and always render with "~").
+  const shiftStartMs = new Date(rundown.shift_start_at).getTime();
+  const shiftHourCount = Math.max(
+    1,
+    Math.round((new Date(rundown.shift_end_at).getTime() - shiftStartMs) / 3_600_000),
+  );
+  const storyEstimates =
+    npr?.kind === "found"
+      ? estimateStoryOffsets(
+          npr.items.map((item) => ({
+            npr_item_id: item.npr_item_id,
+            duration_seconds: item.duration_seconds,
+          })),
+          buildSegmentWindows(clockSlots, shiftHourCount),
+        )
+      : [];
+  const hasStoryTimes = storyEstimates.some((estimate) => estimate.offsetSeconds !== null);
+  const estimateByNprItemId = new Map(storyEstimates.map((estimate) => [estimate.npr_item_id, estimate]));
+  const storyTimeLabel = (offsetSeconds: number | null): string | null =>
+    offsetSeconds === null
+      ? null
+      : `~${formatStationTimeHM(new Date(shiftStartMs + offsetSeconds * 1000).toISOString())}`;
+
+  const nprLookaheadItems: NprLookaheadItem[] =
+    npr?.kind === "found"
+      ? npr.items.map((item) => ({
+          npr_item_id: item.npr_item_id,
+          title: item.title,
+          teaser: item.teaser,
+          estimatedTimeLabel: storyTimeLabel(
+            estimateByNprItemId.get(item.npr_item_id)?.offsetSeconds ?? null,
+          ),
+        }))
+      : [];
   const currentNprItemIds = new Set(nprLookaheadItems.map((item) => item.npr_item_id));
+  const lookaheadByNprItemId = new Map(nprLookaheadItems.map((item) => [item.npr_item_id, item]));
+
+  // The stories estimated to air between one break and the next — what a
+  // host forward-promotes *at* that break, so it's what the live-read
+  // picker offers there and what the sidebar shows for the upcoming break.
+  // Falls back to the full episode list when no times could be derived (a
+  // clock with no lettered segments).
+  const breakStartOffsets = rundown.breaks.map(
+    (brk) => (new Date(brk.scheduled_at).getTime() - shiftStartMs) / 1000,
+  );
+  const storiesAfterBreak = (index: number): NprLookaheadItem[] => {
+    if (!hasStoryTimes) return nprLookaheadItems;
+    const from = breakStartOffsets[index]!;
+    const to = index + 1 < breakStartOffsets.length ? breakStartOffsets[index + 1]! : null;
+    return selectStoriesForWindow(storyEstimates, from, to).flatMap((estimate) => {
+      const item = lookaheadByNprItemId.get(estimate.npr_item_id);
+      return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(estimate.offsetSeconds) }] : [];
+    });
+  };
+
+  // The sidebar's "coming up" panel: stories for the upcoming break by the
+  // station's current wall clock (the page re-renders on LogPoller's
+  // interval, so this tracks the broadcast as it runs). Before the shift
+  // that's the first break; after the last break, the last one's tail.
+  const nowMs = new Date(now).getTime();
+  const upcomingBreakIndex =
+    rundown.breaks.length === 0
+      ? null
+      : (() => {
+          const index = breakStartOffsets.findIndex(
+            (offset) => shiftStartMs + offset * 1000 >= nowMs,
+          );
+          return index === -1 ? breakStartOffsets.length - 1 : index;
+        })();
+  const sidebarNprStories =
+    hasStoryTimes && upcomingBreakIndex !== null
+      ? storiesAfterBreak(upcomingBreakIndex)
+      : nprLookaheadItems.slice(0, 4);
+  const sidebarNprHeading =
+    hasStoryTimes && upcomingBreakIndex !== null
+      ? `After the ${formatStationTimeHM(rundown.breaks[upcomingBreakIndex]!.scheduled_at)} break`
+      : null;
 
   const unresolvedEntries = live
     ? listUnresolvedEntries(
@@ -279,7 +361,7 @@ export default async function RundownDetailPage({
   // replaces the old bottom-of-break "Add…" <select> + "Create a one-off
   // live read" <details> entirely. Null when the break can't take anything
   // more, same canAddMore gate the old dropdown used.
-  const buildInsertConfig = (brk: RundownBreakDetail): InsertConfig | null => {
+  const buildInsertConfig = (brk: RundownBreakDetail, breakIndex: number): InsertConfig | null => {
     const eligible = filterEligibleContent(approvedContent, brk, rundown.air_date);
 
     return {
@@ -287,7 +369,10 @@ export default async function RundownDetailPage({
       breakId: brk.id,
       eligibleContent: eligible.map((candidate) => ({ id: candidate.id, title: candidate.title })),
       permitsWeather: brk.permitted_content_types.includes("weather"),
-      nprItems: nprLookaheadItems,
+      // Only the stories a host would actually promote at this break — the
+      // ones estimated to air between it and the next — not the whole
+      // episode (see storiesAfterBreak above).
+      nprItems: storiesAfterBreak(breakIndex),
     };
   };
 
@@ -390,7 +475,7 @@ export default async function RundownDetailPage({
   // render and validate drops — built here, server-side, from the same data
   // the old inline rendering used, so nothing about what's shown changes,
   // only how relocation works.
-  const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk) => {
+  const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk, breakIndex) => {
     const result = breakStatusesById.get(brk.id);
     const fit = result!.fit;
     const status = result!.status;
@@ -580,7 +665,7 @@ export default async function RundownDetailPage({
           )}
         </div>
       ),
-      insertConfig: buildInsertConfig(brk),
+      insertConfig: buildInsertConfig(brk, breakIndex),
       items,
     };
   });
@@ -713,14 +798,28 @@ export default async function RundownDetailPage({
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
           NPR — coming up
         </div>
-        {npr?.kind === "found" && npr.items.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {npr.items.slice(0, 4).map((item) => (
-              <li key={item.id} className="text-xs text-ink-700">
-                <span className="font-semibold">{item.title}</span>
-              </li>
-            ))}
-          </ul>
+        {npr?.kind === "found" && sidebarNprStories.length > 0 ? (
+          <>
+            {sidebarNprHeading && <p className="mb-2 text-xs text-ink-400">{sidebarNprHeading}</p>}
+            <ul className="flex flex-col gap-2">
+              {sidebarNprStories.map((item) => (
+                <li key={item.npr_item_id} className="text-xs text-ink-700">
+                  {item.estimatedTimeLabel && (
+                    <span className="mr-1.5 font-mono text-ink-400 tabular-nums">
+                      {item.estimatedTimeLabel}
+                    </span>
+                  )}
+                  <span className="font-semibold">{item.title}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : npr?.kind === "found" ? (
+          <p className="text-xs text-ink-400">
+            {sidebarNprHeading
+              ? `No stories estimated between the upcoming break and the next one.`
+              : `CDS returned this episode with no story items yet.`}
+          </p>
         ) : npr?.kind === "unmapped" || npr?.kind === "not_configured" ? (
           <p className="text-xs text-ink-400">Not available for this program.</p>
         ) : npr?.kind === "error" ? (

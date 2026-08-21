@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listPrograms } from "@/lib/log/queries";
+import { getRundownForProgramOnDate, listClockSlotsForVersion, listPrograms } from "@/lib/log/queries";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
-import { stationTodayISO, formatStationTimestamp } from "@/lib/log/timezone";
+import { buildSegmentWindows, estimateStoryOffsets } from "@/lib/log/npr-story-times";
+import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { refreshNprEpisodeAction } from "../npr-actions";
 import { LogPoller } from "../log-poller";
 
@@ -39,6 +40,40 @@ export default async function NprPage({
 
   const result = await getNprEpisodeForProgramOnDate(selectedProgram.id, selectedDate);
   const canRefresh = result.kind === "error" || result.kind === "not_found" || result.kind === "found";
+
+  // Estimated per-story air times (lib/log/npr-story-times.ts), anchored to
+  // this program's generated rundown for the selected date — the rundown is
+  // what pins the shift's start time and clock version. Without one there's
+  // nothing to anchor to, so the column shows durations only.
+  const estimateLabelByNprItemId = new Map<string, string>();
+  if (result.kind === "found" && result.items.length > 0) {
+    const rundownForDate = await getRundownForProgramOnDate(selectedProgram.id, selectedDate);
+    if (rundownForDate) {
+      const slots = await listClockSlotsForVersion(rundownForDate.clock_version_id);
+      const shiftStartMs = new Date(rundownForDate.shift_start_at).getTime();
+      const hourCount = Math.max(
+        1,
+        Math.round((new Date(rundownForDate.shift_end_at).getTime() - shiftStartMs) / 3_600_000),
+      );
+      const estimates = estimateStoryOffsets(
+        result.items.map((item) => ({
+          npr_item_id: item.npr_item_id,
+          duration_seconds: item.duration_seconds,
+        })),
+        buildSegmentWindows(slots, hourCount),
+      );
+      for (const estimate of estimates) {
+        if (estimate.offsetSeconds !== null) {
+          estimateLabelByNprItemId.set(
+            estimate.npr_item_id,
+            `~${formatStationTimeHM(new Date(shiftStartMs + estimate.offsetSeconds * 1000).toISOString())}${estimate.segmentLabel ? ` (Seg ${estimate.segmentLabel})` : ""}`,
+          );
+        }
+      }
+    }
+  }
+  const formatLength = (seconds: number): string =>
+    `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
     <div>
@@ -136,27 +171,44 @@ export default async function NprPage({
               CDS returned this episode with no story items yet.
             </div>
           ) : (
-            <TableFrame>
-              <Table>
-                <thead>
-                  <HeaderRow>
-                    <Th>#</Th>
-                    <Th>Story</Th>
-                  </HeaderRow>
-                </thead>
-                <tbody>
-                  {result.items.map((item) => (
-                    <Row key={item.id}>
-                      <Cell className="text-ink-500">{item.position}</Cell>
-                      <Cell>
-                        <div className="font-semibold text-ink-900">{item.title}</div>
-                        {item.teaser && <div className="mt-0.5 text-xs text-ink-500">{item.teaser}</div>}
-                      </Cell>
-                    </Row>
-                  ))}
-                </tbody>
-              </Table>
-            </TableFrame>
+            <>
+              <TableFrame>
+                <Table>
+                  <thead>
+                    <HeaderRow>
+                      <Th>#</Th>
+                      <Th>Est. air</Th>
+                      <Th>Story</Th>
+                      <Th>Length</Th>
+                    </HeaderRow>
+                  </thead>
+                  <tbody>
+                    {result.items.map((item) => (
+                      <Row key={item.id}>
+                        <Cell className="text-ink-500">{item.position}</Cell>
+                        <Cell className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums">
+                          {estimateLabelByNprItemId.get(item.npr_item_id) ?? "—"}
+                        </Cell>
+                        <Cell>
+                          <div className="font-semibold text-ink-900">{item.title}</div>
+                          {item.teaser && <div className="mt-0.5 text-xs text-ink-500">{item.teaser}</div>}
+                        </Cell>
+                        <Cell className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums">
+                          {item.duration_seconds !== null ? formatLength(item.duration_seconds) : "—"}
+                        </Cell>
+                      </Row>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableFrame>
+              <p className="mt-2 text-xs text-ink-400">
+                Air times are estimates, derived by laying the episode&apos;s stories into this
+                program&apos;s clock segments by duration — NPR&apos;s feed carries no explicit story
+                times.{" "}
+                {estimateLabelByNprItemId.size === 0 &&
+                  "None shown here because no rundown exists for this program and date yet (the rundown anchors the shift's start time)."}
+              </p>
+            </>
           )}
         </>
       )}

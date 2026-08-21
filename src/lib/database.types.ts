@@ -208,7 +208,9 @@
 // citations; ei_create_inquiry's Args changed from p_seed_question (text) to
 // p_pillar_id (uuid) — against the Supabase MCP server's
 // `generate_typescript_types` output for the live preview project,
-// field-by-field diffed; every field matched.
+// field-by-field diffed; every field matched. Hand-updated again on
+// 2026-08-21 for 20260821130000_log_npr_item_durations.sql:
+// log_npr_episode_items gained duration_seconds (integer, nullable).
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1761,6 +1763,7 @@ export interface Database {
           npr_item_id: string;
           title: string;
           teaser: string | null;
+          duration_seconds: number | null;
           raw: unknown;
         };
         Insert: Partial<Database["public"]["Tables"]["log_npr_episode_items"]["Row"]> & {
