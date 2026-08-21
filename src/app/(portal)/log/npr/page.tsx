@@ -6,7 +6,15 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { getRundownForProgramOnDate, listClockSlotsForVersion, listPrograms } from "@/lib/log/queries";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
-import { buildSegmentWindows, estimateStoryOffsets } from "@/lib/log/npr-story-times";
+import {
+  buildSegmentWindows,
+  episodeHourOffset,
+  estimateStoryOffsets,
+  excludeBlockLengthRollups,
+  firstAiringByStory,
+  packedHourCount,
+  projectStoriesOntoShift,
+} from "@/lib/log/npr-story-times";
 import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { refreshNprEpisodeAction } from "../npr-actions";
 import { LogPoller } from "../log-poller";
@@ -55,20 +63,31 @@ export default async function NprPage({
         1,
         Math.round((new Date(rundownForDate.shift_end_at).getTime() - shiftStartMs) / 3_600_000),
       );
+      const windows = buildSegmentWindows(slots, hourCount);
       const estimates = estimateStoryOffsets(
-        result.items.map((item) => ({
-          npr_item_id: item.npr_item_id,
-          duration_seconds: item.duration_seconds,
-        })),
-        buildSegmentWindows(slots, hourCount),
+        excludeBlockLengthRollups(
+          result.items.map((item) => ({
+            npr_item_id: item.npr_item_id,
+            duration_seconds: item.duration_seconds,
+          })),
+          windows,
+        ),
+        windows,
       );
-      for (const estimate of estimates) {
-        if (estimate.offsetSeconds !== null) {
-          estimateLabelByNprItemId.set(
-            estimate.npr_item_id,
-            `~${formatStationTimeHM(new Date(shiftStartMs + estimate.offsetSeconds * 1000).toISOString())}${estimate.segmentLabel ? ` (Seg ${estimate.segmentLabel})` : ""}`,
-          );
-        }
+      const airings = projectStoriesOntoShift(
+        estimates,
+        hourCount,
+        episodeHourOffset(
+          rundownForDate.shift_start_at,
+          selectedProgram.npr_feed_start_hour_et,
+          packedHourCount(estimates),
+        ),
+      );
+      for (const [nprItemId, airing] of firstAiringByStory(airings)) {
+        estimateLabelByNprItemId.set(
+          nprItemId,
+          `~${formatStationTimeHM(new Date(shiftStartMs + airing.offsetSeconds * 1000).toISOString())}${airing.segmentLabel ? ` (Seg ${airing.segmentLabel})` : ""}`,
+        );
       }
     }
   }

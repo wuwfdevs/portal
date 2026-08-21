@@ -21,7 +21,16 @@ import {
   type RundownBreakDetail,
   type RundownItemDetail,
 } from "@/lib/log/queries";
-import { buildSegmentWindows, estimateStoryOffsets, selectStoriesForWindow } from "@/lib/log/npr-story-times";
+import {
+  buildSegmentWindows,
+  episodeHourOffset,
+  estimateStoryOffsets,
+  excludeBlockLengthRollups,
+  firstAiringByStory,
+  packedHourCount,
+  projectStoriesOntoShift,
+  selectAiringsInWindow,
+} from "@/lib/log/npr-story-times";
 import {
   computeLiveTimingState,
   type ConsoleBreakLike,
@@ -250,7 +259,8 @@ export default async function RundownDetailPage({
   ]);
 
   // Estimated per-story air times: pack the episode's stories, in order,
-  // into this clock's lettered segment windows across the shift's hours
+  // into this clock's lettered segment windows, then project onto the
+  // shift's actual hours via the program's feed anchor
   // (lib/log/npr-story-times.ts — CDS gives duration and order, never
   // explicit times, so these are estimates and always render with "~").
   const shiftStartMs = new Date(rundown.shift_start_at).getTime();
@@ -258,18 +268,31 @@ export default async function RundownDetailPage({
     1,
     Math.round((new Date(rundown.shift_end_at).getTime() - shiftStartMs) / 3_600_000),
   );
+  const segmentWindows = buildSegmentWindows(clockSlots, shiftHourCount);
   const storyEstimates =
     npr?.kind === "found"
       ? estimateStoryOffsets(
-          npr.items.map((item) => ({
-            npr_item_id: item.npr_item_id,
-            duration_seconds: item.duration_seconds,
-          })),
-          buildSegmentWindows(clockSlots, shiftHourCount),
+          excludeBlockLengthRollups(
+            npr.items.map((item) => ({
+              npr_item_id: item.npr_item_id,
+              duration_seconds: item.duration_seconds,
+            })),
+            segmentWindows,
+          ),
+          segmentWindows,
         )
       : [];
-  const hasStoryTimes = storyEstimates.some((estimate) => estimate.offsetSeconds !== null);
-  const estimateByNprItemId = new Map(storyEstimates.map((estimate) => [estimate.npr_item_id, estimate]));
+  const shiftAirings = projectStoriesOntoShift(
+    storyEstimates,
+    shiftHourCount,
+    episodeHourOffset(
+      rundown.shift_start_at,
+      rundown.programNprFeedStartHourEt,
+      packedHourCount(storyEstimates),
+    ),
+  );
+  const hasStoryTimes = shiftAirings.length > 0;
+  const firstAirings = firstAiringByStory(shiftAirings);
   const storyTimeLabel = (offsetSeconds: number | null): string | null =>
     offsetSeconds === null
       ? null
@@ -282,7 +305,7 @@ export default async function RundownDetailPage({
           title: item.title,
           teaser: item.teaser,
           estimatedTimeLabel: storyTimeLabel(
-            estimateByNprItemId.get(item.npr_item_id)?.offsetSeconds ?? null,
+            firstAirings.get(item.npr_item_id)?.offsetSeconds ?? null,
           ),
         }))
       : [];
@@ -301,9 +324,9 @@ export default async function RundownDetailPage({
     if (!hasStoryTimes) return nprLookaheadItems;
     const from = breakStartOffsets[index]!;
     const to = index + 1 < breakStartOffsets.length ? breakStartOffsets[index + 1]! : null;
-    return selectStoriesForWindow(storyEstimates, from, to).flatMap((estimate) => {
-      const item = lookaheadByNprItemId.get(estimate.npr_item_id);
-      return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(estimate.offsetSeconds) }] : [];
+    return selectAiringsInWindow(shiftAirings, from, to).flatMap((airing) => {
+      const item = lookaheadByNprItemId.get(airing.npr_item_id);
+      return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(airing.offsetSeconds) }] : [];
     });
   };
 

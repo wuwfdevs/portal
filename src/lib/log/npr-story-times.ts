@@ -23,6 +23,13 @@
 // since it has to air somewhere. A story with no known duration (web-only
 // audio) occupies a default estimate so packing stays stable around it.
 
+// Calibrated against the official NPR Rundowns App document for Morning
+// Edition 2026-08-21 (supplied by WUWF): with the block-length rollup item
+// excluded (see excludeBlockLengthRollups) and the shift's hours mapped to
+// the feed's alternation (see episodeHourOffset), this packing reproduces
+// that rundown's segment assignments exactly, story for story, and its
+// times within seconds.
+
 export const DEFAULT_STORY_DURATION_SECONDS = 240;
 
 export interface StoryTimingInput {
@@ -80,6 +87,42 @@ export function buildSegmentWindows(slots: SegmentSlotLike[], hourCount: number)
   return windows;
 }
 
+/**
+ * Drops a block-length digital rollup from the story list before packing.
+ * NPR's episode feed for Morning Edition leads with a "Morning news brief"
+ * item — the digital-only rollup of the A-block's stories, which never airs
+ * as its own rundown story (confirmed against the official Rundowns App
+ * document for 2026-08-21: its 11:13 audio is the sum of the three real
+ * A-block stories that follow it, and it appears nowhere in the rundown).
+ * Left in, it consumes a whole segment in packing and pushes every real
+ * story one slot late. Identified structurally, not by title: an item whose
+ * audio spans ≥90% of the largest segment window can't be a single rundown
+ * story *unless* it essentially is the show (Fresh Air's one long
+ * interview) — so the exclusion only applies when the remaining stories
+ * still carry at least half an hour-cycle of content on their own.
+ */
+export function excludeBlockLengthRollups(
+  stories: StoryTimingInput[],
+  windows: SegmentWindow[],
+): StoryTimingInput[] {
+  const firstHour = windows.filter((window) => window.hourIndex === 0);
+  if (firstHour.length === 0) return stories;
+  const maxCapacity = Math.max(...firstHour.map((window) => window.capacitySeconds));
+  const hourCycleCapacity = firstHour.reduce((sum, window) => sum + window.capacitySeconds, 0);
+
+  const isRollup = (story: StoryTimingInput) =>
+    story.duration_seconds !== null && story.duration_seconds >= maxCapacity * 0.9;
+  if (!stories.some(isRollup)) return stories;
+
+  const remaining = stories.filter((story) => !isRollup(story));
+  const remainingKnownSeconds = remaining.reduce(
+    (sum, story) => sum + (story.duration_seconds ?? 0),
+    0,
+  );
+  if (remainingKnownSeconds < hourCycleCapacity * 0.5) return stories;
+  return remaining;
+}
+
 /** Packs the episode's stories, in order, into the segment windows — see the module comment for the rule. */
 export function estimateStoryOffsets(
   stories: StoryTimingInput[],
@@ -124,8 +167,8 @@ export function estimateStoryOffsets(
   return estimates;
 }
 
-/** How many hours of the shift the packed stories actually occupy — the episode's own span, which can be shorter than the shift when later hours repeat the feed. */
-function packedHourCount(estimates: StoryTimeEstimate[]): number {
+/** How many hours the packed stories actually occupy — the episode's own span, which can be shorter than the shift when other hours re-air the feed. */
+export function packedHourCount(estimates: StoryTimeEstimate[]): number {
   let max = -1;
   for (const estimate of estimates) {
     if (estimate.hourIndex !== null && estimate.hourIndex > max) max = estimate.hourIndex;
@@ -133,39 +176,98 @@ function packedHourCount(estimates: StoryTimeEstimate[]): number {
   return max + 1;
 }
 
+/** The hour of an instant on NPR's own feed clock (Eastern time), 0–23. */
+function hourInEastern(iso: string): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hourCycle: "h23",
+      hour: "2-digit",
+    }).format(new Date(iso)),
+  );
+}
+
 /**
- * The stories estimated to air within [fromOffsetSeconds, toOffsetSeconds)
- * of the shift — e.g. between one break's start and the next break's — in
- * airing order. A window in an hour beyond what the episode's stories filled
- * (a repeat hour: Morning Edition's 2-hour episode across a 4-hour shift) is
- * wrapped back onto the corresponding packed hour, and the returned offsets
- * are shifted forward into the requested hour so displayed times stay real
- * wall-clock times for *this* airing.
+ * Which of the episode's hours WUWF's *first* shift hour carries. NPR's
+ * multi-hour magazines alternate their episode hours on the live network
+ * feed, anchored to the feed's Eastern-time start — the official Rundowns
+ * App labels Morning Edition's 7:00 AM ET hour "HR1" and 8:00 AM ET "HR2"
+ * (odd ET hours carry hour 1, for a 5:00 AM ET feed start), so a Central
+ * station joining at 5:00 AM CT (6:00 AM ET) starts on HR2, not HR1.
+ * `feedStartHourEt` is the program's `npr_feed_start_hour_et`; null (no
+ * confirmed anchor) means assume the shift starts on episode hour 1 — the
+ * pre-anchor behavior.
  */
-export function selectStoriesForWindow(
+export function episodeHourOffset(
+  shiftStartISO: string,
+  feedStartHourEt: number | null,
+  packedHours: number,
+): number {
+  if (feedStartHourEt === null || packedHours <= 0) return 0;
+  const diff = hourInEastern(shiftStartISO) - feedStartHourEt;
+  return ((diff % packedHours) + packedHours) % packedHours;
+}
+
+/** One airing of one story within the shift — a story in a multi-hour shift over a shorter episode airs more than once. */
+export interface ShiftStoryAiring {
+  npr_item_id: string;
+  /** Offset from shift start, in seconds. */
+  offsetSeconds: number;
+  segmentLabel: string | null;
+  /** Which shift hour this airing falls in. */
+  shiftHourIndex: number;
+}
+
+/**
+ * Projects the episode-relative estimates onto the shift's actual hours:
+ * shift hour `h` carries episode hour `(h + episodeHourOffset) % packed`,
+ * so each story appears once per shift hour that re-airs its episode hour,
+ * at its within-hour position. Sorted by shift offset. Callers filter this
+ * to a break's window ([from, to) in shift seconds) or reduce it to each
+ * story's first airing for whole-episode displays.
+ */
+export function projectStoriesOntoShift(
   estimates: StoryTimeEstimate[],
+  shiftHourCount: number,
+  offset: number,
+): ShiftStoryAiring[] {
+  const packed = packedHourCount(estimates);
+  if (packed === 0) return [];
+
+  const airings: ShiftStoryAiring[] = [];
+  for (let shiftHour = 0; shiftHour < shiftHourCount; shiftHour++) {
+    const episodeHour = (((shiftHour + offset) % packed) + packed) % packed;
+    for (const estimate of estimates) {
+      if (estimate.hourIndex !== episodeHour || estimate.offsetSeconds === null) continue;
+      airings.push({
+        npr_item_id: estimate.npr_item_id,
+        offsetSeconds: shiftHour * 3600 + (estimate.offsetSeconds - episodeHour * 3600),
+        segmentLabel: estimate.segmentLabel,
+        shiftHourIndex: shiftHour,
+      });
+    }
+  }
+  return airings.sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+}
+
+/** Each story's first airing within the shift, keyed by npr_item_id — for whole-episode displays (/log/npr's table, the full look-ahead fallback). */
+export function firstAiringByStory(airings: ShiftStoryAiring[]): Map<string, ShiftStoryAiring> {
+  const first = new Map<string, ShiftStoryAiring>();
+  for (const airing of airings) {
+    if (!first.has(airing.npr_item_id)) first.set(airing.npr_item_id, airing);
+  }
+  return first;
+}
+
+/** The airings estimated to fall within [fromOffsetSeconds, toOffsetSeconds) of the shift — e.g. between one break's start and the next break's — in airing order. */
+export function selectAiringsInWindow(
+  airings: ShiftStoryAiring[],
   fromOffsetSeconds: number,
   toOffsetSeconds: number | null,
-): StoryTimeEstimate[] {
-  const packedHours = packedHourCount(estimates);
-  if (packedHours === 0) return [];
-
-  const packedSpanSeconds = packedHours * 3600;
-  let from = fromOffsetSeconds;
-  let shift = 0;
-  if (from >= packedSpanSeconds) {
-    const wrapped = from % packedSpanSeconds;
-    shift = from - wrapped;
-    from = wrapped;
-  }
-  const to = toOffsetSeconds === null ? null : toOffsetSeconds - shift;
-
-  return estimates
-    .filter(
-      (estimate) =>
-        estimate.offsetSeconds !== null &&
-        estimate.offsetSeconds >= from &&
-        (to === null || estimate.offsetSeconds < to),
-    )
-    .map((estimate) => ({ ...estimate, offsetSeconds: estimate.offsetSeconds! + shift }));
+): ShiftStoryAiring[] {
+  return airings.filter(
+    (airing) =>
+      airing.offsetSeconds >= fromOffsetSeconds &&
+      (toOffsetSeconds === null || airing.offsetSeconds < toOffsetSeconds),
+  );
 }

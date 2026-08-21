@@ -485,6 +485,8 @@ export interface RundownBreakDetail extends LogRundownBreakRow {
 
 export interface RundownDetail extends LogRundownRow {
   programName: string;
+  /** The program's npr_feed_start_hour_et — the anchor lib/log/npr-story-times.ts's episodeHourOffset needs to map shift hours onto the NPR episode's alternating hours. */
+  programNprFeedStartHourEt: number | null;
   breaks: RundownBreakDetail[];
 }
 
@@ -564,6 +566,7 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
   return {
     ...rundown,
     programName: program?.name ?? "Unknown program",
+    programNprFeedStartHourEt: program?.npr_feed_start_hour_et ?? null,
     breaks: breaks.map((brk) => ({ ...brk, items: itemsByBreak.get(brk.id) ?? [] })),
   };
 }
