@@ -41,6 +41,8 @@ export interface SegmentSlotLike {
   start_offset_seconds: number | null;
   duration_seconds: number;
   segment_label: string | null;
+  /** log_clock_slots.timing_mode — only 'fixed' slots are story windows; see buildSegmentWindows. */
+  timing_mode: string;
 }
 
 export interface SegmentWindow {
@@ -62,14 +64,24 @@ export interface StoryTimeEstimate {
 /**
  * The clock's lettered programming segments (slots carrying a
  * `segment_label`), tiled once per hour across the shift, in chronological
- * order. Clocks with no lettered segments produce no windows — every
- * estimate then comes back null and callers fall back to order-only display.
+ * order. Only fixed-timing slots count: the seeded clocks also put segment
+ * labels on *floating* slots — Fresh Air/Hidden Brain/World Cafe's
+ * between-segment floating breaks are labeled "A/B"/"B/C", and 1A's two
+ * 120-second fundraising cutaways are labeled with the segment they sit
+ * inside — and packing stories into those would corrupt every estimate.
+ * `timing_mode = 'fixed'` vs `'float'` is the structural distinction
+ * (verified across all seeded clocks), not the label's spelling. Clocks
+ * with no lettered fixed segments produce no windows — every estimate then
+ * comes back null and callers fall back to order-only display.
  */
 export function buildSegmentWindows(slots: SegmentSlotLike[], hourCount: number): SegmentWindow[] {
   const segments = slots
     .filter(
       (slot): slot is SegmentSlotLike & { start_offset_seconds: number; segment_label: string } =>
-        slot.segment_label !== null && slot.start_offset_seconds !== null && slot.duration_seconds > 0,
+        slot.segment_label !== null &&
+        slot.start_offset_seconds !== null &&
+        slot.duration_seconds > 0 &&
+        slot.timing_mode === "fixed",
     )
     .sort((a, b) => a.start_offset_seconds - b.start_offset_seconds);
 

@@ -19,14 +19,14 @@ import {
 // for 2026-08-21 to the second (A 07:30/11:29, B 21:50/07:09, C 34:35/07:54,
 // D 45:35/03:59, E 51:30/07:29).
 const MORNING_EDITION_SLOTS: SegmentSlotLike[] = [
-  { start_offset_seconds: 0, duration_seconds: 60, segment_label: null }, // Billboard
-  { start_offset_seconds: 60, duration_seconds: 180, segment_label: null }, // Newscast 1
-  { start_offset_seconds: 450, duration_seconds: 690, segment_label: "A" },
-  { start_offset_seconds: 1140, duration_seconds: 90, segment_label: null }, // Music Bed
-  { start_offset_seconds: 1310, duration_seconds: 430, segment_label: "B" },
-  { start_offset_seconds: 2075, duration_seconds: 475, segment_label: "C" },
-  { start_offset_seconds: 2734, duration_seconds: 240, segment_label: "D" },
-  { start_offset_seconds: 3089, duration_seconds: 450, segment_label: "E" },
+  { start_offset_seconds: 0, duration_seconds: 60, segment_label: null, timing_mode: "fixed" }, // Billboard
+  { start_offset_seconds: 60, duration_seconds: 180, segment_label: null, timing_mode: "fixed" }, // Newscast 1
+  { start_offset_seconds: 450, duration_seconds: 690, segment_label: "A", timing_mode: "fixed" },
+  { start_offset_seconds: 1140, duration_seconds: 90, segment_label: null, timing_mode: "fixed" }, // Music Bed
+  { start_offset_seconds: 1310, duration_seconds: 430, segment_label: "B", timing_mode: "fixed" },
+  { start_offset_seconds: 2075, duration_seconds: 475, segment_label: "C", timing_mode: "fixed" },
+  { start_offset_seconds: 2734, duration_seconds: 240, segment_label: "D", timing_mode: "fixed" },
+  { start_offset_seconds: 3089, duration_seconds: 450, segment_label: "E", timing_mode: "fixed" },
 ];
 
 // The real 2026-08-21 Morning Edition episode, in CDS item order. s1 is the
@@ -65,9 +65,29 @@ describe("buildSegmentWindows", () => {
   });
 
   it("produces no windows for a clock with no lettered segments", () => {
-    expect(buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 3600, segment_label: null }], 2)).toEqual(
+    expect(buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 3600, segment_label: null, timing_mode: "fixed" }], 2)).toEqual(
       [],
     );
+  });
+
+  it("excludes floating slots even when they carry a segment label", () => {
+    // Real shapes from the seeded clocks: 1A labels its two 120s fundraising
+    // cutaways "B"/"C" (the segment they sit inside), and Fresh Air labels
+    // its floating breaks "A/B"-style. Neither is a story window.
+    const oneASlots: SegmentSlotLike[] = [
+      { start_offset_seconds: 390, duration_seconds: 720, segment_label: "A", timing_mode: "fixed" },
+      { start_offset_seconds: 1235, duration_seconds: 1075, segment_label: "B", timing_mode: "fixed" },
+      { start_offset_seconds: 1890, duration_seconds: 120, segment_label: "B", timing_mode: "float" },
+      { start_offset_seconds: 2435, duration_seconds: 1040, segment_label: "C", timing_mode: "fixed" },
+      { start_offset_seconds: 3060, duration_seconds: 120, segment_label: "C", timing_mode: "float" },
+      { start_offset_seconds: 900, duration_seconds: 30, segment_label: "A/B", timing_mode: "float" },
+    ];
+    const windows = buildSegmentWindows(oneASlots, 1);
+    expect(windows.map((w) => [w.segmentLabel, w.capacitySeconds])).toEqual([
+      ["A", 720],
+      ["B", 1075],
+      ["C", 1040],
+    ]);
   });
 });
 
@@ -79,7 +99,7 @@ describe("excludeBlockLengthRollups", () => {
 
   it("keeps a block-length item that essentially is the show (the Fresh Air case)", () => {
     const freshAirWindows = buildSegmentWindows(
-      [{ start_offset_seconds: 300, duration_seconds: 2100, segment_label: "B" }],
+      [{ start_offset_seconds: 300, duration_seconds: 2100, segment_label: "B", timing_mode: "fixed" }],
       1,
     );
     const stories: StoryTimingInput[] = [
@@ -119,7 +139,7 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
   });
 
   it("returns null estimates once the windows run out, and for no windows at all", () => {
-    const tiny = buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 300, segment_label: "A" }], 1);
+    const tiny = buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 300, segment_label: "A", timing_mode: "fixed" }], 1);
     const overfull = estimateStoryOffsets(STORIES.slice(1, 4), tiny);
     expect(overfull[0]!.offsetSeconds).toBe(0);
     expect(overfull[2]).toMatchObject({ offsetSeconds: null, segmentLabel: null, hourIndex: null });
@@ -129,8 +149,8 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
   it("places a story longer than an empty segment there anyway (it has to air somewhere)", () => {
     const windows = buildSegmentWindows(
       [
-        { start_offset_seconds: 0, duration_seconds: 120, segment_label: "A" },
-        { start_offset_seconds: 600, duration_seconds: 600, segment_label: "B" },
+        { start_offset_seconds: 0, duration_seconds: 120, segment_label: "A", timing_mode: "fixed" },
+        { start_offset_seconds: 600, duration_seconds: 600, segment_label: "B", timing_mode: "fixed" },
       ],
       1,
     );
