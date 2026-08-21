@@ -104,6 +104,50 @@ describe("parseCdsProgramEpisodeResponse", () => {
     expect(() => parseCdsProgramEpisodeResponse(null)).toThrow(/doesn't recognize/);
   });
 
+  it("names the top-level keys it saw when the shape is unrecognized", () => {
+    expect(() => parseCdsProgramEpisodeResponse({ version: "1", data: [] })).toThrow(
+      /top-level keys: version, data/,
+    );
+  });
+
+  it("parses the real CDS envelope ({ resources: [...] })", () => {
+    const result = parseCdsProgramEpisodeResponse({ resources: [episodeDoc()] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.npr_episode_id).toBe("morning-edition-20260807");
+    expect(result.items).toHaveLength(2);
+  });
+
+  it("recognizes CDS's profile-reference form ({ profiles: [{ href }] })", () => {
+    const doc = episodeDoc({
+      profileIds: undefined,
+      profiles: [
+        { href: "/v1/profiles/publishable", rels: ["interface"] },
+        { href: "/v1/profiles/program-episode", rels: ["type"] },
+      ],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    expect(result.status).toBe("found");
+  });
+
+  it("skips a document whose profile references don't include program-episode", () => {
+    const doc = episodeDoc({
+      profileIds: undefined,
+      profiles: [{ href: "/v1/profiles/story", rels: ["type"] }],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    expect(result).toEqual({ status: "not_found" });
+  });
+
+  it("derives an item id from a reference-shaped entry's href (CDS's own document id)", () => {
+    const doc = episodeDoc({
+      items: [{ href: "/v1/documents/nx-s1-999?fields=title", rels: ["item"] }],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.items.map((item) => item.npr_item_id)).toEqual(["nx-s1-999"]);
+    expect(result.items[0]!.title).toBe("(untitled)");
+  });
+
   it("preserves the raw episode document for future field access", () => {
     const doc = episodeDoc();
     const result = parseCdsProgramEpisodeResponse(listResponse([doc]));

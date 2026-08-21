@@ -31,16 +31,20 @@ function readString(record: Record<string, unknown>, key: string): string | null
 }
 
 /**
- * Finds the array of candidate documents in a CDS documents response.
- * Tolerant of the `{ list: { items: [...] } }` wrapper NPR's APIs are
- * documented to use, a bare `{ items: [...] }`, or a plain array. Returns
- * null when nothing recognizable is found at all — the caller treats that
- * as a malformed response, distinct from a recognized-but-empty result.
+ * Finds the array of candidate documents in a CDS documents response. The
+ * real CDS envelope is `{ resources: [...] }` — confirmed against a live
+ * token on 2026-08-20, after this parser originally shipped recognizing
+ * only the legacy Story API's `{ list: { items: [...] } }` wrapper and
+ * failed on every real response. The older tolerances are kept as
+ * fallbacks. Returns null when nothing recognizable is found at all — the
+ * caller treats that as a malformed response, distinct from a
+ * recognized-but-empty result.
  */
 function extractDocumentArray(body: unknown): unknown[] | null {
   if (Array.isArray(body)) return body;
   if (!isRecord(body)) return null;
 
+  if (Array.isArray(body.resources)) return body.resources;
   const list = body.list;
   if (isRecord(list) && Array.isArray(list.items)) return list.items;
   if (Array.isArray(body.items)) return body.items;
@@ -56,6 +60,17 @@ function extractDocumentArray(body: unknown): unknown[] | null {
  * unrelated document slipping through.
  */
 function isUsableEpisodeDocument(doc: Record<string, unknown>): boolean {
+  // Real CDS documents declare profiles as an array of `{ href, rels }`
+  // references (e.g. `{ href: "/v1/profiles/program-episode" }`).
+  const profiles = doc.profiles;
+  if (Array.isArray(profiles)) {
+    return profiles.some(
+      (profile) =>
+        isRecord(profile) &&
+        typeof profile.href === "string" &&
+        /\/profiles\/program-episode$/.test(profile.href),
+    );
+  }
   const profileIds = doc.profileIds;
   if (Array.isArray(profileIds)) return profileIds.includes("program-episode");
   const profileId = doc.profileId;
@@ -78,6 +93,22 @@ function extractItemDocuments(episodeDoc: Record<string, unknown>): unknown[] {
 }
 
 /**
+ * Extracts the CDS document id from a reference-shaped entry
+ * (`{ href: "/v1/documents/<id>", rels: [...] }`) — CDS represents links
+ * between documents this way, so an item that arrives as a reference rather
+ * than an embedded document still carries CDS's own id in its href. This is
+ * still CDS's identifier, never one this integration invents.
+ */
+function idFromDocumentHref(record: Record<string, unknown>): string | null {
+  const href = readString(record, "href");
+  if (!href) return null;
+  const path = href.split(/[?#]/, 1)[0]!;
+  const segments = path.split("/").filter((segment) => segment !== "");
+  const last = segments[segments.length - 1];
+  return last && last.trim() !== "" ? last : null;
+}
+
+/**
  * Normalizes one CDS item document. Drops an item with no usable id — the
  * stable NPR identity is the one thing this integration must never invent
  * (see docs/log-design.md §5, "do not use titles as identifiers") — but
@@ -86,7 +117,7 @@ function extractItemDocuments(episodeDoc: Record<string, unknown>): unknown[] {
  */
 function normalizeItem(raw: unknown): NprEpisodeItem | null {
   if (!isRecord(raw)) return null;
-  const npr_item_id = readString(raw, "id");
+  const npr_item_id = readString(raw, "id") ?? idFromDocumentHref(raw);
   if (!npr_item_id) return null;
 
   const title = readString(raw, "title") ?? "(untitled)";
@@ -105,7 +136,13 @@ function normalizeItem(raw: unknown): NprEpisodeItem | null {
 export function parseCdsProgramEpisodeResponse(body: unknown): NprEpisodeFetchResult {
   const documents = extractDocumentArray(body);
   if (documents === null) {
-    throw new Error("NPR CDS returned a response this integration doesn't recognize.");
+    // Name the keys actually seen so a future shape mismatch is diagnosable
+    // straight off the screen — this exact error once cost a deploy/debug
+    // round trip because it said nothing about what CDS actually sent.
+    const detail = isRecord(body)
+      ? ` (top-level keys: ${Object.keys(body).slice(0, 8).join(", ") || "none"})`
+      : ` (body was ${Array.isArray(body) ? "an array" : typeof body})`;
+    throw new Error(`NPR CDS returned a response this integration doesn't recognize.${detail}`);
   }
 
   const episodeDoc = documents.find(
