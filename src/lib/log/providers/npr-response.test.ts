@@ -138,6 +138,71 @@ describe("parseCdsProgramEpisodeResponse", () => {
     expect(result).toEqual({ status: "not_found" });
   });
 
+  it("extracts a story's audio duration from its primary audio asset", () => {
+    const doc = episodeDoc({
+      items: [
+        {
+          href: "/v1/documents/nx-s1-5931262",
+          embed: {
+            id: "nx-s1-5931262",
+            title: "Morning news brief",
+            audio: [{ href: "#/assets/nx-s1-9895518", rels: ["primary", "headline"] }],
+            assets: {
+              "nx-s1-9895518": { id: "nx-s1-9895518", duration: 673 },
+              "nx-s1-5931262-1": { id: "nx-s1-5931262-1" },
+            },
+          },
+        },
+      ],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.items[0]!.duration_seconds).toBe(673);
+  });
+
+  it("prefers the primary-rel audio reference over an earlier non-primary one", () => {
+    const doc = episodeDoc({
+      items: [
+        {
+          embed: {
+            id: "x",
+            title: "T",
+            audio: [
+              { href: "#/assets/promo-cut", rels: ["promo"] },
+              { href: "#/assets/full-cut", rels: ["primary"] },
+            ],
+            assets: {
+              "promo-cut": { duration: 30 },
+              "full-cut": { duration: 240 },
+            },
+          },
+        },
+      ],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.items[0]!.duration_seconds).toBe(240);
+  });
+
+  it("returns a null duration for a story whose audio asset has none (web-only version)", () => {
+    const doc = episodeDoc({
+      items: [
+        {
+          embed: {
+            id: "x",
+            title: "T",
+            audio: [{ href: "#/assets/unavailable", rels: ["primary"] }],
+            assets: { unavailable: { isAvailable: false } },
+          },
+        },
+        { embed: { id: "y", title: "No audio at all" } },
+      ],
+    });
+    const result = parseCdsProgramEpisodeResponse({ resources: [doc] });
+    if (result.status !== "found") throw new Error("expected found");
+    expect(result.items.map((item) => item.duration_seconds)).toEqual([null, null]);
+  });
+
   it("reads a transcluded item's document from its embed key (the real CDS shape)", () => {
     const doc = episodeDoc({
       items: [

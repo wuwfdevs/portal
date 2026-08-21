@@ -969,6 +969,30 @@ and `moveRundownItem` are now thin adapters over these capabilities —
 `sendAnswerToSourcework`'s: the console button click is itself the human
 confirmation.
 
+**Log: NPR story times and break-scoped story surfaces (2026-08-21).** CDS
+supplies no per-story air times — only each story's audio duration (its
+primary audio asset's `duration`, now parsed by `providers/npr-response.ts`
+and stored as `log_npr_episode_items.duration_seconds`,
+`20260821130000_log_npr_item_durations.sql`) and the episode's item order.
+`lib/log/npr-story-times.ts` (pure, tested) derives **estimated** air times
+from that: it packs the stories, in order, into the program clock's lettered
+segment windows (`log_clock_slots.segment_label`) tiled across the rundown's
+shift hours, with a tolerant half-fit rule rather than strict bin-packing,
+and wraps windows in hours beyond the episode's own span back onto the
+packed hours (Morning Edition's 2-hour episode across a 4-hour shift — the
+repeat hours re-air the feed). Estimates always render with "~" and never
+pretend to seconds precision (`formatStationTimeHM`). Three surfaces
+consume them: `/log/npr` gained Est. air/Length columns (anchored to that
+program+date's generated rundown, which is what pins shift start and clock
+version — no rundown, no time column); the rundown screen's NPR sidebar
+panel now shows only the stories for the **upcoming break** by the
+station's current wall clock (falling back to the episode's first items
+when no times are derivable); and the per-break "Create live read"
+look-ahead picker offers only that break's stories — the ones estimated to
+air between it and the next break — not the whole episode, per direct
+product feedback. A clock with no `segment_label`ed slots produces no
+estimates and every surface degrades to the order-only behavior.
+
 **Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
 guardrail against building it is lifted.** This is the second of three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast

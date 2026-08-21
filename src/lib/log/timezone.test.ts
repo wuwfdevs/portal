@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatStationClockTime,
   formatStationDateLong,
+  formatStationTimeHM,
   formatStationTimestamp,
   shiftDateISO,
   stationLocalDateTimeToUTC,
@@ -47,6 +48,12 @@ describe("formatStationClockTime", () => {
   it("zero-pads a midnight hour rather than showing 24", () => {
     // 05:00 UTC = 00:00 CDT.
     expect(formatStationClockTime("2026-08-07T05:00:09.000Z")).toBe("00:00:09");
+  });
+});
+
+describe("formatStationTimeHM", () => {
+  it("renders 24-hour hh:mm in Central time, with no seconds", () => {
+    expect(formatStationTimeHM("2026-08-07T11:27:05.000Z")).toBe("06:27");
   });
 });
 

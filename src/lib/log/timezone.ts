@@ -73,6 +73,20 @@ export function formatStationClockTime(iso: string): string {
 }
 
 /**
+ * Formats an instant as a bare station-local hh:mm, 24-hour — for estimated
+ * times (an NPR story's derived air time), where formatStationClockTime's
+ * seconds would read as false precision.
+ */
+export function formatStationTimeHM(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
  * Adds (or, with a negative count, subtracts) whole days to a calendar date
  * (YYYY-MM-DD), for prev/next-day navigation. Pure calendar-date arithmetic —
  * anchored at noon UTC like formatStationDateLong so it never has to reason

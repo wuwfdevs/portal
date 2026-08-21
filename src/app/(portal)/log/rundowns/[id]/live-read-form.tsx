@@ -21,6 +21,8 @@ export interface NprLookaheadItem {
   npr_item_id: string;
   title: string;
   teaser: string | null;
+  /** Pre-formatted estimated station-local air time (e.g. "~07:49"), or null when no estimate could be derived — see lib/log/npr-story-times.ts. */
+  estimatedTimeLabel: string | null;
 }
 
 export function LiveReadForm({
@@ -50,7 +52,9 @@ export function LiveReadForm({
     <div className="flex flex-col gap-2">
       {nprItems.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-ink-500">Use as look-ahead:</span>
+          <span className="text-xs font-semibold text-ink-500">
+            Coming up after this break — use as look-ahead:
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {nprItems.map((item) => (
               <button
@@ -59,6 +63,11 @@ export function LiveReadForm({
                 onClick={() => applyLookahead(item)}
                 className="rounded border border-line px-2 py-1 text-xs font-semibold text-brand-link hover:bg-panel-50"
               >
+                {item.estimatedTimeLabel && (
+                  <span className="mr-1 font-mono font-normal text-ink-400 tabular-nums">
+                    {item.estimatedTimeLabel}
+                  </span>
+                )}
                 {item.title}
               </button>
             ))}
