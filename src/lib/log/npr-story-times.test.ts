@@ -3,6 +3,7 @@ import {
   buildSegmentWindows,
   DEFAULT_STORY_DURATION_SECONDS,
   episodeHourOffset,
+  estimateFloatLanding,
   estimateStoryOffsets,
   excludeBlockLengthRollups,
   firstAiringByStory,
@@ -246,5 +247,53 @@ describe("projectStoriesOntoShift", () => {
   it("returns nothing when no stories were placed at all", () => {
     expect(projectStoriesOntoShift(estimateStoryOffsets(STORIES, []), 4, 1)).toEqual([]);
     expect(packedHourCount([])).toBe(0);
+  });
+});
+
+describe("estimateFloatLanding", () => {
+  const airing = (id: string, offset: number, duration: number) => ({
+    npr_item_id: id,
+    offsetSeconds: offset,
+    segmentLabel: "B",
+    shiftHourIndex: 0,
+    durationSeconds: duration,
+  });
+
+  it("lands the break at the first story boundary inside the window", () => {
+    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 900 };
+    const result = estimateFloatLanding(window, [
+      airing("before", 400, 300), // ends 700 — before the window
+      airing("boundary", 700, 400), // ends 1100 — inside
+      airing("later", 1100, 400), // ends 1500 — past the window
+    ]);
+    expect(result).toEqual({
+      offsetSeconds: 1100,
+      basis: "story_boundary",
+      boundaryStoryId: "boundary",
+      spanningStoryId: null,
+    });
+  });
+
+  it("falls back to the nominal placement and names the spanning story when one runs through the whole window", () => {
+    // The Fresh Air interview case: one story covers the float's entire
+    // earliest-to-latest range, so the break interrupts it.
+    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 900 };
+    const result = estimateFloatLanding(window, [airing("interview", 390, 2100)]);
+    expect(result).toEqual({
+      offsetSeconds: 900,
+      basis: "nominal",
+      boundaryStoryId: null,
+      spanningStoryId: "interview",
+    });
+  });
+
+  it("falls back to the nominal placement with no spanning story when there's simply no data", () => {
+    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 950 };
+    expect(estimateFloatLanding(window, [])).toEqual({
+      offsetSeconds: 950,
+      basis: "nominal",
+      boundaryStoryId: null,
+      spanningStoryId: null,
+    });
   });
 });

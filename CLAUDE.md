@@ -1006,7 +1006,13 @@ stories for the **upcoming break** by the station's wall clock); and the
 per-break "Create live read" look-ahead picker (only that break's
 stories), per direct product feedback. A clock with no `segment_label`ed
 slots produces no estimates and every surface degrades to the order-only
-behavior. If WUWF can get API/export access to the Rundowns App itself,
+behavior. Floating breaks get their own per-day estimate
+(`estimateFloatLanding`): a float's real position within its
+earliest/latest window is a story boundary, so the rundown screen shows
+where today's stories put it — or names the story it will interrupt when
+one runs through the whole window (the Fresh Air interview case), whose
+over-segment overflow the packer also chains through the following
+segments. If WUWF can get API/export access to the Rundowns App itself,
 ingesting real times should replace this estimation.
 
 **Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the

@@ -59,6 +59,8 @@ export interface StoryTimeEstimate {
   offsetSeconds: number | null;
   segmentLabel: string | null;
   hourIndex: number | null;
+  /** The duration packing used — the story's own, or DEFAULT_STORY_DURATION_SECONDS when unknown. */
+  durationSeconds: number;
 }
 
 /**
@@ -157,7 +159,13 @@ export function estimateStoryOffsets(
     }
 
     if (windowIndex >= windows.length) {
-      estimates.push({ npr_item_id: story.npr_item_id, offsetSeconds: null, segmentLabel: null, hourIndex: null });
+      estimates.push({
+        npr_item_id: story.npr_item_id,
+        offsetSeconds: null,
+        segmentLabel: null,
+        hourIndex: null,
+        durationSeconds: duration,
+      });
       continue;
     }
 
@@ -167,6 +175,7 @@ export function estimateStoryOffsets(
       offsetSeconds: window.startOffsetSeconds + filledSeconds,
       segmentLabel: window.segmentLabel,
       hourIndex: window.hourIndex,
+      durationSeconds: duration,
     });
 
     // A story longer than the whole segment it opens (Fresh Air's one
@@ -248,6 +257,8 @@ export interface ShiftStoryAiring {
   segmentLabel: string | null;
   /** Which shift hour this airing falls in. */
   shiftHourIndex: number;
+  /** The duration packing used — see StoryTimeEstimate. */
+  durationSeconds: number;
 }
 
 /**
@@ -276,6 +287,7 @@ export function projectStoriesOntoShift(
         offsetSeconds: shiftHour * 3600 + (estimate.offsetSeconds - episodeHour * 3600),
         segmentLabel: estimate.segmentLabel,
         shiftHourIndex: shiftHour,
+        durationSeconds: estimate.durationSeconds,
       });
     }
   }
@@ -302,4 +314,68 @@ export function selectAiringsInWindow(
       airing.offsetSeconds >= fromOffsetSeconds &&
       (toOffsetSeconds === null || airing.offsetSeconds < toOffsetSeconds),
   );
+}
+
+/** A floating slot's allowed placement window, in shift offsets — earliest/latest are the slot's own bounds for when the break may START, nominal its default placement. */
+export interface FloatWindowOffsets {
+  earliestOffsetSeconds: number;
+  latestOffsetSeconds: number;
+  nominalOffsetSeconds: number;
+}
+
+export interface FloatLandingEstimate {
+  /** Estimated shift offset at which the break actually starts. */
+  offsetSeconds: number;
+  /** 'story_boundary': a story ends inside the window, and the break lands there. 'nominal': no boundary found — the slot's own nominal placement stands. */
+  basis: "story_boundary" | "nominal";
+  /** The story estimated to end right where the break lands, when basis is 'story_boundary'. */
+  boundaryStoryId: string | null;
+  /** The story estimated to run through the entire window (the break will interrupt it, or run late), when no boundary falls inside. */
+  spanningStoryId: string | null;
+}
+
+/**
+ * Where a floating break actually lands on a given day. A float's position
+ * within its earliest/latest window is decided by where the surrounding
+ * program content breaks — so with per-story durations in hand, the
+ * estimate is the first story boundary (a story's end) falling inside the
+ * window. When no boundary falls inside — one long story runs through the
+ * whole window, the Fresh Air interview case — the nominal placement
+ * stands, and the spanning story is reported so the screen can say the
+ * break will interrupt it rather than implying a clean junction.
+ */
+export function estimateFloatLanding(
+  window: FloatWindowOffsets,
+  airings: ShiftStoryAiring[],
+): FloatLandingEstimate {
+  let boundary: { end: number; id: string } | null = null;
+  let spanningStoryId: string | null = null;
+  for (const airing of airings) {
+    const end = airing.offsetSeconds + airing.durationSeconds;
+    if (
+      end >= window.earliestOffsetSeconds &&
+      end <= window.latestOffsetSeconds &&
+      (boundary === null || end < boundary.end)
+    ) {
+      boundary = { end, id: airing.npr_item_id };
+    }
+    if (airing.offsetSeconds < window.earliestOffsetSeconds && end > window.latestOffsetSeconds) {
+      spanningStoryId = airing.npr_item_id;
+    }
+  }
+
+  if (boundary) {
+    return {
+      offsetSeconds: boundary.end,
+      basis: "story_boundary",
+      boundaryStoryId: boundary.id,
+      spanningStoryId: null,
+    };
+  }
+  return {
+    offsetSeconds: window.nominalOffsetSeconds,
+    basis: "nominal",
+    boundaryStoryId: null,
+    spanningStoryId,
+  };
 }
