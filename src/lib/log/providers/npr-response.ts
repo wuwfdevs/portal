@@ -117,11 +117,17 @@ function idFromDocumentHref(record: Record<string, unknown>): string | null {
  */
 function normalizeItem(raw: unknown): NprEpisodeItem | null {
   if (!isRecord(raw)) return null;
-  const npr_item_id = readString(raw, "id") ?? idFromDocumentHref(raw);
+  // CDS transclusion nests the referenced story document under an `embed`
+  // key beside the reference's own href — `{ href: "/v1/documents/<id>",
+  // embed: { id, title, teaser, ... } }` — confirmed against a live
+  // response on 2026-08-21. Reading only the top level made every real
+  // story render "(untitled)" with an href-derived id.
+  const doc = isRecord(raw.embed) ? raw.embed : raw;
+  const npr_item_id = readString(doc, "id") ?? idFromDocumentHref(raw);
   if (!npr_item_id) return null;
 
-  const title = readString(raw, "title") ?? "(untitled)";
-  const teaser = readString(raw, "teaser") ?? readString(raw, "miniTeaser") ?? readString(raw, "description");
+  const title = readString(doc, "title") ?? "(untitled)";
+  const teaser = readString(doc, "teaser") ?? readString(doc, "miniTeaser") ?? readString(doc, "description");
 
   return { npr_item_id, title, teaser, raw };
 }
