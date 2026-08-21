@@ -115,7 +115,10 @@ export function buildRundownBreakDrafts(
 }
 
 export interface ExistingBreakLike {
-  local_opportunity_id: string;
+  // Null on an imported rundown's breaks (log_rundowns.source = 'imported')
+  // — a null key can never match a generated draft's opportunity id, so
+  // imported breaks are never mistaken for a generated occurrence here.
+  local_opportunity_id: string | null;
   scheduled_at: string;
 }
 

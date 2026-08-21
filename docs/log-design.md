@@ -853,3 +853,82 @@ two rounds of usability corrections; see §6's "One screen, not two."
 - WUWF's own production NPR CDS token is still outstanding — rate limits,
   update cadence, and response fields beyond what this implementation
   defensively parses remain unconfirmed until it exists.
+
+## 8. Importing the daily program log (2026-08-21)
+
+Hosts can now build a day's rundowns before Underwriting & Traffic adopts
+its companion tool, by uploading the station's existing workflow artifact:
+the DAD/traffic-system daily program log, exported to Word — one `.docx`
+per broadcast day, a print-layout table of `Time | Cart # | Description |
+Length` rows mixing program starts, `UW Credit (mm:ss)` avail markers,
+scheduled credits (cart number, "Underwriter / copy name", the full
+live-read script in a following row), short content fills, and operational
+notes. The screen is `/log/import`; nothing is written until the host
+reviews the parsed plan and confirms.
+
+Design decisions, in the order they were argued out:
+
+1. **Imported rundowns carry their breaks directly from the export**
+   (`log_rundowns.source = 'imported'`,
+   `log_rundown_breaks.local_opportunity_id` now nullable) rather than
+   being forced through clock local opportunities. The export *is* WUWF's
+   confirmed avail structure for that day — parsing the reference export
+   showed its Morning Edition avail offsets matching the independently
+   transcribed clock data second-for-second — and most clocks still have
+   no opportunity overlay (§7 item 2), so requiring one would have meant
+   fabricating per-program clock structure the station hasn't confirmed.
+   Both kinds of break meet at the same snapshot columns, so the timing
+   engine, the rundown screen, broadcast events, and Underwriting's break
+   reads treat them identically. Generation-path catch-up
+   (`syncRundownBreaks`, assignment auto-placement) skips imported
+   rundowns — their breaks didn't come from the clock.
+2. **Underwriting credits become real `uw_underwriters`/`uw_copy` rows —
+   never shell contracts, never Log content items.** The export carries
+   the underwriter's name, copy label, cart number, script, and duration;
+   it does not carry which contract an airing serves, and contract fields
+   feed fulfillment math and affidavits, where invented values are worse
+   than absent ones. So the import creates the entities it actually
+   evidences (`uw_copy.underwriter_id`, new and nullable, is the direct
+   attribution a contract-less copy row needs) and places credits as
+   ordinary `item_kind = 'underwriting_credit'` rundown items with **no
+   `uw_scheduled_placements` row** — a state the exception trigger already
+   tolerates (no placement → no exception raised → nothing lands in a
+   queue nobody staffs). On adoption day, traffic finds their real
+   underwriter list and copy rotation already in their own tables and
+   attaches contracts to reality; nothing is migrated or retired.
+3. **Reuse before create.** The planner matches each export credit against
+   existing copy by cart + label (+ underwriter name when attributed) —
+   `log_import_underwriter()`/`log_import_underwriting_copy()` are
+   find-or-create on the same identity, so a re-import or two hosts
+   importing the same morning never mint duplicates. A matched copy whose
+   stored script differs is still reused, flagged on the preview — the
+   export is not where copy gets edited from. Non-credit fills match the
+   content library by title (BirdNote, Unearthing Florida); unmatched ones
+   become `live_read` items carrying their printed description, never
+   auto-created library rows.
+4. **The `uw_*` boundary stays enumerable.** A Log-only session reaches
+   Underwriting's tables exclusively through four security-definer
+   functions (`log_import_list_underwriting_copy`, the two find-or-creates,
+   and `log_delete_unplaced_credit_item`, which refuses any
+   placement-backed credit) — `uw_underwriters`/`uw_copy` RLS stays
+   staff-only, the same shape as every prior Log/Underwriting crossing.
+5. **Preview-and-confirm, honestly.** The plan lists every rundown with its
+   breaks and items, copy reused versus new, script-changed flags, skipped
+   operational notes, and an explicit unresolved list (unknown program
+   names, programs with no schedule entry for the date) — parse fidelity
+   is high (the reference export parses to zero warnings) but
+   interpretation gets a human glance before anything is written. A
+   rundown that already exists for a program + date is skipped, never
+   merged over.
+
+The parser (`lib/log/program-log-import.ts`) and planner
+(`lib/log/program-log-plan.ts`) are pure, colocated-tested modules; the
+test fixture is cut from the real 2026-08-21 export, including the
+credit-script row that lands in the following page-table (the format's one
+genuinely fiddly artifact). `fflate` (tiny, zero-dependency) was added to
+unzip the `.docx` server-side — the parser itself takes the XML as a
+string. Known format risk: this is one export from one printing; if a
+future export's table geometry drifts, the parser reports what it couldn't
+classify rather than guessing. Collecting a weekend export and a
+pledge-drive export as additional fixtures is the cheap way to retire that
+risk.
