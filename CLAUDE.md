@@ -1015,6 +1015,46 @@ over-segment overflow the packer also chains through the following
 segments. If WUWF can get API/export access to the Rundowns App itself,
 ingesting real times should replace this estimation.
 
+**Log: program-log import (2026-08-21) — hosts build a day's rundowns by
+uploading the station's existing DAD/traffic-system Word export, before
+Underwriting & Traffic staff have adopted their tool.** Read
+`docs/log-design.md` §8 before touching any of it; this note is a pointer.
+The screen is `/log/import` (upload → preview → confirm, member-gated —
+nothing structural is producer-only here); the parser
+(`lib/log/program-log-import.ts`) and planner (`lib/log/program-log-plan.ts`)
+are pure, colocated-tested modules whose fixture is cut from a real export
+(including the credit-script row that lands in the following page-table —
+the format's one real parsing trap). `fflate` (small, zero-dependency) was
+added to unzip the `.docx`; the parser takes `word/document.xml` as a
+string. Four things are load-bearing: (1) **imported rundowns carry their
+breaks directly from the export** — `log_rundowns.source = 'imported'`,
+`log_rundown_breaks.local_opportunity_id` is now nullable
+(`20260821180000_log_program_log_import.sql`), and `syncRundownBreaks`/
+assignment auto-placement skip imported rundowns, since "catching up with
+the clock" would insert duplicates beside breaks the clock never generated;
+a partial unique index on `(rundown_id, scheduled_at) where
+local_opportunity_id is null` is the imported counterpart of the generated
+path's dedup constraint. (2) **Imported credits are real
+`uw_underwriters`/`uw_copy` rows** (never shell contracts — the export
+doesn't know contracts, and invented contract fields would poison
+fulfillment/affidavit math; never Log content items — that was considered
+and rejected, see the design doc) **placed as `item_kind =
+'underwriting_credit'` items with no `uw_scheduled_placements` row**, a
+state `uw_flag_exception_from_broadcast_event()` already tolerates by
+returning without raising. `uw_copy.underwriter_id` (new, nullable) is the
+contract-less attribution; traffic-era copy keeps attributing through
+`uw_contract_copy`. (3) **The `uw_*` boundary stays enumerable**: a Log
+session reaches Underwriting's tables only through four new
+security-definer functions (`log_import_list_underwriting_copy`,
+find-or-create `log_import_underwriter`/`log_import_underwriting_copy` —
+keyed on name and on (underwriter, cart, label) so re-imports never mint
+duplicates — and `log_delete_unplaced_credit_item`, which refuses any
+placement-backed credit; `removeRundownItem` routes credit items through
+it). (4) The same migration adds **`audit_events_insert_log`** — Log's
+first member audit policy; without it the import's `logAuditEvent()`
+(`log.program_log.imported`) would have been silently dropped by RLS, the
+exact failure mode this file already warns about.
+
 **Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
 guardrail against building it is lifted.** This is the second of three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast

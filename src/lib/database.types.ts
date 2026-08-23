@@ -1819,6 +1819,10 @@ export interface Database {
           generated_at: string | null;
           submitted_at: string | null;
           submitted_by: string | null;
+          // Added by 20260821180000_log_program_log_import.sql — 'generated'
+          // (from the clock's local opportunities) or 'imported' (from a DAD
+          // program-log export upload; breaks carry no local_opportunity_id).
+          source: "generated" | "imported";
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]> & {
           program_id: string;
@@ -1839,7 +1843,10 @@ export interface Database {
         Row: {
           id: string;
           rundown_id: string;
-          local_opportunity_id: string;
+          // Nullable as of 20260821180000_log_program_log_import.sql — null
+          // on an imported rundown's breaks, whose provenance is the
+          // uploaded program-log export rather than a local opportunity.
+          local_opportunity_id: string | null;
           position: number;
           label: string;
           requirement: LogOpportunityRequirement;
@@ -1850,7 +1857,6 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_breaks"]["Row"]> & {
           rundown_id: string;
-          local_opportunity_id: string;
           position: number;
           label: string;
           requirement: LogOpportunityRequirement;
@@ -2014,6 +2020,10 @@ export interface Database {
         Row: {
           id: string;
           label: string;
+          // Added by 20260821180000_log_program_log_import.sql — direct
+          // underwriter attribution independent of any contract, set by the
+          // program-log import; null on rows attributed via uw_contract_copy.
+          underwriter_id: string | null;
           script: string | null;
           execution_kind: UwCopyExecutionKind;
           duration_seconds: number | null;
@@ -2469,6 +2479,45 @@ export interface Database {
               }[];
             }
           | { error: string };
+      };
+      /** Added by 20260821180000_log_program_log_import.sql — everything a Log member needs to match a program-log export's credits against existing underwriters/copy. Security definer; uw_* RLS stays staff-only. */
+      log_import_list_underwriting_copy: {
+        Args: Record<string, never>;
+        Returns:
+          | {
+              underwriters: { id: string; name: string }[];
+              copy: {
+                id: string;
+                underwriter_id: string | null;
+                label: string;
+                cart_identifier: string | null;
+                script: string | null;
+                duration_seconds: number | null;
+                approval_status: UwCopyApprovalStatus;
+              }[];
+            }
+          | { error: string };
+      };
+      /** Added by 20260821180000_log_program_log_import.sql — find-or-create an underwriter by name (case-insensitive). */
+      log_import_underwriter: {
+        Args: { p_name: string };
+        Returns: string;
+      };
+      /** Added by 20260821180000_log_program_log_import.sql — find-or-create one copy row under an underwriter, keyed (underwriter, cart, label). */
+      log_import_underwriting_copy: {
+        Args: {
+          p_underwriter_id: string;
+          p_label: string;
+          p_cart_identifier: string | null;
+          p_script: string | null;
+          p_duration_seconds: number | null;
+        };
+        Returns: string;
+      };
+      /** Added by 20260821180000_log_program_log_import.sql — deletes an underwriting-credit item only when no uw_scheduled_placements row references it (a placement-backed credit must go through log_clear_underwriting_credit instead). */
+      log_delete_unplaced_credit_item: {
+        Args: { p_item_id: string };
+        Returns: { ok: true } | { error: string };
       };
       log_place_underwriting_credit: {
         Args: {

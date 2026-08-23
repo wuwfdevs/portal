@@ -67,7 +67,10 @@ export function selectApplicableAssignments(
 
 export interface InsertedBreakLike {
   id: string;
-  local_opportunity_id: string;
+  // Null on an imported rundown's breaks (log_rundowns.source = 'imported')
+  // — a null key never matches a generated draft below, so assignment
+  // placement naturally skips them.
+  local_opportunity_id: string | null;
   scheduled_at: string;
 }
 
@@ -120,6 +123,9 @@ export function planAssignedContentPlacements(
   const rows: PlannedRundownItem[] = [];
 
   for (const brk of insertedBreaks) {
+    // Imported breaks (null opportunity) never correspond to a generated
+    // draft — nothing to place.
+    if (brk.local_opportunity_id === null) continue;
     const draft = draftByKey.get(`${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`);
     if (!draft) continue;
 

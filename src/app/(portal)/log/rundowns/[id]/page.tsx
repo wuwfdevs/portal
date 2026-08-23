@@ -162,10 +162,17 @@ export default async function RundownDetailPage({
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
   );
-  const missingBreakCount = selectMissingBreakDrafts(
-    buildRundownBreakDrafts(currentOpportunities, rundown.shift_start_at, shiftDurationMinutes),
-    rundown.breaks,
-  ).length;
+  // An imported rundown's breaks came from the uploaded program-log export,
+  // not from this clock's opportunities — "catching up with the clock"
+  // would only insert duplicates beside them, so the sync affordance never
+  // applies (see log_rundowns.source, 20260821180000_log_program_log_import.sql).
+  const missingBreakCount =
+    rundown.source === "imported"
+      ? 0
+      : selectMissingBreakDrafts(
+          buildRundownBreakDrafts(currentOpportunities, rundown.shift_start_at, shiftDurationMinutes),
+          rundown.breaks,
+        ).length;
 
   // Per-break status, computed once for the whole rundown so a break can
   // read as 'covered_by_previous' when the break just before it holds
@@ -507,7 +514,8 @@ export default async function RundownDetailPage({
   // network's stories break around it.
   const opportunityById = new Map(currentOpportunities.map((opportunity) => [opportunity.id, opportunity]));
   const floatHintForBreak = (brk: RundownBreakDetail, breakIndex: number): ReactNode => {
-    const opportunity = opportunityById.get(brk.local_opportunity_id);
+    const opportunity =
+      brk.local_opportunity_id === null ? undefined : opportunityById.get(brk.local_opportunity_id);
     if (
       opportunity?.timing_mode !== "float" ||
       opportunity.earliest_start_offset_seconds === null ||
@@ -695,7 +703,11 @@ export default async function RundownDetailPage({
           title,
           durationSeconds: isCurrent ? null : itemDuration(item),
           editable: item.item_kind === "content" || item.item_kind === "weather",
-          removable: item.item_kind !== "underwriting_credit",
+          // An imported rundown's credits have no placement behind them, so
+          // the host can remove one (removeRundownItem routes credits
+          // through log_delete_unplaced_credit_item(), which refuses any
+          // placement-backed credit — those clear from Underwriting).
+          removable: item.item_kind !== "underwriting_credit" || rundown.source === "imported",
           overrideScript: item.override_script,
           overrideDurationSeconds: item.override_duration_seconds,
           defaultScript,

@@ -203,6 +203,10 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
 
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith("/log", "That rundown no longer exists.");
+  // An imported rundown's breaks came from the uploaded program-log export,
+  // not from the clock's opportunities — syncing would insert duplicate
+  // breaks beside them (see log_rundowns.source).
+  if (rundown.source === "imported") redirect(path);
 
   const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(toRundownOpportunity);
   const shiftDurationMinutes = Math.round(
@@ -387,12 +391,28 @@ export async function removeRundownItem(formData: FormData): Promise<void> {
   const path = rundownPath(rundownId);
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("log_rundown_items")
-    .delete()
-    .eq("id", itemId)
-    .neq("item_kind", "underwriting_credit");
-  failIfError(error, path, "Could not remove this item");
+  const item = await getRundownItem(itemId);
+  if (!item) failWith(path, "That item no longer exists.");
+
+  if (item.item_kind === "underwriting_credit") {
+    // A placement-less credit (created by the program-log import) is
+    // removable by any host; log_delete_unplaced_credit_item() refuses a
+    // placement-backed one, which only log_clear_underwriting_credit()
+    // (Underwriting's own path) may remove — the check lives in the
+    // security-definer function, not here.
+    const { data, error } = await supabase.rpc("log_delete_unplaced_credit_item", {
+      p_item_id: itemId,
+    });
+    failIfError(error, path, "Could not remove this credit");
+    if (data && typeof data === "object" && "error" in data) failWith(path, data.error);
+  } else {
+    const { error } = await supabase
+      .from("log_rundown_items")
+      .delete()
+      .eq("id", itemId)
+      .neq("item_kind", "underwriting_credit");
+    failIfError(error, path, "Could not remove this item");
+  }
 
   revalidatePath(path);
   redirect(path);

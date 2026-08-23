@@ -43,7 +43,14 @@ export async function placeAssignedContent(
 ): Promise<void> {
   if (insertedBreaks.length === 0) return;
 
-  const opportunityIds = [...new Set(insertedBreaks.map((brk) => brk.local_opportunity_id))];
+  const opportunityIds = [
+    ...new Set(
+      insertedBreaks
+        .map((brk) => brk.local_opportunity_id)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  if (opportunityIds.length === 0) return;
   const { data: assignmentRows, error: assignmentsError } = await supabase
     .from("log_opportunity_assignments")
     .select("id, local_opportunity_id, content_item_id, hour_index, days_of_week, active")
