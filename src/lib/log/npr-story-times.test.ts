@@ -236,6 +236,21 @@ describe("projectStoriesOntoShift", () => {
     expect(s2Airings[1]!.offsetSeconds).toBe(3 * 3600 + 450);
   });
 
+  it("repeats the two-hour block across the shift's back half — WUWF's real ME pattern", () => {
+    // Morning Edition's 5–9 AM shift airs the two-hour episode twice: the 7
+    // o'clock hour carries the same stories as the 5 o'clock hour, and the
+    // 8 o'clock the same as the 6 o'clock, each at the same position within
+    // its hour.
+    const byHour = (hour: number) =>
+      airings
+        .filter((a) => a.shiftHourIndex === hour)
+        .map((a) => ({ id: a.npr_item_id, withinHour: a.offsetSeconds - hour * 3600 }));
+    expect(byHour(2)).toEqual(byHour(0).map((a) => ({ ...a })));
+    expect(byHour(3)).toEqual(byHour(1).map((a) => ({ ...a })));
+    expect(byHour(0).length).toBeGreaterThan(0);
+    expect(byHour(1).length).toBeGreaterThan(0);
+  });
+
   it("selects the airings inside a break's window", () => {
     // Shift hour 0 carries episode hour 2 — the window between the 19:00
     // music-bed break and Newscast 3 (30:00) holds B2's two stories.
