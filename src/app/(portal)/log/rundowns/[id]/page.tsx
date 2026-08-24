@@ -900,7 +900,24 @@ export default async function RundownDetailPage({
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Weather</div>
         {weather.reading ? (
           <>
-            <p className="text-sm text-ink-700">{weather.reading.condensed_text}</p>
+            {/* Above the fold: what a host glances at mid-broadcast — the
+                current observation ("72° Partly Cloudy", best-effort from
+                the NWS station feed, forecast conditions as the fallback)
+                and today's high/low. Everything longer stays behind the
+                Full forecast disclosure. */}
+            <p className="text-lg font-bold text-ink-900">
+              {weather.reading.current_temp !== null && (
+                <span className="font-mono tabular-nums">{weather.reading.current_temp}° </span>
+              )}
+              {weather.reading.current_conditions ?? weather.reading.condensed_text}
+            </p>
+            {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
+              <p className="mt-0.5 text-sm text-ink-700">
+                {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
+                {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
+                {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
+              </p>
+            )}
             <p className="mt-1 text-xs text-ink-400">
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
@@ -910,13 +927,6 @@ export default async function RundownDetailPage({
                 Full forecast
               </summary>
               <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
-                {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
-                  <p className="font-semibold text-ink-900">
-                    {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
-                    {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
-                    {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
-                  </p>
-                )}
                 <p>{weather.reading.conditions_summary}</p>
                 {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
                 {weather.reading.hazards && (
@@ -944,6 +954,9 @@ export default async function RundownDetailPage({
           <>
             {sidebarNprHeading && <p className="mb-2 text-xs text-ink-400">{sidebarNprHeading}</p>}
             <ul className="flex flex-col gap-2">
+              {/* The teaser (CDS's longer editorial description) is what a
+                  host actually forward-promotes from, so it leads here; the
+                  short headline only stands in when a story has none. */}
               {sidebarNprStories.map((item) => (
                 <li key={item.npr_item_id} className="text-xs text-ink-700">
                   {item.estimatedTimeLabel && (
@@ -951,7 +964,11 @@ export default async function RundownDetailPage({
                       {item.estimatedTimeLabel}
                     </span>
                   )}
-                  <span className="font-semibold">{item.title}</span>
+                  {item.teaser?.trim() ? (
+                    item.teaser
+                  ) : (
+                    <span className="font-semibold">{item.title}</span>
+                  )}
                 </li>
               ))}
             </ul>

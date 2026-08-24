@@ -1788,6 +1788,10 @@ export interface Database {
           condensed_text: string;
           high_temp: number | null;
           low_temp: number | null;
+          // Added by 20260824130000_log_weather_current_observation.sql —
+          // the latest station observation, best-effort at fetch time.
+          current_temp: number | null;
+          current_conditions: string | null;
           conditions_summary: string;
           precipitation_notes: string | null;
           hazards: string | null;
