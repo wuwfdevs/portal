@@ -67,6 +67,16 @@ export default async function WeatherPage({
             </div>
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+              {(reading.current_temp !== null || reading.current_conditions !== null) && (
+                <div>
+                  <dt className="text-ink-400">Now</dt>
+                  <dd className="font-semibold text-ink-900">
+                    {reading.current_temp !== null && `${reading.current_temp}°`}
+                    {reading.current_temp !== null && reading.current_conditions !== null && " "}
+                    {reading.current_conditions}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-ink-400">High / Low</dt>
                 <dd className="font-semibold text-ink-900">

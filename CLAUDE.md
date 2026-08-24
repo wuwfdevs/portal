@@ -1027,14 +1027,23 @@ are pure, colocated-tested modules whose fixture is cut from a real export
 the format's one real parsing trap). `fflate` (small, zero-dependency) was
 added to unzip the `.docx`; the parser takes `word/document.xml` as a
 string. Four things are load-bearing: (1) **imported rundowns carry their
-breaks directly from the export** — `log_rundowns.source = 'imported'`,
+breaks directly from the export, plus the clock's own local-opportunity
+breaks the export never mentions** — `log_rundowns.source = 'imported'`,
 `log_rundown_breaks.local_opportunity_id` is now nullable
-(`20260821180000_log_program_log_import.sql`), and `syncRundownBreaks`/
-assignment auto-placement skip imported rundowns, since "catching up with
-the clock" would insert duplicates beside breaks the clock never generated;
-a partial unique index on `(rundown_id, scheduled_at) where
+(`20260821180000_log_program_log_import.sql`). Revised 2026-08-24 after
+first real use: the import executor and `syncRundownBreaks` (whose
+imported-rundown skip is gone) both add clock-opportunity breaks to
+imported rundowns, deduplicated by **window overlap**
+(`selectNonOverlappingBreakDrafts`) rather than exact opportunity+instant
+match, since export avails carry no opportunity id and print a second or
+two off the clock's own offsets — see docs/log-design.md §8's revision
+note. A partial unique index on `(rundown_id, scheduled_at) where
 local_opportunity_id is null` is the imported counterpart of the generated
-path's dedup constraint. (2) **Imported credits are real
+path's dedup constraint. The same first use surfaced a cart-less live-read
+credit whose script prints inside the avail marker's own cell ("UW Credit
+(01:55) Support for WUWF comes from…") — the parser now captures that as
+the break's script (an "Underwriting live read" item), never a break
+label. (2) **Imported credits are real
 `uw_underwriters`/`uw_copy` rows** (never shell contracts — the export
 doesn't know contracts, and invented contract fields would poison
 fulfillment/affidavit math; never Log content items — that was considered
@@ -1050,7 +1059,10 @@ find-or-create `log_import_underwriter`/`log_import_underwriting_copy` —
 keyed on name and on (underwriter, cart, label) so re-imports never mint
 duplicates — and `log_delete_unplaced_credit_item`, which refuses any
 placement-backed credit; `removeRundownItem` routes credit items through
-it). (4) The same migration adds **`audit_events_insert_log`** — Log's
+it; a fifth, `log_underwriters_for_copy`
+(`20260824120000_log_underwriters_for_rundown_copy.sql`), resolves each
+referenced copy row's underwriter name — direct or contract attribution —
+so the rundown screen's credit cards can lead with who the credit is for). (4) The same migration adds **`audit_events_insert_log`** — Log's
 first member audit policy; without it the import's `logAuditEvent()`
 (`log.program_log.imported`) would have been silently dropped by RLS, the
 exact failure mode this file already warns about.

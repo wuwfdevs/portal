@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRundownBreakDrafts,
   selectMissingBreakDrafts,
+  selectNonOverlappingBreakDrafts,
   type RundownOpportunityLike,
 } from "./rundown-generation";
 
@@ -173,6 +174,66 @@ describe("selectMissingBreakDrafts", () => {
     expect(drafts[0]!.scheduled_at).toBe("2026-08-07T09:01:30.000Z");
     const missing = selectMissingBreakDrafts(drafts, [
       { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },
+    ]);
+    expect(missing).toHaveLength(0);
+  });
+});
+
+describe("selectNonOverlappingBreakDrafts", () => {
+  // Modeled on the real 2026-08-24 imported Morning Edition rundown: the
+  // export's avails carry no local_opportunity_id and sit a second or two
+  // off the clock's own offsets, so the imported-rundown dedup is window
+  // overlap, never exact instant equality.
+  const shiftStart = "2026-08-24T12:00:00.000Z";
+
+  it("drops a draft whose window overlaps an imported break even one second off (the :49:34 vs :49:35 case)", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1", start_offset_seconds: 2974, duration_seconds: 115 })],
+      shiftStart,
+      60,
+    );
+    const missing = selectNonOverlappingBreakDrafts(drafts, [
+      { scheduled_at: "2026-08-24T12:49:35+00:00", available_duration_seconds: 115 },
+    ]);
+    expect(missing).toHaveLength(0);
+  });
+
+  it("keeps a draft the export never mentions (the 31:30 Newscast 4 window)", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o-newscast4", start_offset_seconds: 1890, duration_seconds: 90 })],
+      shiftStart,
+      60,
+    );
+    const missing = selectNonOverlappingBreakDrafts(drafts, [
+      { scheduled_at: "2026-08-24T12:29:30+00:00", available_duration_seconds: 30 },
+      { scheduled_at: "2026-08-24T12:33:00+00:00", available_duration_seconds: 90 },
+    ]);
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.local_opportunity_id).toBe("o-newscast4");
+  });
+
+  it("treats touching windows as distinct, not overlapping (a promo right after a music bed)", () => {
+    // Draft at 20:30 for 30s starts exactly where the imported 19:00+90s
+    // break ends — adjacent, so the promo window is still added.
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o-promo", start_offset_seconds: 1230, duration_seconds: 30 })],
+      shiftStart,
+      60,
+    );
+    const missing = selectNonOverlappingBreakDrafts(drafts, [
+      { scheduled_at: "2026-08-24T12:19:00+00:00", available_duration_seconds: 90 },
+    ]);
+    expect(missing).toHaveLength(1);
+  });
+
+  it("drops a short draft entirely inside a wider imported window (the end-of-hour silence under a :59 avail)", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o-silence", start_offset_seconds: 3593, duration_seconds: 5 })],
+      shiftStart,
+      60,
+    );
+    const missing = selectNonOverlappingBreakDrafts(drafts, [
+      { scheduled_at: "2026-08-24T12:59:00+00:00", available_duration_seconds: 60 },
     ]);
     expect(missing).toHaveLength(0);
   });

@@ -18,7 +18,11 @@
 //    credit row — and can land in the *next* page-table when the page
 //    breaks between them (Chesser Barr, page 1 → 2 in the reference file).
 //  - "UW Credit (mm:ss)" rows are avail markers (the break and its total
-//    window), not content.
+//    window), not content. A live read scheduled with no cart at all can
+//    print its script *inside the avail marker's own description cell*
+//    (the 2026-08-24 export's Alphastar credit) — still an avail, with the
+//    trailing text captured as that break's script rather than mistaken
+//    for an unrelated content row.
 //  - Time-less, length-only rows are DAD's per-avail fill subtotals and
 //    carry no information the avail marker doesn't; they are dropped.
 
@@ -30,7 +34,11 @@ export interface ProgramLogEvent {
   cart: string | null;
   description: string;
   lengthSeconds: number | null;
-  /** Live-read script from the following time-less row(s), if any. */
+  /**
+   * Live-read script from the following time-less row(s) — or, on an avail,
+   * from trailing text in the marker's own description cell (a cart-less
+   * live read printed directly on the avail row).
+   */
   script: string | null;
   /**
    * avail  — a "UW Credit (mm:ss)" break marker; availDurationSeconds set.
@@ -57,7 +65,7 @@ export interface ParsedProgramLog {
 
 const TIME_RE = /^\d{2}:\d{2}:\d{2}$/;
 const LENGTH_RE = /^\d{2}:\d{2}(?::\d{2})?$/;
-const AVAIL_RE = /^UW Credit \((\d{2}:\d{2})\)$/;
+const AVAIL_RE = /^UW Credit \((\d{2}:\d{2})\)(?:\s+(\S.*))?$/;
 const TITLE_RE = /^(\w+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+WUWF-FM Program Log$/;
 const NOTE_RE = /Take Meter Readings|Play .* Fader|COVER spot/i;
 
@@ -183,7 +191,10 @@ export function parseProgramLog(documentXml: string): ParsedProgramLog {
         cart,
         description,
         lengthSeconds,
-        script: null,
+        // An avail marker's description cell can carry a live-read script
+        // after the "(mm:ss)" window (a credit scheduled with no cart) —
+        // that trailing text is the break's script, not part of its name.
+        script: avail?.[2] !== undefined ? avail[2] : null,
         kind: avail ? "avail" : NOTE_RE.test(description) ? "note" : "row",
       };
       if (avail) event.availDurationSeconds = clockToSeconds(avail[1]!);
@@ -194,9 +205,15 @@ export function parseProgramLog(documentXml: string): ParsedProgramLog {
     // Time-less row: either a script continuation for the most recent
     // cart-bearing row (possibly across a page-table boundary), or DAD's
     // per-avail fill subtotal (length-only), which carries nothing new.
+    // A bare avail marker with no cart-bearing row after it can also own a
+    // script row (a cart-less live read) — whichever of the two is most
+    // recent is the owner, so a script never reaches back past its own
+    // break to a credit in an earlier one.
     const text = values.filter((value) => !LENGTH_RE.test(value)).join(" ");
     if (text === "") continue;
-    const target = [...events].reverse().find((event) => event.kind === "row" && event.cart !== null);
+    const target = [...events]
+      .reverse()
+      .find((event) => event.kind === "avail" || (event.kind === "row" && event.cart !== null));
     if (target) {
       target.script = target.script === null ? text : `${target.script} ${text}`;
     } else {

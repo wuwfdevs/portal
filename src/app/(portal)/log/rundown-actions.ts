@@ -6,7 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
+import {
+  buildRundownBreakDrafts,
+  selectMissingBreakDrafts,
+  selectNonOverlappingBreakDrafts,
+} from "@/lib/log/rundown-generation";
 import {
   computeEffectiveDurationSeconds,
   WEATHER_DEFAULT_DURATION_SECONDS,
@@ -203,10 +207,6 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
 
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith("/log", "That rundown no longer exists.");
-  // An imported rundown's breaks came from the uploaded program-log export,
-  // not from the clock's opportunities — syncing would insert duplicate
-  // breaks beside them (see log_rundowns.source).
-  if (rundown.source === "imported") redirect(path);
 
   const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(toRundownOpportunity);
   const shiftDurationMinutes = Math.round(
@@ -218,7 +218,20 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
     rundown.shift_start_at,
     shiftDurationMinutes,
   );
-  const missing = selectMissingBreakDrafts(drafts, rundown.breaks);
+  // An imported rundown's export-derived breaks carry no
+  // local_opportunity_id and sit a second or two off the clock's own
+  // offsets, so on top of the exact opportunity+instant dedup they need the
+  // window-overlap filter: a clock window the export already covers (the
+  // same avail, printed at :49:35 instead of :49:34) is skipped, while the
+  // clock's windows the export never mentions (a newscast cover, a promo
+  // slot) are what this sync adds. See selectNonOverlappingBreakDrafts.
+  let missing = selectMissingBreakDrafts(drafts, rundown.breaks);
+  if (rundown.source === "imported") {
+    missing = selectNonOverlappingBreakDrafts(
+      missing,
+      rundown.breaks.filter((brk) => brk.local_opportunity_id === null),
+    );
+  }
 
   if (missing.length > 0) {
     const supabase = await createClient();

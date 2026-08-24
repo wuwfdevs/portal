@@ -84,7 +84,7 @@ export interface CopyPlan {
 export type ItemPlan =
   | { kind: "credit"; copyKey: string; title: string; durationSeconds: number }
   | { kind: "content"; contentItemId: string; title: string; durationSeconds: number }
-  | { kind: "live_read"; title: string; durationSeconds: number };
+  | { kind: "live_read"; title: string; durationSeconds: number; script: string | null };
 
 export interface BreakPlan {
   /** Seconds from station-local midnight. */
@@ -450,6 +450,17 @@ function buildBreaks(
         items: [],
       };
       breaks.push(open);
+      // A cart-less live-read credit prints its script directly on (or
+      // right after) the avail marker itself, with no credit row of its
+      // own — that script is this break's content, as a live read.
+      if (event.script !== null) {
+        open.items.push({
+          kind: "live_read",
+          title: "Underwriting live read",
+          durationSeconds: DEFAULT_CREDIT_SECONDS,
+          script: event.script,
+        });
+      }
       continue;
     }
 
@@ -495,7 +506,7 @@ function toItemPlan(event: ProgramLogEvent, contentItems: PlanContentItem[]): It
   if (matched) {
     return { kind: "content", contentItemId: matched.id, title: matched.title, durationSeconds };
   }
-  return { kind: "live_read", title: event.description, durationSeconds };
+  return { kind: "live_read", title: event.description, durationSeconds, script: event.script };
 }
 
 export function clockTimeToSeconds(time: string): number {

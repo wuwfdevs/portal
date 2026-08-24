@@ -40,7 +40,11 @@ import {
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
-import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
+import {
+  buildRundownBreakDrafts,
+  selectMissingBreakDrafts,
+  selectNonOverlappingBreakDrafts,
+} from "@/lib/log/rundown-generation";
 import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
@@ -163,16 +167,27 @@ export default async function RundownDetailPage({
       60_000,
   );
   // An imported rundown's breaks came from the uploaded program-log export,
-  // not from this clock's opportunities — "catching up with the clock"
-  // would only insert duplicates beside them, so the sync affordance never
-  // applies (see log_rundowns.source, 20260821180000_log_program_log_import.sql).
-  const missingBreakCount =
+  // which only prints the windows DAD scheduled something into — the
+  // clock's other local opportunities (a newscast cover, a promo slot) are
+  // real and fillable but absent from the export, so the same sync
+  // affordance applies with a window-overlap dedup in place of the exact
+  // opportunity+instant match (an export avail sits a second or two off the
+  // clock's own offset for the same window). See
+  // selectNonOverlappingBreakDrafts and syncRundownBreaks.
+  const allDrafts = buildRundownBreakDrafts(
+    currentOpportunities,
+    rundown.shift_start_at,
+    shiftDurationMinutes,
+  );
+  const missingDrafts = selectMissingBreakDrafts(allDrafts, rundown.breaks);
+  const missingBreakCount = (
     rundown.source === "imported"
-      ? 0
-      : selectMissingBreakDrafts(
-          buildRundownBreakDrafts(currentOpportunities, rundown.shift_start_at, shiftDurationMinutes),
-          rundown.breaks,
-        ).length;
+      ? selectNonOverlappingBreakDrafts(
+          missingDrafts,
+          rundown.breaks.filter((brk) => brk.local_opportunity_id === null),
+        )
+      : missingDrafts
+  ).length;
 
   // Per-break status, computed once for the whole rundown so a break can
   // read as 'covered_by_previous' when the break just before it holds
@@ -615,7 +630,15 @@ export default async function RundownDetailPage({
         item.override_live_intro_seconds !== null ||
         item.override_live_outro_seconds !== null ||
         item.override_tag_seconds !== null;
-      const title = item.contentItem?.title ?? item.live_read_title ?? copy?.label ?? "Weather";
+      // A credit card leads with WHO the credit is for — "Copy 2" alone
+      // identifies nothing to a host on air; the underwriter name comes
+      // from log_underwriters_for_copy (see listUnderwritingCopyForItems).
+      const copyTitle = copy
+        ? copy.underwriter_name
+          ? `${copy.underwriter_name} — ${copy.label}`
+          : copy.label
+        : null;
+      const title = item.contentItem?.title ?? item.live_read_title ?? copyTitle ?? "Weather";
       // Flags a look-ahead whose source story may no longer exist in the
       // current NPR episode data — a real, if rare, mid-broadcast story
       // substitution (see the migration's comment). Never auto-corrected;
@@ -817,10 +840,22 @@ export default async function RundownDetailPage({
 
       {missingBreakCount > 0 && (
         <Alert variant="note" className="mb-4">
-          This rundown was generated before{" "}
-          {missingBreakCount === 1 ? "an opportunity" : "some opportunities"}{" "}
-          {missingBreakCount === 1 ? "was" : "were"} added to this clock, so{" "}
-          {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.{" "}
+          {rundown.source === "imported" ? (
+            <>
+              The imported program log doesn&apos;t mention{" "}
+              {missingBreakCount === 1
+                ? "one of this clock's local windows"
+                : `${missingBreakCount} of this clock's local windows`}
+              , so {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.
+            </>
+          ) : (
+            <>
+              This rundown was generated before{" "}
+              {missingBreakCount === 1 ? "an opportunity" : "some opportunities"}{" "}
+              {missingBreakCount === 1 ? "was" : "were"} added to this clock, so{" "}
+              {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.
+            </>
+          )}{" "}
           <form action={syncRundownBreaks} className="mt-2 inline-block">
             <input type="hidden" name="rundown_id" value={rundown.id} />
             <Button type="submit" className="px-2.5 py-1.5 text-xs">
@@ -865,7 +900,24 @@ export default async function RundownDetailPage({
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Weather</div>
         {weather.reading ? (
           <>
-            <p className="text-sm text-ink-700">{weather.reading.condensed_text}</p>
+            {/* Above the fold: what a host glances at mid-broadcast — the
+                current observation ("72° Partly Cloudy", best-effort from
+                the NWS station feed, forecast conditions as the fallback)
+                and today's high/low. Everything longer stays behind the
+                Full forecast disclosure. */}
+            <p className="text-lg font-bold text-ink-900">
+              {weather.reading.current_temp !== null && (
+                <span className="font-mono tabular-nums">{weather.reading.current_temp}° </span>
+              )}
+              {weather.reading.current_conditions ?? weather.reading.condensed_text}
+            </p>
+            {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
+              <p className="mt-0.5 text-sm text-ink-700">
+                {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
+                {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
+                {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
+              </p>
+            )}
             <p className="mt-1 text-xs text-ink-400">
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
@@ -875,13 +927,6 @@ export default async function RundownDetailPage({
                 Full forecast
               </summary>
               <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
-                {(weather.reading.high_temp !== null || weather.reading.low_temp !== null) && (
-                  <p className="font-semibold text-ink-900">
-                    {weather.reading.high_temp !== null && `High ${weather.reading.high_temp}°`}
-                    {weather.reading.high_temp !== null && weather.reading.low_temp !== null && " · "}
-                    {weather.reading.low_temp !== null && `Low ${weather.reading.low_temp}°`}
-                  </p>
-                )}
                 <p>{weather.reading.conditions_summary}</p>
                 {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
                 {weather.reading.hazards && (
@@ -909,6 +954,9 @@ export default async function RundownDetailPage({
           <>
             {sidebarNprHeading && <p className="mb-2 text-xs text-ink-400">{sidebarNprHeading}</p>}
             <ul className="flex flex-col gap-2">
+              {/* The teaser (CDS's longer editorial description) is what a
+                  host actually forward-promotes from, so it leads here; the
+                  short headline only stands in when a story has none. */}
               {sidebarNprStories.map((item) => (
                 <li key={item.npr_item_id} className="text-xs text-ink-700">
                   {item.estimatedTimeLabel && (
@@ -916,7 +964,11 @@ export default async function RundownDetailPage({
                       {item.estimatedTimeLabel}
                     </span>
                   )}
-                  <span className="font-semibold">{item.title}</span>
+                  {item.teaser?.trim() ? (
+                    item.teaser
+                  ) : (
+                    <span className="font-semibold">{item.title}</span>
+                  )}
                 </li>
               ))}
             </ul>

@@ -122,6 +122,8 @@ repo and a project's history, not the version number.
 | `20260821160000_log_atc_segment_b_junction_fix.sql`                   | 2026-08-21 | 2026-08-21 |
 | `20260821170000_log_atc_b_to_return_furniture.sql`                    | 2026-08-21 | 2026-08-21 |
 | `20260821180000_log_program_log_import.sql`                           | 2026-08-21 | 2026-08-21 |
+| `20260824120000_log_underwriters_for_rundown_copy.sql`                | 2026-08-24 | 2026-08-24 |
+| `20260824130000_log_weather_current_observation.sql`                  | 2026-08-24 | 2026-08-24 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

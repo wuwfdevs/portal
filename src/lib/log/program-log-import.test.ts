@@ -108,6 +108,32 @@ describe("parseProgramLog edge cases", () => {
     expect(parsed.warnings.some((warning) => warning.includes("Friday"))).toBe(true);
   });
 
+  it("keeps an avail whose cell also carries a live-read script as an avail", () => {
+    // The 2026-08-24 export's Alphastar credit: a cart-less live read whose
+    // script prints inside the avail marker's own description cell. Reading
+    // it as an ordinary content row put the whole script into a break label.
+    const xml =
+      "<w:document><w:tbl><w:tr><w:tc><w:p><w:r><w:t>08:49:35</w:t></w:r></w:p></w:tc>" +
+      "<w:tc><w:p><w:r><w:t>UW Credit (01:55) Support for WUWF comes from Alphastar Wealth Management</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:document>";
+    const parsed = parseProgramLog(xml);
+    const event = parsed.events[0]!;
+    expect(event.kind).toBe("avail");
+    expect(event.availDurationSeconds).toBe(115);
+    expect(event.script).toBe("Support for WUWF comes from Alphastar Wealth Management");
+  });
+
+  it("attaches a time-less script row to a bare avail with no credit row after it", () => {
+    const xml =
+      "<w:document><w:tbl><w:tr><w:tc><w:p><w:r><w:t>08:49:35</w:t></w:r></w:p></w:tc>" +
+      "<w:tc><w:p><w:r><w:t>UW Credit (01:55)</w:t></w:r></w:p></w:tc></w:tr>" +
+      "<w:tr><w:tc><w:p><w:r><w:t>Support for WUWF comes from Alphastar Wealth Management</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:document>";
+    const parsed = parseProgramLog(xml);
+    const event = parsed.events[0]!;
+    expect(event.kind).toBe("avail");
+    expect(event.script).toBe("Support for WUWF comes from Alphastar Wealth Management");
+    expect(parsed.warnings.some((warning) => warning.includes("no owning row"))).toBe(false);
+  });
+
   it("warns about orphan text rather than inventing an owner", () => {
     const xml =
       "<w:document><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Support for WUWF comes from nowhere</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:document>";

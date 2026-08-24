@@ -15,6 +15,11 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
+import {
+  buildRundownBreakDrafts,
+  selectNonOverlappingBreakDrafts,
+} from "@/lib/log/rundown-generation";
+import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { parseProgramLog } from "@/lib/log/program-log-import";
 import {
@@ -26,7 +31,14 @@ import {
   type PlanUnderwriter,
   type ProgramLogPlan,
 } from "@/lib/log/program-log-plan";
-import { getClockTemplateDetail, listContentItems, listPrograms, listScheduleEntries } from "@/lib/log/queries";
+import {
+  getClockTemplateDetail,
+  listContentItems,
+  listLocalOpportunitiesForVersion,
+  listPrograms,
+  listScheduleEntries,
+  toRundownOpportunity,
+} from "@/lib/log/queries";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -272,6 +284,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       underwriting_copy_id?: string;
       content_item_id?: string;
       live_read_title?: string;
+      live_read_script?: string;
     }
     const itemRows: ItemInsert[] = rundownPlan.breaks.flatMap((brk, index) => {
       const breakId = breakIdByPosition.get(index + 1);
@@ -290,7 +303,14 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
         if (item.kind === "content") {
           return [{ ...base, item_kind: "content", content_item_id: item.contentItemId }];
         }
-        return [{ ...base, item_kind: "live_read", live_read_title: item.title }];
+        return [
+          {
+            ...base,
+            item_kind: "live_read",
+            live_read_title: item.title,
+            ...(item.script ? { live_read_script: item.script } : {}),
+          },
+        ];
       });
     });
     const { error: itemsError } =
@@ -306,10 +326,53 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       continue;
     }
     itemCount = itemRows.length;
+
+    // The export only prints the windows DAD scheduled something into — the
+    // clock's other local opportunities (a newscast cover, a promo slot)
+    // are real, fillable windows a host expects to see alongside them, so
+    // bring them in the same way syncRundownBreaks does for an existing
+    // imported rundown: window-overlap dedup against the imported breaks,
+    // then the same assigned-content placement generation runs. Best-effort
+    // — a failure here still leaves a complete imported rundown, and the
+    // rundown screen's own sync affordance can finish the job.
+    let clockBreakCount = 0;
+    const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(
+      toRundownOpportunity,
+    );
+    const clockDrafts = selectNonOverlappingBreakDrafts(
+      buildRundownBreakDrafts(opportunities, shiftStartAt, rundownPlan.shiftDurationMinutes),
+      breakRows,
+    );
+    if (clockDrafts.length > 0) {
+      const { data: insertedClockBreaks, error: clockBreaksError } = await supabase
+        .from("log_rundown_breaks")
+        .upsert(
+          clockDrafts.map((draft) => ({
+            rundown_id: rundown.id,
+            local_opportunity_id: draft.local_opportunity_id,
+            position: draft.position,
+            label: draft.label,
+            requirement: draft.requirement,
+            permitted_content_types: draft.permitted_content_types,
+            scheduled_at: draft.scheduled_at,
+            available_duration_seconds: draft.available_duration_seconds,
+            network_rejoin_at: draft.network_rejoin_at,
+          })),
+          { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
+        )
+        .select("id, local_opportunity_id, scheduled_at");
+      if (clockBreaksError) {
+        console.error("Could not add clock-opportunity breaks to an imported rundown:", clockBreaksError.message);
+      } else {
+        clockBreakCount = (insertedClockBreaks ?? []).length;
+        await placeAssignedContent(supabase, insertedClockBreaks ?? [], clockDrafts, plan.airDate);
+      }
+    }
+
     results.push({
       programName: rundownPlan.programName,
       rundownId: rundown.id,
-      breaks: insertedBreaks.length,
+      breaks: insertedBreaks.length + clockBreakCount,
       items: itemCount,
       skippedReason: null,
     });

@@ -44,7 +44,19 @@ async function getJson<T>(url: string): Promise<T> {
 interface PointsResponse {
   properties: {
     forecast: string;
+    observationStations?: string;
     relativeLocation?: { properties?: { city?: string; state?: string } };
+  };
+}
+
+interface StationsResponse {
+  features: Array<{ id?: string }>;
+}
+
+interface ObservationResponse {
+  properties: {
+    temperature?: { unitCode?: string; value?: number | null };
+    textDescription?: string | null;
   };
 }
 
@@ -71,6 +83,8 @@ export interface WeatherReading {
   condensed_text: string;
   high_temp: number | null;
   low_temp: number | null;
+  current_temp: number | null;
+  current_conditions: string | null;
   conditions_summary: string;
   precipitation_notes: string | null;
   hazards: string | null;
@@ -91,6 +105,32 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
 
   const dayPeriod = periods.find((period) => period.isDaytime) ?? periods[0]!;
   const nightPeriod = periods.find((period) => !period.isDaytime && period !== dayPeriod) ?? null;
+
+  // The current observation ("72° Partly Cloudy") comes from the nearest
+  // station's latest report, not the forecast — best-effort like hazards
+  // below: the observations endpoint failing must never block a usable
+  // forecast reading. NWS reports temperature in °C; convert to °F.
+  let currentTemp: number | null = null;
+  let currentConditions: string | null = null;
+  try {
+    const stationsUrl = points.properties.observationStations;
+    if (stationsUrl) {
+      const stations = await getJson<StationsResponse>(stationsUrl);
+      const stationUrl = stations.features.find((feature) => feature.id)?.id;
+      if (stationUrl) {
+        const observation = await getJson<ObservationResponse>(`${stationUrl}/observations/latest`);
+        const temperature = observation.properties.temperature;
+        if (typeof temperature?.value === "number") {
+          currentTemp = temperature.unitCode?.endsWith("degF")
+            ? Math.round(temperature.value)
+            : Math.round((temperature.value * 9) / 5 + 32);
+        }
+        currentConditions = observation.properties.textDescription?.trim() || null;
+      }
+    }
+  } catch {
+    // Leave both null — the widget falls back to forecast-only display.
+  }
 
   let hazards: string | null = null;
   try {
@@ -120,6 +160,8 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
     condensed_text: dayPeriod.shortForecast,
     high_temp: dayPeriod.temperature,
     low_temp: nightPeriod?.temperature ?? null,
+    current_temp: currentTemp,
+    current_conditions: currentConditions,
     conditions_summary: dayPeriod.shortForecast,
     precipitation_notes: null,
     hazards,

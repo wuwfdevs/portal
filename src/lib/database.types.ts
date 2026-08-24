@@ -1788,6 +1788,10 @@ export interface Database {
           condensed_text: string;
           high_temp: number | null;
           low_temp: number | null;
+          // Added by 20260824130000_log_weather_current_observation.sql —
+          // the latest station observation, best-effort at fetch time.
+          current_temp: number | null;
+          current_conditions: string | null;
           conditions_summary: string;
           precipitation_notes: string | null;
           hazards: string | null;
@@ -2513,6 +2517,11 @@ export interface Database {
           p_duration_seconds: number | null;
         };
         Returns: string;
+      };
+      /** Added by 20260824120000_log_underwriters_for_rundown_copy.sql — each referenced uw_copy row's underwriter name (direct or contract attribution) for the rundown screen's credit cards. */
+      log_underwriters_for_copy: {
+        Args: { p_copy_ids: string[] };
+        Returns: { copy_id: string; underwriter_name: string | null }[];
       };
       /** Added by 20260821180000_log_program_log_import.sql — deletes an underwriting-credit item only when no uw_scheduled_placements row references it (a placement-backed credit must go through log_clear_underwriting_credit instead). */
       log_delete_unplaced_credit_item: {

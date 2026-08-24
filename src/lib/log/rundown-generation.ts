@@ -157,3 +157,35 @@ export function selectMissingBreakDrafts(
     (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
   );
 }
+
+export interface BreakWindowLike {
+  scheduled_at: string;
+  available_duration_seconds: number;
+}
+
+/**
+ * Filters drafts down to the ones whose nominal window overlaps no existing
+ * break's window — the imported-rundown counterpart to
+ * selectMissingBreakDrafts. An imported rundown's breaks come from the
+ * uploaded program log, not this clock, so they carry no
+ * local_opportunity_id to match on, and their times drift a second or two
+ * off the clock's own offsets (the real export prints the 49:34 window as
+ * :49:35) — window overlap is what identifies "this is the same avail",
+ * never exact instant equality. Two windows that merely touch (one ends
+ * exactly where the next starts — a promo slot right after a music bed) do
+ * NOT overlap, so genuinely adjacent clock windows are still added.
+ */
+export function selectNonOverlappingBreakDrafts(
+  drafts: RundownBreakDraft[],
+  existingBreaks: BreakWindowLike[],
+): RundownBreakDraft[] {
+  const windows = existingBreaks.map((brk) => {
+    const start = new Date(brk.scheduled_at).getTime();
+    return { start, end: start + brk.available_duration_seconds * 1000 };
+  });
+  return drafts.filter((draft) => {
+    const start = new Date(draft.scheduled_at).getTime();
+    const end = start + draft.available_duration_seconds * 1000;
+    return !windows.some((window) => start < window.end && window.start < end);
+  });
+}
