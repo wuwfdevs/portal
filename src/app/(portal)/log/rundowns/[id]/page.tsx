@@ -900,9 +900,40 @@ export default async function RundownDetailPage({
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
           Network rejoin
         </div>
-        <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-          {formatStationClockTime(rundown.shift_end_at)}
-        </p>
+        {/* The operative deadline, not the end of the program: while a break
+            is airing, when it must hand back to the network feed; once that
+            has passed (or between breaks), the next break's own rejoin. The
+            shift end only shows when no local break remains ahead — it was
+            never the number a host needed mid-break. */}
+        {live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0 ? (
+          <>
+            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+              {formatStationClockTime(timing.currentBreak.network_rejoin_at)}
+            </p>
+            <p className="mt-1 text-xs text-ink-400">
+              When the current break ends — back to the network feed.
+            </p>
+          </>
+        ) : live && timing?.nextBreak ? (
+          <>
+            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+              {formatStationClockTime(timing.nextBreak.network_rejoin_at)}
+            </p>
+            <p className="mt-1 text-xs text-ink-400">
+              After the next break (starts {formatStationClockTime(timing.nextBreak.scheduled_at)}) —
+              carrying the network feed until then.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+              {formatStationClockTime(rundown.shift_end_at)}
+            </p>
+            <p className="mt-1 text-xs text-ink-400">
+              End of this shift{live ? " — no local breaks remain" : ""}.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="rounded border border-line p-4">
