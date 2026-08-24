@@ -879,9 +879,27 @@ Design decisions, in the order they were argued out:
    fabricating per-program clock structure the station hasn't confirmed.
    Both kinds of break meet at the same snapshot columns, so the timing
    engine, the rundown screen, broadcast events, and Underwriting's break
-   reads treat them identically. Generation-path catch-up
-   (`syncRundownBreaks`, assignment auto-placement) skips imported
-   rundowns — their breaks didn't come from the clock.
+   reads treat them identically.
+
+   *Revised 2026-08-24, from first real use:* the export only prints the
+   windows DAD scheduled something into, so an imported rundown was
+   missing every clock window the export never mentioned — Morning
+   Edition's newscast covers and promo slots (the 31:30 Newscast 4 window
+   was the reported case) simply didn't exist on it, and there was no way
+   to add them since generation-path catch-up skipped imported rundowns
+   entirely. Imported rundowns now get the **union**: the import executor
+   (and `syncRundownBreaks`, whose imported-rundown skip is gone) adds the
+   clock's local-opportunity breaks too, deduplicated by **window
+   overlap** (`selectNonOverlappingBreakDrafts` in
+   `lib/log/rundown-generation.ts`) rather than the generated path's exact
+   opportunity+instant match, because an export avail carries no
+   `local_opportunity_id` and sits a second or two off the clock's own
+   offset for the same window (the export prints the 49:34 window as
+   :49:35). Windows that merely touch stay distinct, so adjacent clock
+   slots are still added; a clock window the export already covers is
+   never duplicated. Assignment auto-placement runs for the
+   clock-originated breaks this adds (they carry real opportunity ids);
+   the export-originated breaks still never get it.
 2. **Underwriting credits become real `uw_underwriters`/`uw_copy` rows —
    never shell contracts, never Log content items.** The export carries
    the underwriter's name, copy label, cart number, script, and duration;
@@ -927,8 +945,19 @@ test fixture is cut from the real 2026-08-21 export, including the
 credit-script row that lands in the following page-table (the format's one
 genuinely fiddly artifact). `fflate` (tiny, zero-dependency) was added to
 unzip the `.docx` server-side — the parser itself takes the XML as a
-string. Known format risk: this is one export from one printing; if a
-future export's table geometry drifts, the parser reports what it couldn't
-classify rather than guessing. Collecting a weekend export and a
+string. The 2026-08-24 export surfaced a second real format artifact the
+reference export didn't have: a credit scheduled with no cart at all (a
+plain live read) prints its script *inside the avail marker's own
+description cell* — "UW Credit (01:55) Support for WUWF comes from…" as
+one cell — which the first parser read as an ordinary content row, putting
+the entire script into a break's label on the rundown screen. The avail
+regex now treats the marker as a prefix and captures the trailing text as
+that break's script, planned as an "Underwriting live read" item; a
+time-less script row directly after a bare avail (the same credit shape,
+split across rows) attaches to the avail rather than reaching back to a
+cart-bearing credit in an earlier break. Known format risk: this is still
+a small number of exports from one printing; if a future export's table
+geometry drifts, the parser reports what it couldn't classify rather than
+guessing. Collecting a weekend export and a
 pledge-drive export as additional fixtures is the cheap way to retire that
 risk.

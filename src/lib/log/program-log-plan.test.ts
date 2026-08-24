@@ -202,6 +202,49 @@ describe("buildProgramLogPlan against the real export's first two pages", () => 
     expect(birdnote).toBeDefined();
   });
 
+  it("turns an avail-borne script into a live read inside its own break", () => {
+    const inputs = baseInputs();
+    inputs.parsed = {
+      airDate: "2026-08-21",
+      weekday: "Friday",
+      warnings: [],
+      events: [
+        {
+          time: "05:00:00",
+          timeSeconds: 18000,
+          cart: null,
+          description: "Morning Edition",
+          lengthSeconds: 0,
+          script: null,
+          kind: "row",
+        },
+        {
+          time: "05:49:35",
+          timeSeconds: 20975,
+          cart: null,
+          description: "UW Credit (01:55) Support for WUWF comes from Alphastar Wealth Management",
+          lengthSeconds: null,
+          script: "Support for WUWF comes from Alphastar Wealth Management",
+          kind: "avail",
+          availDurationSeconds: 115,
+        },
+      ],
+    };
+    const plan = buildProgramLogPlan(inputs);
+    const me = plan.rundowns.find((rundown) => rundown.programId === "prog-me")!;
+    const brk = me.breaks.find((candidate) => candidate.time === "05:49:35")!;
+    expect(brk.label).toBe("Underwriting break");
+    expect(brk.availableDurationSeconds).toBe(115);
+    expect(brk.items).toEqual([
+      {
+        kind: "live_read",
+        title: "Underwriting live read",
+        durationSeconds: 30,
+        script: "Support for WUWF comes from Alphastar Wealth Management",
+      },
+    ]);
+  });
+
   it("dedupes the day's credits into copy plans with airing counts", () => {
     const plan = buildProgramLogPlan(baseInputs());
     const fpl = plan.copyPlans.find((copy) => copy.underwriterName === "FPM - FL Power & Light");

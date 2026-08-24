@@ -2514,6 +2514,11 @@ export interface Database {
         };
         Returns: string;
       };
+      /** Added by 20260824120000_log_underwriters_for_rundown_copy.sql — each referenced uw_copy row's underwriter name (direct or contract attribution) for the rundown screen's credit cards. */
+      log_underwriters_for_copy: {
+        Args: { p_copy_ids: string[] };
+        Returns: { copy_id: string; underwriter_name: string | null }[];
+      };
       /** Added by 20260821180000_log_program_log_import.sql — deletes an underwriting-credit item only when no uw_scheduled_placements row references it (a placement-backed credit must go through log_clear_underwriting_credit instead). */
       log_delete_unplaced_credit_item: {
         Args: { p_item_id: string };

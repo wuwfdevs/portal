@@ -605,6 +605,12 @@ export interface UnderwritingCopyForLog {
   duration_seconds: number | null;
   execution_kind: string;
   cart_identifier: string | null;
+  /**
+   * The underwriter the credit is for — resolved by
+   * log_underwriters_for_copy() (direct uw_copy.underwriter_id attribution
+   * or contract attribution), null only when neither names one.
+   */
+  underwriter_name: string | null;
 }
 
 /**
@@ -613,21 +619,30 @@ export interface UnderwritingCopyForLog {
  * Underwriting & Traffic to read a credit's copy. Readable here because of
  * `uw_copy_select_for_log` (20260808200000_underwriting_redesign.sql), a
  * narrow additive policy scoped to exactly the copy rows already referenced
- * by a log_rundown_items row. Underwriting remains the source of truth —
- * this is a read, never a write.
+ * by a log_rundown_items row. The underwriter's name rides along through
+ * `log_underwriters_for_copy()` (20260824120000_log_underwriters_for_
+ * rundown_copy.sql), a security-definer read with the same scope, since
+ * attribution can run through uw_contracts, which stays staff-only.
+ * Underwriting remains the source of truth — this is a read, never a write.
  */
 export async function listUnderwritingCopyForItems(copyIds: string[]): Promise<UnderwritingCopyForLog[]> {
   if (copyIds.length === 0) return [];
   const supabase = await createClient();
-  return (
-    unwrapRead(
-      await supabase
-        .from("uw_copy")
-        .select("id, label, script, duration_seconds, execution_kind, cart_identifier")
-        .in("id", copyIds),
-      "this rundown's underwriting copy",
-    ) ?? []
+  const [copy, underwriters] = await Promise.all([
+    supabase
+      .from("uw_copy")
+      .select("id, label, script, duration_seconds, execution_kind, cart_identifier")
+      .in("id", copyIds),
+    supabase.rpc("log_underwriters_for_copy", { p_copy_ids: copyIds }),
+  ]);
+  const rows = unwrapRead(copy, "this rundown's underwriting copy") ?? [];
+  const nameByCopyId = new Map(
+    (unwrapRead(underwriters, "this rundown's underwriters") ?? []).map((row) => [
+      row.copy_id,
+      row.underwriter_name,
+    ]),
   );
+  return rows.map((row) => ({ ...row, underwriter_name: nameByCopyId.get(row.id) ?? null }));
 }
 
 /**

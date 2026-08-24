@@ -40,7 +40,11 @@ import {
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
-import { buildRundownBreakDrafts, selectMissingBreakDrafts } from "@/lib/log/rundown-generation";
+import {
+  buildRundownBreakDrafts,
+  selectMissingBreakDrafts,
+  selectNonOverlappingBreakDrafts,
+} from "@/lib/log/rundown-generation";
 import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading } from "@/lib/log/weather";
@@ -163,16 +167,27 @@ export default async function RundownDetailPage({
       60_000,
   );
   // An imported rundown's breaks came from the uploaded program-log export,
-  // not from this clock's opportunities — "catching up with the clock"
-  // would only insert duplicates beside them, so the sync affordance never
-  // applies (see log_rundowns.source, 20260821180000_log_program_log_import.sql).
-  const missingBreakCount =
+  // which only prints the windows DAD scheduled something into — the
+  // clock's other local opportunities (a newscast cover, a promo slot) are
+  // real and fillable but absent from the export, so the same sync
+  // affordance applies with a window-overlap dedup in place of the exact
+  // opportunity+instant match (an export avail sits a second or two off the
+  // clock's own offset for the same window). See
+  // selectNonOverlappingBreakDrafts and syncRundownBreaks.
+  const allDrafts = buildRundownBreakDrafts(
+    currentOpportunities,
+    rundown.shift_start_at,
+    shiftDurationMinutes,
+  );
+  const missingDrafts = selectMissingBreakDrafts(allDrafts, rundown.breaks);
+  const missingBreakCount = (
     rundown.source === "imported"
-      ? 0
-      : selectMissingBreakDrafts(
-          buildRundownBreakDrafts(currentOpportunities, rundown.shift_start_at, shiftDurationMinutes),
-          rundown.breaks,
-        ).length;
+      ? selectNonOverlappingBreakDrafts(
+          missingDrafts,
+          rundown.breaks.filter((brk) => brk.local_opportunity_id === null),
+        )
+      : missingDrafts
+  ).length;
 
   // Per-break status, computed once for the whole rundown so a break can
   // read as 'covered_by_previous' when the break just before it holds
@@ -615,7 +630,15 @@ export default async function RundownDetailPage({
         item.override_live_intro_seconds !== null ||
         item.override_live_outro_seconds !== null ||
         item.override_tag_seconds !== null;
-      const title = item.contentItem?.title ?? item.live_read_title ?? copy?.label ?? "Weather";
+      // A credit card leads with WHO the credit is for — "Copy 2" alone
+      // identifies nothing to a host on air; the underwriter name comes
+      // from log_underwriters_for_copy (see listUnderwritingCopyForItems).
+      const copyTitle = copy
+        ? copy.underwriter_name
+          ? `${copy.underwriter_name} — ${copy.label}`
+          : copy.label
+        : null;
+      const title = item.contentItem?.title ?? item.live_read_title ?? copyTitle ?? "Weather";
       // Flags a look-ahead whose source story may no longer exist in the
       // current NPR episode data — a real, if rare, mid-broadcast story
       // substitution (see the migration's comment). Never auto-corrected;
@@ -817,10 +840,22 @@ export default async function RundownDetailPage({
 
       {missingBreakCount > 0 && (
         <Alert variant="note" className="mb-4">
-          This rundown was generated before{" "}
-          {missingBreakCount === 1 ? "an opportunity" : "some opportunities"}{" "}
-          {missingBreakCount === 1 ? "was" : "were"} added to this clock, so{" "}
-          {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.{" "}
+          {rundown.source === "imported" ? (
+            <>
+              The imported program log doesn&apos;t mention{" "}
+              {missingBreakCount === 1
+                ? "one of this clock's local windows"
+                : `${missingBreakCount} of this clock's local windows`}
+              , so {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.
+            </>
+          ) : (
+            <>
+              This rundown was generated before{" "}
+              {missingBreakCount === 1 ? "an opportunity" : "some opportunities"}{" "}
+              {missingBreakCount === 1 ? "was" : "were"} added to this clock, so{" "}
+              {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.
+            </>
+          )}{" "}
           <form action={syncRundownBreaks} className="mt-2 inline-block">
             <input type="hidden" name="rundown_id" value={rundown.id} />
             <Button type="submit" className="px-2.5 py-1.5 text-xs">
