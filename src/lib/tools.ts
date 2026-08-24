@@ -1,6 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { grantRequiredForTool, isListedOnDashboard } from "@/lib/tool-access-rules";
+import {
+  compareToolsForDashboard,
+  grantRequiredForTool,
+  isListedOnDashboard,
+} from "@/lib/tool-access-rules";
 import type { Database } from "@/lib/database.types";
 
 export type Tool = Database["public"]["Tables"]["tools"]["Row"];
@@ -30,11 +34,18 @@ export async function listToolsForCurrentUser(userId: string): Promise<ToolWithA
   // shows it to Roadmap members so a post can target it, and it must not
   // become a dashboard card. `hasAccess` additionally honors a registry row
   // that is open to all active staff; both rules live in tool-access-rules.ts.
-  return (tools ?? []).filter(isListedOnDashboard).map((tool) => ({
-    tool,
-    hasAccess: accessByToolId.has(tool.id) || !grantRequiredForTool(tool),
-    toolRole: accessByToolId.get(tool.id) ?? null,
-  }));
+  // `hasAccess` is deliberately about the grant/open-access question alone —
+  // whether the registry row is currently enabled is a separate axis that
+  // ToolCard reads straight off `tool.enabled` (see getToolCardState), the
+  // same thing canOpenTool in lib/auth/authz.ts checks for the actual gate.
+  return (tools ?? [])
+    .filter(isListedOnDashboard)
+    .sort(compareToolsForDashboard)
+    .map((tool) => ({
+      tool,
+      hasAccess: accessByToolId.has(tool.id) || !grantRequiredForTool(tool),
+      toolRole: accessByToolId.get(tool.id) ?? null,
+    }));
 }
 
 export async function getToolByKey(key: string): Promise<Tool | null> {

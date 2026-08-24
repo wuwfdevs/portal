@@ -6,7 +6,7 @@ import { getToolCardState } from "@/lib/tool-card-state";
 import type { ToolWithAccess } from "@/lib/tools";
 
 export function ToolCard({ tool, hasAccess }: ToolWithAccess) {
-  const { mode, statusLabel, actionLabel } = getToolCardState(tool.status, hasAccess);
+  const { mode, statusLabel, actionLabel } = getToolCardState(tool.status, tool.enabled, hasAccess);
   // Belt to listToolsForCurrentUser's braces: a proposed tool never becomes a
   // card, whichever list it reached this component through.
   if (mode === "hidden") return null;
@@ -72,7 +72,7 @@ export function ToolCard({ tool, hasAccess }: ToolWithAccess) {
         </p>
       )}
 
-      {mode === "unavailable" && (
+      {mode === "unavailable" && actionLabel && (
         <Link
           href={tool.route}
           className="mt-1 flex items-center justify-center rounded border border-line py-2.5 text-sm font-bold text-ink-500 hover:bg-panel-50"

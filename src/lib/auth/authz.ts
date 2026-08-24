@@ -78,15 +78,21 @@ export async function hasToolAccess(userId: string, toolId: string): Promise<boo
 }
 
 /**
- * Whether this user may open this tool: an active grant, or a registry row
- * whose `default_access` opens it to every active staff member. The second
- * branch is `grantRequiredForTool` in lib/tool-access-rules.ts — see that
- * file, and docs/roadmap-design.md §6, for why the column is read rather than
- * a tool key special-cased. RLS is still the real boundary; the matching
- * predicate in SQL is each tool's own `private.has_*_access`.
+ * Whether this user may open this tool: the registry row must be enabled,
+ * and the user needs either an active grant or a registry row whose
+ * `default_access` opens it to every active staff member. The `enabled`
+ * check applies regardless of which access path admits the user — a tool an
+ * administrator has switched off via /admin/tools must not stay reachable
+ * for someone who already holds a grant from before it was disabled. The
+ * grant-vs-open-access branch is `grantRequiredForTool` in
+ * lib/tool-access-rules.ts — see that file, and docs/roadmap-design.md §6,
+ * for why the column is read rather than a tool key special-cased. RLS is
+ * still the real boundary; the matching predicate in SQL is each tool's own
+ * `private.has_*_access`.
  */
 async function canOpenTool(userId: string, tool: Tool): Promise<boolean> {
-  if (!grantRequiredForTool(tool)) return tool.enabled;
+  if (!tool.enabled) return false;
+  if (!grantRequiredForTool(tool)) return true;
   return hasToolAccess(userId, tool.id);
 }
 
