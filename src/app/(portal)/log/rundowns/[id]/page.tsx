@@ -208,6 +208,30 @@ export default async function RundownDetailPage({
   );
   const breakLabelById = new Map(rundown.breaks.map((brk) => [brk.id, brk.label]));
 
+  // The rejoin deadline for a break, extended through planned spillover:
+  // when a break's content is planned to run through the following
+  // break(s) (covered_by_previous / preempted_by_previous, from the same
+  // computeBreakStatuses pass as the badges), "back to the network feed"
+  // happens at the end of the covered chain, not at the break's own
+  // boundary. Spillover only ever chains through contiguous breaks (no-gap
+  // rule in lib/log/timing.ts), so walking forward while the next break is
+  // covered is exact. Returns the covering chain's last break too, so the
+  // sidebar widget can say why the time is later than the break's own.
+  const effectiveRejoin = (breakId: string): { rejoinAt: string; runsThroughLabel: string | null } => {
+    const index = rundown.breaks.findIndex((brk) => brk.id === breakId);
+    if (index === -1) return { rejoinAt: rundown.shift_end_at, runsThroughLabel: null };
+    let last = index;
+    while (last + 1 < rundown.breaks.length) {
+      const status = breakStatusesById.get(rundown.breaks[last + 1]!.id)?.status;
+      if (status !== "covered_by_previous" && status !== "preempted_by_previous") break;
+      last += 1;
+    }
+    return {
+      rejoinAt: rundown.breaks[last]!.network_rejoin_at,
+      runsThroughLabel: last === index ? null : rundown.breaks[last]!.label,
+    };
+  };
+
   // Each item's own on-air start/end time, prominent on its card — derived
   // from the break's scheduled_at plus every earlier item's duration in the
   // same break (lib/log/timing.ts's computeItemTimings), keyed per break so
@@ -906,24 +930,37 @@ export default async function RundownDetailPage({
             shift end only shows when no local break remains ahead — it was
             never the number a host needed mid-break. */}
         {live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0 ? (
-          <>
-            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-              {formatStationClockTime(timing.currentBreak.network_rejoin_at)}
-            </p>
-            <p className="mt-1 text-xs text-ink-400">
-              When the current break ends — back to the network feed.
-            </p>
-          </>
+          (() => {
+            const { rejoinAt, runsThroughLabel } = effectiveRejoin(timing.currentBreak.id);
+            return (
+              <>
+                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+                  {formatStationClockTime(rejoinAt)}
+                </p>
+                <p className="mt-1 text-xs text-ink-400">
+                  {runsThroughLabel
+                    ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
+                    : "When the current break ends — back to the network feed."}
+                </p>
+              </>
+            );
+          })()
         ) : live && timing?.nextBreak ? (
-          <>
-            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-              {formatStationClockTime(timing.nextBreak.network_rejoin_at)}
-            </p>
-            <p className="mt-1 text-xs text-ink-400">
-              After the next break (starts {formatStationClockTime(timing.nextBreak.scheduled_at)}) —
-              carrying the network feed until then.
-            </p>
-          </>
+          (() => {
+            const { rejoinAt, runsThroughLabel } = effectiveRejoin(timing.nextBreak.id);
+            return (
+              <>
+                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+                  {formatStationClockTime(rejoinAt)}
+                </p>
+                <p className="mt-1 text-xs text-ink-400">
+                  After the next break (starts {formatStationClockTime(timing.nextBreak.scheduled_at)}
+                  {runsThroughLabel ? `, planned to run through ${runsThroughLabel}'s window` : ""}) —
+                  carrying the network feed until then.
+                </p>
+              </>
+            );
+          })()
         ) : (
           <>
             <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
