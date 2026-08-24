@@ -640,20 +640,22 @@ export default async function RundownDetailPage({
     );
   };
 
-  // The rejoin widget's floating-break warning: a float's stored rejoin is
-  // the window's worst case, not a cue — the network decides exactly when
-  // the break arrives, so the host has to catch it by ear. Says so
-  // outright, with today's estimated landing when the story math gives one.
+  // The rejoin widget's floating-break flag: a host already knows what a
+  // floating break is and that it means "listen for it," so this stays a
+  // short label — not the full explanation floatHintForBreak's own card
+  // hint spells out. Today's NPR-estimated landing rides along when the
+  // story math gives one, since that's the one piece of new information
+  // the label alone doesn't carry.
   const floatListenNote = (breakId: string): string | null => {
     const details = floatDetailsForBreak(breakId);
     if (!details) return null;
-    const { windowLabel, atOffset, landing, boundaryTitle, spanningTitle } = details;
-    const base = `Floating break — the network decides exactly when it arrives inside ${windowLabel}, so listen for it on the feed; the time above is the latest you could still be on local content.`;
+    const { atOffset, landing, boundaryTitle, spanningTitle } = details;
+    const base = "Floating break";
     if (landing?.basis === "story_boundary") {
-      return `${base} Today's stories put it at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}.`;
+      return `${base} — estimated at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}.`;
     }
     if (landing && spanningTitle) {
-      return `${base} "${spanningTitle}" is estimated to run through the whole window.`;
+      return `${base} — "${spanningTitle}" is estimated to run through the whole window.`;
     }
     return base;
   };
