@@ -208,6 +208,33 @@ export default async function RundownDetailPage({
   );
   const breakLabelById = new Map(rundown.breaks.map((brk) => [brk.id, brk.label]));
 
+  // The rejoin deadline for a break, extended through planned spillover:
+  // when a break's content is planned to run through the following
+  // break(s) (covered_by_previous / preempted_by_previous, from the same
+  // computeBreakStatuses pass as the badges), "back to the network feed"
+  // happens at the end of the covered chain, not at the break's own
+  // boundary. Spillover only ever chains through contiguous breaks (no-gap
+  // rule in lib/log/timing.ts), so walking forward while the next break is
+  // covered is exact. Returns the covering chain's last break too, so the
+  // sidebar widget can say why the time is later than the break's own.
+  const effectiveRejoin = (
+    breakId: string,
+  ): { rejoinAt: string; runsThroughLabel: string | null; finalBreakId: string | null } => {
+    const index = rundown.breaks.findIndex((brk) => brk.id === breakId);
+    if (index === -1) return { rejoinAt: rundown.shift_end_at, runsThroughLabel: null, finalBreakId: null };
+    let last = index;
+    while (last + 1 < rundown.breaks.length) {
+      const status = breakStatusesById.get(rundown.breaks[last + 1]!.id)?.status;
+      if (status !== "covered_by_previous" && status !== "preempted_by_previous") break;
+      last += 1;
+    }
+    return {
+      rejoinAt: rundown.breaks[last]!.network_rejoin_at,
+      runsThroughLabel: last === index ? null : rundown.breaks[last]!.label,
+      finalBreakId: rundown.breaks[last]!.id,
+    };
+  };
+
   // Each item's own on-air start/end time, prominent on its card — derived
   // from the break's scheduled_at plus every earlier item's duration in the
   // same break (lib/log/timing.ts's computeItemTimings), keyed per break so
@@ -537,7 +564,15 @@ export default async function RundownDetailPage({
   // real position within its earliest/latest window is decided by where the
   // network's stories break around it.
   const opportunityById = new Map(currentOpportunities.map((opportunity) => [opportunity.id, opportunity]));
-  const floatHintForBreak = (brk: RundownBreakDetail, breakIndex: number): ReactNode => {
+
+  // One computation of a floating break's window and today's estimated
+  // landing, shared by the break card's hint and the rejoin widget's
+  // listen-for-it note below — the two must never disagree about where a
+  // float lands.
+  const floatDetailsForBreak = (breakId: string) => {
+    const breakIndex = rundown.breaks.findIndex((brk) => brk.id === breakId);
+    if (breakIndex === -1) return null;
+    const brk = rundown.breaks[breakIndex]!;
     const opportunity =
       brk.local_opportunity_id === null ? undefined : opportunityById.get(brk.local_opportunity_id);
     if (
@@ -552,27 +587,36 @@ export default async function RundownDetailPage({
     const atOffset = (offsetSeconds: number) =>
       formatStationTimeHM(new Date(shiftStartMs + offsetSeconds * 1000).toISOString());
     const windowLabel = `${atOffset(hourStart + opportunity.earliest_start_offset_seconds)}–${atOffset(hourStart + opportunity.latest_start_offset_seconds)}`;
-    if (!hasStoryTimes) {
+    const landing = hasStoryTimes
+      ? estimateFloatLanding(
+          {
+            earliestOffsetSeconds: hourStart + opportunity.earliest_start_offset_seconds,
+            latestOffsetSeconds: hourStart + opportunity.latest_start_offset_seconds,
+            nominalOffsetSeconds: breakOffset,
+          },
+          shiftAirings,
+        )
+      : null;
+    const boundaryTitle = landing?.boundaryStoryId
+      ? (lookaheadByNprItemId.get(landing.boundaryStoryId)?.title ?? null)
+      : null;
+    const spanningTitle = landing?.spanningStoryId
+      ? (lookaheadByNprItemId.get(landing.spanningStoryId)?.title ?? null)
+      : null;
+    return { windowLabel, atOffset, landing, boundaryTitle, spanningTitle };
+  };
+
+  const floatHintForBreak = (brk: RundownBreakDetail): ReactNode => {
+    const details = floatDetailsForBreak(brk.id);
+    if (!details) return null;
+    const { windowLabel, atOffset, landing, boundaryTitle, spanningTitle } = details;
+    if (!landing) {
       return (
         <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
           Floating break — the network places it anywhere in {windowLabel}.
         </div>
       );
     }
-    const landing = estimateFloatLanding(
-      {
-        earliestOffsetSeconds: hourStart + opportunity.earliest_start_offset_seconds,
-        latestOffsetSeconds: hourStart + opportunity.latest_start_offset_seconds,
-        nominalOffsetSeconds: breakOffset,
-      },
-      shiftAirings,
-    );
-    const boundaryTitle = landing.boundaryStoryId
-      ? lookaheadByNprItemId.get(landing.boundaryStoryId)?.title
-      : null;
-    const spanningTitle = landing.spanningStoryId
-      ? lookaheadByNprItemId.get(landing.spanningStoryId)?.title
-      : null;
     return (
       <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
         Floating break (window {windowLabel}) — {" "}
@@ -596,12 +640,32 @@ export default async function RundownDetailPage({
     );
   };
 
+  // The rejoin widget's floating-break flag: a host already knows what a
+  // floating break is and that it means "listen for it," so this stays a
+  // short label — not the full explanation floatHintForBreak's own card
+  // hint spells out. Today's NPR-estimated landing rides along when the
+  // story math gives one, since that's the one piece of new information
+  // the label alone doesn't carry.
+  const floatListenNote = (breakId: string): string | null => {
+    const details = floatDetailsForBreak(breakId);
+    if (!details) return null;
+    const { atOffset, landing, boundaryTitle, spanningTitle } = details;
+    const base = "Floating break";
+    if (landing?.basis === "story_boundary") {
+      return `${base} — estimated at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}.`;
+    }
+    if (landing && spanningTitle) {
+      return `${base} — "${spanningTitle}" is estimated to run through the whole window.`;
+    }
+    return base;
+  };
+
   const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk, breakIndex) => {
     const result = breakStatusesById.get(brk.id);
     const fit = result!.fit;
     const status = result!.status;
     const isCurrent = live && brk.id === currentBreakId;
-    const floatHint = floatHintForBreak(brk, breakIndex);
+    const floatHint = floatHintForBreak(brk);
 
     const statusBadge =
       status === "carrying_network" ? (
@@ -900,9 +964,63 @@ export default async function RundownDetailPage({
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
           Network rejoin
         </div>
-        <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-          {formatStationClockTime(rundown.shift_end_at)}
-        </p>
+        {/* The operative deadline, not the end of the program: while a break
+            is airing, when it must hand back to the network feed; once that
+            has passed (or between breaks), the next break's own rejoin. The
+            shift end only shows when no local break remains ahead — it was
+            never the number a host needed mid-break. */}
+        {live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0 ? (
+          (() => {
+            const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.currentBreak.id);
+            // The float note applies to whichever break the rejoin time
+            // actually names — the end of a covered chain, when there is
+            // one, not necessarily the current break itself.
+            const listenNote = finalBreakId ? floatListenNote(finalBreakId) : null;
+            return (
+              <>
+                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+                  {formatStationClockTime(rejoinAt)}
+                </p>
+                <p className="mt-1 text-xs text-ink-400">
+                  {listenNote ??
+                    (runsThroughLabel
+                      ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
+                      : "When the current break ends — back to the network feed.")}
+                </p>
+              </>
+            );
+          })()
+        ) : live && timing?.nextBreak ? (
+          (() => {
+            const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.nextBreak.id);
+            const listenNote = finalBreakId ? floatListenNote(finalBreakId) : null;
+            return (
+              <>
+                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+                  {formatStationClockTime(rejoinAt)}
+                </p>
+                <p className="mt-1 text-xs text-ink-400">
+                  {listenNote ?? (
+                    <>
+                      After the next break (starts {formatStationClockTime(timing.nextBreak.scheduled_at)}
+                      {runsThroughLabel ? `, planned to run through ${runsThroughLabel}'s window` : ""}) —
+                      carrying the network feed until then.
+                    </>
+                  )}
+                </p>
+              </>
+            );
+          })()
+        ) : (
+          <>
+            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
+              {formatStationClockTime(rundown.shift_end_at)}
+            </p>
+            <p className="mt-1 text-xs text-ink-400">
+              End of this shift{live ? " — no local breaks remain" : ""}.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="rounded border border-line p-4">
