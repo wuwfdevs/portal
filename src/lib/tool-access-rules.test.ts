@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { grantRequiredForTool, isListedOnDashboard } from "./tool-access-rules";
+import {
+  compareToolsForDashboard,
+  grantRequiredForTool,
+  isListedOnDashboard,
+} from "./tool-access-rules";
 
 describe("grantRequiredForTool", () => {
   it("requires a grant for an invite_only tool, which is every tool but Roadmap", () => {
@@ -26,5 +30,35 @@ describe("isListedOnDashboard", () => {
     for (const status of ["available", "in_development", "planned"] as const) {
       expect(isListedOnDashboard({ status, default_access: "invite_only" })).toBe(true);
     }
+  });
+});
+
+describe("compareToolsForDashboard", () => {
+  it("sorts available tools ahead of in-development and planned ones", () => {
+    const rows = [
+      { status: "planned", sort_order: 0 },
+      { status: "in_development", sort_order: 0 },
+      { status: "available", sort_order: 0 },
+    ] as const;
+    const sorted = [...rows].sort(compareToolsForDashboard);
+    expect(sorted.map((r) => r.status)).toEqual(["available", "in_development", "planned"]);
+  });
+
+  it("breaks ties within a status by sort_order", () => {
+    const rows = [
+      { status: "available", sort_order: 2 },
+      { status: "available", sort_order: 1 },
+    ] as const;
+    const sorted = [...rows].sort(compareToolsForDashboard);
+    expect(sorted.map((r) => r.sort_order)).toEqual([1, 2]);
+  });
+
+  it("never lets a high sort_order pull a planned tool ahead of an available one", () => {
+    const rows = [
+      { status: "planned", sort_order: 0 },
+      { status: "available", sort_order: 99 },
+    ] as const;
+    const sorted = [...rows].sort(compareToolsForDashboard);
+    expect(sorted.map((r) => r.status)).toEqual(["available", "planned"]);
   });
 });
