@@ -3,17 +3,17 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-// A whole-screen text-size control for the rundown/console screen
-// (docs/log-design.md §13's "readable copy at an adjustable size" already
-// covers the current break's own script via copy-display.tsx's own A-/A+ —
-// this is the broader control the rest of the screen needed too: break
-// times, item titles, the current-time widget). Persisted per browser via
-// localStorage, not per host — unlike copy-display.tsx's own per-visit
-// control (deliberately not persisted, since it's "used by whatever machine
-// is in the studio at the time, not carried between hosts or sessions"),
-// the studio's own screen and a host's seating distance from it are
-// physical facts about *that room*, not about who's on shift, so
-// remembering the choice across visits is the right call here.
+// A whole-screen text-size control for the rundown/console screen — as of
+// 2026-08-24 THE text-size control, full stop: it is how
+// docs/log-design.md §13's "readable copy at an adjustable size" is met.
+// (The current break used to also render through its own larger-type
+// CopyDisplay with separate A-/A+ buttons; two independent size systems on
+// one screen read as needlessly complicated, so that was removed — the
+// host adjusts here and everything scales together.) Persisted per browser
+// via localStorage, not per host — the studio's own screen and a host's
+// seating distance from it are physical facts about *that room*, not about
+// who's on shift, so remembering the choice across visits is the right
+// call.
 //
 // Applied via CSS `zoom` (TextScaleZoom below), not by swapping every
 // component's Tailwind text-size class: zoom scales an entire subtree —

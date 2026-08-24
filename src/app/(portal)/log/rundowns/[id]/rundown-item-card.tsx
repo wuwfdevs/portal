@@ -31,7 +31,7 @@ export interface RundownItemCardBaseProps {
   rundownId: string;
   itemId: string;
   title: string;
-  /** Null when the read view already shows its own duration (the live CopyDisplay doesn't). */
+  /** Null when the read view already shows its own duration. */
   durationSeconds: number | null;
   editable: boolean;
   removable: boolean;

@@ -731,9 +731,12 @@ whenever `rundown.status` is `in_progress` or `submitted` (the `live`
 flag in `src/app/(portal)/log/rundowns/[id]/page.tsx`); when not live, none
 of the live-only data (broadcast events, weather, NPR) is even fetched. The
 break currently airing gets a visual highlight and an anchor
-(`#current-break`, with a "Jump to now" link) and its items render through
-`CopyDisplay` (adjustable text size) instead of the plain compact card every
-other break uses. Mid-broadcast actions (aired/missed/move) appear on any
+(`#current-break`, with a "Jump to now" link); its items render through the
+same card layout as every other break, with the sticky header's whole-screen
+Text size control (`components/log/text-scale.tsx`) as the one way copy gets
+bigger — a separate larger-type view for the current break, with its own
+size buttons, existed and was removed 2026-08-24 as a second, confusingly
+independent size system. Mid-broadcast actions (aired/missed/move) appear on any
 unconfirmed item in *any* break once live, not only the current one — the
 whole show is visible at once, so a host can act on something from three
 breaks back exactly as easily as on what's airing right now, which a
