@@ -67,7 +67,6 @@ import {
   syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
-import { CopyDisplay } from "./copy-display";
 import type { NprLookaheadItem } from "./live-read-form";
 import type { InsertConfig } from "./insertion-point";
 import { RundownLiveLayout } from "./rundown-live-layout";
@@ -354,10 +353,14 @@ export default async function RundownDetailPage({
     });
   };
 
-  // The sidebar's "coming up" panel: stories for the upcoming break by the
-  // station's current wall clock (the page re-renders on LogPoller's
-  // interval, so this tracks the broadcast as it runs). Before the shift
-  // that's the first break; after the last break, the last one's tail.
+  // The sidebar's "coming up" panel: the next *story segment's* stories, by
+  // the station's wall clock (the page re-renders on LogPoller's interval,
+  // so this tracks the broadcast as it runs). Starting at the upcoming
+  // break, walk the break-to-break windows forward and show the first one
+  // that actually contains stories — scoping to exactly the upcoming
+  // break's own window left the panel blank whenever the next break was a
+  // short music-bed cover with another break right behind it, which during
+  // a live broadcast was most of the time.
   const nowMs = new Date(now).getTime();
   const upcomingBreakIndex =
     rundown.breaks.length === 0
@@ -368,14 +371,20 @@ export default async function RundownDetailPage({
           );
           return index === -1 ? breakStartOffsets.length - 1 : index;
         })();
-  const sidebarNprStories =
-    hasStoryTimes && upcomingBreakIndex !== null
-      ? storiesAfterBreak(upcomingBreakIndex)
-      : nprLookaheadItems.slice(0, 4);
-  const sidebarNprHeading =
-    hasStoryTimes && upcomingBreakIndex !== null
-      ? `After the ${formatStationTimeHM(rundown.breaks[upcomingBreakIndex]!.scheduled_at)} break`
-      : null;
+  const nextStoryWindow = (() => {
+    if (!hasStoryTimes || upcomingBreakIndex === null) return null;
+    for (let index = upcomingBreakIndex; index < rundown.breaks.length; index++) {
+      const stories = storiesAfterBreak(index);
+      if (stories.length > 0) return { breakIndex: index, stories };
+    }
+    return null;
+  })();
+  const sidebarNprStories = hasStoryTimes
+    ? (nextStoryWindow?.stories ?? [])
+    : nprLookaheadItems.slice(0, 4);
+  const sidebarNprHeading = nextStoryWindow
+    ? `After the ${formatStationTimeHM(rundown.breaks[nextStoryWindow.breakIndex]!.scheduled_at)} break`
+    : null;
 
   const unresolvedEntries = live
     ? listUnresolvedEntries(
@@ -445,14 +454,14 @@ export default async function RundownDetailPage({
   // asking the host to separately go create a makegood in Underwriting &
   // Traffic. See CLAUDE.md's 2026-08-09 note: only a credit still missed
   // and unmoved when the broadcast wraps escalates to that tool at all.
-  const renderMidBroadcastActions = (item: RundownItemDetail, compact: boolean, breakScheduledAt: string) => {
+  const renderMidBroadcastActions = (item: RundownItemDetail, breakScheduledAt: string) => {
     if (!live || item.item_kind !== "underwriting_credit" || airedItemIds.has(item.id)) return null;
 
     const missed = (eventCountByItem.get(item.id) ?? 0) > 0;
 
     if (missed) {
       return (
-        <div className={`rounded border-2 border-danger bg-danger/5 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+        <div className="mt-2 rounded border-2 border-danger bg-danger/5 p-3">
           <p className="text-sm font-semibold text-ink-900">
             Missed at {formatStationClockTime(breakScheduledAt)}.
           </p>
@@ -467,7 +476,7 @@ export default async function RundownDetailPage({
     }
 
     return (
-      <div className={`rounded border-2 border-brand-primary bg-brand-surface/30 p-3 ${compact ? "mt-2" : "mt-3"}`}>
+      <div className="mt-2 rounded border-2 border-brand-primary bg-brand-surface/30 p-3">
         <p className="mb-2 text-sm font-semibold text-ink-900">
           Did this air at {formatStationClockTime(breakScheduledAt)}?
         </p>
@@ -665,6 +674,12 @@ export default async function RundownDetailPage({
       const defaultDurationSeconds =
         item.item_kind === "weather" ? WEATHER_DEFAULT_DURATION_SECONDS : masterDuration;
 
+      // One card layout, current break or not — the current break is
+      // highlighted at the break level ("Live now", the highlight ring,
+      // #current-break), and the sticky header's Text size control is the
+      // one way copy gets bigger: it zooms the whole screen, so a special
+      // larger-type view here (the old CopyDisplay, with its own separate
+      // size buttons) was a second, confusingly independent size system.
       const readView = (
         <>
           {nprSourceStale && (
@@ -672,40 +687,34 @@ export default async function RundownDetailPage({
               Source story may have changed — check before airing
             </Badge>
           )}
-          {isCurrent ? (
-            <CopyDisplay
-              title={title}
-              script={effectiveScript}
-              summary={item.contentItem?.summary ?? null}
-              startLabel={startLabel}
-            />
-          ) : (
-            <div className="min-w-0">
-              {startLabel && (
-                <p className="mb-1 font-mono text-base font-extrabold text-ink-900 tabular-nums">
-                  {startLabel}
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
-                <span className="text-base font-semibold text-ink-900">{title}</span>
-              </div>
-              {item.contentItem && (
-                <div className="mt-0.5 text-xs text-ink-400">
-                  {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
-                  {masterDuration !== null && ` · master ${masterDuration}s`}
-                </div>
-              )}
-              {copy && (
-                <div className="mt-0.5 text-xs text-ink-400">
-                  {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
-                </div>
-              )}
-              {effectiveScript && (
-                <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
-              )}
+          <div className="min-w-0">
+            {startLabel && (
+              <p className="mb-1 font-mono text-base font-extrabold text-ink-900 tabular-nums">
+                {startLabel}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {isOverridden && <Badge variant="warning">overridden for this airing</Badge>}
+              <span className="text-base font-semibold text-ink-900">{title}</span>
             </div>
-          )}
+            {item.contentItem && (
+              <div className="mt-0.5 text-xs text-ink-400">
+                {CONTENT_TYPE_LABEL[item.contentItem.content_type]}
+                {masterDuration !== null && ` · master ${masterDuration}s`}
+              </div>
+            )}
+            {copy && (
+              <div className="mt-0.5 text-xs text-ink-400">
+                {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+              </div>
+            )}
+            {effectiveScript && (
+              <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
+            )}
+            {!effectiveScript && item.contentItem?.summary && (
+              <p className="mt-1.5 text-sm text-ink-700">{item.contentItem.summary}</p>
+            )}
+          </div>
         </>
       );
 
@@ -724,7 +733,7 @@ export default async function RundownDetailPage({
           rundownId: rundown.id,
           itemId: item.id,
           title,
-          durationSeconds: isCurrent ? null : itemDuration(item),
+          durationSeconds: itemDuration(item),
           editable: item.item_kind === "content" || item.item_kind === "weather",
           // An imported rundown's credits have no placement behind them, so
           // the host can remove one (removeRundownItem routes credits
@@ -737,7 +746,7 @@ export default async function RundownDetailPage({
           defaultDurationSeconds,
           updateItemOverridesAction: updateItemOverrides,
           removeRundownItemAction: removeRundownItem,
-          midBroadcastActions: renderMidBroadcastActions(item, !isCurrent, brk.scheduled_at),
+          midBroadcastActions: renderMidBroadcastActions(item, brk.scheduled_at),
           readView,
         },
       };
@@ -975,8 +984,8 @@ export default async function RundownDetailPage({
           </>
         ) : npr?.kind === "found" ? (
           <p className="text-xs text-ink-400">
-            {sidebarNprHeading
-              ? `No stories estimated between the upcoming break and the next one.`
+            {hasStoryTimes
+              ? `No more stories estimated for this shift.`
               : `CDS returned this episode with no story items yet.`}
           </p>
         ) : npr?.kind === "unmapped" || npr?.kind === "not_configured" ? (

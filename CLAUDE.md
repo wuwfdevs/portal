@@ -1001,10 +1001,14 @@ fixes the derivation reproduces the official rundown segment-for-segment,
 within a minute everywhere. Estimates always render with "~"
 (`formatStationTimeHM`). Three surfaces consume them: `/log/npr`'s Est.
 air/Length columns (anchored to that program+date's generated rundown —
-no rundown, no time column); the rundown screen's NPR sidebar (only the
-stories for the **upcoming break** by the station's wall clock); and the
-per-break "Create live read" look-ahead picker (only that break's
-stories), per direct product feedback. A clock with no `segment_label`ed
+no rundown, no time column); the rundown screen's NPR sidebar (the next
+*story segment's* stories by the station's wall clock — revised
+2026-08-24: it walks break-to-break windows forward from the upcoming
+break and shows the first non-empty one, because scoping to exactly the
+upcoming break's own window was usually empty mid-broadcast and read as
+the widget being broken); and the per-break "Create live read" look-ahead
+picker (only that break's stories — that one keeps its strict break-window
+scope), per direct product feedback. A clock with no `segment_label`ed
 slots produces no estimates and every surface degrades to the order-only
 behavior. Floating breaks get their own per-day estimate
 (`estimateFloatLanding`): a float's real position within its
@@ -1547,8 +1551,10 @@ deleted outright, not redirected. Every break renders in chronological
 order at all times, live or not (`const live = rundown.status ===
 "in_progress" || rundown.status === "submitted"`). Once live: the current
 break gets a visual highlight plus a `#current-break` anchor ("Jump to
-now"), its items render through the adjustable-text-size `CopyDisplay`
-instead of the plain compact card every other break uses, and the three
+now"), its items render through the same card layout as every other break
+(the sticky header's whole-screen Text size control is the one text-size
+system — the current break's separate larger-type CopyDisplay view was
+removed 2026-08-24), and the three
 mid-broadcast actions (aired/missed/move) appear on any unconfirmed item in
 *any* break, not only the current one — the whole show being visible at
 once is what makes "full context and control," the actual goal, mean
