@@ -1001,10 +1001,13 @@ fixes the derivation reproduces the official rundown segment-for-segment,
 within a minute everywhere. Estimates always render with "~"
 (`formatStationTimeHM`). Three surfaces consume them: `/log/npr`'s Est.
 air/Length columns (anchored to that program+date's generated rundown —
-no rundown, no time column); the rundown screen's NPR sidebar (only the
-stories for the **upcoming break** by the station's wall clock); and the
-per-break "Create live read" look-ahead picker (only that break's
-stories), per direct product feedback. A clock with no `segment_label`ed
+no rundown, no time column); the rundown screen's NPR sidebar (every
+story still estimated to air from the station's wall clock onward, capped
+— revised 2026-08-24: it originally scoped to the next break-to-break
+window, which was usually empty mid-broadcast and read as the widget
+being broken); and the per-break "Create live read" look-ahead picker
+(only that break's stories — that one keeps its break-window scope), per
+direct product feedback. A clock with no `segment_label`ed
 slots produces no estimates and every surface degrades to the order-only
 behavior. Floating breaks get their own per-day estimate
 (`estimateFloatLanding`): a float's real position within its

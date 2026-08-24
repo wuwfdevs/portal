@@ -67,7 +67,7 @@ import {
   syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
-import { CopyDisplay } from "./copy-display";
+import { CopyDisplay, CopySizeControl } from "./copy-display";
 import type { NprLookaheadItem } from "./live-read-form";
 import type { InsertConfig } from "./insertion-point";
 import { RundownLiveLayout } from "./rundown-live-layout";
@@ -354,28 +354,24 @@ export default async function RundownDetailPage({
     });
   };
 
-  // The sidebar's "coming up" panel: stories for the upcoming break by the
-  // station's current wall clock (the page re-renders on LogPoller's
-  // interval, so this tracks the broadcast as it runs). Before the shift
-  // that's the first break; after the last break, the last one's tail.
+  // The sidebar's "coming up" panel: every story still estimated to air
+  // from the station's current wall clock onward (the page re-renders on
+  // LogPoller's interval, so this tracks the broadcast as it runs), capped
+  // to a glanceable handful. Deliberately NOT scoped to the next
+  // break-to-break window the way the per-break live-read picker is
+  // (storiesAfterBreak above): with breaks minutes — and, on a synced
+  // rundown, sometimes seconds — apart, that window was usually empty, so
+  // the panel showed no stories at all for most of a live broadcast.
   const nowMs = new Date(now).getTime();
-  const upcomingBreakIndex =
-    rundown.breaks.length === 0
-      ? null
-      : (() => {
-          const index = breakStartOffsets.findIndex(
-            (offset) => shiftStartMs + offset * 1000 >= nowMs,
-          );
-          return index === -1 ? breakStartOffsets.length - 1 : index;
-        })();
-  const sidebarNprStories =
-    hasStoryTimes && upcomingBreakIndex !== null
-      ? storiesAfterBreak(upcomingBreakIndex)
-      : nprLookaheadItems.slice(0, 4);
-  const sidebarNprHeading =
-    hasStoryTimes && upcomingBreakIndex !== null
-      ? `After the ${formatStationTimeHM(rundown.breaks[upcomingBreakIndex]!.scheduled_at)} break`
-      : null;
+  const SIDEBAR_STORY_LIMIT = 6;
+  const sidebarNprStories = hasStoryTimes
+    ? selectAiringsInWindow(shiftAirings, (nowMs - shiftStartMs) / 1000, null)
+        .slice(0, SIDEBAR_STORY_LIMIT)
+        .flatMap((airing) => {
+          const item = lookaheadByNprItemId.get(airing.npr_item_id);
+          return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(airing.offsetSeconds) }] : [];
+        })
+    : nprLookaheadItems.slice(0, 4);
 
   const unresolvedEntries = live
     ? listUnresolvedEntries(
@@ -765,6 +761,7 @@ export default async function RundownDetailPage({
               Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
               available
             </span>
+            {isCurrent && <CopySizeControl />}
           </div>
           {floatHint}
         </>
@@ -952,7 +949,6 @@ export default async function RundownDetailPage({
         </div>
         {npr?.kind === "found" && sidebarNprStories.length > 0 ? (
           <>
-            {sidebarNprHeading && <p className="mb-2 text-xs text-ink-400">{sidebarNprHeading}</p>}
             <ul className="flex flex-col gap-2">
               {/* The teaser (CDS's longer editorial description) is what a
                   host actually forward-promotes from, so it leads here; the
@@ -975,8 +971,8 @@ export default async function RundownDetailPage({
           </>
         ) : npr?.kind === "found" ? (
           <p className="text-xs text-ink-400">
-            {sidebarNprHeading
-              ? `No stories estimated between the upcoming break and the next one.`
+            {hasStoryTimes
+              ? `No more stories estimated for this shift.`
               : `CDS returned this episode with no story items yet.`}
           </p>
         ) : npr?.kind === "unmapped" || npr?.kind === "not_configured" ? (
