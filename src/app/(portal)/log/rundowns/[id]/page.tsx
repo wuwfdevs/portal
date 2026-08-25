@@ -51,6 +51,7 @@ import { getCurrentWeatherReading } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { StationClock } from "@/components/log/station-clock";
+import { Countdown } from "@/components/log/countdown";
 import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
@@ -640,24 +641,21 @@ export default async function RundownDetailPage({
     );
   };
 
-  // The rejoin widget's floating-break flag: a host already knows what a
-  // floating break is and that it means "listen for it," so this stays a
-  // short label — not the full explanation floatHintForBreak's own card
-  // hint spells out. Today's NPR-estimated landing rides along when the
-  // story math gives one, since that's the one piece of new information
-  // the label alone doesn't carry.
-  const floatListenNote = (breakId: string): string | null => {
-    const details = floatDetailsForBreak(breakId);
-    if (!details) return null;
+  // Today's NPR-estimated landing, as a short clause — shared by both of
+  // the rejoin widget's floating-break notes below (mid-break "listen for
+  // it," and next-break "starts sometime in the window"), since the
+  // estimate math is identical and only the surrounding sentence differs.
+  // Null when the story math gives no estimate for this float (no NPR
+  // times this shift, or no boundary/spanning story found).
+  const floatEstimateClause = (details: NonNullable<ReturnType<typeof floatDetailsForBreak>>): string | null => {
     const { atOffset, landing, boundaryTitle, spanningTitle } = details;
-    const base = "Floating break";
     if (landing?.basis === "story_boundary") {
-      return `${base} — estimated at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}.`;
+      return `estimated at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}`;
     }
     if (landing && spanningTitle) {
-      return `${base} — "${spanningTitle}" is estimated to run through the whole window.`;
+      return `"${spanningTitle}" is estimated to run through the whole window`;
     }
-    return base;
+    return null;
   };
 
   const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk, breakIndex) => {
@@ -956,71 +954,70 @@ export default async function RundownDetailPage({
     </>
   );
 
+  // What the sidebar's rejoin widget actually points at — three distinct
+  // situations that read very differently to a host mid-broadcast, but
+  // used to render under one static "Network rejoin" heading with a wall-
+  // clock time regardless of which one applied. The confusing case: once
+  // local content ends and the network feed is carrying the show, the old
+  // version still said "Network rejoin" and pointed at the *next* break's
+  // own eventual end — a number that only makes sense once already inside
+  // that break. On the network feed, what a host actually needs is when
+  // the next break STARTS, so that's now its own heading ("Next break")
+  // and its own target — the network→local direction is not the same
+  // question as the local→network one "Network rejoin" answers. The third
+  // case (no break remains this shift) keeps the "Network rejoin" framing,
+  // since it genuinely is the final handback. A live countdown
+  // (Countdown, ticking client-side) is now the headline number in all
+  // three, with the actual clock time as a secondary line — "how long"
+  // reads faster at a glance during a broadcast than "what time," per
+  // direct feedback.
+  const rejoinDisplay = (() => {
+    if (live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0) {
+      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.currentBreak.id);
+      // The float note applies to whichever break the rejoin time actually
+      // names — the end of a covered chain, when there is one, not
+      // necessarily the current break itself.
+      const floatDetails = finalBreakId ? floatDetailsForBreak(finalBreakId) : null;
+      const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
+      const caption = floatDetails
+        ? `Floating break${clause ? ` — ${clause}` : ""}.`
+        : runsThroughLabel
+          ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
+          : "When the current break ends — back to the network feed.";
+      return { heading: "Network rejoin", targetISO: rejoinAt, caption, dangerWhenPast: floatDetails === null };
+    }
+    if (live && timing?.nextBreak) {
+      const floatDetails = floatDetailsForBreak(timing.nextBreak.id);
+      const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
+      const label = breakLabelById.get(timing.nextBreak.id) ?? "The next break";
+      const caption = floatDetails
+        ? `Floating break — starts sometime in ${floatDetails.windowLabel}${clause ? `; ${clause}` : ""}.`
+        : `${label} — on the network feed until then.`;
+      return { heading: "Next break", targetISO: timing.nextBreak.scheduled_at, caption, dangerWhenPast: floatDetails === null };
+    }
+    return {
+      heading: "Network rejoin",
+      targetISO: rundown.shift_end_at,
+      caption: `End of this shift${live ? " — no local breaks remain" : ""}.`,
+      dangerWhenPast: false,
+    };
+  })();
+
   const sidebarContent = (
     <>
       <StationClock />
 
       <div className="rounded border border-line p-4">
         <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
-          Network rejoin
+          {rejoinDisplay.heading}
         </div>
-        {/* The operative deadline, not the end of the program: while a break
-            is airing, when it must hand back to the network feed; once that
-            has passed (or between breaks), the next break's own rejoin. The
-            shift end only shows when no local break remains ahead — it was
-            never the number a host needed mid-break. */}
-        {live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0 ? (
-          (() => {
-            const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.currentBreak.id);
-            // The float note applies to whichever break the rejoin time
-            // actually names — the end of a covered chain, when there is
-            // one, not necessarily the current break itself.
-            const listenNote = finalBreakId ? floatListenNote(finalBreakId) : null;
-            return (
-              <>
-                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-                  {formatStationClockTime(rejoinAt)}
-                </p>
-                <p className="mt-1 text-xs text-ink-400">
-                  {listenNote ??
-                    (runsThroughLabel
-                      ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
-                      : "When the current break ends — back to the network feed.")}
-                </p>
-              </>
-            );
-          })()
-        ) : live && timing?.nextBreak ? (
-          (() => {
-            const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.nextBreak.id);
-            const listenNote = finalBreakId ? floatListenNote(finalBreakId) : null;
-            return (
-              <>
-                <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-                  {formatStationClockTime(rejoinAt)}
-                </p>
-                <p className="mt-1 text-xs text-ink-400">
-                  {listenNote ?? (
-                    <>
-                      After the next break (starts {formatStationClockTime(timing.nextBreak.scheduled_at)}
-                      {runsThroughLabel ? `, planned to run through ${runsThroughLabel}'s window` : ""}) —
-                      carrying the network feed until then.
-                    </>
-                  )}
-                </p>
-              </>
-            );
-          })()
-        ) : (
-          <>
-            <p className="font-mono text-lg font-bold text-ink-900 tabular-nums">
-              {formatStationClockTime(rundown.shift_end_at)}
-            </p>
-            <p className="mt-1 text-xs text-ink-400">
-              End of this shift{live ? " — no local breaks remain" : ""}.
-            </p>
-          </>
-        )}
+        <p className="font-mono text-2xl font-extrabold tabular-nums text-ink-900">
+          <Countdown targetISO={rejoinDisplay.targetISO} dangerWhenPast={rejoinDisplay.dangerWhenPast} />
+        </p>
+        <p className="mt-0.5 font-mono text-xs text-ink-400 tabular-nums">
+          {formatStationClockTime(rejoinDisplay.targetISO)}
+        </p>
+        <p className="mt-1 text-xs text-ink-400">{rejoinDisplay.caption}</p>
       </div>
 
       <div className="rounded border border-line p-4">
