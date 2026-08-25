@@ -954,26 +954,43 @@ export default async function RundownDetailPage({
     </>
   );
 
-  // What the sidebar's rejoin widget actually points at — three distinct
+  // A break counts as actually airing local content only if it holds an
+  // item of its own or is receiving spillover from an overrunning break
+  // before it (covered_by_previous/preempted_by_previous) — an empty break
+  // ('carrying_network' when optional, 'unresolved_required' when required
+  // and still needs something) means the network feed is what's really on
+  // the air right now, regardless of whether the plan nominally has this
+  // break as "current."
+  const hasLocalContent = (breakId: string): boolean => {
+    const status = breakStatusesById.get(breakId)?.status;
+    return status !== "carrying_network" && status !== "unresolved_required";
+  };
+
+  // What the sidebar's rejoin widget actually points at — distinct
   // situations that read very differently to a host mid-broadcast, but
   // used to render under one static "Network rejoin" heading with a wall-
-  // clock time regardless of which one applied. The confusing case: once
-  // local content ends and the network feed is carrying the show, the old
-  // version still said "Network rejoin" and pointed at the *next* break's
-  // own eventual end — a number that only makes sense once already inside
-  // that break. On the network feed, what a host actually needs is when
-  // the next break STARTS, so that's now its own heading ("Next break")
-  // and its own target — the network→local direction is not the same
-  // question as the local→network one "Network rejoin" answers. The third
-  // case (no break remains this shift) keeps the "Network rejoin" framing,
-  // since it genuinely is the final handback. A live countdown
-  // (Countdown, ticking client-side) is now the headline number in all
-  // three, with the actual clock time as a secondary line — "how long"
-  // reads faster at a glance during a broadcast than "what time," per
-  // direct feedback.
+  // clock time regardless of which one applied. Two confusions this fixes:
+  // once local content ends and the network feed is carrying the show, the
+  // widget used to still say "Network rejoin" and point at the *next*
+  // break's own eventual end — a number that only makes sense once already
+  // inside that break; and a break that's merely nominally "current" by the
+  // clock but has nothing placed in it (carrying network, or a required
+  // break not yet filled) used to trigger the same "Network rejoin"
+  // framing as a break that's actually airing something, even though
+  // nothing local is on the air either way. Both read the same
+  // hasLocalContent check above, walking forward through any number of
+  // consecutive empty breaks — a run of unused optional local avails is
+  // real and shouldn't each get their own "next break" moment — to the
+  // next one that's genuinely planned. A live countdown (Countdown,
+  // ticking client-side) is the headline number throughout, with the
+  // actual clock time as a secondary line — "how long" reads faster at a
+  // glance during a broadcast than "what time," per direct feedback.
   const rejoinDisplay = (() => {
-    if (live && timing?.currentBreak && (timing.secondsRemainingInCurrent ?? -1) >= 0) {
-      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(timing.currentBreak.id);
+    const currentBreak = timing?.currentBreak ?? null;
+    const currentIndex = currentBreak ? rundown.breaks.findIndex((brk) => brk.id === currentBreak.id) : -1;
+
+    if (live && currentIndex !== -1 && hasLocalContent(rundown.breaks[currentIndex]!.id)) {
+      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(rundown.breaks[currentIndex]!.id);
       // The float note applies to whichever break the rejoin time actually
       // names — the end of a covered chain, when there is one, not
       // necessarily the current break itself.
@@ -986,19 +1003,34 @@ export default async function RundownDetailPage({
           : "When the current break ends — back to the network feed.";
       return { heading: "Network rejoin", targetISO: rejoinAt, caption, dangerWhenPast: floatDetails === null };
     }
-    if (live && timing?.nextBreak) {
-      const floatDetails = floatDetailsForBreak(timing.nextBreak.id);
-      const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
-      const label = breakLabelById.get(timing.nextBreak.id) ?? "The next break";
-      const caption = floatDetails
-        ? `Floating break — starts sometime in ${floatDetails.windowLabel}${clause ? `; ${clause}` : ""}.`
-        : `${label} — on the network feed until then.`;
-      return { heading: "Next break", targetISO: timing.nextBreak.scheduled_at, caption, dangerWhenPast: floatDetails === null };
+
+    if (live) {
+      // On the network feed right now — either nothing has nominally
+      // started yet, or the break that has is empty. Either way, walk
+      // forward from here for the next break that actually has content
+      // planned, which might be several breaks ahead.
+      const searchFrom = currentIndex === -1 ? 0 : currentIndex + 1;
+      const nextFilled = rundown.breaks.slice(searchFrom).find((brk) => hasLocalContent(brk.id));
+      if (nextFilled) {
+        const floatDetails = floatDetailsForBreak(nextFilled.id);
+        const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
+        const label = breakLabelById.get(nextFilled.id) ?? "The next break";
+        const caption = floatDetails
+          ? `Floating break — starts sometime in ${floatDetails.windowLabel}${clause ? `; ${clause}` : ""}.`
+          : `${label} — on the network feed until then.`;
+        return {
+          heading: "Next break",
+          targetISO: nextFilled.scheduled_at,
+          caption,
+          dangerWhenPast: floatDetails === null,
+        };
+      }
     }
+
     return {
       heading: "Network rejoin",
       targetISO: rundown.shift_end_at,
-      caption: `End of this shift${live ? " — no local breaks remain" : ""}.`,
+      caption: `End of this shift${live ? " — no more local content planned" : ""}.`,
       dangerWhenPast: false,
     };
   })();
