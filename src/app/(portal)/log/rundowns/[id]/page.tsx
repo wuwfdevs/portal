@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import {
   CONTENT_TYPE_LABEL,
+  componentScriptText,
   computeTotalDurationSeconds,
   WEATHER_DEFAULT_DURATION_SECONDS,
 } from "@/lib/log/content-library";
@@ -688,9 +689,14 @@ export default async function RundownDetailPage({
 
     const items: BreakBoardItem[] = brk.items.map((item) => {
       const copy = item.underwriting_copy_id ? copyById.get(item.underwriting_copy_id) : null;
+      // A DAD-imported program promo carries its "Join us for X..." tag on
+      // its live_outro component's own script, never on the item's
+      // top-level script field — see componentScriptText's own comment.
+      const contentComponentScript = item.contentItem ? componentScriptText(item.contentItem.components) : null;
       const effectiveScript =
         item.override_script ??
         item.contentItem?.script ??
+        contentComponentScript ??
         copy?.script ??
         item.live_read_script ??
         (item.item_kind === "weather" ? (weather.reading?.live_read_text ?? null) : null);
@@ -734,7 +740,7 @@ export default async function RundownDetailPage({
       const defaultScript =
         item.item_kind === "weather"
           ? (weather.reading?.live_read_text ?? null)
-          : (item.contentItem?.script ?? null);
+          : (item.contentItem?.script ?? contentComponentScript);
       const defaultDurationSeconds =
         item.item_kind === "weather" ? WEATHER_DEFAULT_DURATION_SECONDS : masterDuration;
 
