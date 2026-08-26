@@ -1073,10 +1073,12 @@ export default async function RundownDetailPage({
           <>
             {/* Above the fold: what a host glances at mid-broadcast — the
                 current observation ("72° Partly Cloudy", best-effort from
-                the NWS station feed, forecast conditions as the fallback)
-                and today's high/low. Everything longer, including the
-                several-day outlook, stays behind the Full forecast
-                disclosure. */}
+                the NWS station feed, forecast conditions as the fallback),
+                today's high/low, and the condensed forecast line, right
+                above the disclosure so a host sees today's outlook without
+                opening it. Everything longer, including the full live-read
+                text and the several-day outlook, stays behind Full
+                forecast. */}
             <p className="text-lg font-bold text-ink-900">
               {weather.reading.current_temp !== null && (
                 <span className="font-mono tabular-nums">{weather.reading.current_temp}° </span>
@@ -1094,12 +1096,12 @@ export default async function RundownDetailPage({
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
             </p>
+            <p className="mt-1.5 text-sm text-ink-700">{weather.reading.condensed_text}</p>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-semibold text-brand-link">
                 Full forecast
               </summary>
               <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
-                <p>{weather.reading.conditions_summary}</p>
                 {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
                 {weather.reading.hazards && (
                   <p className="font-semibold text-danger">{weather.reading.hazards}</p>
