@@ -61,6 +61,7 @@ interface ObservationResponse {
 }
 
 interface ForecastPeriod {
+  name: string;
   isDaytime: boolean;
   temperature: number;
   shortForecast: string;
@@ -149,7 +150,15 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   const forecastArea =
     cityState?.city && cityState?.state ? `${cityState.city}, ${cityState.state}` : DEFAULT_FORECAST_AREA;
 
-  const liveReadText = [dayPeriod.detailedForecast, nightPeriod?.detailedForecast]
+  // Each period's detailedForecast is already a complete, self-contained
+  // paragraph from NWS (its own precipitation-chance sentence and all) — a
+  // bare join reads as one run-on blob that repeats itself with no sense of
+  // where "today" ends and "tonight" begins. Label each half with NWS's own
+  // period name so the boundary is legible to a host reading it on air.
+  const liveReadText = [
+    dayPeriod.detailedForecast && `${dayPeriod.name}: ${dayPeriod.detailedForecast}`,
+    nightPeriod?.detailedForecast && `${nightPeriod.name}: ${nightPeriod.detailedForecast}`,
+  ]
     .filter((text): text is string => Boolean(text))
     .join(" ");
 
