@@ -213,6 +213,13 @@
 // log_npr_episode_items gained duration_seconds (integer, nullable) — and
 // again the same day for 20260821140000_log_npr_feed_start_hour.sql:
 // log_programs gained npr_feed_start_hour_et (smallint, nullable).
+// Hand-updated again on 2026-08-26 for
+// 20260826120000_log_content_library_dad_import.sql: log_content_items
+// gained dad_cart_number/dad_group (text, nullable) and
+// log_content_components gained dad_cart_number (text, nullable) — verified
+// directly against the live preview project's information_schema after
+// applying, since this pair was dropped once before (20260810150000) for
+// being unused and shouldn't silently reappear with a mismatched shape.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1711,6 +1718,9 @@ export interface Database {
           created_at: string;
           updated_at: string;
           created_by: string | null;
+          // Added by 20260826120000_log_content_library_dad_import.sql.
+          dad_cart_number: string | null;
+          dad_group: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_content_items"]["Row"]> & {
           content_type: LogContentType;
@@ -1728,6 +1738,8 @@ export interface Database {
           duration_seconds: number;
           required: boolean;
           script: string | null;
+          // Added by 20260826120000_log_content_library_dad_import.sql.
+          dad_cart_number: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_content_components"]["Row"]> & {
           content_item_id: string;

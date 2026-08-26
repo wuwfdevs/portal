@@ -2060,6 +2060,61 @@ the corresponding fields. `community_issue_tags` is untouched — not part
 of this review, and still free text pending FCC Reporting's taxonomy per
 docs/log-design.md §6.
 
+**Log: importing WUWF's existing DAD cut library (2026-08-26).** Producers
+can now bring the station's existing DAD cut library into the content
+library at `/log/library/import`, rather than re-entering ~1,000 items by
+hand — upload DAD's Library screen → Generate Reports → "Standard Library"
+export (a fixed-width text report of cut/title/length/group) and,
+optionally, its companion Groups report, preview the plan, confirm.
+`dad_cart_number` — dropped from `log_content_items`/`log_content_components`
+in the field-trim note above for being captured-but-unused — is back
+(`20260826120000_log_content_library_dad_import.sql`), this time because the
+importer actually needs it, as its reuse-on-reimport key: a cart already
+imported is updated in place, never duplicated. `log_content_items` also
+gained `dad_group`, tagging every imported/synthesized row with the DAD
+group(s) it came from.
+
+Per-group routing was worked out with WUWF directly against the real
+library (977 cuts across 16 groups actually in use — `ALL`/`COMMANDS`/
+`FUTURE` from the groups database carry none), not guessed from group names:
+`UNEARTH`/`ECO` (WUWF's own produced features) → `interview_feature`;
+`CARS`/`EVENTS` → `station_promo`; `FALL`/`SPRING` (pledge-drive spots) →
+`membership_message`; `PPA` (audio spots — prospecting and
+underwriter-informational alike) → `psa`, imported as ordinary content
+items, deliberately **not** routed through Underwriting & Traffic's
+`uw_copy`/`uw_underwriters` tables — there is no copy to maintain, and doing
+so would have meant guessing real underwriter attribution from title text
+alone (this library export carries no separate underwriter/agency field,
+unlike the program-log export the existing importer already handles);
+`NPRTHEME` → `program_promo`, one item per cut, unchanged. `FLNEWS`/`TEMP`/
+`TEST`/`SONGS`/`ACOUSTIC` are skipped outright (dated news actualities,
+scratch files, test tones, and filler music aren't durable library
+content) — `SONGS` in particular has real cuts in the library but no row in
+WUWF's own groups database export, worth checking on WUWF's end. A group
+this table has never seen is skipped too, with a warning, rather than
+silently guessed at.
+
+`GENERIC`/`DAILY`/`WEEKLY` needed a different treatment: these hold
+per-date or per-episode-numbered program promos ("Fresh Air Wed Aug 26",
+"Sci Fri Gen 1-3"), not durable content on their own. `lib/log/dad-library-
+plan.ts`'s `buildDadLibraryPlan` matches each cut's title against
+`log_programs` (reusing `program-log-plan.ts`'s existing `matchProgram`,
+plus a curated abbreviation-prefix table for titles that don't contain a
+program's full name, e.g. "atc" → All Things Considered, "1a" → 1A) and
+collapses every matched cut into **one evergreen `program_promo` per
+program** — a `recorded_audio` component referencing one representative
+DAD cart plus a required `live_outro` component whose script is synthesized
+from that program's real `log_schedule` entry (`describeScheduleTiming`,
+e.g. "Join us for Science Friday, Friday afternoon at 1:00 PM") — static,
+editable text, not a live template. A cut that matches no Log program
+(generic station messaging like "Smart Speaker", or a name with no program
+at all, like "Thistle", or a genuinely ambiguous one like bare "Weekend
+Edition" with no Sat/Sun qualifier) still gets imported, just as an
+ordinary one-per-cut `station_promo` rather than folded into a canonical
+promo — verified end to end against the real export (977 cuts → 33
+canonical promos consuming 71 cuts, 856 direct items including 30 sensible
+fallbacks, every count reconciling) before this shipped.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
