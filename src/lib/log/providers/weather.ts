@@ -1,4 +1,5 @@
 import "server-only";
+import { buildDailyOutlook, type DailyOutlookEntry } from "../weather-outlook";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -61,11 +62,15 @@ interface ObservationResponse {
 }
 
 interface ForecastPeriod {
+  name: string;
+  startTime: string;
   isDaytime: boolean;
   temperature: number;
   shortForecast: string;
   detailedForecast: string;
   endTime: string;
+  icon: string | null;
+  probabilityOfPrecipitation: { value: number | null } | null;
 }
 
 interface ForecastResponse {
@@ -89,6 +94,7 @@ export interface WeatherReading {
   precipitation_notes: string | null;
   hazards: string | null;
   valid_through_at: string;
+  daily_outlook: DailyOutlookEntry[];
 }
 
 /** Fetches the current live-read from NWS. Throws with a clear message on any failure — lib/log/weather.ts catches it and falls back to the last-known reading, per §6/§22's "never make the display unreadable." */
@@ -149,9 +155,22 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   const forecastArea =
     cityState?.city && cityState?.state ? `${cityState.city}, ${cityState.state}` : DEFAULT_FORECAST_AREA;
 
-  const liveReadText = [dayPeriod.detailedForecast, nightPeriod?.detailedForecast]
+  // Each period's detailedForecast is already a complete, self-contained
+  // paragraph from NWS (its own precipitation-chance sentence and all) — a
+  // bare join reads as one run-on blob that repeats itself with no sense of
+  // where "today" ends and "tonight" begins. Label each half with NWS's own
+  // period name so the boundary is legible to a host reading it on air.
+  const liveReadText = [
+    dayPeriod.detailedForecast && `${dayPeriod.name}: ${dayPeriod.detailedForecast}`,
+    nightPeriod?.detailedForecast && `${nightPeriod.name}: ${nightPeriod.detailedForecast}`,
+  ]
     .filter((text): text is string => Boolean(text))
     .join(" ");
+
+  // periods already covers the next several days (NWS's /forecast endpoint
+  // typically returns ~14 day/night periods) — daily_outlook just groups
+  // and condenses what's already been fetched, no second request.
+  const dailyOutlook = buildDailyOutlook(periods);
 
   return {
     forecast_area: forecastArea,
@@ -166,5 +185,6 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
     precipitation_notes: null,
     hazards,
     valid_through_at: (nightPeriod ?? dayPeriod).endTime,
+    daily_outlook: dailyOutlook,
   };
 }

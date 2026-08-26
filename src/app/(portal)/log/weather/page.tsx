@@ -1,10 +1,11 @@
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getCurrentWeatherReading } from "@/lib/log/weather";
+import { getCurrentWeatherReading, getDailyOutlook } from "@/lib/log/weather";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
 import { formatStationTimestamp } from "@/lib/log/timezone";
+import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -53,6 +54,13 @@ export default async function WeatherPage({
           </div>
           <div className="flex flex-col gap-4 p-5 text-sm text-ink-700">
             {reading.hazards && <Alert variant="danger">{reading.hazards}</Alert>}
+
+            <div>
+              <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-400">
+                Next few days
+              </div>
+              <WeatherOutlookStrip days={getDailyOutlook(reading)} />
+            </div>
 
             <div>
               <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Live read</div>

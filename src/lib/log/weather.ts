@@ -8,6 +8,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeatherReadingRow, type LogWeatherReadingRow } from "./queries";
 import { fetchWeatherReading } from "./providers/weather";
 import { checkStaleness, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
+import type { DailyOutlookEntry } from "./weather-outlook";
+
+/** Typed accessor for the row's jsonb daily_outlook column (stored as `unknown` in database.types.ts, the same convention as every other plain jsonb column here) — this repo's own shape, never user input, so a direct cast is safe. */
+export function getDailyOutlook(reading: LogWeatherReadingRow): DailyOutlookEntry[] {
+  return (reading.daily_outlook as DailyOutlookEntry[] | null) ?? [];
+}
 
 export interface WeatherResult {
   reading: LogWeatherReadingRow | null;
