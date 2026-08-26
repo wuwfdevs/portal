@@ -47,11 +47,12 @@ import {
 } from "@/lib/log/rundown-generation";
 import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
-import { getCurrentWeatherReading } from "@/lib/log/weather";
+import { getCurrentWeatherReading, getDailyOutlook } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
+import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
 import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
@@ -770,6 +771,11 @@ export default async function RundownDetailPage({
                 {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
               </div>
             )}
+            {item.item_kind === "weather" && weather.reading && (
+              <div className="mt-1.5">
+                <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
+              </div>
+            )}
             {effectiveScript && (
               <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
             )}
@@ -1078,6 +1084,9 @@ export default async function RundownDetailPage({
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
             </p>
+            <div className="mt-2.5">
+              <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
+            </div>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-semibold text-brand-link">
                 Full forecast

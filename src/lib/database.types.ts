@@ -220,6 +220,13 @@
 // directly against the live preview project's information_schema after
 // applying, since this pair was dropped once before (20260810150000) for
 // being unused and shouldn't silently reappear with a mismatched shape.
+// Hand-updated again the same day for
+// 20260826130000_log_weather_daily_outlook.sql: log_weather_reading gained
+// daily_outlook (jsonb, not null default '[]') — typed unknown, the same
+// convention as log_npr_episodes.raw above, not the generator's own `Json`
+// alias (this file doesn't define one); verified against the Supabase MCP
+// server's generate_typescript_types output for the live preview project
+// after applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1810,6 +1817,11 @@ export interface Database {
           last_updated_at: string;
           valid_through_at: string;
           is_current: boolean;
+          // Added by 20260826130000_log_weather_daily_outlook.sql — the
+          // condensed multi-day "at a glance" outlook (see
+          // lib/log/weather-outlook.ts's DailyOutlookEntry[]), a plain jsonb
+          // column like log_npr_episodes.raw above.
+          daily_outlook: unknown;
         };
         Insert: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]> & {
           forecast_area: string;
