@@ -140,7 +140,6 @@ export interface SynthesizedPromoPlan {
   recordedAudioDurationSeconds: number;
   tagScript: string;
   tagDurationSeconds: number;
-  expectedDurationSeconds: number;
   sourceCutCount: number;
   existingItemId: string | null;
 }
@@ -160,17 +159,6 @@ export interface DadLibraryPlan {
 }
 
 export const DEFAULT_TAG_SECONDS = 8;
-
-/**
- * A synthesized promo's own expected_duration_seconds — a flat default. The
- * content library list/detail screens read this column directly rather than
- * computing a total from components, so leaving it unset showed as a blank
- * duration for every canonical promo. The tag read isn't additional time on
- * top of this: per station practice, every one of these promos carries a
- * trailing music bed and the host reads the tag live over it, not after it —
- * see the (non-required) live_outro component this plan produces.
- */
-export const PROMO_EXPECTED_DURATION_SECONDS = 30;
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -308,7 +296,6 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
       recordedAudioDurationSeconds: representative.lengthSeconds,
       tagScript,
       tagDurationSeconds: DEFAULT_TAG_SECONDS,
-      expectedDurationSeconds: PROMO_EXPECTED_DURATION_SECONDS,
       sourceCutCount: cuts.length,
       existingItemId: existingByCart.get(representative.cutNumber) ?? null,
     });

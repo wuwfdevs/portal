@@ -227,6 +227,44 @@ export interface ContentItemDetail extends LogContentItemRow {
   components: LogContentComponentRow[];
 }
 
+/**
+ * listContentItems, plus each item's components — for a screen that needs
+ * to display a real total duration (lib/log/content-library.ts's
+ * computeTotalDurationSeconds), not just the item's own possibly-blank
+ * expected_duration_seconds. A composite item (this tool's DAD-synthesized
+ * program promos, or any multi-component item) only has a meaningful total
+ * once its components are known; expected_duration_seconds alone is only
+ * ever the right answer for a plain, componentless item.
+ */
+export async function listContentItemsWithComponents(
+  filters: ContentLibraryFilters = {},
+): Promise<ContentItemDetail[]> {
+  const items = await listContentItems(filters);
+  if (items.length === 0) return [];
+
+  const supabase = await createClient();
+  const components =
+    unwrapRead(
+      await supabase
+        .from("log_content_components")
+        .select("*")
+        .in(
+          "content_item_id",
+          items.map((item) => item.id),
+        ),
+      "these content items' components",
+    ) ?? [];
+
+  const componentsByItem = new Map<string, LogContentComponentRow[]>();
+  for (const component of components) {
+    const existing = componentsByItem.get(component.content_item_id);
+    if (existing) existing.push(component);
+    else componentsByItem.set(component.content_item_id, [component]);
+  }
+
+  return items.map((item) => ({ ...item, components: componentsByItem.get(item.id) ?? [] }));
+}
+
 /** One content item plus its components, in sequence order. */
 export async function getContentItemDetail(id: string): Promise<ContentItemDetail | null> {
   const supabase = await createClient();

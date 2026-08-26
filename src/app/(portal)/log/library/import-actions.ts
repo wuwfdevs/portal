@@ -72,7 +72,6 @@ async function upsertSynthesizedPromo(
       .insert({
         content_type: "program_promo",
         title,
-        expected_duration_seconds: promo.expectedDurationSeconds,
         dad_cart_number: promo.representativeCutNumber,
         dad_group: promo.dadGroup,
         approval_status: "approved",
@@ -113,7 +112,6 @@ async function upsertSynthesizedPromo(
     .from("log_content_items")
     .update({
       title,
-      expected_duration_seconds: promo.expectedDurationSeconds,
       dad_cart_number: promo.representativeCutNumber,
       dad_group: promo.dadGroup,
       approval_status: "approved",
