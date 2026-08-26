@@ -235,6 +235,14 @@ export interface ContentItemDetail extends LogContentItemRow {
  * program promos, or any multi-component item) only has a meaningful total
  * once its components are known; expected_duration_seconds alone is only
  * ever the right answer for a plain, componentless item.
+ *
+ * Fetches every component unconditionally rather than filtering by an
+ * `.in(content_item_id, ...)` list built from the (unpaginated, and — since
+ * the DAD import — now 900+ row) items result: that list becomes a query
+ * string long enough to fail the request outright, which is exactly what
+ * broke this screen. log_content_components itself stays small (a handful
+ * of items ever have more than one component), so an unfiltered read here
+ * is cheap and immune to how large the item list grows.
  */
 export async function listContentItemsWithComponents(
   filters: ContentLibraryFilters = {},
@@ -245,13 +253,7 @@ export async function listContentItemsWithComponents(
   const supabase = await createClient();
   const components =
     unwrapRead(
-      await supabase
-        .from("log_content_components")
-        .select("*")
-        .in(
-          "content_item_id",
-          items.map((item) => item.id),
-        ),
+      await supabase.from("log_content_components").select("*"),
       "these content items' components",
     ) ?? [];
 
