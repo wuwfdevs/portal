@@ -74,6 +74,7 @@ async function upsertSynthesizedPromo(
         title,
         dad_cart_number: promo.representativeCutNumber,
         dad_group: promo.dadGroup,
+        approval_status: "approved",
         owner_id: ownerId,
         created_by: ownerId,
       })
@@ -95,7 +96,11 @@ async function upsertSynthesizedPromo(
         component_type: "live_outro",
         sequence: 2,
         duration_seconds: promo.tagDurationSeconds,
-        required: true,
+        // Not required: the tag is read live over the promo's own trailing
+        // music bed, not appended after it, so it adds no time on top of
+        // the item's own expected_duration_seconds (computeTotalDurationSeconds
+        // only sums required components).
+        required: false,
         script: promo.tagScript,
       },
     ]);
@@ -109,6 +114,7 @@ async function upsertSynthesizedPromo(
       title,
       dad_cart_number: promo.representativeCutNumber,
       dad_group: promo.dadGroup,
+      approval_status: "approved",
     })
     .eq("id", promo.existingItemId);
   if (itemError) return { ok: false, error: `Could not update the ${promo.programName} promo.` };
@@ -141,7 +147,7 @@ async function upsertSynthesizedPromo(
   if (liveOutro) {
     await supabase
       .from("log_content_components")
-      .update({ duration_seconds: promo.tagDurationSeconds, script: promo.tagScript })
+      .update({ duration_seconds: promo.tagDurationSeconds, script: promo.tagScript, required: false })
       .eq("id", liveOutro.id);
   } else {
     await supabase.from("log_content_components").insert({
@@ -149,7 +155,7 @@ async function upsertSynthesizedPromo(
       component_type: "live_outro",
       sequence: 2,
       duration_seconds: promo.tagDurationSeconds,
-      required: true,
+      required: false,
       script: promo.tagScript,
     });
   }
@@ -187,6 +193,7 @@ export async function executeDadLibraryImport(planJson: string): Promise<Execute
         expected_duration_seconds: item.lengthSeconds,
         dad_cart_number: item.cutNumber,
         dad_group: item.group,
+        approval_status: "approved",
         owner_id: profile.id,
         created_by: profile.id,
       })),
@@ -203,6 +210,7 @@ export async function executeDadLibraryImport(planJson: string): Promise<Execute
         title: item.title,
         expected_duration_seconds: item.lengthSeconds,
         dad_group: item.group,
+        approval_status: "approved",
       })
       .eq("id", item.existingItemId!);
     if (error) failures.push(`Could not update "${item.title}" (cart ${item.cutNumber}).`);

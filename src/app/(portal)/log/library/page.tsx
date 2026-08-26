@@ -3,8 +3,8 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
-import { listContentItems } from "@/lib/log/queries";
+import { computeTotalDurationSeconds, CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import { listContentItemsWithComponents } from "@/lib/log/queries";
 import type { LogApprovalStatus, LogContentType } from "@/lib/database.types";
 
 const CONTENT_TYPES = Object.keys(CONTENT_TYPE_LABEL) as LogContentType[];
@@ -29,7 +29,7 @@ export default async function ContentLibraryPage({
     ? (approvalStatusParam as LogApprovalStatus)
     : undefined;
 
-  const items = await listContentItems({ contentType, approvalStatus });
+  const items = await listContentItemsWithComponents({ contentType, approvalStatus });
 
   return (
     <div>
@@ -86,25 +86,29 @@ export default async function ContentLibraryPage({
               </HeaderRow>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <Row key={item.id}>
-                  <Cell className="font-semibold text-ink-900">
-                    <Link href={`/log/library/${item.id}`} className="text-brand-link">
-                      {item.title}
-                    </Link>
-                  </Cell>
-                  <Cell>{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
-                  <Cell>
-                    <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
-                      {item.approval_status}
-                    </Badge>
-                  </Cell>
-                  <Cell>
-                    {item.expected_duration_seconds ? `${item.expected_duration_seconds}s` : "—"}
-                  </Cell>
-                  <Cell className="text-ink-500">{item.effective_from}</Cell>
-                </Row>
-              ))}
+              {items.map((item) => {
+                const totalDurationSeconds = computeTotalDurationSeconds(
+                  item.components,
+                  item.expected_duration_seconds,
+                );
+                return (
+                  <Row key={item.id}>
+                    <Cell className="font-semibold text-ink-900">
+                      <Link href={`/log/library/${item.id}`} className="text-brand-link">
+                        {item.title}
+                      </Link>
+                    </Cell>
+                    <Cell>{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
+                    <Cell>
+                      <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
+                        {item.approval_status}
+                      </Badge>
+                    </Cell>
+                    <Cell>{totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}</Cell>
+                    <Cell className="text-ink-500">{item.effective_from}</Cell>
+                  </Row>
+                );
+              })}
             </tbody>
           </Table>
         </TableFrame>
