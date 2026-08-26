@@ -132,6 +132,7 @@ describe("buildDadLibraryPlan", () => {
     expect(promo.programName).toBe("Science Friday");
     expect(promo.sourceCutCount).toBe(3);
     expect(promo.dadGroup).toBe("GENERIC, WEEKLY");
+    expect(promo.expectedDurationSeconds).toBe(30);
     expect(promo.tagScript).toBe("Join us for Science Friday, Friday afternoon at 1:00 PM.");
     expect(promo.representativeCutNumber).toBe("00061");
   });
