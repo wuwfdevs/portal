@@ -57,9 +57,16 @@ export default async function ContentLibraryPage({
             Filter
           </Button>
         </form>
-        <Link href="/log/library/new" className="shrink-0">
-          <Button type="button">+ New content item</Button>
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link href="/log/library/import">
+            <Button type="button" variant="secondary">
+              Import from DAD
+            </Button>
+          </Link>
+          <Link href="/log/library/new">
+            <Button type="button">+ New content item</Button>
+          </Link>
+        </div>
       </div>
 
       {items.length === 0 ? (
