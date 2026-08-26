@@ -101,6 +101,35 @@ export function computeTotalDurationSeconds(
     .reduce((total, component) => total + component.duration_seconds, 0);
 }
 
+export interface ComponentScriptLike {
+  component_type: LogComponentType;
+  script: string | null;
+  sequence: number;
+}
+
+/**
+ * The script text a host should read live for a content item whose copy
+ * lives on one or more components rather than on the item's own `script`
+ * field — e.g. a DAD-imported program promo, whose synthesized "Join us
+ * for X, weekday mornings at 7:00 AM" tag is written onto its live_outro
+ * component's script by the importer (import-actions.ts's
+ * upsertSynthesizedPromo), never onto log_content_items.script. Joins every
+ * component's non-empty script, in sequence order; a single scripted
+ * component renders as plain text (matching how a simple item's own
+ * top-level script already renders on the rundown/console screen), while
+ * more than one is prefixed by its component-type label so a host can't
+ * mistake an intro cue for an outro one. Returns null when no component
+ * carries a script, so a caller can fall through to another source.
+ */
+export function componentScriptText(components: ComponentScriptLike[]): string | null {
+  const scripted = components
+    .filter((component) => component.script !== null && component.script.trim() !== "")
+    .sort((a, b) => a.sequence - b.sequence);
+  if (scripted.length === 0) return null;
+  if (scripted.length === 1) return scripted[0]!.script;
+  return scripted.map((component) => `${COMPONENT_TYPE_LABEL[component.component_type]}: ${component.script}`).join("\n\n");
+}
+
 export interface AiringOverrides {
   override_duration_seconds?: number | null;
   override_live_intro_seconds?: number | null;
