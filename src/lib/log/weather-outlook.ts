@@ -30,6 +30,12 @@ export interface DailyOutlookEntry {
   icon: WeatherIconCode;
 }
 
+/** One NWS period's own label ("Today"/"This Afternoon"/"Tonight"/…) paired with its full detailedForecast paragraph — what lets the UI set today and tonight visually apart instead of running them together as one string (see providers/weather.ts's live_read_text, which stays a flat string for the editable-script textarea's defaultValue). */
+export interface ForecastPeriodSummary {
+  label: string;
+  text: string;
+}
+
 /** Shape of one NWS /forecast period this module needs — a subset of the real API response, kept close to its actual field names/nesting so test fixtures read like real responses. */
 export interface OutlookSourcePeriod {
   startTime: string;

@@ -1,11 +1,12 @@
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getCurrentWeatherReading, getDailyOutlook } from "@/lib/log/weather";
+import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
+import { ForecastSummary } from "@/components/log/forecast-summary";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -64,7 +65,7 @@ export default async function WeatherPage({
 
             <div>
               <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Live read</div>
-              <p className="whitespace-pre-wrap leading-relaxed">{reading.live_read_text}</p>
+              <ForecastSummary periods={getForecastPeriods(reading)} fallbackText={reading.live_read_text} />
             </div>
 
             <div>

@@ -47,12 +47,13 @@ import {
 } from "@/lib/log/rundown-generation";
 import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
-import { getCurrentWeatherReading, getDailyOutlook } from "@/lib/log/weather";
+import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
+import { ForecastSummary } from "@/components/log/forecast-summary";
 import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
@@ -771,16 +772,24 @@ export default async function RundownDetailPage({
                 {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
               </div>
             )}
-            {item.item_kind === "weather" && weather.reading && (
+            {item.item_kind === "weather" && weather.reading ? (
               <div className="mt-1.5">
+                <ForecastSummary periods={getForecastPeriods(weather.reading)} fallbackText={effectiveScript ?? ""} />
+              </div>
+            ) : (
+              <>
+                {effectiveScript && (
+                  <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
+                )}
+                {!effectiveScript && item.contentItem?.summary && (
+                  <p className="mt-1.5 text-sm text-ink-700">{item.contentItem.summary}</p>
+                )}
+              </>
+            )}
+            {item.item_kind === "weather" && weather.reading && (
+              <div className="mt-2.5 rounded border border-line bg-panel-50 p-2.5">
                 <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
               </div>
-            )}
-            {effectiveScript && (
-              <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
-            )}
-            {!effectiveScript && item.contentItem?.summary && (
-              <p className="mt-1.5 text-sm text-ink-700">{item.contentItem.summary}</p>
             )}
           </div>
         </>
@@ -1065,8 +1074,9 @@ export default async function RundownDetailPage({
             {/* Above the fold: what a host glances at mid-broadcast — the
                 current observation ("72° Partly Cloudy", best-effort from
                 the NWS station feed, forecast conditions as the fallback)
-                and today's high/low. Everything longer stays behind the
-                Full forecast disclosure. */}
+                and today's high/low. Everything longer, including the
+                several-day outlook, stays behind the Full forecast
+                disclosure. */}
             <p className="text-lg font-bold text-ink-900">
               {weather.reading.current_temp !== null && (
                 <span className="font-mono tabular-nums">{weather.reading.current_temp}° </span>
@@ -1084,9 +1094,6 @@ export default async function RundownDetailPage({
               Updated {formatStationTimestamp(weather.reading.last_updated_at)}
               {weather.stale && " · stale"}
             </p>
-            <div className="mt-2.5">
-              <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
-            </div>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-semibold text-brand-link">
                 Full forecast
@@ -1097,12 +1104,19 @@ export default async function RundownDetailPage({
                 {weather.reading.hazards && (
                   <p className="font-semibold text-danger">{weather.reading.hazards}</p>
                 )}
-                <p className="whitespace-pre-wrap border-t border-line pt-1.5">
-                  {weather.reading.live_read_text}
-                </p>
+                <div className="border-t border-line pt-1.5">
+                  <ForecastSummary
+                    periods={getForecastPeriods(weather.reading)}
+                    fallbackText={weather.reading.live_read_text}
+                    textClassName="text-xs"
+                  />
+                </div>
                 <p className="text-ink-400">
                   Valid through {formatStationTimestamp(weather.reading.valid_through_at)}
                 </p>
+                <div className="border-t border-line pt-1.5">
+                  <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
+                </div>
               </div>
             </details>
           </>
