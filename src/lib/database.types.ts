@@ -226,7 +226,11 @@
 // convention as log_npr_episodes.raw above, not the generator's own `Json`
 // alias (this file doesn't define one); verified against the Supabase MCP
 // server's generate_typescript_types output for the live preview project
-// after applying.
+// after applying. Hand-updated again the same day for
+// 20260826140000_log_weather_forecast_periods.sql: log_weather_reading
+// gained forecast_periods (jsonb, not null default '[]'), same unknown
+// convention — verified against the live preview project's
+// information_schema after applying.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -1822,6 +1826,11 @@ export interface Database {
           // lib/log/weather-outlook.ts's DailyOutlookEntry[]), a plain jsonb
           // column like log_npr_episodes.raw above.
           daily_outlook: unknown;
+          // Added by 20260826140000_log_weather_forecast_periods.sql — the
+          // live-read text's own day/night halves, kept separate (see
+          // lib/log/weather-outlook.ts's ForecastPeriodSummary[]) so the UI
+          // can style Today and Tonight apart; same unknown convention.
+          forecast_periods: unknown;
         };
         Insert: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]> & {
           forecast_area: string;

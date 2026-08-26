@@ -127,6 +127,7 @@ repo and a project's history, not the version number.
 | `20260824140000_tool_access_predicates_check_enabled.sql`             | 2026-08-24 | 2026-08-24 |
 | `20260826120000_log_content_library_dad_import.sql`                   | 2026-08-26 | 2026-08-26 |
 | `20260826130000_log_weather_daily_outlook.sql`                        | 2026-08-26 | 2026-08-26 |
+| `20260826140000_log_weather_forecast_periods.sql`                     | 2026-08-26 | 2026-08-26 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an

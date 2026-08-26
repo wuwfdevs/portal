@@ -1,5 +1,5 @@
 import "server-only";
-import { buildDailyOutlook, type DailyOutlookEntry } from "../weather-outlook";
+import { buildDailyOutlook, type DailyOutlookEntry, type ForecastPeriodSummary } from "../weather-outlook";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -95,6 +95,7 @@ export interface WeatherReading {
   hazards: string | null;
   valid_through_at: string;
   daily_outlook: DailyOutlookEntry[];
+  forecast_periods: ForecastPeriodSummary[];
 }
 
 /** Fetches the current live-read from NWS. Throws with a clear message on any failure — lib/log/weather.ts catches it and falls back to the last-known reading, per §6/§22's "never make the display unreadable." */
@@ -160,12 +161,16 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   // bare join reads as one run-on blob that repeats itself with no sense of
   // where "today" ends and "tonight" begins. Label each half with NWS's own
   // period name so the boundary is legible to a host reading it on air.
-  const liveReadText = [
-    dayPeriod.detailedForecast && `${dayPeriod.name}: ${dayPeriod.detailedForecast}`,
-    nightPeriod?.detailedForecast && `${nightPeriod.name}: ${nightPeriod.detailedForecast}`,
-  ]
-    .filter((text): text is string => Boolean(text))
-    .join(" ");
+  // forecastPeriods keeps the same two halves separate (label + text) for
+  // screens that render them apart visually — live_read_text stays this one
+  // flat string because the "Edit for this airing" override form needs a
+  // plain string to prefill its textarea.
+  const forecastPeriods: ForecastPeriodSummary[] = [
+    dayPeriod.detailedForecast ? { label: dayPeriod.name, text: dayPeriod.detailedForecast } : null,
+    nightPeriod?.detailedForecast ? { label: nightPeriod.name, text: nightPeriod.detailedForecast } : null,
+  ].filter((period): period is ForecastPeriodSummary => period !== null);
+
+  const liveReadText = forecastPeriods.map((period) => `${period.label}: ${period.text}`).join(" ");
 
   // periods already covers the next several days (NWS's /forecast endpoint
   // typically returns ~14 day/night periods) — daily_outlook just groups
@@ -186,5 +191,6 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
     hazards,
     valid_through_at: (nightPeriod ?? dayPeriod).endTime,
     daily_outlook: dailyOutlook,
+    forecast_periods: forecastPeriods,
   };
 }
