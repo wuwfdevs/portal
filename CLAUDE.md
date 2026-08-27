@@ -2115,6 +2115,32 @@ promo — verified end to end against the real export (977 cuts → 33
 canonical promos consuming 71 cuts, 856 direct items including 30 sensible
 fallbacks, every count reconciling) before this shipped.
 
+**Log: a host could never relocate an underwriting credit to an earlier
+break once a rundown went live (2026-08-27), from a real user report.**
+`lib/log/mid-broadcast.ts`'s `isValidCreditRelocationDestination()` — which
+the rundown board (`rundowns/[id]/rundown-breaks-board.tsx`) uses to build
+*both* a credit's "Move to…" dropdown options and its drag-and-drop
+eligibility — carried the same "reject a destination already in the past,
+when live" gate `isValidMoveDestination()` applies to ordinary content
+moves. For ordinary content that's a deliberate, correct restriction (an
+honest planning constraint). For a credit it was self-defeating: this
+relocation path exists specifically so a host can recover from a missed
+credit or otherwise fix an exception mid-broadcast — see the 2026-08-09
+`log_relocate_underwriting_credit()` migration's own header — and by the
+time that's needed, the nearby breaks worth moving into are routinely
+already behind "now," including every "earlier" break, almost by
+definition, once the rundown is live. The gate quietly excluded every such
+break from the dropdown and from being a valid drag target, which is what
+made it look like moving a credit earlier "did nothing" or reverted after a
+drag — no earlier break was ever actually eligible to land on.
+`log_relocate_underwriting_credit()` itself never enforced a time check at
+all (only same-rundown, permitted-content-type, and duration-fit), so this
+was purely a client-side restriction blocking a real, expected host action
+without protecting anything the write path needed. Fixed by dropping the
+gate from `isValidCreditRelocationDestination()` entirely — ordinary
+content's own `isValidMoveDestination()` gate is untouched. No migration;
+this was never enforced in SQL.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
