@@ -41,6 +41,17 @@ export interface ProgramLogEvent {
    */
   script: string | null;
   /**
+   * Populated only by the async, LLM-backed enrichment step in
+   * lib/log/credit-script-splitter.ts (never by parseProgramLog itself,
+   * which stays synchronous and I/O-free) — the verbatim remainder of
+   * `script` once a bundled cart-less live read (see CREDIT_INTRO_RE) has
+   * been confidently split into its separate credits. `script` itself is
+   * narrowed to just the first credit's text when this is set; each entry
+   * here becomes its own additional live_read item in the same break. Absent
+   * whenever no split was attempted or none could be verified.
+   */
+  extraLiveReadScripts?: string[];
+  /**
    * avail  — a "UW Credit (mm:ss)" break marker; availDurationSeconds set.
    * credit — cart + description + a captured script: a scheduled
    *          underwriting credit.
@@ -66,6 +77,35 @@ export interface ParsedProgramLog {
 const TIME_RE = /^\d{2}:\d{2}:\d{2}$/;
 const LENGTH_RE = /^\d{2}:\d{2}(?::\d{2})?$/;
 const AVAIL_RE = /^UW Credit \((\d{2}:\d{2})\)(?:\s+(\S.*))?$/;
+/**
+ * A live-read script's own boilerplate intro repeats once per credit —
+ * "Support for WUWF comes from…" most often, but "…support for WUWF is
+ * provided by…" is also real (both appear in this parser's own test
+ * fixtures). When a captured script contains this phrase more than once, DAD
+ * printed two or more credits back to back with no separating avail/cart row
+ * between them, and this parser has no row boundary to split on. Rather than
+ * guess where one credit ends and the next begins — a wrong guess would
+ * misattribute a real underwriter's script — a script matching this more
+ * than once is left merged and flagged via a warning instead (see the
+ * `kind: "avail"`/`"credit"` doc comment above), so a human reviews and
+ * splits it during import rather than it silently becoming one credit.
+ */
+const CREDIT_INTRO_RE = /support for wuwf (?:comes from|is provided by)/gi;
+
+/** How many credit intros a captured script contains — 2+ means it's probably bundled. */
+export function countCreditIntros(script: string): number {
+  return script.match(CREDIT_INTRO_RE)?.length ?? 0;
+}
+
+/**
+ * The "this looks bundled" warning for one event, shared with
+ * credit-script-splitter.ts so it can remove the exact string it added once
+ * a split is confidently resolved, rather than the two files drifting out of
+ * sync on the wording.
+ */
+export function bundledCreditWarning(event: Pick<ProgramLogEvent, "kind" | "time">, introCount: number): string {
+  return `The ${event.kind === "avail" ? "break" : "credit"} at ${event.time} looks like it may bundle ${introCount} underwriting credits together with no separating marker between them, so it was imported as a single item. Review its script and split it by hand if needed.`;
+}
 const TITLE_RE = /^(\w+)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+WUWF-FM Program Log$/;
 const NOTE_RE = /Take Meter Readings|Play .* Fader|COVER spot/i;
 
@@ -228,6 +268,19 @@ export function parseProgramLog(documentXml: string): ParsedProgramLog {
     if (event.kind === "row" && event.cart !== null && event.script !== null) {
       event.kind = "credit";
     }
+  }
+
+  // A script carrying more than one credit's own intro phrase — see
+  // CREDIT_INTRO_RE's comment — is flagged here, never auto-split (this
+  // function stays synchronous and I/O-free). The async orchestration layer
+  // (import-actions.ts's parseProgramLogUpload, via
+  // credit-script-splitter.ts) attempts a verified split for the avail/
+  // cart-less case afterward and removes this exact warning when it
+  // succeeds — see bundledCreditWarning's own comment.
+  for (const event of events) {
+    if (event.script === null) continue;
+    const introCount = countCreditIntros(event.script);
+    if (introCount >= 2) warnings.push(bundledCreditWarning(event, introCount));
   }
 
   events.sort((a, b) => a.timeSeconds - b.timeSeconds);

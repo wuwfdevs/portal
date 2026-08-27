@@ -140,4 +140,23 @@ describe("parseProgramLog edge cases", () => {
     const parsed = parseProgramLog(xml);
     expect(parsed.warnings.some((warning) => warning.includes("no owning row"))).toBe(true);
   });
+
+  it("flags, but doesn't try to split, a script that bundles multiple credits with no separating marker", () => {
+    // A real case from a 2026-08-27 export: two live reads printed back to
+    // back under one avail, with no second "UW Credit" marker or cart row
+    // between them for this parser to split on.
+    const xml =
+      "<w:document><w:tbl><w:tr><w:tc><w:p><w:r><w:t>08:49:35</w:t></w:r></w:p></w:tc>" +
+      "<w:tc><w:p><w:r><w:t>UW Credit (01:00) Support for WUWF comes from Juan’s Flying Burrito on Alcaniz " +
+      "Street in Pensacola. Support for WUWF comes from Autumn Beck Blackledge, Attorneys of Divorce and Family " +
+      "Law.</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:document>";
+    const parsed = parseProgramLog(xml);
+    const event = parsed.events[0]!;
+    expect(event.kind).toBe("avail");
+    expect(event.script).toContain("Juan’s Flying Burrito");
+    expect(event.script).toContain("Autumn Beck Blackledge");
+    expect(
+      parsed.warnings.some((warning) => warning.includes("08:49:35") && warning.includes("2 underwriting credits")),
+    ).toBe(true);
+  });
 });

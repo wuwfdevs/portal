@@ -453,12 +453,29 @@ function buildBreaks(
       // A cart-less live-read credit prints its script directly on (or
       // right after) the avail marker itself, with no credit row of its
       // own — that script is this break's content, as a live read.
+      // extraLiveReadScripts (see program-log-import.ts's ProgramLogEvent
+      // doc comment) holds any further credits credit-script-splitter.ts
+      // verified were bundled into the same script with no separating
+      // marker — each becomes its own live_read item in this same break,
+      // never merged back into one.
       if (event.script !== null) {
+        const extraScripts = event.extraLiveReadScripts ?? [];
+        const totalCredits = 1 + extraScripts.length;
+        const titleFor = (position: number) =>
+          totalCredits > 1 ? `Underwriting live read (${position} of ${totalCredits})` : "Underwriting live read";
         open.items.push({
           kind: "live_read",
-          title: "Underwriting live read",
+          title: titleFor(1),
           durationSeconds: DEFAULT_CREDIT_SECONDS,
           script: event.script,
+        });
+        extraScripts.forEach((script, index) => {
+          open!.items.push({
+            kind: "live_read",
+            title: titleFor(index + 2),
+            durationSeconds: DEFAULT_CREDIT_SECONDS,
+            script,
+          });
         });
       }
       continue;

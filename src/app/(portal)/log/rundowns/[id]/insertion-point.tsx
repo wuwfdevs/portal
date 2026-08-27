@@ -28,9 +28,16 @@ import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
 export interface InsertConfig {
   rundownId: string;
   breakId: string;
-  eligibleContent: { id: string; title: string }[];
+  eligibleContent: { id: string; title: string; durationSeconds: number | null }[];
   permitsWeather: boolean;
+  weatherDurationSeconds: number;
   nprItems: NprLookaheadItem[];
+}
+
+/** "90" → "1:30" — mm:ss, matching the format used elsewhere in Log (e.g. npr/page.tsx). */
+function formatDurationLabel(seconds: number): string {
+  const wholeSeconds = Math.round(seconds);
+  return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, "0")}`;
 }
 
 export function InsertionPoint({
@@ -146,9 +153,12 @@ export function InsertionPoint({
                     <button
                       type="button"
                       onClick={() => pick(WEATHER_ITEM_SENTINEL)}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
                     >
-                      Today&apos;s weather
+                      <span className="min-w-0 flex-1 truncate">Today&apos;s weather</span>
+                      <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
+                        {formatDurationLabel(config.weatherDurationSeconds)}
+                      </span>
                     </button>
                   </li>
                 )}
@@ -157,9 +167,14 @@ export function InsertionPoint({
                     <button
                       type="button"
                       onClick={() => pick(candidate.id)}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
                     >
-                      {candidate.title}
+                      <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+                      {candidate.durationSeconds !== null && (
+                        <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
+                          {formatDurationLabel(candidate.durationSeconds)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}

@@ -245,6 +245,57 @@ describe("buildProgramLogPlan against the real export's first two pages", () => 
     ]);
   });
 
+  it("splits a resolved bundled avail into one numbered live read per credit", () => {
+    // extraLiveReadScripts is only ever populated by credit-script-splitter.ts's
+    // async, verified split — this exercises what buildBreaks does with its
+    // output, not the splitting itself (see credit-script-splitter.test.ts).
+    const inputs = baseInputs();
+    inputs.parsed = {
+      airDate: "2026-08-21",
+      weekday: "Friday",
+      warnings: [],
+      events: [
+        {
+          time: "05:00:00",
+          timeSeconds: 18000,
+          cart: null,
+          description: "Morning Edition",
+          lengthSeconds: 0,
+          script: null,
+          kind: "row",
+        },
+        {
+          time: "05:49:35",
+          timeSeconds: 20975,
+          cart: null,
+          description: "UW Credit (01:00) Support for WUWF comes from Juan's Flying Burrito",
+          lengthSeconds: null,
+          script: "Support for WUWF comes from Juan's Flying Burrito on Alcaniz Street.",
+          extraLiveReadScripts: ["Support for WUWF comes from Autumn Beck Blackledge, Attorneys."],
+          kind: "avail",
+          availDurationSeconds: 60,
+        },
+      ],
+    };
+    const plan = buildProgramLogPlan(inputs);
+    const me = plan.rundowns.find((rundown) => rundown.programId === "prog-me")!;
+    const brk = me.breaks.find((candidate) => candidate.time === "05:49:35")!;
+    expect(brk.items).toEqual([
+      {
+        kind: "live_read",
+        title: "Underwriting live read (1 of 2)",
+        durationSeconds: 30,
+        script: "Support for WUWF comes from Juan's Flying Burrito on Alcaniz Street.",
+      },
+      {
+        kind: "live_read",
+        title: "Underwriting live read (2 of 2)",
+        durationSeconds: 30,
+        script: "Support for WUWF comes from Autumn Beck Blackledge, Attorneys.",
+      },
+    ]);
+  });
+
   it("dedupes the day's credits into copy plans with airing counts", () => {
     const plan = buildProgramLogPlan(baseInputs());
     const fpl = plan.copyPlans.find((copy) => copy.underwriterName === "FPM - FL Power & Light");

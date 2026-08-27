@@ -16,10 +16,11 @@ import {
   hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
   listClockSlotsForVersion,
-  listContentItems,
+  listContentItemsWithComponents,
   listLocalOpportunitiesForVersion,
   listUnderwritingCopyForItems,
   toRundownOpportunity,
+  type LogBroadcastEventRow,
   type RundownBreakDetail,
   type RundownItemDetail,
 } from "@/lib/log/queries";
@@ -142,17 +143,44 @@ export default async function RundownDetailPage({
   if (!rundown) notFound();
 
   const live = rundown.status === "in_progress" || rundown.status === "submitted";
-
-  const approvedContent = await listContentItems({ approvalStatus: "approved" });
   const allItems = rundown.breaks.flatMap((brk) => brk.items);
   const underwritingCopyIds = [
     ...new Set(
       allItems.flatMap((item) => (item.underwriting_copy_id ? [item.underwriting_copy_id] : [])),
     ),
   ];
-  const copyById = new Map(
-    (await listUnderwritingCopyForItems(underwritingCopyIds)).map((copy) => [copy.id, copy]),
-  );
+
+  // Every read below depends only on `rundown` (already fetched above), not
+  // on each other, so they're fetched together rather than one at a time.
+  // This screen fully re-renders after every single mid-broadcast action —
+  // including "add this to a break," via fillRundownItem's
+  // revalidatePath+redirect — and running eight independent reads
+  // sequentially (two of which, weather and NPR, can themselves be a real
+  // outbound network call when their cache is stale — see lib/log/weather.ts
+  // and lib/log/npr.ts's lazy-refresh-at-read-time design) is what turned a
+  // single click into a multi-second "Adding…" wait.
+  const [
+    approvedContent,
+    rawUnderwritingCopy,
+    rawOpportunities,
+    clockSlots,
+    weather,
+    npr,
+    events,
+    hasOpenExceptions,
+  ] = await Promise.all([
+    listContentItemsWithComponents({ approvalStatus: "approved" }),
+    listUnderwritingCopyForItems(underwritingCopyIds),
+    listLocalOpportunitiesForVersion(rundown.clock_version_id),
+    listClockSlotsForVersion(rundown.clock_version_id),
+    getCurrentWeatherReading(),
+    getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
+    live
+      ? listBroadcastEventsForItems(allItems.map((item) => item.id))
+      : (Promise.resolve([]) as Promise<LogBroadcastEventRow[]>),
+    live ? hasOpenUnderwritingExceptions(rundown.id) : Promise.resolve(false),
+  ]);
+  const copyById = new Map(rawUnderwritingCopy.map((copy) => [copy.id, copy]));
 
   // generateRundown() is idempotent on (program_id, air_date) — once this row
   // exists, re-generating just redirects here rather than re-running
@@ -162,9 +190,7 @@ export default async function RundownDetailPage({
   // what's already here so the page can tell "this clock genuinely has no
   // opportunities" apart from "this rundown is just out of sync" and offer
   // the fix for the latter — see syncRundownBreaks in rundown-actions.ts.
-  const currentOpportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(
-    toRundownOpportunity,
-  );
+  const currentOpportunities = rawOpportunities.map(toRundownOpportunity);
   const shiftDurationMinutes = Math.round(
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
@@ -269,9 +295,9 @@ export default async function RundownDetailPage({
 
   // Everything below is only meaningful once the broadcast is actually
   // under way — a draft/generated rundown has no "now" to be current
-  // against yet.
+  // against yet. (events itself was already fetched above, alongside every
+  // other independent read.)
   const now = new Date().toISOString();
-  const events = live ? await listBroadcastEventsForItems(allItems.map((item) => item.id)) : [];
   const eventCountByItem = new Map<string, number>();
   for (const event of events) {
     eventCountByItem.set(
@@ -305,12 +331,7 @@ export default async function RundownDetailPage({
   // planning a break ahead of air wants to see (and pick a look-ahead from)
   // upcoming stories, and to add and check today's weather item, the same
   // way they'd plan around a promo, not just once the broadcast has
-  // started.
-  const [weather, npr, clockSlots] = await Promise.all([
-    getCurrentWeatherReading(),
-    getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
-    listClockSlotsForVersion(rundown.clock_version_id),
-  ]);
+  // started. (Fetched above, alongside every other independent read.)
 
   // Estimated per-story air times: pack the episode's stories, in order,
   // into this clock's lettered segment windows, then project onto the
@@ -442,7 +463,6 @@ export default async function RundownDetailPage({
   const unconfirmedOrdinaryCount = ordinaryItems.filter(
     (item) => (eventCountByItem.get(item.id) ?? 0) === 0,
   ).length;
-  const hasOpenExceptions = live ? await hasOpenUnderwritingExceptions(rundown.id) : false;
 
   // Config for the breaks board's insertion points (insertion-point.tsx) —
   // replaces the old bottom-of-break "Add…" <select> + "Create a one-off
@@ -454,8 +474,16 @@ export default async function RundownDetailPage({
     return {
       rundownId: rundown.id,
       breakId: brk.id,
-      eligibleContent: eligible.map((candidate) => ({ id: candidate.id, title: candidate.title })),
+      eligibleContent: eligible.map((candidate) => ({
+        id: candidate.id,
+        title: candidate.title,
+        // The same total (components + expected_duration_seconds) buildRundownItem
+        // itself computes for planned_duration_seconds — shown here so a host can
+        // tell candidates apart by length before picking, not just by name.
+        durationSeconds: computeTotalDurationSeconds(candidate.components, candidate.expected_duration_seconds),
+      })),
       permitsWeather: brk.permitted_content_types.includes("weather"),
+      weatherDurationSeconds: WEATHER_DEFAULT_DURATION_SECONDS,
       // Only the stories a host would actually promote at this break — the
       // ones estimated to air between it and the next — not the whole
       // episode (see storiesAfterBreak above).

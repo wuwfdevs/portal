@@ -22,6 +22,7 @@ import {
 import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { parseProgramLog } from "@/lib/log/program-log-import";
+import { resolveBundledCreditScripts } from "@/lib/log/credit-script-splitter";
 import {
   buildProgramLogPlan,
   importedBreakPermittedTypes,
@@ -65,7 +66,11 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     return { ok: false, error: "That file couldn't be read as a .docx archive." };
   }
 
-  const parsed = parseProgramLog(documentXml);
+  // resolveBundledCreditScripts is a no-op (returns `parsed` unchanged) when
+  // OPENAI_API_KEY isn't configured — every bundled credit stays flagged by
+  // parseProgramLog's own warning, same as before this step existed. See
+  // lib/log/credit-script-splitter.ts.
+  const parsed = await resolveBundledCreditScripts(parseProgramLog(documentXml));
 
   const supabase = await createClient();
   const [programs, scheduleEntries, contentItems, uwResult, rundownsResult] = await Promise.all([
