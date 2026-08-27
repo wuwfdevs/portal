@@ -126,14 +126,14 @@ function creditDestination(
 
 describe("isValidCreditRelocationDestination", () => {
   it("accepts an open, eligible break in the same rundown", () => {
-    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1", NOW)).toBe(
+    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1")).toBe(
       true,
     );
   });
 
   it("rejects the source break itself", () => {
     expect(
-      isValidCreditRelocationDestination(creditDestination({ id: "source-break" }), "source-break", "rundown-1", NOW),
+      isValidCreditRelocationDestination(creditDestination({ id: "source-break" }), "source-break", "rundown-1"),
     ).toBe(false);
   });
 
@@ -143,7 +143,6 @@ describe("isValidCreditRelocationDestination", () => {
         creditDestination({ id: "d1", rundown_id: "rundown-2" }),
         "source-break",
         "rundown-1",
-        NOW,
       ),
     ).toBe(false);
   });
@@ -154,40 +153,22 @@ describe("isValidCreditRelocationDestination", () => {
         creditDestination({ id: "d1", permitted_content_types: ["psa"] }),
         "source-break",
         "rundown-1",
-        NOW,
       ),
     ).toBe(false);
   });
 
   it("accepts an already-occupied break — no item-count cap", () => {
-    expect(
-      isValidCreditRelocationDestination(
-        creditDestination({ id: "d1" }),
-        "source-break",
-        "rundown-1",
-        NOW,
-      ),
-    ).toBe(true);
+    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1")).toBe(
+      true,
+    );
   });
 
-  it("rejects a destination already in the past, when live", () => {
+  it("accepts a destination already in the past, when live — moving a credit earlier or recovering from a miss routinely targets a break 'now' has already passed", () => {
     expect(
       isValidCreditRelocationDestination(
         creditDestination({ id: "d1", scheduled_at: "2026-08-07T08:00:00.000Z" }),
         "source-break",
         "rundown-1",
-        NOW,
-      ),
-    ).toBe(false);
-  });
-
-  it("accepts a destination in the past when not live — a credit can still be planned pre-air", () => {
-    expect(
-      isValidCreditRelocationDestination(
-        creditDestination({ id: "d1", scheduled_at: "2026-08-07T08:00:00.000Z" }),
-        "source-break",
-        "rundown-1",
-        null,
       ),
     ).toBe(true);
   });

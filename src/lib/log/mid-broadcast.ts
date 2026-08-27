@@ -74,6 +74,18 @@ export function listValidMoveDestinations<T extends MoveDestinationBreakLike>(
 // that's the only content-shaped check) and everything to do with staying
 // inside the same rundown — the write behind this can't cross rundowns at
 // all, unlike an ordinary content move.
+//
+// Deliberately no "already in the past, when live" gate either, unlike
+// isValidMoveDestination above — that gate is a real, intended restriction
+// for ordinary content (a planning move), but for a credit it would defeat
+// the whole feature: this function exists specifically so a host can recover
+// from a missed credit or otherwise fix an exception mid-broadcast, and by
+// the time that's needed, the nearby breaks worth moving into are routinely
+// already behind "now" — including every "earlier" break, almost by
+// definition, once the rundown is live. log_relocate_underwriting_credit()
+// itself (the security-definer function this feeds) never enforced a time
+// check at all, so this was a client-only restriction blocking a real,
+// expected host action without protecting anything the write path needed.
 
 export interface CreditRelocationBreakLike {
   id: string;
@@ -86,13 +98,10 @@ export function isValidCreditRelocationDestination(
   destination: CreditRelocationBreakLike,
   sourceBreakId: string,
   sourceRundownId: string,
-  nowISO: string | null,
 ): boolean {
   if (destination.id === sourceBreakId) return false;
   if (destination.rundown_id !== sourceRundownId) return false;
   if (!destination.permitted_content_types.includes("underwriting_credit")) return false;
-  if (nowISO !== null && new Date(destination.scheduled_at).getTime() <= new Date(nowISO).getTime())
-    return false;
   return true;
 }
 

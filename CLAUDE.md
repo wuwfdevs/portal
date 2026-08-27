@@ -2115,6 +2115,56 @@ promo — verified end to end against the real export (977 cuts → 33
 canonical promos consuming 71 cuts, 856 direct items including 30 sensible
 fallbacks, every count reconciling) before this shipped.
 
+**Log: relocating an underwriting credit could fail outright — two separate
+bugs, both found from one real user report (2026-08-27).**
+
+The report was "moving a credit to an earlier break doesn't work." The
+first hypothesis — `lib/log/mid-broadcast.ts`'s
+`isValidCreditRelocationDestination()` carrying the same "reject a
+destination already in the past, when live" gate `isValidMoveDestination()`
+applies to ordinary content moves — was real (see below) but turned out not
+to be what the user hit: they saw the failure *before* clicking "Start
+broadcast," when the rundown isn't live and that gate is never even
+evaluated. Reproducing the exact case directly against production (`select
+log_relocate_underwriting_credit(...)` inside a rolled-back transaction,
+impersonating the reporting host's own `auth.uid()`) found the real cause:
+the credit lived on a program-log-*imported* rundown
+(`log_rundowns.source = 'imported'`), and every one of its
+`underwriting_credit` items had **no `uw_scheduled_placements` row at all** —
+exactly the placement-less state the program-log import's own design
+document already describes (see that milestone's CLAUDE.md entry and
+`log_delete_unplaced_credit_item()`, which already treats it as normal).
+`log_relocate_underwriting_credit()` (`20260809130000_underwriting_credit_
+relocation.sql`, last replaced by `20260809170000_log_local_opportunities_
+slot_based.sql`) never accounted for that state: it required a placement
+row unconditionally and returned `unknown_placement` otherwise — before
+ever even looking at the destination break. That made relocation fail for
+*every* imported credit, on *every* destination, live or not — matching the
+report exactly once the "before Start broadcast" detail ruled out the live
+gate. Fixed by `20260827120000_log_relocate_unplaced_underwriting_credit.sql`:
+the `uw_scheduled_placements` lookup is now optional — a credit with no
+placement just skips the placement-row update (nothing to update) and
+returns a null `placement_id`, mirroring `log_delete_unplaced_credit_item()`'s
+own treatment of the same state. Verified directly against production in a
+rolled-back transaction before and after the fix (`unknown_placement` →
+success, item's `break_id` actually changed) — applied to both projects,
+recorded in `APPLIED.md`, `db:check` passes.
+
+The first hypothesis was still worth fixing in its own right, since it's a
+real, separate bug for the *live*-broadcast case: `isValidCreditRelocationDestination()`'s
+"already in the past, when live" gate is self-defeating for a credit —
+this relocation path exists specifically so a host can recover from a
+missed credit or fix an exception mid-broadcast (see the 2026-08-09
+migration's own header), and by the time that's needed, the nearby breaks
+worth moving into are routinely already behind "now," including nearly
+every "earlier" break, once the rundown is actually live.
+`log_relocate_underwriting_credit()` itself never enforced a time check at
+all (only same-rundown, permitted-content-type, and duration-fit), so this
+was purely a client-side restriction with nothing backing it. Fixed by
+dropping the gate from `isValidCreditRelocationDestination()` entirely —
+ordinary content's own `isValidMoveDestination()` gate is untouched. No
+migration; this half was never enforced in SQL.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

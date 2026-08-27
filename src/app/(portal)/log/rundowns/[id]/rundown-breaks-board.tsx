@@ -122,7 +122,6 @@ export function RundownBreaksBoard({
           },
           sourceBreakId,
           sourceBreak.rundownId,
-          live ? nowISO : null,
         ),
       );
       // Nearest to this credit's current break first — "move it to the
