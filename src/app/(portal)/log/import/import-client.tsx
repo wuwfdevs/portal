@@ -35,7 +35,7 @@ export function ImportClient() {
   const upload = () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setError("Choose a program-log export (.docx) first.");
+      setError("Choose a program-log export (.docx or .pdf) first.");
       return;
     }
     const formData = new FormData();
@@ -112,7 +112,7 @@ export function ImportClient() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
             className={cn(controlClasses, "max-w-md")}
             aria-label="Program-log export file"
           />

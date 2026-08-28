@@ -11,9 +11,12 @@ export default function ImportPage() {
     <div className="max-w-3xl">
       <h1 className="text-lg font-bold text-ink-900">Import a program log</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        Upload a daily WUWF-FM program log exported from the traffic system (.docx). Nothing is
-        written until you review the plan and confirm — underwriting credits already in the
-        library are reused, and only genuinely new underwriters and copy are created.
+        Upload a daily WUWF-FM program log exported from the traffic system, as a Word (.docx) or
+        PDF (.pdf) file. Nothing is written until you review the plan and confirm — underwriting
+        credits already in the library are reused, and only genuinely new underwriters and copy
+        are created. An AI reading step identifies each credit and its underwriter (even when two
+        or more run together with no separating marker in the export) and reproduces every
+        script verbatim from the source document.
       </p>
       <ImportClient />
     </div>

@@ -2165,6 +2165,92 @@ dropping the gate from `isValidCreditRelocationDestination()` entirely —
 ordinary content's own `isValidMoveDestination()` gate is untouched. No
 migration; this half was never enforced in SQL.
 
+**Log: program-log import rebuilt around structured-output AI parsing
+(2026-08-28), superseding the previous entry's parser.** A real DAD export
+had two live-read credits printed back to back with no separating marker
+("Support for WUWF comes from Juan's Flying Burrito... Support for WUWF
+comes from Autumn Beck Blackledge..."), which the deterministic parser
+imported as one merged, misattributed credit. A first fix added a regex
+flag (`CREDIT_INTRO_RE`) plus an optional narrow LLM split behind it — but
+the regex-gated detection meant the AI step could never see a bundle using
+different phrasing than the two patterns already on file (this codebase's
+own fixtures already had two: "Support for WUWF comes from…" and
+"…support for WUWF is provided by…"), so it was never going to generalize.
+Rebuilt from the ground up instead: `program-log-import.ts`'s entire
+row/avail/credit/note classifier is gone, along with the narrow
+`credit-script-splitter.ts` bolt-on.
+
+The replacement splits the job by risk, not by convenience. **Text
+extraction stays deterministic and format-specific** —
+`program-log-docx-text.ts` (plain-text-from-docx-XML, no row
+classification — a real, separate word-gluing bug in the inherited
+`<w:br/>`-handling logic, caught only because this rewrite's own tests
+asserted on literal script text for the first time, is fixed here too) and
+`program-log-pdf-text.ts` (server-only, reusing Sourcework's existing
+native-PDF text extraction — `lib/transcription/providers/native-pdf.ts` —
+rather than building a second way to read a PDF in this codebase;
+deliberately no Mistral OCR fallback, since a DAD export is a born-digital
+printout, not a scan, and standing up a Storage round trip to maybe-OCR a
+case that shouldn't occur isn't worth it yet). Getting characters out of a
+container format is low-risk and mechanical regardless of who reads the
+result afterward, so there was no reason to keep two different bespoke
+per-format row-parsers when the *interpretation* step was moving to AI
+anyway. **Interpretation — which row is a program start vs. an ordinary
+fill vs. an avail marker, how many credits are bundled into one script, who
+each one is for — is real judgment a fixed pattern can't reliably make**,
+so `program-log-ai-parse.ts` (server-only, reusing the same `gpt-5.6-terra`
+model this repo already pins for structured-output calls in
+`editorial-inquiry/ai.ts`) hands the model the extracted text plus the
+existing underwriter list, once per import, and gets back the day's full
+event list — not just credits.
+
+Two things make this safe to trust despite handing more to the model, not
+less: **verbatim scripts** and **closed-set underwriter matching**. The
+model is never asked to retype a credit's script — only to copy a short
+opening and closing phrase from the source text, which
+`program-log-verification.ts`'s `extractVerifiedSpan` (pure, tested) then
+locates with plain substring search and slices from the *original* text;
+an unlocatable phrase drops that credit with a warning rather than being
+trusted. Underwriter attribution is a JSON-schema enum of the existing
+underwriter names plus a literal `"NEW"` escape hatch, not free-text
+matched after the fact — the model can recognize "Autumn Beck Blackledge,
+Attorneys of Divorce and Family Law" as the known underwriter "Autumn Beck
+Blackledge" without this code needing its own fuzzy-matching heuristic, and
+without the risk of a wording-drift duplicate that matching two
+independently-extracted free-text names would carry. Every other
+structural claim (a row's printed time, its printed length, a credit's
+cart number) is checked against the extracted text too
+(`verifyAndResolveEvents`, also pure and tested) — a claim that can't be
+verified is dropped (just that field, or the whole credit, or the whole
+row, depending on what's unverifiable), never guessed at. Air date/weekday
+extraction stays a plain deterministic regex
+(`program-log-air-date.ts`) — the title row's pattern is simple and
+consistent, no reason to trade a reliable match for a model's read of the
+same fixed phrase.
+
+Cart-bearing and cart-less credits are no longer two different mechanisms
+in `program-log-plan.ts` (the old parser's real "credit" row vs. an
+avail's ad hoc, unattributed "live_read" script): every credit the AI-parse
+step resolves, whichever kind of row it came from, already carries a
+verified script and a resolved underwriter, so both become the same
+"credit" `ItemPlan` — a DAD cart number is just one more field on it when
+present, not a fork in the logic. This is a real behavior change: a
+cart-less credit now gets full `uw_underwriters`/`uw_copy` attribution the
+same as a cart-bearing one, where it previously became an unattributed
+generic "Underwriting live read" item.
+
+The importer now accepts a Word (.docx) or PDF (.pdf) export
+(`import-actions.ts`'s `extractSourceText`, dispatching on the uploaded
+file's name) — the two formats DAD is expected to produce this report in;
+a scanned/photographed printout is explicitly out of scope (see
+`program-log-pdf-text.ts`'s own comment). The import screen's preview/
+confirm flow, and `import-actions.ts`'s `executeProgramLogImport` (the
+write path), are both unchanged — `ProgramLogPlan`'s shape never changed,
+only how it gets built. **This importer now hard-depends on
+`OPENAI_API_KEY`** — unlike the previous entry's optional bolt-on, there is
+no deterministic fallback path left; an unconfigured key fails the upload
+outright with a clear message rather than silently degrading.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

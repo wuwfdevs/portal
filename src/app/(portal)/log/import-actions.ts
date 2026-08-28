@@ -21,8 +21,9 @@ import {
 } from "@/lib/log/rundown-generation";
 import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
-import { parseProgramLog } from "@/lib/log/program-log-import";
-import { resolveBundledCreditScripts } from "@/lib/log/credit-script-splitter";
+import { extractDocxPlainText } from "@/lib/log/program-log-docx-text";
+import { extractPdfPlainText } from "@/lib/log/program-log-pdf-text";
+import { parseProgramLogWithAI } from "@/lib/log/program-log-ai-parse";
 import {
   buildProgramLogPlan,
   importedBreakPermittedTypes,
@@ -45,42 +46,55 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export type ParseImportResult = { ok: true; plan: ProgramLogPlan } | { ok: false; error: string };
 
+type TextExtractionResult = { ok: true; text: string } | { ok: false; error: string };
+
+/**
+ * Gets plain text out of whichever supported format was uploaded — the
+ * deterministic, format-specific half of this import (see program-log-
+ * docx-text.ts and program-log-pdf-text.ts's own comments for why this
+ * stays mechanical while everything about *interpreting* the text is the
+ * AI-parse step's job). Dispatches on the file's own name, since a
+ * browser's reported MIME type for a .docx varies by OS/browser and isn't
+ * worth relying on.
+ */
+async function extractSourceText(file: File): Promise<TextExtractionResult> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) {
+    return extractPdfPlainText(new Uint8Array(await file.arrayBuffer()));
+  }
+  if (name.endsWith(".docx")) {
+    try {
+      const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+      const entry = archive["word/document.xml"];
+      if (!entry) return { ok: false, error: "That file isn't a Word document (no word/document.xml inside)." };
+      return { ok: true, text: extractDocxPlainText(strFromU8(entry)) };
+    } catch {
+      return { ok: false, error: "That file couldn't be read as a .docx archive." };
+    }
+  }
+  return { ok: false, error: "Choose a program-log export as a Word (.docx) or PDF (.pdf) file." };
+}
+
 export async function parseProgramLogUpload(formData: FormData): Promise<ParseImportResult> {
   await assertLogAccess();
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Choose a program-log export (.docx) to upload." };
+    return { ok: false, error: "Choose a program-log export (.docx or .pdf) to upload." };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "That file is too large to be a program-log export." };
   }
 
-  let documentXml: string;
-  try {
-    const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
-    const entry = archive["word/document.xml"];
-    if (!entry) return { ok: false, error: "That file isn't a Word document (no word/document.xml inside)." };
-    documentXml = strFromU8(entry);
-  } catch {
-    return { ok: false, error: "That file couldn't be read as a .docx archive." };
-  }
-
-  // resolveBundledCreditScripts is a no-op (returns `parsed` unchanged) when
-  // OPENAI_API_KEY isn't configured — every bundled credit stays flagged by
-  // parseProgramLog's own warning, same as before this step existed. See
-  // lib/log/credit-script-splitter.ts.
-  const parsed = await resolveBundledCreditScripts(parseProgramLog(documentXml));
+  const extraction = await extractSourceText(file);
+  if (!extraction.ok) return { ok: false, error: extraction.error };
 
   const supabase = await createClient();
-  const [programs, scheduleEntries, contentItems, uwResult, rundownsResult] = await Promise.all([
+  const [programs, scheduleEntries, contentItems, uwResult] = await Promise.all([
     listPrograms(),
     listScheduleEntries(),
     listContentItems({ approvalStatus: "approved" }),
     supabase.rpc("log_import_list_underwriting_copy"),
-    parsed.airDate
-      ? supabase.from("log_rundowns").select("id, program_id, source").eq("air_date", parsed.airDate)
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (uwResult.error) return { ok: false, error: "Could not read the underwriting copy library." };
@@ -88,6 +102,19 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     | { underwriters: PlanUnderwriter[]; copy: PlanCopy[] }
     | { error: string };
   if ("error" in uwData) return { ok: false, error: "Could not read the underwriting copy library." };
+
+  // The one call that does all the structural + credit judgment (see
+  // program-log-ai-parse.ts) — needs the day's existing underwriters up
+  // front, as a closed set it matches credits against rather than guessing
+  // at free text (its "NEW" escape hatch is the only way a credit's
+  // underwriter isn't one of these).
+  const aiResult = await parseProgramLogWithAI(extraction.text, uwData.underwriters.map((row) => row.name));
+  if (!aiResult.ok) return { ok: false, error: aiResult.error };
+  const parsed = aiResult.parsed;
+
+  const rundownsResult = parsed.airDate
+    ? await supabase.from("log_rundowns").select("id, program_id, source").eq("air_date", parsed.airDate)
+    : { data: [], error: null };
   if (rundownsResult.error) return { ok: false, error: "Could not check for existing rundowns." };
 
   const plan = buildProgramLogPlan({
