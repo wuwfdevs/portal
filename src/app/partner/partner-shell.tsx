@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PublicPolicyNotice } from "@/components/ui/public-policy-notice";
 
 /**
  * The card every public screen sits in. Mirrors
@@ -11,7 +12,10 @@ import type { ReactNode } from "react";
 export function PartnerShell({ embedded, children }: { embedded: boolean; children: ReactNode }) {
   const card = (
     <div className="w-full overflow-hidden rounded-lg border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
-      <div className="px-6 py-8 sm:px-8 sm:py-9">{children}</div>
+      <div className="px-6 py-8 sm:px-8 sm:py-9">
+        {children}
+        <PublicPolicyNotice />
+      </div>
     </div>
   );
 

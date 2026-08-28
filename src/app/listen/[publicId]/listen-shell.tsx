@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PublicPolicyNotice } from "@/components/ui/public-policy-notice";
 
 /**
  * The card every public screen sits in.
@@ -38,7 +39,10 @@ export function ListenShell({
           />
         </div>
       )}
-      <div className="px-6 py-8 sm:px-8 sm:py-9">{children}</div>
+      <div className="px-6 py-8 sm:px-8 sm:py-9">
+        {children}
+        <PublicPolicyNotice />
+      </div>
     </div>
   );
 
