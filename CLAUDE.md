@@ -2251,6 +2251,43 @@ only how it gets built. **This importer now hard-depends on
 no deterministic fallback path left; an unconfigured key fails the upload
 outright with a clear message rather than silently degrading.
 
+**Log: program-log import — a same-timestamp verification bug, found
+against a live import the same day.** A real day's export failed to
+verify 12 legitimate avail markers ("A row claiming the time 06:06:00
+could not be found in the source text and was skipped"), while the
+credits scheduled inside those same breaks mostly still came through.
+Root cause: `program-log-verification.ts`'s `verifyAndResolveEvents`
+originally located every row with one search position shared across the
+*entire* array, advancing monotonically as each row verified — which only
+works if the model reports rows in exact document order. An avail marker
+and the credit that fills it print the *identical* timestamp on adjacent
+lines, and the model doesn't reliably preserve document order for that
+pair (describing "this credit airs in this break" before the break itself
+is a very natural thing for it to do). Reporting the credit first let the
+shared cursor consume both textual occurrences of that timestamp while
+confirming the credit, leaving nothing for the avail to find afterward.
+This was a real design mistake, not a probabilistic model failure to shrug
+off: nothing about JSON Schema (or `strict: true` structured outputs)
+constrains cross-item array order — that's a plain-language prompt
+request the model can and does deviate from — so treating the array's
+emitted order as reliable positional ground truth was never sound.
+
+Fixed by making every row resolve independently of array order and of any
+other row: `findRowIndex` finds *every* occurrence of a row's printed
+time, then — only when the time repeats — disambiguates using that row's
+own printed description, checked against the same line the time occurred
+on (both text extractors put one row on one line). This has to be
+line-scoped rather than "within N characters": an avail marker and its
+same-time credit sit only a few dozen characters apart, so a merely-nearby
+window is wide enough to match either row's description against the
+*other* row's timestamp, defeating the disambiguation in exactly the case
+it exists for. A softer nearest-match-within-window fallback covers text
+that isn't cleanly one-row-per-line (real for the PDF path). The returned
+event list is also now explicitly sorted by time before being handed to
+`program-log-plan.ts` — restoring a final sort the pre-AI parser always
+did and this rebuild had dropped — so the planner's own segmentation and
+break-grouping never has to trust the model's emitted order either.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
