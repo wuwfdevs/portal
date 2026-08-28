@@ -13,7 +13,7 @@ export function PublicPolicyNotice() {
     <p className="mt-6 text-center text-xs leading-relaxed text-ink-400">
       This page is provided by the University of West Florida under its{" "}
       <a
-        href="https://uwf.edu/offices/board-of-trustees/policies/"
+        href="https://confluence.uwf.edu/download/attachments/340923307/IT-04%20Information%20Security%20and%20Privacy%20-%20executed.pdf?version=1&modificationDate=1746109492117&api=v2"
         target="_blank"
         rel="noopener noreferrer"
         className="underline hover:text-ink-500"
