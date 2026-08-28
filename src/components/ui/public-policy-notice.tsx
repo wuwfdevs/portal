@@ -7,13 +7,21 @@
  * inquiry form, and Remote Interview's guest join screen — see each route's
  * *-shell.tsx for why those pages otherwise deliberately show no portal
  * branding; this notice is scoped to the policy requirement, not the portal.
+ *
+ * Links to a locally hosted copy (public/policies/) rather than UWF's
+ * Confluence, which sits behind a UWF login — a member of the public filling
+ * out one of these forms couldn't actually read the policy through that
+ * link. This copy is IT-04.03-05/25, approved 05/01/2025 (last reviewed
+ * May 2025 per the policy's own History line). IT-04 is revised
+ * periodically; if UWF publishes a public (non-Confluence) URL for it, or a
+ * newer version is executed, swap this file/link rather than let it drift.
  */
 export function PublicPolicyNotice() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-ink-400">
       This page is provided by the University of West Florida under its{" "}
       <a
-        href="https://confluence.uwf.edu/download/attachments/340923307/IT-04%20Information%20Security%20and%20Privacy%20-%20executed.pdf?version=1&modificationDate=1746109492117&api=v2"
+        href="/policies/it-04-information-security-and-privacy.pdf"
         target="_blank"
         rel="noopener noreferrer"
         className="underline hover:text-ink-500"
