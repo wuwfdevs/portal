@@ -1,5 +1,6 @@
 // Pure import planner — turns a parsed DAD program-log export
-// (program-log-import.ts) plus the database's current state (programs,
+// (program-log-ai-parse.ts, which already resolved and verified every
+// credit's underwriter/script) plus the database's current state (programs,
 // schedule entries, existing rundowns, underwriters/copy, the content
 // library — all supplied by the caller, this module never touches
 // Supabase) into an explicit plan: which rundowns to create with which
@@ -8,11 +9,19 @@
 // and the executor (import-actions.ts) applies it — one computation drives
 // both, never two (the same discipline Underwriting's auto-fill
 // provisioning follows).
+//
+// Cart-bearing and cart-less credits are no longer two separate mechanisms
+// here (the old parser's "credit" vs. an avail's ad hoc "live_read" script):
+// every credit the AI-parse step resolved, whichever kind of row it came
+// from, already carries a verified script and a resolved underwriter name
+// (either matched to an existing one, or explicitly new), so both become the
+// same "credit" ItemPlan — a DAD cart number is just one more field on it
+// when present, not a fork in the logic.
 
 import type { LogOpportunityRequirement } from "@/lib/database.types";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "@/lib/log/schedule";
-import type { ParsedProgramLog, ProgramLogEvent } from "@/lib/log/program-log-import";
+import type { ParsedLogEvent, ParsedProgramLog, ResolvedCredit } from "@/lib/log/program-log-verification";
 
 export interface PlanProgram {
   id: string;
@@ -65,7 +74,7 @@ export interface ProgramLogPlanInputs {
 
 /** One distinct credit across the day (the same copy often airs several times). */
 export interface CopyPlan {
-  /** Stable key item plans reference: `${cart ?? ""}|${description}`. */
+  /** Stable key item plans reference: `${cart ?? ""}|${underwriterName}|${label}`. */
   key: string;
   underwriterName: string;
   /** True when no existing underwriter matches by name. */
@@ -179,49 +188,32 @@ export function matchProgram(description: string, programs: PlanProgram[]): Plan
   return best;
 }
 
-/** "Baptist Healthcare / Copy 1" → underwriter "Baptist Healthcare", label "Copy 1". */
-export function splitCreditDescription(description: string): { underwriterName: string; label: string } {
-  const separator = description.lastIndexOf(" / ");
-  if (separator === -1) return { underwriterName: description.trim(), label: "Imported copy" };
-  return {
-    underwriterName: description.slice(0, separator).trim(),
-    label: description.slice(separator + 3).trim() || "Imported copy",
-  };
-}
-
-interface CreditEventLike {
-  cart: string | null;
-  description: string;
-  script: string | null;
-  lengthSeconds: number | null;
-}
-
-function copyPlanKey(event: CreditEventLike): string {
-  return `${event.cart ?? ""}|${event.description}`;
+function creditCopyKey(credit: ResolvedCredit): string {
+  return `${credit.cart ?? ""}|${credit.underwriterName}|${credit.label}`;
 }
 
 /**
- * Matches one export credit against existing copy: same cart (or both
- * cart-less) and same label, case-insensitively — the identity
- * log_import_underwriting_copy() also keys its find-or-create on — with an
- * underwriter-name check when the candidate carries a direct attribution.
- * A match whose stored script text differs is still a match (the station's
+ * Matches one resolved credit against existing copy: same cart (or both
+ * cart-less), same label case-insensitively, and — when the candidate row
+ * carries a direct attribution — the same underwriter. Both sides of this
+ * match are already-resolved identities (the credit's underwriter was
+ * matched or created by program-log-ai-parse.ts's enum step, never a
+ * free-text guess here), so this is a plain lookup, not fuzzy matching. A
+ * match whose stored script text differs is still a match (the station's
  * export is not the place copy gets edited from), flagged so the preview
  * can surface it.
  */
-export function matchCopy(
-  event: CreditEventLike,
+export function findExistingCopy(
+  credit: ResolvedCredit,
   copy: PlanCopy[],
   underwritersById: Map<string, PlanUnderwriter>,
 ): { match: PlanCopy | null; scriptChanged: boolean } {
-  const { underwriterName, label } = splitCreditDescription(event.description);
-  const cart = event.cart;
   const candidates = copy.filter((row) => {
-    if ((row.cart_identifier ?? null) !== cart) return false;
-    if (row.label.toLowerCase() !== label.toLowerCase()) return false;
+    if ((row.cart_identifier ?? null) !== credit.cart) return false;
+    if (row.label.toLowerCase() !== credit.label.toLowerCase()) return false;
     if (row.underwriter_id !== null) {
       const attributed = underwritersById.get(row.underwriter_id);
-      if (attributed && normalizeName(attributed.name) !== normalizeName(underwriterName)) return false;
+      if (attributed && normalizeName(attributed.name) !== normalizeName(credit.underwriterName)) return false;
     }
     return true;
   });
@@ -229,8 +221,8 @@ export function matchCopy(
   const scriptChanged =
     match !== null &&
     normalizeScript(match.script) !== "" &&
-    normalizeScript(event.script) !== "" &&
-    normalizeScript(match.script) !== normalizeScript(event.script);
+    normalizeScript(credit.script) !== "" &&
+    normalizeScript(match.script) !== normalizeScript(credit.script);
   return { match, scriptChanged };
 }
 
@@ -258,28 +250,11 @@ export function matchContentItem(description: string, items: PlanContentItem[]):
 
 const DEFAULT_CREDIT_SECONDS = 30;
 const DEFAULT_FILL_SECONDS = 60;
-/** A row at least this long reads as a program start wherever it falls. */
-const PROBABLE_PROGRAM_MIN_SECONDS = 1500;
-/** How far into an hour a "00:00"-length row still reads as a program start. */
-const PROGRAM_START_HOUR_WINDOW_SECONDS = 120;
-
-/**
- * Whether an *unmatched* row looks like a program start (a matched program
- * name always wins regardless of shape). DAD prints "00:00" both for a
- * program that runs to fill AND for short mid-hour features (the real
- * export's "Sound Beat" at 10:38:30) — so a 00:00 row only reads as a
- * program start near the top of an hour; mid-hour it's a fill, which keeps
- * the rest of the hour attached to the program actually airing.
- */
-function isProbableProgramRow(event: ProgramLogEvent): boolean {
-  if ((event.lengthSeconds ?? 0) >= PROBABLE_PROGRAM_MIN_SECONDS) return true;
-  return event.lengthSeconds === 0 && event.timeSeconds % 3600 < PROGRAM_START_HOUR_WINDOW_SECONDS;
-}
 
 interface Segment {
   program: PlanProgram | null;
   startSeconds: number;
-  events: ProgramLogEvent[];
+  events: ParsedLogEvent[];
 }
 
 export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPlan {
@@ -294,6 +269,9 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
   const underwriterNames = new Set(inputs.underwriters.map((row) => normalizeName(row.name)));
 
   // ---- Segment the day by program-start rows --------------------------------
+  // The AI-parse step already tells us which rows are program starts (real
+  // document context, not a duration heuristic) — this only has to match
+  // that row's printed name against a known Log program.
   const segments: Segment[] = [];
   let current: Segment | null = null;
   for (const event of parsed.events) {
@@ -301,23 +279,18 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
       notes.push({ time: event.time, description: event.description });
       continue;
     }
-    if (event.kind === "row") {
+    if (event.kind === "program_start") {
       const program = matchProgram(event.description, inputs.programs);
-      if (program) {
-        current = { program, startSeconds: event.timeSeconds, events: [] };
-        segments.push(current);
-        continue;
-      }
-      if (isProbableProgramRow(event)) {
+      current = { program, startSeconds: event.timeSeconds, events: [] };
+      segments.push(current);
+      if (!program) {
         unresolved.push({
           time: event.time,
           description: event.description,
           reason: "Looks like a program start, but no Log program matches this name.",
         });
-        current = { program: null, startSeconds: event.timeSeconds, events: [] };
-        segments.push(current);
-        continue;
       }
+      continue;
     }
     if (current === null) {
       unresolved.push({
@@ -342,27 +315,27 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
   const copyPlansByKey = new Map<string, CopyPlan>();
   for (const segment of segments) {
     for (const event of segment.events) {
-      if (event.kind !== "credit") continue;
-      const key = copyPlanKey(event);
-      const existing = copyPlansByKey.get(key);
-      if (existing) {
-        existing.airings += 1;
-        continue;
+      for (const credit of event.credits) {
+        const key = creditCopyKey(credit);
+        const existingPlan = copyPlansByKey.get(key);
+        if (existingPlan) {
+          existingPlan.airings += 1;
+          continue;
+        }
+        const { match, scriptChanged } = findExistingCopy(credit, inputs.copy, underwritersById);
+        copyPlansByKey.set(key, {
+          key,
+          underwriterName: credit.underwriterName,
+          underwriterIsNew: match === null && !underwriterNames.has(normalizeName(credit.underwriterName)),
+          label: credit.label,
+          cart: credit.cart,
+          script: credit.script,
+          durationSeconds: credit.durationSeconds,
+          existingCopyId: match?.id ?? null,
+          scriptChanged,
+          airings: 1,
+        });
       }
-      const { underwriterName, label } = splitCreditDescription(event.description);
-      const { match, scriptChanged } = matchCopy(event, inputs.copy, underwritersById);
-      copyPlansByKey.set(key, {
-        key,
-        underwriterName,
-        underwriterIsNew: match === null && !underwriterNames.has(normalizeName(underwriterName)),
-        label,
-        cart: event.cart,
-        script: event.script,
-        durationSeconds: event.lengthSeconds,
-        existingCopyId: match?.id ?? null,
-        scriptChanged,
-        airings: 1,
-      });
     }
   }
 
@@ -429,8 +402,26 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
   };
 }
 
+function creditToItemPlan(credit: ResolvedCredit): ItemPlan {
+  return {
+    kind: "credit",
+    copyKey: creditCopyKey(credit),
+    title: credit.cart !== null ? `${credit.underwriterName} / ${credit.label}` : credit.underwriterName,
+    durationSeconds: credit.durationSeconds || DEFAULT_CREDIT_SECONDS,
+  };
+}
+
+function toContentItemPlan(event: ParsedLogEvent, contentItems: PlanContentItem[]): ItemPlan {
+  const matched = matchContentItem(event.description, contentItems);
+  const durationSeconds = event.lengthSeconds || DEFAULT_FILL_SECONDS;
+  if (matched) {
+    return { kind: "content", contentItemId: matched.id, title: matched.title, durationSeconds };
+  }
+  return { kind: "live_read", title: event.description, durationSeconds, script: null };
+}
+
 function buildBreaks(
-  events: ProgramLogEvent[],
+  events: ParsedLogEvent[],
   contentItems: PlanContentItem[],
   unresolved: UnresolvedEvent[],
 ): BreakPlan[] {
@@ -442,37 +433,53 @@ function buildBreaks(
 
   for (const event of events) {
     if (event.kind === "avail") {
+      // Zero or more credits: DAD prints a break with nothing scheduled in
+      // it just as often as one with a single credit, or — the whole reason
+      // this import's AI step exists — two or more cart-less credits with
+      // no marker separating them. Every one of event.credits already has a
+      // verified script and a resolved underwriter, so each just becomes
+      // its own credit item, unconditionally.
       open = {
         startSeconds: event.timeSeconds,
         time: event.time,
         label: "Underwriting break",
         availableDurationSeconds: event.availDurationSeconds ?? DEFAULT_CREDIT_SECONDS,
-        items: [],
+        items: event.credits.map(creditToItemPlan),
       };
       breaks.push(open);
-      // A cart-less live-read credit prints its script directly on (or
-      // right after) the avail marker itself, with no credit row of its
-      // own — that script is this break's content, as a live read.
-      if (event.script !== null) {
-        open.items.push({
-          kind: "live_read",
-          title: "Underwriting live read",
-          durationSeconds: DEFAULT_CREDIT_SECONDS,
-          script: event.script,
-        });
-      }
       continue;
     }
 
-    const itemPlan = toItemPlan(event, contentItems);
-    if (itemPlan === null) {
-      unresolved.push({
+    if (event.kind === "credit") {
+      const credit = event.credits[0];
+      if (!credit) {
+        // Its only credit failed verification (program-log-verification.ts
+        // already recorded why) — nothing left to place for this row.
+        unresolved.push({
+          time: event.time,
+          description: event.description,
+          reason: "This credit's script couldn't be verified, so it wasn't imported.",
+        });
+        continue;
+      }
+      const itemPlan = creditToItemPlan(credit);
+      if (open !== null && event.timeSeconds <= openEndSeconds()) {
+        open.items.push(itemPlan);
+        continue;
+      }
+      open = {
+        startSeconds: event.timeSeconds,
         time: event.time,
-        description: event.description,
-        reason: "Couldn't be turned into a rundown item.",
-      });
+        label: event.description,
+        availableDurationSeconds: itemPlan.durationSeconds,
+        items: [itemPlan],
+      };
+      breaks.push(open);
       continue;
     }
+
+    // event.kind === "content"
+    const itemPlan = toContentItemPlan(event, contentItems);
     if (open !== null && event.timeSeconds <= openEndSeconds()) {
       open.items.push(itemPlan);
       continue;
@@ -489,24 +496,6 @@ function buildBreaks(
     breaks.push(open);
   }
   return breaks;
-}
-
-function toItemPlan(event: ProgramLogEvent, contentItems: PlanContentItem[]): ItemPlan | null {
-  if (event.kind === "credit") {
-    return {
-      kind: "credit",
-      copyKey: copyPlanKey(event),
-      title: event.description,
-      durationSeconds: event.lengthSeconds || DEFAULT_CREDIT_SECONDS,
-    };
-  }
-  if (event.kind !== "row") return null;
-  const matched = matchContentItem(event.description, contentItems);
-  const durationSeconds = event.lengthSeconds || DEFAULT_FILL_SECONDS;
-  if (matched) {
-    return { kind: "content", contentItemId: matched.id, title: matched.title, durationSeconds };
-  }
-  return { kind: "live_read", title: event.description, durationSeconds, script: event.script };
 }
 
 export function clockTimeToSeconds(time: string): number {
