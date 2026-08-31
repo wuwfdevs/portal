@@ -64,6 +64,76 @@ export function extractVerifiedSpan(
 
 const TIME_RE = /^\d{1,2}:\d{2}:\d{2}$/;
 const LENGTH_RE = /^\(?\d{1,2}:\d{2}(?::\d{2})?\)?$/;
+/** How far past a row's own time its own description is expected to print — one row's worth of text, generously sized. */
+const ROW_WINDOW = 300;
+
+/** Every index at which `value` occurs in `source`, left to right. */
+function findAllIndices(source: string, value: string): number[] {
+  const indices: number[] = [];
+  let from = 0;
+  while (true) {
+    const index = source.indexOf(value, from);
+    if (index === -1) return indices;
+    indices.push(index);
+    from = index + Math.max(value.length, 1);
+  }
+}
+
+/**
+ * Locates one specific row's own position in `source` — independent of any
+ * other row, and independent of what order the model reported rows in.
+ * Structured-output schemas constrain each item's shape, never cross-item
+ * ordering, and a model doesn't reliably preserve document order for two
+ * rows that happen to share a printed time (an avail marker and the credit
+ * that fills it both print the same instant). Every real row pairs its
+ * printed time with its own printed description on the same line, so when a
+ * time value repeats across the day, the description is what tells the two
+ * rows apart — checked within one row's worth of following text, never by
+ * which one the model happened to list first.
+ */
+function findRowIndex(source: string, printedTime: string, description: string): number {
+  const normalizedSource = normalizeQuotes(source);
+  const normalizedTime = normalizeQuotes(printedTime.trim());
+  if (normalizedTime === "") return -1;
+
+  const occurrences = findAllIndices(normalizedSource, normalizedTime);
+  if (occurrences.length === 0) return -1;
+  if (occurrences.length === 1) return occurrences[0]!;
+
+  const normalizedDescription = normalizeQuotes(description.trim());
+  if (normalizedDescription === "") return occurrences[0]!;
+
+  // Prefer an occurrence whose own line (both extractors put one row on one
+  // line) also carries this row's description — exact and unambiguous
+  // whenever the extraction preserved that structure. This has to be
+  // line-scoped, not just "within N characters": two short rows sitting
+  // right next to each other (the exact case this function exists for —
+  // an avail marker immediately followed by the credit that fills it) can
+  // both have their own description fall inside a merely-nearby window of
+  // the *other* row's time, which would defeat the disambiguation entirely.
+  for (const index of occurrences) {
+    const lineEnd = normalizedSource.indexOf("\n", index);
+    const line = normalizedSource.slice(index, lineEnd === -1 ? undefined : lineEnd);
+    if (line.includes(normalizedDescription)) return index;
+  }
+
+  // No occurrence's own line matched — a less strictly line-preserving
+  // extraction (real for PDF, see program-log-pdf-text.ts). Fall back to
+  // whichever occurrence's nearest description match is closest, not just
+  // the first one inside a generous window, for the same reason as above.
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+  for (const index of occurrences) {
+    const descriptionIndex = normalizedSource.indexOf(normalizedDescription, index);
+    if (descriptionIndex === -1) continue;
+    const distance = descriptionIndex - index;
+    if (distance <= ROW_WINDOW && distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+}
 
 /**
  * "06:06:00" → 21960; "01:30" → 90; "(01:55)" → 115. A two-part value is
@@ -144,18 +214,21 @@ const LENGTH_SEARCH_WINDOW = 500;
  * dropping anything (a whole event, a whole credit, or just one field of a
  * credit) that doesn't verify against `sourceText`, and recording a warning
  * for each drop so a producer reviewing the import preview sees exactly
- * what wasn't trusted. Events are expected in the same top-to-bottom order
- * the model read them in (the prompt asks for this): a rolling search
- * cursor advances past each confirmed time/credit so a value that recurs
- * often in the document (many rows share the same printed length, many
- * avails share the same window) still resolves to its own, later
- * occurrence rather than snapping back to the first one in the file.
+ * what wasn't trusted. Each row is located independently by its own time +
+ * description (see findRowIndex) rather than by a shared position that
+ * advances through the array in order — the array's order is whatever the
+ * model happened to emit, never a guarantee that it matches the document's
+ * actual top-to-bottom order (a JSON schema constrains each item's shape,
+ * not cross-item ordering), and a single shared cursor previously let one
+ * row's own confirmed position silently consume a same-timestamped later
+ * row's only occurrence in the text. The returned events are sorted by
+ * time before being handed back, so nothing downstream needs to trust the
+ * model's array order either.
  */
 export function verifyAndResolveEvents(rawEvents: RawEvent[], sourceText: string, knownUnderwriterNames: string[]): VerifiedEvents {
   const warnings: string[] = [];
   const events: ParsedLogEvent[] = [];
   const knownNames = new Set(knownUnderwriterNames);
-  let cursor = 0;
 
   for (const raw of rawEvents) {
     const printedTime = raw.printedTime.trim();
@@ -163,31 +236,36 @@ export function verifyAndResolveEvents(rawEvents: RawEvent[], sourceText: string
       warnings.push(`A row with an unrecognized time format ("${raw.printedTime}") was skipped.`);
       continue;
     }
-    const timeIndex = findLiteralIndex(sourceText, printedTime, cursor);
-    if (timeIndex === -1) {
-      warnings.push(`A row claiming the time ${printedTime} could not be found in the source text and was skipped.`);
+    const rowIndex = findRowIndex(sourceText, printedTime, raw.description);
+    if (rowIndex === -1) {
+      warnings.push(
+        `A row claiming the time ${printedTime} ("${raw.description}") could not be matched to the source text and was skipped.`,
+      );
       continue;
     }
-    cursor = timeIndex + printedTime.length;
     const timeSeconds = clockToSeconds(printedTime);
 
     let lengthSeconds: number | null = null;
     const printedLength = raw.printedLength?.trim() ?? "";
     if (printedLength !== "" && LENGTH_RE.test(printedLength)) {
-      const lengthIndex = findLiteralIndex(sourceText, printedLength, timeIndex);
-      if (lengthIndex !== -1 && lengthIndex - timeIndex <= LENGTH_SEARCH_WINDOW) {
+      const lengthIndex = findLiteralIndex(sourceText, printedLength, rowIndex);
+      if (lengthIndex !== -1 && lengthIndex - rowIndex <= LENGTH_SEARCH_WINDOW) {
         lengthSeconds = clockToSeconds(printedLength);
       }
     }
 
     const credits: ResolvedCredit[] = [];
+    // Within one row, a second (or third) bundled credit's script always
+    // follows the previous one in the text — this local cursor keeps them
+    // in order without reaching for any other row's position.
+    let creditSearchFrom = rowIndex;
     for (const rawCredit of raw.credits) {
-      const span = extractVerifiedSpan(sourceText, rawCredit.openingWords, rawCredit.closingWords, cursor);
+      const span = extractVerifiedSpan(sourceText, rawCredit.openingWords, rawCredit.closingWords, creditSearchFrom);
       if (!span) {
         warnings.push(`A credit near ${printedTime} could not be verified against the source text and was skipped — review the export manually.`);
         continue;
       }
-      cursor = span.endIndex;
+      creditSearchFrom = span.endIndex;
 
       let underwriterName: string;
       if (rawCredit.underwriter === "NEW") {
@@ -209,8 +287,8 @@ export function verifyAndResolveEvents(rawEvents: RawEvent[], sourceText: string
       let cart: string | null = null;
       const rawCart = rawCredit.cart?.trim() ?? "";
       if (rawCart !== "") {
-        const cartIndex = findLiteralIndex(sourceText, rawCart, Math.max(0, timeIndex - CART_SEARCH_WINDOW));
-        if (cartIndex !== -1 && Math.abs(cartIndex - timeIndex) <= CART_SEARCH_WINDOW) {
+        const cartIndex = findLiteralIndex(sourceText, rawCart, Math.max(0, rowIndex - CART_SEARCH_WINDOW));
+        if (cartIndex !== -1 && Math.abs(cartIndex - rowIndex) <= CART_SEARCH_WINDOW) {
           cart = rawCart;
         } else {
           warnings.push(`A cart number near ${printedTime} could not be verified and was dropped from that credit.`);
@@ -242,6 +320,12 @@ export function verifyAndResolveEvents(rawEvents: RawEvent[], sourceText: string
       credits,
     });
   }
+
+  // Verification no longer depends on array order, but the planner's own
+  // segmentation and break-grouping (program-log-plan.ts) walks this list
+  // expecting chronological order — never assume the model's own emission
+  // order was that, even though it usually is close.
+  events.sort((a, b) => a.timeSeconds - b.timeSeconds);
 
   return { events, warnings };
 }

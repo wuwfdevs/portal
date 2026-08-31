@@ -157,7 +157,7 @@ describe("verifyAndResolveEvents", () => {
     ];
     const { events, warnings } = verifyAndResolveEvents(raw, SOURCE, KNOWN);
     expect(events).toEqual([]);
-    expect(warnings[0]).toMatch(/could not be found/);
+    expect(warnings[0]).toMatch(/could not be matched/);
   });
 
   it("drops a row whose printed time isn't even shaped like a time", () => {
@@ -264,5 +264,72 @@ describe("verifyAndResolveEvents", () => {
     ];
     const { events } = verifyAndResolveEvents(raw, SOURCE, KNOWN);
     expect(events[0]!.credits[0]!.label).toBe("Imported copy");
+  });
+
+  // Regression coverage for a real bug found against a live import: an
+  // avail marker and the credit that fills it print the identical
+  // timestamp on adjacent lines. The old implementation used one search
+  // cursor shared across the whole array, so it only worked when the model
+  // happened to list rows in exact document order — reporting the credit
+  // before its own avail (a very natural way to describe "this credit airs
+  // in this break") made the cursor skip past both occurrences of the
+  // shared timestamp while confirming the credit, leaving nothing for the
+  // avail to find. Each row must now resolve independently of array order.
+  describe("same-timestamp rows (an avail and the credit that fills it)", () => {
+    const DUP_TIME_SOURCE =
+      "06:06:00 | UW Credit (01:30)\n" +
+      "06:06:00 | 1 | Baptist Healthcare / Copy 1 | 00:30\n" +
+      "Support for WUWF comes from Baptist Health Care. For 75 years, Baptist has remained locally led.\n" +
+      "07:00:00 | UW Credit (00:30)\n";
+
+    const availEvent: RawEvent = {
+      printedTime: "06:06:00",
+      kind: "avail",
+      description: "UW Credit (01:30)",
+      printedLength: "(01:30)",
+      credits: [],
+    };
+    const creditEvent: RawEvent = {
+      printedTime: "06:06:00",
+      kind: "credit",
+      description: "Baptist Healthcare / Copy 1",
+      printedLength: "00:30",
+      credits: [
+        {
+          cart: "1",
+          label: "Copy 1",
+          underwriter: "Baptist Health Care",
+          newUnderwriterName: null,
+          openingWords: "Support for WUWF comes from Baptist",
+          closingWords: "Baptist has remained locally led.",
+        },
+      ],
+    };
+    const laterAvail: RawEvent = {
+      printedTime: "07:00:00",
+      kind: "avail",
+      description: "UW Credit (00:30)",
+      printedLength: "(00:30)",
+      credits: [],
+    };
+
+    it("resolves both rows when they're listed in document order (avail, then credit)", () => {
+      const { events, warnings } = verifyAndResolveEvents([availEvent, creditEvent], DUP_TIME_SOURCE, KNOWN);
+      expect(warnings).toEqual([]);
+      expect(events.find((event) => event.kind === "avail")?.availDurationSeconds).toBe(90);
+      expect(events.find((event) => event.kind === "credit")?.credits).toHaveLength(1);
+    });
+
+    it("resolves both rows when the model lists the credit before its own avail (out of document order)", () => {
+      const { events, warnings } = verifyAndResolveEvents([creditEvent, availEvent], DUP_TIME_SOURCE, KNOWN);
+      expect(warnings).toEqual([]);
+      expect(events.find((event) => event.kind === "avail")?.availDurationSeconds).toBe(90);
+      expect(events.find((event) => event.kind === "credit")?.credits).toHaveLength(1);
+    });
+
+    it("returns events sorted by time regardless of the input array's order", () => {
+      const { events } = verifyAndResolveEvents([laterAvail, creditEvent, availEvent], DUP_TIME_SOURCE, KNOWN);
+      expect(events.map((event) => event.time)).toEqual(["06:06:00", "06:06:00", "07:00:00"]);
+    });
   });
 });
