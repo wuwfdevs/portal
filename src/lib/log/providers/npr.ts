@@ -8,11 +8,9 @@ import "server-only";
 // file and npr-response.ts; nothing above the orchestration layer
 // (lib/log/npr.ts) sees raw CDS JSON.
 //
-// This repo has no live CDS token to verify against yet (see the note
-// above) — the request shape below is built from NPR-supplied API context,
-// not independently verified against a real account, the same "unverified
-// until credentials exist" posture lib/remote-interview/daily.ts shipped
-// with before this repo had a live Daily account.
+// WUWF's production CDS token is live (confirmed 2026-09-01 against real
+// cached episode data in production) — this integration is no longer
+// unverified the way lib/remote-interview/daily.ts's still is.
 
 import { parseCdsProgramEpisodeResponse, type NprEpisodeFetchResult } from "./npr-response";
 

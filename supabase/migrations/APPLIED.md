@@ -129,6 +129,7 @@ repo and a project's history, not the version number.
 | `20260826130000_log_weather_daily_outlook.sql`                        | 2026-08-26 | 2026-08-26 |
 | `20260826140000_log_weather_forecast_periods.sql`                     | 2026-08-26 | 2026-08-26 |
 | `20260827120000_log_relocate_unplaced_underwriting_credit.sql`        | 2026-08-27 | 2026-08-27 |
+| `20260901120000_log_npr_episode_cache_atomic.sql`                     | 2026-09-01 | 2026-09-01 |
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
