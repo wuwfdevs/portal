@@ -237,6 +237,48 @@ describe("findExistingCopy", () => {
     );
     expect(match?.id).toBe("copy-1");
   });
+
+  // Regression coverage for a real bug found against a live import: the
+  // same credit aired twice in one day, its cart number verified on one
+  // airing and not the other (program-log-verification.ts's cart check can
+  // fail independently per occurrence), and strict cart equality here split
+  // it into two separate uw_copy rows for what was really one piece of copy.
+  it("matches an existing cart-bearing row even when this credit's own cart didn't verify (null)", () => {
+    const { match } = findExistingCopy(
+      { cart: null, label: "Copy 1", underwriterName: "Baptist Healthcare", script: "x", durationSeconds: 30 },
+      [existing],
+      underwriters,
+    );
+    expect(match?.id).toBe("copy-1");
+  });
+
+  it("matches an existing cart-less row against a credit whose cart did verify this time", () => {
+    const { match } = findExistingCopy(
+      { cart: "1", label: "Copy 1", underwriterName: "Baptist Healthcare", script: "x", durationSeconds: 30 },
+      [{ ...existing, cart_identifier: null }],
+      underwriters,
+    );
+    expect(match?.id).toBe("copy-1");
+  });
+
+  it("still rejects two genuinely different, both-verified cart numbers under the same label", () => {
+    const { match } = findExistingCopy(
+      { cart: "999", label: "Copy 1", underwriterName: "Baptist Healthcare", script: "x", durationSeconds: 30 },
+      [existing],
+      underwriters,
+    );
+    expect(match).toBeNull();
+  });
+
+  it("prefers a cart-bearing candidate over a cart-less one when both are otherwise compatible", () => {
+    const cartless = { ...existing, id: "copy-cartless", cart_identifier: null };
+    const { match } = findExistingCopy(
+      { cart: null, label: "Copy 1", underwriterName: "Baptist Healthcare", script: "x", durationSeconds: 30 },
+      [cartless, existing],
+      underwriters,
+    );
+    expect(match?.id).toBe("copy-1");
+  });
 });
 
 describe("matchContentItem", () => {
@@ -364,6 +406,64 @@ describe("buildProgramLogPlan", () => {
     expect(fpl?.script).toContain("F P L");
     const baptist = plan.copyPlans.find((copy) => copy.key === "1|Baptist Healthcare|Copy 1");
     expect(baptist?.airings).toBe(1);
+  });
+
+  // Regression coverage for a real bug found against a live import: the
+  // same credit ("Move Period / Copy 2") aired twice that day, and its cart
+  // verified on one airing but not the other — two separate uw_copy rows
+  // got created for what was really one piece of copy, confirmed directly
+  // in production. The fix is in findCompatibleCopyPlan/findExistingCopy
+  // (see their own comments); this exercises the whole planner end to end.
+  it("groups two airings of the same credit into one copy plan even when only one airing's cart verified", () => {
+    const plan = buildProgramLogPlan({
+      ...baseInputs(),
+      parsed: {
+        ...PARSED_FIXTURE,
+        events: [
+          event({ time: "05:00:00", kind: "program_start", description: "Morning Edition" }),
+          event({
+            time: "05:10:00",
+            kind: "credit",
+            description: "Move Period / Copy 2",
+            credits: [
+              {
+                cart: null, // this airing's cart didn't verify
+                label: "Copy 2",
+                underwriterName: "Move Period",
+                script: "Support for WUWF comes from Move Period in Pensacola.",
+                durationSeconds: 30,
+              },
+            ],
+          }),
+          event({
+            time: "06:20:00",
+            kind: "credit",
+            description: "Move Period / Copy 2",
+            credits: [
+              {
+                cart: "111", // this airing's cart did verify
+                label: "Copy 2",
+                underwriterName: "Move Period",
+                script: "Support for WUWF comes from Move Period in Pensacola.",
+                durationSeconds: 30,
+              },
+            ],
+          }),
+        ],
+      },
+    });
+    const movePeriodPlans = plan.copyPlans.filter((copy) => copy.underwriterName === "Move Period");
+    expect(movePeriodPlans).toHaveLength(1);
+    expect(movePeriodPlans[0]!.airings).toBe(2);
+    expect(movePeriodPlans[0]!.cart).toBe("111"); // backfilled from the second airing
+
+    // Both rundown items reference the same underlying copy, not two.
+    const me = plan.rundowns.find((rundown) => rundown.programId === "prog-me")!;
+    const copyKeys = me.breaks
+      .flatMap((brk) => brk.items)
+      .filter((item) => item.kind === "credit")
+      .map((item) => (item.kind === "credit" ? item.copyKey : null));
+    expect(new Set(copyKeys).size).toBe(1);
   });
 
   it("reuses existing copy and existing underwriters", () => {

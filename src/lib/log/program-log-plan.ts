@@ -202,21 +202,37 @@ function creditCopyKey(credit: ResolvedCredit): string {
  * match whose stored script text differs is still a match (the station's
  * export is not the place copy gets edited from), flagged so the preview
  * can surface it.
+ *
+ * Cart matching is deliberately a null-is-compatible comparison, not exact
+ * equality on both sides: cart-number verification (program-log-
+ * verification.ts) can fail on one airing of a credit and succeed on
+ * another purely because of how confidently the model reported that one
+ * digit string, even though the underlying copy — same underwriter, same
+ * label — is identical. Requiring an exact match here (or in the day's own
+ * in-memory grouping, see buildProgramLogPlan) is what let a single credit
+ * that aired twice split into two separate uw_copy rows, one with its cart
+ * and one without, confirmed against a real import. When several existing
+ * rows are cart-compatible, one actually carrying a cart is preferred, so a
+ * later import with a verified cart backfills onto the more complete
+ * record rather than an arbitrary one.
  */
 export function findExistingCopy(
   credit: ResolvedCredit,
   copy: PlanCopy[],
   underwritersById: Map<string, PlanUnderwriter>,
 ): { match: PlanCopy | null; scriptChanged: boolean } {
-  const candidates = copy.filter((row) => {
-    if ((row.cart_identifier ?? null) !== credit.cart) return false;
-    if (row.label.toLowerCase() !== credit.label.toLowerCase()) return false;
-    if (row.underwriter_id !== null) {
-      const attributed = underwritersById.get(row.underwriter_id);
-      if (attributed && normalizeName(attributed.name) !== normalizeName(credit.underwriterName)) return false;
-    }
-    return true;
-  });
+  const candidates = copy
+    .filter((row) => {
+      const rowCart = row.cart_identifier ?? null;
+      if (rowCart !== null && credit.cart !== null && rowCart !== credit.cart) return false;
+      if (row.label.toLowerCase() !== credit.label.toLowerCase()) return false;
+      if (row.underwriter_id !== null) {
+        const attributed = underwritersById.get(row.underwriter_id);
+        if (attributed && normalizeName(attributed.name) !== normalizeName(credit.underwriterName)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => (a.cart_identifier === null ? 1 : 0) - (b.cart_identifier === null ? 1 : 0));
   const match = candidates[0] ?? null;
   const scriptChanged =
     match !== null &&
@@ -312,18 +328,30 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
   }
 
   // ---- Distinct credits across the day --------------------------------------
-  const copyPlansByKey = new Map<string, CopyPlan>();
+  // A plain array with a compatibility search, not a Map keyed by a fixed
+  // string: the same underwriter+label credit can air more than once in a
+  // day with its cart verified on one occurrence and not another (see
+  // findExistingCopy's own comment on why cart matching has to tolerate
+  // that), so two credits that are really the same copy must still be able
+  // to find each other even though a naive key built from their own fields
+  // would differ. resolvedKeyByCredit records which plan each original
+  // credit object ended up under, so buildBreaks's items reference the same
+  // merged plan rather than recomputing their own, possibly different, key.
+  const copyPlans: CopyPlan[] = [];
+  const resolvedKeyByCredit = new Map<ResolvedCredit, string>();
   for (const segment of segments) {
     for (const event of segment.events) {
       for (const credit of event.credits) {
-        const key = creditCopyKey(credit);
-        const existingPlan = copyPlansByKey.get(key);
+        const existingPlan = findCompatibleCopyPlan(copyPlans, credit);
         if (existingPlan) {
           existingPlan.airings += 1;
+          if (existingPlan.cart === null && credit.cart !== null) existingPlan.cart = credit.cart;
+          resolvedKeyByCredit.set(credit, existingPlan.key);
           continue;
         }
         const { match, scriptChanged } = findExistingCopy(credit, inputs.copy, underwritersById);
-        copyPlansByKey.set(key, {
+        const key = creditCopyKey(credit);
+        copyPlans.push({
           key,
           underwriterName: credit.underwriterName,
           underwriterIsNew: match === null && !underwriterNames.has(normalizeName(credit.underwriterName)),
@@ -335,6 +363,7 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
           scriptChanged,
           airings: 1,
         });
+        resolvedKeyByCredit.set(credit, key);
       }
     }
   }
@@ -376,7 +405,7 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
       continue;
     }
 
-    const breaks = buildBreaks(events, inputs.contentItems, unresolved);
+    const breaks = buildBreaks(events, inputs.contentItems, unresolved, resolvedKeyByCredit);
     const existing = inputs.existingRundowns.find((rundown) => rundown.program_id === programId);
     rundowns.push({
       programId,
@@ -396,16 +425,38 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
     airDate,
     warnings,
     rundowns,
-    copyPlans: [...copyPlansByKey.values()],
+    copyPlans,
     unresolved,
     notes,
   };
 }
 
-function creditToItemPlan(credit: ResolvedCredit): ItemPlan {
+/**
+ * Finds an already-built plan this credit represents the same copy as —
+ * same underwriter, same label, and a cart-compatible cart (see
+ * findExistingCopy's comment) — so a credit airing more than once in a day
+ * groups into one CopyPlan even when its cart didn't verify identically on
+ * every airing.
+ */
+function findCompatibleCopyPlan(plans: CopyPlan[], credit: ResolvedCredit): CopyPlan | null {
+  return (
+    plans.find(
+      (plan) =>
+        normalizeName(plan.underwriterName) === normalizeName(credit.underwriterName) &&
+        plan.label.toLowerCase() === credit.label.toLowerCase() &&
+        (plan.cart === null || credit.cart === null || plan.cart === credit.cart),
+    ) ?? null
+  );
+}
+
+function creditToItemPlan(credit: ResolvedCredit, resolvedKeyByCredit: Map<ResolvedCredit, string>): ItemPlan {
   return {
     kind: "credit",
-    copyKey: creditCopyKey(credit),
+    // The plan this credit was actually grouped under (see
+    // findCompatibleCopyPlan) — not recomputed from this credit's own
+    // fields, which can disagree with an earlier airing of the same copy
+    // whose cart verified differently.
+    copyKey: resolvedKeyByCredit.get(credit) ?? creditCopyKey(credit),
     title: credit.cart !== null ? `${credit.underwriterName} / ${credit.label}` : credit.underwriterName,
     durationSeconds: credit.durationSeconds || DEFAULT_CREDIT_SECONDS,
   };
@@ -424,6 +475,7 @@ function buildBreaks(
   events: ParsedLogEvent[],
   contentItems: PlanContentItem[],
   unresolved: UnresolvedEvent[],
+  resolvedKeyByCredit: Map<ResolvedCredit, string>,
 ): BreakPlan[] {
   const breaks: BreakPlan[] = [];
   let open: BreakPlan | null = null;
@@ -444,7 +496,7 @@ function buildBreaks(
         time: event.time,
         label: "Underwriting break",
         availableDurationSeconds: event.availDurationSeconds ?? DEFAULT_CREDIT_SECONDS,
-        items: event.credits.map(creditToItemPlan),
+        items: event.credits.map((credit) => creditToItemPlan(credit, resolvedKeyByCredit)),
       };
       breaks.push(open);
       continue;
@@ -462,7 +514,7 @@ function buildBreaks(
         });
         continue;
       }
-      const itemPlan = creditToItemPlan(credit);
+      const itemPlan = creditToItemPlan(credit, resolvedKeyByCredit);
       if (open !== null && event.timeSeconds <= openEndSeconds()) {
         open.items.push(itemPlan);
         continue;
