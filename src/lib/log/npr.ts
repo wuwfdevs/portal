@@ -15,6 +15,7 @@ import { fetchNprEpisode, isNprCdsConfigured } from "./providers/npr";
 import { classifyNprAccess } from "./npr-access";
 import { checkStaleness, NPR_STALE_THRESHOLD_MS } from "./staleness";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 
 export type NprEpisodeResult =
   // The program has no npr_collection_id — no CDS request is ever attempted.
@@ -40,12 +41,23 @@ export type NprEpisodeResult =
     };
 
 /**
- * Deletes this program+date's existing cached episode (if any) and inserts
- * the freshly fetched one — the "replaced wholesale, not diffed" rule from
+ * Replaces this program+date's existing cached episode (if any) with the
+ * freshly fetched one — the "replaced wholesale, not diffed" rule from
  * docs/log-design.md §5, scoped to one dated episode rather than a whole
- * program. The CDS fetch happens *before* any delete, so a failed refresh
+ * program. The CDS fetch happens *before* any write, so a failed refresh
  * never touches — let alone destroys — a previously successful cache for
  * this same program+date.
+ *
+ * The actual delete+insert(+items) is one atomic database call
+ * (log_replace_npr_episode_cache, 20260901120000_log_npr_episode_cache_
+ * atomic.sql), not three separate ones — this used to be a delete, then a
+ * separate insert, as independent round trips, leaving a real reader-
+ * visible gap where this program+date had no cached episode at all. Two
+ * clients polling the same live rundown (a host and a producer, say) could
+ * cross the 15-minute staleness threshold within the same moment and both
+ * call this concurrently, widening that window. The items read afterward
+ * is a plain, safe follow-up read — by the time it runs, the RPC has
+ * already committed a fully consistent episode + items.
  */
 async function replaceEpisodeCache(
   programId: string,
@@ -55,61 +67,36 @@ async function replaceEpisodeCache(
   const fetched = await fetchNprEpisode(collectionId, showDateISO);
   const supabase = await createClient();
 
-  await supabase.from("log_npr_episodes").delete().eq("program_id", programId).eq("show_date", showDateISO);
+  const { data: episode, error } = await supabase.rpc("log_replace_npr_episode_cache", {
+    p_program_id: programId,
+    p_show_date: showDateISO,
+    p_npr_collection_id: collectionId,
+    p_status: fetched.status,
+    p_npr_episode_id: fetched.status === "found" ? fetched.npr_episode_id : null,
+    p_title: fetched.status === "found" ? fetched.title : null,
+    p_raw: fetched.status === "found" ? fetched.raw : null,
+    p_items:
+      fetched.status === "found"
+        ? fetched.items.map((item) => ({
+            npr_item_id: item.npr_item_id,
+            title: item.title,
+            teaser: item.teaser,
+            duration_seconds: item.duration_seconds,
+            raw: item.raw,
+          }))
+        : null,
+  });
+  if (error) throw new Error(error.message);
 
-  if (fetched.status === "not_found") {
-    const { data, error } = await supabase
-      .from("log_npr_episodes")
-      .insert({
-        program_id: programId,
-        show_date: showDateISO,
-        npr_collection_id: collectionId,
-        status: "not_found",
-        npr_episode_id: null,
-        title: null,
-        raw: null,
-      })
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return { episode: data, items: [] };
-  }
+  if (episode.status === "not_found") return { episode, items: [] };
 
-  const { data: episode, error: episodeError } = await supabase
-    .from("log_npr_episodes")
-    .insert({
-      program_id: programId,
-      show_date: showDateISO,
-      npr_collection_id: collectionId,
-      status: "found",
-      npr_episode_id: fetched.npr_episode_id,
-      title: fetched.title,
-      raw: fetched.raw,
-    })
-    .select("*")
-    .single();
-  if (episodeError) throw new Error(episodeError.message);
+  const items =
+    unwrapRead(
+      await supabase.from("log_npr_episode_items").select("*").eq("episode_id", episode.id).order("position"),
+      "this program's NPR episode items",
+    ) ?? [];
 
-  if (fetched.items.length === 0) return { episode, items: [] };
-
-  const { data: items, error: itemsError } = await supabase
-    .from("log_npr_episode_items")
-    .insert(
-      fetched.items.map((item, index) => ({
-        episode_id: episode.id,
-        position: index + 1,
-        npr_item_id: item.npr_item_id,
-        title: item.title,
-        teaser: item.teaser,
-        duration_seconds: item.duration_seconds,
-        raw: item.raw,
-      })),
-    )
-    .select("*")
-    .order("position");
-  if (itemsError) throw new Error(itemsError.message);
-
-  return { episode, items: items ?? [] };
+  return { episode, items };
 }
 
 /**

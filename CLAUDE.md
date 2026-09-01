@@ -2288,6 +2288,36 @@ event list is also now explicitly sorted by time before being handed to
 did and this rebuild had dropped — so the planner's own segmentation and
 break-grouping never has to trust the model's emitted order either.
 
+**Log: NPR cache write race fixed, and the lookahead now refreshes before
+air, not just once a rundown is live (2026-09-01).** Two separate gaps, both
+found from a user report of a stale NPR lookahead that only cleared after a
+manual refresh. First, a real race in the cache write itself:
+`lib/log/npr.ts`'s `replaceEpisodeCache()` issued a delete and a separate
+insert as two independent REST round trips, not one transaction, leaving a
+real reader-visible window where this program+date had no cached episode at
+all — two clients polling the same rundown could both cross the 15-minute
+staleness threshold at once and call it concurrently, widening that window.
+`20260901120000_log_npr_episode_cache_atomic.sql` adds
+`log_replace_npr_episode_cache()`, a single `security invoker` function
+(nothing here crosses an RLS boundary — `log_npr_episodes`/
+`log_npr_episode_items` RLS is already member-level) doing the delete,
+insert, and items insert as one atomic call; `replaceEpisodeCache()` now
+calls it via `supabase.rpc(...)` instead of three separate `.from()` calls.
+Second, and the actual root cause of the report: `getNprEpisodeForProgramOnDate`
+always ran its staleness check on every render regardless of broadcast
+status, but `<LogPoller>` — the only thing that forces a re-render on this
+screen — was mounted only `{live && ...}`, i.e. only once a rundown was
+`in_progress`/`submitted`. A producer reviewing or building a rundown
+before air had no mechanism to ever re-render the page and re-trigger that
+check, so a 15-minute-stale NPR cache stayed stale indefinitely until a
+manual page reload. `LogPoller` is now mounted unconditionally on
+`/log/rundowns/[id]`, at its existing 15s interval while live and a lighter
+60s interval otherwise. `src/lib/log/providers/npr.ts`'s header comment,
+which claimed "no live CDS token to verify against yet," was also corrected
+— WUWF's production CDS token is confirmed live (real cached episode data
+checked directly against production), so this integration is no longer
+unverified the way `lib/remote-interview/daily.ts`'s still is.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

@@ -1312,7 +1312,13 @@ export default async function RundownDetailPage({
 
   return (
     <>
-      {live && <LogPoller intervalMs={15000} />}
+      {/* Mounted whether or not the rundown is live: the NPR lookahead read
+          (getNprEpisodeForProgramOnDate, above) runs on every render
+          regardless of broadcast status, so a producer building/reviewing a
+          rundown before air needs a re-render too or a stale NPR cache never
+          gets a chance to refresh until the page happens to reload. Live
+          broadcast gets the tighter interval it already had. */}
+      <LogPoller intervalMs={live ? 15000 : 60000} />
       <RundownLiveLayout
         programName={rundown.programName}
         stateLabel={timing ? STATE_LABEL[timing.state] : null}

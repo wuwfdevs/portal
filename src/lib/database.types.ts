@@ -230,7 +230,16 @@
 // 20260826140000_log_weather_forecast_periods.sql: log_weather_reading
 // gained forecast_periods (jsonb, not null default '[]'), same unknown
 // convention — verified against the live preview project's
-// information_schema after applying.
+// information_schema after applying. Hand-updated again on 2026-09-01 for
+// 20260901120000_log_npr_episode_cache_atomic.sql: adds the
+// log_replace_npr_episode_cache RPC (Functions, near the other log_*
+// entries) — checked against the Supabase MCP server's
+// generate_typescript_types output for the live production project after
+// applying to both, with p_npr_episode_id/p_title/p_raw/p_items
+// hand-corrected to nullable (the generator infers non-null from the SQL
+// parameter types alone, missing that these are null on a "not_found"
+// status) and p_raw/the Row's own raw kept as `unknown`, matching this
+// file's existing convention rather than the generator's `Json` alias.
 
 export type PlatformRole = "administrator" | "staff" | "student" | "faculty_partner";
 export type AccountStatus = "invited" | "pending" | "active" | "disabled";
@@ -2672,6 +2681,33 @@ export interface Database {
       log_relocate_underwriting_credit: {
         Args: { p_item_id: string; p_destination_break_id: string };
         Returns: { ok: true; item_id: string; placement_id: string } | { error: string };
+      };
+      /**
+       * Added by 20260901120000_log_npr_episode_cache_atomic.sql. Replaces a
+       * program+date's cached NPR episode (and its items) as one atomic
+       * transaction — see lib/log/npr.ts's replaceEpisodeCache, which calls
+       * this instead of a separate delete+insert (a real race when two
+       * clients' lazy-refresh polls crossed the staleness threshold at once).
+       * Security invoker: RLS on log_npr_episodes/log_npr_episode_items still
+       * applies exactly as if the caller ran the statements directly.
+       * p_npr_episode_id/p_title/p_raw/p_items are null for a "not_found"
+       * status — the generator infers these as non-null from the SQL
+       * parameter types alone (it doesn't see the not_found branch), so this
+       * is a deliberate hand-correction, same as the RPC nullability notes
+       * elsewhere in this file.
+       */
+      log_replace_npr_episode_cache: {
+        Args: {
+          p_program_id: string;
+          p_show_date: string;
+          p_npr_collection_id: number;
+          p_status: LogNprEpisodeStatus;
+          p_npr_episode_id: string | null;
+          p_title: string | null;
+          p_raw: unknown;
+          p_items: { npr_item_id: string; title: string; teaser: string | null; duration_seconds: number | null; raw: unknown }[] | null;
+        };
+        Returns: Database["public"]["Tables"]["log_npr_episodes"]["Row"];
       };
       /**
        * The only way an ei_inquiries row is created — inserts it (snapshotting
