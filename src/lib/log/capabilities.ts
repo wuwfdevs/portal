@@ -60,12 +60,17 @@ export const buildRundownItem = defineCapability({
   async handler({ supabase }: CapabilityContext, input): Promise<BuildRundownItemResult> {
     await assertLogAccess();
 
-    const brk = await getRundownBreak(input.breakId);
+    // Independent reads (neither the break, the break's existing items, nor
+    // the content item depends on either of the others), run together
+    // rather than as three sequential round trips — the fill flow's own
+    // slowest part once the page-level reads it triggers via redirect were
+    // already parallelized.
+    const [brk, existingItems, contentItem] = await Promise.all([
+      getRundownBreak(input.breakId),
+      listItemsForBreak(input.breakId),
+      getContentItemDetail(input.contentItemId),
+    ]);
     if (!brk) return { ok: false, message: "That break no longer exists." };
-
-    const existingItems = await listItemsForBreak(input.breakId);
-
-    const contentItem = await getContentItemDetail(input.contentItemId);
     if (!contentItem) return { ok: false, message: "That content item no longer exists." };
     const plannedDurationSeconds =
       computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ?? 0;

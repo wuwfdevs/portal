@@ -327,5 +327,65 @@ export function verifyAndResolveEvents(rawEvents: RawEvent[], sourceText: string
   // order was that, even though it usually is close.
   events.sort((a, b) => a.timeSeconds - b.timeSeconds);
 
-  return { events, warnings };
+  return dropDuplicateCredits(events, warnings);
+}
+
+/**
+ * Drops a credit that's a verbatim repeat, at the same instant, of one
+ * already resolved earlier in the list — found from a real import where
+ * every underwriting credit in a shift came through doubled. The model
+ * reported the same real credit twice for one window: once bundled inline
+ * on the avail row, and again as its own separate "credit" row a moment
+ * later in the source text (the DAD export's own script-in-two-places
+ * quirk this format is already known for — see the "credit-script row
+ * that lands in the following page-table" note this importer's own
+ * history already names) — both readings verify independently, since the
+ * text they each point at is, in fact, really there. Two credits sharing
+ * one instant can only be genuine duplicates of each other if their
+ * scripts are also identical: `script` is always a verbatim excerpt (see
+ * extractVerifiedSpan), so a byte-for-byte match at the same timeSeconds
+ * is never two different underwriters coincidentally reading the same
+ * words at the same second — it's one credit, described twice. A later
+ * *re-airing* of the same copy at a *different* time is untouched — that's
+ * real, repeated demand across the day, not a parsing artifact, and
+ * program-log-plan.ts's own airings count depends on seeing it.
+ */
+function dropDuplicateCredits(events: ParsedLogEvent[], warnings: string[]): VerifiedEvents {
+  const seen = new Set<string>();
+  const resolved: ParsedLogEvent[] = [];
+
+  for (const event of events) {
+    const credits: ResolvedCredit[] = [];
+    let droppedAsDuplicate = false;
+    for (const credit of event.credits) {
+      const key = `${event.timeSeconds}|${normalizeScript(credit.script)}`;
+      if (seen.has(key)) {
+        droppedAsDuplicate = true;
+        warnings.push(
+          `A credit near ${event.time} ("${credit.underwriterName}") repeated one already captured for the same moment and was only imported once.`,
+        );
+        continue;
+      }
+      seen.add(key);
+      credits.push(credit);
+    }
+    // A dedicated "credit" row exists only to carry its one credit — if
+    // that credit turned out to be a duplicate, the row itself has nothing
+    // left to contribute (dropping it silently, since the warning above
+    // already explains what happened; buildBreaks would otherwise read an
+    // empty-credits "credit" row as an unverifiable one and say so
+    // incorrectly). A row already emptied by the earlier verification loop
+    // (an unrecognized underwriter, an unverifiable phrase) is untouched —
+    // it's kept exactly as before, still empty, for the same reason it
+    // always was. An "avail" row stays regardless either way — an empty or
+    // partially-emptied window is its normal shape.
+    if (event.kind === "credit" && droppedAsDuplicate && credits.length === 0) continue;
+    resolved.push({ ...event, credits });
+  }
+
+  return { events: resolved, warnings };
+}
+
+function normalizeScript(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
