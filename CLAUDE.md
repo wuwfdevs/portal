@@ -2318,6 +2318,51 @@ which claimed "no live CDS token to verify against yet," was also corrected
 checked directly against production), so this integration is no longer
 unverified the way `lib/remote-interview/daily.ts`'s still is.
 
+**Log: program-log import — every underwriting credit in an imported shift
+came through doubled, a third distinct bug in this same area
+(2026-09-03).** Confirmed directly against production: a fresh import of
+that day's DAD export left every break holding two identical
+`log_rundown_items` rows per credit — same `underwriting_copy_id`, same
+position pattern repeated (`item1, item2, item1, item2` for a two-credit
+break; the same single item twice for a one-credit break) — 16 duplicate
+pairs across one day's rundowns, none yet referenced by a placement or
+broadcast event, so all were safe to delete directly (both projects
+checked; only production had any). Root cause, traced back to
+`program-log-verification.ts`'s `verifyAndResolveEvents`: the model
+reported the same real credit twice for one window — once bundled inline
+on the avail row's own `credits` array, and again as a separate,
+independently-emitted "credit" row a moment later — and **both readings
+verified successfully**, because the DAD export's own script-in-two-places
+quirk (the "credit-script row that lands in the following page-table" this
+importer's history already names as this format's one real parsing trap)
+means the text each one points at is, in fact, genuinely there twice nearby
+in the source document. Nothing before this fix ever cross-checked one
+credit against another — every prior verification step (`extractVerifiedSpan`,
+`findRowIndex`) is deliberately scoped to confirming one row against the
+source text, never against a sibling row.
+
+Fixed by a new final pass, `dropDuplicateCredits`, run once after every
+event has resolved and the list is sorted: two credits sharing the exact
+same `timeSeconds` **and** a byte-identical (whitespace-normalized) script
+are treated as one credit described twice, keeping the first and dropping
+the rest with a warning. This is deliberately narrower than deduping by
+underwriter+label+cart — `script` is always a verbatim excerpt of the
+source (never model-generated), so an exact match at the same instant can
+only mean the same words were located twice, not two different credits
+that happen to share attribution; a *later* re-airing of the identical
+copy at a *different* time is untouched, since that's real repeated demand
+across the day that `program-log-plan.ts`'s own airings count still needs
+to see. A "credit"-kind row emptied entirely by this drop is removed
+outright (it has nothing left to contribute, and its own warning already
+explains why) — but only when the drop is what emptied it; a row already
+empty from an earlier, unrelated verification failure (an unrecognized
+underwriter, an unverifiable phrase) is untouched, keeping its
+already-established "kept with zero credits, warned separately" shape. No
+migration; this is a pure parsing-layer fix,
+`program-log-verification.test.ts` covers both the dedup itself and the
+adjacent case it must not break (a genuine same-copy re-airing later the
+same day).
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
