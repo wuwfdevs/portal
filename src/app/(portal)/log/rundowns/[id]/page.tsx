@@ -404,6 +404,29 @@ export default async function RundownDetailPage({
       return item ? [{ ...item, estimatedTimeLabel: storyTimeLabel(airing.offsetSeconds) }] : [];
     });
   };
+  // A break's own [this break, next break) window is frequently empty even
+  // when a story segment is coming up soon — Morning Edition's own clock is
+  // typical: several short station-promo breaks (FA Promo, ATC Promo) can
+  // sit between one avail and the next, each narrowing the *next* one's own
+  // window down to nothing before the segment it precedes even starts (a
+  // real case: the break right before Segment B showed no look-ahead at
+  // all, confirmed against a live rundown, because "ATC Promo" — a plain
+  // network cross-promo, no story content — was the very next break, 90
+  // seconds later, well before Segment B's own window opened). Superseding
+  // this file's 2026-08-24 note that the per-break picker "keeps its strict
+  // break-window scope, per direct product feedback" — a later, more direct
+  // report is that a host expects *this* break's look-ahead to reflect
+  // what's actually coming up next, not go blank because of an intervening
+  // promo. Walks forward exactly like the sidebar's own nextStoryWindow
+  // already does, just anchored to one specific break instead of "whichever
+  // break is current."
+  const storiesAfterBreakOrNext = (index: number): NprLookaheadItem[] => {
+    for (let i = index; i < rundown.breaks.length; i++) {
+      const stories = storiesAfterBreak(i);
+      if (stories.length > 0) return stories;
+    }
+    return [];
+  };
 
   // The sidebar's "coming up" panel: the next *story segment's* stories, by
   // the station's wall clock (the page re-renders on LogPoller's interval,
@@ -484,10 +507,12 @@ export default async function RundownDetailPage({
       })),
       permitsWeather: brk.permitted_content_types.includes("weather"),
       weatherDurationSeconds: WEATHER_DEFAULT_DURATION_SECONDS,
-      // Only the stories a host would actually promote at this break — the
-      // ones estimated to air between it and the next — not the whole
-      // episode (see storiesAfterBreak above).
-      nprItems: storiesAfterBreak(breakIndex),
+      // The stories a host would actually promote at this break — normally
+      // the ones estimated to air between it and the next, falling forward
+      // to whichever later break's own window is first non-empty when this
+      // one's own is (see storiesAfterBreakOrNext above) — never the whole
+      // episode.
+      nprItems: storiesAfterBreakOrNext(breakIndex),
     };
   };
 

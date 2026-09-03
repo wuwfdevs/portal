@@ -2391,6 +2391,30 @@ three independent reads (the break, its existing items, the content item —
 none depends on either of the others) run as three sequential round trips
 instead of one `Promise.all`, now parallelized.
 
+**Log: the per-break NPR look-ahead picker now falls forward to the next
+non-empty window, superseding this file's own 2026-08-24 note that it
+"keeps its strict break-window scope, per direct product feedback"
+(2026-09-03).** Reported and confirmed against a live rundown: the break
+right before Segment B showed no look-ahead chips at all. Root cause,
+traced with the real clock and break data: `storiesAfterBreak(index)`
+windows a break's own look-ahead to `[this break's start, the *very next*
+rundown break's start)` — and Morning Edition's own clock routinely sits
+several short, story-unrelated breaks (`FA Promo`, `ATC Promo`) between one
+avail and the next. The break just before Segment B was one of these: its
+own next break, 90 seconds later, was `ATC Promo`, itself well before
+Segment B's real window even opened — so the strict window was correctly
+computed, just structurally too narrow to ever contain anything. The
+sidebar's own "coming up" widget hit the identical problem in
+2026-08-24 and was fixed by walking break-to-break windows forward to the
+first non-empty one; the per-break picker was deliberately left on its
+strict scope at the time, per direct product feedback, with no rationale
+recorded for why. A later, more specific report is that a host expects a
+break's own look-ahead to reflect what's actually coming up next, not go
+blank because of an intervening promo — so `storiesAfterBreakOrNext()`
+(`rundowns/[id]/page.tsx`) now applies the sidebar's exact same forward-walk
+to `buildInsertConfig`'s `nprItems`, anchored to one specific break instead
+of "whichever break is current." No migration; a pure read-side change.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
