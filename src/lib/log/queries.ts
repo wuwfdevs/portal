@@ -251,9 +251,20 @@ export async function listContentItemsWithComponents(
   if (items.length === 0) return [];
 
   const supabase = await createClient();
+  // Scoped to just these items' own components — this used to select every
+  // row in the table regardless of `filters`, real latency on the rundown
+  // builder screen (which calls this, approval-status-filtered, on every
+  // single render, including the full-page redirect after each fill) once
+  // the DAD cut library import brought the content library to ~900 rows.
   const components =
     unwrapRead(
-      await supabase.from("log_content_components").select("*"),
+      await supabase
+        .from("log_content_components")
+        .select("*")
+        .in(
+          "content_item_id",
+          items.map((item) => item.id),
+        ),
       "these content items' components",
     ) ?? [];
 

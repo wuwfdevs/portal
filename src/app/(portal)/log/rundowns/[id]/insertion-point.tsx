@@ -19,7 +19,8 @@
 // since a <select> stops working once a break's eligible content runs to
 // hundreds of items — see CLAUDE.md's log design notes on this screen.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui/input";
 import { WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
 import { fillRundownItem } from "../../rundown-actions";
@@ -57,6 +58,14 @@ export function InsertionPoint({
   const [query, setQuery] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const [pendingContentItemId, setPendingContentItemId] = useState("");
+  // Keyboard nav over the results list (down/up to move, enter to pick) —
+  // a plain <ul> of <button>s, not a native <select>, since a break's
+  // eligible content can run to hundreds of items (see this file's own
+  // header comment on why that ruled out <select> in the first place).
+  // -1 means nothing highlighted yet — arrow keys start it at the first/last
+  // result rather than requiring two presses to reach a real selection.
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const resultRefs = useRef<(HTMLButtonElement | null)[]>([]);
   // fillRundownItem is a <form action> that redirects on success — there's a
   // real network+server round trip between clicking a result and the page
   // re-rendering with the new item in place, and nothing was disabling the
@@ -71,6 +80,10 @@ export function InsertionPoint({
     setPendingContentItemId(contentItemId);
     requestAnimationFrame(() => formRef.current?.requestSubmit());
   }
+
+  useEffect(() => {
+    resultRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex]);
 
   if (!open) {
     return (
@@ -95,6 +108,31 @@ export function InsertionPoint({
     candidate.title.toLowerCase().includes(query.toLowerCase()),
   );
   const showsWeather = config.permitsWeather && "weather".includes(query.toLowerCase().trim());
+  // One flat, keyboard-navigable list backing the highlight below — weather
+  // (when shown) always leads, matching its position in the rendered <ul>.
+  const resultIds = [
+    ...(showsWeather ? [WEATHER_ITEM_SENTINEL] : []),
+    ...filtered.map((candidate) => candidate.id),
+  ];
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setHighlightedIndex(-1);
+  }
+
+  function handleQueryKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (resultIds.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((index) => (index + 1) % resultIds.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((index) => (index <= 0 ? resultIds.length - 1 : index - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      pick(resultIds[highlightedIndex >= 0 ? highlightedIndex : 0]!);
+    }
+  }
 
   return (
     <li className="rounded border border-dashed border-brand-primary bg-brand-surface/20 p-3">
@@ -144,16 +182,37 @@ export function InsertionPoint({
                 autoFocus
                 placeholder="Search content…"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => handleQueryChange(event.target.value)}
+                onKeyDown={handleQueryKeyDown}
+                role="combobox"
+                aria-expanded
+                aria-controls={`insertion-point-results-${config.breakId}`}
+                aria-activedescendant={
+                  highlightedIndex >= 0 ? `insertion-point-result-${resultIds[highlightedIndex]}` : undefined
+                }
                 className="mb-2"
               />
-              <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+              <ul
+                id={`insertion-point-results-${config.breakId}`}
+                role="listbox"
+                className="flex max-h-48 flex-col gap-0.5 overflow-y-auto"
+              >
                 {showsWeather && (
                   <li>
                     <button
+                      ref={(el) => {
+                        resultRefs.current[0] = el;
+                      }}
+                      id={`insertion-point-result-${WEATHER_ITEM_SENTINEL}`}
+                      role="option"
+                      aria-selected={highlightedIndex === 0}
                       type="button"
                       onClick={() => pick(WEATHER_ITEM_SENTINEL)}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
+                      onMouseEnter={() => setHighlightedIndex(0)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
+                        highlightedIndex === 0 ? "bg-white" : "hover:bg-white",
+                      )}
                     >
                       <span className="min-w-0 flex-1 truncate">Today&apos;s weather</span>
                       <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
@@ -162,22 +221,35 @@ export function InsertionPoint({
                     </button>
                   </li>
                 )}
-                {filtered.map((candidate) => (
-                  <li key={candidate.id}>
-                    <button
-                      type="button"
-                      onClick={() => pick(candidate.id)}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-white"
-                    >
-                      <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
-                      {candidate.durationSeconds !== null && (
-                        <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
-                          {formatDurationLabel(candidate.durationSeconds)}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
+                {filtered.map((candidate, filteredIndex) => {
+                  const resultIndex = showsWeather ? filteredIndex + 1 : filteredIndex;
+                  return (
+                    <li key={candidate.id}>
+                      <button
+                        ref={(el) => {
+                          resultRefs.current[resultIndex] = el;
+                        }}
+                        id={`insertion-point-result-${candidate.id}`}
+                        role="option"
+                        aria-selected={highlightedIndex === resultIndex}
+                        type="button"
+                        onClick={() => pick(candidate.id)}
+                        onMouseEnter={() => setHighlightedIndex(resultIndex)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
+                          highlightedIndex === resultIndex ? "bg-white" : "hover:bg-white",
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+                        {candidate.durationSeconds !== null && (
+                          <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
+                            {formatDurationLabel(candidate.durationSeconds)}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
                 {filtered.length === 0 && !showsWeather && (
                   <li className="px-2 py-1.5 text-xs text-ink-400">No matching content.</li>
                 )}

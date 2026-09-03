@@ -2363,6 +2363,34 @@ migration; this is a pure parsing-layer fix,
 adjacent case it must not break (a genuine same-copy re-airing later the
 same day).
 
+**Log: rundown builder — keyboard nav on the fill dropdown, and a real
+latency fix (2026-09-03).** Two direct reports against the builder's
+insertion-point content picker (`insertion-point.tsx`), a `<ul>` of
+`<button>`s over a search box rather than a native `<select>` (see this
+file's own header comment on why — a break's eligible content can run to
+hundreds of items). Nothing wired the arrow keys or Enter to it at all, so
+a host had to reach for the mouse for every pick; it's now a proper
+combobox (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`)
+with a `highlightedIndex` moved by ArrowUp/ArrowDown (wrapping), Enter
+picks the highlighted result (or the first one, with nothing highlighted
+yet), and the highlighted row scrolls into view in the `max-h-48`
+scrolling list. Separately, `listContentItemsWithComponents()`
+(`lib/log/queries.ts`) — called by this same screen, approval-status-
+filtered, on every render, including the full-page redirect after every
+single fill — was fetching `log_content_components` **entirely
+unscoped**, every row in the table regardless of which content items the
+filter had actually selected, ever since it was written. Harmless while
+the library was small; a real, silent cost once the DAD cut library import
+(see that milestone's own note) brought it to ~900 approved items. Fixed
+by scoping the query to `.in("content_item_id", items.map(...))` — the
+function's only ever used the components belonging to its own returned
+items, so this is a pure fix, not a behavior change.
+`log.rundown.buildItem`'s capability handler (`lib/log/capabilities.ts`)
+had the same shape of a smaller, contained version of the same mistake:
+three independent reads (the break, its existing items, the content item —
+none depends on either of the others) run as three sequential round trips
+instead of one `Promise.all`, now parallelized.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
