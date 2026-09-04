@@ -240,9 +240,12 @@ export interface ContentItemDetail extends LogContentItemRow {
  * `.in(content_item_id, ...)` list built from the (unpaginated, and — since
  * the DAD import — now 900+ row) items result: that list becomes a query
  * string long enough to fail the request outright, which is exactly what
- * broke this screen. log_content_components itself stays small (a handful
- * of items ever have more than one component), so an unfiltered read here
- * is cheap and immune to how large the item list grows.
+ * broke this screen — confirmed twice now, both against real production
+ * traffic (2026-08-26, then reintroduced and reconfirmed 2026-09-04; see
+ * this file's own git history before ever "optimizing" this query again).
+ * log_content_components itself stays small (a handful of items ever have
+ * more than one component), so an unfiltered read here is cheap and immune
+ * to how large the item list grows.
  */
 export async function listContentItemsWithComponents(
   filters: ContentLibraryFilters = {},
@@ -251,20 +254,9 @@ export async function listContentItemsWithComponents(
   if (items.length === 0) return [];
 
   const supabase = await createClient();
-  // Scoped to just these items' own components — this used to select every
-  // row in the table regardless of `filters`, real latency on the rundown
-  // builder screen (which calls this, approval-status-filtered, on every
-  // single render, including the full-page redirect after each fill) once
-  // the DAD cut library import brought the content library to ~900 rows.
   const components =
     unwrapRead(
-      await supabase
-        .from("log_content_components")
-        .select("*")
-        .in(
-          "content_item_id",
-          items.map((item) => item.id),
-        ),
+      await supabase.from("log_content_components").select("*"),
       "these content items' components",
     ) ?? [];
 
