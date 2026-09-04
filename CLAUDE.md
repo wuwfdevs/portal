@@ -2363,33 +2363,49 @@ migration; this is a pure parsing-layer fix,
 adjacent case it must not break (a genuine same-copy re-airing later the
 same day).
 
-**Log: rundown builder — keyboard nav on the fill dropdown, and a real
-latency fix (2026-09-03).** Two direct reports against the builder's
-insertion-point content picker (`insertion-point.tsx`), a `<ul>` of
-`<button>`s over a search box rather than a native `<select>` (see this
-file's own header comment on why — a break's eligible content can run to
-hundreds of items). Nothing wired the arrow keys or Enter to it at all, so
-a host had to reach for the mouse for every pick; it's now a proper
-combobox (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`)
-with a `highlightedIndex` moved by ArrowUp/ArrowDown (wrapping), Enter
-picks the highlighted result (or the first one, with nothing highlighted
-yet), and the highlighted row scrolls into view in the `max-h-48`
-scrolling list. Separately, `listContentItemsWithComponents()`
-(`lib/log/queries.ts`) — called by this same screen, approval-status-
-filtered, on every render, including the full-page redirect after every
-single fill — was fetching `log_content_components` **entirely
-unscoped**, every row in the table regardless of which content items the
-filter had actually selected, ever since it was written. Harmless while
-the library was small; a real, silent cost once the DAD cut library import
-(see that milestone's own note) brought it to ~900 approved items. Fixed
-by scoping the query to `.in("content_item_id", items.map(...))` — the
-function's only ever used the components belonging to its own returned
-items, so this is a pure fix, not a behavior change.
+**Log: rundown builder — keyboard nav on the fill dropdown (2026-09-03).**
+A direct report against the builder's insertion-point content picker
+(`insertion-point.tsx`), a `<ul>` of `<button>`s over a search box rather
+than a native `<select>` (see this file's own header comment on why — a
+break's eligible content can run to hundreds of items). Nothing wired the
+arrow keys or Enter to it at all, so a host had to reach for the mouse for
+every pick; it's now a proper combobox (`role="combobox"`/`"listbox"`/
+`"option"`, `aria-activedescendant`) with a `highlightedIndex` moved by
+ArrowUp/ArrowDown (wrapping), Enter picks the highlighted result (or the
+first one, with nothing highlighted yet), and the highlighted row scrolls
+into view in the `max-h-48` scrolling list.
 `log.rundown.buildItem`'s capability handler (`lib/log/capabilities.ts`)
-had the same shape of a smaller, contained version of the same mistake:
-three independent reads (the break, its existing items, the content item —
-none depends on either of the others) run as three sequential round trips
-instead of one `Promise.all`, now parallelized.
+also had three independent reads (the break, its existing items, the
+content item — none depends on either of the others) running as three
+sequential round trips instead of one `Promise.all`, now parallelized.
+
+**Log couldn't load, again — the exact bug `996fbc2` (2026-08-26) already
+fixed, reintroduced the same day as the note above and reverted the next
+(2026-09-04).** The 2026-09-03 "latency fix" work above originally also
+"scoped" `listContentItemsWithComponents()`'s `log_content_components`
+read to `.in("content_item_id", items.map(...))`, reasoning that an
+unconditional fetch was wasteful now that the DAD import had grown the
+library to ~900 items — without reading that function's own docstring
+first, which already explained, in so many words, that this exact change
+breaks the screen: an `.in()` list built from an unpaginated 900+-row item
+set is a query string long enough for Supabase/PostgREST to reject
+outright with a bare "Bad Request," and that's precisely the failure
+`996fbc2` fixed by going unconditional on purpose. Confirmed by a live user
+report ("Log couldn't load") the next day, and by
+`mcp__Vercel__get_runtime_errors` showing the identical error signature
+first seen 2026-08-26 and again immediately after this branch reached
+production. Reverted back to the unconditional fetch `996fbc2` already
+established — `log_content_components` has on the order of 70 rows total
+(a handful of items ever have more than one component), so fetching it
+whole and matching client-side is the correct shape, not a stopgap, and is
+immune to how large the item list grows. The lesson this cost a production
+outage to relearn: read a function's own docstring — especially one that
+already names a specific past failure by shape — before "optimizing"
+anything about it, and check `git log -p` on a file before assuming an
+existing pattern is naive rather than a scar. This branch had already been
+merged (PR #166) by the time this was caught, so the fix landed as a fresh
+commit reusing the same branch name per this repo's own already-merged-PR
+protocol, not a re-opened PR.
 
 **Log: the per-break NPR look-ahead picker now falls forward to the next
 non-empty window, superseding this file's own 2026-08-24 note that it
