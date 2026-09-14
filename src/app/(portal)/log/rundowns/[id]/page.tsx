@@ -37,6 +37,7 @@ import {
 } from "@/lib/log/npr-story-times";
 import {
   computeLiveTimingState,
+  liveRefreshInstants,
   type ConsoleBreakLike,
   type LiveTimingState,
 } from "@/lib/log/console-timing";
@@ -77,6 +78,9 @@ import type { InsertConfig } from "./insertion-point";
 import { RundownLiveLayout } from "./rundown-live-layout";
 import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
 import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
+
+/** Fallback refresh cadence for this screen, live or not — see log-poller.tsx. */
+const RUNDOWN_POLL_INTERVAL_MS = 5 * 60_000;
 
 // One screen, not two. Builder and console used to be separate routes —
 // pre-air planning here, live execution there — on the assumption that
@@ -1341,9 +1345,15 @@ export default async function RundownDetailPage({
           (getNprEpisodeForProgramOnDate, above) runs on every render
           regardless of broadcast status, so a producer building/reviewing a
           rundown before air needs a re-render too or a stale NPR cache never
-          gets a chance to refresh until the page happens to reload. Live
-          broadcast gets the tighter interval it already had. */}
-      <LogPoller intervalMs={live ? 15000 : 60000} />
+          gets a chance to refresh until the page happens to reload. The
+          fallback cadence is minutes, not seconds (see log-poller.tsx for
+          why); once live, the poller additionally wakes at the exact
+          instants the timing state above can change, so the current-break
+          highlight moves at the boundary rather than on a tick. */}
+      <LogPoller
+        intervalMs={RUNDOWN_POLL_INTERVAL_MS}
+        refreshAtISO={live ? liveRefreshInstants(consoleBreaks, rundown.shift_end_at) : undefined}
+      />
       <RundownLiveLayout
         programName={rundown.programName}
         stateLabel={timing ? STATE_LABEL[timing.state] : null}

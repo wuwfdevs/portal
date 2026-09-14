@@ -679,10 +679,12 @@ to look continuously current, but neither gets a cron job:
   threshold and triggers a refetch server-side if stale, plus a manual
   "Refresh" button.
 - **NPR** works the same way, scoped to one program's episode for one show
-  date: the console polls its own server (short client-side interval,
-  matching Remote Interview's waiting-room poll pattern), and each poll both
-  returns the cached episode for that program+date and triggers a background
-  refetch if it's older than a threshold. A program with no CDS mapping, or
+  date: the console polls its own server (a client-side interval, matching
+  Remote Interview's waiting-room poll pattern — but a slow one: minutes, not
+  seconds, since the threshold itself is 15 minutes and every refresh of the
+  rundown screen is ~15 API requests; see `log-poller.tsx`), and each poll
+  both returns the cached episode for that program+date and triggers a
+  background refetch if it's older than a threshold. A program with no CDS mapping, or
   a deployment with no CDS token configured, never attempts a fetch at all —
   those are distinct, clearly reported states, not failures.
 

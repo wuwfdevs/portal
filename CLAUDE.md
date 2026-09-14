@@ -2288,6 +2288,33 @@ event list is also now explicitly sorted by time before being handed to
 did and this rebuild had dropped — so the planner's own segmentation and
 break-grouping never has to trust the model's emitted order either.
 
+**Log: the rundown screen no longer polls every 15 seconds (2026-09-14).**
+Found while diagnosing a week of "Gateway Timeout" errors: those were the
+production Supabase project (still free-plan Nano compute) stalling under
+load, and the single biggest source of that load was `LogPoller` on
+`/log/rundowns/[id]` — `router.refresh()` every 15s while live (60s
+otherwise), each refresh re-running the page's ~15 Supabase reads, about
+3,000 requests an hour from one open tab. Nothing on that screen needs a
+15-second tick: NPR and weather are allowed to be 15/30 minutes old by
+their own thresholds, a host's own aired/missed taps re-render immediately
+through the action, and a *second* viewer's taps can lag minutes. The one
+thing the short tick genuinely did was advance the server-computed live
+state (current-break highlight, timing badge, the "coming up" NPR window),
+and that changes only at knowable instants — a break's start, the
+threshold crossings around its rejoin, the shift's end.
+`lib/log/console-timing.ts`'s `liveRefreshInstants()` (pure, tested — one
+test samples both sides of every instant to prove the state is constant
+between them) lists exactly those, and `LogPoller` now takes them as
+`refreshAtISO`, arming a one-shot timer for the next one
+(`nextRefreshDelayMs`, with a grace period past the boundary and a floor so
+a skewed clock can't tight-loop) under a 5-minute fallback interval — so the
+highlight moves *at* the boundary instead of up to 15s late, at a fraction
+of the requests. `/log/npr` (was 20s) and `/log/weather` (was 60s) got the
+same 5-minute fallback. The countdowns and station clock were already
+client-side ticks and are unchanged. The compute-tier problem itself is a
+Supabase plan decision (upgrade the org and move production off Nano),
+not a code change.
+
 **Log: NPR cache write race fixed, and the lookahead now refreshes before
 air, not just once a rundown is live (2026-09-01).** Two separate gaps, both
 found from a user report of a stale NPR lookahead that only cleared after a
