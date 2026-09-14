@@ -19,7 +19,9 @@ import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/
 import { refreshNprEpisodeAction } from "../npr-actions";
 import { LogPoller } from "../log-poller";
 
-const POLL_INTERVAL_MS = 20_000;
+// NPR is allowed to be 15 minutes old (lib/log/staleness.ts); this only needs to
+// re-run that check often enough to notice — see log-poller.tsx.
+const POLL_INTERVAL_MS = 5 * 60_000;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function NprPage({

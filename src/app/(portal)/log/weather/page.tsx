@@ -8,7 +8,9 @@ import { formatStationTimestamp } from "@/lib/log/timezone";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
 import { ForecastSummary } from "@/components/log/forecast-summary";
 
-const POLL_INTERVAL_MS = 60_000;
+// Weather is allowed to be 30 minutes old (lib/log/staleness.ts); this only needs
+// to re-run that check often enough to notice — see log-poller.tsx.
+const POLL_INTERVAL_MS = 5 * 60_000;
 
 export default async function WeatherPage({
   searchParams,

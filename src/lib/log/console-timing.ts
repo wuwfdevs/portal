@@ -113,3 +113,61 @@ export function computeLiveTimingState(
 
   return { state, currentBreak: current, nextBreak: next, secondsRemainingInCurrent, secondsToRejoin };
 }
+
+/**
+ * Every instant at which `computeLiveTimingState`'s output can change for
+ * this schedule, given fixed break data: a break becoming current (its
+ * start), and each threshold crossing around a break's own network rejoin
+ * and the shift's end. Between two consecutive instants the state is
+ * constant, so a live screen only needs to re-render at these moments — not
+ * on a short fixed tick. Sorted ascending, deduplicated, ISO strings.
+ */
+export function liveRefreshInstants(
+  breaks: ReadonlyArray<Pick<ConsoleBreakLike, "scheduled_at" | "network_rejoin_at">>,
+  shiftEndAtISO: string,
+  thresholds: Partial<LiveTimingThresholds> = {},
+): string[] {
+  const { riskThresholdSeconds, shortThresholdSeconds } = { ...DEFAULT_THRESHOLDS, ...thresholds };
+  const instantsMs = new Set<number>();
+  for (const brk of breaks) {
+    const startMs = new Date(brk.scheduled_at).getTime();
+    const rejoinMs = new Date(brk.network_rejoin_at).getTime();
+    instantsMs.add(startMs);
+    instantsMs.add(rejoinMs - riskThresholdSeconds * 1000);
+    instantsMs.add(rejoinMs - shortThresholdSeconds * 1000);
+    instantsMs.add(rejoinMs);
+    instantsMs.add(rejoinMs + riskThresholdSeconds * 1000);
+  }
+  const shiftEndMs = new Date(shiftEndAtISO).getTime();
+  instantsMs.add(shiftEndMs - riskThresholdSeconds * 1000);
+  instantsMs.add(shiftEndMs);
+  return [...instantsMs]
+    .filter((ms) => Number.isFinite(ms))
+    .sort((a, b) => a - b)
+    .map((ms) => new Date(ms).toISOString());
+}
+
+/** Minimum delay a poller will ever arm — guards against a tight loop if a clock is skewed. */
+export const MIN_REFRESH_DELAY_MS = 1_000;
+/** Armed this long *after* an instant so a server rendering on its own clock is safely past it. */
+export const REFRESH_GRACE_MS = 1_500;
+
+/**
+ * How long a poller should wait before its next refresh: until just after
+ * the earliest of `instantsISO` still ahead of `nowMs`, or `fallbackMs` if
+ * none is that soon (or none is given at all). Never below
+ * MIN_REFRESH_DELAY_MS.
+ */
+export function nextRefreshDelayMs(
+  nowMs: number,
+  instantsISO: ReadonlyArray<string>,
+  fallbackMs: number,
+): number {
+  let delay = fallbackMs;
+  for (const iso of instantsISO) {
+    const targetMs = new Date(iso).getTime() + REFRESH_GRACE_MS;
+    if (!Number.isFinite(targetMs) || targetMs <= nowMs) continue;
+    delay = Math.min(delay, targetMs - nowMs);
+  }
+  return Math.max(delay, MIN_REFRESH_DELAY_MS);
+}
