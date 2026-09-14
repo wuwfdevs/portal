@@ -2315,6 +2315,37 @@ client-side ticks and are unchanged. The compute-tier problem itself is a
 Supabase plan decision (upgrade the org and move production off Nano),
 not a code change.
 
+**RLS policies now evaluate `auth.uid()` and the `private.*` access
+predicates once per statement, not once per row (2026-09-14).** Supabase's
+performance advisor had flagged all 207 public policies (`auth_rls_initplan`):
+`using (private.has_log_access(auth.uid()))` is an ordinary function call to
+the planner, so it ran per candidate row — confirmed on production, a plain
+`select id from log_content_items` called that security-definer lookup 925
+times, ~51 ms, for an answer the caller's identity fully determines once.
+Two migrations, generated from `pg_policies` on production and reviewed
+expression by expression rather than retyped (no policy's command, roles, or
+meaning changed; the 16 `storage.objects` bucket policies this repo owns were
+included too, since they have the same shape and the advisor just doesn't
+lint storage): `20260914130000_rls_initplan_wrapping.sql` wraps each
+caller-only predicate in a scalar subquery so it becomes an InitPlan
+(`EXPLAIN ANALYZE` after: `InitPlan 1`, ~2 ms for the same 923 rows), and
+`20260914140000_rls_initplan_wrapping_advisor_form.sql` re-alters the ones
+the advisor still flagged afterward — its check is textual, clearing a
+policy only if the literal `( SELECT auth.uid()` appears, so a whole-call
+wrap still "contained a bare `auth.uid()`" to it. **The convention for any
+new policy**: `(select private.<predicate>((select auth.uid())))` for a
+caller-only predicate and `col = (select auth.uid())` for a column
+comparison; a predicate that genuinely takes a row column
+(`private.ri_is_own_track(track_id, (select auth.uid()))`) stays a per-row
+call with only its `auth.uid()` hoisted. A policy written the old way still
+works, just per-row, and will reappear in the advisor. Both were applied to
+production directly after a full rolled-back dry run there — preview was
+auto-paused and couldn't be unpaused from that session, so it's recorded as
+`pending` in `APPLIED.md` (see the note there; `db:check` fails until it's
+done). The advisor's other RLS warning, `multiple_permissive_policies` (16
+tables where a `for all` write policy also serves `select` alongside a
+dedicated select policy), is a separate, smaller item and was not touched.
+
 **Log: NPR cache write race fixed, and the lookahead now refreshes before
 air, not just once a rundown is live (2026-09-01).** Two separate gaps, both
 found from a user report of a stale NPR lookahead that only cleared after a
