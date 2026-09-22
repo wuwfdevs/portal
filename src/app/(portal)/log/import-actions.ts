@@ -79,9 +79,9 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
 
   if (uwResult.error) return { ok: false, error: "Could not read the underwriting copy library." };
   const uwData = uwResult.data as
-    | { underwriters: PlanUnderwriter[]; copy: PlanCopy[] }
-    | { error: string };
-  if ("error" in uwData) return { ok: false, error: "Could not read the underwriting copy library." };
+    { underwriters: PlanUnderwriter[]; copy: PlanCopy[] } | { error: string };
+  if ("error" in uwData)
+    return { ok: false, error: "Could not read the underwriting copy library." };
 
   const data: ImportLookupData = {
     scheduleEntries: scheduleEntries.map((entry) => ({
@@ -98,7 +98,11 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     })),
     underwriters: uwData.underwriters,
     copy: uwData.copy,
-    contentItems: contentItems.map((item) => ({ id: item.id, title: item.title, content_type: item.content_type })),
+    contentItems: contentItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      content_type: item.content_type,
+    })),
   };
 
   const ai = await importProgramLogWithAI({
@@ -136,6 +140,8 @@ export type ExecuteImportResult =
       rundowns: ImportedRundownResult[];
       copyCreated: number;
       copyReused: number;
+      /** Reused copy rows whose script was replaced with the export's. */
+      copyUpdated: number;
       underwritersCreated: number;
     }
   | { ok: false; error: string };
@@ -179,12 +185,30 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
   const copyIdByKey = new Map<string, string>();
   let copyCreated = 0;
   let copyReused = 0;
+  let copyUpdated = 0;
   let underwritersCreated = 0;
   for (const copyPlan of plan.copyPlans) {
     if (!referencedCopyKeys.has(copyPlan.key)) continue;
     if (copyPlan.existingCopyId) {
       copyIdByKey.set(copyPlan.key, copyPlan.existingCopyId);
       copyReused += 1;
+      // The export's wording prevails (see CopyPlan.scriptChanged): replace
+      // the library row's script so every rundown that reuses it — this
+      // one and earlier ones — reads what the traffic system currently
+      // says, not what an earlier import happened to capture.
+      if (copyPlan.scriptChanged && copyPlan.script) {
+        const updated = await supabase.rpc("log_import_update_underwriting_copy", {
+          p_copy_id: copyPlan.existingCopyId,
+          p_script: copyPlan.script,
+        });
+        if (updated.error) {
+          return {
+            ok: false,
+            error: `Could not update the library script for "${copyPlan.underwriterName} / ${copyPlan.label}".`,
+          };
+        }
+        if (updated.data === true) copyUpdated += 1;
+      }
       continue;
     }
     const underwriter = await supabase.rpc("log_import_underwriter", {
@@ -202,7 +226,10 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       p_duration_seconds: copyPlan.durationSeconds,
     });
     if (copy.error || typeof copy.data !== "string") {
-      return { ok: false, error: `Could not create copy "${copyPlan.label}" for "${copyPlan.underwriterName}".` };
+      return {
+        ok: false,
+        error: `Could not create copy "${copyPlan.label}" for "${copyPlan.underwriterName}".`,
+      };
     }
     copyIdByKey.set(copyPlan.key, copy.data);
     copyCreated += 1;
@@ -270,7 +297,10 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
 
     let itemCount = 0;
     const breakRows = rundownPlan.breaks.map((brk, index) => {
-      const scheduledAt = stationLocalDateTimeToUTC(plan.airDate, secondsToClockTime(brk.startSeconds));
+      const scheduledAt = stationLocalDateTimeToUTC(
+        plan.airDate,
+        secondsToClockTime(brk.startSeconds),
+      );
       return {
         rundown_id: rundown.id,
         local_opportunity_id: null,
@@ -339,7 +369,9 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       });
     });
     const { error: itemsError } =
-      itemRows.length > 0 ? await supabase.from("log_rundown_items").insert(itemRows) : { error: null };
+      itemRows.length > 0
+        ? await supabase.from("log_rundown_items").insert(itemRows)
+        : { error: null };
     if (itemsError) {
       results.push({
         programName: rundownPlan.programName,
@@ -387,7 +419,10 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
         )
         .select("id, local_opportunity_id, scheduled_at");
       if (clockBreaksError) {
-        console.error("Could not add clock-opportunity breaks to an imported rundown:", clockBreaksError.message);
+        console.error(
+          "Could not add clock-opportunity breaks to an imported rundown:",
+          clockBreaksError.message,
+        );
       } else {
         clockBreakCount = (insertedClockBreaks ?? []).length;
         await placeAssignedContent(supabase, insertedClockBreaks ?? [], clockDrafts, plan.airDate);
@@ -415,9 +450,10 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       items: results.reduce((sum, result) => sum + result.items, 0),
       copy_created: copyCreated,
       copy_reused: copyReused,
+      copy_updated: copyUpdated,
       underwriters_created: underwritersCreated,
     },
   });
 
-  return { ok: true, rundowns: results, copyCreated, copyReused, underwritersCreated };
+  return { ok: true, rundowns: results, copyCreated, copyReused, copyUpdated, underwritersCreated };
 }

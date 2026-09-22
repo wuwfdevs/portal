@@ -132,6 +132,7 @@ repo and a project's history, not the version number.
 | `20260901120000_log_npr_episode_cache_atomic.sql`                     | 2026-09-01 | 2026-09-01 |
 | `20260914130000_rls_initplan_wrapping.sql`                            | pending    | 2026-09-14 |
 | `20260914140000_rls_initplan_wrapping_advisor_form.sql`               | pending    | 2026-09-14 |
+| `20260922120000_log_import_copy_script_updates.sql`                   | pending    | 2026-09-22 |
 
 **Preview is behind on the two 2026-09-14 RLS migrations.** The preview project
 was auto-paused (free plan, inactivity) when they were written, and this

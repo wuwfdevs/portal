@@ -206,6 +206,7 @@ describe("assembleProgramLogPlan", () => {
       existingCopyId: "copy-baptist-1",
       underwriterIsNew: false,
       scriptChanged: false,
+      libraryScript: COPY[0]!.script,
       airings: 1,
     });
 
@@ -258,8 +259,12 @@ describe("assembleProgramLogPlan", () => {
     };
     const plan = assembleProgramLogPlan(inputs(changed));
     expect(plan.copyPlans[0]!.scriptChanged).toBe(true);
-    // The library's script stays what the preview shows for reused copy.
-    expect(plan.copyPlans[0]!.script).toBe(COPY[0]!.script);
+    // The export's wording is what will be written; the library's is kept
+    // alongside so the preview can show what the update replaces.
+    expect(plan.copyPlans[0]!.script).toBe(
+      "Local support for WUWF is provided by Baptist Health Care. New tag.",
+    );
+    expect(plan.copyPlans[0]!.libraryScript).toBe(COPY[0]!.script);
   });
 
   it("creates a NEW underwriter's credit, but reuses a known underwriter the model marked NEW by mistake", () => {
