@@ -2518,6 +2518,34 @@ script is applied. Both live in the item card's existing ⋮ menu
 (`rundown-item-card.tsx`), "Save to library…" as a third swap-the-panel
 view with a content-type picker, alongside Edit / Move to… / Remove.
 
+**Log: program-log import — the doubled-credit fix above missed every
+*second* credit of a break (2026-09-22).** Six real imports between
+2026-09-10 and 2026-09-22 each left one or more Morning Edition breaks with
+their last cart-bearing credit doubled (positions 2 and 3 identical; the
+first credit never was). Same model behavior as the 2026-09-03 entry — a
+credit that has its own cart row is reported once bundled under the
+preceding avail marker *and* once as its own "credit" row, and both verify
+because the export prints the script in both places — but
+`dropDuplicateCredits` keyed on the exact printed second, and only a
+break's first credit row prints the avail's own time; the second prints
+thirty seconds later, so it always slipped through. That rule is gone from
+`program-log-verification.ts` entirely: "the same credit twice" is a fact
+about the *break* both readings land in, which only the planner knows, so
+`program-log-plan.ts`'s `addCreditToBreak` now refuses the same copy twice
+within one break — safe on WUWF's own terms, since the one hard adjacency
+rule is that the same underwriter never runs back to back within a break —
+while a re-airing in a different break still counts as another airing.
+`CopyPlan.airings` is now counted from the items the plan actually places
+rather than from parse mentions, which the double reports had inflated. The
+prompt's own wording was part of the cause: it described an avail's
+`credits` as those "scheduled on or immediately after this row", which a
+cart row directly after the marker literally is; it now says a credit with
+its own cart row is reported exactly once, as its own event. The six
+duplicate items were deleted from production directly (none had a broadcast
+event or placement); preview could not be reached from that session (its
+Postgres password authentication failed), so check it separately. No
+migration.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

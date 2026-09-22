@@ -365,6 +365,80 @@ describe("buildProgramLogPlan", () => {
     ]);
   });
 
+  // Regression coverage for the doubled-credit bug seen on six real imports
+  // (2026-09-10 through 2026-09-22): a two-credit break's second credit
+  // came through twice. The model bundles both cart-bearing credits under
+  // the avail marker AND reports each as its own row; the first row prints
+  // the avail's own time, the second prints thirty seconds later, so a
+  // same-second dedup only ever caught the first. The break is what
+  // identifies a double report.
+  it("imports a credit only once per break when the model bundles it under the avail and repeats it as its own row", () => {
+    const eastern = {
+      cart: "206",
+      label: "copy 1",
+      underwriterName: "Eastern Shore Chamber of Commerce",
+      script: "Support for WUWF comes from The Eastern Shore Chamber of Commerce.",
+      durationSeconds: 30,
+    };
+    const firstCity = {
+      cart: "105",
+      label: "Car Pool",
+      underwriterName: "First City Art Center",
+      script: "Support for WUWF comes from First City Art Center announcing its Pumpkin Patch.",
+      durationSeconds: 30,
+    };
+    const plan = buildProgramLogPlan({
+      ...baseInputs(),
+      parsed: {
+        ...PARSED_FIXTURE,
+        events: [
+          event({ time: "05:00:00", kind: "program_start", description: "Morning Edition" }),
+          event({
+            time: "08:06:00",
+            kind: "avail",
+            description: "UW Credit (01:30)",
+            availDurationSeconds: 90,
+            credits: [{ ...eastern }, { ...firstCity }],
+          }),
+          event({
+            time: "08:06:00",
+            kind: "credit",
+            description: "Eastern Shore Chamber of Commerce / copy 1",
+            lengthSeconds: 30,
+            credits: [{ ...eastern }],
+          }),
+          event({
+            time: "08:06:30",
+            kind: "credit",
+            description: "First City Art Center / Car Pool",
+            lengthSeconds: 30,
+            credits: [{ ...firstCity }],
+          }),
+          // The same First City copy really re-airs in a later break — that
+          // one is a second airing, not a duplicate.
+          event({
+            time: "08:49:35",
+            kind: "avail",
+            description: "UW Credit (01:55)",
+            availDurationSeconds: 115,
+            credits: [{ ...firstCity }],
+          }),
+        ],
+      },
+    });
+    const me = plan.rundowns.find((rundown) => rundown.programId === "prog-me")!;
+    const eightOhSix = me.breaks.find((brk) => brk.time === "08:06:00")!;
+    expect(eightOhSix.items.map((item) => item.title)).toEqual([
+      "Eastern Shore Chamber of Commerce / copy 1",
+      "First City Art Center / Car Pool",
+    ]);
+    const later = me.breaks.find((brk) => brk.time === "08:49:35")!;
+    expect(later.items.map((item) => item.title)).toEqual(["First City Art Center / Car Pool"]);
+    expect(plan.copyPlans.find((copy) => copy.underwriterName === "First City Art Center")?.airings).toBe(2);
+    expect(plan.warnings.filter((w) => w.includes("reported twice for the same break"))).toHaveLength(2);
+    expect(plan.unresolved).toEqual([]);
+  });
+
   it("gives a fill with no covering avail its own break", () => {
     const plan = buildProgramLogPlan({
       ...baseInputs(),

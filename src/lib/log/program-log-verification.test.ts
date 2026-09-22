@@ -333,16 +333,13 @@ describe("verifyAndResolveEvents", () => {
     });
   });
 
-  // Regression coverage for a real bug found against a live import: every
-  // underwriting credit in an imported shift came through doubled. Root
-  // cause — the model reported the same real credit twice for one window:
-  // once bundled inline on the avail row, and again as its own separate
-  // "credit" row (the DAD export's own script-in-two-places quirk this
-  // importer's history already names) — both readings verify
-  // independently, since the text they each point at really is there
-  // twice. A byte-identical script at the same instant is the signal that
-  // it's one credit described twice, not two different credits.
-  describe("duplicate credits reported for the same moment", () => {
+  // The model does report one real credit twice — bundled under the avail
+  // marker and again as its own cart row — and both readings verify,
+  // because the DAD export really prints the script in both places. This
+  // layer deliberately keeps both: which readings are "the same credit" is
+  // a fact about the break they land in, and only the planner knows that
+  // (program-log-plan.test.ts covers the dedup itself).
+  describe("duplicate credits reported for the same window", () => {
     const BUNDLED_AND_SEPARATE_SOURCE =
       "11:49:35 | UW Credit (02:00)\n" +
       "Support for WUWF comes from Expo Co. Details at expo dot com.\n" +
@@ -350,7 +347,7 @@ describe("verifyAndResolveEvents", () => {
       "Support for WUWF comes from Expo Co. Details at expo dot com.\n";
     const NAMES = ["Expo Co"];
 
-    it("drops a dedicated credit row that repeats a credit already bundled on the avail, verbatim, at the same time", () => {
+    it("verifies both readings of a credit bundled on the avail and repeated as its own row, leaving dedup to the planner", () => {
       const raw: RawEvent[] = [
         {
           printedTime: "11:49:35",
@@ -386,10 +383,9 @@ describe("verifyAndResolveEvents", () => {
         },
       ];
       const { events, warnings } = verifyAndResolveEvents(raw, BUNDLED_AND_SEPARATE_SOURCE, NAMES);
-      expect(events).toHaveLength(1);
-      expect(events[0]!.kind).toBe("avail");
-      expect(events[0]!.credits).toHaveLength(1);
-      expect(warnings.some((w) => w.includes("repeated one already captured"))).toBe(true);
+      expect(events.map((event) => event.kind)).toEqual(["avail", "credit"]);
+      expect(events.every((event) => event.credits.length === 1)).toBe(true);
+      expect(warnings).toEqual([]);
     });
 
     it("keeps a later re-airing of the same script at a different time", () => {

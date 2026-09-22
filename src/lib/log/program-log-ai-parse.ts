@@ -59,7 +59,7 @@ For every row, report:
 - kind: "program_start" | "content" | "credit" | "avail" | "note".
 - description: the row's own printed description/title text.
 - printed_length: the row's printed Length column value, or the avail's own parenthesized window (e.g. "(01:55)"), exactly as printed. Null if nothing is printed for this row.
-- credits: the underwriting credits scheduled on or immediately after this row. Always empty for program_start/content/note. Exactly one for "credit". Zero or more for "avail".
+- credits: always empty for program_start/content/note. Exactly one for "credit" — that row's own credit. For "avail": zero or more, but ONLY the cart-less credits whose script prints on the marker's own line or on script-only lines directly after it. A credit that has its own Cart # row is reported exactly once, as its own "credit" event — never also listed under the avail marker that precedes it. Every real credit appears exactly once in the whole event list.
 
 For each credit, report:
 - cart: that credit's own DAD cart number if it has one printed on its row, else null.

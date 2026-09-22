@@ -344,7 +344,6 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
       for (const credit of event.credits) {
         const existingPlan = findCompatibleCopyPlan(copyPlans, credit);
         if (existingPlan) {
-          existingPlan.airings += 1;
           if (existingPlan.cart === null && credit.cart !== null) existingPlan.cart = credit.cart;
           resolvedKeyByCredit.set(credit, existingPlan.key);
           continue;
@@ -361,7 +360,7 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
           durationSeconds: credit.durationSeconds,
           existingCopyId: match?.id ?? null,
           scriptChanged,
-          airings: 1,
+          airings: 0, // counted from placed items below, after break grouping dedups
         });
         resolvedKeyByCredit.set(credit, key);
       }
@@ -405,7 +404,7 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
       continue;
     }
 
-    const breaks = buildBreaks(events, inputs.contentItems, unresolved, resolvedKeyByCredit);
+    const breaks = buildBreaks(events, inputs.contentItems, unresolved, warnings, resolvedKeyByCredit);
     const existing = inputs.existingRundowns.find((rundown) => rundown.program_id === programId);
     rundowns.push({
       programId,
@@ -420,6 +419,20 @@ export function buildProgramLogPlan(inputs: ProgramLogPlanInputs): ProgramLogPla
     });
   }
   rundowns.sort((a, b) => clockTimeToSeconds(a.shiftStartTime) - clockTimeToSeconds(b.shiftStartTime));
+
+  // Airings are what the plan will actually place, not how many times the
+  // parse mentioned the copy — a credit reported twice for one break (see
+  // addCreditToBreak) is one airing, and a credit under a program with no
+  // rundown to put it in is none.
+  const airingsByKey = new Map<string, number>();
+  for (const rundown of rundowns) {
+    for (const brk of rundown.breaks) {
+      for (const item of brk.items) {
+        if (item.kind === "credit") airingsByKey.set(item.copyKey, (airingsByKey.get(item.copyKey) ?? 0) + 1);
+      }
+    }
+  }
+  for (const copyPlan of copyPlans) copyPlan.airings = airingsByKey.get(copyPlan.key) ?? 0;
 
   return {
     airDate,
@@ -449,7 +462,10 @@ function findCompatibleCopyPlan(plans: CopyPlan[], credit: ResolvedCredit): Copy
   );
 }
 
-function creditToItemPlan(credit: ResolvedCredit, resolvedKeyByCredit: Map<ResolvedCredit, string>): ItemPlan {
+function creditToItemPlan(
+  credit: ResolvedCredit,
+  resolvedKeyByCredit: Map<ResolvedCredit, string>,
+): Extract<ItemPlan, { kind: "credit" }> {
   return {
     kind: "credit",
     // The plan this credit was actually grouped under (see
@@ -471,10 +487,46 @@ function toContentItemPlan(event: ParsedLogEvent, contentItems: PlanContentItem[
   return { kind: "live_read", title: event.description, durationSeconds, script: null };
 }
 
+/**
+ * Adds a credit to a break unless that break already holds the same copy.
+ * Found from real imports where the last credit of a two-credit break came
+ * through doubled, six times in three weeks: the model reports a credit
+ * that has its own cart row twice — once bundled under the avail marker
+ * that precedes it, once as its own "credit" row — and both readings
+ * verify, since the text really is there. The earlier dedup (in
+ * program-log-verification.ts) keyed on the exact printed second, which
+ * only caught the first credit of a break: its row prints the avail's own
+ * time, while the second's prints thirty seconds later. What actually
+ * identifies a double report is the *break* — and the same copy twice in
+ * one break is never legitimate on its own terms: WUWF's one hard
+ * adjacency rule is that the same underwriter never runs back to back
+ * within a break (see lib/underwriting/auto-fill-plan.ts). A re-airing in
+ * a *different* break is untouched — that's the day's real repeated
+ * demand, and copy plans count it as another airing.
+ */
+function addCreditToBreak(
+  brk: BreakPlan,
+  event: ParsedLogEvent,
+  credit: ResolvedCredit,
+  resolvedKeyByCredit: Map<ResolvedCredit, string>,
+  warnings: string[],
+): void {
+  const itemPlan = creditToItemPlan(credit, resolvedKeyByCredit);
+  const alreadyPlaced = brk.items.some((item) => item.kind === "credit" && item.copyKey === itemPlan.copyKey);
+  if (alreadyPlaced) {
+    warnings.push(
+      `A credit near ${event.time} ("${credit.underwriterName}") was reported twice for the same break and was only imported once.`,
+    );
+    return;
+  }
+  brk.items.push(itemPlan);
+}
+
 function buildBreaks(
   events: ParsedLogEvent[],
   contentItems: PlanContentItem[],
   unresolved: UnresolvedEvent[],
+  warnings: string[],
   resolvedKeyByCredit: Map<ResolvedCredit, string>,
 ): BreakPlan[] {
   const breaks: BreakPlan[] = [];
@@ -490,14 +542,15 @@ function buildBreaks(
       // this import's AI step exists — two or more cart-less credits with
       // no marker separating them. Every one of event.credits already has a
       // verified script and a resolved underwriter, so each just becomes
-      // its own credit item, unconditionally.
+      // its own credit item (once — see addCreditToBreak).
       open = {
         startSeconds: event.timeSeconds,
         time: event.time,
         label: "Underwriting break",
         availableDurationSeconds: event.availDurationSeconds ?? DEFAULT_CREDIT_SECONDS,
-        items: event.credits.map((credit) => creditToItemPlan(credit, resolvedKeyByCredit)),
+        items: [],
       };
+      for (const credit of event.credits) addCreditToBreak(open, event, credit, resolvedKeyByCredit, warnings);
       breaks.push(open);
       continue;
     }
@@ -514,11 +567,11 @@ function buildBreaks(
         });
         continue;
       }
-      const itemPlan = creditToItemPlan(credit, resolvedKeyByCredit);
       if (open !== null && event.timeSeconds <= openEndSeconds()) {
-        open.items.push(itemPlan);
+        addCreditToBreak(open, event, credit, resolvedKeyByCredit, warnings);
         continue;
       }
+      const itemPlan = creditToItemPlan(credit, resolvedKeyByCredit);
       open = {
         startSeconds: event.timeSeconds,
         time: event.time,
