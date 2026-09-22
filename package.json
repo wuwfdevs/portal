@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
-    "db:check": "node scripts/check-migrations.mjs"
+    "db:check": "node scripts/check-migrations.mjs",
+    "eval:program-log": "vitest run -c vitest.eval.config.ts"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.91.0",

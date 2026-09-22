@@ -36,3 +36,6 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# program-log importer eval output (see scripts/program-log-eval/README.md)
+scripts/program-log-eval/actual/

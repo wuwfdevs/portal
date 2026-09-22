@@ -2549,8 +2549,13 @@ review is the check. `matchProgram` moved to `dad-library-plan.ts`, its
 only remaining user. Six duplicate items were deleted from production
 directly (none had a broadcast event or placement); preview could not be
 reached (Postgres password authentication failed), so check it separately.
-No migration. Not built: the on-demand eval set the design doc names — it
-needs real exports as PDF from WUWF.
+No migration. The on-demand eval (`npm run eval:program-log`,
+`scripts/program-log-eval/` — two real exports as PDF, a reviewed
+expected-plan digest per export once recorded, skipped without
+`OPENAI_API_KEY` and a Supabase secret key) is how this importer's quality
+is measured; its README says how to record an expected plan. Neither the
+model call nor the eval has been run from a sandbox yet — the first run is
+the first real test.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

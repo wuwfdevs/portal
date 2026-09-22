@@ -203,3 +203,8 @@ page/action. Privileged writes are logged to `audit_events` (viewable at
 authorization predicates, tool-card state derivation, and email validation. These are
 unit tests of business logic, not a substitute for testing the real Supabase RLS
 policies; do that by exercising the app against the local Supabase stack.
+
+`npm run eval:program-log` is separate: it runs the Log program-log importer's live
+model call against the real exports in `scripts/program-log-eval/fixtures/` and diffs
+the result against a reviewed plan. It needs `OPENAI_API_KEY` and a Supabase secret
+key, takes minutes, and skips without them — see that folder's README.

@@ -1015,11 +1015,19 @@ order it was argued out:
    library copy other days reuse. With no code checking the model's
    reading, this review is the check.
 
-Quality is meant to be measured, not guarded: the right next step is a
-small eval set — real exports as PDF with their expected plans, run
-through the live model on demand with the API key — so a model version
-change or a new station's export shows up as a diff, not as a production
-report. It is not built yet; it needs WUWF to supply two or three exports.
+Quality is measured, not guarded: `scripts/program-log-eval/` holds
+real exports as PDF (WUWF supplied the 2026-09-23 and 2026-09-24 logs the
+day of the rebuild) and `npm run eval:program-log` runs each through the
+live model with lookups from a real database, writing a plan digest to
+compare against a reviewed one — so a model version change, a prompt
+edit, or a new station's export shows up as a diff, not as a production
+report. It is deliberately outside `npm test` (it needs the API key and a
+Supabase secret key, takes minutes, and costs calls); its README explains
+how to review and record an expected plan. Two format details the real
+exports taught the prompt: a program-start row can carry a cart number
+("88 BBC World Service"), and a page break in the printout repeats the
+title row, column headings, and a "Printed … Page n of m" footer in the
+middle of whatever script straddles it.
 
 The pre-2026-09-22 history, for context: the first parser
 (`lib/log/program-log-import.ts`, deterministic) shipped with a fixture
