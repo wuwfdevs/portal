@@ -90,9 +90,35 @@ export function RundownBreaksBoard({
     return map;
   }, [initialBreaks]);
 
-  const [order, setOrder] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(initialBreaks.map((brk) => [brk.id, brk.items.map((item) => item.id)])),
+  // `order` is local, optimistic state (a drag or "Move to…" updates it
+  // before the server confirms), but the server is the source of truth for
+  // *which* items exist. Removing or filling an item runs a Server Action
+  // that revalidates and re-renders this page with new `breaks` — without
+  // remounting this component — so the state has to re-seed when the
+  // server's membership changes, or it keeps listing an id the server no
+  // longer sends: the break then looks non-empty, its only item renders
+  // nothing, and neither insertion point ever renders, leaving no way to
+  // add anything to that break until a full reload. Re-seeding is keyed on
+  // a membership signature rather than the `breaks` reference so a poll
+  // refresh that changes nothing doesn't clobber an in-flight optimistic
+  // move; an actual change (delete, fill, confirmed relocation) always wins.
+  const serverOrder = useMemo(
+    () => Object.fromEntries(initialBreaks.map((brk) => [brk.id, brk.items.map((item) => item.id)])),
+    [initialBreaks],
   );
+  const serverSignature = useMemo(
+    () => initialBreaks.map((brk) => `${brk.id}:${brk.items.map((item) => item.id).join(",")}`).join("|"),
+    [initialBreaks],
+  );
+  const [order, setOrder] = useState<Record<string, string[]>>(serverOrder);
+  const [seededSignature, setSeededSignature] = useState(serverSignature);
+  if (seededSignature !== serverSignature) {
+    // React's documented "adjust state when a prop changes" pattern —
+    // setting state during render re-runs this component immediately with
+    // the fresh values, before anything stale is committed.
+    setSeededSignature(serverSignature);
+    setOrder(serverOrder);
+  }
   const [, startTransition] = useTransition();
 
   const sensors = useSensors(
