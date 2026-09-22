@@ -2,7 +2,19 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { Input, Select, Textarea } from "@/components/ui/input";
-import { BackIcon, CheckIcon, CloseIcon, DotsIcon, EditIcon, MoveIcon, RemoveIcon } from "./item-card-icons";
+import { Button } from "@/components/ui/button";
+import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import type { LogContentType } from "@/lib/database.types";
+import {
+  BackIcon,
+  CheckIcon,
+  CloseIcon,
+  DotsIcon,
+  EditIcon,
+  LibraryIcon,
+  MoveIcon,
+  RemoveIcon,
+} from "./item-card-icons";
 
 // Replaces what used to be a "Remove" text link + a nested <details>
 // "Adjust for this airing" form, then (briefly) two separate corner icons
@@ -26,6 +38,13 @@ import { BackIcon, CheckIcon, CloseIcon, DotsIcon, EditIcon, MoveIcon, RemoveIco
 //
 // Clicking Edit turns the card itself into the editable form in place,
 // rather than expanding a second form underneath the read view.
+//
+// Two library-persistence items share the same menu (see CLAUDE.md's Log
+// note on keeping mid-broadcast additions): "Save to library" on a one-off
+// live read opens a third menu view — a content-type picker plus a confirm
+// button, the same swap-the-panel shape as "Move to…" — since which type a
+// read is filed under decides which breaks offer it tomorrow; "Apply edit to
+// library item" on an overridden library item is a single confirm.
 
 export interface RundownItemCardBaseProps {
   rundownId: string;
@@ -43,6 +62,10 @@ export interface RundownItemCardBaseProps {
   defaultDurationSeconds: number | null;
   updateItemOverridesAction: (formData: FormData) => void;
   removeRundownItemAction: (formData: FormData) => void;
+  /** Null unless this is a one-off live read that can be kept in the library (never an NPR look-ahead). */
+  saveToLibraryAction: ((formData: FormData) => void) | null;
+  /** Null unless this is a library item carrying a script or duration edit for this airing. */
+  applyToLibraryAction: ((formData: FormData) => void) | null;
   readView: ReactNode;
   midBroadcastActions: ReactNode;
 }
@@ -65,6 +88,8 @@ export function RundownItemCard({
   defaultDurationSeconds,
   updateItemOverridesAction,
   removeRundownItemAction,
+  saveToLibraryAction,
+  applyToLibraryAction,
   readView,
   midBroadcastActions,
   dragHandle,
@@ -78,11 +103,12 @@ export function RundownItemCard({
   onMoveTo: ((destinationBreakId: string) => void) | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [menuView, setMenuView] = useState<"main" | "move">("main");
+  const [menuView, setMenuView] = useState<"main" | "move" | "save">("main");
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const formId = `override-form-${itemId}`;
   const canMove = moveDestinations !== null && moveDestinations.length > 0 && onMoveTo !== null;
-  const hasMenu = editable || removable || canMove;
+  const hasMenu =
+    editable || removable || canMove || saveToLibraryAction !== null || applyToLibraryAction !== null;
 
   function closeMenu() {
     if (detailsRef.current) detailsRef.current.open = false;
@@ -191,6 +217,27 @@ export function RundownItemCard({
                             <MoveIcon className="h-3.5 w-3.5" /> Move to…
                           </button>
                         )}
+                        {saveToLibraryAction && (
+                          <button
+                            type="button"
+                            onClick={() => setMenuView("save")}
+                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                          >
+                            <LibraryIcon className="h-3.5 w-3.5" /> Save to library…
+                          </button>
+                        )}
+                        {applyToLibraryAction && (
+                          <form action={applyToLibraryAction} onSubmit={closeMenu}>
+                            <input type="hidden" name="rundown_id" value={rundownId} />
+                            <input type="hidden" name="item_id" value={itemId} />
+                            <button
+                              type="submit"
+                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                            >
+                              <LibraryIcon className="h-3.5 w-3.5" /> Apply edit to library item
+                            </button>
+                          </form>
+                        )}
                         {removable && (
                           <form action={removeRundownItemAction} onSubmit={closeMenu}>
                             <input type="hidden" name="rundown_id" value={rundownId} />
@@ -204,6 +251,39 @@ export function RundownItemCard({
                           </form>
                         )}
                       </>
+                    ) : menuView === "save" ? (
+                      saveToLibraryAction && (
+                        <form action={saveToLibraryAction} onSubmit={closeMenu} className="flex flex-col gap-1">
+                          <input type="hidden" name="rundown_id" value={rundownId} />
+                          <input type="hidden" name="item_id" value={itemId} />
+                          <button
+                            type="button"
+                            onClick={() => setMenuView("main")}
+                            className="flex items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-500 hover:bg-panel-50"
+                          >
+                            <BackIcon className="h-3 w-3" /> Back
+                          </button>
+                          <label htmlFor={`save-type-${itemId}`} className="px-2 text-xs text-ink-500">
+                            File it in the library as
+                          </label>
+                          <Select
+                            id={`save-type-${itemId}`}
+                            name="library_content_type"
+                            autoFocus
+                            defaultValue="host_created"
+                            className="w-full py-1 text-xs font-normal"
+                          >
+                            {(Object.keys(CONTENT_TYPE_LABEL) as LogContentType[]).map((type) => (
+                              <option key={type} value={type}>
+                                {CONTENT_TYPE_LABEL[type]}
+                              </option>
+                            ))}
+                          </Select>
+                          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                            Save to library
+                          </Button>
+                        </form>
+                      )
                     ) : (
                       canMove && (
                         <div className="flex flex-col gap-1">

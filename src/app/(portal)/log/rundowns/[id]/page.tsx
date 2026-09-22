@@ -67,9 +67,11 @@ import {
   submitRundown,
 } from "../../broadcast-actions";
 import {
+  applyOverridesToLibraryItem,
   relocateRundownItem,
   relocateUnderwritingCredit,
   removeRundownItem,
+  saveLiveReadToLibrary,
   syncRundownBreaks,
   updateItemOverrides,
 } from "../../rundown-actions";
@@ -886,6 +888,16 @@ export default async function RundownDetailPage({
           defaultDurationSeconds,
           updateItemOverridesAction: updateItemOverrides,
           removeRundownItemAction: removeRundownItem,
+          // A one-off live read can be kept beyond today; an NPR look-ahead
+          // is dated by nature and never offered (see saveLiveReadToLibrary).
+          saveToLibraryAction:
+            item.item_kind === "live_read" && item.source_npr_item_id === null ? saveLiveReadToLibrary : null,
+          // Only the two fields the edit form writes can be applied back.
+          applyToLibraryAction:
+            item.item_kind === "content" &&
+            (item.override_script !== null || item.override_duration_seconds !== null)
+              ? applyOverridesToLibraryItem
+              : null,
           midBroadcastActions: renderMidBroadcastActions(item, brk.scheduled_at),
           readView,
         },

@@ -2489,6 +2489,35 @@ blank because of an intervening promo — so `storiesAfterBreakOrNext()`
 to `buildInsertConfig`'s `nprItems`, anchored to one specific break instead
 of "whichever break is current." No migration; a pure read-side change.
 
+**Log: a mid-broadcast addition can now be kept in the library
+(2026-09-22).** A host adding content from the rundown screen during a
+broadcast often wants it to outlive the day, and neither existing path did
+that: a one-off live read is a `log_rundown_items` row with its title/
+script/duration inline (`item_kind = 'live_read'`) that vanishes with its
+rundown, and a library item edited for one airing keeps that wording only
+on the override columns. Two actions in `rundown-actions.ts` close both
+halves, no migration: `saveLiveReadToLibrary` writes the read to
+`log_content_items` (as `approved`, not the table's `draft` default —
+`rundown-eligibility.ts` only offers approved items, so a draft would
+silently never appear in tomorrow's picker; content authorship is already
+open to every member, so this widens nothing) and **converts the rundown
+item in place** to `item_kind = 'content'` pointing at it, rather than
+copying — `log_broadcast_events` references the item id, so an airing
+already marked aired counts as the library item's own history instead of
+forking the read into two things. `createLiveReadItem`'s new "Keep in
+library" checkbox reaches the same end state up front. Both file the read
+as `host_created` unless the host picks another type, and both refuse an
+NPR look-ahead (`source_npr_item_id` set), which is dated by nature.
+`applyOverridesToLibraryItem` is the mirror image for a library item: it
+writes `override_script` back onto the master `script` and clears the
+override; `override_duration_seconds` is written back to
+`expected_duration_seconds` only when the item has no components, since
+`computeTotalDurationSeconds` ignores that column once components exist —
+for such an item the duration override stays on the airing and only the
+script is applied. Both live in the item card's existing ⋮ menu
+(`rundown-item-card.tsx`), "Save to library…" as a third swap-the-panel
+view with a content-type picker, alongside Edit / Move to… / Remove.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

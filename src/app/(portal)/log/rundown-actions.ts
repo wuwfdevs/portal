@@ -12,6 +12,7 @@ import {
   selectNonOverlappingBreakDrafts,
 } from "@/lib/log/rundown-generation";
 import {
+  CONTENT_TYPE_LABEL,
   computeEffectiveDurationSeconds,
   WEATHER_DEFAULT_DURATION_SECONDS,
   WEATHER_ITEM_SENTINEL,
@@ -40,6 +41,59 @@ function field(formData: FormData, name: string): string {
 
 function rundownPath(id: string): string {
   return `/log/rundowns/${id}`;
+}
+
+/**
+ * The content type a host-authored live read is filed under when it's kept
+ * in the library — host_created unless the form named another recognized
+ * type (a read that's really a station promo or a PSA belongs under that).
+ */
+function libraryContentTypeFromForm(formData: FormData, path: string): LogContentType {
+  const raw = field(formData, "library_content_type");
+  if (raw === "") return "host_created";
+  if (!(raw in CONTENT_TYPE_LABEL)) failWith(path, "That is not a recognized content type.");
+  return raw as LogContentType;
+}
+
+/**
+ * Writes a live read's title/script/duration to the library as a new,
+ * immediately-approved content item, returning its id. Approved, not draft:
+ * the eligibility filter (lib/log/rundown-eligibility.ts) only offers
+ * approved items, so a draft would silently never appear in tomorrow's
+ * picker and "keep this" would read as broken. Content authorship is
+ * already open to every tool member with no producer gate, so a host
+ * approving their own read is no wider than what the library's own create
+ * form already allows; the library detail screen's status control still
+ * retires it. Shared by createLiveReadItem's "keep in library" checkbox and
+ * saveLiveReadToLibrary's after-the-fact conversion.
+ */
+async function insertLibraryItemFromLiveRead(
+  supabase: SupabaseServerClient,
+  path: string,
+  input: {
+    title: string;
+    script: string | null;
+    durationSeconds: number;
+    contentType: LogContentType;
+    profileId: string;
+  },
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("log_content_items")
+    .insert({
+      content_type: input.contentType,
+      title: input.title,
+      script: input.script,
+      expected_duration_seconds: input.durationSeconds,
+      approval_status: "approved",
+      owner_id: input.profileId,
+      created_by: input.profileId,
+    })
+    .select("id")
+    .single();
+  failIfError(error, path, "Could not save this item to the library");
+  if (!data) failWith(path, "Could not save this item to the library.");
+  return data.id;
 }
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -342,7 +396,7 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
  * fully counted in the break's timing math, not a separate item_kind.
  */
 export async function createLiveReadItem(formData: FormData): Promise<void> {
-  await assertLogAccess();
+  const { profile } = await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   const breakId = field(formData, "break_id");
   const title = field(formData, "title");
@@ -352,9 +406,20 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   const sourceNprItemTitle = field(formData, "source_npr_item_title");
   const beforeItemId = field(formData, "before_item_id");
   const path = rundownPath(rundownId);
+  // "Keep in library" (live-read-form.tsx): the read is written to the
+  // library first and placed as an ordinary content item pointing at it,
+  // rather than as a live_read that would vanish with this rundown — the
+  // same end state saveLiveReadToLibrary reaches after the fact. Never for
+  // an NPR look-ahead: a story teaser is dated by nature and would only
+  // accumulate stale entries in the library (the form hides the checkbox
+  // once a look-ahead is picked; this is the server-side half of that).
+  const keepInLibrary = field(formData, "keep_in_library") === "on";
   if (title === "") failWith(path, "Give this live-read item a short title.");
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
     failWith(path, "Enter a duration in seconds.");
+  if (keepInLibrary && sourceNprItemId !== "")
+    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
+  const libraryContentType = keepInLibrary ? libraryContentTypeFromForm(formData, path) : null;
 
   const supabase = await createClient();
   const { data: existingItems, error: countError } = await supabase
@@ -364,19 +429,40 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   failIfError(countError, path, "Could not add this item");
   const nextPosition = Math.max(0, ...(existingItems ?? []).map((item) => item.position)) + 1;
 
+  const contentItemId = libraryContentType
+    ? await insertLibraryItemFromLiveRead(supabase, path, {
+        title,
+        script: script || null,
+        durationSeconds,
+        contentType: libraryContentType,
+        profileId: profile.id,
+      })
+    : null;
+
   const { data: inserted, error } = await supabase
     .from("log_rundown_items")
-    .insert({
-      break_id: breakId,
-      position: nextPosition,
-      item_kind: "live_read",
-      live_read_title: title,
-      live_read_script: script || null,
-      planned_duration_seconds: durationSeconds,
-      placement_status: "editable",
-      source_npr_item_id: sourceNprItemId || null,
-      source_npr_item_title: sourceNprItemTitle || null,
-    })
+    .insert(
+      contentItemId
+        ? {
+            break_id: breakId,
+            position: nextPosition,
+            item_kind: "content",
+            content_item_id: contentItemId,
+            planned_duration_seconds: durationSeconds,
+            placement_status: "editable",
+          }
+        : {
+            break_id: breakId,
+            position: nextPosition,
+            item_kind: "live_read",
+            live_read_title: title,
+            live_read_script: script || null,
+            planned_duration_seconds: durationSeconds,
+            placement_status: "editable",
+            source_npr_item_id: sourceNprItemId || null,
+            source_npr_item_title: sourceNprItemTitle || null,
+          },
+    )
     .select("id")
     .single();
   failIfError(error, path, "Could not add this item");
@@ -387,6 +473,131 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   }
 
   revalidatePath(path);
+  redirect(path);
+}
+
+/**
+ * Keeps a one-off live read beyond today: writes it to the library as a new
+ * approved content item and converts this rundown item in place to an
+ * ordinary content item pointing at it (item_kind live_read → content,
+ * the inline title/script nulled, as the item-kind shape constraint
+ * requires). Converting rather than copying is deliberate — the item id is
+ * what log_broadcast_events references, so an airing already marked aired
+ * counts as the new library item's history from day one instead of forking
+ * the same read into two unrelated things. The live read's script becomes
+ * the library item's master script, so nothing about how this card renders
+ * changes; the host's only visible difference is that the read is now
+ * offered in every eligible break's picker tomorrow. Refused for an NPR
+ * look-ahead for the reason createLiveReadItem's own comment gives.
+ */
+export async function saveLiveReadToLibrary(formData: FormData): Promise<void> {
+  const { profile } = await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  const itemId = field(formData, "item_id");
+  const path = rundownPath(rundownId);
+  const contentType = libraryContentTypeFromForm(formData, path);
+
+  const item = await getRundownItem(itemId);
+  if (!item) failWith(path, "That item no longer exists.");
+  if (item.item_kind !== "live_read" || item.live_read_title === null)
+    failWith(path, "Only a one-off live read can be saved to the library.");
+  if (item.source_npr_item_id !== null)
+    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
+
+  const supabase = await createClient();
+  const contentItemId = await insertLibraryItemFromLiveRead(supabase, path, {
+    title: item.live_read_title,
+    script: item.live_read_script,
+    durationSeconds: item.planned_duration_seconds,
+    contentType,
+    profileId: profile.id,
+  });
+
+  const { error } = await supabase
+    .from("log_rundown_items")
+    .update({
+      item_kind: "content",
+      content_item_id: contentItemId,
+      live_read_title: null,
+      live_read_script: null,
+    })
+    .eq("id", itemId)
+    .eq("item_kind", "live_read");
+  failIfError(error, path, "Saved to the library, but could not relink this item to it");
+
+  revalidatePath(path);
+  revalidatePath("/log/library");
+  redirect(path);
+}
+
+/**
+ * The mirror image of saveLiveReadToLibrary for a library item a host has
+ * edited for this airing (updateItemOverrides): when the per-airing wording
+ * turns out to be the new correct wording, write it back to the master
+ * log_content_items row and clear the override, so tomorrow's placement
+ * carries it without anyone re-keying it in the library. Only the two
+ * fields the card's edit form exposes are written back — override_script
+ * onto script, and override_duration_seconds onto expected_duration_seconds.
+ * The duration is written back only for an item with no components:
+ * computeTotalDurationSeconds ignores expected_duration_seconds once
+ * components exist (their required durations are the total), so writing it
+ * there would silently change nothing; for such an item the duration
+ * override is left in place on this airing and only the script is applied.
+ * planned_duration_seconds is recomputed the same way updateItemOverrides
+ * does, from whatever overrides remain.
+ */
+export async function applyOverridesToLibraryItem(formData: FormData): Promise<void> {
+  await assertLogAccess();
+  const rundownId = field(formData, "rundown_id");
+  const itemId = field(formData, "item_id");
+  const path = rundownPath(rundownId);
+
+  const item = await getRundownItem(itemId);
+  if (!item) failWith(path, "That item no longer exists.");
+  if (item.item_kind !== "content" || item.content_item_id === null)
+    failWith(path, "Only a library item's edits can be applied back to the library.");
+  if (item.override_script === null && item.override_duration_seconds === null)
+    failWith(path, "This item has no script or duration edit to apply.");
+
+  const contentItem = await getContentItemDetail(item.content_item_id);
+  if (!contentItem) failWith(path, "That library item no longer exists.");
+  const applyDuration = item.override_duration_seconds !== null && contentItem.components.length === 0;
+
+  const supabase = await createClient();
+  const { error: masterError } = await supabase
+    .from("log_content_items")
+    .update({
+      ...(item.override_script !== null ? { script: item.override_script } : {}),
+      ...(applyDuration ? { expected_duration_seconds: item.override_duration_seconds } : {}),
+    })
+    .eq("id", contentItem.id);
+  failIfError(masterError, path, "Could not update the library item");
+
+  const remainingDurationOverride = applyDuration ? null : item.override_duration_seconds;
+  const plannedDurationSeconds =
+    computeEffectiveDurationSeconds(
+      contentItem.components,
+      applyDuration ? item.override_duration_seconds : contentItem.expected_duration_seconds,
+      {
+        override_duration_seconds: remainingDurationOverride,
+        override_live_intro_seconds: item.override_live_intro_seconds,
+        override_live_outro_seconds: item.override_live_outro_seconds,
+        override_tag_seconds: item.override_tag_seconds,
+      },
+    ) ?? item.planned_duration_seconds;
+
+  const { error } = await supabase
+    .from("log_rundown_items")
+    .update({
+      override_script: null,
+      override_duration_seconds: remainingDurationOverride,
+      planned_duration_seconds: plannedDurationSeconds,
+    })
+    .eq("id", itemId);
+  failIfError(error, path, "Updated the library item, but could not clear this airing's edit");
+
+  revalidatePath(path);
+  revalidatePath(`/log/library/${contentItem.id}`);
   redirect(path);
 }
 
