@@ -10,11 +10,19 @@
 // No longer wraps itself in a <details> — it's now one of the two modes
 // inside an insertion point (insertion-point.tsx), which controls its own
 // visibility, so this component just renders the bare fields.
+//
+// "Keep in library" writes the read to the content library as well, so it's
+// offered in tomorrow's picker instead of vanishing with this rundown — the
+// up-front twin of the item card's after-the-fact "Save to library" (see
+// rundown-actions.ts's saveLiveReadToLibrary). Hidden once an NPR look-ahead
+// is picked: a story teaser is dated by nature.
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import type { LogContentType } from "@/lib/database.types";
 import { createLiveReadItem } from "../../rundown-actions";
 
 export interface NprLookaheadItem {
@@ -40,6 +48,8 @@ export function LiveReadForm({
   const [script, setScript] = useState("");
   const [sourceNprItemId, setSourceNprItemId] = useState("");
   const [sourceNprItemTitle, setSourceNprItemTitle] = useState("");
+  const [keepInLibrary, setKeepInLibrary] = useState(false);
+  const isLookahead = sourceNprItemId !== "";
 
   const applyLookahead = (item: NprLookaheadItem) => {
     setTitle(`Look ahead: ${item.title}`);
@@ -112,6 +122,36 @@ export function LiveReadForm({
             className="w-24"
           />
         </div>
+        {!isLookahead && (
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input
+                type="checkbox"
+                name="keep_in_library"
+                checked={keepInLibrary}
+                onChange={(event) => setKeepInLibrary(event.target.checked)}
+              />
+              Keep in the library for future rundowns
+            </label>
+            {keepInLibrary && (
+              <div>
+                <Label htmlFor={`live-library-type-${breakId}`}>File it as</Label>
+                <Select
+                  id={`live-library-type-${breakId}`}
+                  name="library_content_type"
+                  defaultValue="host_created"
+                  className="w-full sm:w-64"
+                >
+                  {(Object.keys(CONTENT_TYPE_LABEL) as LogContentType[]).map((type) => (
+                    <option key={type} value={type}>
+                      {CONTENT_TYPE_LABEL[type]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
         <div>
           <SubmitButton />
         </div>

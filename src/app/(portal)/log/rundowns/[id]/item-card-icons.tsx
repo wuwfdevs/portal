@@ -66,3 +66,12 @@ export function BackIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** A bookmark — the "keep this in the library" glyph for both library-persistence menu items. */
+export function LibraryIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M4 1.5h8a1 1 0 0 1 1 1v12l-5-3-5 3v-12a1 1 0 0 1 1-1Zm.5 1.5v9.4L8 10.3l3.5 2.1V3h-7Z" />
+    </svg>
+  );
+}
