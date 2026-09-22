@@ -944,25 +944,94 @@ Design decisions, in the order they were argued out:
    rundown that already exists for a program + date is skipped, never
    merged over.
 
-The parser (`lib/log/program-log-import.ts`) and planner
-(`lib/log/program-log-plan.ts`) are pure, colocated-tested modules; the
-test fixture is cut from the real 2026-08-21 export, including the
-credit-script row that lands in the following page-table (the format's one
-genuinely fiddly artifact). `fflate` (tiny, zero-dependency) was added to
-unzip the `.docx` server-side — the parser itself takes the XML as a
-string. The 2026-08-24 export surfaced a second real format artifact the
-reference export didn't have: a credit scheduled with no cart at all (a
-plain live read) prints its script *inside the avail marker's own
-description cell* — "UW Credit (01:55) Support for WUWF comes from…" as
-one cell — which the first parser read as an ordinary content row, putting
-the entire script into a break's label on the rundown screen. The avail
-regex now treats the marker as a prefix and captures the trailing text as
-that break's script, planned as an "Underwriting live read" item; a
-time-less script row directly after a bare avail (the same credit shape,
-split across rows) attaches to the avail rather than reaching back to a
-cart-bearing credit in an earlier break. Known format risk: this is still
-a small number of exports from one printing; if a future export's table
-geometry drifts, the parser reports what it couldn't classify rather than
-guessing. Collecting a weekend export and a
-pledge-drive export as additional fixtures is the cheap way to retire that
-risk.
+*Revised 2026-09-22 — rebuilt as a single model call; everything below
+this note describes the current importer, and the earlier parser history
+is kept only as context.* The importer is now one Responses API call per
+upload (`lib/log/program-log-ai-import.ts`), and the model's answer *is*
+the plan: rundowns containing breaks containing items, with every
+reference already resolved, in a strict JSON schema
+(`program-log-plan.ts`'s `buildPlanOutputSchema`). The reasoning, in the
+order it was argued out:
+
+1. **The interpretation layer between the model and the plan was the bug
+   source.** The 2026-08-28 rebuild kept a deterministic verification and
+   planning layer around the model's row-level output: locate each row in
+   the extracted text, slice scripts by model-supplied boundary phrases,
+   verify carts and lengths by proximity, dedup credits, then match
+   programs, content, and copy with string heuristics. Of the four bugs
+   that followed, three were in that layer — a shared cursor that consumed
+   a same-timestamp row, a dedup keyed on the printed second that missed
+   every second credit of a break, and its own blind spot — and none was
+   the model fabricating a script or a row, which is what the layer
+   existed to catch. Each fix was a new special case against how the
+   model happened to report things. The layer is gone: no verification,
+   matching, or dedup runs between the model's plan and the preview.
+2. **The PDF goes to the model as a file, not as extracted text.** The
+   Responses API takes the PDF natively, so the model reads the real page
+   layout — columns, page breaks, a script continuing onto the next
+   page's table — instead of a pipe-joined text dump. There is no
+   per-format text extractor any more; a different traffic system's
+   export is a different-looking PDF the same prompt reads, not new code.
+   Word exports are no longer accepted (DAD prints to PDF), and `fflate`
+   is gone with them.
+3. **Duplicates became structurally impossible.** The old schema let a
+   credit appear in two places — bundled under its avail marker and again
+   as its own cart row — and every dedup bug was code arguing with that.
+   Now the model emits breaks containing items; an item exists in exactly
+   one break, and the prompt says each printed credit is one item.
+4. **Context stays small through lookup tools, not lists.** The prompt
+   carries the instructions and the underwriter names (the closed set the
+   schema's enum enforces — the guard against "Autumn Beck Blackledge,
+   Attorneys at Law" becoming a second underwriter). Everything else is a
+   function tool the model calls for what the document mentions
+   (`program-log-lookups.ts`, pure and tested, over lists the Server
+   Action preloads): `schedule_for_date` (that date's entries, with the
+   `schedule_entry_id` a rundown must reference — the weekday filter runs
+   in the query, and durations never reach the model; the executor reads
+   them off the row by id), `list_copy_for_underwriter` (that
+   underwriter's copy with opening words, so the model can say which
+   existing message a credit is), and `search_content_items` (a few
+   candidate library items for a fill's printed title). Rounds chain
+   through `previous_response_id`, so the PDF is sent once; a real import
+   is two or three rounds because tool calls batch. The model only ever
+   knows ids it read from a tool result, which also sidesteps structured
+   output's enum-size cap on the ~900-title content library.
+5. **What code still does, and why it is not a parsing layer.** The
+   assembler (`assembleProgramLogPlan`) resolves every id the model named
+   against the same lists the tools served — a schedule entry it never
+   offered, copy belonging to another underwriter, a content id not in
+   the library — and downgrades or reports it with a warning, the check
+   the database's foreign keys would make on insert, done early so the
+   preview can say so. It groups credit items into copy plans and counts
+   airings from the items that will actually be placed. The executor, the
+   security-definer find-or-create functions (still the idempotency
+   boundary: a copy the model calls new that already exists returns the
+   existing row), and the clock-break union are unchanged.
+6. **The preview lists every break and every item.** It used to print
+   "22 breaks, 4 items" per rundown, so a host could never have seen a
+   doubled credit before confirming — all six of the September
+   duplicates passed through that screen. The plan is now shown in full,
+   and a new copy's script is shown whole, since that text becomes
+   library copy other days reuse. With no code checking the model's
+   reading, this review is the check.
+
+Quality is measured, not guarded: `scripts/program-log-eval/` holds
+real exports as PDF (WUWF supplied the 2026-09-23 and 2026-09-24 logs the
+day of the rebuild) and `npm run eval:program-log` runs each through the
+live model with lookups from a real database, writing a plan digest to
+compare against a reviewed one — so a model version change, a prompt
+edit, or a new station's export shows up as a diff, not as a production
+report. It is deliberately outside `npm test` (it needs the API key and a
+Supabase secret key, takes minutes, and costs calls); its README explains
+how to review and record an expected plan. Two format details the real
+exports taught the prompt: a program-start row can carry a cart number
+("88 BBC World Service"), and a page break in the printout repeats the
+title row, column headings, and a "Printed … Page n of m" footer in the
+middle of whatever script straddles it.
+
+The pre-2026-09-22 history, for context: the first parser
+(`lib/log/program-log-import.ts`, deterministic) shipped with a fixture
+cut from the real 2026-08-21 export; the 2026-08-24 export surfaced a
+cart-less credit printing its script inside the avail marker's own cell;
+the 2026-08-28 rebuild moved interpretation to the model behind the
+verification layer described in item 1.

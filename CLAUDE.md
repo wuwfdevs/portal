@@ -2518,6 +2518,45 @@ script is applied. Both live in the item card's existing ⋮ menu
 (`rundown-item-card.tsx`), "Save to library…" as a third swap-the-panel
 view with a content-type picker, alongside Edit / Move to… / Remove.
 
+**Log: program-log import rebuilt as a single model call, with no
+deterministic parsing, verification, or dedup layer (2026-09-22),
+superseding the three entries above.** Six more imports (2026-09-10 through
+2026-09-22) had doubled credits: the same-second dedup only ever matched a
+break's first credit row, since the second prints thirty seconds after the
+avail marker. That made three of this importer's four post-rebuild bugs
+bugs in the layer that existed to guard the model, with none of them the
+model fabricating anything — so the layer is gone rather than patched
+again. Read `docs/log-design.md` §8's 2026-09-22 revision before touching
+any of it; this note is a pointer. The shape: `program-log-ai-import.ts`
+(server-only) sends the uploaded **PDF as a native file input** — Word
+exports are no longer accepted, `fflate` is removed — and gets back the
+plan itself (rundowns → breaks → items, every reference resolved) as one
+strict JSON schema, `program-log-plan.ts`'s `buildPlanOutputSchema`. An
+item exists in exactly one break by construction, which is what makes the
+double-report impossible. Context is the instructions plus the underwriter
+names as the schema's enum; the schedule, an underwriter's copy, and
+content-library candidates arrive through three function tools in
+`program-log-lookups.ts` (pure, tested), so the model sees what the
+document mentions, not the whole library, and rounds chain through
+`previous_response_id` so the PDF goes once. `assembleProgramLogPlan`
+(pure, tested) only resolves the ids the model named against the lists the
+tools served — the foreign-key check, done early — groups credits into copy
+plans, and counts airings from placed items; the executor and the
+security-definer find-or-create functions are unchanged and remain the
+idempotency boundary. The preview now lists every break and item and shows
+a new copy's whole script: with nothing checking the model's reading, that
+review is the check. `matchProgram` moved to `dad-library-plan.ts`, its
+only remaining user. Six duplicate items were deleted from production
+directly (none had a broadcast event or placement); preview could not be
+reached (Postgres password authentication failed), so check it separately.
+No migration. The on-demand eval (`npm run eval:program-log`,
+`scripts/program-log-eval/` — two real exports as PDF, a reviewed
+expected-plan digest per export once recorded, skipped without
+`OPENAI_API_KEY` and a Supabase secret key) is how this importer's quality
+is measured; its README says how to record an expected plan. Neither the
+model call nor the eval has been run from a sandbox yet — the first run is
+the first real test.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
