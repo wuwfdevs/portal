@@ -1029,6 +1029,40 @@ exports taught the prompt: a program-start row can carry a cart number
 title row, column headings, and a "Printed … Page n of m" footer in the
 middle of whatever script straddles it.
 
+*Revised again 2026-09-22, from the first preview of the rebuilt importer
+against a real export:* two corrections. **The export's script now
+prevails over the library's.** Item 3's original "a matched copy whose
+stored script differs is still reused, flagged on the preview — the export
+is not where copy gets edited from" assumed Underwriting staff maintaining
+copy in their own tool, which is not yet how WUWF works: the traffic system
+(DAD) is the real source of truth for a credit's wording, and the daily
+export is the only way that text reaches this database. Checking the
+library rows behind the "script differs" flags on a real preview showed
+every one of them was the library being *wrong* — words glued across line
+breaks by the pre-2026-08-28 Word extractor ("committedto", "LoyaltyCredit",
+"birdsdie"), and one row (OsteoStrong) holding two credits merged into one
+script by the pre-AI parser — and the flag with no consequence meant a host
+read that damaged text on air from every rundown that reused the row.
+`20260922120000_log_import_copy_script_updates.sql`: the import's
+find-or-create function updates a matched row's script when the export
+carries a different one, and a new `log_import_update_underwriting_copy()`
+does the same by id for a credit the model resolved to an existing row;
+the executor calls it for every reused copy the plan marks
+`scriptChanged`, and the preview shows the library's text and the export's
+side by side under "library script will be updated". Label, cart,
+attribution, and approval are never touched — only the words — and there
+is no version history: the library holds the current wording, and earlier
+rundowns that reference the row read the corrected text too, which is the
+point. **The preview is laid out by what needs review.** The first cut
+listed every break, every unchanged reuse, and every meter reading with
+equal weight and ran to several screens of "1:00 window — empty". It now
+opens with a summary strip (rundowns, items placed, new underwriters, new
+copy, library scripts updated, unresolved), puts unresolved rows first,
+shows each program's filled breaks with their items and folds its empty
+windows behind a disclosure, expands new copy (whole script) and library
+updates (old and new), folds unchanged reuse to one line with a count, and
+folds operational notes the same way.
+
 The pre-2026-09-22 history, for context: the first parser
 (`lib/log/program-log-import.ts`, deterministic) shipped with a fixture
 cut from the real 2026-08-21 export; the 2026-08-24 export surfaced a

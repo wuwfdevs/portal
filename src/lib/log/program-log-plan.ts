@@ -269,8 +269,17 @@ export interface CopyPlan {
   durationSeconds: number | null;
   /** Existing uw_copy id to reuse; null → create. */
   existingCopyId: string | null;
-  /** Matched an existing copy whose stored script text differs. */
+  /**
+   * Reused copy whose library script differs from the export's: the
+   * import updates the library row to `script` (the export's text). The
+   * traffic system is the source of truth for a credit's wording until
+   * Underwriting staff maintain copy in their own tool, and the library
+   * has held text damaged by earlier importer bugs precisely because the
+   * export was never allowed to correct it.
+   */
   scriptChanged: boolean;
+  /** The library's current script for reused copy, so the preview can show what an update replaces. */
+  libraryScript: string | null;
   airings: number;
 }
 
@@ -436,14 +445,14 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         underwriterIsNew: known === null,
         label,
         cart,
-        script: existing?.script ?? script,
+        script: script ?? existing?.script ?? null,
         durationSeconds: item.duration_seconds ?? existing?.duration_seconds ?? null,
         existingCopyId: existing?.id ?? null,
         scriptChanged:
           existing !== null &&
-          normalizeScript(existing.script) !== "" &&
           normalizeScript(script) !== "" &&
           normalizeScript(existing.script) !== normalizeScript(script),
+        libraryScript: existing?.script ?? null,
         airings: 0,
       };
       if (!existing && script === null) {

@@ -2560,6 +2560,10 @@ export interface Database {
         };
         Returns: string;
       };
+      log_import_update_underwriting_copy: {
+        Args: { p_copy_id: string; p_script: string };
+        Returns: boolean;
+      };
       /** Added by 20260824120000_log_underwriters_for_rundown_copy.sql — each referenced uw_copy row's underwriter name (direct or contract attribution) for the rundown screen's credit cards. */
       log_underwriters_for_copy: {
         Args: { p_copy_ids: string[] };

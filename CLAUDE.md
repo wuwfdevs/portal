@@ -2557,6 +2557,31 @@ is measured; its README says how to record an expected plan. Neither the
 model call nor the eval has been run from a sandbox yet — the first run is
 the first real test.
 
+**Log: program-log import — the export's script prevails, and the preview
+is laid out by what needs review (2026-09-22, from the first real preview
+of the rebuilt importer).** Every "script differs from the library's" flag
+on that preview turned out to be the *library* being wrong — copy rows
+carrying text glued across line breaks by the pre-2026-08-28 Word
+extractor, and one holding two credits merged by the pre-AI parser — while
+the import reused those rows untouched and hosts read the damaged text on
+air. The design doc's "the export is not where copy gets edited from"
+assumed Underwriting staff maintaining copy in their tool, which isn't yet
+how WUWF works; DAD is the source of truth for wording, and the export is
+how it reaches this database.
+`20260922120000_log_import_copy_script_updates.sql` (applied to production;
+preview was unreachable — Postgres password authentication failing — so
+its row is `pending`, same as the 2026-09-14 RLS migrations) makes the
+find-or-create function update a matched row's script and adds
+`log_import_update_underwriting_copy()` for copy the model resolved by id;
+`executeProgramLogImport` calls it for every reused copy marked
+`scriptChanged`, and reports `copyUpdated`. Only the script changes — never
+label, cart, attribution, or approval — and there is no version history.
+The preview (`import/import-client.tsx`) now leads with a summary strip and
+the unresolved rows, shows only filled breaks per program with empty
+windows folded away, expands new copy and library updates (old and new
+text side by side), and folds unchanged reuse and operational notes. See
+`docs/log-design.md` §8's second 2026-09-22 revision.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
