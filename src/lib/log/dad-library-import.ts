@@ -5,7 +5,7 @@
 // rather than guessed — a title, agency, or outcue value can itself contain
 // runs of spaces, so splitting on whitespace is unreliable; slicing by fixed
 // character offset is not. Deliberately dependency-free and knows nothing
-// about Supabase, matching program-log-import.ts's split: this module only
+// about Supabase, the same split the program-log importer once used: this module only
 // classifies rows, lib/log/dad-library-plan.ts decides what they become.
 
 export interface DadLibraryCut {

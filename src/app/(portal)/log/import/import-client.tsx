@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { controlClasses } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
-import type { ProgramLogPlan } from "@/lib/log/program-log-plan";
+import type { ItemPlan, ProgramLogPlan } from "@/lib/log/program-log-plan";
 import {
   executeProgramLogImport,
   parseProgramLogUpload,
@@ -25,6 +25,12 @@ function formatSeconds(total: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function itemKindLabel(item: ItemPlan): string {
+  if (item.kind === "credit") return "credit";
+  if (item.kind === "content") return "library";
+  return "live read";
+}
+
 export function ImportClient() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [plan, setPlan] = useState<ProgramLogPlan | null>(null);
@@ -35,7 +41,7 @@ export function ImportClient() {
   const upload = () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setError("Choose a program-log export (.docx or .pdf) first.");
+      setError("Choose a program-log export (.pdf) first.");
       return;
     }
     const formData = new FormData();
@@ -112,7 +118,7 @@ export function ImportClient() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf"
+            accept=".pdf,application/pdf"
             className={cn(controlClasses, "max-w-md")}
             aria-label="Program-log export file"
           />
@@ -152,21 +158,51 @@ export function ImportClient() {
             </Alert>
           )}
 
+          {/* Every break and every item, not counts: this list is the review.
+              The model's reading is not checked by anything else before it
+              is written, so what a host sees here is what gets imported. */}
           <section className="rounded border border-line">
             <h3 className="border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold tracking-wide text-ink-500 uppercase">
               Rundowns
             </h3>
             <ul className="divide-y divide-line">
               {plan.rundowns.map((rundown) => (
-                <li key={rundown.programId} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
-                  <span className="text-sm font-semibold text-ink-900">{rundown.programName}</span>
-                  <span className="text-xs text-ink-500">
-                    {rundown.shiftStartTime.slice(0, 5)} · {rundown.shiftDurationMinutes} min ·{" "}
-                    {rundown.breaks.length} breaks ·{" "}
-                    {rundown.breaks.reduce((sum, brk) => sum + brk.items.length, 0)} items
-                  </span>
-                  {rundown.existingRundownId !== null && (
-                    <Badge variant="warning">already exists — will be skipped</Badge>
+                <li key={rundown.programId} className="px-4 py-3">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold text-ink-900">{rundown.programName}</span>
+                    <span className="text-xs text-ink-500">
+                      {rundown.shiftStartTime.slice(0, 5)} · {rundown.shiftDurationMinutes} min ·{" "}
+                      {rundown.breaks.length} break{rundown.breaks.length === 1 ? "" : "s"} ·{" "}
+                      {rundown.breaks.reduce((sum, brk) => sum + brk.items.length, 0)} items
+                    </span>
+                    {rundown.existingRundownId !== null && (
+                      <Badge variant="warning">already exists — will be skipped</Badge>
+                    )}
+                  </div>
+                  {rundown.breaks.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {rundown.breaks.map((brk) => (
+                        <li key={`${brk.time}-${brk.label}`} className="text-xs">
+                          <div className="flex flex-wrap items-baseline gap-x-2 text-ink-700">
+                            <span className="font-mono">{brk.time}</span>
+                            <span className="font-semibold">{brk.label}</span>
+                            <span className="text-ink-500">{formatSeconds(brk.availableDurationSeconds)} window</span>
+                            {brk.items.length === 0 && <span className="text-ink-500">— empty</span>}
+                          </div>
+                          {brk.items.length > 0 && (
+                            <ul className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-line pl-3">
+                              {brk.items.map((item, index) => (
+                                <li key={index} className="flex flex-wrap items-baseline gap-x-2 text-ink-700">
+                                  <Badge>{itemKindLabel(item)}</Badge>
+                                  <span>{item.title}</span>
+                                  <span className="text-ink-500">{formatSeconds(item.durationSeconds)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </li>
               ))}
@@ -194,7 +230,7 @@ export function ImportClient() {
                     <Badge variant="success">new{copy.underwriterIsNew ? " underwriter" : " copy"}</Badge>
                   </div>
                   {copy.script !== null && (
-                    <p className="mt-1 line-clamp-2 text-xs text-ink-500">{copy.script}</p>
+                    <p className="mt-1 text-xs whitespace-pre-wrap text-ink-700">{copy.script}</p>
                   )}
                 </li>
               ))}

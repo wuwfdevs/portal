@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildDadLibraryPlan,
   describeScheduleTiming,
+  matchProgram,
   matchProgramForPromo,
   type DadLibraryPlanInputs,
+  type PlanProgram,
   type PlanScheduleEntry,
 } from "./dad-library-plan";
 import type { DadLibraryCut } from "./dad-library-import";
-import type { PlanProgram } from "./program-log-plan";
 
 const PROGRAMS: PlanProgram[] = [
   { id: "p-1a", name: "1A" },
@@ -20,6 +21,22 @@ const PROGRAMS: PlanProgram[] = [
 function cut(cutNumber: string, title: string, lengthSeconds: number, group: string): DadLibraryCut {
   return { cutNumber, title, lengthSeconds, group };
 }
+
+describe("matchProgram", () => {
+  it("matches exactly and by containment, longest name winning", () => {
+    expect(matchProgram("All Things Considered", PROGRAMS)?.id).toBe("p-atc");
+    expect(
+      matchProgram("Marketplace PM - Play through ENCO Programs Fader", [{ id: "prog-mpm", name: "Marketplace PM" }])
+        ?.id,
+    ).toBe("prog-mpm");
+    expect(matchProgram("1A", PROGRAMS)?.id).toBe("p-1a");
+    expect(matchProgram("UW Credit (01:00)", PROGRAMS)).toBeNull();
+  });
+
+  it("never containment-matches a too-short name", () => {
+    expect(matchProgram("Marketplace Morning", [{ id: "x", name: "1A" }])).toBeNull();
+  });
+});
 
 describe("matchProgramForPromo", () => {
   it("matches a title that already contains the program's full name", () => {

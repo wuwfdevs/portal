@@ -4,7 +4,7 @@
 // entries, already-imported items — all supplied by the caller, this module
 // never touches Supabase), produces an explicit plan the preview screen
 // renders verbatim and the executor applies — the same "one computation
-// drives both" discipline program-log-plan.ts follows.
+// drives both" discipline the program-log importer follows.
 //
 // Per-group routing was worked out with WUWF directly, cut by cut, rather
 // than guessed from the group names alone:
@@ -30,8 +30,43 @@
 
 import type { LogContentType } from "@/lib/database.types";
 import { formatAirTime } from "@/lib/log/schedule";
-import { matchProgram, type PlanProgram } from "@/lib/log/program-log-plan";
 import type { DadGroup, DadLibraryCut } from "@/lib/log/dad-library-import";
+
+export interface PlanProgram {
+  id: string;
+  name: string;
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Matches a cut's title to a program: exact normalized equality, or
+ * containment either way when the shorter side is long enough that
+ * containment is meaningful ("Fresh Air Wed Aug 26" names Fresh Air; a
+ * two-letter program like "1A" only ever matches exactly). Lived in the
+ * program-log importer until that importer moved its program matching to
+ * the model; this importer is its only remaining user.
+ */
+export function matchProgram(description: string, programs: PlanProgram[]): PlanProgram | null {
+  const target = normalizeName(description);
+  if (target === "") return null;
+  let best: PlanProgram | null = null;
+  let bestLength = 0;
+  for (const program of programs) {
+    const name = normalizeName(program.name);
+    if (name === "") continue;
+    const exact = name === target;
+    const contained =
+      Math.min(name.length, target.length) >= 4 && (target.includes(name) || name.includes(target));
+    if ((exact || contained) && name.length > bestLength) {
+      best = program;
+      bestLength = name.length;
+    }
+  }
+  return best;
+}
 
 const DIRECT_CONTENT_TYPE_BY_GROUP: Record<string, LogContentType> = {
   UNEARTH: "interview_feature",
@@ -49,7 +84,7 @@ const SKIP_GROUPS = new Set(["FLNEWS", "TEMP", "TEST", "SONGS", "ACOUSTIC"]);
 
 /**
  * Abbreviations DAD's own titles use that don't contain the real Log
- * program name as a substring (program-log-plan.ts's matchProgram already
+ * program name as a substring (matchProgram above already
  * handles the ordinary case — a title containing the program's full name).
  * Checked as a normalized-string *prefix*, in order, only when matchProgram
  * itself found nothing. Deliberately curated, not inferred: a wrong guess

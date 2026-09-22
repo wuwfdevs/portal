@@ -1,6 +1,6 @@
 "use server";
 
-// The program-log import's two Server Actions: parse an uploaded DAD export
+// The program-log import's two Server Actions: read an uploaded PDF export
 // into a plan (nothing written), and execute a confirmed plan. Both return
 // plain results for the client screen (import/import-client.tsx) rather
 // than redirecting — the same non-redirecting shape Editorial Inquiry's
@@ -10,7 +10,6 @@
 // (20260821180000_log_program_log_import.sql), so a tampered plan can't
 // reach anything the session couldn't already write.
 
-import { strFromU8, unzipSync } from "fflate";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
@@ -21,11 +20,10 @@ import {
 } from "@/lib/log/rundown-generation";
 import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
-import { extractDocxPlainText } from "@/lib/log/program-log-docx-text";
-import { extractPdfPlainText } from "@/lib/log/program-log-pdf-text";
-import { parseProgramLogWithAI } from "@/lib/log/program-log-ai-parse";
+import { importProgramLogWithAI } from "@/lib/log/program-log-ai-import";
+import type { ImportLookupData } from "@/lib/log/program-log-lookups";
 import {
-  buildProgramLogPlan,
+  assembleProgramLogPlan,
   importedBreakPermittedTypes,
   IMPORTED_BREAK_REQUIREMENT,
   secondsToClockTime,
@@ -37,7 +35,6 @@ import {
   getClockTemplateDetail,
   listContentItems,
   listLocalOpportunitiesForVersion,
-  listPrograms,
   listScheduleEntries,
   toRundownOpportunity,
 } from "@/lib/log/queries";
@@ -46,52 +43,35 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export type ParseImportResult = { ok: true; plan: ProgramLogPlan } | { ok: false; error: string };
 
-type TextExtractionResult = { ok: true; text: string } | { ok: false; error: string };
-
-/**
- * Gets plain text out of whichever supported format was uploaded — the
- * deterministic, format-specific half of this import (see program-log-
- * docx-text.ts and program-log-pdf-text.ts's own comments for why this
- * stays mechanical while everything about *interpreting* the text is the
- * AI-parse step's job). Dispatches on the file's own name, since a
- * browser's reported MIME type for a .docx varies by OS/browser and isn't
- * worth relying on.
- */
-async function extractSourceText(file: File): Promise<TextExtractionResult> {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".pdf")) {
-    return extractPdfPlainText(new Uint8Array(await file.arrayBuffer()));
-  }
-  if (name.endsWith(".docx")) {
-    try {
-      const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
-      const entry = archive["word/document.xml"];
-      if (!entry) return { ok: false, error: "That file isn't a Word document (no word/document.xml inside)." };
-      return { ok: true, text: extractDocxPlainText(strFromU8(entry)) };
-    } catch {
-      return { ok: false, error: "That file couldn't be read as a .docx archive." };
-    }
-  }
-  return { ok: false, error: "Choose a program-log export as a Word (.docx) or PDF (.pdf) file." };
+function isPdf(file: File): boolean {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
+/**
+ * Reads an uploaded PDF export into a plan. The model does the reading
+ * (program-log-ai-import.ts) and pulls the schedule, an underwriter's
+ * copy, and content-library candidates through lookup tools over the lists
+ * preloaded here — so the context it sees is the document plus what the
+ * document mentions, not the whole library. The plan it returns is
+ * resolved against the same lists (program-log-plan.ts) and shown for
+ * review; nothing is written.
+ */
 export async function parseProgramLogUpload(formData: FormData): Promise<ParseImportResult> {
   await assertLogAccess();
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Choose a program-log export (.docx or .pdf) to upload." };
+    return { ok: false, error: "Choose a program-log export (.pdf) to upload." };
+  }
+  if (!isPdf(file)) {
+    return { ok: false, error: "Choose the program-log export as a PDF file." };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "That file is too large to be a program-log export." };
   }
 
-  const extraction = await extractSourceText(file);
-  if (!extraction.ok) return { ok: false, error: extraction.error };
-
   const supabase = await createClient();
-  const [programs, scheduleEntries, contentItems, uwResult] = await Promise.all([
-    listPrograms(),
+  const [scheduleEntries, contentItems, uwResult] = await Promise.all([
     listScheduleEntries(),
     listContentItems({ approvalStatus: "approved" }),
     supabase.rpc("log_import_list_underwriting_copy"),
@@ -103,28 +83,41 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     | { error: string };
   if ("error" in uwData) return { ok: false, error: "Could not read the underwriting copy library." };
 
-  // The one call that does all the structural + credit judgment (see
-  // program-log-ai-parse.ts) — needs the day's existing underwriters up
-  // front, as a closed set it matches credits against rather than guessing
-  // at free text (its "NEW" escape hatch is the only way a credit's
-  // underwriter isn't one of these).
-  const aiResult = await parseProgramLogWithAI(extraction.text, uwData.underwriters.map((row) => row.name));
-  if (!aiResult.ok) return { ok: false, error: aiResult.error };
-  const parsed = aiResult.parsed;
+  const data: ImportLookupData = {
+    scheduleEntries: scheduleEntries.map((entry) => ({
+      id: entry.id,
+      program_id: entry.program_id,
+      program_name: entry.programName,
+      clock_template_id: entry.clock_template_id,
+      air_time: entry.air_time,
+      duration_minutes: entry.duration_minutes,
+      entry_type: entry.entry_type,
+      days_of_week: entry.days_of_week,
+      start_date: entry.start_date,
+      end_date: entry.end_date,
+    })),
+    underwriters: uwData.underwriters,
+    copy: uwData.copy,
+    contentItems: contentItems.map((item) => ({ id: item.id, title: item.title, content_type: item.content_type })),
+  };
 
-  const rundownsResult = parsed.airDate
-    ? await supabase.from("log_rundowns").select("id, program_id, source").eq("air_date", parsed.airDate)
+  const ai = await importProgramLogWithAI({
+    pdf: new Uint8Array(await file.arrayBuffer()),
+    filename: file.name,
+    data,
+  });
+  if (!ai.ok) return { ok: false, error: ai.error };
+
+  const airDate = /^\d{4}-\d{2}-\d{2}$/.test(ai.output.air_date) ? ai.output.air_date : null;
+  const rundownsResult = airDate
+    ? await supabase.from("log_rundowns").select("id, program_id, source").eq("air_date", airDate)
     : { data: [], error: null };
   if (rundownsResult.error) return { ok: false, error: "Could not check for existing rundowns." };
 
-  const plan = buildProgramLogPlan({
-    parsed,
-    programs: programs.map((program) => ({ id: program.id, name: program.name })),
-    scheduleEntries,
+  const plan = assembleProgramLogPlan({
+    output: ai.output,
+    ...data,
     existingRundowns: rundownsResult.data ?? [],
-    underwriters: uwData.underwriters,
-    copy: uwData.copy,
-    contentItems: contentItems.map((item) => ({ id: item.id, title: item.title })),
   });
   return { ok: true, plan };
 }
