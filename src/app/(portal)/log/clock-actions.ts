@@ -6,11 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogProducer } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
-import type {
-  LogClockVersionVariant,
-  LogOpportunityRequirement,
-  LogSlotTimingMode,
-} from "@/lib/database.types";
+import type { LogClockVersionVariant, LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
 const LIST_PATH = "/log/clocks";
 
@@ -130,10 +126,7 @@ const REQUIREMENTS: LogOpportunityRequirement[] = ["optional", "required"];
 
 function readPermittedContentTypes(formData: FormData): string[] {
   const allowed = new Set(PERMITTED_CONTENT_TYPE_OPTIONS.map((option) => option.value));
-  return formData
-    .getAll("permitted_content_types")
-    .map(String)
-    .filter((value) => allowed.has(value));
+  return formData.getAll("permitted_content_types").map(String).filter((value) => allowed.has(value));
 }
 
 /**

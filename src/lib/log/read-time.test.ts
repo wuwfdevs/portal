@@ -22,4 +22,8 @@ describe("estimateReadSeconds", () => {
   it("counts each spelled-out letter as a word, and ignores layout whitespace", () => {
     expect(countWords("Support for WUWF comes from F P L…\n  Working for you.")).toBe(11);
   });
+
+  it("skips parenthesized directions to the host", () => {
+    expect(countWords("(Please read credit first, then play the segment)Support for WUWF")).toBe(3);
+  });
 });

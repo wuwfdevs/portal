@@ -69,10 +69,8 @@ export function ImportClient() {
   const newItems = plan?.directItems.filter((item) => item.existingItemId === null).length ?? 0;
   const updatedItems = plan?.directItems.filter((item) => item.existingItemId !== null).length ?? 0;
   const unmatchedPromoItems = plan?.directItems.filter((item) => item.unmatchedProgramPromo) ?? [];
-  const newPromos =
-    plan?.synthesizedPromos.filter((promo) => promo.existingItemId === null).length ?? 0;
-  const updatedPromos =
-    plan?.synthesizedPromos.filter((promo) => promo.existingItemId !== null).length ?? 0;
+  const newPromos = plan?.synthesizedPromos.filter((promo) => promo.existingItemId === null).length ?? 0;
+  const updatedPromos = plan?.synthesizedPromos.filter((promo) => promo.existingItemId !== null).length ?? 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -195,9 +193,7 @@ export function ImportClient() {
                 </li>
               ))}
               {plan.synthesizedPromos.length === 0 && (
-                <li className="px-4 py-2.5 text-sm text-ink-500">
-                  No program promos matched a Log program.
-                </li>
+                <li className="px-4 py-2.5 text-sm text-ink-500">No program promos matched a Log program.</li>
               )}
             </ul>
           </section>
@@ -208,8 +204,7 @@ export function ImportClient() {
                 Generic/daily/weekly cuts with no matching program ({unmatchedPromoItems.length})
               </h3>
               <p className="border-b border-line px-4 py-2 text-xs text-ink-500">
-                Imported individually as station promos rather than collapsed into a canonical
-                promo.
+                Imported individually as station promos rather than collapsed into a canonical promo.
               </p>
               <ul className="divide-y divide-line">
                 {unmatchedPromoItems.map((item) => (

@@ -350,9 +350,7 @@ function summaryBreak(overrides: Partial<RundownSummaryBreakLike> = {}): Rundown
 
 describe("computeItemTimings", () => {
   it("starts the first item exactly at the break's own scheduled time", () => {
-    const [first] = computeItemTimings("2026-08-09T10:00:00.000Z", [
-      { id: "a", durationSeconds: 30 },
-    ]);
+    const [first] = computeItemTimings("2026-08-09T10:00:00.000Z", [{ id: "a", durationSeconds: 30 }]);
     expect(first).toMatchObject({
       id: "a",
       startAt: "2026-08-09T10:00:00.000Z",

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwCopyApprovalStatus, UwCopyExecutionKind } from "@/lib/database.types";
+import { estimateReadSeconds } from "@/lib/log/read-time";
 
 const LIST_PATH = "/underwriting/copy";
 
@@ -28,6 +29,15 @@ function optionalField(formData: FormData, name: string): string | null {
 
 const EXECUTION_KINDS: UwCopyExecutionKind[] = ["live_read", "recorded"];
 
+/**
+ * A live read left without a duration gets its read-time estimate — the
+ * same default the program-log import stores (lib/log/read-time.ts). A
+ * recorded spot's length is the audio's, which no script can estimate.
+ */
+function defaultCopyDuration(executionKind: UwCopyExecutionKind, script: string | null): number | null {
+  return executionKind === "live_read" ? estimateReadSeconds(script) : null;
+}
+
 export async function createCopy(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const label = field(formData, "label");
@@ -35,6 +45,7 @@ export async function createCopy(formData: FormData): Promise<void> {
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
   if (!EXECUTION_KINDS.includes(executionKind)) failWith(LIST_PATH, "That is not a recognized execution kind.");
 
+  const script = optionalField(formData, "script");
   const durationRaw = optionalField(formData, "duration_seconds");
   const durationSeconds = durationRaw === null ? null : Number.parseInt(durationRaw, 10);
 
@@ -43,10 +54,13 @@ export async function createCopy(formData: FormData): Promise<void> {
     .from("uw_copy")
     .insert({
       label,
-      script: optionalField(formData, "script"),
+      script,
       execution_kind: executionKind,
       cart_identifier: optionalField(formData, "cart_identifier"),
-      duration_seconds: durationSeconds !== null && Number.isFinite(durationSeconds) ? durationSeconds : null,
+      duration_seconds:
+        durationSeconds !== null && Number.isFinite(durationSeconds)
+          ? durationSeconds
+          : defaultCopyDuration(executionKind, script),
       effective_from: optionalField(formData, "effective_from") ?? undefined,
       effective_to: optionalField(formData, "effective_to"),
       created_by: profile.id,
@@ -88,15 +102,16 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
   if (!EXECUTION_KINDS.includes(executionKind)) failWith(path, "That is not a recognized execution kind.");
 
+  const script = optionalField(formData, "script");
   const supabase = await createClient();
   const { error } = await supabase
     .from("uw_copy")
     .update({
       label: field(formData, "label") || undefined,
-      script: optionalField(formData, "script"),
+      script,
       execution_kind: executionKind,
       cart_identifier: optionalField(formData, "cart_identifier"),
-      duration_seconds: durationSeconds,
+      duration_seconds: durationSeconds ?? defaultCopyDuration(executionKind, script),
       effective_from: field(formData, "effective_from") || undefined,
       effective_to: optionalField(formData, "effective_to"),
     })

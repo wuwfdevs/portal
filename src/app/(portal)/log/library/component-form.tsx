@@ -69,11 +69,7 @@ export function ComponentForm({
       </div>
       <div>
         <Label htmlFor={`component_script-${idSuffix}`}>Script</Label>
-        <Input
-          id={`component_script-${idSuffix}`}
-          name="script"
-          defaultValue={component?.script ?? ""}
-        />
+        <Input id={`component_script-${idSuffix}`} name="script" defaultValue={component?.script ?? ""} />
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input

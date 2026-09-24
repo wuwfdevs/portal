@@ -111,11 +111,7 @@ export function RundownItemCard({
   const formId = `override-form-${itemId}`;
   const canMove = moveDestinations !== null && moveDestinations.length > 0 && onMoveTo !== null;
   const hasMenu =
-    editable ||
-    removable ||
-    canMove ||
-    saveToLibraryAction !== null ||
-    applyToLibraryAction !== null;
+    editable || removable || canMove || saveToLibraryAction !== null || applyToLibraryAction !== null;
 
   function closeMenu() {
     if (detailsRef.current) detailsRef.current.open = false;
@@ -262,11 +258,7 @@ export function RundownItemCard({
                       </>
                     ) : menuView === "save" ? (
                       saveToLibraryAction && (
-                        <form
-                          action={saveToLibraryAction}
-                          onSubmit={closeMenu}
-                          className="flex flex-col gap-1"
-                        >
+                        <form action={saveToLibraryAction} onSubmit={closeMenu} className="flex flex-col gap-1">
                           <input type="hidden" name="rundown_id" value={rundownId} />
                           <input type="hidden" name="item_id" value={itemId} />
                           <button
@@ -276,10 +268,7 @@ export function RundownItemCard({
                           >
                             <BackIcon className="h-3 w-3" /> Back
                           </button>
-                          <label
-                            htmlFor={`save-type-${itemId}`}
-                            className="px-2 text-xs text-ink-500"
-                          >
+                          <label htmlFor={`save-type-${itemId}`} className="px-2 text-xs text-ink-500">
                             File it in the library as
                           </label>
                           <Select
@@ -295,11 +284,7 @@ export function RundownItemCard({
                               </option>
                             ))}
                           </Select>
-                          <Button
-                            type="submit"
-                            variant="secondary"
-                            className="px-2.5 py-1.5 text-xs"
-                          >
+                          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
                             Save to library
                           </Button>
                         </form>

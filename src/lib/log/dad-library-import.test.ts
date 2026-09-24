@@ -44,12 +44,7 @@ describe("parseDadLibrary", () => {
   it("extracts cut rows across page breaks, ignoring banners/headers/rules", () => {
     const { cuts, warnings } = parseDadLibrary(LIBRARY_FIXTURE);
     expect(cuts).toEqual([
-      {
-        cutNumber: "00001",
-        title: "UF-Parks-Museums-1 Cryst",
-        lengthSeconds: 89,
-        group: "UNEARTH",
-      },
+      { cutNumber: "00001", title: "UF-Parks-Museums-1 Cryst", lengthSeconds: 89, group: "UNEARTH" },
       { cutNumber: "00002", title: "Bass and Guitar Vamp", lengthSeconds: 15, group: "TEST" },
       { cutNumber: "00221", title: "Sagal - Federal funding", lengthSeconds: 30, group: "SPRING" },
       { cutNumber: "20330", title: "Sagal - Let's talk about", lengthSeconds: 30, group: "SPRING" },

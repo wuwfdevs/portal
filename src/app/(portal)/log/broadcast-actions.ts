@@ -59,11 +59,7 @@ export async function submitRundown(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("log_rundowns")
-    .update({
-      status: "submitted",
-      submitted_at: new Date().toISOString(),
-      submitted_by: profile.id,
-    })
+    .update({ status: "submitted", submitted_at: new Date().toISOString(), submitted_by: profile.id })
     .eq("id", rundownId)
     .in("status", ["generated", "in_progress", "submitted"]);
   failIfError(error, path, "Could not submit this rundown");
@@ -155,10 +151,7 @@ async function attestUnconfirmedItems(
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith(path, "That rundown no longer exists.");
 
-  const itemIds = rundown.breaks
-    .flatMap((brk) => brk.items)
-    .filter(matches)
-    .map((item) => item.id);
+  const itemIds = rundown.breaks.flatMap((brk) => brk.items).filter(matches).map((item) => item.id);
   const events = await listBroadcastEventsForItems(itemIds);
   const confirmedIds = new Set(events.map((event) => event.rundown_item_id));
   const unconfirmedIds = itemIds.filter((id) => !confirmedIds.has(id));

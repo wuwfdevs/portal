@@ -2589,13 +2589,21 @@ full they were. `lib/log/read-time.ts` (pure, tested, 160 words per minute)
 estimates from word count, and the import plans every read-aloud credit and
 live read at that estimate; the model flags `plays_recording` for text that
 is instructions to play a recorded spot, which keeps its printed length.
-`uw_copy.duration_seconds` is deliberately left at the printed length — it's
-the booked length Underwriting reasons about. Credit cards on the rundown
+The estimate is also the copy's own duration: `uw_copy.duration_seconds`
+holds it for new imported copy, an import that changes a copy row's script
+replaces its duration with the new estimate
+(`20260924120000_log_import_copy_duration_estimates.sql`), the Underwriting
+copy form uses it when a live read's duration is left blank, and existing
+copy was backfilled in production on 2026-09-24 — except the two
+recorded-spot instructions (Dauphin Island Sea Lab, TLC Caregiver) and
+OsteoStrong's copy, whose script is still two merged credits.
+Parenthesized host directions aren't counted as read words. Credit cards on the rundown
 screen are now editable for duration only (the script stays the copy's), so
 a host can replace the estimate with a timed length; clearing the override
 returns to the estimate. A hand-added live read with the duration left
 blank uses the estimate too. Placement from Underwriting
-(`log_place_underwriting_credit()`) still plans at the copy's stored length.
+(`log_place_underwriting_credit()`) plans at the copy's stored length, which
+is now that estimate.
 The same pass joined the PDF's column line wraps in imported scripts
 (`cleanScript`), which had been stored as literal newlines.
 

@@ -112,10 +112,7 @@ async function renumberBreakItems(
 ): Promise<string | null> {
   const results = await Promise.all(
     orderedItemIds.map((id, index) =>
-      supabase
-        .from("log_rundown_items")
-        .update({ position: index + 1 })
-        .eq("id", id),
+      supabase.from("log_rundown_items").update({ position: index + 1 }).eq("id", id),
     ),
   );
   return results.find((result) => result.error) ? "Could not reorder this break's items." : null;
@@ -181,9 +178,7 @@ export async function generateRundown(formData: FormData): Promise<void> {
   const version = template ? resolveCurrentVersion(template.versions, airDate) : null;
   if (!version) failWith("/log", "This program's clock has no version in effect on that date.");
 
-  const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(
-    toRundownOpportunity,
-  );
+  const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(toRundownOpportunity);
 
   const shiftStartAt = stationLocalDateTimeToUTC(airDate, scheduleEntry.air_time);
   const shiftEndAt = new Date(
@@ -268,9 +263,7 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith("/log", "That rundown no longer exists.");
 
-  const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(
-    toRundownOpportunity,
-  );
+  const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(toRundownOpportunity);
   const shiftDurationMinutes = Math.round(
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
@@ -431,10 +424,7 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
     failWith(path, "Enter a duration in seconds, or a script to estimate it from.");
   if (keepInLibrary && sourceNprItemId !== "")
-    failWith(
-      path,
-      "An NPR look-ahead is tied to today's episode and can't be kept in the library.",
-    );
+    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
   const libraryContentType = keepInLibrary ? libraryContentTypeFromForm(formData, path) : null;
 
   const supabase = await createClient();
@@ -518,10 +508,7 @@ export async function saveLiveReadToLibrary(formData: FormData): Promise<void> {
   if (item.item_kind !== "live_read" || item.live_read_title === null)
     failWith(path, "Only a one-off live read can be saved to the library.");
   if (item.source_npr_item_id !== null)
-    failWith(
-      path,
-      "An NPR look-ahead is tied to today's episode and can't be kept in the library.",
-    );
+    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
 
   const supabase = await createClient();
   const contentItemId = await insertLibraryItemFromLiveRead(supabase, path, {
@@ -580,8 +567,7 @@ export async function applyOverridesToLibraryItem(formData: FormData): Promise<v
 
   const contentItem = await getContentItemDetail(item.content_item_id);
   if (!contentItem) failWith(path, "That library item no longer exists.");
-  const applyDuration =
-    item.override_duration_seconds !== null && contentItem.components.length === 0;
+  const applyDuration = item.override_duration_seconds !== null && contentItem.components.length === 0;
 
   const supabase = await createClient();
   const { error: masterError } = await supabase
@@ -776,9 +762,7 @@ export async function relocateRundownItem(
   const item = await getRundownItem(itemId);
   if (!item) return { error: "That item no longer exists." };
   if (item.item_kind === "underwriting_credit") {
-    return {
-      error: "Underwriting credits move through relocateUnderwritingCredit, not this action.",
-    };
+    return { error: "Underwriting credits move through relocateUnderwritingCredit, not this action." };
   }
 
   const destinationBreak = await getRundownBreak(destinationBreakId);

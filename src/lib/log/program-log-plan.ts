@@ -390,10 +390,14 @@ export function cleanScript(value: string | null | undefined): string | null {
  * length: the export prints every credit at its booked length (00:30 for a
  * 33-word script and a 69-word one alike), which says nothing about how
  * much of the break the read takes. A recorded spot, or an item with no
- * script, keeps the printed length. The copy row's own stored duration is
- * left as printed — it's the booked length Underwriting reasons about.
+ * script, keeps the printed length. The same value becomes a new copy
+ * row's duration, and replaces a reused one's when its script changes.
  */
-function plannedSeconds(item: ModelItem, script: string | null, printedSeconds: number): number {
+function plannedSeconds<T extends number | null>(
+  item: ModelItem,
+  script: string | null,
+  printedSeconds: T,
+): number | T {
   if (item.plays_recording) return printedSeconds;
   return estimateReadSeconds(script) ?? printedSeconds;
 }
@@ -484,7 +488,13 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         label,
         cart,
         script: script ?? existing?.script ?? null,
-        durationSeconds: item.duration_seconds ?? existing?.duration_seconds ?? null,
+        // Read-aloud copy stores its read-time estimate; the export's
+        // printed length is only the booked slot (see plannedSeconds).
+        durationSeconds: plannedSeconds(
+          item,
+          script ?? existing?.script ?? null,
+          item.duration_seconds ?? existing?.duration_seconds ?? null,
+        ),
         existingCopyId: existing?.id ?? null,
         // Changed wording, or the same words in a library row still
         // carrying layout line breaks from an earlier import — the update

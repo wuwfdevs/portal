@@ -117,19 +117,14 @@ export function planAssignedContentPlacements(
   // selectMissingBreakDrafts (rundown-generation.ts) already had to fix
   // once for exactly this reason. See CLAUDE.md's dated note.
   const draftByKey = new Map(
-    drafts.map((draft) => [
-      `${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`,
-      draft,
-    ]),
+    drafts.map((draft) => [`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`, draft]),
   );
   const targets: AssignmentPlacementTarget[] = [];
   for (const brk of insertedBreaks) {
     // Imported breaks (null opportunity) never correspond to a generated
     // draft — nothing to place.
     if (brk.local_opportunity_id === null) continue;
-    const draft = draftByKey.get(
-      `${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`,
-    );
+    const draft = draftByKey.get(`${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`);
     if (!draft) continue;
     targets.push({
       break_id: brk.id,
@@ -197,10 +192,7 @@ export function planAssignedContentForTargets(
       if (placedHere.has(contentItemId)) continue;
       const item = contentItems.get(contentItemId);
       if (!item) continue;
-      const plannedDurationSeconds = computeTotalDurationSeconds(
-        item.components,
-        item.expected_duration_seconds,
-      );
+      const plannedDurationSeconds = computeTotalDurationSeconds(item.components, item.expected_duration_seconds);
       if (!plannedDurationSeconds || plannedDurationSeconds <= 0) continue;
       placedHere.add(contentItemId);
       rows.push({

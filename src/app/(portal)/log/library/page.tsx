@@ -19,8 +19,7 @@ export default async function ContentLibraryPage({
 }: {
   searchParams: Promise<{ content_type?: string; approval_status?: string }>;
 }) {
-  const { content_type: contentTypeParam, approval_status: approvalStatusParam } =
-    await searchParams;
+  const { content_type: contentTypeParam, approval_status: approvalStatusParam } = await searchParams;
   const contentType = CONTENT_TYPES.includes(contentTypeParam as LogContentType)
     ? (contentTypeParam as LogContentType)
     : undefined;

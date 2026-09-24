@@ -151,13 +151,10 @@ export function selectMissingBreakDrafts(
   existingBreaks: ExistingBreakLike[],
 ): RundownBreakDraft[] {
   const existingKeys = new Set(
-    existingBreaks.map(
-      (brk) => `${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`,
-    ),
+    existingBreaks.map((brk) => `${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`),
   );
   return drafts.filter(
-    (draft) =>
-      !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
+    (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
   );
 }
 

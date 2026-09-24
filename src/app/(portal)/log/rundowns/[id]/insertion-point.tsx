@@ -188,9 +188,7 @@ export function InsertionPoint({
                 aria-expanded
                 aria-controls={`insertion-point-results-${config.breakId}`}
                 aria-activedescendant={
-                  highlightedIndex >= 0
-                    ? `insertion-point-result-${resultIds[highlightedIndex]}`
-                    : undefined
+                  highlightedIndex >= 0 ? `insertion-point-result-${resultIds[highlightedIndex]}` : undefined
                 }
                 className="mb-2"
               />

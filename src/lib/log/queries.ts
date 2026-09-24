@@ -20,8 +20,7 @@ export type LogLocalOpportunityRow = Database["public"]["Tables"]["log_local_opp
 export type LogScheduleRow = Database["public"]["Tables"]["log_schedule"]["Row"];
 export type LogContentItemRow = Database["public"]["Tables"]["log_content_items"]["Row"];
 export type LogContentComponentRow = Database["public"]["Tables"]["log_content_components"]["Row"];
-export type LogOpportunityAssignmentRow =
-  Database["public"]["Tables"]["log_opportunity_assignments"]["Row"];
+export type LogOpportunityAssignmentRow = Database["public"]["Tables"]["log_opportunity_assignments"]["Row"];
 export type LogNprEpisodeRow = Database["public"]["Tables"]["log_npr_episodes"]["Row"];
 export type LogNprEpisodeItemRow = Database["public"]["Tables"]["log_npr_episode_items"]["Row"];
 export type LogWeatherReadingRow = Database["public"]["Tables"]["log_weather_reading"]["Row"];
@@ -65,9 +64,7 @@ export interface LogLocalOpportunityWithSlot extends LogLocalOpportunityRow {
 }
 
 /** Adapts a slot-joined opportunity row into the shape lib/log/rundown-generation.ts's pure functions expect — offset/duration/label/timing always come from the referenced slot. */
-export function toRundownOpportunity(
-  opportunity: LogLocalOpportunityWithSlot,
-): RundownOpportunityLike {
+export function toRundownOpportunity(opportunity: LogLocalOpportunityWithSlot): RundownOpportunityLike {
   return {
     id: opportunity.id,
     slot_position: opportunity.slot.position,
@@ -115,11 +112,7 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
   const versionIds = versions.map((version) => version.id);
   const [slots, rawOpportunities] = await Promise.all([
     unwrapRead(
-      await supabase
-        .from("log_clock_slots")
-        .select("*")
-        .in("clock_version_id", versionIds)
-        .order("position"),
+      await supabase.from("log_clock_slots").select("*").in("clock_version_id", versionIds).order("position"),
       "this clock template's slots",
     ) ?? [],
     unwrapRead(
@@ -224,10 +217,7 @@ export async function listContentItems(
   filters: ContentLibraryFilters = {},
 ): Promise<LogContentItemRow[]> {
   const supabase = await createClient();
-  let query = supabase
-    .from("log_content_items")
-    .select("*")
-    .order("created_at", { ascending: false });
+  let query = supabase.from("log_content_items").select("*").order("created_at", { ascending: false });
   if (filters.contentType) query = query.eq("content_type", filters.contentType);
   if (filters.approvalStatus) query = query.eq("approval_status", filters.approvalStatus);
   return unwrapRead(await query, "the content library") ?? [];
@@ -338,10 +328,7 @@ export async function getContentItemsWithComponents(
   return new Map(
     items.map((item) => [
       item.id,
-      {
-        ...item,
-        components: (componentsByItem.get(item.id) ?? []).sort((a, b) => a.sequence - b.sequence),
-      },
+      { ...item, components: (componentsByItem.get(item.id) ?? []).sort((a, b) => a.sequence - b.sequence) },
     ]),
   );
 }
@@ -566,11 +553,7 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
   const [program, breaks] = await Promise.all([
     getProgram(rundown.program_id),
     unwrapRead(
-      await supabase
-        .from("log_rundown_breaks")
-        .select("*")
-        .eq("rundown_id", id)
-        .order("scheduled_at"),
+      await supabase.from("log_rundown_breaks").select("*").eq("rundown_id", id).order("scheduled_at"),
       "this rundown's breaks",
     ) ?? [],
   ]);
@@ -580,17 +563,11 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
     breakIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase
-            .from("log_rundown_items")
-            .select("*")
-            .in("break_id", breakIds)
-            .order("position"),
+          await supabase.from("log_rundown_items").select("*").in("break_id", breakIds).order("position"),
           "this rundown's items",
         ) ?? []);
 
-  const contentItemIds = [
-    ...new Set(items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : []))),
-  ];
+  const contentItemIds = [...new Set(items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])))];
 
   const [contentItems, components] = await Promise.all([
     contentItemIds.length === 0
@@ -602,10 +579,7 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
     contentItemIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase
-            .from("log_content_components")
-            .select("*")
-            .in("content_item_id", contentItemIds),
+          await supabase.from("log_content_components").select("*").in("content_item_id", contentItemIds),
           "this rundown's content components",
         ) ?? []),
   ]);
@@ -620,9 +594,7 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
 
   const itemsByBreak = new Map<string, RundownItemDetail[]>();
   for (const item of items) {
-    const contentItem = item.content_item_id
-      ? (contentItemById.get(item.content_item_id) ?? null)
-      : null;
+    const contentItem = item.content_item_id ? (contentItemById.get(item.content_item_id) ?? null) : null;
     const detail: RundownItemDetail = {
       ...item,
       contentItem: contentItem
@@ -663,11 +635,7 @@ export async function listItemsForBreak(breakId: string): Promise<LogRundownItem
   const supabase = await createClient();
   return (
     unwrapRead(
-      await supabase
-        .from("log_rundown_items")
-        .select("*")
-        .eq("break_id", breakId)
-        .order("position"),
+      await supabase.from("log_rundown_items").select("*").eq("break_id", breakId).order("position"),
       "this break's items",
     ) ?? []
   );
@@ -700,9 +668,7 @@ export interface UnderwritingCopyForLog {
  * attribution can run through uw_contracts, which stays staff-only.
  * Underwriting remains the source of truth — this is a read, never a write.
  */
-export async function listUnderwritingCopyForItems(
-  copyIds: string[],
-): Promise<UnderwritingCopyForLog[]> {
+export async function listUnderwritingCopyForItems(copyIds: string[]): Promise<UnderwritingCopyForLog[]> {
   if (copyIds.length === 0) return [];
   const supabase = await createClient();
   const [copy, underwriters] = await Promise.all([
@@ -742,9 +708,7 @@ export async function hasOpenUnderwritingExceptions(rundownId: string): Promise<
 }
 
 /** Every broadcast event for a set of rundown items, most recent first — used to derive each item's confirmed/outcome state on the console. */
-export async function listBroadcastEventsForItems(
-  rundownItemIds: string[],
-): Promise<LogBroadcastEventRow[]> {
+export async function listBroadcastEventsForItems(rundownItemIds: string[]): Promise<LogBroadcastEventRow[]> {
   if (rundownItemIds.length === 0) return [];
   const supabase = await createClient();
   return (

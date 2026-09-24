@@ -58,13 +58,7 @@ export default async function ClockTemplatesPage({
             {error && <Alert>{error}</Alert>}
             <div>
               <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                maxLength={120}
-                placeholder="Weekday Morning Drive"
-              />
+              <Input id="name" name="name" required maxLength={120} placeholder="Weekday Morning Drive" />
             </div>
             <div>
               <Label htmlFor="description">Description</Label>

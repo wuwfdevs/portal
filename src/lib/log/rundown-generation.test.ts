@@ -7,9 +7,7 @@ import {
   type RundownOpportunityLike,
 } from "./rundown-generation";
 
-function opportunity(
-  overrides: Partial<RundownOpportunityLike> & { id: string },
-): RundownOpportunityLike {
+function opportunity(overrides: Partial<RundownOpportunityLike> & { id: string }): RundownOpportunityLike {
   return {
     slot_position: 1,
     slot_label: "Local cover",
@@ -103,11 +101,7 @@ describe("buildRundownBreakDrafts", () => {
   });
 
   it("rounds a partial final hour up rather than dropping its opportunities", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1" })],
-      "2026-08-07T09:00:00.000Z",
-      90,
-    );
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 90);
     expect(drafts).toHaveLength(2);
   });
 
@@ -155,11 +149,7 @@ describe("selectMissingBreakDrafts", () => {
   });
 
   it("matches on opportunity id and scheduled time together, not either alone", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1" })],
-      "2026-08-07T09:00:00.000Z",
-      60,
-    );
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
     // Same opportunity id, different scheduled_at (e.g. a different hour repetition) — not a match.
     const missing = selectMissingBreakDrafts(drafts, [
       { local_opportunity_id: "o1", scheduled_at: "2026-08-07T10:00:00.000Z" },
@@ -168,11 +158,7 @@ describe("selectMissingBreakDrafts", () => {
   });
 
   it("returns nothing when every draft already has a matching break", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1" })],
-      "2026-08-07T09:00:00.000Z",
-      60,
-    );
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
     const missing = selectMissingBreakDrafts(drafts, [
       { local_opportunity_id: "o1", scheduled_at: drafts[0]!.scheduled_at },
     ]);
@@ -185,11 +171,7 @@ describe("selectMissingBreakDrafts", () => {
     // string from what Date.prototype.toISOString() produces for the exact
     // same instant. Comparing those strings directly (the original bug)
     // made every already-synced break look "missing" on every call.
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", start_offset_seconds: 90 })],
-      "2026-08-07T09:00:00.000Z",
-      60,
-    );
+    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1", start_offset_seconds: 90 })], "2026-08-07T09:00:00.000Z", 60);
     expect(drafts[0]!.scheduled_at).toBe("2026-08-07T09:01:30.000Z");
     const missing = selectMissingBreakDrafts(drafts, [
       { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },

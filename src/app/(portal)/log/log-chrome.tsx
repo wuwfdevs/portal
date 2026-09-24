@@ -22,8 +22,8 @@ export function LogChrome({ children }: { children: React.ReactNode }) {
       <div className="mb-5">
         <h1 className="font-serif text-2xl font-bold text-ink-900">Log</h1>
         <p className="mt-1 text-xs text-ink-400">
-          Daily broadcast rundown planning — clocks, programs, the content library, NPR and weather
-          in context, and the live-broadcast host view.
+          Daily broadcast rundown planning — clocks, programs, the content library, NPR and weather in
+          context, and the live-broadcast host view.
         </p>
       </div>
       <NavTabs />

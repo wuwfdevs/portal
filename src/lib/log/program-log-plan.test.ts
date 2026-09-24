@@ -358,10 +358,11 @@ describe("assembleProgramLogPlan", () => {
     const plan = assembleProgramLogPlan(inputs(output));
     const seconds = plan.rundowns[0]!.breaks[0]!.items.map((i) => i.durationSeconds);
     expect(seconds).toEqual([15, 60, 4]);
-    // The copy row keeps the printed (booked) length.
-    expect(
-      plan.copyPlans.find((c) => c.underwriterName === "Juan's Flying Burrito")!.durationSeconds,
-    ).toBe(30);
+    // New copy stores the estimate too; the recorded spot keeps its printed length.
+    const copySeconds = (name: string) =>
+      plan.copyPlans.find((c) => c.underwriterName === name)!.durationSeconds;
+    expect(copySeconds("Juan's Flying Burrito")).toBe(15);
+    expect(copySeconds("Dauphin Island Sea Lab")).toBe(60);
   });
 
   it("creates a NEW underwriter's credit, but reuses a known underwriter the model marked NEW by mistake", () => {

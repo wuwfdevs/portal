@@ -20,13 +20,7 @@ export interface NprEpisodeItem {
 }
 
 export type NprEpisodeFetchResult =
-  | {
-      status: "found";
-      npr_episode_id: string;
-      title: string | null;
-      items: NprEpisodeItem[];
-      raw: unknown;
-    }
+  | { status: "found"; npr_episode_id: string; title: string | null; items: NprEpisodeItem[]; raw: unknown }
   | { status: "not_found" };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -169,8 +163,7 @@ function normalizeItem(raw: unknown): NprEpisodeItem | null {
   if (!npr_item_id) return null;
 
   const title = readString(doc, "title") ?? "(untitled)";
-  const teaser =
-    readString(doc, "teaser") ?? readString(doc, "miniTeaser") ?? readString(doc, "description");
+  const teaser = readString(doc, "teaser") ?? readString(doc, "miniTeaser") ?? readString(doc, "description");
   const duration_seconds = extractAudioDurationSeconds(doc);
 
   return { npr_item_id, title, teaser, duration_seconds, raw };

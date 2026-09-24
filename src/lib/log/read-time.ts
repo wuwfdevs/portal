@@ -9,11 +9,14 @@
  *
  * Every whitespace-separated token counts as one word, so a spelled-out
  * "F P L" counts three — about right, since each letter is read.
+ * Parenthesized text is a direction to the host, not read on air ("(they
+ * want a lil pause between…)", "(Please read credit first, then play the
+ * segment)"), and isn't counted.
  */
 export const READ_WORDS_PER_MINUTE = 160;
 
 export function countWords(script: string): number {
-  const trimmed = script.trim();
+  const trimmed = script.replace(/\([^()]*\)/g, " ").trim();
   return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
 }
 
