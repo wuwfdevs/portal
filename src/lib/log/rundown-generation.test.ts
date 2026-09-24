@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRundownBreakDrafts,
   selectMissingBreakDrafts,
+  matchDraftsToCoveringBreaks,
   selectNonOverlappingBreakDrafts,
   type RundownOpportunityLike,
 } from "./rundown-generation";
@@ -236,5 +237,52 @@ describe("selectNonOverlappingBreakDrafts", () => {
       { scheduled_at: "2026-08-24T12:59:00+00:00", available_duration_seconds: 60 },
     ]);
     expect(missing).toHaveLength(0);
+  });
+});
+
+describe("matchDraftsToCoveringBreaks", () => {
+  const shiftStart = "2026-09-24T10:00:00.000Z";
+
+  it("maps the :58:59 clock window to the export's :59:00 avail that replaced it", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o-id", start_offset_seconds: 3539, duration_seconds: 54 })],
+      shiftStart,
+      60,
+    );
+    const imported = [
+      { id: "b-49", scheduled_at: "2026-09-24T10:49:35+00:00", available_duration_seconds: 115 },
+      { id: "b-59", scheduled_at: "2026-09-24T10:59:00+00:00", available_duration_seconds: 60 },
+    ];
+    expect(selectNonOverlappingBreakDrafts(drafts, imported)).toHaveLength(0);
+    const matches = matchDraftsToCoveringBreaks(drafts, imported);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.breakId).toBe("b-59");
+    expect(matches[0]!.draft.local_opportunity_id).toBe("o-id");
+  });
+
+  it("picks the break with the largest overlap when a draft straddles two", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1", start_offset_seconds: 1200, duration_seconds: 90 })],
+      shiftStart,
+      60,
+    );
+    const matches = matchDraftsToCoveringBreaks(drafts, [
+      { id: "small", scheduled_at: "2026-09-24T10:19:00+00:00", available_duration_seconds: 70 },
+      { id: "big", scheduled_at: "2026-09-24T10:20:10+00:00", available_duration_seconds: 120 },
+    ]);
+    expect(matches.map((match) => match.breakId)).toEqual(["big"]);
+  });
+
+  it("returns nothing for a draft that only touches an existing window", () => {
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o-promo", start_offset_seconds: 1230, duration_seconds: 30 })],
+      shiftStart,
+      60,
+    );
+    expect(
+      matchDraftsToCoveringBreaks(drafts, [
+        { id: "b", scheduled_at: "2026-09-24T10:19:00+00:00", available_duration_seconds: 90 },
+      ]),
+    ).toHaveLength(0);
   });
 });

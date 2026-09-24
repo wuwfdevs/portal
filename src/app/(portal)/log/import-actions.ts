@@ -16,9 +16,13 @@ import { logAuditEvent } from "@/lib/audit";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import {
   buildRundownBreakDrafts,
+  matchDraftsToCoveringBreaks,
   selectNonOverlappingBreakDrafts,
 } from "@/lib/log/rundown-generation";
-import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement";
+import {
+  placeAssignedContent,
+  placeAssignedContentIntoCoveringBreaks,
+} from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { importProgramLogWithAI } from "@/lib/log/program-log-ai-import";
 import type { ImportLookupData } from "@/lib/log/program-log-lookups";
@@ -396,10 +400,38 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
     const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(
       toRundownOpportunity,
     );
-    const clockDrafts = selectNonOverlappingBreakDrafts(
-      buildRundownBreakDrafts(opportunities, shiftStartAt, rundownPlan.shiftDurationMinutes),
-      breakRows,
+    const allClockDrafts = buildRundownBreakDrafts(
+      opportunities,
+      shiftStartAt,
+      rundownPlan.shiftDurationMinutes,
     );
+    const clockDrafts = selectNonOverlappingBreakDrafts(allClockDrafts, breakRows);
+
+    // A clock window the export already covers is dropped above, but any
+    // content pinned to it (the :58:59 legal ID under the export's :59:00
+    // avail) still has to air — it goes into the export break that covered
+    // it, after the export's own items.
+    const importedBreakWindows = insertedBreaks.flatMap((inserted) => {
+      const row = breakRows[inserted.position - 1];
+      return row ? [{ id: inserted.id, ...row }] : [];
+    });
+    const covered = matchDraftsToCoveringBreaks(
+      allClockDrafts.filter((draft) => !clockDrafts.includes(draft)),
+      importedBreakWindows,
+    );
+    const existingContents = new Map(
+      importedBreakWindows.map((brk) => {
+        const items = itemRows.filter((item) => item.break_id === brk.id);
+        return [
+          brk.id,
+          {
+            itemCount: items.length,
+            contentItemIds: items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])),
+          },
+        ];
+      }),
+    );
+    await placeAssignedContentIntoCoveringBreaks(supabase, covered, existingContents, plan.airDate);
     if (clockDrafts.length > 0) {
       const { data: insertedClockBreaks, error: clockBreaksError } = await supabase
         .from("log_rundown_breaks")
