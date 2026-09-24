@@ -304,11 +304,46 @@ export type ItemPlan =
 export interface BreakPlan {
   /** Seconds from station-local midnight. */
   startSeconds: number;
-  /** "06:06:00" — for display and for the executor's timestamp conversion. */
+  /** "06:06:00" — for display. */
   time: string;
   label: string;
   availableDurationSeconds: number;
   items: ItemPlan[];
+  /**
+   * Where this break sits on the program's clock — set by
+   * alignPlanToClock (program-log-clock-alignment.ts), absent on the
+   * model's raw reading. The executor writes only aligned breaks.
+   */
+  placement?: BreakPlacement;
+}
+
+/**
+ * Which kind of clock slot a written break is an occurrence of (see
+ * program-log-clock-alignment.ts). Either way the window is the slot's:
+ * - `opportunity` — a marked local opportunity, exactly as generation
+ *   builds it (so opportunity assignments apply);
+ * - `clock_slot` — a slot nobody marked, where the export nonetheless
+ *   scheduled something. The export prevails on whether it airs.
+ */
+export type BreakSource = "opportunity" | "clock_slot";
+
+export interface BreakPlacement {
+  source: BreakSource;
+  /** With hourIndex, the break's identity — what the executor writes. */
+  clockSlotId: string;
+  localOpportunityId: string | null;
+  hourIndex: number;
+  /** Floating slots only: where it landed, seconds from the top of its hour. */
+  landingOffsetSeconds: number | null;
+  position: number;
+  /** Seconds from the shift's start — for the preview; the database derives the stored times. */
+  offsetSeconds: number;
+  /** Seconds from the shift's start by which the network must be rejoined. */
+  rejoinOffsetSeconds: number;
+  requirement: LogOpportunityRequirement;
+  permittedContentTypes: string[];
+  /** The export's own printed times for what landed here, for the preview. */
+  exportTimes: string[];
 }
 
 export interface RundownPlan {
@@ -320,6 +355,12 @@ export interface RundownPlan {
   shiftStartTime: string;
   shiftDurationMinutes: number;
   breaks: BreakPlan[];
+  /**
+   * The clock version the breaks were aligned to, or null when they
+   * weren't (no version in effect, or an existing rundown that won't be
+   * written). The executor re-resolves the version and refuses a mismatch.
+   */
+  clockVersionId: string | null;
   /** Set when a rundown already exists for this program+date — nothing is written. */
   existingRundownId: string | null;
   existingRundownSource: string | null;
@@ -346,7 +387,9 @@ export interface ProgramLogPlan {
 }
 
 /**
- * The permitted-content-types snapshot for an imported break. The export
+ * The permitted-content-types snapshot for an imported break on a slot
+ * nobody marked as an opportunity (see program-log-clock-alignment.ts).
+ * The export
  * says nothing about what a window permits beyond what actually aired in
  * it, so imported breaks are liberal — any library content type plus the
  * two sentinels — and a host's judgment (plus remaining duration, which the
@@ -582,6 +625,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         shiftStartTime: entry.air_time,
         shiftDurationMinutes: entry.duration_minutes,
         breaks: [],
+        clockVersionId: null,
         existingRundownId: existing?.id ?? null,
         existingRundownSource: existing?.source ?? null,
       };

@@ -110,10 +110,12 @@ Owns the structural and operational core (source doc §4, §5, §7–§9, §11�
   `log_local_opportunities` below and `docs/log-design.md` §2.
 - `log_local_opportunities` — WUWF's own local-substitution overlay on a
   clock version, independently editable in place (unlike the network clock's
-  own insert-only immutability): offset/window, duration, `required` vs.
-  `optional`, permitted content types, whether more than one item may occupy
-  it. May span several network clock slots at once (`docs/log-design.md`
-  §2's Morning Edition example).
+  own insert-only immutability): one network slot marked `required` or
+  `optional`, with its permitted content types (slot-keyed since
+  2026-08-10 — offset, duration and label are the slot's). A window spanning
+  several network slots is several consecutive opportunities, and a long
+  piece carries across them by overrun chaining (`docs/log-design.md` §2 and
+  §6's "Overruns and content that spans several breaks").
 - `log_schedule` — maps programs to the calendar: the recurring weekly grid
   plus date-bounded substitutions and holiday overrides (§4.1).
 - `log_content_items` — every non-underwriting content type from §7.1 (news,

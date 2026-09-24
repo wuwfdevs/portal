@@ -67,6 +67,7 @@ export interface LogLocalOpportunityWithSlot extends LogLocalOpportunityRow {
 export function toRundownOpportunity(opportunity: LogLocalOpportunityWithSlot): RundownOpportunityLike {
   return {
     id: opportunity.id,
+    slot_id: opportunity.slot.id,
     slot_position: opportunity.slot.position,
     slot_label: opportunity.slot.label,
     requirement: opportunity.requirement,

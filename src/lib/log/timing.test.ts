@@ -5,6 +5,8 @@ import {
   computeBreakStatuses,
   computeItemTimings,
   computeRundownSummary,
+  networkSlotLabelAt,
+  type NetworkSlotLike,
   type RundownSummaryBreakLike,
   type SpilloverBreakLike,
 } from "./timing";
@@ -350,7 +352,9 @@ function summaryBreak(overrides: Partial<RundownSummaryBreakLike> = {}): Rundown
 
 describe("computeItemTimings", () => {
   it("starts the first item exactly at the break's own scheduled time", () => {
-    const [first] = computeItemTimings("2026-08-09T10:00:00.000Z", [{ id: "a", durationSeconds: 30 }]);
+    const [first] = computeItemTimings("2026-08-09T10:00:00.000Z", [
+      { id: "a", durationSeconds: 30 },
+    ]);
     expect(first).toMatchObject({
       id: "a",
       startAt: "2026-08-09T10:00:00.000Z",
@@ -479,5 +483,113 @@ describe("computeRundownSummary", () => {
       preemptedBreaks: 1,
       ready: true,
     });
+  });
+});
+
+// docs/log-design.md §6, "Overruns and content that spans several breaks":
+// Morning Edition's 29:30 story window is four marked optional slots in a
+// row, 4:30 in all, ending at 34:00 (5:00 AM shift).
+function storyWindow(storySeconds: number): SpilloverBreakLike[] {
+  const at = (offset: number) =>
+    new Date(Date.UTC(2026, 8, 24, 10, 0, 0) + offset * 1000).toISOString();
+  const slot = (
+    id: string,
+    start: number,
+    length: number,
+    occupied: number,
+  ): SpilloverBreakLike => ({
+    id,
+    requirement: "optional",
+    item_count: occupied > 0 ? 1 : 0,
+    available_duration_seconds: length,
+    occupied_duration_seconds: occupied,
+    scheduled_at: at(start),
+    network_rejoin_at: at(start + length),
+  });
+  return [
+    slot("bed-2930", 1770, 30, storySeconds),
+    slot("newscast-3", 1800, 90, 0),
+    slot("newscast-4", 1890, 90, 0),
+    slot("bed-3300", 1980, 60, 0),
+  ];
+}
+
+describe("computeBreakStatuses (overrun across a multi-slot story window)", () => {
+  it("carries a 4:00 story at 29:30 through the newscasts, flagging each as preempted", () => {
+    const byId = new Map(computeBreakStatuses(storyWindow(240)).map((r) => [r.id, r]));
+    expect(byId.get("bed-2930")).toMatchObject({
+      status: "filled",
+      overrunSeconds: 0,
+      overrunStartsAt: null,
+    });
+    expect(byId.get("newscast-3")?.status).toBe("preempted_by_previous");
+    expect(byId.get("newscast-4")?.status).toBe("preempted_by_previous");
+    expect(byId.get("bed-3300")?.status).toBe("preempted_by_previous");
+    // 30s of the last music bed used, 30s still open.
+    expect(byId.get("bed-3300")?.fit.remainingSeconds).toBe(30);
+  });
+
+  it("reports only the unabsorbed overrun, and where it starts, for a story longer than the window", () => {
+    // 4:45 against a 4:30 window: 15s runs past 34:00 into network content.
+    const byId = new Map(computeBreakStatuses(storyWindow(285)).map((r) => [r.id, r]));
+    expect(byId.get("bed-2930")).toMatchObject({
+      status: "over",
+      overrunSeconds: 15,
+      overrunStartsAt: new Date(Date.UTC(2026, 8, 24, 10, 34, 0)).toISOString(),
+    });
+  });
+
+  it("starts the overrun at the break's own rejoin when no break follows it", () => {
+    const [bed] = storyWindow(40);
+    const [result] = computeBreakStatuses([bed!]);
+    expect(result).toMatchObject({
+      status: "over",
+      overrunSeconds: 10,
+      overrunStartsAt: bed!.network_rejoin_at,
+    });
+  });
+});
+
+describe("networkSlotLabelAt", () => {
+  const slots: NetworkSlotLike[] = [
+    {
+      label: "Music Bed",
+      timing_mode: "fixed",
+      start_offset_seconds: 1980,
+      duration_seconds: 60,
+      earliest_start_offset_seconds: null,
+      latest_start_offset_seconds: null,
+    },
+    {
+      label: "Funding Credit",
+      timing_mode: "fixed",
+      start_offset_seconds: 2040,
+      duration_seconds: 35,
+      earliest_start_offset_seconds: null,
+      latest_start_offset_seconds: null,
+    },
+    {
+      label: "Floating Break",
+      timing_mode: "float",
+      start_offset_seconds: 2040,
+      duration_seconds: 60,
+      earliest_start_offset_seconds: 2040,
+      latest_start_offset_seconds: 2200,
+    },
+  ];
+  const shiftStart = "2026-09-24T10:00:00.000Z";
+
+  it("names the fixed slot on the air at an instant, in any hour of the shift", () => {
+    expect(networkSlotLabelAt(slots, shiftStart, 240, "2026-09-24T10:34:00+00:00")).toBe(
+      "Funding Credit",
+    );
+    expect(networkSlotLabelAt(slots, shiftStart, 240, "2026-09-24T12:34:10.000Z")).toBe(
+      "Funding Credit",
+    );
+  });
+
+  it("returns null past the shift or where no fixed slot covers the instant", () => {
+    expect(networkSlotLabelAt(slots, shiftStart, 60, "2026-09-24T11:34:00.000Z")).toBeNull();
+    expect(networkSlotLabelAt(slots, shiftStart, 60, "2026-09-24T10:40:00.000Z")).toBeNull();
   });
 });

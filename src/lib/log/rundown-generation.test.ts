@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRundownBreakDrafts,
+  breakInsertRow,
   selectMissingBreakDrafts,
-  matchDraftsToCoveringBreaks,
-  selectNonOverlappingBreakDrafts,
   type RundownOpportunityLike,
 } from "./rundown-generation";
 
-function opportunity(overrides: Partial<RundownOpportunityLike> & { id: string }): RundownOpportunityLike {
+function opportunity(
+  overrides: Partial<RundownOpportunityLike> & { id: string },
+): RundownOpportunityLike {
   return {
+    slot_id: `slot-${overrides.id}`,
     slot_position: 1,
     slot_label: "Local cover",
     requirement: "optional",
@@ -101,7 +103,11 @@ describe("buildRundownBreakDrafts", () => {
   });
 
   it("rounds a partial final hour up rather than dropping its opportunities", () => {
-    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 90);
+    const drafts = buildRundownBreakDrafts(
+      [opportunity({ id: "o1" })],
+      "2026-08-07T09:00:00.000Z",
+      90,
+    );
     expect(drafts).toHaveLength(2);
   });
 
@@ -135,154 +141,55 @@ describe("selectMissingBreakDrafts", () => {
     expect(selectMissingBreakDrafts(drafts, [])).toHaveLength(2);
   });
 
-  it("drops a draft that already has a matching break (a rundown generated before this opportunity existed)", () => {
+  it("drops a draft whose slot occurrence already has a break (a rundown generated before this opportunity existed)", () => {
     const drafts = buildRundownBreakDrafts(
       [opportunity({ id: "o1" }), opportunity({ id: "o2", slot_position: 2 })],
       "2026-08-07T09:00:00.000Z",
       60,
     );
-    const missing = selectMissingBreakDrafts(drafts, [
-      { local_opportunity_id: "o1", scheduled_at: drafts[0]!.scheduled_at },
-    ]);
+    const missing = selectMissingBreakDrafts(drafts, [{ clock_slot_id: "slot-o1", hour_index: 0 }]);
     expect(missing).toHaveLength(1);
     expect(missing[0]!.local_opportunity_id).toBe("o2");
   });
 
-  it("matches on opportunity id and scheduled time together, not either alone", () => {
-    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
-    // Same opportunity id, different scheduled_at (e.g. a different hour repetition) — not a match.
-    const missing = selectMissingBreakDrafts(drafts, [
-      { local_opportunity_id: "o1", scheduled_at: "2026-08-07T10:00:00.000Z" },
-    ]);
-    expect(missing).toHaveLength(1);
-  });
-
-  it("returns nothing when every draft already has a matching break", () => {
-    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1" })], "2026-08-07T09:00:00.000Z", 60);
-    const missing = selectMissingBreakDrafts(drafts, [
-      { local_opportunity_id: "o1", scheduled_at: drafts[0]!.scheduled_at },
-    ]);
-    expect(missing).toHaveLength(0);
-  });
-
-  it("matches the same instant even when it's formatted differently than a fresh draft's toISOString() — the confirmed production bug", () => {
-    // A value read back from Postgres via supabase-js renders a timestamptz
-    // with no milliseconds and "+00:00" instead of "Z" — a real, different
-    // string from what Date.prototype.toISOString() produces for the exact
-    // same instant. Comparing those strings directly (the original bug)
-    // made every already-synced break look "missing" on every call.
-    const drafts = buildRundownBreakDrafts([opportunity({ id: "o1", start_offset_seconds: 90 })], "2026-08-07T09:00:00.000Z", 60);
-    expect(drafts[0]!.scheduled_at).toBe("2026-08-07T09:01:30.000Z");
-    const missing = selectMissingBreakDrafts(drafts, [
-      { local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:01:30+00:00" },
-    ]);
-    expect(missing).toHaveLength(0);
-  });
-});
-
-describe("selectNonOverlappingBreakDrafts", () => {
-  // Modeled on the real 2026-08-24 imported Morning Edition rundown: the
-  // export's avails carry no local_opportunity_id and sit a second or two
-  // off the clock's own offsets, so the imported-rundown dedup is window
-  // overlap, never exact instant equality.
-  const shiftStart = "2026-08-24T12:00:00.000Z";
-
-  it("drops a draft whose window overlaps an imported break even one second off (the :49:34 vs :49:35 case)", () => {
+  it("matches on slot and hour together — the same slot in another hour is a different break", () => {
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", start_offset_seconds: 2974, duration_seconds: 115 })],
-      shiftStart,
-      60,
+      [opportunity({ id: "o1" })],
+      "2026-08-07T09:00:00.000Z",
+      120,
     );
-    const missing = selectNonOverlappingBreakDrafts(drafts, [
-      { scheduled_at: "2026-08-24T12:49:35+00:00", available_duration_seconds: 115 },
-    ]);
-    expect(missing).toHaveLength(0);
+    const missing = selectMissingBreakDrafts(drafts, [{ clock_slot_id: "slot-o1", hour_index: 0 }]);
+    expect(missing.map((draft) => draft.hour_index)).toEqual([1]);
   });
 
-  it("keeps a draft the export never mentions (the 31:30 Newscast 4 window)", () => {
+  it("treats a break an import already placed on the slot as present, whatever its times", () => {
+    // An unmarked slot the import put a credit in, marked eligible later:
+    // the break exists already, so sync adds nothing.
     const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o-newscast4", start_offset_seconds: 1890, duration_seconds: 90 })],
-      shiftStart,
-      60,
-    );
-    const missing = selectNonOverlappingBreakDrafts(drafts, [
-      { scheduled_at: "2026-08-24T12:29:30+00:00", available_duration_seconds: 30 },
-      { scheduled_at: "2026-08-24T12:33:00+00:00", available_duration_seconds: 90 },
-    ]);
-    expect(missing).toHaveLength(1);
-    expect(missing[0]!.local_opportunity_id).toBe("o-newscast4");
-  });
-
-  it("treats touching windows as distinct, not overlapping (a promo right after a music bed)", () => {
-    // Draft at 20:30 for 30s starts exactly where the imported 19:00+90s
-    // break ends — adjacent, so the promo window is still added.
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o-promo", start_offset_seconds: 1230, duration_seconds: 30 })],
-      shiftStart,
-      60,
-    );
-    const missing = selectNonOverlappingBreakDrafts(drafts, [
-      { scheduled_at: "2026-08-24T12:19:00+00:00", available_duration_seconds: 90 },
-    ]);
-    expect(missing).toHaveLength(1);
-  });
-
-  it("drops a short draft entirely inside a wider imported window (the end-of-hour silence under a :59 avail)", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o-silence", start_offset_seconds: 3593, duration_seconds: 5 })],
-      shiftStart,
-      60,
-    );
-    const missing = selectNonOverlappingBreakDrafts(drafts, [
-      { scheduled_at: "2026-08-24T12:59:00+00:00", available_duration_seconds: 60 },
-    ]);
-    expect(missing).toHaveLength(0);
-  });
-});
-
-describe("matchDraftsToCoveringBreaks", () => {
-  const shiftStart = "2026-09-24T10:00:00.000Z";
-
-  it("maps the :58:59 clock window to the export's :59:00 avail that replaced it", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o-id", start_offset_seconds: 3539, duration_seconds: 54 })],
-      shiftStart,
-      60,
-    );
-    const imported = [
-      { id: "b-49", scheduled_at: "2026-09-24T10:49:35+00:00", available_duration_seconds: 115 },
-      { id: "b-59", scheduled_at: "2026-09-24T10:59:00+00:00", available_duration_seconds: 60 },
-    ];
-    expect(selectNonOverlappingBreakDrafts(drafts, imported)).toHaveLength(0);
-    const matches = matchDraftsToCoveringBreaks(drafts, imported);
-    expect(matches).toHaveLength(1);
-    expect(matches[0]!.breakId).toBe("b-59");
-    expect(matches[0]!.draft.local_opportunity_id).toBe("o-id");
-  });
-
-  it("picks the break with the largest overlap when a draft straddles two", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o1", start_offset_seconds: 1200, duration_seconds: 90 })],
-      shiftStart,
-      60,
-    );
-    const matches = matchDraftsToCoveringBreaks(drafts, [
-      { id: "small", scheduled_at: "2026-09-24T10:19:00+00:00", available_duration_seconds: 70 },
-      { id: "big", scheduled_at: "2026-09-24T10:20:10+00:00", available_duration_seconds: 120 },
-    ]);
-    expect(matches.map((match) => match.breakId)).toEqual(["big"]);
-  });
-
-  it("returns nothing for a draft that only touches an existing window", () => {
-    const drafts = buildRundownBreakDrafts(
-      [opportunity({ id: "o-promo", start_offset_seconds: 1230, duration_seconds: 30 })],
-      shiftStart,
+      [opportunity({ id: "o1" })],
+      "2026-08-07T09:00:00.000Z",
       60,
     );
     expect(
-      matchDraftsToCoveringBreaks(drafts, [
-        { id: "b", scheduled_at: "2026-09-24T10:19:00+00:00", available_duration_seconds: 90 },
-      ]),
+      selectMissingBreakDrafts(drafts, [{ clock_slot_id: "slot-o1", hour_index: 0 }]),
     ).toHaveLength(0);
+  });
+});
+
+describe("breakInsertRow", () => {
+  it("writes the occurrence key and the opportunity's snapshot, never times the trigger derives", () => {
+    const [draft] = buildRundownBreakDrafts(
+      [opportunity({ id: "o1", start_offset_seconds: 90, permitted_content_types: ["psa"] })],
+      "2026-08-07T09:00:00.000Z",
+      60,
+    );
+    expect(breakInsertRow(draft!, "r1")).toEqual({
+      rundown_id: "r1",
+      clock_slot_id: "slot-o1",
+      hour_index: 0,
+      local_opportunity_id: "o1",
+      requirement: "optional",
+      permitted_content_types: ["psa"],
+    });
   });
 });

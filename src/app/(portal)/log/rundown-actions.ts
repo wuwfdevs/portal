@@ -7,9 +7,10 @@ import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import {
+  BREAK_OCCURRENCE_CONFLICT,
+  breakInsertRow,
   buildRundownBreakDrafts,
   selectMissingBreakDrafts,
-  selectNonOverlappingBreakDrafts,
 } from "@/lib/log/rundown-generation";
 import {
   CONTENT_TYPE_LABEL,
@@ -209,27 +210,15 @@ export async function generateRundown(formData: FormData): Promise<void> {
     scheduleEntry.duration_minutes,
   );
   if (drafts.length > 0) {
-    // upsert + ignoreDuplicates against the unique (rundown_id,
-    // local_opportunity_id, scheduled_at) constraint — not just a plain
-    // insert — so a duplicate is impossible at the database level even
-    // under a concurrent double-submit, not only when the application's own
-    // "is this missing?" check gets it right. See
-    // 20260808220000_log_rundown_breaks_dedup_and_unique.sql.
+    // upsert + ignoreDuplicates on the break's (clock_slot_id, hour_index)
+    // key — not just a plain insert — so a duplicate is impossible at the
+    // database level even under a concurrent double-submit. Times come from
+    // the slot (log_derive_rundown_break_times); see breakInsertRow.
     const { data: insertedBreaks, error: breaksError } = await supabase
       .from("log_rundown_breaks")
       .upsert(
-        drafts.map((draft) => ({
-          rundown_id: rundown.id,
-          local_opportunity_id: draft.local_opportunity_id,
-          position: draft.position,
-          label: draft.label,
-          requirement: draft.requirement,
-          permitted_content_types: draft.permitted_content_types,
-          scheduled_at: draft.scheduled_at,
-          available_duration_seconds: draft.available_duration_seconds,
-          network_rejoin_at: draft.network_rejoin_at,
-        })),
-        { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
+        drafts.map((draft) => breakInsertRow(draft, rundown.id)),
+        { onConflict: BREAK_OCCURRENCE_CONFLICT, ignoreDuplicates: true },
       )
       .select("id, local_opportunity_id, scheduled_at");
     failIfError(
@@ -273,20 +262,10 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
     rundown.shift_start_at,
     shiftDurationMinutes,
   );
-  // An imported rundown's export-derived breaks carry no
-  // local_opportunity_id and sit a second or two off the clock's own
-  // offsets, so on top of the exact opportunity+instant dedup they need the
-  // window-overlap filter: a clock window the export already covers (the
-  // same avail, printed at :49:35 instead of :49:34) is skipped, while the
-  // clock's windows the export never mentions (a newscast cover, a promo
-  // slot) are what this sync adds. See selectNonOverlappingBreakDrafts.
-  let missing = selectMissingBreakDrafts(drafts, rundown.breaks);
-  if (rundown.source === "imported") {
-    missing = selectNonOverlappingBreakDrafts(
-      missing,
-      rundown.breaks.filter((brk) => brk.local_opportunity_id === null),
-    );
-  }
+  // A break is one occurrence of one slot, so "missing" is a plain key
+  // difference — the same for generated and imported rundowns. A slot an
+  // import already placed something in is present, marked or not.
+  const missing = selectMissingBreakDrafts(drafts, rundown.breaks);
 
   if (missing.length > 0) {
     const supabase = await createClient();
@@ -297,18 +276,8 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
     const { data: insertedBreaks, error } = await supabase
       .from("log_rundown_breaks")
       .upsert(
-        missing.map((draft) => ({
-          rundown_id: rundown.id,
-          local_opportunity_id: draft.local_opportunity_id,
-          position: draft.position,
-          label: draft.label,
-          requirement: draft.requirement,
-          permitted_content_types: draft.permitted_content_types,
-          scheduled_at: draft.scheduled_at,
-          available_duration_seconds: draft.available_duration_seconds,
-          network_rejoin_at: draft.network_rejoin_at,
-        })),
-        { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
+        missing.map((draft) => breakInsertRow(draft, rundown.id)),
+        { onConflict: BREAK_OCCURRENCE_CONFLICT, ignoreDuplicates: true },
       )
       .select("id, local_opportunity_id, scheduled_at");
     failIfError(error, path, "Could not sync this rundown's breaks");

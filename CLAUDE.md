@@ -1630,7 +1630,10 @@ this was built for); chaining further is a straightforward follow-up to
 `computeBreakStatuses` if a real case needs it, not something to
 speculatively build now. No migration — purely a computed read, the same
 "pure, tested, not stored state" discipline the rest of the timing engine
-follows.
+follows. *Superseded by the 2026-08-10 rework below; the current rules and
+a worked example (a four-minute story across Morning Edition's 29:30
+window) are in `docs/log-design.md` §6, "Overruns and content that spans
+several breaks".*
 
 **Underwriting & Traffic: the automatic rules-based scheduler has landed
 (2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
@@ -1921,7 +1924,10 @@ only part of an overrun still has its own remaining capacity open for
 something else. A source break's own overrun reads `filled` only once the
 chain fully accounts for it; if the chain runs out of eligible neighbors
 first, the source stays honestly `over`, independent of whatever partial
-credit a downstream break still gets for what it did absorb.
+credit a downstream break still gets for what it did absorb. `docs/log-design.md` §6 ("Overruns
+and content that spans several breaks") is the design-doc account of these
+rules, with the 29:30 story window as its worked example — added
+2026-09-24, after this behavior had gone undocumented there.
 
 The station's legal ID is now auto-placed at rundown-generation time
 instead of being one more required opportunity a host has to remember:
@@ -2612,6 +2618,48 @@ blank uses the estimate too. Placement from Underwriting
 is now that estimate.
 The same pass joined the PDF's column line wraps in imported scripts
 (`cleanScript`), which had been stored as literal newlines.
+
+**Log: program-log import — breaks come from the clock, content from the
+export (2026-09-24), superseding the 2026-08-21 entry's point (1).** An
+imported rundown used to carry the export's printed windows as breaks plus
+the clock's opportunity breaks deduplicated by window overlap, so its
+breaks didn't correspond to the clock. `lib/log/program-log-clock-
+alignment.ts` (pure, tested) now aligns the model's breaks onto the
+program's clock at preview time: every marked opportunity gets its normal
+break; an export break starting at a slot goes into that slot's break —
+the opportunity's if marked, otherwise a break with the slot's own clock
+times (the export prevails on *whether* something airs there, never on
+the window); the export's own window is used only where the clock has no
+avail-sized slot; empty export avails create nothing. The executor writes
+exactly the aligned breaks and refuses a clock version that changed since
+the preview. `matchDraftsToCoveringBreaks` and its placement wrapper are
+gone. No migration. See `docs/log-design.md` §8's 2026-09-24 revision.
+Superseded the same day by the next entry.
+
+**Log: rundown breaks are keyed to clock slots (2026-09-24).** Read
+`docs/log-slot-keyed-breaks-design.md` before touching break identity, the
+import's alignment, or anything that writes `log_rundown_breaks`; this is a
+pointer. A break is one occurrence of one clock slot: `(rundown_id,
+clock_slot_id, hour_index)` is its unique key
+(`20260924140000_log_slot_keyed_breaks.sql`), and
+`log_derive_rundown_break_times()`, a `before insert or update` trigger,
+derives `scheduled_at`/`available_duration_seconds`/`network_rejoin_at`/
+`label`/`position` from the slot on every write — so **never compute break
+times in application code and expect them to stick**; insert through
+`rundown-generation.ts`'s `breakInsertRow()` (identity plus the
+opportunity's snapshot) and upsert on `BREAK_OCCURRENCE_CONFLICT`. Only a
+floating slot carries a per-day time, `landing_offset_seconds`.
+`local_opportunity_id` is null only for a slot nobody marked where an
+import placed what DAD scheduled; `log_list_placeable_rundown_breaks()`
+skips those, so auto-fill and manual placement fill marked opportunities
+only. The time-based dedup (`selectNonOverlappingBreakDrafts`, the instant
+comparison) is gone; `selectMissingBreakDrafts` compares the key. The
+import reports a row that lands inside a long slot (a placeholder clock)
+as unresolved rather than inventing a window. The rundown screen's "over"
+badge names the network slot the unabsorbed overrun runs into
+(`timing.ts`'s `overrunSeconds`/`overrunStartsAt`/`networkSlotLabelAt`).
+The migration deleted every rundown dated before 2026-09-24 (decided, not
+migrated) and merged or dropped the rest's breaks onto slot occurrences.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

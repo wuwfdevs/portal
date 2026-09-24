@@ -10,8 +10,11 @@
 // a host confirms here is what gets imported. It is laid out by what needs
 // a human's eyes — the items being placed, new underwriters and copy, the
 // library scripts that will change, anything unresolved — and folds away
-// what doesn't: empty windows (most breaks), unchanged reuse of library
-// copy, operational notes. A first cut listed everything with equal
+// what doesn't: open clock opportunities nothing was placed in, unchanged
+// reuse of library copy, operational notes. Break times are the clock's —
+// the export's breaks are aligned onto the program's clock before the
+// preview (program-log-clock-alignment.ts), and a break shows where it
+// landed relative to that clock. A first cut listed everything with equal
 // weight and ran to several screens of "1:00 window — empty".
 
 import { useRef, useState, useTransition } from "react";
@@ -405,7 +408,9 @@ function RundownPreview({ rundown }: { rundown: RundownPlan }) {
       )}
       {empty.length > 0 && (
         <details className="mt-1.5">
-          <summary className={DETAILS_SUMMARY}>{plural(empty.length, "empty window")}</summary>
+          <summary className={DETAILS_SUMMARY}>
+            {plural(empty.length, "open clock opportunity", "open clock opportunities")}
+          </summary>
           <ul className="mt-1 flex flex-col gap-0.5">
             {empty.map((brk) => (
               <li
@@ -425,12 +430,19 @@ function RundownPreview({ rundown }: { rundown: RundownPlan }) {
 }
 
 function BreakPreview({ brk }: { brk: BreakPlan }) {
+  const exportTimes = (brk.placement?.exportTimes ?? []).filter((time) => time !== brk.time);
   return (
     <li className="text-xs">
       <div className="flex flex-wrap items-baseline gap-x-2 text-ink-700">
         <span className="font-mono">{brk.time}</span>
         <span className="font-semibold">{brk.label}</span>
         <span className="text-ink-500">{formatSeconds(brk.availableDurationSeconds)} window</span>
+        {exportTimes.length > 0 && (
+          <span className="text-ink-500">export printed {exportTimes.join(", ")}</span>
+        )}
+        {brk.placement?.source === "clock_slot" && (
+          <Badge>clock slot, not a marked opportunity</Badge>
+        )}
       </div>
       <ul className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-line pl-3">
         {brk.items.map((item, index) => (

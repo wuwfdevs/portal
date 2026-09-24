@@ -46,9 +46,13 @@ import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import {
   buildRundownBreakDrafts,
   selectMissingBreakDrafts,
-  selectNonOverlappingBreakDrafts,
 } from "@/lib/log/rundown-generation";
-import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from "@/lib/log/timing";
+import {
+  computeBreakStatuses,
+  computeItemTimings,
+  computeRundownSummary,
+  networkSlotLabelAt,
+} from "@/lib/log/timing";
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
@@ -185,28 +189,15 @@ export default async function RundownDetailPage({
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
   );
-  // An imported rundown's breaks came from the uploaded program-log export,
-  // which only prints the windows DAD scheduled something into — the
-  // clock's other local opportunities (a newscast cover, a promo slot) are
-  // real and fillable but absent from the export, so the same sync
-  // affordance applies with a window-overlap dedup in place of the exact
-  // opportunity+instant match (an export avail sits a second or two off the
-  // clock's own offset for the same window). See
-  // selectNonOverlappingBreakDrafts and syncRundownBreaks.
+  // A break is one occurrence of one slot, so what's missing is a plain key
+  // difference for any rundown, generated or imported. See
+  // selectMissingBreakDrafts and syncRundownBreaks.
   const allDrafts = buildRundownBreakDrafts(
     currentOpportunities,
     rundown.shift_start_at,
     shiftDurationMinutes,
   );
-  const missingDrafts = selectMissingBreakDrafts(allDrafts, rundown.breaks);
-  const missingBreakCount = (
-    rundown.source === "imported"
-      ? selectNonOverlappingBreakDrafts(
-          missingDrafts,
-          rundown.breaks.filter((brk) => brk.local_opportunity_id === null),
-        )
-      : missingDrafts
-  ).length;
+  const missingBreakCount = selectMissingBreakDrafts(allDrafts, rundown.breaks).length;
 
   // Per-break status, computed once for the whole rundown so a break can
   // read as 'covered_by_previous' when the break just before it holds
@@ -667,6 +658,17 @@ export default async function RundownDetailPage({
     return null;
   };
 
+  // An overrun a following break couldn't absorb runs into network
+  // content; naming the slot tells a host whether that's a promo or a
+  // newscast (docs/log-slot-keyed-breaks-design.md §3.5, option B). The
+  // status stays "over" either way.
+  const overrunBadgeText = (seconds: number, startsAt: string | null) => {
+    const into = startsAt
+      ? networkSlotLabelAt(clockSlots, rundown.shift_start_at, shiftDurationMinutes, startsAt)
+      : null;
+    return into ? `${seconds}s over — runs into ${into}` : `${seconds}s over`;
+  };
+
   const breakBoardBreaks: BreakBoardBreak[] = rundown.breaks.map((brk, breakIndex) => {
     const result = breakStatusesById.get(brk.id);
     const fit = result!.fit;
@@ -680,7 +682,7 @@ export default async function RundownDetailPage({
       ) : status === "unresolved_required" ? (
         <Badge variant="danger">Needs something</Badge>
       ) : status === "over" ? (
-        <Badge variant="danger">{fit.overSeconds}s over</Badge>
+        <Badge variant="danger">{overrunBadgeText(result!.overrunSeconds, result!.overrunStartsAt)}</Badge>
       ) : status === "covered_by_previous" ? (
         <Badge variant="muted">
           Covered by {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"}

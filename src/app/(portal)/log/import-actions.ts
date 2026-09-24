@@ -14,23 +14,14 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import {
-  buildRundownBreakDrafts,
-  matchDraftsToCoveringBreaks,
-  selectNonOverlappingBreakDrafts,
-} from "@/lib/log/rundown-generation";
-import {
-  placeAssignedContent,
-  placeAssignedContentIntoCoveringBreaks,
-} from "@/lib/log/opportunity-assignment-placement";
+import { alignBreaksToClock } from "@/lib/log/program-log-clock-alignment";
+import { placeAssignedContentIntoBreaks } from "@/lib/log/opportunity-assignment-placement";
 import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
 import { importProgramLogWithAI } from "@/lib/log/program-log-ai-import";
 import type { ImportLookupData } from "@/lib/log/program-log-lookups";
 import {
   assembleProgramLogPlan,
-  importedBreakPermittedTypes,
-  IMPORTED_BREAK_REQUIREMENT,
-  secondsToClockTime,
+  clockTimeToSeconds,
   type PlanCopy,
   type PlanUnderwriter,
   type ProgramLogPlan,
@@ -38,9 +29,8 @@ import {
 import {
   getClockTemplateDetail,
   listContentItems,
-  listLocalOpportunitiesForVersion,
   listScheduleEntries,
-  toRundownOpportunity,
+  type ClockTemplateDetail,
 } from "@/lib/log/queries";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -127,7 +117,44 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     ...data,
     existingRundowns: rundownsResult.data ?? [],
   });
+  if (plan.airDate) await alignPlanToClocks(plan, plan.airDate);
   return { ok: true, plan };
+}
+
+/**
+ * Moves each rundown's breaks from the export's printed windows onto its
+ * program's clock (program-log-clock-alignment.ts): the clock defines every
+ * window, the export decides what goes in it. Done here rather than in the
+ * executor so the preview shows exactly the breaks that will be written.
+ * A rundown whose clock has no version in effect is left unaligned, and
+ * the executor skips it with that reason.
+ */
+async function alignPlanToClocks(plan: ProgramLogPlan, airDate: string): Promise<void> {
+  const templates = new Map<string, Promise<ClockTemplateDetail | null>>();
+  for (const rundown of plan.rundowns) {
+    if (rundown.existingRundownId !== null) continue;
+    if (!templates.has(rundown.clockTemplateId)) {
+      templates.set(rundown.clockTemplateId, getClockTemplateDetail(rundown.clockTemplateId));
+    }
+    const template = await templates.get(rundown.clockTemplateId)!;
+    const version = template ? resolveCurrentVersion(template.versions, airDate) : null;
+    if (!version) continue;
+    const aligned = alignBreaksToClock({
+      exportBreaks: rundown.breaks,
+      shiftStartSeconds: clockTimeToSeconds(rundown.shiftStartTime),
+      shiftDurationMinutes: rundown.shiftDurationMinutes,
+      slots: version.slots,
+      opportunities: version.opportunities,
+    });
+    rundown.breaks = aligned.breaks;
+    rundown.clockVersionId = version.id;
+    plan.unresolved.push(
+      ...aligned.unresolved.map((row) => ({
+        ...row,
+        description: `${rundown.programName}: ${row.description}`,
+      })),
+    );
+  }
 }
 
 export interface ImportedRundownResult {
@@ -256,13 +283,25 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
 
     const template = await getClockTemplateDetail(rundownPlan.clockTemplateId);
     const version = template ? resolveCurrentVersion(template.versions, plan.airDate) : null;
-    if (!version) {
+    if (!version || rundownPlan.clockVersionId === null) {
       results.push({
         programName: rundownPlan.programName,
         rundownId: null,
         breaks: 0,
         items: 0,
         skippedReason: "This program's clock has no version in effect on that date.",
+      });
+      continue;
+    }
+    // The breaks were aligned to the clock at preview time; a clock that
+    // changed since would put them at the wrong times.
+    if (version.id !== rundownPlan.clockVersionId) {
+      results.push({
+        programName: rundownPlan.programName,
+        rundownId: null,
+        breaks: 0,
+        items: 0,
+        skippedReason: "This program's clock changed since the preview — upload the export again.",
       });
       continue;
     }
@@ -301,30 +340,28 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
     }
 
     let itemCount = 0;
-    const breakRows = rundownPlan.breaks.map((brk, index) => {
-      const scheduledAt = stationLocalDateTimeToUTC(
-        plan.airDate,
-        secondsToClockTime(brk.startSeconds),
-      );
-      return {
-        rundown_id: rundown.id,
-        local_opportunity_id: null,
-        position: index + 1,
-        label: brk.label,
-        requirement: IMPORTED_BREAK_REQUIREMENT,
-        permitted_content_types: importedBreakPermittedTypes(),
-        scheduled_at: scheduledAt,
-        available_duration_seconds: Math.max(1, brk.availableDurationSeconds),
-        network_rejoin_at: new Date(
-          new Date(scheduledAt).getTime() + Math.max(1, brk.availableDurationSeconds) * 1000,
-        ).toISOString(),
-      };
-    });
+    const alignedBreaks = rundownPlan.breaks.flatMap((brk) =>
+      brk.placement ? [{ ...brk, placement: brk.placement }] : [],
+    );
+    // Identity and snapshot only: log_derive_rundown_break_times() derives
+    // every break's times, label and position from its slot.
+    const breakRows = alignedBreaks.map(({ placement }) => ({
+      rundown_id: rundown.id,
+      clock_slot_id: placement.clockSlotId,
+      hour_index: placement.hourIndex,
+      landing_offset_seconds: placement.landingOffsetSeconds,
+      local_opportunity_id: placement.localOpportunityId,
+      requirement: placement.requirement,
+      permitted_content_types: placement.permittedContentTypes,
+    }));
     const { data: insertedBreaks, error: breaksError } =
       breakRows.length > 0
-        ? await supabase.from("log_rundown_breaks").insert(breakRows).select("id, position")
+        ? await supabase
+            .from("log_rundown_breaks")
+            .insert(breakRows)
+            .select("id, clock_slot_id, hour_index")
         : { data: [], error: null };
-    if (breaksError || !insertedBreaks) {
+    if (breaksError || !insertedBreaks || insertedBreaks.length !== breakRows.length) {
       results.push({
         programName: rundownPlan.programName,
         rundownId: rundown.id,
@@ -334,8 +371,16 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       });
       continue;
     }
+    // (clock_slot_id, hour_index) is the break's key, so it maps each
+    // returned row back to its planned break regardless of return order.
+    const breakIdByKey = new Map(
+      insertedBreaks.map((brk) => [`${brk.clock_slot_id}|${brk.hour_index}`, brk.id]),
+    );
+    const breakIdFor = (index: number) => {
+      const { placement } = alignedBreaks[index]!;
+      return breakIdByKey.get(`${placement.clockSlotId}|${placement.hourIndex}`);
+    };
 
-    const breakIdByPosition = new Map(insertedBreaks.map((brk) => [brk.position, brk.id]));
     interface ItemInsert {
       break_id: string;
       position: number;
@@ -346,8 +391,8 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       live_read_title?: string;
       live_read_script?: string;
     }
-    const itemRows: ItemInsert[] = rundownPlan.breaks.flatMap((brk, index) => {
-      const breakId = breakIdByPosition.get(index + 1);
+    const itemRows: ItemInsert[] = alignedBreaks.flatMap((brk, index) => {
+      const breakId = breakIdFor(index);
       if (!breakId) return [];
       return brk.items.flatMap((item, itemIndex): ItemInsert[] => {
         const base = {
@@ -389,83 +434,42 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
     }
     itemCount = itemRows.length;
 
-    // The export only prints the windows DAD scheduled something into — the
-    // clock's other local opportunities (a newscast cover, a promo slot)
-    // are real, fillable windows a host expects to see alongside them, so
-    // bring them in the same way syncRundownBreaks does for an existing
-    // imported rundown: window-overlap dedup against the imported breaks,
-    // then the same assigned-content placement generation runs. Best-effort
-    // — a failure here still leaves a complete imported rundown, and the
-    // rundown screen's own sync affordance can finish the job.
-    let clockBreakCount = 0;
-    const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(
-      toRundownOpportunity,
-    );
-    const allClockDrafts = buildRundownBreakDrafts(
-      opportunities,
-      shiftStartAt,
-      rundownPlan.shiftDurationMinutes,
-    );
-    const clockDrafts = selectNonOverlappingBreakDrafts(allClockDrafts, breakRows);
-
-    // A clock window the export already covers is dropped above, but any
-    // content pinned to it (the :58:59 legal ID under the export's :59:00
-    // avail) still has to air — it goes into the export break that covered
-    // it, after the export's own items.
-    const importedBreakWindows = insertedBreaks.flatMap((inserted) => {
-      const row = breakRows[inserted.position - 1];
-      return row ? [{ id: inserted.id, ...row }] : [];
+    // Opportunity assignments (the legal ID pin) apply to every opportunity
+    // break, exactly as on a generated rundown — appended after whatever the
+    // export put there, and never a second copy of an item it already holds.
+    // Best-effort, like generation's own placement.
+    const targets = alignedBreaks.flatMap(({ placement }, index) => {
+      const breakId = breakIdFor(index);
+      return placement.localOpportunityId && breakId
+        ? [
+            {
+              break_id: breakId,
+              local_opportunity_id: placement.localOpportunityId,
+              hour_index: placement.hourIndex,
+            },
+          ]
+        : [];
     });
-    const covered = matchDraftsToCoveringBreaks(
-      allClockDrafts.filter((draft) => !clockDrafts.includes(draft)),
-      importedBreakWindows,
-    );
     const existingContents = new Map(
-      importedBreakWindows.map((brk) => {
-        const items = itemRows.filter((item) => item.break_id === brk.id);
+      insertedBreaks.map(({ id }) => {
+        const items = itemRows.filter((item) => item.break_id === id);
         return [
-          brk.id,
+          id,
           {
             itemCount: items.length,
-            contentItemIds: items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])),
+            contentItemIds: items.flatMap((item) =>
+              item.content_item_id ? [item.content_item_id] : [],
+            ),
           },
         ];
       }),
     );
-    await placeAssignedContentIntoCoveringBreaks(supabase, covered, existingContents, plan.airDate);
-    if (clockDrafts.length > 0) {
-      const { data: insertedClockBreaks, error: clockBreaksError } = await supabase
-        .from("log_rundown_breaks")
-        .upsert(
-          clockDrafts.map((draft) => ({
-            rundown_id: rundown.id,
-            local_opportunity_id: draft.local_opportunity_id,
-            position: draft.position,
-            label: draft.label,
-            requirement: draft.requirement,
-            permitted_content_types: draft.permitted_content_types,
-            scheduled_at: draft.scheduled_at,
-            available_duration_seconds: draft.available_duration_seconds,
-            network_rejoin_at: draft.network_rejoin_at,
-          })),
-          { onConflict: "rundown_id,local_opportunity_id,scheduled_at", ignoreDuplicates: true },
-        )
-        .select("id, local_opportunity_id, scheduled_at");
-      if (clockBreaksError) {
-        console.error(
-          "Could not add clock-opportunity breaks to an imported rundown:",
-          clockBreaksError.message,
-        );
-      } else {
-        clockBreakCount = (insertedClockBreaks ?? []).length;
-        await placeAssignedContent(supabase, insertedClockBreaks ?? [], clockDrafts, plan.airDate);
-      }
-    }
+    await placeAssignedContentIntoBreaks(supabase, targets, existingContents, plan.airDate);
 
     results.push({
       programName: rundownPlan.programName,
       rundownId: rundown.id,
-      breaks: insertedBreaks.length + clockBreakCount,
+      breaks: insertedBreaks.length,
       items: itemCount,
       skippedReason: null,
     });
