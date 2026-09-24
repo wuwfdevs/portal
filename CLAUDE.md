@@ -2350,9 +2350,8 @@ comparison; a predicate that genuinely takes a row column
 call with only its `auth.uid()` hoisted. A policy written the old way still
 works, just per-row, and will reappear in the advisor. Both were applied to
 production directly after a full rolled-back dry run there — preview was
-auto-paused and couldn't be unpaused from that session, so it's recorded as
-`pending` in `APPLIED.md` (see the note there; `db:check` fails until it's
-done). The advisor's other RLS warning, `multiple_permissive_policies` (16
+auto-paused and couldn't be unpaused from that session, and caught up on
+2026-09-24 (see `APPLIED.md`). The advisor's other RLS warning, `multiple_permissive_policies` (16
 tables where a `for all` write policy also serves `select` alongside a
 dedicated select policy), is a separate, smaller item and was not touched.
 
@@ -2579,8 +2578,8 @@ assumed Underwriting staff maintaining copy in their tool, which isn't yet
 how WUWF works; DAD is the source of truth for wording, and the export is
 how it reaches this database.
 `20260922120000_log_import_copy_script_updates.sql` (applied to production;
-preview was unreachable — Postgres password authentication failing — so
-its row is `pending`, same as the 2026-09-14 RLS migrations) makes the
+preview was unreachable — Postgres password authentication failing — until
+2026-09-24, when it was applied there too) makes the
 find-or-create function update a matched row's script and adds
 `log_import_update_underwriting_copy()` for copy the model resolved by id;
 `executeProgramLogImport` calls it for every reused copy marked
