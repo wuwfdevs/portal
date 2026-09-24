@@ -2595,8 +2595,10 @@ replaces its duration with the new estimate
 (`20260924120000_log_import_copy_duration_estimates.sql`), the Underwriting
 copy form uses it when a live read's duration is left blank, and existing
 copy was backfilled in production on 2026-09-24 — except the two
-recorded-spot instructions (Dauphin Island Sea Lab, TLC Caregiver) and
-OsteoStrong's copy, whose script is still two merged credits.
+recorded-spot instructions (Dauphin Island Sea Lab, TLC Caregiver).
+OsteoStrong's "Wed Carpool" copy, which still held Autumn Beck
+Blackledge's Copy 1 glued onto its end from the pre-AI parser, was trimmed
+to its own credit (text as the 2026-09-23 export prints it) the same day.
 Parenthesized host directions aren't counted as read words. Credit cards on the rundown
 screen are now editable for duration only (the script stays the copy's), so
 a host can replace the estimate with a timed length; clearing the override
