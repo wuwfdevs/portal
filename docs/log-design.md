@@ -63,6 +63,19 @@ conflating "what the network publishes" with "where WUWF may substitute
 local material," and a floating opportunity spanning several slots proved
 those are genuinely different objects, not two names for the same one.
 
+*How a multi-slot window is represented, since 2026-08-10:* the first cut
+of this correction gave an opportunity its own offset range, so the 29:30
+window was one row spanning four slots. That was replaced by
+**slot-keyed opportunities** (`20260809170000_log_local_opportunities_slot_
+based.sql`): an opportunity marks exactly one network slot, and takes that
+slot's offset, duration and label, so it can never drift from the clock. A
+window spanning several slots is several opportunities in a row, and a
+long piece placed in the first of them carries into the rest through the
+timing engine's overrun chaining (§6, "Overruns and content that spans
+several breaks"). The concept above is unchanged: the window is still one
+WUWF decision layered on the network clock, expressed as consecutive marked
+slots rather than a custom range.
+
 The fix: `log_clock_slots` describes only what NPR/the network actually
 publishes (offset, duration, label, and — for a genuinely floating network
 element — a timing window), same as before this redesign but stripped of
@@ -105,13 +118,15 @@ genuinely floating network element (Hidden Brain's own described break) — a
 timing window. No fillability of any kind lives here anymore; see above.
 
 ### Local opportunity
-WUWF's own local-substitution overlay on a clock version (new in this
-redesign): start offset (or, for a floating window, an earliest/latest
-range), duration, a `requirement` of `optional` or `required`, the content
-types permitted to occupy it, and whether more than one item may occupy it
-at once. Independently editable in place — deactivated, not deleted, when
-retired — because it's WUWF's own policy decision about an accurate network
-clock, not a fact about the network clock itself.
+WUWF's own local-substitution overlay on a clock version: one network slot
+marked as a place WUWF may (`optional`) or must (`required`) put local
+content, plus the content types permitted there. Its offset, duration,
+label and timing mode are always the marked slot's own (slot-keyed since
+2026-08-10; see §2). There is no per-opportunity limit on how many items it
+holds — remaining duration is the only limit (`allow_multiple` was dropped
+the same day). Independently editable in place — deactivated, not deleted,
+when retired — because it's WUWF's own policy decision about an accurate
+network clock, not a fact about the network clock itself.
 
 ### Content item / Content component
 A **content item** is reusable or one-time material (§7): news, a station
@@ -164,8 +179,10 @@ more **rundown items** may occupy. This is the direct structural consequence
 of the network-clock/local-opportunity split above: milestone 1's
 `log_rundown_items` held exactly one row per fillable slot; post-redesign, a
 break can hold nothing (a normal, resolved state for an optional break), one
-item, or several (when `allow_multiple` is true — e.g. an underwriting
-credit plus a legal ID inside one longer window).
+item, or several (an underwriting credit plus a legal ID, say), limited
+only by remaining duration. A piece longer than its own break can carry
+into the breaks after it (§6, "Overruns and content that spans several
+breaks").
 
 ### Per-airing override
 A rundown item may override a master content item's script, total duration,
@@ -365,19 +382,28 @@ had here (`fill_mode`, `assignment_mode`, `permitted_content_types`,
 as `log_clock_versions`.
 
 ### `log_local_opportunities` (new)
-`id`, `clock_version_id`, `position`, `label`, `requirement`
-(`optional` | `required`), `timing_mode` (`fixed` | `float`),
-`start_offset_seconds`, `duration_seconds`,
-`earliest_start_offset_seconds`/`latest_start_offset_seconds` (nullable, for
-`timing_mode = float`), `permitted_content_types` (`text[]`),
-`allow_multiple` bool, `notes`, `active` bool (deactivate, don't delete),
+`id`, `clock_version_id`, `slot_id` (unique — one opportunity per network
+slot), `requirement` (`optional` | `required`), `permitted_content_types`
+(`text[]`), `notes`, `active` bool (deactivate, don't delete),
 `created_at`, `created_by`, `updated_at`. WUWF's own overlay — see §2.
 Update-able in place, unlike the network clock tables, since this is station
 policy rather than immutable network structure.
 
-**Morning Edition seed** (`20260808210000_log_morning_edition_opportunities.sql`)
-— the reference case this whole correction is built against, five rows
-against Morning Edition's clock version:
+*Superseded shape.* As first built (`20260808120000`), this table carried
+its own `position`, `label`, `timing_mode`, `start_offset_seconds`,
+`duration_seconds`, earliest/latest offsets and `allow_multiple`.
+`20260809170000_log_local_opportunities_slot_based.sql` dropped all of them
+for `slot_id`: every one of those values now comes from the marked slot,
+and `allow_multiple` went because nothing needs to restrain a break to one
+item. The seed list below describes the original five rows in the original
+shape; `20260809180000_log_morning_edition_opportunities_slot_based.sql`
+re-seeded them slot-keyed (the 29:30 story window becoming four rows, one
+per slot), and later seeding brought Morning Edition to 19 active
+opportunities by 2026-09-24.
+
+**Morning Edition seed** (`20260808210000_log_morning_edition_opportunities.sql`,
+original shape — see above) — the reference case this whole correction is
+built against, five rows against Morning Edition's clock version:
 
 1. Optional short cover over the post-newscast Music Bed at 6:00 (90s) —
    legal ID / PSA / promo / membership message / underwriting credit /
@@ -390,6 +416,9 @@ against Morning Edition's clock version:
 3. Optional local story window at ~29:30–34:00 (270s) — spans the tail of a
    cross-promo, a Music Bed, and both Newscast 3 and Newscast 4;
    `allow_multiple = false` since this window is sized for one longer piece.
+   *Now four slot-keyed opportunities — Music Bed (29:30, 30s), Newscast 3
+   (30:00, 90s), Newscast 4 (31:30, 90s), Music Bed (33:00, 60s) — and a
+   long story reaches across them by overrun chaining; see §6.*
 4. Optional local story window at ~49:35–51:30 (115s) — lands almost exactly
    on the Music Bed at :49:34–:51:29, WUWF's second common story-
    substitution point.
@@ -552,10 +581,11 @@ see below.
 idempotent.
 
 ### `log_rundown_breaks` (new — replaces the milestone-1 one-row-per-slot shape)
-`id`, `rundown_id`, `local_opportunity_id`, `position`, `label`,
-`requirement`, `permitted_content_types` (`text[]`), `allow_multiple` bool,
-`scheduled_at`, `available_duration_seconds`, `network_rejoin_at`. The last
-five columns are **snapshots** of the opportunity at generation time — the
+`id`, `rundown_id`, `local_opportunity_id` (nullable — see §8 for imported
+breaks), `position`, `label`, `requirement`, `permitted_content_types`
+(`text[]`), `scheduled_at`, `available_duration_seconds`,
+`network_rejoin_at` (`allow_multiple` was dropped 2026-08-10). The last six
+columns are **snapshots** of the opportunity at generation time — the
 same "answers snapshot their question" precedent Audience Listening uses —
 so editing the opportunity later doesn't rewrite an already-generated
 rundown's meaning. `network_rejoin_at` is the point by which WUWF must be
@@ -576,7 +606,7 @@ computed effective total for this airing), `placement_status` (`locked` |
 `movable` | `replaceable` | `editable`). Exactly one reference set per
 `item_kind`, enforced by a check constraint — same discriminated-shape
 precedent as `sw_source_excerpts`. A break can hold zero, one, or several of
-these rows depending on `allow_multiple`.
+these rows; remaining duration is the only limit.
 
 ### `log_broadcast_events`
 `id`, `rundown_item_id`, `outcome` (`scheduled` | `aired_as_scheduled` |
@@ -697,7 +727,7 @@ network failure must not make the current rundown unreadable."
 Fit calculations (remaining time in a break, overage/underrun, time to
 network rejoin, the effect of adding/removing/moving an item) are never
 persisted as a computed column. They're derived in `lib/log/timing.ts`
-(`computeBreakFit`, `computeBreakStatus`, `computeRundownSummary`) from
+(`computeBreakFit`, `computeBreakStatuses`, `computeRundownSummary`) from
 `log_rundown_items` + `log_rundown_breaks` + wall-clock time, the same way
 `lib/remote-interview/call-status.ts` derives participant status from events
 rather than storing it — pure functions, no Supabase import, colocated
@@ -705,6 +735,72 @@ tests, safe to recompute on every render. `lib/log/console-timing.ts`
 (`computeLiveTimingState`, module name kept from when it had a dedicated
 route — see below) is the live-timing counterpart, operating on
 `ConsoleBreakLike` rather than a single item.
+
+### Overruns and content that spans several breaks
+
+A piece longer than its break is normal, not an error: a local story at
+Morning Edition's 29:30 routinely runs four minutes, and a window like that
+is several marked slots in a row, not one long break (§2). The timing engine
+handles it by **overrun chaining** (`lib/log/timing.ts`'s
+`computeBreakStatuses`; its header comment has the code-level rules). Built
+2026-08-09 as a single hop, reworked 2026-08-10 alongside slot-keyed
+opportunities into the form below.
+
+**The rule.** When a break's items run past its window, the overage carries
+into the next break, but only if that break:
+
+- starts exactly where this one rejoins the network (no gap between them);
+- is empty — no items of its own, and not already claimed by an earlier
+  break's overrun.
+
+It absorbs as much as its own window holds, partly if that's all it has
+room for, and anything left carries on to the break after it, for as many
+breaks as it takes. The first break with items of its own, a gap, or the
+end of the rundown ends the chain.
+
+**What each break shows:**
+
+| Break | Status |
+|---|---|
+| The one whose items run long, when the chain absorbs the whole overage | `filled` |
+| The same, when the chain runs out first | `over`, with the seconds still unaccounted for |
+| A `required` break the overrun reached | `covered_by_previous` — local content there is mandatory, and the overrun is local content, so the obligation is met and nothing is flagged |
+| An `optional` break the overrun reached | `preempted_by_previous` — an optional break usually sits over real network content (a newscast, a segment) that nobody chose to drop this time, so it's absorbed but flagged, never hidden; `computeRundownSummary` counts these as `preemptedBreaks` |
+
+Nothing blocks an overrun (§1.2, "human control during live radio"). The
+statuses only make sure a host sees what it displaces.
+
+**Worked example: a four-minute story at 29:30 on Morning Edition.** The
+window is four marked `optional` slots, 4:30 in all:
+
+| Starts | Slot | Length | Status with a 4:00 story at 29:30 |
+|---|---|---|---|
+| 29:30 | Music Bed | 30s | `filled` (the story's own break) |
+| 30:00 | Newscast 3 | 90s | `preempted_by_previous` |
+| 31:30 | Newscast 4 | 90s | `preempted_by_previous` |
+| 33:00 | Music Bed | 60s | `preempted_by_previous` (30s of it used; 30s still open) |
+
+A story longer than 4:30 runs past 34:00 into the network's Funding Credit,
+which isn't a marked opportunity and has no break, so the chain ends and the
+29:30 break reads `over` by the difference.
+
+Three things follow from this and are worth knowing:
+
+- **A routine long story shows three "preempted" badges every time.** That
+  is deliberate: covering a newscast is worth a host's attention even when
+  it's planned.
+- **NPR's program terms restrict which newscasts can be covered** (see §5's
+  newscast-coverage note): on Morning Edition only Newscast 2 and Newscast 4
+  are freely coverable, and Newscast 3 needs breaking local news, a pledge
+  drive, or a conversation with WUWF's NPR member representative first. The
+  app marks Newscast 3 an ordinary optional opportunity (WUWF's call) and
+  checks none of this, so a 29:30 story that runs over it on an ordinary
+  day isn't flagged as outside the terms.
+- **Overruns only chain through breaks that exist.** A slot nobody marked
+  has no break, so an overrun into it reads `over`. How that is displayed
+  under slot-keyed breaks is an open decision in
+  `docs/log-slot-keyed-breaks-design.md` §3.5, which also records the
+  discussion that prompted this section (its §9).
 
 ### One screen, not two
 

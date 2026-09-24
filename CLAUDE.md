@@ -1626,7 +1626,10 @@ this was built for); chaining further is a straightforward follow-up to
 `computeBreakStatuses` if a real case needs it, not something to
 speculatively build now. No migration — purely a computed read, the same
 "pure, tested, not stored state" discipline the rest of the timing engine
-follows.
+follows. *Superseded by the 2026-08-10 rework below; the current rules and
+a worked example (a four-minute story across Morning Edition's 29:30
+window) are in `docs/log-design.md` §6, "Overruns and content that spans
+several breaks".*
 
 **Underwriting & Traffic: the automatic rules-based scheduler has landed
 (2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
@@ -1917,7 +1920,10 @@ only part of an overrun still has its own remaining capacity open for
 something else. A source break's own overrun reads `filled` only once the
 chain fully accounts for it; if the chain runs out of eligible neighbors
 first, the source stays honestly `over`, independent of whatever partial
-credit a downstream break still gets for what it did absorb.
+credit a downstream break still gets for what it did absorb. `docs/log-design.md` §6 ("Overruns
+and content that spans several breaks") is the design-doc account of these
+rules, with the 29:30 story window as its worked example — added
+2026-09-24, after this behavior had gone undocumented there.
 
 The station's legal ID is now auto-placed at rundown-generation time
 instead of being one more required opportunity a host has to remember:
