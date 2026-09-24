@@ -171,3 +171,67 @@ export function nextRefreshDelayMs(
   }
   return Math.max(delay, MIN_REFRESH_DELAY_MS);
 }
+
+export interface RejoinWidgetBreak {
+  id: string;
+  scheduled_at: string;
+  network_rejoin_at: string;
+  /** The break holds an item of its own or is receiving spillover from the break before it — i.e. something local airs in it. */
+  hasLocalContent: boolean;
+  /** Spillover from the break before it runs into this one (covered_by_previous / preempted_by_previous in lib/log/timing.ts). */
+  receivesSpillover: boolean;
+}
+
+export type RejoinWidgetTarget =
+  /** Local content is on the air now: count down to the moment the network feed comes back. `finalBreakId` is the last break of a spillover chain, or the airing break itself. */
+  | { kind: "rejoin"; airingBreakId: string; finalBreakId: string; targetISO: string }
+  /** The network feed is on the air: count down to the next break with local content planned. */
+  | { kind: "next_break"; breakId: string; targetISO: string }
+  /** Nothing local is left this shift: count down to the shift's end. */
+  | { kind: "shift_end"; targetISO: string };
+
+/**
+ * What the rundown screen's sidebar countdown should point at, at `nowISO`.
+ *
+ * A break is only "airing" until its network rejoin — extended through any
+ * contiguous breaks its planned content spills into. Past that instant the
+ * network feed is back regardless of what was or wasn't confirmed, so a
+ * countdown still pegged to it (counting up, in red, until the next break
+ * merely *starts*) is never the right thing to show; the next break with
+ * local content is. `breaks` must be sorted by `scheduled_at`.
+ */
+export function selectRejoinWidgetTarget(
+  nowISO: string,
+  breaks: ReadonlyArray<RejoinWidgetBreak>,
+  shiftEndAtISO: string,
+): RejoinWidgetTarget {
+  const nowMs = new Date(nowISO).getTime();
+  // The break most recently started — may already be past its rejoin.
+  let startedIndex = -1;
+  for (let index = 0; index < breaks.length; index++) {
+    if (new Date(breaks[index]!.scheduled_at).getTime() <= nowMs) startedIndex = index;
+    else break;
+  }
+
+  if (startedIndex !== -1) {
+    // Spillover only chains through contiguous breaks (the no-gap rule in
+    // lib/log/timing.ts), so walking forward while the next break receives
+    // it finds where local content actually hands back to the network.
+    let last = startedIndex;
+    while (last + 1 < breaks.length && breaks[last + 1]!.receivesSpillover) last += 1;
+    const chainEndISO = breaks[last]!.network_rejoin_at;
+    if (breaks[startedIndex]!.hasLocalContent && new Date(chainEndISO).getTime() > nowMs) {
+      return {
+        kind: "rejoin",
+        airingBreakId: breaks[startedIndex]!.id,
+        finalBreakId: breaks[last]!.id,
+        targetISO: chainEndISO,
+      };
+    }
+  }
+
+  const nextFilled = breaks.slice(startedIndex + 1).find((brk) => brk.hasLocalContent);
+  if (nextFilled)
+    return { kind: "next_break", breakId: nextFilled.id, targetISO: nextFilled.scheduled_at };
+  return { kind: "shift_end", targetISO: shiftEndAtISO };
+}

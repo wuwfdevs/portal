@@ -5,6 +5,8 @@ import {
   nextRefreshDelayMs,
   MIN_REFRESH_DELAY_MS,
   REFRESH_GRACE_MS,
+  selectRejoinWidgetTarget,
+  type RejoinWidgetBreak,
   type ConsoleBreakLike,
 } from "./console-timing";
 
@@ -246,5 +248,138 @@ describe("nextRefreshDelayMs", () => {
 
   it("ignores an unparseable instant", () => {
     expect(nextRefreshDelayMs(now, ["not a date"], 5 * 60_000)).toBe(5 * 60_000);
+  });
+});
+
+describe("selectRejoinWidgetTarget", () => {
+  function wb(
+    overrides: Partial<RejoinWidgetBreak> & {
+      id: string;
+      scheduled_at: string;
+      network_rejoin_at: string;
+    },
+  ): RejoinWidgetBreak {
+    return { hasLocalContent: true, receivesSpillover: false, ...overrides };
+  }
+
+  // 2026-09-24's Morning Edition, 8:00–8:21 CDT: two filled underwriting
+  // breaks with a network-only stretch between them, then an empty promo.
+  const morning = [
+    wb({
+      id: "uw806",
+      scheduled_at: "2026-09-24T13:06:00.000Z",
+      network_rejoin_at: "2026-09-24T13:07:30.000Z",
+    }),
+    wb({
+      id: "uw819",
+      scheduled_at: "2026-09-24T13:19:00.000Z",
+      network_rejoin_at: "2026-09-24T13:20:30.000Z",
+    }),
+    wb({
+      id: "fa-promo",
+      scheduled_at: "2026-09-24T13:20:30.000Z",
+      network_rejoin_at: "2026-09-24T13:21:00.000Z",
+      hasLocalContent: false,
+    }),
+  ];
+  const SHIFT = "2026-09-24T14:00:00.000Z";
+
+  it("counts down to the airing break's rejoin while it is airing", () => {
+    expect(selectRejoinWidgetTarget("2026-09-24T13:07:00.000Z", morning, SHIFT)).toEqual({
+      kind: "rejoin",
+      airingBreakId: "uw806",
+      finalBreakId: "uw806",
+      targetISO: "2026-09-24T13:07:30.000Z",
+    });
+  });
+
+  it("moves to the next break once the airing break's rejoin has passed, not when the next break starts", () => {
+    // 8:10 — three minutes after the 8:07:30 rejoin.
+    expect(selectRejoinWidgetTarget("2026-09-24T13:10:00.000Z", morning, SHIFT)).toEqual({
+      kind: "next_break",
+      breakId: "uw819",
+      targetISO: "2026-09-24T13:19:00.000Z",
+    });
+    // Exactly at the rejoin instant, the network is already back.
+    expect(selectRejoinWidgetTarget("2026-09-24T13:07:30.000Z", morning, SHIFT).kind).toBe(
+      "next_break",
+    );
+  });
+
+  it("points at the first break before anything has started", () => {
+    expect(selectRejoinWidgetTarget("2026-09-24T13:00:00.000Z", morning, SHIFT)).toMatchObject({
+      kind: "next_break",
+      breakId: "uw806",
+    });
+  });
+
+  it("skips empty breaks when looking for the next one", () => {
+    const breaks = [
+      wb({
+        id: "empty",
+        scheduled_at: "2026-09-24T13:00:00.000Z",
+        network_rejoin_at: "2026-09-24T13:01:00.000Z",
+        hasLocalContent: false,
+      }),
+      wb({
+        id: "empty2",
+        scheduled_at: "2026-09-24T13:02:00.000Z",
+        network_rejoin_at: "2026-09-24T13:03:00.000Z",
+        hasLocalContent: false,
+      }),
+      wb({
+        id: "filled",
+        scheduled_at: "2026-09-24T13:05:00.000Z",
+        network_rejoin_at: "2026-09-24T13:06:00.000Z",
+      }),
+    ];
+    expect(selectRejoinWidgetTarget("2026-09-24T13:00:30.000Z", breaks, SHIFT)).toMatchObject({
+      kind: "next_break",
+      breakId: "filled",
+    });
+  });
+
+  it("extends the rejoin through a spillover chain, from its head or from a covered break", () => {
+    const breaks = [
+      wb({
+        id: "head",
+        scheduled_at: "2026-09-24T13:00:00.000Z",
+        network_rejoin_at: "2026-09-24T13:01:00.000Z",
+      }),
+      wb({
+        id: "covered",
+        scheduled_at: "2026-09-24T13:01:00.000Z",
+        network_rejoin_at: "2026-09-24T13:02:00.000Z",
+        receivesSpillover: true,
+      }),
+      wb({
+        id: "later",
+        scheduled_at: "2026-09-24T13:10:00.000Z",
+        network_rejoin_at: "2026-09-24T13:11:00.000Z",
+      }),
+    ];
+    expect(selectRejoinWidgetTarget("2026-09-24T13:00:30.000Z", breaks, SHIFT)).toEqual({
+      kind: "rejoin",
+      airingBreakId: "head",
+      finalBreakId: "covered",
+      targetISO: "2026-09-24T13:02:00.000Z",
+    });
+    expect(selectRejoinWidgetTarget("2026-09-24T13:01:30.000Z", breaks, SHIFT)).toMatchObject({
+      kind: "rejoin",
+      airingBreakId: "covered",
+      targetISO: "2026-09-24T13:02:00.000Z",
+    });
+    expect(selectRejoinWidgetTarget("2026-09-24T13:03:00.000Z", breaks, SHIFT)).toMatchObject({
+      kind: "next_break",
+      breakId: "later",
+    });
+  });
+
+  it("falls back to the shift's end once no local content is left", () => {
+    expect(selectRejoinWidgetTarget("2026-09-24T13:25:00.000Z", morning, SHIFT)).toEqual({
+      kind: "shift_end",
+      targetISO: SHIFT,
+    });
+    expect(selectRejoinWidgetTarget("2026-09-24T13:25:00.000Z", [], SHIFT).kind).toBe("shift_end");
   });
 });
