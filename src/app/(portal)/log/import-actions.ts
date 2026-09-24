@@ -204,6 +204,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
         const updated = await supabase.rpc("log_import_update_underwriting_copy", {
           p_copy_id: copyPlan.existingCopyId,
           p_script: copyPlan.script,
+          p_duration_seconds: copyPlan.durationSeconds,
         });
         if (updated.error) {
           return {

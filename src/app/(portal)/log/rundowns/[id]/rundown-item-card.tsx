@@ -53,6 +53,8 @@ export interface RundownItemCardBaseProps {
   /** Null when the read view already shows its own duration. */
   durationSeconds: number | null;
   editable: boolean;
+  /** False for an underwriting credit: its script is the copy's, so the edit form offers only the duration. */
+  scriptEditable: boolean;
   removable: boolean;
   overrideScript: string | null;
   overrideDurationSeconds: number | null;
@@ -81,6 +83,7 @@ export function RundownItemCard({
   title,
   durationSeconds,
   editable,
+  scriptEditable,
   removable,
   overrideScript,
   overrideDurationSeconds,
@@ -131,12 +134,14 @@ export function RundownItemCard({
                 <input type="hidden" name="rundown_id" value={rundownId} />
                 <input type="hidden" name="item_id" value={itemId} />
                 <span className="text-sm font-semibold text-ink-900">{title}</span>
-                <Textarea
-                  name="override_script"
-                  rows={3}
-                  placeholder="Script for this airing only"
-                  defaultValue={overrideScript ?? defaultScript ?? ""}
-                />
+                {scriptEditable && (
+                  <Textarea
+                    name="override_script"
+                    rows={3}
+                    placeholder="Script for this airing only"
+                    defaultValue={overrideScript ?? defaultScript ?? ""}
+                  />
+                )}
                 <Input
                   name="override_duration_seconds"
                   type="number"

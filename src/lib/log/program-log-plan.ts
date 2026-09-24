@@ -16,6 +16,7 @@
 
 import type { LogOpportunityRequirement } from "@/lib/database.types";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import { estimateReadSeconds } from "@/lib/log/read-time";
 import type { ScheduleEntryLike } from "@/lib/log/schedule";
 
 // ---- Database context the tools serve and the assembler resolves against --
@@ -77,6 +78,12 @@ export interface ModelItem {
   content_item_id: string | null;
   title: string | null;
   duration_seconds: number | null;
+  /**
+   * The printed text is instructions for playing a recorded spot ("Please
+   * play the #2 spot…"), not words read on air — so its printed length is
+   * the real one, and a read-time estimate would be meaningless.
+   */
+  plays_recording: boolean;
 }
 
 export interface ModelBreak {
@@ -163,6 +170,11 @@ export function buildPlanOutputSchema(underwriterNames: string[]) {
       ),
       title: nullable("string", "Content and live reads: the printed description of the fill."),
       duration_seconds: nullable("integer", "The printed length in seconds, else null."),
+      plays_recording: {
+        type: "boolean",
+        description:
+          'Credits and live reads: true when the printed text tells the host to play a recorded spot (e.g. "Please play the #2 spot…") rather than being words read on air. False otherwise.',
+      },
     },
     required: [
       "kind",
@@ -175,6 +187,7 @@ export function buildPlanOutputSchema(underwriterNames: string[]) {
       "content_item_id",
       "title",
       "duration_seconds",
+      "plays_recording",
     ],
     additionalProperties: false,
   };
@@ -360,6 +373,35 @@ function normalizeScript(value: string | null): string {
   return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * A script as stored: the export's words on one line. The PDF's Description
+ * column is narrow, so a script prints wrapped across many visual lines, and
+ * the model — told to copy character for character — reproduces those wraps
+ * as newlines. They are layout, not content (a DAD script cell carries no
+ * paragraph structure), so every whitespace run collapses to one space.
+ */
+export function cleanScript(value: string | null | undefined): string | null {
+  const cleaned = (value ?? "").replace(/\s+/g, " ").trim();
+  return cleaned === "" ? null : cleaned;
+}
+
+/**
+ * A read-aloud item plans at its estimated read time, not its printed
+ * length: the export prints every credit at its booked length (00:30 for a
+ * 33-word script and a 69-word one alike), which says nothing about how
+ * much of the break the read takes. A recorded spot, or an item with no
+ * script, keeps the printed length. The same value becomes a new copy
+ * row's duration, and replaces a reused one's when its script changes.
+ */
+function plannedSeconds<T extends number | null>(
+  item: ModelItem,
+  script: string | null,
+  printedSeconds: T,
+): number | T {
+  if (item.plays_recording) return printedSeconds;
+  return estimateReadSeconds(script) ?? printedSeconds;
+}
+
 export interface AssembleInputs {
   output: ProgramLogModelOutput;
   scheduleEntries: PlanScheduleEntry[];
@@ -430,7 +472,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
       );
     }
 
-    const script = item.script?.trim() || null;
+    const script = cleanScript(item.script);
     const label = item.label?.trim() || existing?.label || "Imported copy";
     const cart = item.cart?.trim() || existing?.cart_identifier || null;
     const key = existing
@@ -446,12 +488,22 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         label,
         cart,
         script: script ?? existing?.script ?? null,
-        durationSeconds: item.duration_seconds ?? existing?.duration_seconds ?? null,
+        // Read-aloud copy stores its read-time estimate; the export's
+        // printed length is only the booked slot (see plannedSeconds).
+        durationSeconds: plannedSeconds(
+          item,
+          script ?? existing?.script ?? null,
+          item.duration_seconds ?? existing?.duration_seconds ?? null,
+        ),
         existingCopyId: existing?.id ?? null,
+        // Changed wording, or the same words in a library row still
+        // carrying layout line breaks from an earlier import — the update
+        // is what repairs it.
         scriptChanged:
           existing !== null &&
-          normalizeScript(script) !== "" &&
-          normalizeScript(existing.script) !== normalizeScript(script),
+          script !== null &&
+          (normalizeScript(existing.script) !== normalizeScript(script) ||
+            existing.script !== cleanScript(existing.script)),
         libraryScript: existing?.script ?? null,
         airings: 0,
       };
@@ -469,14 +521,18 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
       kind: "credit",
       copyKey: key,
       title: cart !== null ? `${underwriterName} / ${label}` : underwriterName,
-      durationSeconds: item.duration_seconds ?? plan.durationSeconds ?? DEFAULT_CREDIT_SECONDS,
+      durationSeconds: plannedSeconds(
+        item,
+        plan.script,
+        item.duration_seconds ?? plan.durationSeconds ?? DEFAULT_CREDIT_SECONDS,
+      ),
     };
   };
 
   const toItemPlan = (item: ModelItem, time: string): ItemPlan | null => {
     if (item.kind === "credit") return creditItem(item, time);
     const title = item.title?.trim() || "";
-    const durationSeconds = item.duration_seconds ?? DEFAULT_FILL_SECONDS;
+    const printedSeconds = item.duration_seconds ?? DEFAULT_FILL_SECONDS;
     if (item.kind === "content") {
       const matched = item.content_item_id ? contentById.get(item.content_item_id) : undefined;
       if (matched)
@@ -484,17 +540,18 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
           kind: "content",
           contentItemId: matched.id,
           title: matched.title,
-          durationSeconds,
+          durationSeconds: printedSeconds,
         };
       warnings.push(
         `A fill at ${time} ("${title || "untitled"}") named a library item that isn't in the library; it was kept as a live read instead.`,
       );
     }
+    const script = cleanScript(item.script);
     return {
       kind: "live_read",
       title: title || "Live read",
-      durationSeconds,
-      script: item.script?.trim() || null,
+      durationSeconds: plannedSeconds(item, script, printedSeconds),
+      script,
     };
   };
 

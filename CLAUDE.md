@@ -2582,6 +2582,33 @@ windows folded away, expands new copy and library updates (old and new
 text side by side), and folds unchanged reuse and operational notes. See
 `docs/log-design.md` §8's second 2026-09-22 revision.
 
+**Log: read-aloud items plan at an estimated read time (2026-09-24).** The
+export prints every credit at its booked length — `00:30` for a 33-word
+script and a 69-word one alike — so planning breaks from it overstated how
+full they were. `lib/log/read-time.ts` (pure, tested, 160 words per minute)
+estimates from word count, and the import plans every read-aloud credit and
+live read at that estimate; the model flags `plays_recording` for text that
+is instructions to play a recorded spot, which keeps its printed length.
+The estimate is also the copy's own duration: `uw_copy.duration_seconds`
+holds it for new imported copy, an import that changes a copy row's script
+replaces its duration with the new estimate
+(`20260924120000_log_import_copy_duration_estimates.sql`), the Underwriting
+copy form uses it when a live read's duration is left blank, and existing
+copy was backfilled in production on 2026-09-24 — except the two
+recorded-spot instructions (Dauphin Island Sea Lab, TLC Caregiver).
+OsteoStrong's "Wed Carpool" copy, which still held Autumn Beck
+Blackledge's Copy 1 glued onto its end from the pre-AI parser, was trimmed
+to its own credit (text as the 2026-09-23 export prints it) the same day.
+Parenthesized host directions aren't counted as read words. Credit cards on the rundown
+screen are now editable for duration only (the script stays the copy's), so
+a host can replace the estimate with a timed length; clearing the override
+returns to the estimate. A hand-added live read with the duration left
+blank uses the estimate too. Placement from Underwriting
+(`log_place_underwriting_credit()`) plans at the copy's stored length, which
+is now that estimate.
+The same pass joined the PDF's column line wraps in imported scripts
+(`cleanScript`), which had been stored as literal newlines.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

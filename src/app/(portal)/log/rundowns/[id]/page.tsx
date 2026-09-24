@@ -42,6 +42,7 @@ import {
   type LiveTimingState,
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import { estimateReadSeconds } from "@/lib/log/read-time";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import {
   buildRundownBreakDrafts,
@@ -801,7 +802,18 @@ export default async function RundownDetailPage({
           ? (weather.reading?.live_read_text ?? null)
           : (item.contentItem?.script ?? contentComponentScript);
       const defaultDurationSeconds =
-        item.item_kind === "weather" ? WEATHER_DEFAULT_DURATION_SECONDS : masterDuration;
+        item.item_kind === "weather"
+          ? WEATHER_DEFAULT_DURATION_SECONDS
+          : item.item_kind === "underwriting_credit"
+            ? item.planned_duration_seconds
+            : masterDuration;
+      // A credit's planned length is its read-time estimate unless a host
+      // has timed it (see lib/log/read-time.ts) — say so, so an estimate
+      // isn't mistaken for a measured length.
+      const creditDurationEstimated =
+        copy != null &&
+        item.override_duration_seconds === null &&
+        item.planned_duration_seconds === estimateReadSeconds(copy.script);
 
       // One card layout, current break or not — the current break is
       // highlighted at the break level ("Live now", the highlight ring,
@@ -835,6 +847,7 @@ export default async function RundownDetailPage({
             {copy && (
               <div className="mt-0.5 text-xs text-ink-400">
                 {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+                {creditDurationEstimated && ` · ~${item.planned_duration_seconds}s estimated from script`}
               </div>
             )}
             {item.item_kind === "weather" && weather.reading ? (
@@ -876,7 +889,11 @@ export default async function RundownDetailPage({
           itemId: item.id,
           title,
           durationSeconds: itemDuration(item),
-          editable: item.item_kind === "content" || item.item_kind === "weather",
+          editable:
+            item.item_kind === "content" ||
+            item.item_kind === "weather" ||
+            item.item_kind === "underwriting_credit",
+          scriptEditable: item.item_kind !== "underwriting_credit",
           // An imported rundown's credits have no placement behind them, so
           // the host can remove one (removeRundownItem routes credits
           // through log_delete_unplaced_credit_item(), which refuses any

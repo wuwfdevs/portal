@@ -73,6 +73,7 @@ function item(partial: Partial<ModelItem> & Pick<ModelItem, "kind">): ModelItem 
     content_item_id: null,
     title: null,
     duration_seconds: null,
+    plays_recording: false,
     ...partial,
   };
 }
@@ -267,6 +268,103 @@ describe("assembleProgramLogPlan", () => {
     expect(plan.copyPlans[0]!.libraryScript).toBe(COPY[0]!.script);
   });
 
+  it("joins the PDF column's line wraps back into one line, and repairs a library row that kept them", () => {
+    const oneBreak = (items: ModelItem[]): ProgramLogModelOutput => ({
+      ...DAY,
+      rundowns: [
+        {
+          schedule_entry_id: "sched-me",
+          program_name: "Morning Edition",
+          breaks: [{ time: "06:06:00", label: "Underwriting break", window_seconds: 90, items }],
+        },
+      ],
+    });
+    const wrapped = item({
+      kind: "credit",
+      underwriter: NEW_UNDERWRITER,
+      new_underwriter_name: "Juan's Flying Burrito",
+      script: "Support for WUWF comes\nfrom Juan's Flying\n  Burrito.\n",
+    });
+    const fresh = assembleProgramLogPlan(inputs(oneBreak([wrapped])));
+    expect(fresh.copyPlans[0]!.script).toBe("Support for WUWF comes from Juan's Flying Burrito.");
+
+    // Same words as the library, but the library row still carries wraps
+    // from an earlier import: flagged, so the import rewrites it clean.
+    const damaged = [
+      { ...COPY[0]!, script: "Local support for WUWF is\nprovided by Baptist Health Care." },
+    ];
+    const repaired = assembleProgramLogPlan(
+      inputs(oneBreak([BAPTIST_EXISTING]), { copy: damaged }),
+    );
+    expect(repaired.copyPlans[0]!.scriptChanged).toBe(true);
+    expect(repaired.copyPlans[0]!.script).toBe(
+      "Local support for WUWF is provided by Baptist Health Care.",
+    );
+
+    // A clean library row and a wrapped export of the same words: no update.
+    const unchanged = assembleProgramLogPlan(
+      inputs(
+        oneBreak([
+          {
+            ...BAPTIST_EXISTING,
+            script: "Local support for WUWF is provided\nby Baptist Health Care.",
+          },
+        ]),
+      ),
+    );
+    expect(unchanged.copyPlans[0]!.scriptChanged).toBe(false);
+  });
+
+  it("plans a read-aloud credit at its estimated read time, and a recorded spot at its printed length", () => {
+    const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(" ");
+    const output: ProgramLogModelOutput = {
+      ...DAY,
+      rundowns: [
+        {
+          schedule_entry_id: "sched-me",
+          program_name: "Morning Edition",
+          breaks: [
+            {
+              time: "06:06:00",
+              label: "Underwriting break",
+              window_seconds: 90,
+              items: [
+                item({
+                  kind: "credit",
+                  underwriter: NEW_UNDERWRITER,
+                  new_underwriter_name: "Juan's Flying Burrito",
+                  script: words(40),
+                  duration_seconds: 30,
+                }),
+                item({
+                  kind: "credit",
+                  underwriter: NEW_UNDERWRITER,
+                  new_underwriter_name: "Dauphin Island Sea Lab",
+                  label: "copy 1",
+                  cart: "28",
+                  script: "Please play the #2 spot for Dauphin Island Sea Lab",
+                  duration_seconds: 60,
+                  plays_recording: true,
+                }),
+                // Reused copy with no script in the export: estimated from
+                // the library's script instead.
+                { ...BAPTIST_EXISTING, script: null },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const plan = assembleProgramLogPlan(inputs(output));
+    const seconds = plan.rundowns[0]!.breaks[0]!.items.map((i) => i.durationSeconds);
+    expect(seconds).toEqual([15, 60, 4]);
+    // New copy stores the estimate too; the recorded spot keeps its printed length.
+    const copySeconds = (name: string) =>
+      plan.copyPlans.find((c) => c.underwriterName === name)!.durationSeconds;
+    expect(copySeconds("Juan's Flying Burrito")).toBe(15);
+    expect(copySeconds("Dauphin Island Sea Lab")).toBe(60);
+  });
+
   it("creates a NEW underwriter's credit, but reuses a known underwriter the model marked NEW by mistake", () => {
     const output: ProgramLogModelOutput = {
       ...DAY,
@@ -383,13 +481,14 @@ describe("assembleProgramLogPlan", () => {
       {
         kind: "live_read",
         title: "Smart Speaker",
-        durationSeconds: 15,
+        // Seven words read aloud: the estimate, not the printed 15s.
+        durationSeconds: 3,
         script: "Ask your smart speaker to play WUWF.",
       },
     ]);
     expect(plan.warnings[0]).toContain("kept as a live read");
     // No window printed → the items' own lengths are the window.
-    expect(plan.rundowns[0]!.breaks[0]!.availableDurationSeconds).toBe(105);
+    expect(plan.rundowns[0]!.breaks[0]!.availableDurationSeconds).toBe(93);
   });
 
   it("lists a rundown whose schedule entry the tools never offered as unresolved, and a malformed break time too", () => {

@@ -133,6 +133,7 @@ repo and a project's history, not the version number.
 | `20260914130000_rls_initplan_wrapping.sql`                            | pending    | 2026-09-14 |
 | `20260914140000_rls_initplan_wrapping_advisor_form.sql`               | pending    | 2026-09-14 |
 | `20260922120000_log_import_copy_script_updates.sql`                   | pending    | 2026-09-22 |
+| `20260924120000_log_import_copy_duration_estimates.sql`               | pending    | 2026-09-24 |
 
 **Preview is behind on the two 2026-09-14 RLS migrations.** The preview project
 was auto-paused (free plan, inactivity) when they were written, and this
@@ -140,7 +141,10 @@ repo's session could not unpause it. Both were validated in a rolled-back
 transaction against production first, then applied to production. `pending`
 above is deliberate — the checker fails on it, and should, until someone
 unpauses `wuwf-tools-portal-preview`, applies both files there in order, and
-replaces `pending` with the date.
+replaces `pending` with the date. The two 2026-09-22/24 Log import
+migrations are pending on preview for a different reason: its Postgres
+password authentication was failing from this repo's sessions. Apply them
+there in order once it's reachable.
 
 Verified against both projects' `supabase_migrations.schema_migrations` on
 2026-07-30: every file above is present in both, and neither project carries an
