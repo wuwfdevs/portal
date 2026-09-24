@@ -119,34 +119,84 @@ export function planAssignedContentPlacements(
   const draftByKey = new Map(
     drafts.map((draft) => [`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`, draft]),
   );
-  const dayOfWeek = dayOfWeekForDateISO(airDateISO);
-  const rows: PlannedRundownItem[] = [];
-
+  const targets: AssignmentPlacementTarget[] = [];
   for (const brk of insertedBreaks) {
     // Imported breaks (null opportunity) never correspond to a generated
     // draft — nothing to place.
     if (brk.local_opportunity_id === null) continue;
     const draft = draftByKey.get(`${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`);
     if (!draft) continue;
+    targets.push({
+      break_id: brk.id,
+      local_opportunity_id: brk.local_opportunity_id,
+      hour_index: draft.hour_index,
+    });
+  }
+  return planAssignedContentForTargets(targets, assignments, contentItems, airDateISO);
+}
 
+export interface AssignmentPlacementTarget {
+  break_id: string;
+  // The opportunity (and hour repetition) whose assignments apply — for a
+  // freshly generated break, its own; for an imported break covering a
+  // dropped clock window, the covered draft's.
+  local_opportunity_id: string;
+  hour_index: number;
+}
+
+export interface ExistingBreakContents {
+  itemCount: number;
+  contentItemIds: string[];
+}
+
+/**
+ * The planning core both entry points share. Targets may repeat a break_id
+ * (an imported :59:00 avail covers both the :58:59 music bed and the
+ * :59:53 silence), so positions and the "don't place the same item twice"
+ * check are tracked per break across targets. `existing` describes items a
+ * break already holds (an imported break's export items): new rows append
+ * after them, and an item already present is never placed again — the
+ * export may itself have listed the legal ID.
+ */
+export function planAssignedContentForTargets(
+  targets: AssignmentPlacementTarget[],
+  assignments: OpportunityAssignmentLike[],
+  contentItems: Map<string, ContentItemForPlacement>,
+  airDateISO: string,
+  existing: Map<string, ExistingBreakContents> = new Map(),
+): PlannedRundownItem[] {
+  if (targets.length === 0 || assignments.length === 0) return [];
+  const dayOfWeek = dayOfWeekForDateISO(airDateISO);
+  const rows: PlannedRundownItem[] = [];
+  const nextPosition = new Map<string, number>();
+  const placed = new Map<string, Set<string>>();
+
+  for (const target of targets) {
     const applicable = selectApplicableAssignments(
       assignments,
-      { local_opportunity_id: brk.local_opportunity_id, hour_index: draft.hour_index },
+      { local_opportunity_id: target.local_opportunity_id, hour_index: target.hour_index },
       dayOfWeek,
     );
     if (applicable.length === 0) continue;
 
-    // Deduped so two overlapping assignment rules never place the same
-    // content item twice into the same break.
-    const contentItemIds = [...new Set(applicable.map((assignment) => assignment.content_item_id))];
-    let position = 1;
-    for (const contentItemId of contentItemIds) {
+    const already = existing.get(target.break_id);
+    let placedHere = placed.get(target.break_id);
+    if (!placedHere) {
+      placedHere = new Set(already?.contentItemIds ?? []);
+      placed.set(target.break_id, placedHere);
+    }
+    let position = nextPosition.get(target.break_id) ?? (already?.itemCount ?? 0) + 1;
+
+    for (const assignment of applicable) {
+      const contentItemId = assignment.content_item_id;
+      if (placedHere.has(contentItemId)) continue;
       const item = contentItems.get(contentItemId);
       if (!item) continue;
       const plannedDurationSeconds = computeTotalDurationSeconds(item.components, item.expected_duration_seconds);
       if (!plannedDurationSeconds || plannedDurationSeconds <= 0) continue;
+      placedHere.add(contentItemId);
       rows.push({
-        break_id: brk.id,
+        break_id: target.break_id,
         position: position++,
         item_kind: "content",
         content_item_id: contentItemId,
@@ -154,6 +204,7 @@ export function planAssignedContentPlacements(
         placement_status: "replaceable",
       });
     }
+    nextPosition.set(target.break_id, position);
   }
 
   return rows;

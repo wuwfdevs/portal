@@ -1,12 +1,16 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
+  planAssignedContentForTargets,
   planAssignedContentPlacements,
+  type ContentItemForPlacement,
+  type ExistingBreakContents,
   type InsertedBreakLike,
   type OpportunityAssignmentLike,
+  type PlannedRundownItem,
 } from "@/lib/log/opportunity-assignments";
 import { getContentItemsWithComponents } from "@/lib/log/queries";
-import type { RundownBreakDraft } from "@/lib/log/rundown-generation";
+import type { CoveredBreakDraft, RundownBreakDraft } from "@/lib/log/rundown-generation";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -42,15 +46,65 @@ export async function placeAssignedContent(
   airDateISO: string,
 ): Promise<void> {
   if (insertedBreaks.length === 0) return;
+  const inputs = await loadAssignmentInputs(
+    supabase,
+    insertedBreaks.map((brk) => brk.local_opportunity_id),
+  );
+  if (!inputs) return;
+  const rows = planAssignedContentPlacements(
+    insertedBreaks,
+    drafts,
+    inputs.assignments,
+    inputs.contentItems,
+    airDateISO,
+  );
+  await insertPlannedItems(supabase, rows);
+}
 
+/**
+ * The imported-rundown counterpart: places pinned content into the
+ * export's own breaks wherever one of them covered (and so replaced) a
+ * pinned clock window — see matchDraftsToCoveringBreaks. Appends after
+ * the export's items and never duplicates an item the break already
+ * holds. Best-effort, like placeAssignedContent.
+ */
+export async function placeAssignedContentIntoCoveringBreaks(
+  supabase: SupabaseServerClient,
+  covered: CoveredBreakDraft[],
+  existing: Map<string, ExistingBreakContents>,
+  airDateISO: string,
+): Promise<void> {
+  if (covered.length === 0) return;
+  const inputs = await loadAssignmentInputs(
+    supabase,
+    covered.map(({ draft }) => draft.local_opportunity_id),
+  );
+  if (!inputs) return;
+  const rows = planAssignedContentForTargets(
+    covered.map(({ draft, breakId }) => ({
+      break_id: breakId,
+      local_opportunity_id: draft.local_opportunity_id,
+      hour_index: draft.hour_index,
+    })),
+    inputs.assignments,
+    inputs.contentItems,
+    airDateISO,
+    existing,
+  );
+  await insertPlannedItems(supabase, rows);
+}
+
+async function loadAssignmentInputs(
+  supabase: SupabaseServerClient,
+  opportunityIdsWithNulls: (string | null)[],
+): Promise<{
+  assignments: OpportunityAssignmentLike[];
+  contentItems: Map<string, ContentItemForPlacement>;
+} | null> {
   const opportunityIds = [
-    ...new Set(
-      insertedBreaks
-        .map((brk) => brk.local_opportunity_id)
-        .filter((id): id is string => id !== null),
-    ),
+    ...new Set(opportunityIdsWithNulls.filter((id): id is string => id !== null)),
   ];
-  if (opportunityIds.length === 0) return;
+  if (opportunityIds.length === 0) return null;
   const { data: assignmentRows, error: assignmentsError } = await supabase
     .from("log_opportunity_assignments")
     .select("id, local_opportunity_id, content_item_id, hour_index, days_of_week, active")
@@ -58,10 +112,10 @@ export async function placeAssignedContent(
     .eq("active", true);
   if (assignmentsError) {
     console.error("Could not load opportunity assignments:", assignmentsError.message);
-    return;
+    return null;
   }
   const assignments: OpportunityAssignmentLike[] = assignmentRows ?? [];
-  if (assignments.length === 0) return;
+  if (assignments.length === 0) return null;
 
   const contentItemIds = [...new Set(assignments.map((assignment) => assignment.content_item_id))];
   const contentItemDetails = await getContentItemsWithComponents(contentItemIds);
@@ -71,10 +125,14 @@ export async function placeAssignedContent(
       { expected_duration_seconds: item.expected_duration_seconds, components: item.components },
     ]),
   );
+  return { assignments, contentItems };
+}
 
-  const rows = planAssignedContentPlacements(insertedBreaks, drafts, assignments, contentItems, airDateISO);
+async function insertPlannedItems(
+  supabase: SupabaseServerClient,
+  rows: PlannedRundownItem[],
+): Promise<void> {
   if (rows.length === 0) return;
-
   const { error } = await supabase.from("log_rundown_items").insert(rows);
   if (error) {
     console.error("Could not auto-place assigned content:", error.message);

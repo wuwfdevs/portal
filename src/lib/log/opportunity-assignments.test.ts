@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dayOfWeekForDateISO,
+  planAssignedContentForTargets,
   planAssignedContentPlacements,
   selectApplicableAssignments,
   type ContentItemForPlacement,
@@ -263,5 +264,51 @@ describe("planAssignedContentPlacements", () => {
       "2026-08-07",
     );
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("planAssignedContentForTargets", () => {
+  const legalId: ContentItemForPlacement = { expected_duration_seconds: 10, components: [] };
+  const items = new Map([["legal-id", legalId]]);
+  const assignments = [
+    assignment({ id: "a1", local_opportunity_id: "o-id", content_item_id: "legal-id" }),
+  ];
+
+  it("appends after an imported break's existing items", () => {
+    const rows = planAssignedContentForTargets(
+      [{ break_id: "b-59", local_opportunity_id: "o-id", hour_index: 1 }],
+      assignments,
+      items,
+      "2026-09-24",
+      new Map([["b-59", { itemCount: 2, contentItemIds: [] }]]),
+    );
+    expect(rows).toEqual([
+      expect.objectContaining({ break_id: "b-59", position: 3, content_item_id: "legal-id" }),
+    ]);
+  });
+
+  it("does not place content the break already holds", () => {
+    const rows = planAssignedContentForTargets(
+      [{ break_id: "b-59", local_opportunity_id: "o-id", hour_index: 0 }],
+      assignments,
+      items,
+      "2026-09-24",
+      new Map([["b-59", { itemCount: 1, contentItemIds: ["legal-id"] }]]),
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("places once when two covered windows map to the same break", () => {
+    const rows = planAssignedContentForTargets(
+      [
+        { break_id: "b-59", local_opportunity_id: "o-id", hour_index: 0 },
+        { break_id: "b-59", local_opportunity_id: "o-id", hour_index: 0 },
+      ],
+      assignments,
+      items,
+      "2026-09-24",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.position).toBe(1);
   });
 });
