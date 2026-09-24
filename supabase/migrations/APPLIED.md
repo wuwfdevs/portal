@@ -134,7 +134,7 @@ repo and a project's history, not the version number.
 | `20260914140000_rls_initplan_wrapping_advisor_form.sql`               | 2026-09-24 | 2026-09-14 |
 | `20260922120000_log_import_copy_script_updates.sql`                   | 2026-09-24 | 2026-09-22 |
 | `20260924120000_log_import_copy_duration_estimates.sql`               | 2026-09-24 | 2026-09-24 |
-| `20260924140000_log_slot_keyed_breaks.sql`                           | 2026-09-24 | pending    |
+| `20260924140000_log_slot_keyed_breaks.sql`                           | 2026-09-24 | 2026-09-24 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
