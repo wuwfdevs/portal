@@ -36,10 +36,9 @@ import {
   selectAiringsInWindow,
 } from "@/lib/log/npr-story-times";
 import {
-  computeLiveTimingState,
+  findCurrentBreak,
   liveRefreshInstants,
-  type ConsoleBreakLike,
-  type LiveTimingState,
+  selectRejoinWidgetTarget,
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { estimateReadSeconds } from "@/lib/log/read-time";
@@ -105,22 +104,6 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
   generated: "accent",
   in_progress: "warning",
   submitted: "success",
-};
-
-const STATE_LABEL: Record<LiveTimingState, string> = {
-  on_time: "On time",
-  running_long: "Running long",
-  running_short: "Running short",
-  at_risk_required: "At risk — required break unfilled",
-  at_risk_rejoin: "At risk — network rejoin approaching",
-};
-
-const STATE_VARIANT: Record<LiveTimingState, BadgeVariant> = {
-  on_time: "success",
-  running_long: "danger",
-  running_short: "warning",
-  at_risk_required: "danger",
-  at_risk_rejoin: "danger",
 };
 
 const MISS_REASON_LABEL: Record<LogMissReason, string> = {
@@ -245,33 +228,6 @@ export default async function RundownDetailPage({
   );
   const breakLabelById = new Map(rundown.breaks.map((brk) => [brk.id, brk.label]));
 
-  // The rejoin deadline for a break, extended through planned spillover:
-  // when a break's content is planned to run through the following
-  // break(s) (covered_by_previous / preempted_by_previous, from the same
-  // computeBreakStatuses pass as the badges), "back to the network feed"
-  // happens at the end of the covered chain, not at the break's own
-  // boundary. Spillover only ever chains through contiguous breaks (no-gap
-  // rule in lib/log/timing.ts), so walking forward while the next break is
-  // covered is exact. Returns the covering chain's last break too, so the
-  // sidebar widget can say why the time is later than the break's own.
-  const effectiveRejoin = (
-    breakId: string,
-  ): { rejoinAt: string; runsThroughLabel: string | null; finalBreakId: string | null } => {
-    const index = rundown.breaks.findIndex((brk) => brk.id === breakId);
-    if (index === -1) return { rejoinAt: rundown.shift_end_at, runsThroughLabel: null, finalBreakId: null };
-    let last = index;
-    while (last + 1 < rundown.breaks.length) {
-      const status = breakStatusesById.get(rundown.breaks[last + 1]!.id)?.status;
-      if (status !== "covered_by_previous" && status !== "preempted_by_previous") break;
-      last += 1;
-    }
-    return {
-      rejoinAt: rundown.breaks[last]!.network_rejoin_at,
-      runsThroughLabel: last === index ? null : rundown.breaks[last]!.label,
-      finalBreakId: rundown.breaks[last]!.id,
-    };
-  };
-
   // Each item's own on-air start/end time, prominent on its card — derived
   // from the break's scheduled_at plus every earlier item's duration in the
   // same break (lib/log/timing.ts's computeItemTimings), keyed per break so
@@ -322,17 +278,7 @@ export default async function RundownDetailPage({
     events.filter((event) => event.outcome === "aired_as_scheduled").map((event) => event.rundown_item_id),
   );
 
-  const consoleBreaks: ConsoleBreakLike[] = rundown.breaks.map((brk) => ({
-    id: brk.id,
-    scheduled_at: brk.scheduled_at,
-    network_rejoin_at: brk.network_rejoin_at,
-    requirement: brk.requirement,
-    itemCount: brk.items.length,
-    allItemsConfirmed:
-      brk.items.length > 0 && brk.items.every((item) => (eventCountByItem.get(item.id) ?? 0) > 0),
-  }));
-  const timing = live ? computeLiveTimingState(now, consoleBreaks, rundown.shift_end_at) : null;
-  const currentBreakId = timing?.currentBreak?.id ?? null;
+  const currentBreakId = live ? (findCurrentBreak(now, rundown.breaks).currentBreak?.id ?? null) : null;
 
   // Both NPR and weather are fetched regardless of live status — a host
   // planning a break ahead of air wants to see (and pick a look-ahead from)
@@ -1091,52 +1037,66 @@ export default async function RundownDetailPage({
   // next one that's genuinely planned. A live countdown (Countdown,
   // ticking client-side) is the headline number throughout, with the
   // actual clock time as a secondary line — "how long" reads faster at a
-  // glance during a broadcast than "what time," per direct feedback.
+  // glance during a broadcast than "what time," per direct feedback. The
+  // choice itself is lib/log/console-timing.ts's selectRejoinWidgetTarget:
+  // a break stops being "airing" at its (spillover-extended) rejoin, not
+  // when the next break starts — it once stayed pegged to an 8:07 rejoin,
+  // counting up in red, until the 8:19 break began.
   const rejoinDisplay = (() => {
-    const currentBreak = timing?.currentBreak ?? null;
-    const currentIndex = currentBreak ? rundown.breaks.findIndex((brk) => brk.id === currentBreak.id) : -1;
+    const target = live
+      ? selectRejoinWidgetTarget(
+          now,
+          rundown.breaks.map((brk) => {
+            const status = breakStatusesById.get(brk.id)?.status;
+            return {
+              id: brk.id,
+              scheduled_at: brk.scheduled_at,
+              network_rejoin_at: brk.network_rejoin_at,
+              hasLocalContent: hasLocalContent(brk.id),
+              receivesSpillover: status === "covered_by_previous" || status === "preempted_by_previous",
+            };
+          }),
+          rundown.shift_end_at,
+        )
+      : ({ kind: "shift_end", targetISO: rundown.shift_end_at } as const);
 
-    if (live && currentIndex !== -1 && hasLocalContent(rundown.breaks[currentIndex]!.id)) {
-      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(rundown.breaks[currentIndex]!.id);
+    if (target.kind === "rejoin") {
       // The float note applies to whichever break the rejoin time actually
       // names — the end of a covered chain, when there is one, not
       // necessarily the current break itself.
-      const floatDetails = finalBreakId ? floatDetailsForBreak(finalBreakId) : null;
+      const floatDetails = floatDetailsForBreak(target.finalBreakId);
       const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
+      const runsThroughLabel =
+        target.finalBreakId === target.airingBreakId ? null : breakLabelById.get(target.finalBreakId);
       const caption = floatDetails
         ? `Floating break${clause ? ` — ${clause}` : ""}.`
         : runsThroughLabel
           ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
           : "When the current break ends — back to the network feed.";
-      return { heading: "Network rejoin", targetISO: rejoinAt, caption, dangerWhenPast: floatDetails === null };
+      return { heading: "Network rejoin", targetISO: target.targetISO, caption, dangerWhenPast: floatDetails === null };
     }
 
-    if (live) {
-      // On the network feed right now — either nothing has nominally
-      // started yet, or the break that has is empty. Either way, walk
-      // forward from here for the next break that actually has content
-      // planned, which might be several breaks ahead.
-      const searchFrom = currentIndex === -1 ? 0 : currentIndex + 1;
-      const nextFilled = rundown.breaks.slice(searchFrom).find((brk) => hasLocalContent(brk.id));
-      if (nextFilled) {
-        const floatDetails = floatDetailsForBreak(nextFilled.id);
-        const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
-        const label = breakLabelById.get(nextFilled.id) ?? "The next break";
-        const caption = floatDetails
-          ? `Floating break — starts sometime in ${floatDetails.windowLabel}${clause ? `; ${clause}` : ""}.`
-          : `${label} — on the network feed until then.`;
-        return {
-          heading: "Next break",
-          targetISO: nextFilled.scheduled_at,
-          caption,
-          dangerWhenPast: floatDetails === null,
-        };
-      }
+    if (target.kind === "next_break") {
+      // On the network feed right now — nothing has started yet, the break
+      // that has is empty, or its window has already handed back to the
+      // network. The next break with content planned may be several ahead.
+      const floatDetails = floatDetailsForBreak(target.breakId);
+      const clause = floatDetails ? floatEstimateClause(floatDetails) : null;
+      const label = breakLabelById.get(target.breakId) ?? "The next break";
+      const caption = floatDetails
+        ? `Floating break — starts sometime in ${floatDetails.windowLabel}${clause ? `; ${clause}` : ""}.`
+        : `${label} — on the network feed until then.`;
+      return {
+        heading: "Next break",
+        targetISO: target.targetISO,
+        caption,
+        dangerWhenPast: floatDetails === null,
+      };
     }
 
     return {
       heading: "Network rejoin",
-      targetISO: rundown.shift_end_at,
+      targetISO: target.targetISO,
       caption: `End of this shift${live ? " — no more local content planned" : ""}.`,
       dangerWhenPast: false,
     };
@@ -1271,7 +1231,7 @@ export default async function RundownDetailPage({
             </div>
             <p className="mb-3 text-xs text-ink-500">
               This rundown hasn&apos;t started yet. Starting it marks it in progress and turns on
-              live timing, aired/missed/move, and today&apos;s weather above. NPR is already shown
+              the live countdown, aired/missed/move, and today&apos;s weather above. NPR is already shown
               for planning look-aheads.
             </p>
             <form action={startBroadcast}>
@@ -1377,16 +1337,14 @@ export default async function RundownDetailPage({
           gets a chance to refresh until the page happens to reload. The
           fallback cadence is minutes, not seconds (see log-poller.tsx for
           why); once live, the poller additionally wakes at the exact
-          instants the timing state above can change, so the current-break
-          highlight moves at the boundary rather than on a tick. */}
+          instants the current break or the rejoin countdown's target can
+          change, so both move at the boundary rather than on a tick. */}
       <LogPoller
         intervalMs={RUNDOWN_POLL_INTERVAL_MS}
-        refreshAtISO={live ? liveRefreshInstants(consoleBreaks, rundown.shift_end_at) : undefined}
+        refreshAtISO={live ? liveRefreshInstants(rundown.breaks, rundown.shift_end_at) : undefined}
       />
       <RundownLiveLayout
         programName={rundown.programName}
-        stateLabel={timing ? STATE_LABEL[timing.state] : null}
-        stateVariant={timing ? STATE_VARIANT[timing.state] : null}
         hasCurrentBreak={currentBreakId !== null}
         mainContent={mainContent}
         sidebarContent={sidebarContent}

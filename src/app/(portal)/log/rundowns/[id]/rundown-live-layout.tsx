@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components/log/text-scale";
 
 // The persistent nav a host needs reachable at any scroll position, on any
@@ -11,7 +10,7 @@ import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components
 // break list, weather/NPR/status and "jump to now" were just as buried as
 // before. This wraps the break list and the weather/NPR/status panel with:
 //
-// - A sticky top bar with the live timing state and a "jump to now" control
+// - A sticky top bar with a "jump to now" control
 //   that works regardless of which panel is currently showing.
 // - On mobile (below lg), a Rundown/Context tab switch instead of stacking
 //   both panels — a phone doesn't have room to show both without one
@@ -33,15 +32,11 @@ type Tab = "rundown" | "context";
 
 export function RundownLiveLayout({
   programName,
-  stateLabel,
-  stateVariant,
   hasCurrentBreak,
   mainContent,
   sidebarContent,
 }: {
   programName: string;
-  stateLabel: string | null;
-  stateVariant: BadgeVariant | null;
   hasCurrentBreak: boolean;
   mainContent: ReactNode;
   sidebarContent: ReactNode;
@@ -62,7 +57,6 @@ export function RundownLiveLayout({
       <div className="flex flex-col gap-4">
         <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
           <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
-          {stateLabel && stateVariant && <Badge variant={stateVariant}>{stateLabel}</Badge>}
           {hasCurrentBreak && (
             <button
               type="button"
