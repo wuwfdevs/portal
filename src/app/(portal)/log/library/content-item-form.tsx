@@ -60,11 +60,21 @@ export function ContentItemForm({
         </div>
         <div>
           <Label htmlFor="effective_from">Effective from</Label>
-          <Input id="effective_from" name="effective_from" type="date" defaultValue={item?.effective_from ?? ""} />
+          <Input
+            id="effective_from"
+            name="effective_from"
+            type="date"
+            defaultValue={item?.effective_from ?? ""}
+          />
         </div>
         <div>
           <Label htmlFor="effective_to">Effective to</Label>
-          <Input id="effective_to" name="effective_to" type="date" defaultValue={item?.effective_to ?? ""} />
+          <Input
+            id="effective_to"
+            name="effective_to"
+            type="date"
+            defaultValue={item?.effective_to ?? ""}
+          />
         </div>
       </div>
       <div>

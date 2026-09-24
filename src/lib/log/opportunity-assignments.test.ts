@@ -98,7 +98,9 @@ describe("selectApplicableAssignments", () => {
   });
 });
 
-function draft(overrides: Partial<RundownBreakDraft> & { local_opportunity_id: string }): RundownBreakDraft {
+function draft(
+  overrides: Partial<RundownBreakDraft> & { local_opportunity_id: string },
+): RundownBreakDraft {
   return {
     hour_index: 0,
     position: 1,
@@ -112,7 +114,9 @@ function draft(overrides: Partial<RundownBreakDraft> & { local_opportunity_id: s
   };
 }
 
-function insertedBreak(overrides: Partial<InsertedBreakLike> & { id: string; local_opportunity_id: string }): InsertedBreakLike {
+function insertedBreak(
+  overrides: Partial<InsertedBreakLike> & { id: string; local_opportunity_id: string },
+): InsertedBreakLike {
   return { scheduled_at: "2026-08-07T09:00:00.000Z", ...overrides };
 }
 
@@ -152,17 +156,40 @@ describe("planAssignedContentPlacements", () => {
 
   it("respects hour_index — Unearthing Florida's real 'second Morning Edition hour only' case", () => {
     const drafts = [
-      draft({ local_opportunity_id: "o1", hour_index: 0, scheduled_at: "2026-08-07T09:00:00.000Z" }),
-      draft({ local_opportunity_id: "o1", hour_index: 1, scheduled_at: "2026-08-07T10:00:00.000Z" }),
+      draft({
+        local_opportunity_id: "o1",
+        hour_index: 0,
+        scheduled_at: "2026-08-07T09:00:00.000Z",
+      }),
+      draft({
+        local_opportunity_id: "o1",
+        hour_index: 1,
+        scheduled_at: "2026-08-07T10:00:00.000Z",
+      }),
     ];
     const insertedBreaks = [
-      insertedBreak({ id: "b0", local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:00:00.000Z" }),
-      insertedBreak({ id: "b1", local_opportunity_id: "o1", scheduled_at: "2026-08-07T10:00:00.000Z" }),
+      insertedBreak({
+        id: "b0",
+        local_opportunity_id: "o1",
+        scheduled_at: "2026-08-07T09:00:00.000Z",
+      }),
+      insertedBreak({
+        id: "b1",
+        local_opportunity_id: "o1",
+        scheduled_at: "2026-08-07T10:00:00.000Z",
+      }),
     ];
     const rows = planAssignedContentPlacements(
       insertedBreaks,
       drafts,
-      [assignment({ id: "a1", local_opportunity_id: "o1", content_item_id: "unearthing-fl", hour_index: 1 })],
+      [
+        assignment({
+          id: "a1",
+          local_opportunity_id: "o1",
+          content_item_id: "unearthing-fl",
+          hour_index: 1,
+        }),
+      ],
       new Map([["unearthing-fl", { expected_duration_seconds: 90, components: [] }]]),
       "2026-08-07",
     );
@@ -174,7 +201,14 @@ describe("planAssignedContentPlacements", () => {
     const rows = planAssignedContentPlacements(
       [insertedBreak({ id: "b1", local_opportunity_id: "o1" })],
       [draft({ local_opportunity_id: "o1" })],
-      [assignment({ id: "a1", local_opportunity_id: "o1", content_item_id: "unearthing-fl", days_of_week: [5] })],
+      [
+        assignment({
+          id: "a1",
+          local_opportunity_id: "o1",
+          content_item_id: "unearthing-fl",
+          days_of_week: [5],
+        }),
+      ],
       new Map([["unearthing-fl", { expected_duration_seconds: 90, components: [] }]]),
       "2026-08-05", // a Wednesday
     );
@@ -208,8 +242,18 @@ describe("planAssignedContentPlacements", () => {
       [insertedBreak({ id: "b1", local_opportunity_id: "o1" })],
       [draft({ local_opportunity_id: "o1" })],
       [
-        assignment({ id: "a1", local_opportunity_id: "o1", content_item_id: "legal-id", hour_index: null }),
-        assignment({ id: "a2", local_opportunity_id: "o1", content_item_id: "legal-id", days_of_week: [] }),
+        assignment({
+          id: "a1",
+          local_opportunity_id: "o1",
+          content_item_id: "legal-id",
+          hour_index: null,
+        }),
+        assignment({
+          id: "a2",
+          local_opportunity_id: "o1",
+          content_item_id: "legal-id",
+          days_of_week: [],
+        }),
       ],
       new Map([["legal-id", legalId]]),
       "2026-08-07",
@@ -257,7 +301,13 @@ describe("planAssignedContentPlacements", () => {
     // rundown-generation.test.ts's identical case for selectMissingBreakDrafts,
     // the earlier fix for the same bug class.
     const rows = planAssignedContentPlacements(
-      [insertedBreak({ id: "b1", local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:00:00+00:00" })],
+      [
+        insertedBreak({
+          id: "b1",
+          local_opportunity_id: "o1",
+          scheduled_at: "2026-08-07T09:00:00+00:00",
+        }),
+      ],
       [draft({ local_opportunity_id: "o1", scheduled_at: "2026-08-07T09:00:00.000Z" })],
       [assignment({ id: "a1", local_opportunity_id: "o1", content_item_id: "legal-id" })],
       new Map([["legal-id", legalId]]),

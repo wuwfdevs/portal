@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildDailyOutlook, categorizeForecastIcon, type OutlookSourcePeriod } from "./weather-outlook";
+import {
+  buildDailyOutlook,
+  categorizeForecastIcon,
+  type OutlookSourcePeriod,
+} from "./weather-outlook";
 
-function period(overrides: Partial<OutlookSourcePeriod> & Pick<OutlookSourcePeriod, "startTime" | "isDaytime">): OutlookSourcePeriod {
+function period(
+  overrides: Partial<OutlookSourcePeriod> & Pick<OutlookSourcePeriod, "startTime" | "isDaytime">,
+): OutlookSourcePeriod {
   return {
     temperature: 80,
     shortForecast: "Sunny",
@@ -13,43 +19,65 @@ function period(overrides: Partial<OutlookSourcePeriod> & Pick<OutlookSourcePeri
 
 describe("categorizeForecastIcon", () => {
   it("reads the condition code out of a real NWS icon URL", () => {
-    expect(categorizeForecastIcon("https://api.weather.gov/icons/land/day/tsra_hi,40?size=medium", "", true)).toBe(
-      "thunderstorm",
-    );
+    expect(
+      categorizeForecastIcon(
+        "https://api.weather.gov/icons/land/day/tsra_hi,40?size=medium",
+        "",
+        true,
+      ),
+    ).toBe("thunderstorm");
   });
 
   it("takes the first condition when the icon URL carries two", () => {
     expect(
-      categorizeForecastIcon("https://api.weather.gov/icons/land/night/skc,0/few,0?size=medium", "", false),
+      categorizeForecastIcon(
+        "https://api.weather.gov/icons/land/night/skc,0/few,0?size=medium",
+        "",
+        false,
+      ),
     ).toBe("clear-night");
   });
 
   it("strips a wind_ prefix before mapping", () => {
-    expect(categorizeForecastIcon("https://api.weather.gov/icons/land/day/wind_skc?size=medium", "", true)).toBe(
-      "sunny",
-    );
+    expect(
+      categorizeForecastIcon(
+        "https://api.weather.gov/icons/land/day/wind_skc?size=medium",
+        "",
+        true,
+      ),
+    ).toBe("sunny");
   });
 
   it("picks day vs night for the same underlying condition", () => {
-    expect(categorizeForecastIcon("https://api.weather.gov/icons/land/day/skc?size=medium", "", true)).toBe("sunny");
-    expect(categorizeForecastIcon("https://api.weather.gov/icons/land/night/skc?size=medium", "", false)).toBe(
-      "clear-night",
-    );
+    expect(
+      categorizeForecastIcon("https://api.weather.gov/icons/land/day/skc?size=medium", "", true),
+    ).toBe("sunny");
+    expect(
+      categorizeForecastIcon("https://api.weather.gov/icons/land/night/skc?size=medium", "", false),
+    ).toBe("clear-night");
   });
 
   it("falls back to the short forecast text when there's no icon", () => {
-    expect(categorizeForecastIcon(null, "Chance Showers And Thunderstorms", true)).toBe("thunderstorm");
+    expect(categorizeForecastIcon(null, "Chance Showers And Thunderstorms", true)).toBe(
+      "thunderstorm",
+    );
     expect(categorizeForecastIcon(null, "Partly Cloudy", false)).toBe("partly-cloudy-night");
   });
 
   it("falls back to text when the icon's condition code isn't recognized", () => {
-    expect(categorizeForecastIcon("https://api.weather.gov/icons/land/day/nonsense_code?size=medium", "Rain", true)).toBe(
-      "rain",
-    );
+    expect(
+      categorizeForecastIcon(
+        "https://api.weather.gov/icons/land/day/nonsense_code?size=medium",
+        "Rain",
+        true,
+      ),
+    ).toBe("rain");
   });
 
   it("defaults unrecognized text to cloudy rather than throwing", () => {
-    expect(categorizeForecastIcon(null, "Some new NWS phrasing nobody's seen yet", true)).toBe("cloudy");
+    expect(categorizeForecastIcon(null, "Some new NWS phrasing nobody's seen yet", true)).toBe(
+      "cloudy",
+    );
   });
 });
 

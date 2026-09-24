@@ -11,7 +11,8 @@ export async function refreshNprEpisodeAction(formData: FormData): Promise<void>
   await assertLogAccess();
   const programId = String(formData.get("program_id") ?? "").trim();
   const showDate = String(formData.get("show_date") ?? "").trim();
-  if (programId === "" || showDate === "") failWith("/log/npr", "Choose a program and a date first.");
+  if (programId === "" || showDate === "")
+    failWith("/log/npr", "Choose a program and a date first.");
   const path = `/log/npr?program=${programId}&date=${showDate}`;
 
   const { error } = await refreshNprEpisodeForProgramOnDate(programId, showDate);

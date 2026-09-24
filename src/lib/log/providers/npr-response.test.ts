@@ -35,7 +35,13 @@ describe("parseCdsProgramEpisodeResponse", () => {
 
   it("preserves item order exactly as returned", () => {
     const doc = episodeDoc({
-      items: { items: [{ id: "c", title: "C" }, { id: "a", title: "A" }, { id: "b", title: "B" }] },
+      items: {
+        items: [
+          { id: "c", title: "C" },
+          { id: "a", title: "A" },
+          { id: "b", title: "B" },
+        ],
+      },
     });
     const result = parseCdsProgramEpisodeResponse(listResponse([doc]));
     if (result.status !== "found") throw new Error("expected found");
@@ -99,7 +105,9 @@ describe("parseCdsProgramEpisodeResponse", () => {
   });
 
   it("throws clearly on a completely unrecognized response shape", () => {
-    expect(() => parseCdsProgramEpisodeResponse({ unexpected: "shape" })).toThrow(/doesn't recognize/);
+    expect(() => parseCdsProgramEpisodeResponse({ unexpected: "shape" })).toThrow(
+      /doesn't recognize/,
+    );
     expect(() => parseCdsProgramEpisodeResponse("not even an object")).toThrow(/doesn't recognize/);
     expect(() => parseCdsProgramEpisodeResponse(null)).toThrow(/doesn't recognize/);
   });

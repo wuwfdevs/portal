@@ -22,6 +22,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import { estimateReadSeconds } from "@/lib/log/read-time";
 import type { LogContentType } from "@/lib/database.types";
 import { createLiveReadItem } from "../../rundown-actions";
 
@@ -46,6 +47,7 @@ export function LiveReadForm({
 }) {
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
+  const estimatedSeconds = estimateReadSeconds(script);
   const [sourceNprItemId, setSourceNprItemId] = useState("");
   const [sourceNprItemTitle, setSourceNprItemTitle] = useState("");
   const [keepInLibrary, setKeepInLibrary] = useState(false);
@@ -117,8 +119,10 @@ export function LiveReadForm({
             id={`live-duration-${breakId}`}
             name="duration_seconds"
             type="number"
-            required
             min={1}
+            // Left blank, the read-time estimate is used (createLiveReadItem).
+            placeholder={estimatedSeconds !== null ? `~${estimatedSeconds}` : undefined}
+            required={estimatedSeconds === null}
             className="w-24"
           />
         </div>

@@ -1,5 +1,9 @@
 import "server-only";
-import { buildDailyOutlook, type DailyOutlookEntry, type ForecastPeriodSummary } from "../weather-outlook";
+import {
+  buildDailyOutlook,
+  type DailyOutlookEntry,
+  type ForecastPeriodSummary,
+} from "../weather-outlook";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -141,7 +145,9 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
 
   let hazards: string | null = null;
   try {
-    const alerts = await getJson<AlertsResponse>(`${API_BASE}/alerts/active?point=${latitude},${longitude}`);
+    const alerts = await getJson<AlertsResponse>(
+      `${API_BASE}/alerts/active?point=${latitude},${longitude}`,
+    );
     const headlines = alerts.features
       .map((feature) => feature.properties.headline || feature.properties.event)
       .filter((headline): headline is string => Boolean(headline));
@@ -154,7 +160,9 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
 
   const cityState = points.properties.relativeLocation?.properties;
   const forecastArea =
-    cityState?.city && cityState?.state ? `${cityState.city}, ${cityState.state}` : DEFAULT_FORECAST_AREA;
+    cityState?.city && cityState?.state
+      ? `${cityState.city}, ${cityState.state}`
+      : DEFAULT_FORECAST_AREA;
 
   // Each period's detailedForecast is already a complete, self-contained
   // paragraph from NWS (its own precipitation-chance sentence and all) — a
@@ -167,7 +175,9 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   // plain string to prefill its textarea.
   const forecastPeriods: ForecastPeriodSummary[] = [
     dayPeriod.detailedForecast ? { label: dayPeriod.name, text: dayPeriod.detailedForecast } : null,
-    nightPeriod?.detailedForecast ? { label: nightPeriod.name, text: nightPeriod.detailedForecast } : null,
+    nightPeriod?.detailedForecast
+      ? { label: nightPeriod.name, text: nightPeriod.detailedForecast }
+      : null,
   ].filter((period): period is ForecastPeriodSummary => period !== null);
 
   const liveReadText = forecastPeriods.map((period) => `${period.label}: ${period.text}`).join(" ");

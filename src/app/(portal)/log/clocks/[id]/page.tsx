@@ -75,7 +75,8 @@ export default async function ClockTemplateDetailPage({
   const assignmentsByVersion = new Map(
     await Promise.all(
       template.versions.map(
-        async (version) => [version.id, await listOpportunityAssignmentsForVersion(version.id)] as const,
+        async (version) =>
+          [version.id, await listOpportunityAssignmentsForVersion(version.id)] as const,
       ),
     ),
   );
@@ -87,7 +88,9 @@ export default async function ClockTemplateDetailPage({
           ← Back to clocks
         </Link>
         <h2 className="mt-2 font-serif text-xl font-bold text-ink-900">{template.name}</h2>
-        {template.description && <p className="mt-1 text-sm text-ink-500">{template.description}</p>}
+        {template.description && (
+          <p className="mt-1 text-sm text-ink-500">{template.description}</p>
+        )}
       </div>
 
       {error && <Alert>{error}</Alert>}
@@ -131,10 +134,10 @@ export default async function ClockTemplateDetailPage({
                     Network structure &amp; local eligibility
                   </h3>
                   <p className="mb-3 text-xs text-ink-500">
-                    Every slot below is a fact about the network clock. A slot marked eligible is WUWF&apos;s
-                    own local-substitution overlay on top of it — see{" "}
-                    <span className="italic">mark eligible</span> on any slot, including a required one like a
-                    newscast.
+                    Every slot below is a fact about the network clock. A slot marked eligible is
+                    WUWF&apos;s own local-substitution overlay on top of it — see{" "}
+                    <span className="italic">mark eligible</span> on any slot, including a required
+                    one like a newscast.
                   </p>
                   <div className="overflow-x-auto">
                     <Table>
@@ -155,12 +158,16 @@ export default async function ClockTemplateDetailPage({
                           const isEditing = isProducer && edit === opportunity?.id;
                           const isMarking = isProducer && markEligible === slot.id;
                           const isAssigning = isProducer && assign === opportunity?.id;
-                          const assignments = opportunity ? (assignmentsByOpportunity.get(opportunity.id) ?? []) : [];
+                          const assignments = opportunity
+                            ? (assignmentsByOpportunity.get(opportunity.id) ?? [])
+                            : [];
                           return (
                             <Fragment key={slot.id}>
                               <Row>
                                 <Cell>{slot.position}</Cell>
-                                <Cell className="font-semibold text-ink-900">{slot.label ?? "—"}</Cell>
+                                <Cell className="font-semibold text-ink-900">
+                                  {slot.label ?? "—"}
+                                </Cell>
                                 <Cell>{formatOffset(slot.start_offset_seconds)}</Cell>
                                 <Cell>{formatOffset(slot.duration_seconds)}</Cell>
                                 <Cell className="text-ink-500">
@@ -171,7 +178,13 @@ export default async function ClockTemplateDetailPage({
                                 <Cell>
                                   {opportunity ? (
                                     <div className="flex flex-col gap-1">
-                                      <Badge variant={opportunity.requirement === "required" ? "warning" : "neutral"}>
+                                      <Badge
+                                        variant={
+                                          opportunity.requirement === "required"
+                                            ? "warning"
+                                            : "neutral"
+                                        }
+                                      >
                                         {opportunity.requirement}
                                       </Badge>
                                       <span className="text-xs text-ink-500">
@@ -179,8 +192,9 @@ export default async function ClockTemplateDetailPage({
                                           ? opportunity.permitted_content_types
                                               .map(
                                                 (value) =>
-                                                  PERMITTED_CONTENT_TYPE_OPTIONS.find((o) => o.value === value)
-                                                    ?.label ?? value,
+                                                  PERMITTED_CONTENT_TYPE_OPTIONS.find(
+                                                    (o) => o.value === value,
+                                                  )?.label ?? value,
                                               )
                                               .join(", ")
                                           : "anything"}
@@ -188,7 +202,10 @@ export default async function ClockTemplateDetailPage({
                                       {assignments.length > 0 && (
                                         <div className="mt-1 flex flex-col gap-0.5">
                                           {assignments.map((assignment) => (
-                                            <div key={assignment.id} className="flex items-center gap-1.5 text-xs">
+                                            <div
+                                              key={assignment.id}
+                                              className="flex items-center gap-1.5 text-xs"
+                                            >
                                               <span className="text-ink-700">
                                                 Pinned: {assignment.contentItemTitle}{" "}
                                                 <span className="text-ink-400">
@@ -198,8 +215,16 @@ export default async function ClockTemplateDetailPage({
                                               </span>
                                               {isProducer && (
                                                 <form action={deactivateOpportunityAssignment}>
-                                                  <input type="hidden" name="clock_template_id" value={template.id} />
-                                                  <input type="hidden" name="assignment_id" value={assignment.id} />
+                                                  <input
+                                                    type="hidden"
+                                                    name="clock_template_id"
+                                                    value={template.id}
+                                                  />
+                                                  <input
+                                                    type="hidden"
+                                                    name="assignment_id"
+                                                    value={assignment.id}
+                                                  />
                                                   <button
                                                     type="submit"
                                                     className="rounded text-ink-400 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
@@ -214,7 +239,9 @@ export default async function ClockTemplateDetailPage({
                                       )}
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-ink-400">Not locally eligible</span>
+                                    <span className="text-xs text-ink-400">
+                                      Not locally eligible
+                                    </span>
                                   )}
                                 </Cell>
                                 {isProducer && (
@@ -223,20 +250,36 @@ export default async function ClockTemplateDetailPage({
                                       {opportunity ? (
                                         <>
                                           <Link
-                                            href={isEditing ? basePath : `${basePath}?edit=${opportunity.id}`}
+                                            href={
+                                              isEditing
+                                                ? basePath
+                                                : `${basePath}?edit=${opportunity.id}`
+                                            }
                                             className="text-xs font-semibold text-brand-link hover:underline"
                                           >
                                             {isEditing ? "Cancel" : "Edit"}
                                           </Link>
                                           <Link
-                                            href={isAssigning ? basePath : `${basePath}?assign=${opportunity.id}`}
+                                            href={
+                                              isAssigning
+                                                ? basePath
+                                                : `${basePath}?assign=${opportunity.id}`
+                                            }
                                             className="text-xs font-semibold text-brand-link hover:underline"
                                           >
                                             {isAssigning ? "Cancel" : "Pin content"}
                                           </Link>
                                           <form action={deactivateLocalOpportunity}>
-                                            <input type="hidden" name="clock_template_id" value={template.id} />
-                                            <input type="hidden" name="opportunity_id" value={opportunity.id} />
+                                            <input
+                                              type="hidden"
+                                              name="clock_template_id"
+                                              value={template.id}
+                                            />
+                                            <input
+                                              type="hidden"
+                                              name="opportunity_id"
+                                              value={opportunity.id}
+                                            />
                                             <button
                                               type="submit"
                                               className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
@@ -247,7 +290,11 @@ export default async function ClockTemplateDetailPage({
                                         </>
                                       ) : (
                                         <Link
-                                          href={isMarking ? basePath : `${basePath}?markEligible=${slot.id}`}
+                                          href={
+                                            isMarking
+                                              ? basePath
+                                              : `${basePath}?markEligible=${slot.id}`
+                                          }
                                           className="text-xs font-semibold text-brand-link hover:underline"
                                         >
                                           {isMarking ? "Cancel" : "Mark eligible"}
@@ -320,7 +367,13 @@ export default async function ClockTemplateDetailPage({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor={`position-${version.id}`}>Position</Label>
-                      <Input id={`position-${version.id}`} name="position" type="number" required min={1} />
+                      <Input
+                        id={`position-${version.id}`}
+                        name="position"
+                        type="number"
+                        required
+                        min={1}
+                      />
                     </div>
                     <div>
                       <Label htmlFor={`duration-${version.id}`}>Duration (s)</Label>
@@ -334,7 +387,11 @@ export default async function ClockTemplateDetailPage({
                     </div>
                     <div>
                       <Label htmlFor={`offset-${version.id}`}>Start offset (s)</Label>
-                      <Input id={`offset-${version.id}`} name="start_offset_seconds" type="number" />
+                      <Input
+                        id={`offset-${version.id}`}
+                        name="start_offset_seconds"
+                        type="number"
+                      />
                     </div>
                     <div>
                       <Label htmlFor={`label-${version.id}`}>Label</Label>
@@ -342,19 +399,27 @@ export default async function ClockTemplateDetailPage({
                     </div>
                     <div>
                       <Label htmlFor={`segment-label-${version.id}`}>Segment letter</Label>
-                      <Input id={`segment-label-${version.id}`} name="segment_label" maxLength={4} />
+                      <Input
+                        id={`segment-label-${version.id}`}
+                        name="segment_label"
+                        maxLength={4}
+                      />
                     </div>
                     <div>
                       <Label htmlFor={`timing-mode-${version.id}`}>Timing</Label>
-                      <Select id={`timing-mode-${version.id}`} name="timing_mode" defaultValue="fixed">
+                      <Select
+                        id={`timing-mode-${version.id}`}
+                        name="timing_mode"
+                        defaultValue="fixed"
+                      >
                         <option value="fixed">Fixed</option>
                         <option value="float">Float</option>
                       </Select>
                     </div>
                   </div>
                   <FieldHint>
-                    This describes only the network&apos;s own structure. Mark a slot eligible for local
-                    content from the table above once it exists.
+                    This describes only the network&apos;s own structure. Mark a slot eligible for
+                    local content from the table above once it exists.
                   </FieldHint>
                   <div className="flex justify-end">
                     <Button type="submit">Add slot</Button>
@@ -394,8 +459,8 @@ export default async function ClockTemplateDetailPage({
               </div>
             </div>
             <FieldHint>
-              A version is immutable once created — a correction is a new version, not an edit. Local
-              eligibility is marked per slot, per version, above.
+              A version is immutable once created — a correction is a new version, not an edit.
+              Local eligibility is marked per slot, per version, above.
             </FieldHint>
             <div className="flex justify-end border-t border-line pt-4">
               <Button type="submit">Start version</Button>
@@ -437,7 +502,11 @@ function OpportunityForm({
       {slotId && <input type="hidden" name="slot_id" value={slotId} />}
       <div>
         <Label htmlFor={`opp-requirement-${idPrefix}`}>Requirement</Label>
-        <Select id={`opp-requirement-${idPrefix}`} name="requirement" defaultValue={defaultRequirement}>
+        <Select
+          id={`opp-requirement-${idPrefix}`}
+          name="requirement"
+          defaultValue={defaultRequirement}
+        >
           <option value="optional">Optional — network continues if unused</option>
           <option value="required">Required — a genuine local obligation</option>
         </Select>
@@ -462,7 +531,12 @@ function OpportunityForm({
       </div>
       <div>
         <Label htmlFor={`opp-notes-${idPrefix}`}>Notes</Label>
-        <Input id={`opp-notes-${idPrefix}`} name="notes" maxLength={280} defaultValue={defaultNotes ?? undefined} />
+        <Input
+          id={`opp-notes-${idPrefix}`}
+          name="notes"
+          maxLength={280}
+          defaultValue={defaultNotes ?? undefined}
+        />
       </div>
       <div className="flex justify-end">
         <Button type="submit">{submitLabel}</Button>
@@ -486,7 +560,12 @@ function AssignmentForm({
       <input type="hidden" name="opportunity_id" value={opportunityId} />
       <div>
         <Label htmlFor={`assign-content-${opportunityId}`}>Content item</Label>
-        <Select id={`assign-content-${opportunityId}`} name="content_item_id" required defaultValue="">
+        <Select
+          id={`assign-content-${opportunityId}`}
+          name="content_item_id"
+          required
+          defaultValue=""
+        >
           <option value="" disabled>
             Choose an approved content item…
           </option>
@@ -501,8 +580,8 @@ function AssignmentForm({
         <Label htmlFor={`assign-hour-${opportunityId}`}>Hour of the shift</Label>
         <Input id={`assign-hour-${opportunityId}`} name="hour_index" type="number" min={0} />
         <FieldHint>
-          0-based (0 = the shift&apos;s first hour, 1 = its second, and so on). Leave blank for every hour the
-          opportunity recurs — legal ID&apos;s own case.
+          0-based (0 = the shift&apos;s first hour, 1 = its second, and so on). Leave blank for
+          every hour the opportunity recurs — legal ID&apos;s own case.
         </FieldHint>
       </div>
       <div>

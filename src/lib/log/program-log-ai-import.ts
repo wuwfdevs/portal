@@ -40,8 +40,7 @@ const MAX_OUTPUT_TOKENS = 32768;
 const MAX_ROUNDS = 8;
 
 export type ImportProgramLogResult =
-  | { ok: true; output: ProgramLogModelOutput; toolCalls: number }
-  | { ok: false; error: string };
+  { ok: true; output: ProgramLogModelOutput; toolCalls: number } | { ok: false; error: string };
 
 const INSTRUCTIONS = `You turn a radio station's daily program log — a traffic/automation system's printout of what is scheduled to air, uploaded as a PDF — into a structured import plan for WUWF-FM's Log tool. Read the whole document, use the tools to look up what you need, then answer with the plan in the required JSON shape.
 
@@ -55,7 +54,7 @@ How to build the plan:
 3. Every printed credit or fill is exactly one item in exactly one break — never listed twice, never split across breaks. A credit whose cart row sits inside a marker's window belongs to that marker's break.
 4. Underwriters are a closed set: the names listed below. Pick the listed name whenever a credit is clearly for that business, even if the script phrases the name differently. Use "NEW" with new_underwriter_name only when the advertiser is genuinely not on the list.
 5. For each underwriter whose credit appears, call ${"list_copy_for_underwriter"} once and set existing_copy_id when the credit is the same message as a listed copy — the same cart, or the same label and the same message. Otherwise leave it null (new copy).
-6. Copy every script character for character from the document: same words, capitalization, and punctuation, nothing paraphrased or summarized. Include the whole script, across a page break if it continues. The narrow Description column wraps a script across several printed lines; those wraps are layout, not content — join them with single spaces so the script is one continuous paragraph.
+6. Copy every script character for character from the document: same words, capitalization, and punctuation, nothing paraphrased or summarized. Include the whole script, across a page break if it continues. The narrow Description column wraps a script across several printed lines; those wraps are layout, not content — join them with single spaces so the script is one continuous paragraph. Record each item's length exactly as printed, and set plays_recording true only when the printed text is instructions to play a recorded spot rather than words the host reads aloud.
 7. For a non-credit fill, call ${"search_content_items"} with its printed description. Use kind "content" with a returned content_item_id only when the match is clearly the same piece; otherwise kind "live_read" with the printed description as its title.
 8. Operational reminders go in notes. Anything you cannot place with confidence goes in unresolved with a reason — do not guess.
 

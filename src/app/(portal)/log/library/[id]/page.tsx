@@ -10,7 +10,12 @@ import {
   computeTotalDurationSeconds,
 } from "@/lib/log/content-library";
 import { getContentItemDetail } from "@/lib/log/queries";
-import { addComponent, setApprovalStatus, updateComponent, updateContentItem } from "../../library-actions";
+import {
+  addComponent,
+  setApprovalStatus,
+  updateComponent,
+  updateContentItem,
+} from "../../library-actions";
 import { ComponentForm } from "../component-form";
 import { ContentItemForm } from "../content-item-form";
 import type { LogApprovalStatus } from "@/lib/database.types";
@@ -37,7 +42,10 @@ export default async function ContentItemDetailPage({
   const isEditingItem = edit === "item";
   const editingComponentId = editComponent ?? null;
 
-  const totalDuration = computeTotalDurationSeconds(item.components, item.expected_duration_seconds);
+  const totalDuration = computeTotalDurationSeconds(
+    item.components,
+    item.expected_duration_seconds,
+  );
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -47,7 +55,9 @@ export default async function ContentItemDetailPage({
         </Link>
         <div className="mt-2 mb-4 flex flex-wrap items-center gap-2.5">
           <h2 className="font-serif text-xl font-bold text-ink-900">{item.title}</h2>
-          <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
+          <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
+            {item.approval_status}
+          </Badge>
           <Link
             href={isEditingItem ? detailPath : `${detailPath}?edit=item`}
             className="ml-auto text-xs font-semibold text-brand-link hover:underline"
@@ -59,7 +69,12 @@ export default async function ContentItemDetailPage({
         {error && <Alert className="mb-4">{error}</Alert>}
 
         {isEditingItem ? (
-          <ContentItemForm action={updateContentItem} submitLabel="Save changes" item={item} cancelHref={detailPath} />
+          <ContentItemForm
+            action={updateContentItem}
+            submitLabel="Save changes"
+            item={item}
+            cancelHref={detailPath}
+          />
         ) : (
           <div className="rounded border border-line">
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
@@ -69,7 +84,9 @@ export default async function ContentItemDetailPage({
               {item.summary && <p>{item.summary}</p>}
               {item.script && (
                 <div>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Script</div>
+                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
+                    Script
+                  </div>
                   <p className="whitespace-pre-wrap">{item.script}</p>
                 </div>
               )}
@@ -102,11 +119,13 @@ export default async function ContentItemDetailPage({
         )}
 
         <div className="mt-6 rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Components</div>
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            Components
+          </div>
           {item.components.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">
-              No components yet. A simple single-file item doesn&apos;t need any — attach audio above
-              instead.
+              No components yet. A simple single-file item doesn&apos;t need any — attach audio
+              above instead.
             </p>
           ) : (
             <ul className="divide-y divide-line">
@@ -137,7 +156,9 @@ export default async function ContentItemDetailPage({
                           Edit
                         </Link>
                       </div>
-                      {component.script && <p className="text-xs text-ink-700">{component.script}</p>}
+                      {component.script && (
+                        <p className="text-xs text-ink-700">{component.script}</p>
+                      )}
                     </>
                   )}
                 </li>
@@ -161,7 +182,9 @@ export default async function ContentItemDetailPage({
       </div>
 
       <div className="w-full shrink-0 rounded border border-line lg:w-72">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Status</div>
+        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+          Status
+        </div>
         <form action={setApprovalStatus} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="content_item_id" value={item.id} />
           <div>

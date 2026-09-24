@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeEndTime, formatAirTime, isScheduleEntryActiveOn, type ScheduleEntryLike } from "./schedule";
+import {
+  computeEndTime,
+  formatAirTime,
+  isScheduleEntryActiveOn,
+  type ScheduleEntryLike,
+} from "./schedule";
 
 function entry(overrides: Partial<ScheduleEntryLike> = {}): ScheduleEntryLike {
   return {
@@ -27,7 +32,9 @@ describe("isScheduleEntryActiveOn", () => {
   // 2026-08-06 is a Thursday (day 4).
   it("for a recurring entry, only matches its listed weekdays", () => {
     expect(isScheduleEntryActiveOn(entry({ days_of_week: [4] }), "2026-08-06")).toBe(true);
-    expect(isScheduleEntryActiveOn(entry({ days_of_week: [1, 2, 3, 5] }), "2026-08-06")).toBe(false);
+    expect(isScheduleEntryActiveOn(entry({ days_of_week: [1, 2, 3, 5] }), "2026-08-06")).toBe(
+      false,
+    );
   });
 
   it("days_of_week does not gate an override or holiday entry", () => {

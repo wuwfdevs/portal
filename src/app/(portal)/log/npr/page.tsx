@@ -4,7 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { getRundownForProgramOnDate, listClockSlotsForVersion, listPrograms } from "@/lib/log/queries";
+import {
+  getRundownForProgramOnDate,
+  listClockSlotsForVersion,
+  listPrograms,
+} from "@/lib/log/queries";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import {
   buildSegmentWindows,
@@ -49,7 +53,8 @@ export default async function NprPage({
   const selectedDate = dateParam && DATE_ONLY.test(dateParam) ? dateParam : stationTodayISO();
 
   const result = await getNprEpisodeForProgramOnDate(selectedProgram.id, selectedDate);
-  const canRefresh = result.kind === "error" || result.kind === "not_found" || result.kind === "found";
+  const canRefresh =
+    result.kind === "error" || result.kind === "not_found" || result.kind === "found";
 
   // Estimated per-story air times (lib/log/npr-story-times.ts), anchored to
   // this program's generated rundown for the selected date — the rundown is
@@ -104,7 +109,12 @@ export default async function NprPage({
         <form className="flex flex-wrap items-end gap-3" method="get">
           <div>
             <Label htmlFor="npr-program">Program</Label>
-            <Select id="npr-program" name="program" defaultValue={selectedProgram.id} className="w-64">
+            <Select
+              id="npr-program"
+              name="program"
+              defaultValue={selectedProgram.id}
+              className="w-64"
+            >
               {programs.map((program) => (
                 <option key={program.id} value={program.id}>
                   {program.name}
@@ -115,7 +125,13 @@ export default async function NprPage({
           </div>
           <div>
             <Label htmlFor="npr-date">Show date</Label>
-            <Input id="npr-date" type="date" name="date" defaultValue={selectedDate} className="w-40" />
+            <Input
+              id="npr-date"
+              type="date"
+              name="date"
+              defaultValue={selectedDate}
+              className="w-40"
+            />
           </div>
           <Button type="submit" variant="secondary" className="shrink-0">
             Switch
@@ -149,14 +165,17 @@ export default async function NprPage({
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           This program has no NPR CDS mapping. It&apos;s either a local program or a network program
           WUWF hasn&apos;t linked to an NPR collection yet — see{" "}
-          <code className="rounded bg-panel-100 px-1 py-0.5 text-xs">log_programs.npr_collection_id</code>.
+          <code className="rounded bg-panel-100 px-1 py-0.5 text-xs">
+            log_programs.npr_collection_id
+          </code>
+          .
         </div>
       )}
 
       {result.kind === "not_configured" && (
         <Alert variant="note">
-          NPR CDS access isn&apos;t configured yet — set <code>NPR_CDS_TOKEN</code> to enable this. See{" "}
-          <code>.env.example</code>.
+          NPR CDS access isn&apos;t configured yet — set <code>NPR_CDS_TOKEN</code> to enable this.
+          See <code>.env.example</code>.
         </Alert>
       )}
 
@@ -167,7 +186,8 @@ export default async function NprPage({
       {result.kind === "not_found" && (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           No matching NPR episode was returned for this program on this date.
-          {result.refreshError && ` A refresh attempt just now also failed (${result.refreshError}).`}
+          {result.refreshError &&
+            ` A refresh attempt just now also failed (${result.refreshError}).`}
           <div className="mt-2 text-xs text-ink-400">
             Last checked {formatStationTimestamp(result.retrievedAt)}
           </div>
@@ -178,11 +198,14 @@ export default async function NprPage({
         <>
           {result.refreshError && (
             <Alert className="mb-3" variant="note">
-              Couldn&apos;t refresh just now — showing the last cached episode. ({result.refreshError})
+              Couldn&apos;t refresh just now — showing the last cached episode. (
+              {result.refreshError})
             </Alert>
           )}
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-ink-400">
-            {result.title && <span className="text-sm font-semibold text-ink-900">{result.title}</span>}
+            {result.title && (
+              <span className="text-sm font-semibold text-ink-900">{result.title}</span>
+            )}
             <span>NPR episode id: {result.nprEpisodeId}</span>
             <span>Retrieved {formatStationTimestamp(result.retrievedAt)}</span>
           </div>
@@ -212,10 +235,14 @@ export default async function NprPage({
                         </Cell>
                         <Cell>
                           <div className="font-semibold text-ink-900">{item.title}</div>
-                          {item.teaser && <div className="mt-0.5 text-xs text-ink-500">{item.teaser}</div>}
+                          {item.teaser && (
+                            <div className="mt-0.5 text-xs text-ink-500">{item.teaser}</div>
+                          )}
                         </Cell>
                         <Cell className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums">
-                          {item.duration_seconds !== null ? formatLength(item.duration_seconds) : "—"}
+                          {item.duration_seconds !== null
+                            ? formatLength(item.duration_seconds)
+                            : "—"}
                         </Cell>
                       </Row>
                     ))}
@@ -224,8 +251,8 @@ export default async function NprPage({
               </TableFrame>
               <p className="mt-2 text-xs text-ink-400">
                 Air times are estimates, derived by laying the episode&apos;s stories into this
-                program&apos;s clock segments by duration — NPR&apos;s feed carries no explicit story
-                times.{" "}
+                program&apos;s clock segments by duration — NPR&apos;s feed carries no explicit
+                story times.{" "}
                 {estimateLabelByNprItemId.size === 0 &&
                   "None shown here because no rundown exists for this program and date yet (the rundown anchors the shift's start time)."}
               </p>

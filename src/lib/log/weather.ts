@@ -60,7 +60,8 @@ export async function getCurrentWeatherReading(): Promise<WeatherResult> {
     try {
       reading = await replaceCurrentWeatherReading();
     } catch (error) {
-      refreshError = error instanceof Error ? error.message : "Could not refresh the weather reading.";
+      refreshError =
+        error instanceof Error ? error.message : "Could not refresh the weather reading.";
       // Keep serving whatever reading we already had, if any — never let a
       // failed refetch make the display blank.
     }
@@ -75,6 +76,8 @@ export async function refreshWeatherReading(): Promise<{ error?: string }> {
     await replaceCurrentWeatherReading();
     return {};
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not refresh the weather reading." };
+    return {
+      error: error instanceof Error ? error.message : "Could not refresh the weather reading.",
+    };
   }
 }

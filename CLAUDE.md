@@ -2582,6 +2582,23 @@ windows folded away, expands new copy and library updates (old and new
 text side by side), and folds unchanged reuse and operational notes. See
 `docs/log-design.md` §8's second 2026-09-22 revision.
 
+**Log: read-aloud items plan at an estimated read time (2026-09-24).** The
+export prints every credit at its booked length — `00:30` for a 33-word
+script and a 69-word one alike — so planning breaks from it overstated how
+full they were. `lib/log/read-time.ts` (pure, tested, 160 words per minute)
+estimates from word count, and the import plans every read-aloud credit and
+live read at that estimate; the model flags `plays_recording` for text that
+is instructions to play a recorded spot, which keeps its printed length.
+`uw_copy.duration_seconds` is deliberately left at the printed length — it's
+the booked length Underwriting reasons about. Credit cards on the rundown
+screen are now editable for duration only (the script stays the copy's), so
+a host can replace the estimate with a timed length; clearing the override
+returns to the estimate. A hand-added live read with the duration left
+blank uses the estimate too. Placement from Underwriting
+(`log_place_underwriting_credit()`) still plans at the copy's stored length.
+The same pass joined the PDF's column line wraps in imported scripts
+(`cleanScript`), which had been stored as literal newlines.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

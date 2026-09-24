@@ -21,7 +21,8 @@ export interface ConsoleBreakLike {
   allItemsConfirmed: boolean;
 }
 
-export type LiveTimingState = "on_time" | "running_long" | "running_short" | "at_risk_required" | "at_risk_rejoin";
+export type LiveTimingState =
+  "on_time" | "running_long" | "running_short" | "at_risk_required" | "at_risk_rejoin";
 
 export interface LiveTimingResult {
   state: LiveTimingState;
@@ -40,7 +41,10 @@ export interface LiveTimingThresholds {
   shortThresholdSeconds: number;
 }
 
-const DEFAULT_THRESHOLDS: LiveTimingThresholds = { riskThresholdSeconds: 60, shortThresholdSeconds: 30 };
+const DEFAULT_THRESHOLDS: LiveTimingThresholds = {
+  riskThresholdSeconds: 60,
+  shortThresholdSeconds: 30,
+};
 
 /**
  * The break airing (or that should be airing) at `nowISO`, and the one
@@ -90,12 +94,21 @@ export function computeLiveTimingState(
   const currentRejoinMs = new Date(current.network_rejoin_at).getTime();
   const secondsRemainingInCurrent = (currentRejoinMs - nowMs) / 1000;
   const isLastBreak = sorted[sorted.length - 1]?.id === current.id;
-  const currentUnresolved = current.itemCount === 0 ? current.requirement === "required" : !current.allItemsConfirmed;
+  const currentUnresolved =
+    current.itemCount === 0 ? current.requirement === "required" : !current.allItemsConfirmed;
 
   let state: LiveTimingState = "on_time";
-  if (current.itemCount > 0 && !current.allItemsConfirmed && secondsRemainingInCurrent < -riskThresholdSeconds) {
+  if (
+    current.itemCount > 0 &&
+    !current.allItemsConfirmed &&
+    secondsRemainingInCurrent < -riskThresholdSeconds
+  ) {
     state = "running_long";
-  } else if (current.itemCount > 0 && current.allItemsConfirmed && secondsRemainingInCurrent > shortThresholdSeconds) {
+  } else if (
+    current.itemCount > 0 &&
+    current.allItemsConfirmed &&
+    secondsRemainingInCurrent > shortThresholdSeconds
+  ) {
     state = "running_short";
   }
 
@@ -111,7 +124,13 @@ export function computeLiveTimingState(
     state = "at_risk_rejoin";
   }
 
-  return { state, currentBreak: current, nextBreak: next, secondsRemainingInCurrent, secondsToRejoin };
+  return {
+    state,
+    currentBreak: current,
+    nextBreak: next,
+    secondsRemainingInCurrent,
+    secondsToRejoin,
+  };
 }
 
 /**

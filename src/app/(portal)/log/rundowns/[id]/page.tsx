@@ -42,6 +42,7 @@ import {
   type LiveTimingState,
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
+import { estimateReadSeconds } from "@/lib/log/read-time";
 import { filterEligibleContent } from "@/lib/log/rundown-eligibility";
 import {
   buildRundownBreakDrafts,
@@ -52,7 +53,11 @@ import { computeBreakStatuses, computeItemTimings, computeRundownSummary } from 
 import { listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
-import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
+import {
+  formatStationClockTime,
+  formatStationTimeHM,
+  formatStationTimestamp,
+} from "@/lib/log/timezone";
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
@@ -78,7 +83,11 @@ import {
 import type { NprLookaheadItem } from "./live-read-form";
 import type { InsertConfig } from "./insertion-point";
 import { RundownLiveLayout } from "./rundown-live-layout";
-import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
+import {
+  RundownBreaksBoard,
+  type BreakBoardBreak,
+  type BreakBoardItem,
+} from "./rundown-breaks-board";
 import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
 
 /** Fallback refresh cadence for this screen, live or not — see log-poller.tsx. */
@@ -257,7 +266,8 @@ export default async function RundownDetailPage({
     breakId: string,
   ): { rejoinAt: string; runsThroughLabel: string | null; finalBreakId: string | null } => {
     const index = rundown.breaks.findIndex((brk) => brk.id === breakId);
-    if (index === -1) return { rejoinAt: rundown.shift_end_at, runsThroughLabel: null, finalBreakId: null };
+    if (index === -1)
+      return { rejoinAt: rundown.shift_end_at, runsThroughLabel: null, finalBreakId: null };
     let last = index;
     while (last + 1 < rundown.breaks.length) {
       const status = breakStatusesById.get(rundown.breaks[last + 1]!.id)?.status;
@@ -318,7 +328,9 @@ export default async function RundownDetailPage({
   // need this distinction; nothing downstream reacts to its outcome the
   // way the credit/exception pipeline does.
   const airedItemIds = new Set(
-    events.filter((event) => event.outcome === "aired_as_scheduled").map((event) => event.rundown_item_id),
+    events
+      .filter((event) => event.outcome === "aired_as_scheduled")
+      .map((event) => event.rundown_item_id),
   );
 
   const consoleBreaks: ConsoleBreakLike[] = rundown.breaks.map((brk) => ({
@@ -509,7 +521,10 @@ export default async function RundownDetailPage({
         // The same total (components + expected_duration_seconds) buildRundownItem
         // itself computes for planned_duration_seconds — shown here so a host can
         // tell candidates apart by length before picking, not just by name.
-        durationSeconds: computeTotalDurationSeconds(candidate.components, candidate.expected_duration_seconds),
+        durationSeconds: computeTotalDurationSeconds(
+          candidate.components,
+          candidate.expected_duration_seconds,
+        ),
       })),
       permitsWeather: brk.permitted_content_types.includes("weather"),
       weatherDurationSeconds: WEATHER_DEFAULT_DURATION_SECONDS,
@@ -556,10 +571,11 @@ export default async function RundownDetailPage({
             Missed at {formatStationClockTime(breakScheduledAt)}.
           </p>
           <p className="mt-1 text-xs text-ink-700">
-            Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule it into another
-            open break in this broadcast — that&apos;s the default fix, and destinations are offered closest to the
-            original time first. Underwriting &amp; Traffic only needs to schedule a makegood if it&apos;s still
-            unresolved when this broadcast wraps up.
+            Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule
+            it into another open break in this broadcast — that&apos;s the default fix, and
+            destinations are offered closest to the original time first. Underwriting &amp; Traffic
+            only needs to schedule a makegood if it&apos;s still unresolved when this broadcast
+            wraps up.
           </p>
         </div>
       );
@@ -609,9 +625,9 @@ export default async function RundownDetailPage({
           </details>
         </div>
         <p className="mt-2 text-xs text-ink-700">
-          If you flag it missed, you can move it to another open break in this same broadcast right from this
-          card — Underwriting &amp; Traffic only gets involved if it&apos;s still unresolved once this broadcast
-          wraps up.
+          If you flag it missed, you can move it to another open break in this same broadcast right
+          from this card — Underwriting &amp; Traffic only gets involved if it&apos;s still
+          unresolved once this broadcast wraps up.
         </p>
       </div>
     );
@@ -626,7 +642,9 @@ export default async function RundownDetailPage({
   // float's scheduled_at snapshot is only its nominal placement, and the
   // real position within its earliest/latest window is decided by where the
   // network's stories break around it.
-  const opportunityById = new Map(currentOpportunities.map((opportunity) => [opportunity.id, opportunity]));
+  const opportunityById = new Map(
+    currentOpportunities.map((opportunity) => [opportunity.id, opportunity]),
+  );
 
   // One computation of a floating break's window and today's estimated
   // landing, shared by the break card's hint and the rejoin widget's
@@ -682,7 +700,7 @@ export default async function RundownDetailPage({
     }
     return (
       <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
-        Floating break (window {windowLabel}) — {" "}
+        Floating break (window {windowLabel}) —{" "}
         {landing.basis === "story_boundary" ? (
           <>
             estimated today at{" "}
@@ -693,11 +711,14 @@ export default async function RundownDetailPage({
           </>
         ) : spanningTitle ? (
           <>
-            &ldquo;{spanningTitle}&rdquo; is estimated to run through this whole window, so the break
-            interrupts it — shown at its nominal ~{atOffset(landing.offsetSeconds)}.
+            &ldquo;{spanningTitle}&rdquo; is estimated to run through this whole window, so the
+            break interrupts it — shown at its nominal ~{atOffset(landing.offsetSeconds)}.
           </>
         ) : (
-          <>no NPR story boundary maps into it today — shown at its nominal ~{atOffset(landing.offsetSeconds)}.</>
+          <>
+            no NPR story boundary maps into it today — shown at its nominal ~
+            {atOffset(landing.offsetSeconds)}.
+          </>
         )}
       </div>
     );
@@ -709,7 +730,9 @@ export default async function RundownDetailPage({
   // estimate math is identical and only the surrounding sentence differs.
   // Null when the story math gives no estimate for this float (no NPR
   // times this shift, or no boundary/spanning story found).
-  const floatEstimateClause = (details: NonNullable<ReturnType<typeof floatDetailsForBreak>>): string | null => {
+  const floatEstimateClause = (
+    details: NonNullable<ReturnType<typeof floatDetailsForBreak>>,
+  ): string | null => {
     const { atOffset, landing, boundaryTitle, spanningTitle } = details;
     if (landing?.basis === "story_boundary") {
       return `estimated at ~${atOffset(landing.offsetSeconds)}${boundaryTitle ? ` after "${boundaryTitle}"` : ""}`;
@@ -751,7 +774,9 @@ export default async function RundownDetailPage({
       // A DAD-imported program promo carries its "Join us for X..." tag on
       // its live_outro component's own script, never on the item's
       // top-level script field — see componentScriptText's own comment.
-      const contentComponentScript = item.contentItem ? componentScriptText(item.contentItem.components) : null;
+      const contentComponentScript = item.contentItem
+        ? componentScriptText(item.contentItem.components)
+        : null;
       const effectiveScript =
         item.override_script ??
         item.contentItem?.script ??
@@ -760,7 +785,10 @@ export default async function RundownDetailPage({
         item.live_read_script ??
         (item.item_kind === "weather" ? (weather.reading?.live_read_text ?? null) : null);
       const masterDuration = item.contentItem
-        ? computeTotalDurationSeconds(item.contentItem.components, item.contentItem.expected_duration_seconds)
+        ? computeTotalDurationSeconds(
+            item.contentItem.components,
+            item.contentItem.expected_duration_seconds,
+          )
         : null;
       const isOverridden =
         item.override_duration_seconds !== null ||
@@ -785,7 +813,9 @@ export default async function RundownDetailPage({
         item.source_npr_item_id !== null && !currentNprItemIds.has(item.source_npr_item_id);
       const confirmed = (eventCountByItem.get(item.id) ?? 0) > 0;
       const kind: RelocatableItemKind | "underwriting_credit" =
-        item.item_kind === "content" || item.item_kind === "weather" || item.item_kind === "live_read"
+        item.item_kind === "content" ||
+        item.item_kind === "weather" ||
+        item.item_kind === "live_read"
           ? item.item_kind
           : "underwriting_credit";
 
@@ -801,7 +831,18 @@ export default async function RundownDetailPage({
           ? (weather.reading?.live_read_text ?? null)
           : (item.contentItem?.script ?? contentComponentScript);
       const defaultDurationSeconds =
-        item.item_kind === "weather" ? WEATHER_DEFAULT_DURATION_SECONDS : masterDuration;
+        item.item_kind === "weather"
+          ? WEATHER_DEFAULT_DURATION_SECONDS
+          : item.item_kind === "underwriting_credit"
+            ? item.planned_duration_seconds
+            : masterDuration;
+      // A credit's planned length is its read-time estimate unless a host
+      // has timed it (see lib/log/read-time.ts) — say so, so an estimate
+      // isn't mistaken for a measured length.
+      const creditDurationEstimated =
+        copy != null &&
+        item.override_duration_seconds === null &&
+        item.planned_duration_seconds === estimateReadSeconds(copy.script);
 
       // One card layout, current break or not — the current break is
       // highlighted at the break level ("Live now", the highlight ring,
@@ -834,17 +875,26 @@ export default async function RundownDetailPage({
             )}
             {copy && (
               <div className="mt-0.5 text-xs text-ink-400">
-                {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+                {copy.execution_kind === "recorded"
+                  ? `DAD cart ${copy.cart_identifier ?? "—"}`
+                  : "Live read"}
+                {creditDurationEstimated &&
+                  ` · ~${item.planned_duration_seconds}s estimated from script`}
               </div>
             )}
             {item.item_kind === "weather" && weather.reading ? (
               <div className="mt-1.5">
-                <ForecastSummary periods={getForecastPeriods(weather.reading)} fallbackText={effectiveScript ?? ""} />
+                <ForecastSummary
+                  periods={getForecastPeriods(weather.reading)}
+                  fallbackText={effectiveScript ?? ""}
+                />
               </div>
             ) : (
               <>
                 {effectiveScript && (
-                  <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">{effectiveScript}</p>
+                  <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink-700">
+                    {effectiveScript}
+                  </p>
                 )}
                 {!effectiveScript && item.contentItem?.summary && (
                   <p className="mt-1.5 text-sm text-ink-700">{item.contentItem.summary}</p>
@@ -876,7 +926,11 @@ export default async function RundownDetailPage({
           itemId: item.id,
           title,
           durationSeconds: itemDuration(item),
-          editable: item.item_kind === "content" || item.item_kind === "weather",
+          editable:
+            item.item_kind === "content" ||
+            item.item_kind === "weather" ||
+            item.item_kind === "underwriting_credit",
+          scriptEditable: item.item_kind !== "underwriting_credit",
           // An imported rundown's credits have no placement behind them, so
           // the host can remove one (removeRundownItem routes credits
           // through log_delete_unplaced_credit_item(), which refuses any
@@ -891,7 +945,9 @@ export default async function RundownDetailPage({
           // A one-off live read can be kept beyond today; an NPR look-ahead
           // is dated by nature and never offered (see saveLiveReadToLibrary).
           saveToLibraryAction:
-            item.item_kind === "live_read" && item.source_npr_item_id === null ? saveLiveReadToLibrary : null,
+            item.item_kind === "live_read" && item.source_npr_item_id === null
+              ? saveLiveReadToLibrary
+              : null,
           // Only the two fields the edit form writes can be applied back.
           applyToLibraryAction:
             item.item_kind === "content" &&
@@ -921,10 +977,12 @@ export default async function RundownDetailPage({
               {formatStationClockTime(brk.scheduled_at)}
             </span>
             <span className="text-base font-semibold text-ink-900">{brk.label}</span>
-            <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
+            <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>
+              {brk.requirement}
+            </Badge>
             <span className="ml-auto text-sm text-ink-500">
-              Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
-              available
+              Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} ·{" "}
+              {brk.available_duration_seconds}s available
             </span>
           </div>
           {floatHint}
@@ -940,18 +998,18 @@ export default async function RundownDetailPage({
           )}
           {status === "covered_by_previous" && (
             <span className="text-xs text-ink-400">
-              Nothing placed here, but the content in {breakLabelById.get(result!.coveredByBreakId ?? "") ??
-                "the previous break"}{" "}
-              runs long enough to cover this window too. Still open if you&apos;d rather place something
-              here instead.
+              Nothing placed here, but the content in{" "}
+              {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"} runs long
+              enough to cover this window too. Still open if you&apos;d rather place something here
+              instead.
             </span>
           )}
           {status === "preempted_by_previous" && (
             <span className="text-xs text-ink-700">
               Network content here got bumped by an accident of timing — the content in{" "}
-              {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"} ran longer than
-              its own window and reached into this one. Nobody deliberately chose to skip this. Still open
-              if you&apos;d rather place something here instead.
+              {breakLabelById.get(result!.coveredByBreakId ?? "") ?? "the previous break"} ran
+              longer than its own window and reached into this one. Nobody deliberately chose to
+              skip this. Still open if you&apos;d rather place something here instead.
             </span>
           )}
         </div>
@@ -1077,10 +1135,14 @@ export default async function RundownDetailPage({
   // glance during a broadcast than "what time," per direct feedback.
   const rejoinDisplay = (() => {
     const currentBreak = timing?.currentBreak ?? null;
-    const currentIndex = currentBreak ? rundown.breaks.findIndex((brk) => brk.id === currentBreak.id) : -1;
+    const currentIndex = currentBreak
+      ? rundown.breaks.findIndex((brk) => brk.id === currentBreak.id)
+      : -1;
 
     if (live && currentIndex !== -1 && hasLocalContent(rundown.breaks[currentIndex]!.id)) {
-      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(rundown.breaks[currentIndex]!.id);
+      const { rejoinAt, runsThroughLabel, finalBreakId } = effectiveRejoin(
+        rundown.breaks[currentIndex]!.id,
+      );
       // The float note applies to whichever break the rejoin time actually
       // names — the end of a covered chain, when there is one, not
       // necessarily the current break itself.
@@ -1091,7 +1153,12 @@ export default async function RundownDetailPage({
         : runsThroughLabel
           ? `The current break's content is planned to run through ${runsThroughLabel}'s window — back to the network feed after that.`
           : "When the current break ends — back to the network feed.";
-      return { heading: "Network rejoin", targetISO: rejoinAt, caption, dangerWhenPast: floatDetails === null };
+      return {
+        heading: "Network rejoin",
+        targetISO: rejoinAt,
+        caption,
+        dangerWhenPast: floatDetails === null,
+      };
     }
 
     if (live) {
@@ -1134,7 +1201,10 @@ export default async function RundownDetailPage({
           {rejoinDisplay.heading}
         </div>
         <p className="font-mono text-2xl font-extrabold tabular-nums text-ink-900">
-          <Countdown targetISO={rejoinDisplay.targetISO} dangerWhenPast={rejoinDisplay.dangerWhenPast} />
+          <Countdown
+            targetISO={rejoinDisplay.targetISO}
+            dangerWhenPast={rejoinDisplay.dangerWhenPast}
+          />
         </p>
         <p className="mt-0.5 font-mono text-xs text-ink-400 tabular-nums">
           {formatStationClockTime(rejoinDisplay.targetISO)}
@@ -1177,7 +1247,9 @@ export default async function RundownDetailPage({
                 Full forecast
               </summary>
               <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
-                {weather.reading.precipitation_notes && <p>{weather.reading.precipitation_notes}</p>}
+                {weather.reading.precipitation_notes && (
+                  <p>{weather.reading.precipitation_notes}</p>
+                )}
                 {weather.reading.hazards && (
                   <p className="font-semibold text-danger">{weather.reading.hazards}</p>
                 )}
@@ -1274,9 +1346,9 @@ export default async function RundownDetailPage({
             </div>
             {unresolvedEntries.length > 0 && (
               <p className="mb-3 text-xs text-ink-500">
-                {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still need
-                an underwriting credit confirmed, or content for a required break. Ordinary content is
-                never counted here — see below.
+                {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
+                need an underwriting credit confirmed, or content for a required break. Ordinary
+                content is never counted here — see below.
               </p>
             )}
 
@@ -1288,9 +1360,10 @@ export default async function RundownDetailPage({
                 {unconfirmedUnderwritingCount > 0 && (
                   <>
                     <p className="mb-2 text-xs text-ink-700">
-                      {unconfirmedUnderwritingCount} credit{unconfirmedUnderwritingCount === 1 ? "" : "s"}{" "}
-                      haven&apos;t been confirmed one way or the other. Attesting marks all of them
-                      aired as scheduled — never anything already recorded as aired or missed.
+                      {unconfirmedUnderwritingCount} credit
+                      {unconfirmedUnderwritingCount === 1 ? "" : "s"} haven&apos;t been confirmed
+                      one way or the other. Attesting marks all of them aired as scheduled — never
+                      anything already recorded as aired or missed.
                     </p>
                     <form action={attestUnderwritingCredits}>
                       <input type="hidden" name="rundown_id" value={rundown.id} />
@@ -1301,7 +1374,10 @@ export default async function RundownDetailPage({
                   </>
                 )}
                 {hasOpenExceptions && (
-                  <Alert variant="danger" className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}>
+                  <Alert
+                    variant="danger"
+                    className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}
+                  >
                     This rundown has an unresolved underwriting exception. Submission is blocked
                     until it&apos;s resolved in Underwriting &amp; Traffic — a makegood, an accepted
                     alternate, or a waiver.
@@ -1317,8 +1393,8 @@ export default async function RundownDetailPage({
               <div className="mb-3 rounded border border-line bg-panel-50 p-3">
                 <p className="mb-2 text-xs text-ink-700">
                   {unconfirmedOrdinaryCount} other item{unconfirmedOrdinaryCount === 1 ? "" : "s"}{" "}
-                  haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t need
-                  this. Marking them helps keep a complete record.
+                  haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t
+                  need this. Marking them helps keep a complete record.
                 </p>
                 <form action={attestOrdinaryContentAired}>
                   <input type="hidden" name="rundown_id" value={rundown.id} />

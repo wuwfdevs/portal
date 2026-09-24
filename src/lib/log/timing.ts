@@ -38,7 +38,10 @@ export interface BreakFit {
   fits: boolean;
 }
 
-export function computeBreakFit(availableDurationSeconds: number, occupiedDurationSeconds: number): BreakFit {
+export function computeBreakFit(
+  availableDurationSeconds: number,
+  occupiedDurationSeconds: number,
+): BreakFit {
   const occupied = occupiedDurationSeconds ?? 0;
   const remainingSeconds = availableDurationSeconds - occupied;
   return {
@@ -193,7 +196,10 @@ export interface ItemTiming {
  * whether the break is actually running on time — see console-timing.ts for
  * the *live* on-time/running-long state that reacts to the real clock.
  */
-export function computeItemTimings(breakScheduledAt: string, items: ItemTimingLike[]): ItemTiming[] {
+export function computeItemTimings(
+  breakScheduledAt: string,
+  items: ItemTimingLike[],
+): ItemTiming[] {
   let cursorMs = new Date(breakScheduledAt).getTime();
   return items.map((item) => {
     const startAt = new Date(cursorMs).toISOString();

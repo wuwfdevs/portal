@@ -426,7 +426,9 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
           brk.id,
           {
             itemCount: items.length,
-            contentItemIds: items.flatMap((item) => (item.content_item_id ? [item.content_item_id] : [])),
+            contentItemIds: items.flatMap((item) =>
+              item.content_item_id ? [item.content_item_id] : [],
+            ),
           },
         ];
       }),

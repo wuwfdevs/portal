@@ -53,6 +53,8 @@ export interface RundownItemCardBaseProps {
   /** Null when the read view already shows its own duration. */
   durationSeconds: number | null;
   editable: boolean;
+  /** False for an underwriting credit: its script is the copy's, so the edit form offers only the duration. */
+  scriptEditable: boolean;
   removable: boolean;
   overrideScript: string | null;
   overrideDurationSeconds: number | null;
@@ -81,6 +83,7 @@ export function RundownItemCard({
   title,
   durationSeconds,
   editable,
+  scriptEditable,
   removable,
   overrideScript,
   overrideDurationSeconds,
@@ -108,7 +111,11 @@ export function RundownItemCard({
   const formId = `override-form-${itemId}`;
   const canMove = moveDestinations !== null && moveDestinations.length > 0 && onMoveTo !== null;
   const hasMenu =
-    editable || removable || canMove || saveToLibraryAction !== null || applyToLibraryAction !== null;
+    editable ||
+    removable ||
+    canMove ||
+    saveToLibraryAction !== null ||
+    applyToLibraryAction !== null;
 
   function closeMenu() {
     if (detailsRef.current) detailsRef.current.open = false;
@@ -131,12 +138,14 @@ export function RundownItemCard({
                 <input type="hidden" name="rundown_id" value={rundownId} />
                 <input type="hidden" name="item_id" value={itemId} />
                 <span className="text-sm font-semibold text-ink-900">{title}</span>
-                <Textarea
-                  name="override_script"
-                  rows={3}
-                  placeholder="Script for this airing only"
-                  defaultValue={overrideScript ?? defaultScript ?? ""}
-                />
+                {scriptEditable && (
+                  <Textarea
+                    name="override_script"
+                    rows={3}
+                    placeholder="Script for this airing only"
+                    defaultValue={overrideScript ?? defaultScript ?? ""}
+                  />
+                )}
                 <Input
                   name="override_duration_seconds"
                   type="number"
@@ -253,7 +262,11 @@ export function RundownItemCard({
                       </>
                     ) : menuView === "save" ? (
                       saveToLibraryAction && (
-                        <form action={saveToLibraryAction} onSubmit={closeMenu} className="flex flex-col gap-1">
+                        <form
+                          action={saveToLibraryAction}
+                          onSubmit={closeMenu}
+                          className="flex flex-col gap-1"
+                        >
                           <input type="hidden" name="rundown_id" value={rundownId} />
                           <input type="hidden" name="item_id" value={itemId} />
                           <button
@@ -263,7 +276,10 @@ export function RundownItemCard({
                           >
                             <BackIcon className="h-3 w-3" /> Back
                           </button>
-                          <label htmlFor={`save-type-${itemId}`} className="px-2 text-xs text-ink-500">
+                          <label
+                            htmlFor={`save-type-${itemId}`}
+                            className="px-2 text-xs text-ink-500"
+                          >
                             File it in the library as
                           </label>
                           <Select
@@ -279,7 +295,11 @@ export function RundownItemCard({
                               </option>
                             ))}
                           </Select>
-                          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            className="px-2.5 py-1.5 text-xs"
+                          >
                             Save to library
                           </Button>
                         </form>

@@ -66,8 +66,13 @@ export default async function WeatherPage({
             </div>
 
             <div>
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Live read</div>
-              <ForecastSummary periods={getForecastPeriods(reading)} fallbackText={reading.live_read_text} />
+              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
+                Live read
+              </div>
+              <ForecastSummary
+                periods={getForecastPeriods(reading)}
+                fallbackText={reading.live_read_text}
+              />
             </div>
 
             <div>

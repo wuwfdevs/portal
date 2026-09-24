@@ -103,11 +103,15 @@ export function RundownBreaksBoard({
   // refresh that changes nothing doesn't clobber an in-flight optimistic
   // move; an actual change (delete, fill, confirmed relocation) always wins.
   const serverOrder = useMemo(
-    () => Object.fromEntries(initialBreaks.map((brk) => [brk.id, brk.items.map((item) => item.id)])),
+    () =>
+      Object.fromEntries(initialBreaks.map((brk) => [brk.id, brk.items.map((item) => item.id)])),
     [initialBreaks],
   );
   const serverSignature = useMemo(
-    () => initialBreaks.map((brk) => `${brk.id}:${brk.items.map((item) => item.id).join(",")}`).join("|"),
+    () =>
+      initialBreaks
+        .map((brk) => `${brk.id}:${brk.items.map((item) => item.id).join(",")}`)
+        .join("|"),
     [initialBreaks],
   );
   const [order, setOrder] = useState<Record<string, string[]>>(serverOrder);
@@ -153,7 +157,11 @@ export function RundownBreaksBoard({
       // Nearest to this credit's current break first — "move it to the
       // closest break to when it was supposed to air," not just the next
       // one chronologically.
-      return sortByProximityToOriginal(candidates, sourceBreak.scheduledAt, (brk) => brk.scheduledAt);
+      return sortByProximityToOriginal(
+        candidates,
+        sourceBreak.scheduledAt,
+        (brk) => brk.scheduledAt,
+      );
     }
 
     const kind: RelocatableItemKind = item.kind;
@@ -191,7 +199,8 @@ export function RundownBreaksBoard({
     const next: Record<string, string[]> = { ...order };
     next[sourceBreakId] = next[sourceBreakId]!.filter((id) => id !== itemId);
 
-    const target = sourceBreakId === destinationBreakId ? next[sourceBreakId]! : [...next[destinationBreakId]!];
+    const target =
+      sourceBreakId === destinationBreakId ? next[sourceBreakId]! : [...next[destinationBreakId]!];
     const insertAt = beforeItemId ? target.indexOf(beforeItemId) : target.length;
     target.splice(insertAt === -1 ? target.length : insertAt, 0, itemId);
     next[destinationBreakId] = target;
@@ -222,7 +231,11 @@ export function RundownBreaksBoard({
     // "same_break") — so dropping one back into its own break, the most
     // common gesture when a break holds several items, must no-op instead of
     // firing a doomed server call that then snaps the card back.
-    if (destinationBreakId === sourceBreakId && itemsById.get(itemId)?.kind === "underwriting_credit") return;
+    if (
+      destinationBreakId === sourceBreakId &&
+      itemsById.get(itemId)?.kind === "underwriting_credit"
+    )
+      return;
 
     // A same-break reorder never needs the eligibility check below — the
     // item is already there, dropping doesn't add capacity pressure. A
@@ -292,11 +305,15 @@ export function RundownBreaksBoard({
                         if (!item) return null;
                         return (
                           <Fragment key={itemId}>
-                            {insertConfig && <InsertionPoint config={insertConfig} beforeItemId={itemId} />}
+                            {insertConfig && (
+                              <InsertionPoint config={insertConfig} beforeItemId={itemId} />
+                            )}
                             <SortableItem
                               item={item}
                               destinations={item.draggable ? eligibleDestinations(itemId) : []}
-                              onMoveTo={(destinationBreakId) => moveItem(itemId, destinationBreakId, null)}
+                              onMoveTo={(destinationBreakId) =>
+                                moveItem(itemId, destinationBreakId, null)
+                              }
                             />
                             {insertConfig && index === itemIds.length - 1 && (
                               <InsertionPoint config={insertConfig} beforeItemId={null} />
@@ -316,13 +333,7 @@ export function RundownBreaksBoard({
   );
 }
 
-function BreakDropZone({
-  brk,
-  children,
-}: {
-  brk: BreakBoardBreak;
-  children: ReactNode;
-}) {
+function BreakDropZone({ brk, children }: { brk: BreakBoardBreak; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: brk.id });
 
   return (
@@ -381,7 +392,9 @@ function SortableItem({
       <RundownItemCard
         {...item.cardProps}
         dragHandle={dragHandle}
-        moveDestinations={item.draggable ? destinations.map((d) => ({ id: d.id, label: d.label })) : null}
+        moveDestinations={
+          item.draggable ? destinations.map((d) => ({ id: d.id, label: d.label })) : null
+        }
         onMoveTo={item.draggable ? onMoveTo : null}
       />
     </li>

@@ -23,25 +23,39 @@ describe("isContentItemEligibleForSlot", () => {
   });
 
   it("rejects a draft or retired item", () => {
-    expect(isContentItemEligibleForSlot(item({ approval_status: "draft" }), SLOT, "2026-08-07")).toBe(false);
-    expect(isContentItemEligibleForSlot(item({ approval_status: "retired" }), SLOT, "2026-08-07")).toBe(false);
+    expect(
+      isContentItemEligibleForSlot(item({ approval_status: "draft" }), SLOT, "2026-08-07"),
+    ).toBe(false);
+    expect(
+      isContentItemEligibleForSlot(item({ approval_status: "retired" }), SLOT, "2026-08-07"),
+    ).toBe(false);
   });
 
   it("rejects a content type the slot doesn't permit", () => {
-    expect(isContentItemEligibleForSlot(item({ content_type: "news" }), SLOT, "2026-08-07")).toBe(false);
+    expect(isContentItemEligibleForSlot(item({ content_type: "news" }), SLOT, "2026-08-07")).toBe(
+      false,
+    );
   });
 
   it("rejects an item not yet effective", () => {
-    expect(isContentItemEligibleForSlot(item({ effective_from: "2026-09-01" }), SLOT, "2026-08-07")).toBe(false);
+    expect(
+      isContentItemEligibleForSlot(item({ effective_from: "2026-09-01" }), SLOT, "2026-08-07"),
+    ).toBe(false);
   });
 
   it("rejects an item whose effective_to has passed", () => {
-    expect(isContentItemEligibleForSlot(item({ effective_to: "2026-08-01" }), SLOT, "2026-08-07")).toBe(false);
+    expect(
+      isContentItemEligibleForSlot(item({ effective_to: "2026-08-01" }), SLOT, "2026-08-07"),
+    ).toBe(false);
   });
 
   it("accepts an item on the boundary dates", () => {
-    expect(isContentItemEligibleForSlot(item({ effective_from: "2026-08-07" }), SLOT, "2026-08-07")).toBe(true);
-    expect(isContentItemEligibleForSlot(item({ effective_to: "2026-08-07" }), SLOT, "2026-08-07")).toBe(true);
+    expect(
+      isContentItemEligibleForSlot(item({ effective_from: "2026-08-07" }), SLOT, "2026-08-07"),
+    ).toBe(true);
+    expect(
+      isContentItemEligibleForSlot(item({ effective_to: "2026-08-07" }), SLOT, "2026-08-07"),
+    ).toBe(true);
   });
 });
 

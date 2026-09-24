@@ -31,9 +31,7 @@ export default async function ProgramsPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
-        {error && (
-          <Alert className="mb-4">{error}</Alert>
-        )}
+        {error && <Alert className="mb-4">{error}</Alert>}
         {programs.length === 0 ? (
           <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
             No programs yet.
@@ -86,7 +84,13 @@ export default async function ProgramsPage({
             <form action={createProgram} className="flex flex-col gap-4 p-5">
               <div>
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" name="name" required maxLength={120} placeholder="Morning Edition" />
+                <Input
+                  id="name"
+                  name="name"
+                  required
+                  maxLength={120}
+                  placeholder="Morning Edition"
+                />
               </div>
               <div>
                 <Label htmlFor="kind">Kind</Label>
@@ -154,7 +158,12 @@ export default async function ProgramsPage({
                   <div className="flex flex-wrap gap-3 text-xs text-ink-700">
                     {DAY_LABELS.map((label, day) => (
                       <label key={day} className="flex items-center gap-1.5">
-                        <input type="checkbox" name="days_of_week" value={day} className="h-4 w-4" />
+                        <input
+                          type="checkbox"
+                          name="days_of_week"
+                          value={day}
+                          className="h-4 w-4"
+                        />
                         {label}
                       </label>
                     ))}
@@ -186,7 +195,9 @@ export default async function ProgramsPage({
                       min={1}
                       className="w-28"
                     />
-                    <FieldHint>May span multiple hours — the clock template repeats each hour.</FieldHint>
+                    <FieldHint>
+                      May span multiple hours — the clock template repeats each hour.
+                    </FieldHint>
                   </div>
                 </div>
                 <div>

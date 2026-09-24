@@ -5,7 +5,9 @@ function item(id: string, requiresConfirmation = true) {
   return { id, requiresConfirmation };
 }
 
-function brk(overrides: Partial<UnresolvedReviewBreakLike> & { id: string }): UnresolvedReviewBreakLike {
+function brk(
+  overrides: Partial<UnresolvedReviewBreakLike> & { id: string },
+): UnresolvedReviewBreakLike {
   return { requirement: "optional", items: [], ...overrides };
 }
 
@@ -32,12 +34,18 @@ describe("listUnresolvedEntries", () => {
   });
 
   it("flags an empty required break as the break itself, not an item", () => {
-    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "required", items: [] })], new Set());
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", requirement: "required", items: [] })],
+      new Set(),
+    );
     expect(result).toEqual([{ breakId: "b1", itemId: null }]);
   });
 
   it("does not flag an empty optional break — carrying network is resolved", () => {
-    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "optional", items: [] })], new Set());
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", requirement: "optional", items: [] })],
+      new Set(),
+    );
     expect(result).toEqual([]);
   });
 

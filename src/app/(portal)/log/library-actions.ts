@@ -54,7 +54,8 @@ export async function createContentItem(formData: FormData): Promise<void> {
   const title = field(formData, "title");
   if (title === "") failWith(NEW_PATH, "Give the item a title.");
   const contentType = field(formData, "content_type") as LogContentType;
-  if (!CONTENT_TYPES.includes(contentType)) failWith(NEW_PATH, "That is not a recognized content type.");
+  if (!CONTENT_TYPES.includes(contentType))
+    failWith(NEW_PATH, "That is not a recognized content type.");
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -92,7 +93,8 @@ export async function updateContentItem(formData: FormData): Promise<void> {
   const title = field(formData, "title");
   if (title === "") failWith(path, "Give the item a title.");
   const contentType = field(formData, "content_type") as LogContentType;
-  if (!CONTENT_TYPES.includes(contentType)) failWith(path, "That is not a recognized content type.");
+  if (!CONTENT_TYPES.includes(contentType))
+    failWith(path, "That is not a recognized content type.");
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -125,7 +127,10 @@ export async function setApprovalStatus(formData: FormData): Promise<void> {
   if (!APPROVAL_STATUSES.includes(status)) failWith(path, "That is not a recognized status.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("log_content_items").update({ approval_status: status }).eq("id", id);
+  const { error } = await supabase
+    .from("log_content_items")
+    .update({ approval_status: status })
+    .eq("id", id);
   failIfError(error, path, "Could not update the status");
 
   revalidatePath(path);
@@ -133,14 +138,20 @@ export async function setApprovalStatus(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-const COMPONENT_TYPES: LogComponentType[] = ["live_intro", "recorded_audio", "live_outro", "optional_tag"];
+const COMPONENT_TYPES: LogComponentType[] = [
+  "live_intro",
+  "recorded_audio",
+  "live_outro",
+  "optional_tag",
+];
 
 export async function addComponent(formData: FormData): Promise<void> {
   await assertLogAccess();
   const contentItemId = field(formData, "content_item_id");
   const path = detailPath(contentItemId);
   const componentType = field(formData, "component_type") as LogComponentType;
-  if (!COMPONENT_TYPES.includes(componentType)) failWith(path, "That is not a recognized component type.");
+  if (!COMPONENT_TYPES.includes(componentType))
+    failWith(path, "That is not a recognized component type.");
   const sequence = Number.parseInt(field(formData, "sequence"), 10);
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
   if (!Number.isFinite(sequence) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
@@ -168,7 +179,8 @@ export async function updateComponent(formData: FormData): Promise<void> {
   const contentItemId = field(formData, "content_item_id");
   const path = detailPath(contentItemId);
   const componentType = field(formData, "component_type") as LogComponentType;
-  if (!COMPONENT_TYPES.includes(componentType)) failWith(path, "That is not a recognized component type.");
+  if (!COMPONENT_TYPES.includes(componentType))
+    failWith(path, "That is not a recognized component type.");
   const sequence = Number.parseInt(field(formData, "sequence"), 10);
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
   if (!Number.isFinite(sequence) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {

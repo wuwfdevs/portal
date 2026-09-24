@@ -60,15 +60,46 @@ const WINDOWS = buildSegmentWindows(MORNING_EDITION_SLOTS, 4);
 describe("buildSegmentWindows", () => {
   it("keeps only lettered segments, in chronological order, tiled per hour", () => {
     const windows = buildSegmentWindows(MORNING_EDITION_SLOTS, 2);
-    expect(windows.map((w) => w.segmentLabel)).toEqual(["A", "B", "C", "D", "E", "A", "B", "C", "D", "E"]);
-    expect(windows[0]).toEqual({ hourIndex: 0, startOffsetSeconds: 450, capacitySeconds: 690, segmentLabel: "A" });
-    expect(windows[5]).toEqual({ hourIndex: 1, startOffsetSeconds: 4050, capacitySeconds: 690, segmentLabel: "A" });
+    expect(windows.map((w) => w.segmentLabel)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+    ]);
+    expect(windows[0]).toEqual({
+      hourIndex: 0,
+      startOffsetSeconds: 450,
+      capacitySeconds: 690,
+      segmentLabel: "A",
+    });
+    expect(windows[5]).toEqual({
+      hourIndex: 1,
+      startOffsetSeconds: 4050,
+      capacitySeconds: 690,
+      segmentLabel: "A",
+    });
   });
 
   it("produces no windows for a clock with no lettered segments", () => {
-    expect(buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 3600, segment_label: null, timing_mode: "fixed" }], 2)).toEqual(
-      [],
-    );
+    expect(
+      buildSegmentWindows(
+        [
+          {
+            start_offset_seconds: 0,
+            duration_seconds: 3600,
+            segment_label: null,
+            timing_mode: "fixed",
+          },
+        ],
+        2,
+      ),
+    ).toEqual([]);
   });
 
   it("excludes floating slots even when they carry a segment label", () => {
@@ -76,12 +107,42 @@ describe("buildSegmentWindows", () => {
     // cutaways "B"/"C" (the segment they sit inside), and Fresh Air labels
     // its floating breaks "A/B"-style. Neither is a story window.
     const oneASlots: SegmentSlotLike[] = [
-      { start_offset_seconds: 390, duration_seconds: 720, segment_label: "A", timing_mode: "fixed" },
-      { start_offset_seconds: 1235, duration_seconds: 1075, segment_label: "B", timing_mode: "fixed" },
-      { start_offset_seconds: 1890, duration_seconds: 120, segment_label: "B", timing_mode: "float" },
-      { start_offset_seconds: 2435, duration_seconds: 1040, segment_label: "C", timing_mode: "fixed" },
-      { start_offset_seconds: 3060, duration_seconds: 120, segment_label: "C", timing_mode: "float" },
-      { start_offset_seconds: 900, duration_seconds: 30, segment_label: "A/B", timing_mode: "float" },
+      {
+        start_offset_seconds: 390,
+        duration_seconds: 720,
+        segment_label: "A",
+        timing_mode: "fixed",
+      },
+      {
+        start_offset_seconds: 1235,
+        duration_seconds: 1075,
+        segment_label: "B",
+        timing_mode: "fixed",
+      },
+      {
+        start_offset_seconds: 1890,
+        duration_seconds: 120,
+        segment_label: "B",
+        timing_mode: "float",
+      },
+      {
+        start_offset_seconds: 2435,
+        duration_seconds: 1040,
+        segment_label: "C",
+        timing_mode: "fixed",
+      },
+      {
+        start_offset_seconds: 3060,
+        duration_seconds: 120,
+        segment_label: "C",
+        timing_mode: "float",
+      },
+      {
+        start_offset_seconds: 900,
+        duration_seconds: 30,
+        segment_label: "A/B",
+        timing_mode: "float",
+      },
     ];
     const windows = buildSegmentWindows(oneASlots, 1);
     expect(windows.map((w) => [w.segmentLabel, w.capacitySeconds])).toEqual([
@@ -100,7 +161,14 @@ describe("excludeBlockLengthRollups", () => {
 
   it("keeps a block-length item that essentially is the show (the Fresh Air case)", () => {
     const freshAirWindows = buildSegmentWindows(
-      [{ start_offset_seconds: 300, duration_seconds: 2100, segment_label: "B", timing_mode: "fixed" }],
+      [
+        {
+          start_offset_seconds: 300,
+          duration_seconds: 2100,
+          segment_label: "B",
+          timing_mode: "fixed",
+        },
+      ],
       1,
     );
     const stories: StoryTimingInput[] = [
@@ -123,8 +191,23 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
     // Official: A1 #1-#3, B1 #4, C1 #5-#6, D1 #7, E1 #8-#9;
     //           A2 #10-#12, B2 #13-#14, C2 #15-#16, D2 #17.
     expect(estimates.map((e) => `${e.segmentLabel}${(e.hourIndex ?? 0) + 1}`)).toEqual([
-      "A1", "A1", "A1", "B1", "C1", "C1", "D1", "E1", "E1",
-      "A2", "A2", "A2", "B2", "B2", "C2", "C2", "D2",
+      "A1",
+      "A1",
+      "A1",
+      "B1",
+      "C1",
+      "C1",
+      "D1",
+      "E1",
+      "E1",
+      "A2",
+      "A2",
+      "A2",
+      "B2",
+      "B2",
+      "C2",
+      "C2",
+      "D2",
     ]);
   });
 
@@ -140,7 +223,17 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
   });
 
   it("returns null estimates once the windows run out, and for no windows at all", () => {
-    const tiny = buildSegmentWindows([{ start_offset_seconds: 0, duration_seconds: 300, segment_label: "A", timing_mode: "fixed" }], 1);
+    const tiny = buildSegmentWindows(
+      [
+        {
+          start_offset_seconds: 0,
+          duration_seconds: 300,
+          segment_label: "A",
+          timing_mode: "fixed",
+        },
+      ],
+      1,
+    );
     const overfull = estimateStoryOffsets(STORIES.slice(1, 4), tiny);
     expect(overfull[0]!.offsetSeconds).toBe(0);
     expect(overfull[2]).toMatchObject({ offsetSeconds: null, segmentLabel: null, hourIndex: null });
@@ -152,11 +245,36 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
     // one ~35-minute interview spans A through D, and the review airs in E.
     const freshAirWindows = buildSegmentWindows(
       [
-        { start_offset_seconds: 390, duration_seconds: 510, segment_label: "A", timing_mode: "fixed" },
-        { start_offset_seconds: 930, duration_seconds: 768, segment_label: "B", timing_mode: "fixed" },
-        { start_offset_seconds: 1800, duration_seconds: 420, segment_label: "C", timing_mode: "fixed" },
-        { start_offset_seconds: 2285, duration_seconds: 475, segment_label: "D", timing_mode: "fixed" },
-        { start_offset_seconds: 2820, duration_seconds: 655, segment_label: "E", timing_mode: "fixed" },
+        {
+          start_offset_seconds: 390,
+          duration_seconds: 510,
+          segment_label: "A",
+          timing_mode: "fixed",
+        },
+        {
+          start_offset_seconds: 930,
+          duration_seconds: 768,
+          segment_label: "B",
+          timing_mode: "fixed",
+        },
+        {
+          start_offset_seconds: 1800,
+          duration_seconds: 420,
+          segment_label: "C",
+          timing_mode: "fixed",
+        },
+        {
+          start_offset_seconds: 2285,
+          duration_seconds: 475,
+          segment_label: "D",
+          timing_mode: "fixed",
+        },
+        {
+          start_offset_seconds: 2820,
+          duration_seconds: 655,
+          segment_label: "E",
+          timing_mode: "fixed",
+        },
       ],
       1,
     );
@@ -178,8 +296,18 @@ describe("estimateStoryOffsets — calibrated against the official 2026-08-21 ru
     // noise) — the next story still opens the next segment at the post.
     const windows = buildSegmentWindows(
       [
-        { start_offset_seconds: 0, duration_seconds: 600, segment_label: "A", timing_mode: "fixed" },
-        { start_offset_seconds: 900, duration_seconds: 600, segment_label: "B", timing_mode: "fixed" },
+        {
+          start_offset_seconds: 0,
+          duration_seconds: 600,
+          segment_label: "A",
+          timing_mode: "fixed",
+        },
+        {
+          start_offset_seconds: 900,
+          duration_seconds: 600,
+          segment_label: "B",
+          timing_mode: "fixed",
+        },
       ],
       1,
     );
@@ -275,7 +403,11 @@ describe("estimateFloatLanding", () => {
   });
 
   it("lands the break at the first story boundary inside the window", () => {
-    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 900 };
+    const window = {
+      earliestOffsetSeconds: 900,
+      latestOffsetSeconds: 1320,
+      nominalOffsetSeconds: 900,
+    };
     const result = estimateFloatLanding(window, [
       airing("before", 400, 300), // ends 700 — before the window
       airing("boundary", 700, 400), // ends 1100 — inside
@@ -292,7 +424,11 @@ describe("estimateFloatLanding", () => {
   it("falls back to the nominal placement and names the spanning story when one runs through the whole window", () => {
     // The Fresh Air interview case: one story covers the float's entire
     // earliest-to-latest range, so the break interrupts it.
-    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 900 };
+    const window = {
+      earliestOffsetSeconds: 900,
+      latestOffsetSeconds: 1320,
+      nominalOffsetSeconds: 900,
+    };
     const result = estimateFloatLanding(window, [airing("interview", 390, 2100)]);
     expect(result).toEqual({
       offsetSeconds: 900,
@@ -303,7 +439,11 @@ describe("estimateFloatLanding", () => {
   });
 
   it("falls back to the nominal placement with no spanning story when there's simply no data", () => {
-    const window = { earliestOffsetSeconds: 900, latestOffsetSeconds: 1320, nominalOffsetSeconds: 950 };
+    const window = {
+      earliestOffsetSeconds: 900,
+      latestOffsetSeconds: 1320,
+      nominalOffsetSeconds: 950,
+    };
     expect(estimateFloatLanding(window, [])).toEqual({
       offsetSeconds: 950,
       basis: "nominal",
