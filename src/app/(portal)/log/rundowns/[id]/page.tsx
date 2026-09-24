@@ -36,11 +36,9 @@ import {
   selectAiringsInWindow,
 } from "@/lib/log/npr-story-times";
 import {
-  computeLiveTimingState,
+  findCurrentBreak,
   liveRefreshInstants,
   selectRejoinWidgetTarget,
-  type ConsoleBreakLike,
-  type LiveTimingState,
 } from "@/lib/log/console-timing";
 import type { RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import { estimateReadSeconds } from "@/lib/log/read-time";
@@ -106,22 +104,6 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
   generated: "accent",
   in_progress: "warning",
   submitted: "success",
-};
-
-const STATE_LABEL: Record<LiveTimingState, string> = {
-  on_time: "On time",
-  running_long: "Running long",
-  running_short: "Running short",
-  at_risk_required: "At risk — required break unfilled",
-  at_risk_rejoin: "At risk — network rejoin approaching",
-};
-
-const STATE_VARIANT: Record<LiveTimingState, BadgeVariant> = {
-  on_time: "success",
-  running_long: "danger",
-  running_short: "warning",
-  at_risk_required: "danger",
-  at_risk_rejoin: "danger",
 };
 
 const MISS_REASON_LABEL: Record<LogMissReason, string> = {
@@ -296,17 +278,7 @@ export default async function RundownDetailPage({
     events.filter((event) => event.outcome === "aired_as_scheduled").map((event) => event.rundown_item_id),
   );
 
-  const consoleBreaks: ConsoleBreakLike[] = rundown.breaks.map((brk) => ({
-    id: brk.id,
-    scheduled_at: brk.scheduled_at,
-    network_rejoin_at: brk.network_rejoin_at,
-    requirement: brk.requirement,
-    itemCount: brk.items.length,
-    allItemsConfirmed:
-      brk.items.length > 0 && brk.items.every((item) => (eventCountByItem.get(item.id) ?? 0) > 0),
-  }));
-  const timing = live ? computeLiveTimingState(now, consoleBreaks, rundown.shift_end_at) : null;
-  const currentBreakId = timing?.currentBreak?.id ?? null;
+  const currentBreakId = live ? (findCurrentBreak(now, rundown.breaks).currentBreak?.id ?? null) : null;
 
   // Both NPR and weather are fetched regardless of live status — a host
   // planning a break ahead of air wants to see (and pick a look-ahead from)
@@ -1259,7 +1231,7 @@ export default async function RundownDetailPage({
             </div>
             <p className="mb-3 text-xs text-ink-500">
               This rundown hasn&apos;t started yet. Starting it marks it in progress and turns on
-              live timing, aired/missed/move, and today&apos;s weather above. NPR is already shown
+              the live countdown, aired/missed/move, and today&apos;s weather above. NPR is already shown
               for planning look-aheads.
             </p>
             <form action={startBroadcast}>
@@ -1365,16 +1337,14 @@ export default async function RundownDetailPage({
           gets a chance to refresh until the page happens to reload. The
           fallback cadence is minutes, not seconds (see log-poller.tsx for
           why); once live, the poller additionally wakes at the exact
-          instants the timing state above can change, so the current-break
-          highlight moves at the boundary rather than on a tick. */}
+          instants the current break or the rejoin countdown's target can
+          change, so both move at the boundary rather than on a tick. */}
       <LogPoller
         intervalMs={RUNDOWN_POLL_INTERVAL_MS}
-        refreshAtISO={live ? liveRefreshInstants(consoleBreaks, rundown.shift_end_at) : undefined}
+        refreshAtISO={live ? liveRefreshInstants(rundown.breaks, rundown.shift_end_at) : undefined}
       />
       <RundownLiveLayout
         programName={rundown.programName}
-        stateLabel={timing ? STATE_LABEL[timing.state] : null}
-        stateVariant={timing ? STATE_VARIANT[timing.state] : null}
         hasCurrentBreak={currentBreakId !== null}
         mainContent={mainContent}
         sidebarContent={sidebarContent}

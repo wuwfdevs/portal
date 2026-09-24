@@ -923,11 +923,15 @@ F and G. `log_broadcast_events` (`20260807160000_log_broadcast_events.sql`,
 append-only RLS — select+insert only, no update/delete policy, matching
 `log_clock_versions`/`log_clock_slots`' immutability precedent) is the
 as-aired record. `lib/log/console-timing.ts` is the live, continuously
-recomputed timing state (on time / running long / running short / at risk
-of missing a required item / at risk of missing rejoin) — pure and tested,
-following the same "not stored state" rule as build-time `timing.ts`, and
-deliberately lighter-weight than a system with real playback telemetry
-would need, since every outcome in this milestone is host-confirmed.
+recomputed wall-clock position (current break, the sidebar's rejoin/next-
+break countdown target, the poller's refresh instants) — pure and tested,
+following the same "not stored state" rule as build-time `timing.ts`. (It
+once also drove an on time / running long / at risk header badge off
+aired/missed confirmations; removed 2026-09-24, since hosts often confirm
+only at the end of a broadcast and the badge read "running long" after
+every filled break. A break's countdown also now moves on to the next break
+at its own network rejoin, not when the next break starts —
+`selectRejoinWidgetTarget`.)
 `lib/log/mid-broadcast.ts` is the pure, tested move-destination eligibility
 (empty, future, permitted content type — daypart/spacing/inventory
 eligibility the design doc also names have no modeled concepts yet in this
