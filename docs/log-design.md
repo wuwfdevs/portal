@@ -288,9 +288,9 @@ takes free-text input rather than a pick from a list — that's a genuinely
 different kind of interaction, not an arbitrary inconsistency.
 
 **Once the broadcast is under way** (`status = in_progress`, started with a
-"Start broadcast" button), the same list gains: a live timing badge (on time
-/ running long / running short / at risk of missing a required item / at
-risk of missing rejoin, §12.4, computed continuously, not on request); the
+"Start broadcast" button), the same list gains: a live sidebar countdown (to the
+airing break's network rejoin, or — once the network is back — to the next
+break with local content); the
 break currently airing highlighted and anchored ("Jump to now"), its items
 shown at adjustable large text size for readability (§13); and, on every
 *unconfirmed* item in *any* break — not only the current one, since the
@@ -732,9 +732,11 @@ persisted as a computed column. They're derived in `lib/log/timing.ts`
 `lib/remote-interview/call-status.ts` derives participant status from events
 rather than storing it — pure functions, no Supabase import, colocated
 tests, safe to recompute on every render. `lib/log/console-timing.ts`
-(`computeLiveTimingState`, module name kept from when it had a dedicated
-route — see below) is the live-timing counterpart, operating on
-`ConsoleBreakLike` rather than a single item.
+(`findCurrentBreak`/`selectRejoinWidgetTarget`, module name kept from when
+it had a dedicated route — see below) is the live-timing counterpart,
+operating on `ConsoleBreakLike` rather than a single item. (Its former
+on time / running long / at risk badge was removed 2026-09-24 — hosts
+often confirm items only at the end of a broadcast, so it misfired.)
 
 ### Overruns and content that spans several breaks
 
@@ -824,7 +826,7 @@ session, each building on the one before it:
    context and control at every point, not a wide view for prepping and a
    narrow one for executing.
 
-The merge itself: `computeLiveTimingState`/`currentBreak` are computed
+The merge itself: `findCurrentBreak`/`currentBreak` are computed
 whenever `rundown.status` is `in_progress` or `submitted` (the `live`
 flag in `src/app/(portal)/log/rundowns/[id]/page.tsx`); when not live, none
 of the live-only data (broadcast events, weather, NPR) is even fetched. The

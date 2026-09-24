@@ -1,146 +1,70 @@
-// The live console's continuous timing state (docs/log-design.md §12.4) —
-// pure and recomputed on every render/poll, not stored, same rule
-// lib/log/timing.ts follows for build-time fit. This module is scoped by
-// what this milestone actually has: wall-clock time versus the plan, plus
-// whether every item currently placed in a break has been confirmed (a
-// log_broadcast_events row exists for it). There is no automation-system
-// feed and no live playback telemetry (docs/log-design.md's "What's
-// deliberately not in the architecture" — every outcome is host-confirmed).
+// The live rundown screen's wall-clock position — pure and recomputed on
+// every render/poll, not stored, same rule lib/log/timing.ts follows for
+// build-time fit. There is no automation-system feed and no live playback
+// telemetry (docs/log-design.md's "What's deliberately not in the
+// architecture"), so "where are we" is wall-clock time against the plan.
 //
-// The live timeline's unit is now the *break* (docs/log-design.md §4B), not
-// a single-slot item — a break is what has a scheduled start and a network
-// rejoin point; the items placed inside it are what actually air.
+// This used to also derive a header timing badge (on time / running long /
+// running short / at risk) from whether each break's items had been marked
+// aired. Removed 2026-09-24: hosts often mark items only at the end of a
+// broadcast, so "running long" lit up after every filled break, and the
+// sidebar countdown plus the current-break highlight already say what the
+// badge was trying to.
+//
+// The live timeline's unit is the *break* (docs/log-design.md §4B) — a
+// break is what has a scheduled start and a network rejoin point; the items
+// placed inside it are what actually air.
 
 export interface ConsoleBreakLike {
   id: string;
   scheduled_at: string;
   network_rejoin_at: string;
-  requirement: "optional" | "required";
-  itemCount: number;
-  /** Whether every item currently placed in this break has a recorded broadcast outcome. Vacuously true for an empty break. */
-  allItemsConfirmed: boolean;
 }
-
-export type LiveTimingState = "on_time" | "running_long" | "running_short" | "at_risk_required" | "at_risk_rejoin";
-
-export interface LiveTimingResult {
-  state: LiveTimingState;
-  currentBreak: ConsoleBreakLike | null;
-  nextBreak: ConsoleBreakLike | null;
-  /** Seconds left before this break's own network-rejoin point — negative once past it. Null with no current break. */
-  secondsRemainingInCurrent: number | null;
-  /** Seconds until the shift's overall network rejoin point (shift_end_at) — negative once past it. */
-  secondsToRejoin: number;
-}
-
-export interface LiveTimingThresholds {
-  /** How close to a deadline (rejoin, or a required break's own rejoin) counts as "at risk." Default 60s. */
-  riskThresholdSeconds: number;
-  /** How much spare time before rejoin counts as "running short" once every item is confirmed. Default 30s. */
-  shortThresholdSeconds: number;
-}
-
-const DEFAULT_THRESHOLDS: LiveTimingThresholds = { riskThresholdSeconds: 60, shortThresholdSeconds: 30 };
 
 /**
- * The break airing (or that should be airing) at `nowISO`, and the one
- * after it — breaks are expected sorted by scheduled_at, chronological and
- * non-overlapping, same assumption lib/log/clock-face.ts makes of slots.
+ * The break airing (or that should be airing) at `nowISO` — the one most
+ * recently started — and the one after it. Breaks are expected
+ * chronological and non-overlapping, same assumption lib/log/clock-face.ts
+ * makes of slots.
  */
-function findCurrentAndNext<T extends { scheduled_at: string }>(
-  items: T[],
-  nowMs: number,
-): { current: T | null; next: T | null } {
-  let current: T | null = null;
-  let next: T | null = null;
-  for (const item of items) {
-    const startMs = new Date(item.scheduled_at).getTime();
-    if (startMs <= nowMs) {
-      current = item;
+export function findCurrentBreak<T extends { scheduled_at: string }>(
+  nowISO: string,
+  breaks: ReadonlyArray<T>,
+): { currentBreak: T | null; nextBreak: T | null } {
+  const nowMs = new Date(nowISO).getTime();
+  const sorted = [...breaks].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  let currentBreak: T | null = null;
+  let nextBreak: T | null = null;
+  for (const brk of sorted) {
+    if (new Date(brk.scheduled_at).getTime() <= nowMs) {
+      currentBreak = brk;
     } else {
-      next = item;
+      nextBreak = brk;
       break;
     }
   }
-  return { current, next };
-}
-
-export function computeLiveTimingState(
-  nowISO: string,
-  breaks: ConsoleBreakLike[],
-  shiftEndAtISO: string,
-  thresholds: Partial<LiveTimingThresholds> = {},
-): LiveTimingResult {
-  const { riskThresholdSeconds, shortThresholdSeconds } = { ...DEFAULT_THRESHOLDS, ...thresholds };
-  const sorted = [...breaks].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
-  const nowMs = new Date(nowISO).getTime();
-  const { current, next } = findCurrentAndNext(sorted, nowMs);
-  const secondsToRejoin = (new Date(shiftEndAtISO).getTime() - nowMs) / 1000;
-
-  if (!current) {
-    return {
-      state: "on_time",
-      currentBreak: null,
-      nextBreak: next,
-      secondsRemainingInCurrent: null,
-      secondsToRejoin,
-    };
-  }
-
-  const currentRejoinMs = new Date(current.network_rejoin_at).getTime();
-  const secondsRemainingInCurrent = (currentRejoinMs - nowMs) / 1000;
-  const isLastBreak = sorted[sorted.length - 1]?.id === current.id;
-  const currentUnresolved = current.itemCount === 0 ? current.requirement === "required" : !current.allItemsConfirmed;
-
-  let state: LiveTimingState = "on_time";
-  if (current.itemCount > 0 && !current.allItemsConfirmed && secondsRemainingInCurrent < -riskThresholdSeconds) {
-    state = "running_long";
-  } else if (current.itemCount > 0 && current.allItemsConfirmed && secondsRemainingInCurrent > shortThresholdSeconds) {
-    state = "running_short";
-  }
-
-  if (
-    current.requirement === "required" &&
-    current.itemCount === 0 &&
-    secondsRemainingInCurrent <= riskThresholdSeconds
-  ) {
-    state = "at_risk_required";
-  }
-
-  if (isLastBreak && currentUnresolved && secondsToRejoin <= riskThresholdSeconds) {
-    state = "at_risk_rejoin";
-  }
-
-  return { state, currentBreak: current, nextBreak: next, secondsRemainingInCurrent, secondsToRejoin };
+  return { currentBreak, nextBreak };
 }
 
 /**
- * Every instant at which `computeLiveTimingState`'s output can change for
- * this schedule, given fixed break data: a break becoming current (its
- * start), and each threshold crossing around a break's own network rejoin
- * and the shift's end. Between two consecutive instants the state is
- * constant, so a live screen only needs to re-render at these moments — not
- * on a short fixed tick. Sorted ascending, deduplicated, ISO strings.
+ * Every instant at which the live screen's server-rendered state can change
+ * for this schedule, given fixed break data: a break becoming current (its
+ * start), a break handing back to the network (its rejoin — when the
+ * sidebar countdown moves on, see selectRejoinWidgetTarget), and the shift's
+ * end. Between two consecutive instants that state is constant, so a live
+ * screen only needs to re-render at these moments — not on a short fixed
+ * tick. Sorted ascending, deduplicated, ISO strings.
  */
 export function liveRefreshInstants(
   breaks: ReadonlyArray<Pick<ConsoleBreakLike, "scheduled_at" | "network_rejoin_at">>,
   shiftEndAtISO: string,
-  thresholds: Partial<LiveTimingThresholds> = {},
 ): string[] {
-  const { riskThresholdSeconds, shortThresholdSeconds } = { ...DEFAULT_THRESHOLDS, ...thresholds };
   const instantsMs = new Set<number>();
   for (const brk of breaks) {
-    const startMs = new Date(brk.scheduled_at).getTime();
-    const rejoinMs = new Date(brk.network_rejoin_at).getTime();
-    instantsMs.add(startMs);
-    instantsMs.add(rejoinMs - riskThresholdSeconds * 1000);
-    instantsMs.add(rejoinMs - shortThresholdSeconds * 1000);
-    instantsMs.add(rejoinMs);
-    instantsMs.add(rejoinMs + riskThresholdSeconds * 1000);
+    instantsMs.add(new Date(brk.scheduled_at).getTime());
+    instantsMs.add(new Date(brk.network_rejoin_at).getTime());
   }
-  const shiftEndMs = new Date(shiftEndAtISO).getTime();
-  instantsMs.add(shiftEndMs - riskThresholdSeconds * 1000);
-  instantsMs.add(shiftEndMs);
+  instantsMs.add(new Date(shiftEndAtISO).getTime());
   return [...instantsMs]
     .filter((ms) => Number.isFinite(ms))
     .sort((a, b) => a - b)
@@ -170,4 +94,68 @@ export function nextRefreshDelayMs(
     delay = Math.min(delay, targetMs - nowMs);
   }
   return Math.max(delay, MIN_REFRESH_DELAY_MS);
+}
+
+export interface RejoinWidgetBreak {
+  id: string;
+  scheduled_at: string;
+  network_rejoin_at: string;
+  /** The break holds an item of its own or is receiving spillover from the break before it — i.e. something local airs in it. */
+  hasLocalContent: boolean;
+  /** Spillover from the break before it runs into this one (covered_by_previous / preempted_by_previous in lib/log/timing.ts). */
+  receivesSpillover: boolean;
+}
+
+export type RejoinWidgetTarget =
+  /** Local content is on the air now: count down to the moment the network feed comes back. `finalBreakId` is the last break of a spillover chain, or the airing break itself. */
+  | { kind: "rejoin"; airingBreakId: string; finalBreakId: string; targetISO: string }
+  /** The network feed is on the air: count down to the next break with local content planned. */
+  | { kind: "next_break"; breakId: string; targetISO: string }
+  /** Nothing local is left this shift: count down to the shift's end. */
+  | { kind: "shift_end"; targetISO: string };
+
+/**
+ * What the rundown screen's sidebar countdown should point at, at `nowISO`.
+ *
+ * A break is only "airing" until its network rejoin — extended through any
+ * contiguous breaks its planned content spills into. Past that instant the
+ * network feed is back regardless of what was or wasn't confirmed, so a
+ * countdown still pegged to it (counting up, in red, until the next break
+ * merely *starts*) is never the right thing to show; the next break with
+ * local content is. `breaks` must be sorted by `scheduled_at`.
+ */
+export function selectRejoinWidgetTarget(
+  nowISO: string,
+  breaks: ReadonlyArray<RejoinWidgetBreak>,
+  shiftEndAtISO: string,
+): RejoinWidgetTarget {
+  const nowMs = new Date(nowISO).getTime();
+  // The break most recently started — may already be past its rejoin.
+  let startedIndex = -1;
+  for (let index = 0; index < breaks.length; index++) {
+    if (new Date(breaks[index]!.scheduled_at).getTime() <= nowMs) startedIndex = index;
+    else break;
+  }
+
+  if (startedIndex !== -1) {
+    // Spillover only chains through contiguous breaks (the no-gap rule in
+    // lib/log/timing.ts), so walking forward while the next break receives
+    // it finds where local content actually hands back to the network.
+    let last = startedIndex;
+    while (last + 1 < breaks.length && breaks[last + 1]!.receivesSpillover) last += 1;
+    const chainEndISO = breaks[last]!.network_rejoin_at;
+    if (breaks[startedIndex]!.hasLocalContent && new Date(chainEndISO).getTime() > nowMs) {
+      return {
+        kind: "rejoin",
+        airingBreakId: breaks[startedIndex]!.id,
+        finalBreakId: breaks[last]!.id,
+        targetISO: chainEndISO,
+      };
+    }
+  }
+
+  const nextFilled = breaks.slice(startedIndex + 1).find((brk) => brk.hasLocalContent);
+  if (nextFilled)
+    return { kind: "next_break", breakId: nextFilled.id, targetISO: nextFilled.scheduled_at };
+  return { kind: "shift_end", targetISO: shiftEndAtISO };
 }
