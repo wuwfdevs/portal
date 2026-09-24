@@ -1,7 +1,8 @@
 # Log: slot-keyed rundown breaks
 
-**Status:** proposed (2026-09-24). Not authorized to build; nothing here is
-implemented. Read `docs/log-design.md` (§5's data model, §8's import
+**Status:** design agreed (2026-09-24), not yet built. Decisions are in §7;
+one (overrun display, §7.2) awaits confirmation. §9 records how the design
+was reached. Read `docs/log-design.md` (§5's data model, §8's import
 history) first — this document assumes both.
 
 ## 1. The problem
@@ -70,15 +71,14 @@ slot.
 | `local_opportunity_id` | kept, nullable. Filled from the slot's opportunity when one exists; null for an unmarked slot. Opportunity assignments (pins) and placement still key on it, and it records which opportunity the break was generated from even if that opportunity is later deactivated |
 | `scheduled_at`, `available_duration_seconds`, `network_rejoin_at`, `label` | kept as stored columns, but **derived by a `before insert` trigger** from the rundown's `shift_start_at`, the slot, and `hour_index` — not supplied by the caller. Every reader (the timing engine, the rundown screen, Underwriting's security-definer functions) keeps working unchanged. A caller-supplied value that disagrees is overwritten, not trusted |
 | `requirement`, `permitted_content_types` | kept as per-occurrence snapshots (the one layer that is legitimately editable, and legitimately per-day) |
-| `landing_offset_seconds integer` | **new**, nullable — the one per-day time a break may carry. See §3.2 |
+| `landing_offset_seconds integer` | **new**, nullable — where a floating slot landed that day, the one per-day time a break may carry. See §3.2 |
 
 Constraints:
 
-- `unique (rundown_id, clock_slot_id, hour_index, scheduled_at)`, replacing
-  both `log_rundown_breaks_unique_occurrence` and the partial
-  `log_rundown_breaks_imported_unique`. `scheduled_at` is part of the key
-  only because of §3.2's interior windows; for every other break it is a
-  function of the other three columns.
+- `unique (rundown_id, clock_slot_id, hour_index)`, replacing both
+  `log_rundown_breaks_unique_occurrence` and the partial
+  `log_rundown_breaks_imported_unique`. With no interior windows (§3.2),
+  a slot occurrence has at most one break, so the key needs no time in it.
 - `clock_slot_id` must belong to the rundown's `clock_version_id` (checked
   by the same trigger).
 
@@ -89,16 +89,15 @@ Constraints:
 - **Floating slot:** `landing_offset_seconds` is where it landed that day,
   within `[earliest, latest]`; duration is the slot's. It defaults to the
   earliest start, as generation does today.
-- **Interior window in a long slot** (placeholder "Program content" clocks,
-  BBC's 23-minute segments): `landing_offset_seconds` plus a duration
-  supplied by the export, allowed *only* when the slot is longer than an
-  avail (the same `isAvailSized` test alignment uses today). This replaces
-  alignment's export-window fallback with something that still has a clock
-  identity, and it is the one case where a caller supplies a window. **Open
-  — see §7.3.** Across every rundown imported to date, not one item has
-  landed on a placeholder clock, and only one (a This American Life credit)
-  landed outside an opportunity on a clock with long slots. The
-  alternative, reporting such a row as unresolved, may be enough.
+- **Inside a long slot** (placeholder "Program content" clocks, BBC's
+  23-minute segments): **no break** (decided, §7.3). The import lists an
+  export row that lands there as unresolved, with a note to give the
+  program a real clock or mark a slot, and the host places it by hand if it
+  aired. No window is ever supplied by a caller, so today's export-window
+  fallback in `program-log-clock-alignment.ts` goes away. The evidence for
+  this: across every rundown imported to date, not one item landed on a
+  placeholder clock, and only one (a This American Life credit) landed
+  outside an opportunity on a clock with long slots.
 
 ### 3.3 Which breaks exist
 
@@ -154,7 +153,7 @@ there keeps reading `over`, as it does today. The real example on
 credits, so it's 10s over, and the next thing on the clock is a 14-second
 H&N promo.
 
-Options (**open — see §7.2**):
+Options (**recommended B, awaiting confirmation — see §7.2**):
 
 - **A. No change.** `over`, as today.
 - **B. Name what the overrun cuts into.** Still `over`, but the badge reads
@@ -186,7 +185,7 @@ The security-definer functions that cross the Log/Underwriting boundary:
 |---|---|
 | `log_generate_rundown_for_underwriting` | writes breaks — takes `clock_slot_id`/`hour_index` per draft, and the new conflict target |
 | `log_get_program_schedule_context` | returns each opportunity's `slot_id`, so `rundown-provisioning.ts` can build keyed drafts |
-| `log_list_placeable_rundown_breaks` | **one decision — see below** |
+| `log_list_placeable_rundown_breaks` | restricted to opportunity breaks — see below |
 | `log_place_underwriting_credit`, `log_relocate_underwriting_credit`, `log_insert_rundown_items_for_underwriting`, `log_delete_unplaced_credit_item` | none — they read the snapshot columns, which stay |
 
 **Which breaks auto-fill may use.** `log_list_placeable_rundown_breaks`
@@ -196,7 +195,7 @@ liberal imported set, which includes it. So once contracts exist,
 auto-fill would pack scheduled credits into slots that only have a row
 because DAD happened to put a credit there, such as a network promo slot.
 That's already true of today's imported breaks, and it only hasn't mattered
-because there are no contracts yet. Recommendation: restrict placement
+because there are no contracts yet. **Decided (§7.4):** restrict placement
 candidates to opportunity breaks (`local_opportunity_id is not null`), so
 auto-fill and the manual picker only ever fill windows a producer marked.
 The import still places what the export says, anywhere, because that's
@@ -232,7 +231,10 @@ The migration, in order:
 2. Add the columns, nullable.
 3. Backfill the remaining 12 rundowns' opportunity breaks from the
    opportunity's `slot_id`, and their null-opportunity breaks with the
-   import's slot-occurrence lookup.
+   import's slot-occurrence lookup. A break holding items that maps to no
+   slot (one inside a long slot, §3.2) stops the migration rather than
+   being dropped or guessed at. Checked against the 2026-09-24 import,
+   there are none.
 4. **Delete empty null-opportunity breaks** (decided). The new import would
    never have created them.
 5. Merge any two breaks that now share a key, moving items (with their ids)
@@ -255,32 +257,88 @@ alone.
 2. **Delete the dedup code.** `selectNonOverlappingBreakDrafts`, the
    instant-comparison in `selectMissingBreakDrafts`, the generated/imported
    split in sync, and the alignment module's run logic.
-3. **Whatever §7.2 and §7.4 decide:** the overrun display in `timing.ts`
-   and the rundown screen (§3.5), and the placement-candidate filter in
-   `log_list_placeable_rundown_breaks` (§4, a migration of its own).
+3. **The placement-candidate filter** in `log_list_placeable_rundown_breaks`
+   (§4, §7.4 — a migration of its own), and **the overrun display** in
+   `timing.ts` and the rundown screen (§3.5), once §7.2 is confirmed.
 
 Phases 2 and 3 can ship separately. Phase 1 is the one with the migration
 risk.
 
 ## 7. Decisions
 
-1. **Empty export avails on unmarked slots — decided: delete** (§5 step 4).
-   Rundowns before 2026-09-24 are deleted outright rather than migrated
-   (§5).
-2. **Overrun into an unmarked slot** (§3.5): A, B (recommended) or C.
-3. **Placeholder clocks** (§3.2): build interior windows, or report an
-   export row that lands inside a long slot as unresolved (recommended, on
-   the evidence: none has ever happened on a placeholder clock). 21 programs,
-   about 18% of the weekly schedule, still run on the placeholder clock.
-4. **Placement candidates** (§4): restrict auto-fill and the manual picker
-   to opportunity breaks (recommended), or keep offering any break that
-   permits credits.
-5. **Snapshot columns** (§3.1): keep them as trigger-filled stored columns
-   (recommended — no reader changes), or drop them and have every reader
-   join to the slot.
+All agreed 2026-09-24 unless marked otherwise.
+
+1. **Delete rundowns dated before 2026-09-24** rather than migrate them,
+   and **delete empty breaks on unmarked slots** in what remains (§5).
+2. **Overrun into an unmarked slot** (§3.5): **B recommended, awaiting
+   confirmation** — keep `over`, and name the network slot the overrun cuts
+   into. Content that spans several *marked* slots (the 29:30 story window)
+   already chains across them and is unaffected by any option here (§3.5,
+   §9).
+3. **Placeholder clocks and long slots** (§3.2): no break inside a long
+   slot. An export row that lands there is reported as unresolved. 21
+   programs, about 18% of the weekly schedule, still run on the placeholder
+   clock, so this is expected to become rare only as real clocks arrive.
+4. **Placement candidates** (§4): auto-fill and the manual picker use
+   opportunity breaks only. The import still places what the export says.
+5. **Break times stay stored columns**, filled by the trigger from the slot
+   (§3.1), so no reader changes.
 
 ## 8. Out of scope
 
 - Materializing every slot occurrence (§3.3).
 - Any change to items, broadcast events, or Underwriting's own tables.
 - Changing how opportunities are authored.
+
+## 9. How this design was reached
+
+The design came out of one conversation on 2026-09-24, starting from a host's
+observation that an imported rundown's breaks "don't seem to correspond
+perfectly to the clock". It's recorded here so the reasoning doesn't have to
+be reconstructed.
+
+1. **Why imported breaks didn't match the clock.** The import (2026-08-21)
+   wrote DAD's printed windows as breaks, on the grounds that the export was
+   the station's confirmed avail structure and most clocks had no
+   opportunities marked. The 2026-08-24 revision then added the clock's
+   opportunity breaks around them, deduplicated by window overlap. The
+   seams between the two were the mismatch: DAD's times instead of the
+   clock's, clock windows swallowed by a slightly longer DAD window, and
+   pinned content rerouted into export breaks.
+2. **"Why not import the credits and slot them into the clock's breaks?"**
+   The original reasons no longer held: opportunities had become slot-keyed
+   (marking one is a click), and DAD's windows turned out to be the clock's
+   own avails printed a second or two off. The rule became: **the clock
+   defines every break's window; the export decides what goes in it.**
+3. **"The export should prevail."** During the transition away from DAD,
+   what DAD scheduled is what aired. So a credit the export places in a slot
+   nobody marked is still placed, but it takes that slot's clock times
+   rather than creating a new window or changing the clock's opportunities.
+   That shipped the same day as a stopgap in
+   `lib/log/program-log-clock-alignment.ts` (`docs/log-design.md` §8's
+   2026-09-24 revision), checked against that day's real import.
+4. **"Why are breaks and clock slots different records at all?"** A slot is
+   a template that recurs every hour of every day, and a credit airs in one
+   occurrence of it, so a per-day record has to exist (§2). What was wrong
+   was its identity: keyed to an opportunity with a copied window, instead
+   of to the slot occurrence it is. That's this document's proposal (§3).
+5. **Existing data, overruns, placeholder clocks, and Underwriting.** The
+   decisions in §7 follow from production data at the time: 197 rundowns,
+   all imported; no Underwriting contracts, placements or affidavits; no
+   item ever placed on a placeholder clock; one 10-second overrun that day
+   (Morning Edition's 6:42:30 music bed, into a network promo).
+6. **"Was the overrun chaining designed for stories that span several
+   slots?"** Yes. Morning Edition's 29:30 local-story window is four marked
+   opportunities in a row: Music Bed (29:30, 30s), Newscast 3 (30:00, 90s),
+   Newscast 4 (31:30, 90s) and Music Bed (33:00, 60s), 4:30 in all and
+   ending at 34:00. A story of up to 4:30 placed in the 29:30 break reads
+   `filled` and chains through the other three, each of which reads
+   `preempted_by_previous` since all four are optional. This was the case
+   the slot-keyed opportunities (2026-08-10) and the multi-hop chaining
+   (the same day) were built for. All four keep their rows under this
+   design, so it keeps working unchanged. §3.5's options only affect a
+   story that runs past 34:00 into the network's Funding Credit, which
+   nobody marked. One consequence worth knowing: a story that routinely
+   runs over the newscasts shows three "preempted" badges every time, by
+   design, since preempting a newscast is worth a host's attention.
+

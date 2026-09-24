@@ -2624,8 +2624,9 @@ avail-sized slot; empty export avails create nothing. The executor writes
 exactly the aligned breaks and refuses a clock version that changed since
 the preview. `matchDraftsToCoveringBreaks` and its placement wrapper are
 gone. No migration. See `docs/log-design.md` §8's 2026-09-24 revision.
-This is a stopgap: `docs/log-slot-keyed-breaks-design.md` (proposed, not
-authorized to build) keys every break to `(rundown, clock slot, hour)` so
+This is a stopgap: `docs/log-slot-keyed-breaks-design.md` (design agreed
+2026-09-24, not yet built — its §7 lists the decisions, §9 how they were
+reached) keys every break to `(rundown, clock slot, hour)` so
 imported and generated breaks share one identity and the time-based dedup
 goes away — read it before changing break identity or the import's
 alignment again.
