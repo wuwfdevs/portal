@@ -1889,26 +1889,33 @@ export interface Database {
         Row: {
           id: string;
           rundown_id: string;
-          // Nullable as of 20260821180000_log_program_log_import.sql — null
-          // on an imported rundown's breaks, whose provenance is the
-          // uploaded program-log export rather than a local opportunity.
+          /**
+           * The clock slot this break is one occurrence of; with hour_index,
+           * its identity (unique per rundown). See
+           * docs/log-slot-keyed-breaks-design.md.
+           */
+          clock_slot_id: string;
+          /** Which repetition of the clock within the shift (0 = first hour). */
+          hour_index: number;
+          /** Floating slots only: where it landed, seconds from the top of its hour. */
+          landing_offset_seconds: number | null;
+          /** The slot's local opportunity, or null for a slot nobody marked (an import placed something there). */
           local_opportunity_id: string | null;
+          /** Derived by log_derive_rundown_break_times() from the slot, like the time columns below. */
           position: number;
           label: string;
           requirement: LogOpportunityRequirement;
           permitted_content_types: string[];
+          /** scheduled_at, available_duration_seconds and network_rejoin_at are derived from the slot on every write — never trusted from a caller. */
           scheduled_at: string;
           available_duration_seconds: number;
           network_rejoin_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_breaks"]["Row"]> & {
           rundown_id: string;
-          position: number;
-          label: string;
+          clock_slot_id: string;
+          hour_index: number;
           requirement: LogOpportunityRequirement;
-          scheduled_at: string;
-          available_duration_seconds: number;
-          network_rejoin_at: string;
         };
         Update: Partial<Database["public"]["Tables"]["log_rundown_breaks"]["Row"]>;
         Relationships: [];
@@ -2623,6 +2630,7 @@ export interface Database {
               local_opportunities: {
                 id: string;
                 clock_version_id: string;
+                slot_id: string;
                 slot_position: number;
                 slot_label: string | null;
                 requirement: LogOpportunityRequirement;

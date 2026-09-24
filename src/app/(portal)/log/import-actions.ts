@@ -139,14 +139,21 @@ async function alignPlanToClocks(plan: ProgramLogPlan, airDate: string): Promise
     const template = await templates.get(rundown.clockTemplateId)!;
     const version = template ? resolveCurrentVersion(template.versions, airDate) : null;
     if (!version) continue;
-    rundown.breaks = alignBreaksToClock({
+    const aligned = alignBreaksToClock({
       exportBreaks: rundown.breaks,
       shiftStartSeconds: clockTimeToSeconds(rundown.shiftStartTime),
       shiftDurationMinutes: rundown.shiftDurationMinutes,
       slots: version.slots,
       opportunities: version.opportunities,
     });
+    rundown.breaks = aligned.breaks;
     rundown.clockVersionId = version.id;
+    plan.unresolved.push(
+      ...aligned.unresolved.map((row) => ({
+        ...row,
+        description: `${rundown.programName}: ${row.description}`,
+      })),
+    );
   }
 }
 
@@ -333,29 +340,26 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
     }
 
     let itemCount = 0;
-    const shiftStartMs = new Date(shiftStartAt).getTime();
     const alignedBreaks = rundownPlan.breaks.flatMap((brk) =>
       brk.placement ? [{ ...brk, placement: brk.placement }] : [],
     );
-    const breakRows = alignedBreaks.map(({ label, placement }) => ({
+    // Identity and snapshot only: log_derive_rundown_break_times() derives
+    // every break's times, label and position from its slot.
+    const breakRows = alignedBreaks.map(({ placement }) => ({
       rundown_id: rundown.id,
+      clock_slot_id: placement.clockSlotId,
+      hour_index: placement.hourIndex,
+      landing_offset_seconds: placement.landingOffsetSeconds,
       local_opportunity_id: placement.localOpportunityId,
-      position: placement.position,
-      label,
       requirement: placement.requirement,
       permitted_content_types: placement.permittedContentTypes,
-      scheduled_at: new Date(shiftStartMs + placement.offsetSeconds * 1000).toISOString(),
-      available_duration_seconds: Math.max(
-        1,
-        placement.rejoinOffsetSeconds - placement.offsetSeconds,
-      ),
-      network_rejoin_at: new Date(
-        shiftStartMs + Math.max(placement.rejoinOffsetSeconds, placement.offsetSeconds + 1) * 1000,
-      ).toISOString(),
     }));
     const { data: insertedBreaks, error: breaksError } =
       breakRows.length > 0
-        ? await supabase.from("log_rundown_breaks").insert(breakRows).select("id, position")
+        ? await supabase
+            .from("log_rundown_breaks")
+            .insert(breakRows)
+            .select("id, clock_slot_id, hour_index")
         : { data: [], error: null };
     if (breaksError || !insertedBreaks || insertedBreaks.length !== breakRows.length) {
       results.push({
@@ -367,12 +371,15 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       });
       continue;
     }
-    // Positions are unique within an aligned rundown (hour × slot, with
-    // export-only windows in their own range), so they map each returned
-    // row back to its break regardless of the order the insert returns.
-    const breakIdByPosition = new Map(insertedBreaks.map((brk) => [brk.position, brk.id]));
-    const breakIdFor = (index: number) =>
-      breakIdByPosition.get(alignedBreaks[index]!.placement.position);
+    // (clock_slot_id, hour_index) is the break's key, so it maps each
+    // returned row back to its planned break regardless of return order.
+    const breakIdByKey = new Map(
+      insertedBreaks.map((brk) => [`${brk.clock_slot_id}|${brk.hour_index}`, brk.id]),
+    );
+    const breakIdFor = (index: number) => {
+      const { placement } = alignedBreaks[index]!;
+      return breakIdByKey.get(`${placement.clockSlotId}|${placement.hourIndex}`);
+    };
 
     interface ItemInsert {
       break_id: string;

@@ -100,6 +100,7 @@ describe("selectApplicableAssignments", () => {
 
 function draft(overrides: Partial<RundownBreakDraft> & { local_opportunity_id: string }): RundownBreakDraft {
   return {
+    clock_slot_id: `slot-${overrides.local_opportunity_id}`,
     hour_index: 0,
     position: 1,
     label: "Some break",

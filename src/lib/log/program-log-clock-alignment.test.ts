@@ -97,7 +97,7 @@ function align(
     shiftDurationMinutes,
     slots,
     opportunities,
-  });
+  }).breaks;
 }
 
 describe("alignBreaksToClock", () => {
@@ -109,8 +109,12 @@ describe("alignBreaksToClock", () => {
       ["05:19:00", 90, "opportunity"],
       ["06:19:00", 90, "opportunity"],
     ]);
-    expect(breaks[1]!.placement?.hourIndex).toBe(1);
-    expect(breaks[1]!.placement?.localOpportunityId).toBe(`opp-${musicBed1140.id}`);
+    expect(breaks[1]!.placement).toMatchObject({
+      hourIndex: 1,
+      clockSlotId: musicBed1140.id,
+      localOpportunityId: `opp-${musicBed1140.id}`,
+      landingOffsetSeconds: null,
+    });
   });
 
   it("puts an export break into the marked opportunity it starts at, a second or two off", () => {
@@ -133,18 +137,24 @@ describe("alignBreaksToClock", () => {
       time: "05:49:34",
       label: "Music Bed",
       availableDurationSeconds: 115,
-      placement: { source: "clock_slot", localOpportunityId: null, hourIndex: 0 },
+      placement: {
+        source: "clock_slot",
+        clockSlotId: musicBed2974.id,
+        localOpportunityId: null,
+        hourIndex: 0,
+      },
     });
   });
 
-  it("runs an unmarked break on through the contiguous slots DAD's window covers", () => {
-    // 1A: an 18:30 avail printed with a 90s window over a 30s music bed and a 60s promo.
+  it("puts a DAD avail that spans several slots in the first slot's break, on that slot's window", () => {
+    // 1A: an 18:30 avail printed with a 90s window over a 30s music bed and
+    // a 60s promo. The break is the music bed's; the timing engine carries
+    // the overrun into the promo's break if it has one, or reports it.
     const bed = slot("Music Bed", 1110, 30);
     const promo = slot("Vertical Promo", 1140, 60);
-    const funding = slot("Funding Credit", 1200, 35);
-    const breaks = align([exportBreak("05:18:30", 90, [credit("A")])], [], [bed, promo, funding]);
+    const breaks = align([exportBreak("05:18:30", 90, [credit("A")])], [], [bed, promo]);
     expect(breaks.map((brk) => [brk.time, brk.label, brk.availableDurationSeconds])).toEqual([
-      ["05:18:30", "Music Bed", 90],
+      ["05:18:30", "Music Bed", 30],
     ]);
   });
 
@@ -166,7 +176,9 @@ describe("alignBreaksToClock", () => {
       time: "05:19:30",
       label: "Floating Break 1",
       availableDurationSeconds: 60,
-      placement: { source: "clock_slot" },
+      // The landing is the one per-day time a break carries; the rejoin is
+      // the float's latest start plus its duration, as generation does.
+      placement: { source: "clock_slot", landingOffsetSeconds: 1170, rejoinOffsetSeconds: 1440 },
     });
   });
 
@@ -183,16 +195,20 @@ describe("alignBreaksToClock", () => {
     expect(breaks[0]!.items).toHaveLength(1);
   });
 
-  it("falls back to the export's own window where the clock has no avail-sized slot", () => {
+  it("reports a row as unresolved where the clock has no avail-sized slot, and creates no break", () => {
     // BBC's clock: a 30s avail printed at the start of a 23-minute segment.
     const segment = slot("Segment A", 360, 1380);
-    const [brk] = align([exportBreak("05:06:00", 30, [credit("A")], "UW Credit")], [], [segment]);
-    expect(brk).toMatchObject({
-      time: "05:06:00",
-      label: "UW Credit",
-      availableDurationSeconds: 30,
-      placement: { source: "export", hourIndex: 0 },
+    const result = alignBreaksToClock({
+      exportBreaks: [exportBreak("05:06:00", 30, [credit("A")], "UW Credit")],
+      shiftStartSeconds: ME_START,
+      shiftDurationMinutes: 60,
+      slots: [segment],
+      opportunities: [],
     });
+    expect(result.breaks).toEqual([]);
+    expect(result.unresolved).toEqual([
+      expect.objectContaining({ time: "05:06:00", description: "A" }),
+    ]);
   });
 
   it("creates nothing for an empty export avail", () => {

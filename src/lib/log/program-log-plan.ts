@@ -318,26 +318,25 @@ export interface BreakPlan {
 }
 
 /**
- * Which clock structure a written break takes its times from. The clock
- * defines every break's window; the export decides what goes in it (see
- * program-log-clock-alignment.ts):
+ * Which kind of clock slot a written break is an occurrence of (see
+ * program-log-clock-alignment.ts). Either way the window is the slot's:
  * - `opportunity` — a marked local opportunity, exactly as generation
  *   builds it (so opportunity assignments apply);
- * - `clock_slot` — a network slot (or run of contiguous slots) nobody
- *   marked, where the export nonetheless scheduled something — the export
- *   prevails, the clock supplies the window;
- * - `export` — the clock has no avail-sized slot at that point (a
- *   placeholder clock, a long program segment), so the export's own
- *   window is the only one there is.
+ * - `clock_slot` — a slot nobody marked, where the export nonetheless
+ *   scheduled something. The export prevails on whether it airs.
  */
-export type BreakSource = "opportunity" | "clock_slot" | "export";
+export type BreakSource = "opportunity" | "clock_slot";
 
 export interface BreakPlacement {
   source: BreakSource;
+  /** With hourIndex, the break's identity — what the executor writes. */
+  clockSlotId: string;
   localOpportunityId: string | null;
   hourIndex: number;
+  /** Floating slots only: where it landed, seconds from the top of its hour. */
+  landingOffsetSeconds: number | null;
   position: number;
-  /** Seconds from the shift's start. */
+  /** Seconds from the shift's start — for the preview; the database derives the stored times. */
   offsetSeconds: number;
   /** Seconds from the shift's start by which the network must be rejoined. */
   rejoinOffsetSeconds: number;
@@ -388,9 +387,9 @@ export interface ProgramLogPlan {
 }
 
 /**
- * The permitted-content-types snapshot for an imported break that isn't a
- * marked opportunity (an unmarked clock slot, or the export's own window —
- * see program-log-clock-alignment.ts). The export
+ * The permitted-content-types snapshot for an imported break on a slot
+ * nobody marked as an opportunity (see program-log-clock-alignment.ts).
+ * The export
  * says nothing about what a window permits beyond what actually aired in
  * it, so imported breaks are liberal — any library content type plus the
  * two sentinels — and a host's judgment (plus remaining duration, which the

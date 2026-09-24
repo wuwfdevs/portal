@@ -28,6 +28,8 @@
 // first, the source stays honestly 'over' even though whatever it did
 // manage to spill into keeps its own partial-consumption status.
 
+import { nominalStartOffsetSeconds, type SlotTimingLike } from "@/lib/log/rundown-generation";
+
 export interface BreakFit {
   availableDurationSeconds: number;
   occupiedDurationSeconds: number;
@@ -98,6 +100,17 @@ export interface BreakStatusResult {
   status: BreakStatus;
   /** Set only when status is 'covered_by_previous' — the break whose overrunning content covers this one. */
   coveredByBreakId: string | null;
+  /**
+   * For a break whose items run long: the seconds of overrun no following
+   * break absorbed — what actually runs into network content. 0 otherwise.
+   */
+  overrunSeconds: number;
+  /**
+   * Where that unabsorbed overrun starts cutting into the network: the
+   * rejoin of the last break the chain reached (the break's own, if none).
+   * Null when overrunSeconds is 0. See networkSlotLabelAt for naming it.
+   */
+  overrunStartsAt: string | null;
 }
 
 /**
@@ -127,6 +140,8 @@ export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusR
   const spilloverConsumed = sorted.map(() => 0);
   const coveredBy: (string | null)[] = sorted.map(() => null);
   const resolved = sorted.map(() => false);
+  const overrun = sorted.map(() => 0);
+  const overrunStartsAt: (string | null)[] = sorted.map(() => null);
 
   for (let i = 0; i < sorted.length; i++) {
     const overflow0 = ownOccupied[i]! - sorted[i]!.available_duration_seconds;
@@ -154,6 +169,10 @@ export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusR
     }
 
     resolved[i] = remaining <= 0;
+    if (remaining > 0) {
+      overrun[i] = remaining;
+      overrunStartsAt[i] = rejoinAt;
+    }
   }
 
   return sorted.map((b, i) => {
@@ -169,7 +188,14 @@ export function computeBreakStatuses(breaks: SpilloverBreakLike[]): BreakStatusR
     } else {
       status = "filled";
     }
-    return { id: b.id, fit, status, coveredByBreakId: coveredBy[i]! };
+    return {
+      id: b.id,
+      fit,
+      status,
+      coveredByBreakId: coveredBy[i]!,
+      overrunSeconds: overrun[i]!,
+      overrunStartsAt: overrunStartsAt[i]!,
+    };
   });
 }
 
@@ -256,4 +282,35 @@ export function computeRundownSummary(breaks: RundownSummaryBreakLike[]): Rundow
     preemptedBreaks,
     ready: unresolvedRequiredBreaks === 0 && overCount === 0,
   };
+}
+
+export interface NetworkSlotLike extends SlotTimingLike {
+  label: string | null;
+}
+
+/**
+ * The label of the fixed network slot airing at `instantISO`, found by
+ * repeating the clock version's slots across the shift the same way
+ * generation does — what an overrun that starts there cuts into (the
+ * rundown screen's "runs 0:10 into Funding Credit"). Floating slots are
+ * skipped: their position varies by day, so they can't name what's on the
+ * air at a fixed instant. Null past the shift or when nothing covers the
+ * instant.
+ */
+export function networkSlotLabelAt(
+  slots: NetworkSlotLike[],
+  shiftStartAtISO: string,
+  shiftDurationMinutes: number,
+  instantISO: string,
+): string | null {
+  const offset = (new Date(instantISO).getTime() - new Date(shiftStartAtISO).getTime()) / 1000;
+  const hours = Math.max(1, Math.ceil(shiftDurationMinutes / 60));
+  if (offset < 0 || offset >= hours * 3600) return null;
+  const withinHour = offset % 3600;
+  const match = slots.find((slot) => {
+    if (slot.timing_mode !== "fixed") return false;
+    const start = nominalStartOffsetSeconds(slot);
+    return withinHour >= start && withinHour < start + slot.duration_seconds;
+  });
+  return match?.label ?? null;
 }

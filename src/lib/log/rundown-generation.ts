@@ -25,6 +25,8 @@ import type { LogOpportunityRequirement } from "@/lib/database.types";
 // opportunity itself carries no position of its own.
 export interface RundownOpportunityLike {
   id: string;
+  /** The network slot this opportunity marks — with the hour, a break's identity. */
+  slot_id: string;
   slot_position: number;
   slot_label: string | null;
   requirement: LogOpportunityRequirement;
@@ -47,6 +49,7 @@ export type SlotTimingLike = Pick<
 >;
 
 export interface RundownBreakDraft {
+  clock_slot_id: string;
   local_opportunity_id: string;
   hour_index: number;
   position: number;
@@ -109,6 +112,7 @@ export function buildRundownBreakDrafts(
       const startSeconds = hourIndex * 3600 + nominalStartOffsetSeconds(opportunity);
       const rejoinSeconds = hourIndex * 3600 + rejoinOffsetSeconds(opportunity);
       drafts.push({
+        clock_slot_id: opportunity.slot_id,
         local_opportunity_id: opportunity.id,
         hour_index: hourIndex,
         position: hourIndex * 10_000 + opportunity.slot_position,
@@ -125,33 +129,23 @@ export function buildRundownBreakDrafts(
 }
 
 export interface ExistingBreakLike {
-  // Null on an imported rundown's breaks (log_rundowns.source = 'imported')
-  // — a null key can never match a generated draft's opportunity id, so
-  // imported breaks are never mistaken for a generated occurrence here.
-  local_opportunity_id: string | null;
-  scheduled_at: string;
+  clock_slot_id: string;
+  hour_index: number;
 }
 
 /**
- * Filters a full draft set down to the ones with no matching existing
- * break — the additive counterpart to buildRundownBreakDrafts, used when a
- * rundown was generated before a producer added (or a migration seeded) a
- * local opportunity its clock version didn't have yet. A draft and an
- * existing break refer to the same occurrence when they share both
- * local_opportunity_id and scheduled_at (deterministic from the
- * opportunity + shift start, so this never depends on generation order).
- *
- * scheduled_at is compared by parsed instant (`Date.getTime()`), never raw
- * string equality: a freshly-built draft's scheduled_at always comes from
- * `Date.prototype.toISOString()` (`...T10:06:00.000Z`), but a value read
- * back from Postgres through supabase-js renders the same instant
- * differently (no milliseconds, `+00:00` instead of `Z`) — those strings
- * never match even when they name the same moment. String-comparing them
- * was a real, confirmed bug: every existing break looked "missing" on
- * every call, so every click of the sync action re-inserted the full draft
- * set instead of nothing. See 20260808220000_log_rundown_breaks_dedup_and_
- * unique.sql for the production fallout and the database-level guard added
- * alongside this fix.
+ * Filters a full draft set down to the ones with no existing break — the
+ * additive counterpart to buildRundownBreakDrafts, used when a rundown was
+ * generated before a producer added (or a migration seeded) a local
+ * opportunity its clock version didn't have yet. A break is one occurrence
+ * of one clock slot, so a draft and an existing break are the same
+ * occurrence exactly when they share (clock_slot_id, hour_index) — the
+ * table's unique key since 20260924140000_log_slot_keyed_breaks.sql. No
+ * times are compared: the old instant comparison (a string-vs-instant bug
+ * once tripled a rundown's breaks) and the window-overlap match imported
+ * rundowns needed are both gone with it. A slot an import already placed
+ * something in, and which a producer marks afterward, is simply already
+ * present. See docs/log-slot-keyed-breaks-design.md.
  *
  * Never modifies or removes an existing break — safe to call on every page
  * load, and safe to re-run.
@@ -160,45 +154,26 @@ export function selectMissingBreakDrafts(
   drafts: RundownBreakDraft[],
   existingBreaks: ExistingBreakLike[],
 ): RundownBreakDraft[] {
-  const existingKeys = new Set(
-    existingBreaks.map((brk) => `${brk.local_opportunity_id}|${new Date(brk.scheduled_at).getTime()}`),
-  );
-  return drafts.filter(
-    (draft) => !existingKeys.has(`${draft.local_opportunity_id}|${new Date(draft.scheduled_at).getTime()}`),
-  );
-}
-
-export interface BreakWindowLike {
-  scheduled_at: string;
-  available_duration_seconds: number;
+  const existingKeys = new Set(existingBreaks.map((brk) => `${brk.clock_slot_id}|${brk.hour_index}`));
+  return drafts.filter((draft) => !existingKeys.has(`${draft.clock_slot_id}|${draft.hour_index}`));
 }
 
 /**
- * Filters drafts down to the ones whose nominal window overlaps no existing
- * break's window — the imported-rundown counterpart to
- * selectMissingBreakDrafts, for an imported rundown's breaks with no
- * local_opportunity_id. Since 2026-09-24 those are breaks the import put on
- * an unmarked clock slot (or, where the clock had none, on the export's own
- * window — see program-log-clock-alignment.ts); earlier imports wrote the
- * export's printed windows, which sit a second or two off the clock's own
- * offsets (the export prints the 49:34 window as :49:35). Either way the
- * test is "is this the same avail", so window overlap, never exact instant
- * equality: a slot a producer marks eligible after the import, where the
- * import already placed something, is not added a second time. Two windows
- * that merely touch (one ends exactly where the next starts) do NOT
- * overlap, so genuinely adjacent clock windows are still added.
+ * The row a draft inserts: its identity and the opportunity's snapshot
+ * columns. Times, label and position are left out on purpose —
+ * log_derive_rundown_break_times() derives them from the slot on every
+ * write, so nothing a caller computes can drift from the clock.
  */
-export function selectNonOverlappingBreakDrafts(
-  drafts: RundownBreakDraft[],
-  existingBreaks: BreakWindowLike[],
-): RundownBreakDraft[] {
-  const windows = existingBreaks.map((brk) => {
-    const start = new Date(brk.scheduled_at).getTime();
-    return { start, end: start + brk.available_duration_seconds * 1000 };
-  });
-  return drafts.filter((draft) => {
-    const start = new Date(draft.scheduled_at).getTime();
-    const end = start + draft.available_duration_seconds * 1000;
-    return !windows.some((window) => start < window.end && window.start < end);
-  });
+export function breakInsertRow(draft: RundownBreakDraft, rundownId: string) {
+  return {
+    rundown_id: rundownId,
+    clock_slot_id: draft.clock_slot_id,
+    hour_index: draft.hour_index,
+    local_opportunity_id: draft.local_opportunity_id,
+    requirement: draft.requirement,
+    permitted_content_types: draft.permitted_content_types,
+  };
 }
+
+/** The unique key a break upsert conflicts on. */
+export const BREAK_OCCURRENCE_CONFLICT = "rundown_id,clock_slot_id,hour_index";

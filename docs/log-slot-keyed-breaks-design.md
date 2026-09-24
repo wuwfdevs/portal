@@ -1,8 +1,9 @@
 # Log: slot-keyed rundown breaks
 
-**Status:** design agreed (2026-09-24), not yet built. Decisions are in §7;
-one (overrun display, §7.2) awaits confirmation. §9 records how the design
-was reached. Read `docs/log-design.md` (§5's data model, §8's import
+**Status:** built 2026-09-24, all three phases in one pass
+(`20260924140000_log_slot_keyed_breaks.sql`, applied to preview and
+production — see §10 for what shipped and how it was verified). Decisions are
+in §7; §9 records how the design was reached. Read `docs/log-design.md` (§5's data model, §8's import
 history) first — this document assumes both.
 
 ## 1. The problem
@@ -153,7 +154,7 @@ there keeps reading `over`, as it does today. The real example on
 credits, so it's 10s over, and the next thing on the clock is a 14-second
 H&N promo.
 
-Options (**recommended B, awaiting confirmation — see §7.2**):
+Options (**B chosen — see §7.2**):
 
 - **A. No change.** `over`, as today.
 - **B. Name what the overrun cuts into.** Still `over`, but the badge reads
@@ -167,7 +168,10 @@ Options (**recommended B, awaiting confirmation — see §7.2**):
   a host acts on (seconds over) behind a status on a row that doesn't
   exist.
 
-Recommendation: B.
+Chosen: B. Built as `computeBreakStatuses`' new `overrunSeconds` (the part
+no following break absorbed) and `overrunStartsAt`, named by
+`networkSlotLabelAt` (both `lib/log/timing.ts`); the rundown screen's badge
+reads "10s over — runs into H&N Promo".
 
 ## 4. The Underwriting boundary
 
@@ -270,9 +274,8 @@ All agreed 2026-09-24 unless marked otherwise.
 
 1. **Delete rundowns dated before 2026-09-24** rather than migrate them,
    and **delete empty breaks on unmarked slots** in what remains (§5).
-2. **Overrun into an unmarked slot** (§3.5): **B recommended, awaiting
-   confirmation** — keep `over`, and name the network slot the overrun cuts
-   into. Content that spans several *marked* slots (the 29:30 story window)
+2. **Overrun into an unmarked slot** (§3.5): **B** — keep `over`, and name
+   the network slot the overrun cuts into. Content that spans several *marked* slots (the 29:30 story window)
    already chains across them and is unaffected by any option here (§3.5,
    §9).
 3. **Placeholder clocks and long slots** (§3.2): no break inside a long
@@ -341,4 +344,46 @@ be reconstructed.
    nobody marked. One consequence worth knowing: a story that routinely
    runs over the newscasts shows three "preempted" badges every time, by
    design, since preempting a newscast is worth a host's attention.
+
+## 10. What shipped (2026-09-24)
+
+One migration, `20260924140000_log_slot_keyed_breaks.sql`, doing §5 in order
+and replacing the three Underwriting boundary functions (§4), plus the
+application changes, all three phases (§6) together:
+
+- **The key and the trigger.** `log_rundown_breaks` gained
+  `clock_slot_id`/`hour_index` (the unique key
+  `log_rundown_breaks_slot_occurrence_key`) and `landing_offset_seconds`;
+  both old unique constraints are gone. `log_derive_rundown_break_times()`
+  (a `before insert or update` trigger) derives `scheduled_at`,
+  `available_duration_seconds`, `network_rejoin_at`, `label` and `position`
+  from the slot on every write, fills `local_opportunity_id` from the
+  slot's active opportunity when a caller leaves it null, and rejects a
+  slot from another clock version or an opportunity that doesn't mark the
+  slot.
+- **Writers.** `rundown-generation.ts`'s `breakInsertRow()` is the one
+  insert shape (identity plus the opportunity's snapshot — no times);
+  `generateRundown`/`syncRundownBreaks` upsert on the new key, and sync's
+  imported-rundown branch is gone. `selectNonOverlappingBreakDrafts` is
+  deleted and `selectMissingBreakDrafts` compares `(clock_slot_id,
+  hour_index)`. Provisioning's drafts carry `clock_slot_id` from the widened
+  `log_get_program_schedule_context()`.
+- **The import.** `program-log-clock-alignment.ts` lost its multi-slot runs
+  and its export-window fallback; a row inside a long slot is reported
+  unresolved (§3.2). The executor writes identity only.
+- **Placement** candidates are opportunity breaks only (§4).
+- **Overrun display** is option B (§3.5).
+
+Verified: a rolled-back dry run against production first — 12 rundowns and
+186 breaks survived, every surviving rundown's item and broadcast-event count
+unchanged, one unmarked-slot break left (Here & Now's 14:58:10 credit).
+Then on preview after applying: no break's stored time differs from its
+slot's, and — as a plain Log member under RLS, rolled back — the trigger
+derived a new break's times, ignored a duplicate, overwrote a
+caller-supplied time, and rejected another clock version's slot; as an
+Underwriting user, `log_get_program_schedule_context()` returned `slot_id`
+and `log_generate_rundown_for_underwriting()` wrote a break at the slot's
+real time from a draft carrying a bogus one. Preview's 20 auto-fill test
+placements whose rundowns predated 2026-09-24 now have a null
+`log_rundown_item_id` (the FK's own `on delete set null`).
 

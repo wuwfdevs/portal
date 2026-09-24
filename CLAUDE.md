@@ -2634,12 +2634,32 @@ avail-sized slot; empty export avails create nothing. The executor writes
 exactly the aligned breaks and refuses a clock version that changed since
 the preview. `matchDraftsToCoveringBreaks` and its placement wrapper are
 gone. No migration. See `docs/log-design.md` §8's 2026-09-24 revision.
-This is a stopgap: `docs/log-slot-keyed-breaks-design.md` (design agreed
-2026-09-24, not yet built — its §7 lists the decisions, §9 how they were
-reached) keys every break to `(rundown, clock slot, hour)` so
-imported and generated breaks share one identity and the time-based dedup
-goes away — read it before changing break identity or the import's
-alignment again.
+Superseded the same day by the next entry.
+
+**Log: rundown breaks are keyed to clock slots (2026-09-24).** Read
+`docs/log-slot-keyed-breaks-design.md` before touching break identity, the
+import's alignment, or anything that writes `log_rundown_breaks`; this is a
+pointer. A break is one occurrence of one clock slot: `(rundown_id,
+clock_slot_id, hour_index)` is its unique key
+(`20260924140000_log_slot_keyed_breaks.sql`), and
+`log_derive_rundown_break_times()`, a `before insert or update` trigger,
+derives `scheduled_at`/`available_duration_seconds`/`network_rejoin_at`/
+`label`/`position` from the slot on every write — so **never compute break
+times in application code and expect them to stick**; insert through
+`rundown-generation.ts`'s `breakInsertRow()` (identity plus the
+opportunity's snapshot) and upsert on `BREAK_OCCURRENCE_CONFLICT`. Only a
+floating slot carries a per-day time, `landing_offset_seconds`.
+`local_opportunity_id` is null only for a slot nobody marked where an
+import placed what DAD scheduled; `log_list_placeable_rundown_breaks()`
+skips those, so auto-fill and manual placement fill marked opportunities
+only. The time-based dedup (`selectNonOverlappingBreakDrafts`, the instant
+comparison) is gone; `selectMissingBreakDrafts` compares the key. The
+import reports a row that lands inside a long slot (a placeholder clock)
+as unresolved rather than inventing a window. The rundown screen's "over"
+badge names the network slot the unabsorbed overrun runs into
+(`timing.ts`'s `overrunSeconds`/`overrunStartsAt`/`networkSlotLabelAt`).
+The migration deleted every rundown dated before 2026-09-24 (decided, not
+migrated) and merged or dropped the rest's breaks onto slot occurrences.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

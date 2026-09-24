@@ -799,10 +799,11 @@ Three things follow from this and are worth knowing:
   checks none of this, so a 29:30 story that runs over it on an ordinary
   day isn't flagged as outside the terms.
 - **Overruns only chain through breaks that exist.** A slot nobody marked
-  has no break, so an overrun into it reads `over`. How that is displayed
-  under slot-keyed breaks is an open decision in
-  `docs/log-slot-keyed-breaks-design.md` §3.5, which also records the
-  discussion that prompted this section (its §9).
+  has no break, so an overrun into it reads `over`, with the badge naming
+  the network slot it runs into ("15s over — runs into Funding Credit";
+  `computeBreakStatuses`' `overrunSeconds`/`overrunStartsAt` and
+  `networkSlotLabelAt`). See `docs/log-slot-keyed-breaks-design.md` §3.5,
+  which also records the discussion that prompted this section (its §9).
 
 ### One screen, not two
 
@@ -1210,6 +1211,15 @@ preview and confirm. No migration: `local_opportunity_id` stays nullable
 for `clock_slot`/`export` breaks and for rundowns imported before this
 change, which are left as they are — `syncRundownBreaks`'s window-overlap
 dedup still applies to both.
+
+*Revised again 2026-09-24 — breaks are keyed to clock slots.* The alignment
+above was a stopgap on top of breaks that had no identity of their own.
+`docs/log-slot-keyed-breaks-design.md` (built the same day) made every
+break one occurrence of one clock slot, `(clock_slot_id, hour_index)`, with
+its times derived from the slot by a database trigger. The import now only
+decides which slot occurrence each export row belongs to: the multi-slot
+runs and the export-window fallback are gone, and a row that lands inside
+a long slot (a placeholder clock) is reported unresolved instead.
 
 The pre-2026-09-22 history, for context: the first parser
 (`lib/log/program-log-import.ts`, deterministic) shipped with a fixture

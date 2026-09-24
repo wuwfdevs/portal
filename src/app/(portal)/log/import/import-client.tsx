@@ -443,9 +443,6 @@ function BreakPreview({ brk }: { brk: BreakPlan }) {
         {brk.placement?.source === "clock_slot" && (
           <Badge>clock slot, not a marked opportunity</Badge>
         )}
-        {brk.placement?.source === "export" && (
-          <Badge variant="warning">no clock slot here — export&apos;s own window</Badge>
-        )}
       </div>
       <ul className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-line pl-3">
         {brk.items.map((item, index) => (
