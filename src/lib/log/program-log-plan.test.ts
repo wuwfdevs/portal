@@ -267,6 +267,53 @@ describe("assembleProgramLogPlan", () => {
     expect(plan.copyPlans[0]!.libraryScript).toBe(COPY[0]!.script);
   });
 
+  it("joins the PDF column's line wraps back into one line, and repairs a library row that kept them", () => {
+    const oneBreak = (items: ModelItem[]): ProgramLogModelOutput => ({
+      ...DAY,
+      rundowns: [
+        {
+          schedule_entry_id: "sched-me",
+          program_name: "Morning Edition",
+          breaks: [{ time: "06:06:00", label: "Underwriting break", window_seconds: 90, items }],
+        },
+      ],
+    });
+    const wrapped = item({
+      kind: "credit",
+      underwriter: NEW_UNDERWRITER,
+      new_underwriter_name: "Juan's Flying Burrito",
+      script: "Support for WUWF comes\nfrom Juan's Flying\n  Burrito.\n",
+    });
+    const fresh = assembleProgramLogPlan(inputs(oneBreak([wrapped])));
+    expect(fresh.copyPlans[0]!.script).toBe("Support for WUWF comes from Juan's Flying Burrito.");
+
+    // Same words as the library, but the library row still carries wraps
+    // from an earlier import: flagged, so the import rewrites it clean.
+    const damaged = [
+      { ...COPY[0]!, script: "Local support for WUWF is\nprovided by Baptist Health Care." },
+    ];
+    const repaired = assembleProgramLogPlan(
+      inputs(oneBreak([BAPTIST_EXISTING]), { copy: damaged }),
+    );
+    expect(repaired.copyPlans[0]!.scriptChanged).toBe(true);
+    expect(repaired.copyPlans[0]!.script).toBe(
+      "Local support for WUWF is provided by Baptist Health Care.",
+    );
+
+    // A clean library row and a wrapped export of the same words: no update.
+    const unchanged = assembleProgramLogPlan(
+      inputs(
+        oneBreak([
+          {
+            ...BAPTIST_EXISTING,
+            script: "Local support for WUWF is provided\nby Baptist Health Care.",
+          },
+        ]),
+      ),
+    );
+    expect(unchanged.copyPlans[0]!.scriptChanged).toBe(false);
+  });
+
   it("creates a NEW underwriter's credit, but reuses a known underwriter the model marked NEW by mistake", () => {
     const output: ProgramLogModelOutput = {
       ...DAY,

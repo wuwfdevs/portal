@@ -360,6 +360,18 @@ function normalizeScript(value: string | null): string {
   return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * A script as stored: the export's words on one line. The PDF's Description
+ * column is narrow, so a script prints wrapped across many visual lines, and
+ * the model — told to copy character for character — reproduces those wraps
+ * as newlines. They are layout, not content (a DAD script cell carries no
+ * paragraph structure), so every whitespace run collapses to one space.
+ */
+export function cleanScript(value: string | null | undefined): string | null {
+  const cleaned = (value ?? "").replace(/\s+/g, " ").trim();
+  return cleaned === "" ? null : cleaned;
+}
+
 export interface AssembleInputs {
   output: ProgramLogModelOutput;
   scheduleEntries: PlanScheduleEntry[];
@@ -430,7 +442,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
       );
     }
 
-    const script = item.script?.trim() || null;
+    const script = cleanScript(item.script);
     const label = item.label?.trim() || existing?.label || "Imported copy";
     const cart = item.cart?.trim() || existing?.cart_identifier || null;
     const key = existing
@@ -448,10 +460,14 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         script: script ?? existing?.script ?? null,
         durationSeconds: item.duration_seconds ?? existing?.duration_seconds ?? null,
         existingCopyId: existing?.id ?? null,
+        // Changed wording, or the same words in a library row still
+        // carrying layout line breaks from an earlier import — the update
+        // is what repairs it.
         scriptChanged:
           existing !== null &&
-          normalizeScript(script) !== "" &&
-          normalizeScript(existing.script) !== normalizeScript(script),
+          script !== null &&
+          (normalizeScript(existing.script) !== normalizeScript(script) ||
+            existing.script !== cleanScript(existing.script)),
         libraryScript: existing?.script ?? null,
         airings: 0,
       };
@@ -494,7 +510,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
       kind: "live_read",
       title: title || "Live read",
       durationSeconds,
-      script: item.script?.trim() || null,
+      script: cleanScript(item.script),
     };
   };
 
