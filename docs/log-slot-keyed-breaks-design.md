@@ -94,8 +94,11 @@ Constraints:
   supplied by the export, allowed *only* when the slot is longer than an
   avail (the same `isAvailSized` test alignment uses today). This replaces
   alignment's export-window fallback with something that still has a clock
-  identity, and it is the one case where a caller supplies a window. It
-  should become rare as real clocks replace the placeholders.
+  identity, and it is the one case where a caller supplies a window. **Open
+  — see §7.3.** Across every rundown imported to date, not one item has
+  landed on a placeholder clock, and only one (a This American Life credit)
+  landed outside an opportunity on a clock with long slots. The
+  alternative, reporting such a row as unresolved, may be enough.
 
 ### 3.3 Which breaks exist
 
@@ -123,19 +126,45 @@ could never legitimately hold anything.
 - **`log_rundowns.source`** stops mattering to any break logic and becomes
   pure provenance.
 
-### 3.5 Spillover into an unmarked slot
+### 3.5 Overrun into an unmarked slot
 
-`lib/log/timing.ts`'s `computeBreakStatuses` only chains an overrun into a
-*following break that exists* and starts exactly at the rejoin. Under lazy
-materialization, the slot after a break is often unmarked and has no row, so
-an overrun into it would read as a plain `over`. The timing engine should
-take the clock version's slots as input and treat an overrun into an
-unmarked, empty slot the way it already treats one into an optional
-opportunity: absorbed, but flagged `preempted_by_previous`. Overrunning
-network content is a real preemption, and hiding it would be wrong. This is
-the one behavioral change to timing, and it needs its own tests.
+Today (`lib/log/timing.ts`'s `computeBreakStatuses`), a break whose items
+run past its window chains the overage into the *next break row*, but only
+if that row exists, is empty, and starts exactly where this one rejoins the
+network. The receiving break reads `covered_by_previous` if it's required
+(any local content satisfies it) or `preempted_by_previous` if it's optional
+(network content got bumped). With no such row, the source break reads
+`over`.
+
+Under lazy materialization, the slot after a break is usually unmarked and
+has no row: a newscast, a network promo, a story segment. So an overrun
+there keeps reading `over`, as it does today. The real example on
+2026-09-24: Morning Edition's 6:42:30 music bed (90s) holds 100s of
+credits, so it's 10s over, and the next thing on the clock is a 14-second
+H&N promo.
+
+Options (**open — see §7.2**):
+
+- **A. No change.** `over`, as today.
+- **B. Name what the overrun cuts into.** Still `over`, but the badge reads
+  "runs 0:10 into H&N Promo", read from the clock version's slots. This is
+  a display change only: no status changes, and nothing else reads it. It
+  tells a host whether they're eating a promo or a newscast.
+- **C. Absorb it into the unmarked slot** as `preempted_by_previous`,
+  which is what this document originally proposed. This changes status
+  semantics: the source break would read `filled`, and the rundown summary's
+  preempted count would include network segments. It hides the one number
+  a host acts on (seconds over) behind a status on a row that doesn't
+  exist.
+
+Recommendation: B.
 
 ## 4. The Underwriting boundary
+
+Underwriting currently holds no contracts, schedule lines, placements,
+exceptions, makegoods or affidavits in production, so nothing here migrates
+Underwriting data. The impact is on the code and functions that will run
+once it does.
 
 Only `log_rundown_items` references breaks (`break_id`), and items keep
 their ids and their `break_id`. So `uw_scheduled_placements`,
@@ -146,7 +175,21 @@ The security-definer functions that cross the Log/Underwriting boundary:
 |---|---|
 | `log_generate_rundown_for_underwriting` | writes breaks — takes `clock_slot_id`/`hour_index` per draft, and the new conflict target |
 | `log_get_program_schedule_context` | returns each opportunity's `slot_id`, so `rundown-provisioning.ts` can build keyed drafts |
-| `log_place_underwriting_credit`, `log_list_placeable_rundown_breaks`, `log_relocate_underwriting_credit`, `log_insert_rundown_items_for_underwriting`, `log_delete_unplaced_credit_item` | none — they read the snapshot columns, which stay |
+| `log_list_placeable_rundown_breaks` | **one decision — see below** |
+| `log_place_underwriting_credit`, `log_relocate_underwriting_credit`, `log_insert_rundown_items_for_underwriting`, `log_delete_unplaced_credit_item` | none — they read the snapshot columns, which stay |
+
+**Which breaks auto-fill may use.** `log_list_placeable_rundown_breaks`
+offers any break whose `permitted_content_types` contains
+`underwriting_credit`. An imported break on an unmarked slot gets the
+liberal imported set, which includes it. So once contracts exist,
+auto-fill would pack scheduled credits into slots that only have a row
+because DAD happened to put a credit there, such as a network promo slot.
+That's already true of today's imported breaks, and it only hasn't mattered
+because there are no contracts yet. Recommendation: restrict placement
+candidates to opportunity breaks (`local_opportunity_id is not null`), so
+auto-fill and the manual picker only ever fill windows a producer marked.
+The import still places what the export says, anywhere, because that's
+what aired.
 
 On the application side, about 17 source files touch breaks. Most only read
 the unchanged columns; the writers are `rundown-actions.ts`,
@@ -155,38 +198,43 @@ the alignment module.
 
 ## 5. Migrating existing data
 
-Production (2026-09-24) holds only imported rundowns: 358 rundowns, 3,330
-breaks.
+**Decided (2026-09-24): delete every rundown with an `air_date` before
+2026-09-24 rather than backfill it.** Production at that date:
 
-- 2,072 breaks have an opportunity. They map directly: the opportunity's
-  `slot_id`, and `hour_index` from the offset to the shift start.
-- 1,258 have none, and 376 of those hold items. 22 breaks overall have
-  broadcast events.
+| | Before 2026-09-24 | 2026-09-24 onward |
+|---|---|---|
+| Rundowns (all `source = 'imported'`) | 185 | 12 |
+| Items | 700 | — |
+| Broadcast events (as-aired records) | 43 | — |
 
-One migration, in order:
+The delete cascades rundowns → breaks → items → broadcast events, and it
+reaches nothing in Underwriting: `uw_scheduled_placements`,
+`uw_exceptions`, `uw_makegoods`, `uw_affidavits` and `uw_contracts` are all
+empty. The import-created `uw_copy` rows (67) and `uw_underwriters` stay:
+they're the copy library, not rundown data. The one real loss is the 43
+as-aired records for those dates, which nothing reads yet (FCC Reporting
+isn't built).
 
-1. Add the columns, nullable.
-2. Backfill the opportunity breaks.
-3. Backfill the null-opportunity breaks with the same slot-occurrence lookup
-   the import will use: a slot starting within tolerance, else a floating
-   window, else a short containing slot, else an interior window in a long
-   slot.
-4. **Merge collisions.** Where two breaks now share a key (an old export
-   window and the opportunity break it overlapped), move the items into the
-   surviving break, appended in time order, and delete the emptied row.
-   Items keep their ids, so broadcast events and placements survive.
-5. **Delete empty null-opportunity breaks that map to no opportunity.**
-   These are about 880 empty DAD avails that the new import would never have
-   created. This needs sign-off (§7).
+The migration, in order:
+
+1. Delete rundowns with `air_date < '2026-09-24'`.
+2. Add the columns, nullable.
+3. Backfill the remaining 12 rundowns' opportunity breaks from the
+   opportunity's `slot_id`, and their null-opportunity breaks with the
+   import's slot-occurrence lookup.
+4. **Delete empty null-opportunity breaks** (decided). The new import would
+   never have created them.
+5. Merge any two breaks that now share a key, moving items (with their ids)
+   into the survivor.
 6. Set `not null`, add the key and the trigger, and drop the two old unique
    indexes.
 
-Verify it the way this repo verifies migrations: a rolled-back dry run
-against production, with before/after counts of items, broadcast events and
-placements per rundown, which must be identical. Then apply to preview and
-production, and record the result in `APPLIED.md`. Note that preview's
-database was unreachable at the last two attempts (APPLIED.md's `pending`
-rows), and this migration should not be applied to production alone.
+Verify by a rolled-back dry run against production. For the 12 surviving
+rundowns, item, broadcast-event and placement counts must be identical
+before and after. Then apply to preview and production and record it in
+`APPLIED.md`. Preview's database was unreachable at the last two attempts
+(APPLIED.md's `pending` rows), and this should not be applied to production
+alone.
 
 ## 6. Phasing
 
@@ -196,25 +244,29 @@ rows), and this migration should not be applied to production alone.
 2. **Delete the dedup code.** `selectNonOverlappingBreakDrafts`, the
    instant-comparison in `selectMissingBreakDrafts`, the generated/imported
    split in sync, and the alignment module's run logic.
-3. **Spillover into unmarked slots** in `timing.ts` (§3.5), with tests.
+3. **Whatever §7.2 and §7.4 decide:** the overrun display in `timing.ts`
+   and the rundown screen (§3.5), and the placement-candidate filter in
+   `log_list_placeable_rundown_breaks` (§4, a migration of its own).
 
 Phases 2 and 3 can ship separately. Phase 1 is the one with the migration
 risk.
 
-## 7. Decisions needed
+## 7. Decisions
 
-1. **Empty export avails on unmarked slots** (about 880 rows, §5 step 5):
-   delete them in the migration (recommended — they're empty, and the new
-   import wouldn't create them), or keep them.
-2. **Overrun into an unmarked slot** (§3.5): flag it as preempting network
-   (recommended), or treat it as silently absorbed.
-3. **Interior windows on placeholder clocks** (§3.2): allow them
-   (recommended, since placeholder clocks are most of the schedule today),
-   or require a real clock before an import can place anything on a
-   program.
-4. **Keep the snapshot columns** as trigger-filled stored columns
-   (recommended — no reader changes, and Underwriting's functions stay
-   untouched), or drop them and have every reader join to the slot.
+1. **Empty export avails on unmarked slots — decided: delete** (§5 step 4).
+   Rundowns before 2026-09-24 are deleted outright rather than migrated
+   (§5).
+2. **Overrun into an unmarked slot** (§3.5): A, B (recommended) or C.
+3. **Placeholder clocks** (§3.2): build interior windows, or report an
+   export row that lands inside a long slot as unresolved (recommended, on
+   the evidence: none has ever happened on a placeholder clock). 21 programs,
+   about 18% of the weekly schedule, still run on the placeholder clock.
+4. **Placement candidates** (§4): restrict auto-fill and the manual picker
+   to opportunity breaks (recommended), or keep offering any break that
+   permits credits.
+5. **Snapshot columns** (§3.1): keep them as trigger-filled stored columns
+   (recommended — no reader changes), or drop them and have every reader
+   join to the slot.
 
 ## 8. Out of scope
 
