@@ -36,6 +36,16 @@ export interface RundownOpportunityLike {
   permitted_content_types: string[];
 }
 
+/** The timing fields a network slot and an opportunity (which carries its slot's) share. */
+export type SlotTimingLike = Pick<
+  RundownOpportunityLike,
+  | "timing_mode"
+  | "start_offset_seconds"
+  | "duration_seconds"
+  | "earliest_start_offset_seconds"
+  | "latest_start_offset_seconds"
+>;
+
 export interface RundownBreakDraft {
   local_opportunity_id: string;
   hour_index: number;
@@ -55,7 +65,7 @@ export interface RundownBreakDraft {
  * where within the window to land — same convention log_clock_slots'
  * floating network elements already use).
  */
-function nominalStartOffsetSeconds(opportunity: RundownOpportunityLike): number {
+export function nominalStartOffsetSeconds(opportunity: SlotTimingLike): number {
   if (opportunity.timing_mode === "float") {
     return opportunity.earliest_start_offset_seconds ?? opportunity.start_offset_seconds ?? 0;
   }
@@ -69,7 +79,7 @@ function nominalStartOffsetSeconds(opportunity: RundownOpportunityLike): number 
  * a float window that starts as late as possible still needs its full
  * duration before rejoining).
  */
-function rejoinOffsetSeconds(opportunity: RundownOpportunityLike): number {
+export function rejoinOffsetSeconds(opportunity: SlotTimingLike): number {
   if (opportunity.timing_mode === "float") {
     const latest = opportunity.latest_start_offset_seconds ?? opportunity.start_offset_seconds ?? 0;
     return latest + opportunity.duration_seconds;
@@ -166,14 +176,17 @@ export interface BreakWindowLike {
 /**
  * Filters drafts down to the ones whose nominal window overlaps no existing
  * break's window — the imported-rundown counterpart to
- * selectMissingBreakDrafts. An imported rundown's breaks come from the
- * uploaded program log, not this clock, so they carry no
- * local_opportunity_id to match on, and their times drift a second or two
- * off the clock's own offsets (the real export prints the 49:34 window as
- * :49:35) — window overlap is what identifies "this is the same avail",
- * never exact instant equality. Two windows that merely touch (one ends
- * exactly where the next starts — a promo slot right after a music bed) do
- * NOT overlap, so genuinely adjacent clock windows are still added.
+ * selectMissingBreakDrafts, for an imported rundown's breaks with no
+ * local_opportunity_id. Since 2026-09-24 those are breaks the import put on
+ * an unmarked clock slot (or, where the clock had none, on the export's own
+ * window — see program-log-clock-alignment.ts); earlier imports wrote the
+ * export's printed windows, which sit a second or two off the clock's own
+ * offsets (the export prints the 49:34 window as :49:35). Either way the
+ * test is "is this the same avail", so window overlap, never exact instant
+ * equality: a slot a producer marks eligible after the import, where the
+ * import already placed something, is not added a second time. Two windows
+ * that merely touch (one ends exactly where the next starts) do NOT
+ * overlap, so genuinely adjacent clock windows are still added.
  */
 export function selectNonOverlappingBreakDrafts(
   drafts: RundownBreakDraft[],
@@ -188,47 +201,4 @@ export function selectNonOverlappingBreakDrafts(
     const end = start + draft.available_duration_seconds * 1000;
     return !windows.some((window) => start < window.end && window.start < end);
   });
-}
-
-export interface CoveredBreakDraft {
-  draft: RundownBreakDraft;
-  breakId: string;
-}
-
-/**
- * The other half of selectNonOverlappingBreakDrafts: for each draft that
- * function would drop, the existing break that covers it — the one whose
- * window overlaps the draft's the most (ties go to the earlier break).
- * Uses the same strict-overlap test, so a draft either survives the filter
- * or appears here, never both and never neither.
- *
- * An imported rundown needs this for opportunity assignments: a pin (the
- * :58:59 legal ID) lives on a clock opportunity, and when the export
- * already prints an avail over that window (:59:00) the clock break is
- * dropped as a duplicate. Without mapping the pin onto the export's break
- * instead, the pinned content silently never airs in any hour DAD
- * scheduled something at the same point.
- */
-export function matchDraftsToCoveringBreaks(
-  drafts: RundownBreakDraft[],
-  existingBreaks: (BreakWindowLike & { id: string })[],
-): CoveredBreakDraft[] {
-  const windows = existingBreaks.map((brk) => {
-    const start = new Date(brk.scheduled_at).getTime();
-    return { id: brk.id, start, end: start + brk.available_duration_seconds * 1000 };
-  });
-  const matches: CoveredBreakDraft[] = [];
-  for (const draft of drafts) {
-    const start = new Date(draft.scheduled_at).getTime();
-    const end = start + draft.available_duration_seconds * 1000;
-    let best: { id: string; overlap: number } | null = null;
-    for (const window of windows) {
-      const overlap = Math.min(end, window.end) - Math.max(start, window.start);
-      if (overlap > 0 && (best === null || overlap > best.overlap)) {
-        best = { id: window.id, overlap };
-      }
-    }
-    if (best) matches.push({ draft, breakId: best.id });
-  }
-  return matches;
 }

@@ -1063,6 +1063,56 @@ windows behind a disclosure, expands new copy (whole script) and library
 updates (old and new), folds unchanged reuse to one line with a count, and
 folds operational notes the same way.
 
+*Revised 2026-09-24 — breaks come from the clock, content from the
+export, superseding item 1 and its 2026-08-24 revision.* Item 1 wrote the
+export's printed windows as the rundown's breaks, on the reasoning that
+the export was WUWF's confirmed avail structure and most clocks had no
+opportunity overlay. The 2026-08-24 union then added the clock's
+opportunity breaks around them, deduplicated by window overlap, so an
+imported rundown was a mixture of two break models whose seams were
+visible: DAD's times and windows rather than the clock's wherever the two
+overlapped, clock windows swallowed by a slightly longer DAD window next
+to them, and a special path (`matchDraftsToCoveringBreaks`) to move pinned
+content into export breaks that had displaced its clock break. Two things
+had also changed underneath the reasoning: opportunities became slot-keyed
+(marking one is a click, not typed offsets), and the export's windows
+turned out to be the clock's own avails printed a second or two off, not
+independent information.
+
+The rule now: **the clock defines every break's window; the export decides
+what goes in it, and prevails on whether something airs there.**
+`lib/log/program-log-clock-alignment.ts` (pure, tested — including against
+the real 2026-09-24 import) runs at preview time, so the preview shows the
+breaks that will be written, and the executor writes exactly those:
+
+- Every marked local opportunity gets its break, exactly as generation
+  builds it, so opportunity assignments (the legal ID pin) apply to an
+  imported rundown the same way; pinned content appends after the
+  export's items and never duplicates one.
+- An export break starting at a slot (within 15 seconds) lands in that
+  slot's break. If the slot is a marked opportunity, it's that break. If
+  not, the export still prevails — a credit DAD scheduled into a slot
+  nobody marked is placed — but the break takes the slot's own clock
+  times (`clock_slot`), running on through the contiguous slots DAD's
+  window covers (1A's 18:30 avail: a 30s music bed then a 60s promo) and
+  stopping at a marked opportunity. Nothing about the opportunity overlay
+  is created or changed; marking the slot remains a producer's decision.
+  If the export put a credit in an opportunity that doesn't permit
+  credits, that one break's snapshot gains `underwriting_credit`.
+- An export row starting inside a short slot another row already opened
+  (BirdNote 30s into a music bed) joins that break; a floating slot takes
+  a row anywhere in its window, at the export's time.
+- Only where the clock has no avail-sized slot at that point (a
+  placeholder "program content" clock, BBC's 23-minute segment) does the
+  export's own window become the break (`export`), flagged on the preview.
+- An export avail with nothing in it creates nothing.
+
+The executor refuses a rundown whose clock version changed between
+preview and confirm. No migration: `local_opportunity_id` stays nullable
+for `clock_slot`/`export` breaks and for rundowns imported before this
+change, which are left as they are — `syncRundownBreaks`'s window-overlap
+dedup still applies to both.
+
 The pre-2026-09-22 history, for context: the first parser
 (`lib/log/program-log-import.ts`, deterministic) shipped with a fixture
 cut from the real 2026-08-21 export; the 2026-08-24 export surfaced a

@@ -273,13 +273,13 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
     rundown.shift_start_at,
     shiftDurationMinutes,
   );
-  // An imported rundown's export-derived breaks carry no
-  // local_opportunity_id and sit a second or two off the clock's own
-  // offsets, so on top of the exact opportunity+instant dedup they need the
-  // window-overlap filter: a clock window the export already covers (the
-  // same avail, printed at :49:35 instead of :49:34) is skipped, while the
-  // clock's windows the export never mentions (a newscast cover, a promo
-  // slot) are what this sync adds. See selectNonOverlappingBreakDrafts.
+  // An imported rundown can also hold breaks with no local_opportunity_id —
+  // an unmarked slot the export placed something in, or (before
+  // 2026-09-24) the export's own printed windows — so on top of the exact
+  // opportunity+instant dedup it needs the window-overlap filter: an
+  // opportunity whose window such a break already covers is skipped, while
+  // the clock's other windows are what this sync adds. See
+  // selectNonOverlappingBreakDrafts.
   let missing = selectMissingBreakDrafts(drafts, rundown.breaks);
   if (rundown.source === "imported") {
     missing = selectNonOverlappingBreakDrafts(

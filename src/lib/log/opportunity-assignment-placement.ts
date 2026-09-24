@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   planAssignedContentForTargets,
   planAssignedContentPlacements,
+  type AssignmentPlacementTarget,
   type ContentItemForPlacement,
   type ExistingBreakContents,
   type InsertedBreakLike,
@@ -10,7 +11,7 @@ import {
   type PlannedRundownItem,
 } from "@/lib/log/opportunity-assignments";
 import { getContentItemsWithComponents } from "@/lib/log/queries";
-import type { CoveredBreakDraft, RundownBreakDraft } from "@/lib/log/rundown-generation";
+import type { RundownBreakDraft } from "@/lib/log/rundown-generation";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -62,30 +63,26 @@ export async function placeAssignedContent(
 }
 
 /**
- * The imported-rundown counterpart: places pinned content into the
- * export's own breaks wherever one of them covered (and so replaced) a
- * pinned clock window — see matchDraftsToCoveringBreaks. Appends after
- * the export's items and never duplicates an item the break already
- * holds. Best-effort, like placeAssignedContent.
+ * The imported-rundown counterpart: places pinned content into an imported
+ * rundown's opportunity breaks, after whatever the export already put there
+ * and never a second copy of an item a break already holds (the export may
+ * itself have listed the legal ID). See program-log-clock-alignment.ts.
+ * Best-effort, like placeAssignedContent.
  */
-export async function placeAssignedContentIntoCoveringBreaks(
+export async function placeAssignedContentIntoBreaks(
   supabase: SupabaseServerClient,
-  covered: CoveredBreakDraft[],
+  targets: AssignmentPlacementTarget[],
   existing: Map<string, ExistingBreakContents>,
   airDateISO: string,
 ): Promise<void> {
-  if (covered.length === 0) return;
+  if (targets.length === 0) return;
   const inputs = await loadAssignmentInputs(
     supabase,
-    covered.map(({ draft }) => draft.local_opportunity_id),
+    targets.map((target) => target.local_opportunity_id),
   );
   if (!inputs) return;
   const rows = planAssignedContentForTargets(
-    covered.map(({ draft, breakId }) => ({
-      break_id: breakId,
-      local_opportunity_id: draft.local_opportunity_id,
-      hour_index: draft.hour_index,
-    })),
+    targets,
     inputs.assignments,
     inputs.contentItems,
     airDateISO,

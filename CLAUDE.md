@@ -2609,6 +2609,22 @@ is now that estimate.
 The same pass joined the PDF's column line wraps in imported scripts
 (`cleanScript`), which had been stored as literal newlines.
 
+**Log: program-log import — breaks come from the clock, content from the
+export (2026-09-24), superseding the 2026-08-21 entry's point (1).** An
+imported rundown used to carry the export's printed windows as breaks plus
+the clock's opportunity breaks deduplicated by window overlap, so its
+breaks didn't correspond to the clock. `lib/log/program-log-clock-
+alignment.ts` (pure, tested) now aligns the model's breaks onto the
+program's clock at preview time: every marked opportunity gets its normal
+break; an export break starting at a slot goes into that slot's break —
+the opportunity's if marked, otherwise a break with the slot's own clock
+times (the export prevails on *whether* something airs there, never on
+the window); the export's own window is used only where the clock has no
+avail-sized slot; empty export avails create nothing. The executor writes
+exactly the aligned breaks and refuses a clock version that changed since
+the preview. `matchDraftsToCoveringBreaks` and its placement wrapper are
+gone. No migration. See `docs/log-design.md` §8's 2026-09-24 revision.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

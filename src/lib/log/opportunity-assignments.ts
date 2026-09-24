@@ -137,9 +137,7 @@ export function planAssignedContentPlacements(
 
 export interface AssignmentPlacementTarget {
   break_id: string;
-  // The opportunity (and hour repetition) whose assignments apply — for a
-  // freshly generated break, its own; for an imported break covering a
-  // dropped clock window, the covered draft's.
+  // The opportunity (and hour repetition) whose assignments apply.
   local_opportunity_id: string;
   hour_index: number;
 }
@@ -150,9 +148,8 @@ export interface ExistingBreakContents {
 }
 
 /**
- * The planning core both entry points share. Targets may repeat a break_id
- * (an imported :59:00 avail covers both the :58:59 music bed and the
- * :59:53 silence), so positions and the "don't place the same item twice"
+ * The planning core both entry points share. Targets may repeat a break_id, so
+ * positions and the "don't place the same item twice"
  * check are tracked per break across targets. `existing` describes items a
  * break already holds (an imported break's export items): new rows append
  * after them, and an item already present is never placed again — the

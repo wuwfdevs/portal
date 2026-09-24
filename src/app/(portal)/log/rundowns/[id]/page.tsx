@@ -202,13 +202,11 @@ export default async function RundownDetailPage({
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
   );
-  // An imported rundown's breaks came from the uploaded program-log export,
-  // which only prints the windows DAD scheduled something into — the
-  // clock's other local opportunities (a newscast cover, a promo slot) are
-  // real and fillable but absent from the export, so the same sync
-  // affordance applies with a window-overlap dedup in place of the exact
-  // opportunity+instant match (an export avail sits a second or two off the
-  // clock's own offset for the same window). See
+  // An imported rundown can hold breaks with no local_opportunity_id (an
+  // unmarked slot the export placed something in, or on an import before
+  // 2026-09-24, the export's own printed windows), so the same sync
+  // affordance applies with a window-overlap dedup against those in
+  // addition to the exact opportunity+instant match. See
   // selectNonOverlappingBreakDrafts and syncRundownBreaks.
   const allDrafts = buildRundownBreakDrafts(
     currentOpportunities,
