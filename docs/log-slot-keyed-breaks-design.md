@@ -136,6 +136,17 @@ network. The receiving break reads `covered_by_previous` if it's required
 (network content got bumped). With no such row, the source break reads
 `over`.
 
+**Content that spans several marked slots is unaffected.** This chaining is
+what carries a long local story across a multi-slot window: Morning
+Edition's 29:30 story window is four marked opportunities in a row (Music
+Bed 30s, Newscast 3 90s, Newscast 4 90s, Music Bed 60s, 4:30 in all, ending
+at 34:00). A 4-minute story placed in the 29:30 break reads `filled`, and
+the three breaks after it read `preempted_by_previous`. Every one of those
+slots is a marked opportunity, so each keeps its row under this proposal,
+and the chain works exactly as it does today. What follows is only about a
+story that runs past the last marked slot, into network content nobody
+marked (at 34:00, the network's Funding Credit).
+
 Under lazy materialization, the slot after a break is usually unmarked and
 has no row: a newscast, a network promo, a story segment. So an overrun
 there keeps reading `over`, as it does today. The real example on
