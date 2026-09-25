@@ -1,33 +1,35 @@
 // Inventory selection for the auto-fill scheduler
-// (docs/underwriting-traffic-redesign.md §4). Pure — no Supabase import,
-// colocated tests. Given a schedule line's open demand periods
-// (lib/underwriting/demand.ts), what it already holds, the real Log breaks
-// it may use, and its linked copy, this decides which break gets which
-// unit. The execution side (lib/underwriting/auto-fill.ts) writes every
-// planned item through log_place_underwriting_credit(), which re-checks the
-// same limits under a row lock — this module plans, the database enforces.
+// (docs/underwriting-traffic-redesign.md §9). Pure — no Supabase import,
+// colocated tests. Given a schedule line's open demand buckets, what it
+// already holds, the real Log breaks it may use (already filtered to the
+// line's eligibility by log_list_placeable_rundown_breaks()), and its linked
+// copy, this decides which break gets which unit. The execution side
+// (lib/underwriting/auto-fill.ts) writes every planned item through
+// log_place_underwriting_credit(), which re-checks the same limits under a
+// row lock — this module plans, the database enforces.
 //
-// Rules, in the order they are applied:
+// Hard rules (the order's, or the station's):
 //   * Never in the past (a break before todayISO), never in a break this
 //     contract already holds a credit in, never in a break whose last item
 //     is the same underwriter or the same industry (the reference
 //     agreement's "does not run adjacent to a business with similar
 //     services or products").
-//   * Makegoods awaiting a slot drain first: a missed unit is overdue.
-//   * A period is filled to its quantity, never past it; a day is filled to
-//     the period's day cap, never past it; two units on one day go to two
-//     different breaks (a same-day pair — Choral Society's "2 AM Drive each"
-//     — is two distinct opportunities, never one break twice).
+//   * A bucket is filled to its quantity, never past it. Two units on one
+//     day go to two different breaks. When the order states a per-day cap
+//     (max_per_day) it is respected; when it doesn't, several credits a day
+//     are fine — there is no global one-per-day doctrine.
 //   * A contract with a min_minutes separation policy keeps its own
 //     same-day credits at least that far apart.
-//   * "N a week" spreads across the week's eligible days rather than
-//     stacking the first ones (brief §6's unspecified-distribution default).
-//   * Within a day, the break closest to the line's target_time wins; with
-//     no target, the earliest.
+//   * Makegoods awaiting a slot drain first: a missed unit is overdue.
+// Preferences (the scheduler's, never contractual):
+//   * Even distribution: a bucket's units spread across its eligible days
+//     with inventory, least-loaded day first, so "10 a week" lands as two a
+//     day rather than ten on Monday.
+//   * Within a day, the break closest to preferred_time wins; with no
+//     preference, the earliest.
 //   * Copy rotates by least use; copy tied to another flight is never used.
 
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
-import type { DemandPeriod } from "./demand";
 
 export interface CandidateBreak {
   breakId: string;
@@ -36,9 +38,11 @@ export interface CandidateBreak {
   minutesOfDay: number;
   remainingSeconds: number;
   lastItemUnderwriterId: string | null;
-  lastItemCategory: string | null;
+  lastItemCategoryId: string | null;
   /** This contract already has a credit in this break (any line). */
   holdsThisContract: boolean;
+  /** The active bucket this break would consume, from log_list_placeable_rundown_breaks(). */
+  bucketId: string;
 }
 
 export interface CopyCandidate {
@@ -53,7 +57,7 @@ export interface CopyCandidate {
 }
 
 export interface ExistingPlacement {
-  periodStart: string;
+  bucketId: string;
   airDate: string;
   minutesOfDay: number;
   isMakegood: boolean;
@@ -61,17 +65,30 @@ export interface ExistingPlacement {
 
 export interface AwaitingMakegood {
   id: string;
-  /** The period the missed unit belonged to — where the replacement is attributed. */
-  periodStart: string | null;
+  /** The bucket the missed unit belonged to — where the replacement is attributed. */
+  bucketId: string | null;
+}
+
+export interface BucketDemand {
+  bucketId: string;
+  periodStart: string;
+  periodEnd: string;
+  quantity: number;
+  /** Dates in the bucket a credit may air on under the line's eligibility. */
+  eligibleDates: string[];
 }
 
 export interface SelectionDemand {
-  periods: DemandPeriod[];
+  buckets: BucketDemand[];
   existingPlacements: ExistingPlacement[];
   makegoodsAwaitingSlot: AwaitingMakegood[];
+  /** The order's per-day cap, or null for none. */
+  maxPerDay: number | null;
+  /** Ranks candidates within a day; null means earliest first. */
+  preferredTimeMinutes: number | null;
   underwriterId: string;
-  category: string | null;
-  targetTimeMinutes: number | null;
+  /** The underwriter's industry (uw_industry_categories id) — same-industry adjacency is refused. */
+  categoryId: string | null;
   lineFlightId: string | null;
   /** From the contract's separation policy; null when none applies. */
   separationMinutes: number | null;
@@ -84,14 +101,14 @@ export interface PlanItem {
   airDate: string;
   reason: "fresh" | "makegood";
   makegoodId?: string;
-  periodStart: string;
+  bucketId: string;
 }
 
 export type UnplaceableReason =
   "no_inventory" | "no_eligible_copy" | "adjacency" | "separation" | "day_cap" | "already_in_break";
 
 export interface UnplaceableUnit {
-  periodStart: string;
+  bucketId: string;
   reason: "fresh" | "makegood";
   makegoodId?: string;
   /** The most useful of the reasons the eligible dates were passed over — no_inventory when there was nothing to consider at all. */
@@ -144,7 +161,7 @@ export function spreadDates(dates: string[], count: number): string[] {
 /**
  * Plans breaks for a line's open demand. Deterministic for the same inputs;
  * re-running it after its items were placed plans nothing new, because the
- * placements come back as existingPlacements and every period reads full.
+ * placements come back as existingPlacements and every bucket reads full.
  */
 export function planInventorySelection(
   breaks: CandidateBreak[],
@@ -160,14 +177,15 @@ export function planInventorySelection(
   }
   for (const list of byDate.values()) {
     list.sort((a, b) => {
-      if (demand.targetTimeMinutes != null) {
-        const da = Math.abs(a.minutesOfDay - demand.targetTimeMinutes);
-        const db = Math.abs(b.minutesOfDay - demand.targetTimeMinutes);
+      if (demand.preferredTimeMinutes != null) {
+        const da = Math.abs(a.minutesOfDay - demand.preferredTimeMinutes);
+        const db = Math.abs(b.minutesOfDay - demand.preferredTimeMinutes);
         if (da !== db) return da - db;
       }
       return a.minutesOfDay - b.minutesOfDay || a.breakId.localeCompare(b.breakId);
     });
   }
+  const cap = demand.maxPerDay ?? Number.POSITIVE_INFINITY;
 
   const dayState = new Map<string, DayState>();
   const stateFor = (date: string): DayState => {
@@ -189,9 +207,9 @@ export function planInventorySelection(
   const unplaceable: UnplaceableUnit[] = [];
 
   /** Tries to place one unit on one date; returns the item or the reason it couldn't. */
-  const tryDate = (date: string, dayCap: number): PlanItem | UnplaceableReason => {
+  const tryDate = (date: string): PlanItem | UnplaceableReason => {
     const state = stateFor(date);
-    if (state.used >= dayCap) return "day_cap";
+    if (state.used >= cap) return "day_cap";
     const candidates = byDate.get(date) ?? [];
     if (candidates.length === 0) return "no_inventory";
     let why: UnplaceableReason = "no_inventory";
@@ -202,7 +220,7 @@ export function planInventorySelection(
       }
       if (
         brk.lastItemUnderwriterId === demand.underwriterId ||
-        (demand.category != null && brk.lastItemCategory === demand.category)
+        (demand.categoryId != null && brk.lastItemCategoryId === demand.categoryId)
       ) {
         why = "adjacency";
         continue;
@@ -231,26 +249,23 @@ export function planInventorySelection(
         copyId: copy.id,
         airDate: date,
         reason: "fresh",
-        periodStart: "",
+        bucketId: brk.bucketId,
       };
     }
     return why;
   };
 
-  const openDates = (period: DemandPeriod) =>
-    period.eligibleDates.filter((date) => date >= demand.todayISO);
+  const openDates = (bucket: BucketDemand) =>
+    bucket.eligibleDates.filter((date) => date >= demand.todayISO);
 
   // Makegoods first: any eligible date of the line, earliest first, one
-  // unit each, attributed to the period they replace.
-  const allDates = [...new Set(demand.periods.flatMap(openDates))].sort();
-  const capFor = new Map<string, number>();
-  for (const period of demand.periods)
-    for (const date of period.eligibleDates) capFor.set(date, period.maxPerDay);
+  // unit each, attributed to the bucket they replace.
+  const allDates = [...new Set(demand.buckets.flatMap(openDates))].sort();
   for (const makegood of demand.makegoodsAwaitingSlot) {
     let placed = false;
     let why: UnplaceableReason = "no_inventory";
     for (const date of allDates) {
-      const result = tryDate(date, capFor.get(date) ?? 1);
+      const result = tryDate(date);
       if (typeof result === "string") {
         if (result !== "day_cap" && result !== "no_inventory") why = result;
         else if (why === "no_inventory") why = result;
@@ -260,54 +275,59 @@ export function planInventorySelection(
         ...result,
         reason: "makegood",
         makegoodId: makegood.id,
-        periodStart: makegood.periodStart ?? date,
+        bucketId: makegood.bucketId ?? result.bucketId,
       });
       placed = true;
       break;
     }
     if (!placed)
       unplaceable.push({
-        periodStart: makegood.periodStart ?? "",
+        bucketId: makegood.bucketId ?? "",
         reason: "makegood",
         makegoodId: makegood.id,
         why,
       });
   }
 
-  // Then each period's fresh shortfall, spread across its open days.
-  for (const period of demand.periods) {
+  // Then each bucket's fresh shortfall, spread across its open days:
+  // one pass places at most one unit per chosen day; further passes add a
+  // unit to the least-loaded days until the bucket is full or nothing
+  // more can be placed.
+  for (const bucket of demand.buckets) {
     const fresh = demand.existingPlacements.filter(
-      (p) => p.periodStart === period.periodStart && !p.isMakegood,
+      (p) => p.bucketId === bucket.bucketId && !p.isMakegood,
     ).length;
-    let shortfall = period.quantity - fresh;
+    let shortfall = bucket.quantity - fresh;
     if (shortfall <= 0) continue;
 
-    const dates = openDates(period).filter((date) => stateFor(date).used < period.maxPerDay);
+    const dates = openDates(bucket).filter((date) => stateFor(date).used < cap);
     const withInventory = dates.filter((date) => (byDate.get(date) ?? []).length > 0);
-    // Spread across days that actually have inventory; fall back to every
-    // open day only to report why nothing could be placed.
-    const order = [
-      ...spreadDates(withInventory, shortfall),
-      ...withInventory.filter((d) => !spreadDates(withInventory, shortfall).includes(d)),
-    ];
+    const spread = spreadDates(withInventory, shortfall);
+    const order = [...spread, ...withInventory.filter((d) => !spread.includes(d))];
     let why: UnplaceableReason = withInventory.length === 0 ? "no_inventory" : "day_cap";
 
-    // First pass: at most one unit per chosen day; second pass: extra units
-    // where the day cap allows (a 2-a-day order).
-    for (let pass = 0; pass < period.maxPerDay && shortfall > 0; pass++) {
-      for (const date of order) {
+    let progress = true;
+    while (shortfall > 0 && progress) {
+      progress = false;
+      // Least-loaded day first within a pass, so a second pass over a
+      // 10-a-week order adds to Monday and Tuesday before stacking Monday.
+      const pass = [...order].sort(
+        (a, b) => stateFor(a).used - stateFor(b).used || order.indexOf(a) - order.indexOf(b),
+      );
+      for (const date of pass) {
         if (shortfall <= 0) break;
-        const result = tryDate(date, period.maxPerDay);
+        const result = tryDate(date);
         if (typeof result === "string") {
           if (result !== "day_cap") why = result;
           continue;
         }
-        items.push({ ...result, periodStart: period.periodStart });
+        items.push({ ...result, bucketId: bucket.bucketId });
         shortfall--;
+        progress = true;
       }
     }
     for (let i = 0; i < shortfall; i++)
-      unplaceable.push({ periodStart: period.periodStart, reason: "fresh", why });
+      unplaceable.push({ bucketId: bucket.bucketId, reason: "fresh", why });
   }
 
   items.sort((a, b) => a.airDate.localeCompare(b.airDate) || a.breakId.localeCompare(b.breakId));
@@ -316,7 +336,7 @@ export function planInventorySelection(
 
 /**
  * Dates that still need Log rundowns generated before a plan could fill
- * them: for every period with a fresh shortfall (or any makegood awaiting a
+ * them: for every bucket with a fresh shortfall (or any makegood awaiting a
  * slot), the open eligible dates that currently have no candidate break at
  * all, spread the same way the planner spreads. In date order, capped at
  * `limit` — the execution side asks for exactly its shortfall.
@@ -333,18 +353,19 @@ export function datesNeedingInventory(
   const placedPerDay = new Map<string, number>();
   for (const p of demand.existingPlacements)
     placedPerDay.set(p.airDate, (placedPerDay.get(p.airDate) ?? 0) + 1);
+  const cap = demand.maxPerDay ?? Number.POSITIVE_INFINITY;
 
   const wanted: string[] = [];
   let makegoods = demand.makegoodsAwaitingSlot.length;
-  for (const period of demand.periods) {
+  for (const bucket of demand.buckets) {
     const fresh = demand.existingPlacements.filter(
-      (p) => p.periodStart === period.periodStart && !p.isMakegood,
+      (p) => p.bucketId === bucket.bucketId && !p.isMakegood,
     ).length;
-    const need = Math.max(0, period.quantity - fresh) + makegoods;
+    const need = Math.max(0, bucket.quantity - fresh) + makegoods;
     makegoods = 0;
     if (need === 0) continue;
-    const open = period.eligibleDates.filter(
-      (date) => date >= demand.todayISO && (placedPerDay.get(date) ?? 0) < period.maxPerDay,
+    const open = bucket.eligibleDates.filter(
+      (date) => date >= demand.todayISO && (placedPerDay.get(date) ?? 0) < cap,
     );
     const bare = open.filter((date) => !haveInventory.has(date));
     const covered = open.length - bare.length;

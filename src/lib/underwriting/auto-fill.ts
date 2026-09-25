@@ -5,8 +5,9 @@ import { provisionRundownsForDates } from "./rundown-provisioning";
 import {
   buildSelectionDemand,
   getContract,
+  getRevision,
   getUnderwriter,
-  listAllocationsForLines,
+  listBucketsForLines,
   listCopyLinkedToContracts,
   listInventoryPools,
   listPlacementsForScheduleLine,
@@ -25,15 +26,15 @@ import {
 
 /**
  * Execution side of the scheduler (docs/underwriting-traffic-redesign.md
- * §4): demand expansion (lib/underwriting/demand.ts) says which periods
- * need how many units; inventory selection (inventory-selection.ts) picks
- * real Log breaks for them; this module gathers the inputs, provisions the
- * rundowns a plan is still short, and writes every planned item through
- * the exact same log_place_underwriting_credit() RPC the manual "Place a
- * credit" form uses — never an override, since the planner only ever
- * selects approved, in-date, flight-appropriate copy. The RPC re-checks
- * every contractual limit under a row lock, so a plan built from stale
- * reads fails an item rather than over-filling.
+ * §9): the demand buckets say which periods need how many units;
+ * inventory selection (inventory-selection.ts) picks real Log breaks for
+ * them; this module gathers the inputs, provisions the rundowns a plan is
+ * still short, and writes every planned item through the exact same
+ * log_place_underwriting_credit() RPC the manual "Place a credit" form
+ * uses — never an override, since the planner only ever selects approved,
+ * in-date, flight-appropriate copy. The RPC re-checks every contractual
+ * limit under a row lock, so a plan built from stale reads fails an item
+ * rather than over-filling.
  *
  * Rundowns are provisioned as credits are scheduled against them, not as
  * a separate pre-pass: the first ("probe") plan runs against inventory that
@@ -92,6 +93,13 @@ export async function autoFillScheduleLine(
   if (scheduleLine.status !== "active") {
     return { ...EMPTY_RESULT, skippedReason: "This schedule line is cancelled." };
   }
+  const revision = await getRevision(scheduleLine.revision_id);
+  if (!revision || revision.status !== "current") {
+    return {
+      ...EMPTY_RESULT,
+      skippedReason: "This schedule line belongs to a revision that isn't current.",
+    };
+  }
   const contract = preloaded.contract ?? (await getContract(scheduleLine.contract_id));
   if (!contract) {
     return { ...EMPTY_RESULT, errors: ["This schedule line's contract no longer exists."] };
@@ -112,24 +120,21 @@ export async function autoFillScheduleLine(
   }
 
   const todayISO = stationTodayISO();
-  const [allocationsByLine, placeable, copyByContract, pools, activePlacements] = await Promise.all(
-    [
-      listAllocationsForLines([scheduleLine.id]),
-      listPlaceableRundownBreaks(scheduleLine.id),
-      listCopyLinkedToContracts([scheduleLine.contract_id]),
-      listInventoryPools(),
-      listPlacementsForScheduleLine(scheduleLine.id),
-    ],
-  );
+  const [bucketsByLine, placeable, copyByContract, pools, activePlacements] = await Promise.all([
+    listBucketsForLines([scheduleLine.id]),
+    listPlaceableRundownBreaks(scheduleLine.id),
+    listCopyLinkedToContracts([scheduleLine.contract_id]),
+    listInventoryPools(),
+    listPlacementsForScheduleLine(scheduleLine.id),
+  ]);
   if (!placeable.ok) {
     return { ...EMPTY_RESULT, errors: [placeable.message] };
   }
-  const allocations = allocationsByLine.get(scheduleLine.id) ?? [];
-  const { demand } = await buildSelectionDemand(
+  const demand = await buildSelectionDemand(
     scheduleLine,
     contract,
     underwriter,
-    allocations,
+    bucketsByLine.get(scheduleLine.id) ?? [],
     todayISO,
   );
 
@@ -165,8 +170,9 @@ export async function autoFillScheduleLine(
       minutesOfDay: brk.minutes_of_day,
       remainingSeconds: brk.remaining_seconds,
       lastItemUnderwriterId: lastItem?.underwriterId ?? null,
-      lastItemCategory: lastItem?.category ?? null,
+      lastItemCategoryId: lastItem?.categoryId ?? null,
       holdsThisContract: brk.holds_this_contract,
+      bucketId: brk.bucket_id,
     };
   };
   const existingCandidates = placeable.breaks.map(toCandidate);
@@ -192,6 +198,9 @@ export async function autoFillScheduleLine(
   );
 
   if (remaining > 0 && canProvision && programs.length > 0) {
+    // Dates come from the buckets' own periods and the line's eligible
+    // days — an exact-date bucket names its date, a weekly quota asks only
+    // for as many days as it is short.
     const candidateDates = datesNeedingInventory(demand, existingCandidates, remaining);
     for (const programId of programs) {
       const provisioning = await provisionRundownsForDates(programId, candidateDates, remaining);
@@ -285,7 +294,7 @@ async function runAutoFillOverLines(
   return { perLine, totals };
 }
 
-/** Runs auto-fill across every active schedule line under every active contract — Workflow D's dashboard, one click. */
+/** Runs auto-fill across every active schedule line under the current revision of every active contract — Workflow D's dashboard, one click. */
 export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> {
   return runAutoFillOverLines(await listScheduleLinesWithActiveContracts());
 }

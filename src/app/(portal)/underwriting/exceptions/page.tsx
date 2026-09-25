@@ -49,7 +49,7 @@ export default async function ExceptionsPage() {
                 </Link>
               </Cell>
               <Cell className="text-ink-500">
-                {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine, [])}
+                {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
               </Cell>
               <Cell className="whitespace-nowrap text-ink-500">
                 {formatPlacementTime(exception.original_scheduled_at)}

@@ -1290,6 +1290,62 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: revisions, eligibility lines, demand buckets
+(2026-09-25, second pass — supersedes the entry below where they differ).**
+Read `docs/underwriting-traffic-redesign.md` §9 before touching contracts,
+schedule lines, buckets, placement, auto-fill, or Log's local
+opportunities. A deeper audit of the archive (1,001 orders, six sponsors
+across years) showed the four typed rule kinds were still the wrong
+primitive — the durable grammar is "a quantity owed within a period,
+subject to eligibility". `20260925150000_underwriting_demand_buckets.sql`
+(clean rewrite; both projects held zero contracts) moves the boundary to
+`contract -> revision -> eligibility line -> demand buckets -> placement`:
+`uw_contract_revisions` (one `current` per contract; a draft beside it;
+activation supersedes the current revision's buckets still open on the
+effective date, clears its placements from that date through
+`log_clear_underwriting_credit()`, and never touches aired history —
+`lib/underwriting/revisions.ts`, previewed on the contract page before the
+click); `uw_contract_schedule_lines` is eligibility only (program/pool,
+eligible days, `time_mode` any|window|preferred|exact|slot, nullable
+`max_per_day`, `service_level` guaranteed|bonus) with `entry_kind`/
+`entry_spec` recording how it was entered; `uw_demand_buckets` is the
+quantity per period (a dark grid week is a real zero row);
+`uw_scheduled_placements.demand_bucket_id` replaces the period pair.
+`lib/underwriting/demand-compiler.ts` (pure) compiles fixed days, N a
+week, N a month, every N weeks, explicit dates, a week grid, or a range
+total into buckets; `eligibility.ts` is the TypeScript twin of the SQL
+guard's `uw_bucket_for_date()`/`uw_time_eligible()` — keep them in step.
+Six things are load-bearing:
+
+1. **Log's `log_local_opportunities.traffic_key`** (same migration) is how
+   an order's "Opening Credit for Marketplace" is expressed: a producer
+   gives the opportunity a stable key on the clock screen and carries it
+   onto the equivalent slot of each new clock version; a `slot`-mode line
+   (`required_opportunity_key`) places only into a break carrying it.
+   Never use a time as a proxy for a position.
+2. **A per-day cap is data, not doctrine.** `max_per_day` null means
+   several a day are fine (New South's 10 a week M–F lands two a day);
+   the planner still spreads evenly, least-loaded day first. The old
+   global one-per-day collapse is gone.
+3. **`exact` is ± 3 minutes** (`uw_exact_time_tolerance()`,
+   `EXACT_TIME_TOLERANCE_MINUTES`) because slot-keyed breaks start at the
+   clock's own second; `preferred` only ranks.
+4. **A bonus line is never "behind"** and its miss is not owed a makegood
+   unless the order says so; exceptions still record the miss.
+5. **Only the current revision schedules**: `log_place_underwriting_credit()`
+   returns `revision_not_current` for a draft or superseded line, and the
+   dashboard/auto-fill read only current revisions' lines. A draft's lines
+   can be deleted (`20260925170000`, a delete policy scoped to drafts);
+   a current line is cancelled from a date, never deleted.
+6. **Industry is a typed table** (`uw_industry_categories`,
+   `uw_underwriters.category_id`, `20260925160000` — requested during this
+   pass); the adjacency rule compares category ids, never strings.
+
+Corpus: 27 orders in `fixtures/insertion-orders.ts`, all read from the
+originals; 1,012 tests. FPL Q1 2022 was not located in Drive. The
+TypeScript auto-fill and activation paths are still unexercised against a
+live session.
+
 **Underwriting & Traffic: insertion-order-grounded redesign (2026-09-25).**
 Read `docs/underwriting-traffic-redesign.md` before touching schedule lines,
 placement, auto-fill, or anything that writes `uw_scheduled_placements`;

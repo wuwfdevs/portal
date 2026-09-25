@@ -71,7 +71,7 @@ export default async function MakegoodsPage({
                 <Badge variant={STATE_VARIANT[state]}>{MAKEGOOD_STATE_LABEL[state]}</Badge>
               </div>
               <p className="mb-3 text-xs text-ink-500">
-                {makegood.scheduleLine.label || describeScheduleLine(makegood.scheduleLine, [])} ·
+                {makegood.scheduleLine.label || describeScheduleLine(makegood.scheduleLine)} ·
                 resolving{" "}
                 <Link
                   href={`/underwriting/exceptions/${makegood.exception.id}`}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { autoFillAllAction } from "./auto-fill-actions";
 import {
   buildScheduleLineDemandViews,
-  listAllocationsForLines,
+  listBucketsForLines,
   listContracts,
   listCopy,
   listCopyLinkedToContracts,
@@ -51,9 +51,9 @@ export default async function UnderwritingDashboardPage({
   );
 
   const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))];
-  const [copyByContract, allocationsByLine, lineContexts] = await Promise.all([
+  const [copyByContract, bucketsByLine, lineContexts] = await Promise.all([
     listCopyLinkedToContracts(contractIds),
-    listAllocationsForLines(scheduleLines.map((line) => line.id)),
+    listBucketsForLines(scheduleLines.map((line) => line.id)),
     listScheduleLinePlacementContexts(scheduleLines),
   ]);
   const names = {
@@ -64,7 +64,7 @@ export default async function UnderwritingDashboardPage({
   for (const contractId of contractIds) {
     const contract = scheduleLines.find((line) => line.contract_id === contractId)!.contract;
     const lines = scheduleLines.filter((line) => line.contract_id === contractId);
-    views.push(...(await buildScheduleLineDemandViews(contract, lines, allocationsByLine, names)));
+    views.push(...(await buildScheduleLineDemandViews(contract, lines, bucketsByLine, names)));
   }
   const placeableByLine = new Map(
     lineContexts.map((context) => [context.scheduleLine.id, context.placeable]),
@@ -86,8 +86,11 @@ export default async function UnderwritingDashboardPage({
         ),
         separationUndecided:
           Boolean(contract.separation_source_text) && contract.separation_policy === "unspecified",
-        periodsShortSoon: view.periods.filter(
-          (period) => period.periodEnd >= todayISO && period.periodStart <= horizon,
+        bucketsShortSoon: view.buckets.filter(
+          (bucket) =>
+            bucket.status === "active" &&
+            bucket.periodEnd >= todayISO &&
+            bucket.periodStart <= horizon,
         ),
         datesWithInventory: new Set(
           placeable?.ok ? placeable.breaks.map((brk) => brk.air_date) : [],
@@ -105,7 +108,7 @@ export default async function UnderwritingDashboardPage({
   const unplacedUnits = views.reduce(
     (sum, view) =>
       sum +
-      view.periods.filter((p) => p.periodEnd >= todayISO).reduce((s, p) => s + p.freshShortfall, 0),
+      view.buckets.filter((b) => b.periodEnd >= todayISO).reduce((s, b) => s + b.freshShortfall, 0),
     0,
   );
 
@@ -117,11 +120,11 @@ export default async function UnderwritingDashboardPage({
         <div>
           <div className="text-sm font-semibold text-ink-900">Auto-fill scheduling</div>
           <p className="text-xs text-ink-500">
-            Fills every open period of every active contract to what the order calls for — makegoods
-            first — spreading credits across eligible days and generating the Log rundowns it needs.
-            Never the same underwriter twice in a break, never next to the same industry, and never
-            past a period&apos;s quantity or a day&apos;s cap: the database checks the same limits
-            the planner does.
+            Fills every open demand bucket of every active contract to what the order calls for —
+            makegoods first — spreading credits across eligible days and generating the Log rundowns
+            it needs. Never the same underwriter twice in a break, never next to the same industry,
+            and never past a bucket&apos;s quantity or the order&apos;s own per-day cap: the
+            database checks the same limits the planner does.
           </p>
         </div>
         <form action={autoFillAllAction}>

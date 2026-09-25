@@ -8,7 +8,8 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { clearCredit } from "@/lib/underwriting/placement";
 import { parseScheduleLineForm } from "@/lib/underwriting/schedule-line-form";
-import { isValidDateISO } from "@/lib/underwriting/demand";
+import { isValidDateISO } from "@/lib/underwriting/dates";
+import { activateRevision } from "@/lib/underwriting/revisions";
 import { stationTodayISO } from "@/lib/log/timezone";
 import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types";
 
@@ -39,6 +40,39 @@ function optionalInt(formData: FormData, name: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+// Industry categories ------------------------------------------------------
+
+/** A typed industry for the competitive-adjacency rule (uw_industry_categories, 2026-09-25) — never free text on the underwriter. */
+export async function createIndustryCategory(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const name = field(formData, "name");
+  if (name === "") failWith(UNDERWRITERS_LIST_PATH, "Give the industry a name.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("uw_industry_categories").insert({
+    name,
+    description: optionalField(formData, "description"),
+    created_by: profile.id,
+  });
+  failIfError(error, UNDERWRITERS_LIST_PATH, "Could not add the industry");
+
+  revalidatePath(UNDERWRITERS_LIST_PATH);
+  redirect(UNDERWRITERS_LIST_PATH);
+}
+
+export async function setIndustryCategoryActive(formData: FormData): Promise<void> {
+  await assertUnderwritingAccess();
+  const id = field(formData, "category_id");
+  const active = field(formData, "active") === "true";
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("uw_industry_categories").update({ active }).eq("id", id);
+  failIfError(error, UNDERWRITERS_LIST_PATH, "Could not update the industry");
+
+  revalidatePath(UNDERWRITERS_LIST_PATH);
+  redirect(UNDERWRITERS_LIST_PATH);
+}
+
 // Underwriters ---------------------------------------------------------------
 
 /** A durable underwriter/sponsor entity (point 17 of the domain redesign) — replaces free-text underwriter_name on the contract. */
@@ -56,7 +90,7 @@ export async function createUnderwriter(formData: FormData): Promise<void> {
       contact_name: optionalField(formData, "contact_name"),
       email: optionalField(formData, "email"),
       phone: optionalField(formData, "phone"),
-      category: optionalField(formData, "category"),
+      category_id: optionalField(formData, "category_id"),
       notes: optionalField(formData, "notes"),
       created_by: profile.id,
     })
@@ -85,7 +119,7 @@ export async function updateUnderwriter(formData: FormData): Promise<void> {
       contact_name: optionalField(formData, "contact_name"),
       email: optionalField(formData, "email"),
       phone: optionalField(formData, "phone"),
-      category: optionalField(formData, "category"),
+      category_id: optionalField(formData, "category_id"),
       notes: optionalField(formData, "notes"),
     })
     .eq("id", id);
@@ -98,6 +132,12 @@ export async function updateUnderwriter(formData: FormData): Promise<void> {
 
 // Contracts --------------------------------------------------------------------
 
+/**
+ * Creates the contract and its first revision, already current, so
+ * schedule lines can be entered straight away — a contract always has
+ * exactly one current revision from the moment it exists
+ * (docs/underwriting-traffic-redesign.md §9).
+ */
 export async function createContract(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const underwriterId = field(formData, "underwriter_id");
@@ -137,6 +177,22 @@ export async function createContract(formData: FormData): Promise<void> {
     .single();
   failIfError(error, CONTRACTS_LIST_PATH, "Could not create the contract");
   if (!data) failWith(CONTRACTS_LIST_PATH, "Could not create the contract.");
+
+  const { error: revisionError } = await supabase.from("uw_contract_revisions").insert({
+    contract_id: data.id,
+    revision_label: "Original order",
+    effective_from: effectiveFrom,
+    received_at: stationTodayISO(),
+    status: "current",
+    activated_at: new Date().toISOString(),
+    activated_by: profile.id,
+    created_by: profile.id,
+  });
+  failIfError(
+    revisionError,
+    CONTRACTS_LIST_PATH,
+    "Created the contract but not its first revision",
+  );
 
   revalidatePath(CONTRACTS_LIST_PATH);
   redirect(contractPath(data.id));
@@ -255,6 +311,141 @@ export async function getContractDocumentDownloadUrl(
   return { url: data.signedUrl };
 }
 
+// Revisions --------------------------------------------------------------------
+
+/**
+ * "Create revision from current" (brief §13 Phase D): a new draft carrying
+ * copies of the current revision's active lines and their active buckets,
+ * so a revised order is entered as edits to what already stands rather
+ * than from scratch. Nothing schedules from a draft; activation below is
+ * what makes it count.
+ */
+export async function createRevisionFromCurrent(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const path = contractPath(contractId);
+  const effectiveFrom = optionalField(formData, "effective_from") ?? stationTodayISO();
+  if (!isValidDateISO(effectiveFrom)) failWith(path, "Give the date the revision takes effect.");
+  const receivedAt = optionalField(formData, "received_at");
+  if (receivedAt !== null && !isValidDateISO(receivedAt))
+    failWith(path, "The received date isn't a date.");
+
+  const supabase = await createClient();
+  const { data: existingDraft } = await supabase
+    .from("uw_contract_revisions")
+    .select("id")
+    .eq("contract_id", contractId)
+    .eq("status", "draft")
+    .maybeSingle();
+  if (existingDraft)
+    failWith(path, "This contract already has a draft revision — activate or cancel it first.");
+
+  const { data: current } = await supabase
+    .from("uw_contract_revisions")
+    .select("id")
+    .eq("contract_id", contractId)
+    .eq("status", "current")
+    .maybeSingle();
+
+  const { data: draft, error } = await supabase
+    .from("uw_contract_revisions")
+    .insert({
+      contract_id: contractId,
+      revision_label: optionalField(formData, "revision_label"),
+      effective_from: effectiveFrom,
+      received_at: receivedAt,
+      notes: optionalField(formData, "notes"),
+      supersedes_revision_id: current?.id ?? null,
+      status: "draft",
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
+  failIfError(error, path, "Could not create the revision");
+  if (!draft) failWith(path, "Could not create the revision.");
+
+  if (current && formData.get("copy_lines") === "on") {
+    const { data: lines } = await supabase
+      .from("uw_contract_schedule_lines")
+      .select("*")
+      .eq("revision_id", current.id)
+      .eq("status", "active");
+    for (const line of lines ?? []) {
+      const { id: oldId, created_at: _createdAt, updated_at: _updatedAt, ...rest } = line;
+      void _createdAt;
+      void _updatedAt;
+      const { data: copied, error: copyError } = await supabase
+        .from("uw_contract_schedule_lines")
+        .insert({ ...rest, revision_id: draft.id, created_by: profile.id })
+        .select("id")
+        .single();
+      failIfError(copyError, path, "Created the revision but could not copy a line");
+      if (!copied) continue;
+      const { data: buckets } = await supabase
+        .from("uw_demand_buckets")
+        .select("period_start, period_end, quantity_required, source_label")
+        .eq("schedule_line_id", oldId)
+        .eq("status", "active");
+      if (buckets && buckets.length > 0) {
+        const { error: bucketError } = await supabase
+          .from("uw_demand_buckets")
+          .insert(buckets.map((bucket) => ({ ...bucket, schedule_line_id: copied.id })));
+        failIfError(bucketError, path, "Created the revision but could not copy a line's demand");
+      }
+    }
+  }
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+/**
+ * "Activate revision": the preview on the contract page names exactly
+ * what changes; this applies it (lib/underwriting/revisions.ts) and audits
+ * it — a revision rewrites a contract's future obligations, which is worth
+ * a durable trace the way a termination is.
+ */
+export async function activateRevisionAction(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const revisionId = field(formData, "revision_id");
+  const path = contractPath(contractId);
+
+  const message = await activateRevision(revisionId, profile.id);
+  if (message) failWith(path, message);
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "underwriting.contract.revision_activated",
+    targetType: "uw_contract_revision",
+    targetId: revisionId,
+    metadata: { contract_id: contractId },
+  });
+
+  revalidatePath(path);
+  revalidatePath("/underwriting/makegoods");
+  redirect(path);
+}
+
+/** Discards a draft revision — nothing has scheduled from it, so nothing else changes; its lines and buckets stay attached to it as a record of what was considered. */
+export async function cancelDraftRevision(formData: FormData): Promise<void> {
+  await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const revisionId = field(formData, "revision_id");
+  const path = contractPath(contractId);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("uw_contract_revisions")
+    .update({ status: "cancelled" })
+    .eq("id", revisionId)
+    .eq("status", "draft");
+  failIfError(error, path, "Could not cancel the draft revision");
+
+  revalidatePath(path);
+  redirect(path);
+}
+
 // Flights ----------------------------------------------------------------------
 
 /** An event or production under a contract that groups schedule lines and scopes copy (docs/underwriting-traffic-redesign.md §3). */
@@ -325,74 +516,98 @@ export async function cancelFlight(formData: FormData): Promise<void> {
 // Schedule lines -----------------------------------------------------------
 
 /**
- * One traffic instruction from a signed insertion order, in one of the four
- * typed shapes (docs/underwriting-traffic-redesign.md §3) — parsed and
- * validated by lib/underwriting/schedule-line-form.ts, then written as the
- * line plus its allocations (explicit dates / week grid).
+ * One traffic instruction from a signed insertion order: eligibility on
+ * the line, quantities compiled into demand buckets
+ * (docs/underwriting-traffic-redesign.md §9) — parsed and validated by
+ * lib/underwriting/schedule-line-form.ts, written under the revision the
+ * form named (the current one, or the draft being entered).
  */
 export async function addScheduleLine(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
+  const revisionId = field(formData, "revision_id");
   const path = contractPath(contractId);
+  if (revisionId === "") failWith(path, "Choose which revision the line belongs to.");
 
   const parsed = parseScheduleLineForm({
     label: field(formData, "label"),
-    rule_kind: field(formData, "rule_kind"),
+    entry_kind: field(formData, "entry_kind"),
     days_of_week: formData
       .getAll("days_of_week")
       .map((value) => Number.parseInt(String(value), 10)),
     count_per_day: field(formData, "count_per_day"),
-    quantity_per_week: field(formData, "quantity_per_week"),
-    max_per_day: field(formData, "max_per_day"),
+    quantity: field(formData, "quantity"),
+    interval_weeks: field(formData, "interval_weeks"),
     pool_id: field(formData, "pool_id"),
     program_id: field(formData, "program_id"),
+    time_mode: field(formData, "time_mode"),
     window_start: field(formData, "window_start"),
     window_end: field(formData, "window_end"),
-    target_time: field(formData, "target_time"),
+    preferred_time: field(formData, "preferred_time"),
+    required_opportunity_key: field(formData, "required_opportunity_key"),
+    max_per_day: field(formData, "max_per_day"),
+    service_level: field(formData, "service_level"),
     duration_seconds: field(formData, "duration_seconds"),
     start_date: field(formData, "start_date"),
     end_date: field(formData, "end_date"),
     flight_id: field(formData, "flight_id"),
-    is_bonus: formData.get("is_bonus") === "on",
     stated_total: field(formData, "stated_total"),
     source_text: field(formData, "source_text"),
+    makegood_policy_text: field(formData, "makegood_policy_text"),
     notes: field(formData, "notes"),
-    allocations_text: field(formData, "allocations_text"),
+    dates_text: field(formData, "dates_text"),
     grid_first_monday: field(formData, "grid_first_monday"),
     grid_quantities: field(formData, "grid_quantities"),
   });
   if (!parsed.ok) failWith(path, parsed.error);
 
   const supabase = await createClient();
+  const { data: revision } = await supabase
+    .from("uw_contract_revisions")
+    .select("id, status")
+    .eq("id", revisionId)
+    .eq("contract_id", contractId)
+    .maybeSingle();
+  if (!revision || (revision.status !== "current" && revision.status !== "draft"))
+    failWith(path, "Lines can only be added to the current revision or a draft.");
+
+  const { entry_spec, ...lineFields } = parsed.value.line;
   const { data, error } = await supabase
     .from("uw_contract_schedule_lines")
-    .insert({ ...parsed.value.line, contract_id: contractId, created_by: profile.id })
+    .insert({
+      ...lineFields,
+      entry_spec,
+      contract_id: contractId,
+      revision_id: revisionId,
+      created_by: profile.id,
+    })
     .select("id")
     .single();
   failIfError(error, path, "Could not add the schedule line");
   if (!data) failWith(path, "Could not add the schedule line.");
 
-  if (parsed.value.allocations.length > 0) {
-    const { error: allocationError } = await supabase.from("uw_schedule_allocations").insert(
-      parsed.value.allocations.map((allocation) => ({
-        ...allocation,
-        schedule_line_id: data.id,
-      })),
-    );
-    failIfError(allocationError, path, "Added the line, but could not save its dates");
-  }
+  const { error: bucketError } = await supabase.from("uw_demand_buckets").insert(
+    parsed.value.buckets.map((bucket) => ({
+      schedule_line_id: data.id,
+      period_start: bucket.periodStart,
+      period_end: bucket.periodEnd,
+      quantity_required: bucket.quantity,
+      source_label: bucket.sourceLabel,
+    })),
+  );
+  failIfError(bucketError, path, "Added the line, but could not save its demand");
 
   revalidatePath(path);
   redirect(`${path}#line-${data.id}`);
 }
 
 /**
- * Cancels a line from a date: demand on or after it is void, and every
- * active placement on or after it is cleared through the same
- * log_clear_underwriting_credit() an ordinary clear uses, so nothing is left
- * double-booked against a replacement line (brief acceptance scenario 11).
- * Placements before the date, and their broadcast events, stand. Returns a
- * message on failure, null on success.
+ * Cancels a line from a date: buckets still open on or after it are
+ * cancelled, and every active placement on or after it is cleared through
+ * the same log_clear_underwriting_credit() an ordinary clear uses, so
+ * nothing is left double-booked against a replacement line. Placements
+ * before the date, and their broadcast events, stand. Returns a message on
+ * failure, null on success.
  */
 async function cancelScheduleLineFrom(
   lineId: string,
@@ -410,14 +625,28 @@ async function cancelScheduleLineFrom(
     const result = await clearCredit(placement.id);
     if (!result.ok) return `Could not clear a future placement: ${result.message}`;
   }
-  // Makegoods still awaiting a slot for demand that no longer exists.
-  await supabase
-    .from("uw_makegoods")
-    .update({ status: "cancelled" })
+  const { data: voidBuckets } = await supabase
+    .from("uw_demand_buckets")
+    .select("id")
     .eq("schedule_line_id", lineId)
-    .eq("status", "scheduled")
-    .is("scheduled_placement_id", null)
-    .gte("demand_period_start", from);
+    .eq("status", "active")
+    .gte("period_end", from);
+  const voidIds = (voidBuckets ?? []).map((bucket) => bucket.id);
+  if (voidIds.length > 0) {
+    const { error: bucketError } = await supabase
+      .from("uw_demand_buckets")
+      .update({ status: "cancelled" })
+      .in("id", voidIds);
+    if (bucketError) return `Could not cancel the line's demand: ${bucketError.message}`;
+    // Makegoods still awaiting a slot for demand that no longer exists.
+    await supabase
+      .from("uw_makegoods")
+      .update({ status: "cancelled" })
+      .eq("schedule_line_id", lineId)
+      .eq("status", "scheduled")
+      .is("scheduled_placement_id", null)
+      .in("demand_bucket_id", voidIds);
+  }
 
   const { error } = await supabase
     .from("uw_contract_schedule_lines")
@@ -444,6 +673,26 @@ export async function cancelScheduleLine(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   revalidatePath("/underwriting/makegoods");
+  redirect(path);
+}
+
+/** Removes a line from a draft revision outright — nothing has scheduled from a draft, so there is no history to keep (RLS admits the delete only under a draft: 20260925170000). */
+export async function removeDraftScheduleLine(formData: FormData): Promise<void> {
+  await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const lineId = field(formData, "schedule_line_id");
+  const path = contractPath(contractId);
+
+  const supabase = await createClient();
+  const { error: bucketError } = await supabase
+    .from("uw_demand_buckets")
+    .delete()
+    .eq("schedule_line_id", lineId);
+  failIfError(bucketError, path, "Could not remove the line's demand");
+  const { error } = await supabase.from("uw_contract_schedule_lines").delete().eq("id", lineId);
+  failIfError(error, path, "Could not remove the schedule line");
+
+  revalidatePath(path);
   redirect(path);
 }
 

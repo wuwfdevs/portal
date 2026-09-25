@@ -1,76 +1,86 @@
 // Pure parsing/validation for the order-entry form (docs/underwriting-
-// traffic-redesign.md §3G) — turns what a traffic staffer typed from a
-// signed insertion order into a schedule-line insert plus its allocations,
-// or a plain-language error. No Supabase import, colocated test.
+// traffic-redesign.md §9) — turns what a traffic staffer typed from a
+// signed insertion order into a schedule-line insert (eligibility) plus the
+// compiled demand buckets, or a plain-language error. No Supabase import,
+// colocated test.
 
-import type { UwScheduleRuleKind } from "@/lib/database.types";
-import { isValidDateISO, weekStartOf } from "./demand";
+import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
+import { isValidDateISO, weekStartOf } from "./dates";
+import { compileDemandBuckets, type CompiledBucket, type EntrySpec } from "./demand-compiler";
 
 export interface ScheduleLineFormValues {
   label: string;
-  rule_kind: string;
+  entry_kind: string;
   days_of_week: number[];
+  /** fixed_days: credits on each listed day. */
   count_per_day: string;
-  quantity_per_week: string;
-  max_per_day: string;
+  /** weekly_quota / monthly_quota / every_n_weeks / range_total: the quantity. */
+  quantity: string;
+  /** every_n_weeks. */
+  interval_weeks: string;
   pool_id: string;
   program_id: string;
+  time_mode: string;
   window_start: string;
   window_end: string;
-  target_time: string;
+  preferred_time: string;
+  required_opportunity_key: string;
+  max_per_day: string;
+  service_level: string;
   duration_seconds: string;
   start_date: string;
   end_date: string;
   flight_id: string;
-  is_bonus: boolean;
   stated_total: string;
   source_text: string;
+  makegood_policy_text: string;
   notes: string;
   /** explicit_dates: one date per line, optionally "x N"; week_grid: "YYYY-MM-DD N" per line, or a first Monday plus "grid_quantities". */
-  allocations_text: string;
+  dates_text: string;
   grid_first_monday: string;
   grid_quantities: string;
-}
-
-export interface ParsedAllocation {
-  period_kind: "day" | "week";
-  period_start: string;
-  quantity: number;
 }
 
 export interface ParsedScheduleLine {
   line: {
     label: string;
-    rule_kind: UwScheduleRuleKind;
+    entry_kind: UwScheduleEntryKind;
+    entry_spec: EntrySpec;
     days_of_week: number[];
-    count_per_day: number | null;
-    quantity_per_week: number | null;
-    max_per_day: number | null;
     pool_id: string | null;
     program_id: string | null;
+    time_mode: UwTimeMode;
     window_start: string | null;
     window_end: string | null;
-    target_time: string | null;
+    preferred_time: string | null;
+    required_opportunity_key: string | null;
+    max_per_day: number | null;
+    service_level: UwServiceLevel;
     duration_seconds: number;
     start_date: string;
     end_date: string | null;
     flight_id: string | null;
-    is_bonus: boolean;
     stated_total: number | null;
     source_text: string | null;
+    makegood_policy_text: string | null;
     notes: string | null;
   };
-  allocations: ParsedAllocation[];
+  buckets: CompiledBucket[];
 }
 
 export type ParseResult = { ok: true; value: ParsedScheduleLine } | { ok: false; error: string };
 
-const RULE_KINDS: UwScheduleRuleKind[] = [
+const ENTRY_KINDS: UwScheduleEntryKind[] = [
   "fixed_days",
   "weekly_quota",
+  "monthly_quota",
+  "every_n_weeks",
   "explicit_dates",
   "week_grid",
+  "range_total",
 ];
+const TIME_MODES: UwTimeMode[] = ["any", "window", "preferred", "exact", "slot"];
+const SERVICE_LEVELS: UwServiceLevel[] = ["guaranteed", "bonus"];
 
 function intOrNull(raw: string): number | null {
   const trimmed = raw.trim();
@@ -84,10 +94,10 @@ function orNull(raw: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** "2026-09-11", "2026-09-11 x2", "2026-09-11 x 2", "2026-09-11, 2026-09-24" → one allocation per date. */
+/** "2026-09-11", "2026-09-11 x2", "2026-09-11 x 2", "2026-09-11, 2026-09-24" → one entry per date. */
 export function parseExplicitDates(
   text: string,
-): { ok: true; value: ParsedAllocation[] } | { ok: false; error: string } {
+): { ok: true; value: { date: string; quantity: number }[] } | { ok: false; error: string } {
   const entries = text
     .split(/[\n,;]+/)
     .map((entry) => entry.trim())
@@ -104,9 +114,7 @@ export function parseExplicitDates(
   }
   return {
     ok: true,
-    value: [...byDate.entries()]
-      .sort()
-      .map(([period_start, quantity]) => ({ period_kind: "day", period_start, quantity })),
+    value: [...byDate.entries()].sort().map(([date, quantity]) => ({ date, quantity })),
   };
 }
 
@@ -119,7 +127,7 @@ export function parseWeekGrid(
   text: string,
   firstMonday: string,
   quantities: string,
-): { ok: true; value: ParsedAllocation[] } | { ok: false; error: string } {
+): { ok: true; value: { week_start: string; quantity: number }[] } | { ok: false; error: string } {
   const byWeek = new Map<string, number>();
   const lines = text
     .split(/\n+/)
@@ -158,15 +166,15 @@ export function parseWeekGrid(
     };
   return {
     ok: true,
-    value: [...byWeek.entries()]
-      .sort()
-      .map(([period_start, quantity]) => ({ period_kind: "week", period_start, quantity })),
+    value: [...byWeek.entries()].sort().map(([week_start, quantity]) => ({ week_start, quantity })),
   };
 }
 
+const TRAFFIC_KEY_RE = /^[a-z0-9][a-z0-9._-]{1,79}$/;
+
 export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
-  const ruleKind = values.rule_kind as UwScheduleRuleKind;
-  if (!RULE_KINDS.includes(ruleKind))
+  const entryKind = values.entry_kind as UwScheduleEntryKind;
+  if (!ENTRY_KINDS.includes(entryKind))
     return { ok: false, error: "Choose how the order sells these credits." };
 
   const poolId = orNull(values.pool_id);
@@ -184,12 +192,41 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
   if (endDate !== null && (!isValidDateISO(endDate) || endDate < startDate))
     return { ok: false, error: "The end date must be on or after the start date." };
 
+  const timeMode = values.time_mode as UwTimeMode;
+  if (!TIME_MODES.includes(timeMode)) return { ok: false, error: "Choose a time rule." };
   const windowStart = orNull(values.window_start);
   const windowEnd = orNull(values.window_end);
-  if ((windowStart === null) !== (windowEnd === null))
-    return { ok: false, error: "Give both ends of the time window, or neither." };
-  if (windowStart !== null && windowEnd !== null && windowEnd <= windowStart)
-    return { ok: false, error: "The window must end after it starts." };
+  const preferredTime = orNull(values.preferred_time);
+  const requiredKey = orNull(values.required_opportunity_key);
+  if (timeMode === "window") {
+    if (windowStart === null || windowEnd === null)
+      return { ok: false, error: "Give both ends of the time window." };
+    if (windowEnd <= windowStart)
+      return { ok: false, error: "The window must end after it starts." };
+  }
+  if ((timeMode === "preferred" || timeMode === "exact") && preferredTime === null)
+    return {
+      ok: false,
+      error:
+        timeMode === "exact" ? "Give the exact time the order states." : "Give the preferred time.",
+    };
+  if (timeMode === "slot") {
+    if (requiredKey === null)
+      return {
+        ok: false,
+        error: "Give the Log traffic key of the position (e.g. marketplace.opening).",
+      };
+    if (!TRAFFIC_KEY_RE.test(requiredKey))
+      return {
+        ok: false,
+        error:
+          "A traffic key is lowercase letters, digits, dots and dashes — as Log's clock screen shows it.",
+      };
+  }
+
+  const serviceLevel = (orNull(values.service_level) ?? "guaranteed") as UwServiceLevel;
+  if (!SERVICE_LEVELS.includes(serviceLevel))
+    return { ok: false, error: "Choose guaranteed or bonus." };
 
   const days = [
     ...new Set(values.days_of_week.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
@@ -197,87 +234,101 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
   const statedTotal = intOrNull(values.stated_total);
   if (statedTotal !== null && statedTotal < 0)
     return { ok: false, error: "The stated total can't be negative." };
+  const maxPerDay = intOrNull(values.max_per_day);
+  if (maxPerDay !== null && maxPerDay < 1)
+    return { ok: false, error: "Most per day must be at least 1, or blank for no cap." };
 
-  let countPerDay: number | null = null;
-  let quantityPerWeek: number | null = null;
-  let maxPerDay: number | null = null;
-  let allocations: ParsedAllocation[] = [];
-
-  switch (ruleKind) {
+  let spec: EntrySpec;
+  switch (entryKind) {
     case "fixed_days": {
       if (days.length === 0)
         return { ok: false, error: "Choose the day(s) of the week the credit airs." };
-      countPerDay = intOrNull(values.count_per_day) ?? 1;
+      const countPerDay = intOrNull(values.count_per_day) ?? 1;
       if (countPerDay < 1) return { ok: false, error: "Credits per day must be at least 1." };
       if (endDate === null)
         return {
           ok: false,
           error: "A fixed-days line needs an end date so its demand can be counted.",
         };
+      spec = { kind: "fixed_days", count_per_day: countPerDay };
       break;
     }
-    case "weekly_quota": {
-      if (days.length === 0)
-        return { ok: false, error: "Choose the day(s) of the week the credit may air on." };
-      quantityPerWeek = intOrNull(values.quantity_per_week);
-      if (quantityPerWeek == null || quantityPerWeek < 1)
-        return { ok: false, error: "Credits per week must be at least 1." };
-      maxPerDay = intOrNull(values.max_per_day) ?? 1;
-      if (maxPerDay < 1) return { ok: false, error: "Most per day must be at least 1." };
+    case "weekly_quota":
+    case "monthly_quota":
+    case "range_total": {
+      const quantity = intOrNull(values.quantity);
+      if (quantity == null || quantity < 1)
+        return { ok: false, error: "Give the number of credits the order calls for." };
       if (endDate === null)
-        return {
-          ok: false,
-          error: "A weekly quota needs an end date so its demand can be counted.",
-        };
+        return { ok: false, error: "This line needs an end date so its demand can be counted." };
+      spec = { kind: entryKind, quantity };
+      break;
+    }
+    case "every_n_weeks": {
+      const quantity = intOrNull(values.quantity);
+      const interval = intOrNull(values.interval_weeks);
+      if (quantity == null || quantity < 1)
+        return { ok: false, error: "Give the number of credits per cycle." };
+      if (interval == null || interval < 2)
+        return { ok: false, error: "Give the interval in weeks (2 for every other week)." };
+      if (endDate === null)
+        return { ok: false, error: "This line needs an end date so its demand can be counted." };
+      spec = { kind: "every_n_weeks", interval_weeks: interval, quantity };
       break;
     }
     case "explicit_dates": {
-      const parsed = parseExplicitDates(values.allocations_text);
+      const parsed = parseExplicitDates(values.dates_text);
       if (!parsed.ok) return parsed;
-      allocations = parsed.value;
+      spec = { kind: "explicit_dates", dates: parsed.value };
       break;
     }
     case "week_grid": {
-      if (days.length === 0)
-        return { ok: false, error: "Choose the day(s) of the week the grid's credits may air on." };
-      maxPerDay = intOrNull(values.max_per_day) ?? 1;
-      if (maxPerDay < 1) return { ok: false, error: "Most per day must be at least 1." };
       const parsed = parseWeekGrid(
-        values.allocations_text,
+        values.dates_text,
         values.grid_first_monday,
         values.grid_quantities,
       );
       if (!parsed.ok) return parsed;
-      allocations = parsed.value;
+      spec = { kind: "week_grid", weeks: parsed.value };
       break;
     }
   }
+
+  const compileInput = { start_date: startDate, end_date: endDate, days_of_week: days };
+  const buckets = compileDemandBuckets(spec, compileInput);
+  if (buckets.length === 0)
+    return {
+      ok: false,
+      error: "The schedule as entered compiles to no credits — check its dates and days.",
+    };
 
   return {
     ok: true,
     value: {
       line: {
         label: values.label.trim(),
-        rule_kind: ruleKind,
-        days_of_week: ruleKind === "explicit_dates" ? [] : days,
-        count_per_day: countPerDay,
-        quantity_per_week: quantityPerWeek,
-        max_per_day: maxPerDay,
+        entry_kind: entryKind,
+        entry_spec: spec,
+        days_of_week: days,
         pool_id: poolId,
         program_id: programId,
-        window_start: windowStart,
-        window_end: windowEnd,
-        target_time: orNull(values.target_time),
+        time_mode: timeMode,
+        window_start: timeMode === "window" ? windowStart : null,
+        window_end: timeMode === "window" ? windowEnd : null,
+        preferred_time: timeMode === "preferred" || timeMode === "exact" ? preferredTime : null,
+        required_opportunity_key: timeMode === "slot" ? requiredKey : null,
+        max_per_day: maxPerDay,
+        service_level: serviceLevel,
         duration_seconds: durationSeconds,
         start_date: startDate,
         end_date: endDate,
         flight_id: orNull(values.flight_id),
-        is_bonus: values.is_bonus,
         stated_total: statedTotal,
         source_text: orNull(values.source_text),
+        makegood_policy_text: orNull(values.makegood_policy_text),
         notes: orNull(values.notes),
       },
-      allocations,
+      buckets,
     },
   };
 }

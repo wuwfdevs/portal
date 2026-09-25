@@ -8,18 +8,16 @@ import {
   type UnderwritingRpcResult,
 } from "./placement";
 import {
-  computePeriodFulfillment,
+  computeBucketFulfillment,
   describeScheduleLine,
-  expandDemandPeriods,
   reviewScheduleLine,
   summarizeLineFulfillment,
-  type AllocationLike,
-  type DemandPeriod,
+  type BucketFulfillment,
   type LineFulfillmentSummary,
-  type PeriodFulfillment,
   type PlacementForFulfillment,
   type ReviewWarning,
 } from "./demand";
+import { eligibleDatesInBucket, minutesFromTimeString } from "./eligibility";
 import type { SelectionDemand } from "./inventory-selection";
 import type { Database } from "@/lib/database.types";
 
@@ -34,10 +32,10 @@ import type { Database } from "@/lib/database.types";
 
 export type UwUnderwriterRow = Database["public"]["Tables"]["uw_underwriters"]["Row"];
 export type UwContractRow = Database["public"]["Tables"]["uw_contracts"]["Row"];
+export type UwContractRevisionRow = Database["public"]["Tables"]["uw_contract_revisions"]["Row"];
 export type UwContractScheduleLineRow =
   Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"];
-export type UwScheduleAllocationRow =
-  Database["public"]["Tables"]["uw_schedule_allocations"]["Row"];
+export type UwDemandBucketRow = Database["public"]["Tables"]["uw_demand_buckets"]["Row"];
 export type UwInventoryPoolRow = Database["public"]["Tables"]["uw_inventory_pools"]["Row"];
 export type UwInventoryPoolTargetRow =
   Database["public"]["Tables"]["uw_inventory_pool_targets"]["Row"];
@@ -69,6 +67,23 @@ async function displayNames(userIds: (string | null)[]): Promise<Map<string, str
 }
 
 // Underwriters -----------------------------------------------------------
+
+export type UwIndustryCategoryRow = Database["public"]["Tables"]["uw_industry_categories"]["Row"];
+
+/** The typed industry list (uw_industry_categories), active first, by name. */
+export async function listIndustryCategories(): Promise<UwIndustryCategoryRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_industry_categories")
+        .select("*")
+        .order("active", { ascending: false })
+        .order("name"),
+      "the industry categories",
+    ) ?? []
+  );
+}
 
 export async function listUnderwriters(): Promise<UwUnderwriterRow[]> {
   const supabase = await createClient();
@@ -178,18 +193,51 @@ export async function getContract(id: string): Promise<UwContractRow | null> {
   );
 }
 
+// Revisions ------------------------------------------------------------------
+
+/** A contract's revisions, oldest first. */
+export async function listRevisionsForContract(
+  contractId: string,
+): Promise<UwContractRevisionRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_contract_revisions")
+        .select("*")
+        .eq("contract_id", contractId)
+        .order("created_at"),
+      "this contract's revisions",
+    ) ?? []
+  );
+}
+
+export async function getRevision(id: string): Promise<UwContractRevisionRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("uw_contract_revisions").select("*").eq("id", id).maybeSingle(),
+    "this revision",
+  );
+}
+
 export interface ContractDetail extends UwContractRow {
   underwriter: UwUnderwriterRow;
+  revisions: UwContractRevisionRow[];
+  /** The revision whose lines schedule today; null only for a contract whose first revision is still a draft. */
+  currentRevision: UwContractRevisionRow | null;
+  /** The draft being entered, if any (at most one is kept open at a time by the UI). */
+  draftRevision: UwContractRevisionRow | null;
+  /** Every schedule line under every revision, in start-date order. */
   scheduleLines: UwContractScheduleLineRow[];
-  /** Allocations per schedule line id (explicit_dates / week_grid lines; empty for the other kinds). */
-  allocationsByLine: Map<string, UwScheduleAllocationRow[]>;
+  /** Demand buckets per schedule line id, in period order. */
+  bucketsByLine: Map<string, UwDemandBucketRow[]>;
   flights: UwContractFlightRow[];
   copy: UwCopyRow[];
   /** The uw_contract_copy links, carrying each copy's flight scope. */
   copyLinks: UwContractCopyRow[];
 }
 
-/** A contract plus its underwriter, schedule lines (with allocations), flights, and every copy version linked to it (via uw_contract_copy). */
+/** A contract plus its underwriter, revisions, schedule lines (with buckets), flights, and every copy version linked to it (via uw_contract_copy). */
 export async function getContractDetail(id: string): Promise<ContractDetail | null> {
   const supabase = await createClient();
   const contract = unwrapRead(
@@ -201,7 +249,8 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
   const underwriter = await getUnderwriter(contract.underwriter_id);
   if (!underwriter) return null;
 
-  const [linesResult, flightsResult, linksResult] = await Promise.all([
+  const [revisionsResult, linesResult, flightsResult, linksResult] = await Promise.all([
+    supabase.from("uw_contract_revisions").select("*").eq("contract_id", id).order("created_at"),
     supabase
       .from("uw_contract_schedule_lines")
       .select("*")
@@ -211,11 +260,12 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
     supabase.from("uw_contract_flights").select("*").eq("contract_id", id).order("start_date"),
     supabase.from("uw_contract_copy").select("*").eq("contract_id", id),
   ]);
+  const revisions = unwrapRead(revisionsResult, "this contract's revisions") ?? [];
   const scheduleLines = unwrapRead(linesResult, "this contract's schedule lines") ?? [];
   const flights = unwrapRead(flightsResult, "this contract's flights") ?? [];
   const copyLinks = unwrapRead(linksResult, "this contract's linked copy") ?? [];
 
-  const allocationsByLine = await listAllocationsForLines(scheduleLines.map((line) => line.id));
+  const bucketsByLine = await listBucketsForLines(scheduleLines.map((line) => line.id));
 
   const copyIds = copyLinks.map((link) => link.copy_id);
   const copy =
@@ -226,23 +276,34 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
           "this contract's linked copy",
         ) ?? []);
 
-  return { ...contract, underwriter, scheduleLines, allocationsByLine, flights, copy, copyLinks };
+  return {
+    ...contract,
+    underwriter,
+    revisions,
+    currentRevision: revisions.find((revision) => revision.status === "current") ?? null,
+    draftRevision: revisions.find((revision) => revision.status === "draft") ?? null,
+    scheduleLines,
+    bucketsByLine,
+    flights,
+    copy,
+    copyLinks,
+  };
 }
 
-export async function listAllocationsForLines(
+export async function listBucketsForLines(
   lineIds: string[],
-): Promise<Map<string, UwScheduleAllocationRow[]>> {
-  const result = new Map<string, UwScheduleAllocationRow[]>();
+): Promise<Map<string, UwDemandBucketRow[]>> {
+  const result = new Map<string, UwDemandBucketRow[]>();
   if (lineIds.length === 0) return result;
   const supabase = await createClient();
   const rows =
     unwrapRead(
       await supabase
-        .from("uw_schedule_allocations")
+        .from("uw_demand_buckets")
         .select("*")
         .in("schedule_line_id", lineIds)
         .order("period_start"),
-      "these schedule lines' allocations",
+      "these schedule lines' demand buckets",
     ) ?? [];
   for (const row of rows) {
     const list = result.get(row.schedule_line_id) ?? [];
@@ -406,7 +467,7 @@ export interface OpenItemsForLine {
   /** Makegoods still status = scheduled (with or without a slot). */
   openMakegoods: number;
   /** Scheduled makegoods with no slot yet whose exception is not waiting on the agency. */
-  awaitingSlot: { id: string; periodStart: string | null }[];
+  awaitingSlot: { id: string; bucketId: string | null }[];
   makegoodsPendingApproval: number;
 }
 
@@ -424,7 +485,7 @@ export async function listOpenItemsForLines(
       .eq("resolution_status", "open"),
     supabase
       .from("uw_makegoods")
-      .select("id, schedule_line_id, exception_id, scheduled_placement_id, demand_period_start")
+      .select("id, schedule_line_id, exception_id, scheduled_placement_id, demand_bucket_id")
       .in("schedule_line_id", lineIds)
       .eq("status", "scheduled")
       .order("created_at"),
@@ -457,7 +518,7 @@ export async function listOpenItemsForLines(
           const approval = approvalByException.get(m.exception_id) ?? "not_required";
           return approval === "not_required" || approval === "approved";
         })
-        .map((m) => ({ id: m.id, periodStart: m.demand_period_start })),
+        .map((m) => ({ id: m.id, bucketId: m.demand_bucket_id })),
       makegoodsPendingApproval: own.filter(
         (m) => approvalByException.get(m.exception_id) === "pending",
       ).length,
@@ -468,9 +529,8 @@ export async function listOpenItemsForLines(
 
 export interface ScheduleLineDemandView {
   scheduleLine: UwContractScheduleLineRow;
-  allocations: UwScheduleAllocationRow[];
   description: string;
-  periods: PeriodFulfillment[];
+  buckets: BucketFulfillment[];
   summary: LineFulfillmentSummary;
   warnings: ReviewWarning[];
   placements: PlacementWithOutcome[];
@@ -478,15 +538,15 @@ export interface ScheduleLineDemandView {
 }
 
 /**
- * Everything the contract screen shows about a line's demand: the expanded
- * periods with per-period fulfillment, the line-level summary, the review
+ * Everything the contract screen shows about a line's demand: its buckets
+ * with per-bucket fulfillment, the line-level summary, the review
  * warnings, and the placements behind them. Shared with the dashboard's
  * conflict check so the two never drift on what "short" means.
  */
 export async function buildScheduleLineDemandViews(
   contract: UwContractRow,
   scheduleLines: UwContractScheduleLineRow[],
-  allocationsByLine: Map<string, UwScheduleAllocationRow[]>,
+  bucketsByLine: Map<string, UwDemandBucketRow[]>,
   names: { poolNameById: Map<string, string>; programNameById: Map<string, string> },
 ): Promise<ScheduleLineDemandView[]> {
   const lineIds = scheduleLines.map((line) => line.id);
@@ -497,8 +557,7 @@ export async function buildScheduleLineDemandViews(
   const todayISO = stationTodayISO();
 
   return scheduleLines.map((scheduleLine) => {
-    const allocations = allocationsByLine.get(scheduleLine.id) ?? [];
-    const demandPeriods = expandDemandPeriods(scheduleLine, allocations);
+    const bucketRows = bucketsByLine.get(scheduleLine.id) ?? [];
     const placements = placementsByLine.get(scheduleLine.id) ?? [];
     const openItems = openItemsByLine.get(scheduleLine.id) ?? {
       openExceptions: 0,
@@ -506,31 +565,40 @@ export async function buildScheduleLineDemandViews(
       awaitingSlot: [],
       makegoodsPendingApproval: 0,
     };
-    const periods = computePeriodFulfillment(
-      demandPeriods,
+    const buckets = computeBucketFulfillment(
+      scheduleLine,
+      bucketRows,
       placements.map((placement) => ({
-        demandPeriodStart: placement.demand_period_start,
-        placementDate: placement.placement_date,
+        bucketId: placement.demand_bucket_id,
         isMakegood: placement.makegood_id !== null,
         outcome: placement.outcome,
       })),
       openItems.awaitingSlot.map((makegood) => ({
-        demandPeriodStart: makegood.periodStart,
+        bucketId: makegood.bucketId,
         awaitingSlot: true,
       })),
     );
     return {
       scheduleLine,
-      allocations,
-      description: describeScheduleLine(scheduleLine, allocations, {
+      description: describeScheduleLine(scheduleLine, {
         poolName: scheduleLine.pool_id ? names.poolNameById.get(scheduleLine.pool_id) : null,
         programName: scheduleLine.program_id
           ? names.programNameById.get(scheduleLine.program_id)
           : null,
       }),
-      periods,
-      summary: summarizeLineFulfillment(periods, openItems, todayISO),
-      warnings: reviewScheduleLine(scheduleLine, allocations, demandPeriods, contract),
+      buckets,
+      summary: summarizeLineFulfillment(buckets, openItems, todayISO, scheduleLine.service_level),
+      warnings: reviewScheduleLine(
+        scheduleLine,
+        bucketRows
+          .filter((bucket) => bucket.status === "active")
+          .map((bucket) => ({
+            periodStart: bucket.period_start,
+            periodEnd: bucket.period_end,
+            quantity: bucket.quantity_required,
+          })),
+        contract,
+      ),
       placements,
       openItems,
     };
@@ -572,11 +640,7 @@ export async function getScheduleLine(id: string): Promise<UwContractScheduleLin
   );
 }
 
-/** A schedule line's target_time ("HH:MM:SS", already station-local wall-clock — no timezone conversion needed) as minutes since midnight. */
-export function minutesFromTimeString(time: string): number {
-  const [hourStr, minuteStr] = time.split(":");
-  return Number(hourStr) * 60 + Number(minuteStr);
-}
+export { minutesFromTimeString };
 
 /** Minutes since midnight in the station's own zone for a placement's scheduled_at. */
 function minutesOfDayInStationTime(iso: string): number {
@@ -592,53 +656,66 @@ function minutesOfDayInStationTime(iso: string): number {
 }
 
 /**
- * The scheduler's view of one line: its open demand periods (ending today
- * or later), every active placement with its period and station-local
- * time, the makegoods it may still schedule, and the contract's own
- * adjacency/separation identity (lib/underwriting/inventory-selection.ts).
+ * The scheduler's view of one line: its open demand buckets (active, with
+ * quantity, ending today or later), every active placement with its bucket
+ * and station-local time, the makegoods it may still schedule, the order's
+ * per-day cap and preferred time, and the contract's own adjacency/
+ * separation identity (lib/underwriting/inventory-selection.ts).
  */
 export async function buildSelectionDemand(
   scheduleLine: UwContractScheduleLineRow,
   contract: UwContractRow,
   underwriter: UwUnderwriterRow,
-  allocations: AllocationLike[],
+  buckets: UwDemandBucketRow[],
   todayISO: string = stationTodayISO(),
-): Promise<{ demand: SelectionDemand; allPeriods: DemandPeriod[] }> {
+): Promise<SelectionDemand> {
   const [placementsByLine, openItemsByLine] = await Promise.all([
     listPlacementsWithOutcomes([scheduleLine.id]),
     listOpenItemsForLines([scheduleLine.id]),
   ]);
   const placements = placementsByLine.get(scheduleLine.id) ?? [];
   const openItems = openItemsByLine.get(scheduleLine.id);
-  const allPeriods = expandDemandPeriods(scheduleLine, allocations);
 
   return {
-    allPeriods,
-    demand: {
-      periods: allPeriods.filter((period) => period.periodEnd >= todayISO),
-      existingPlacements: placements.map((placement) => ({
-        periodStart: placement.demand_period_start,
-        airDate: placement.placement_date,
-        minutesOfDay: minutesOfDayInStationTime(placement.scheduled_at),
-        isMakegood: placement.makegood_id !== null,
+    buckets: buckets
+      .filter(
+        (bucket) =>
+          bucket.status === "active" &&
+          bucket.quantity_required > 0 &&
+          bucket.period_end >= todayISO,
+      )
+      .map((bucket) => ({
+        bucketId: bucket.id,
+        periodStart: bucket.period_start,
+        periodEnd: bucket.period_end,
+        quantity: bucket.quantity_required,
+        eligibleDates: eligibleDatesInBucket(scheduleLine, bucket),
       })),
-      makegoodsAwaitingSlot: openItems?.awaitingSlot ?? [],
-      underwriterId: underwriter.id,
-      category: underwriter.category,
-      targetTimeMinutes: scheduleLine.target_time
-        ? minutesFromTimeString(scheduleLine.target_time)
+    existingPlacements: placements.map((placement) => ({
+      bucketId: placement.demand_bucket_id,
+      airDate: placement.placement_date,
+      minutesOfDay: minutesOfDayInStationTime(placement.scheduled_at),
+      isMakegood: placement.makegood_id !== null,
+    })),
+    makegoodsAwaitingSlot: openItems?.awaitingSlot ?? [],
+    maxPerDay: scheduleLine.max_per_day,
+    preferredTimeMinutes:
+      (scheduleLine.time_mode === "preferred" || scheduleLine.time_mode === "exact") &&
+      scheduleLine.preferred_time
+        ? minutesFromTimeString(scheduleLine.preferred_time)
         : null,
-      lineFlightId: scheduleLine.flight_id,
-      separationMinutes:
-        contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
-      todayISO,
-    },
+    underwriterId: underwriter.id,
+    categoryId: underwriter.category_id,
+    lineFlightId: scheduleLine.flight_id,
+    separationMinutes:
+      contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
+    todayISO,
   };
 }
 
 export interface LastItemAdjacencyInfo {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 /**
@@ -702,11 +779,11 @@ export async function resolveLastItemAdjacency(
     underwriterIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("uw_underwriters").select("id, category").in("id", underwriterIds),
+          await supabase.from("uw_underwriters").select("id, category_id").in("id", underwriterIds),
           "these breaks' underwriters",
         ) ?? []);
   const categoryByUnderwriter = new Map(
-    underwriters.map((underwriter) => [underwriter.id, underwriter.category]),
+    underwriters.map((underwriter) => [underwriter.id, underwriter.category_id]),
   );
 
   const result = new Map<string, LastItemAdjacencyInfo>();
@@ -717,7 +794,7 @@ export async function resolveLastItemAdjacency(
     if (!underwriterId) continue;
     result.set(placement.log_rundown_item_id, {
       underwriterId,
-      category: categoryByUnderwriter.get(underwriterId) ?? null,
+      categoryId: categoryByUnderwriter.get(underwriterId) ?? null,
     });
   }
   return result;
@@ -725,7 +802,7 @@ export async function resolveLastItemAdjacency(
 
 export interface NearbyPlacementForAdjacency {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 /**
@@ -775,14 +852,14 @@ export async function listNearbyPlacementsForAdjacency(
     underwriterIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("uw_underwriters").select("id, category").in("id", underwriterIds),
+          await supabase.from("uw_underwriters").select("id, category_id").in("id", underwriterIds),
           "nearby placements' underwriters",
         ) ?? []);
-  const categoryByUnderwriter = new Map(underwriters.map((u) => [u.id, u.category]));
+  const categoryByUnderwriter = new Map(underwriters.map((u) => [u.id, u.category_id]));
 
   return contracts.map((contract) => ({
     underwriterId: contract.underwriter_id,
-    category: categoryByUnderwriter.get(contract.underwriter_id) ?? null,
+    categoryId: categoryByUnderwriter.get(contract.underwriter_id) ?? null,
   }));
 }
 
@@ -790,13 +867,34 @@ export interface ScheduleLineWithContract extends UwContractScheduleLineRow {
   contract: ContractWithUnderwriter;
 }
 
-/** Every active schedule line under an active contract — Workflow D's conflict dashboard and the dashboard-wide auto-fill's starting point. A line under a paused/terminated contract, or a cancelled line, can't be placed regardless of inventory, so it's excluded rather than flagged as a conflict. */
+/**
+ * Every active schedule line under the current revision of an active
+ * contract — Workflow D's conflict dashboard and the dashboard-wide
+ * auto-fill's starting point. A line under a paused/terminated contract, a
+ * draft or superseded revision, or a cancelled line can't be placed
+ * regardless of inventory, so it's excluded rather than flagged as a
+ * conflict.
+ */
 export async function listScheduleLinesWithActiveContracts(): Promise<ScheduleLineWithContract[]> {
   const contracts = await listContracts();
   const activeContracts = contracts.filter((contract) => contract.status === "active");
   if (activeContracts.length === 0) return [];
 
   const supabase = await createClient();
+  const currentRevisions =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_revisions")
+        .select("id")
+        .eq("status", "current")
+        .in(
+          "contract_id",
+          activeContracts.map((contract) => contract.id),
+        ),
+      "the current revisions",
+    ) ?? [];
+  if (currentRevisions.length === 0) return [];
+
   const scheduleLines =
     unwrapRead(
       await supabase
@@ -804,8 +902,8 @@ export async function listScheduleLinesWithActiveContracts(): Promise<ScheduleLi
         .select("*")
         .eq("status", "active")
         .in(
-          "contract_id",
-          activeContracts.map((contract) => contract.id),
+          "revision_id",
+          currentRevisions.map((revision) => revision.id),
         )
         .order("start_date"),
       "the active schedule lines",

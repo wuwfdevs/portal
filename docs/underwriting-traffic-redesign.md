@@ -2,7 +2,12 @@
 
 **Status:** built 2026-09-25 in four slices (schema; demand expansion;
 eligibility/auto-fill/manual placement; UI/validation) — see §8 for what
-shipped and how it was verified. This is the current-state/proposed-schema
+shipped and how it was verified — **and revised the same day by a second,
+deeper audit of the archive (§9), which replaced the four typed rule kinds
+with eligibility lines plus explicit demand buckets, added contract
+revisions, and keyed opening/closing positions to Log. §9 supersedes §3–§5
+and §8 wherever they conflict; the evidence in §2 and the non-goals in §6
+still stand.** This is the current-state/proposed-schema
 diff the redesign brief (2026-09-24) asked for first; it supersedes
 `docs/underwriting-design.md` §2's "Contract schedule line" and §5's
 `uw_contract_schedule_lines`, and CLAUDE.md's 2026-08-09 auto-fill notes,
@@ -301,3 +306,190 @@ with no targets — a line on either finds nothing until staff map them);
 whether Weekend Edition should also admit the Saturday/Sunday All Things
 Considered hour; and whether WUWF's broadcast week is Monday–Sunday in
 practice (assumed here, matching every order on file).
+
+## 9. Second pass: revisions, eligibility lines, demand buckets (2026-09-25)
+
+A deeper audit of the underwriting archive (1,001 records surfaced; a
+page-level audit of the first 100; six sponsors — FPL/FPM, the Symphony,
+Phil Hall, Fireman Termite, FDOH Escambia, Open Books — followed across
+years) found that §3's four rule kinds were still the wrong primitive.
+The durable grammar of a WUWF insertion order is:
+
+> A sponsor owes a quantity of credits within one or more time periods,
+> subject to placement eligibility and distribution constraints.
+
+Weekly quotas, every-other-week cadences, event phases, agency matrices
+with dark weeks, and exact opening/closing positions are all ways of
+writing that. Each rule kind carried its own quantity arithmetic
+(`uw_line_period_for_date`), "one per day" was planner doctrine rather
+than data, a preferred time and an exact slot were the same column, there
+was no revision lineage, and bonus weight was a flag with no behavior. The
+boundary moved from
+
+`contract -> recurring schedule line -> expected occurrence math -> auto-fill -> placement`
+
+to
+
+`contract -> revision -> eligibility line -> explicit demand buckets -> auto-fill -> placement`.
+
+### 9.1 Model
+
+- **`uw_contract_revisions`** — one version of a contract's schedule.
+  Exactly one is `current` per contract (partial unique index); a `draft`
+  is entered beside it; a `superseded` one keeps its lines, buckets,
+  placements, exceptions and broadcast events read-only. A contract's
+  first revision is created current with it. `effective_from` is the date
+  a revision takes over; `supersedes_revision_id`, `received_at`,
+  `document_path` and `notes` are the lineage.
+- **`uw_contract_schedule_lines` = eligibility only.** Where a credit may
+  air: `program_id` and/or `pool_id`, `days_of_week` (empty = any day),
+  a `time_mode` of `any` | `window` (`window_start..window_end`, hard) |
+  `preferred` (`preferred_time` ranks, never excludes) | `exact`
+  (`preferred_time` ± `uw_exact_time_tolerance()`, 3 minutes) | `slot`
+  (`required_opportunity_key` = a Log `traffic_key`); `max_per_day`
+  (nullable — a cap is data from the order, never doctrine);
+  `service_level` guaranteed | bonus; `distribution_preference`;
+  `makegood_policy_text`; `duration_seconds`; `start_date`/`end_date`;
+  `flight_id`; `stated_total`/`source_text`. `entry_kind` + `entry_spec`
+  (jsonb) record how the staffer entered it — fixed days, N a week, N a
+  month, every N weeks, explicit dates, a week grid, a range total — for
+  display and recompilation only. Nothing schedules from them.
+- **`uw_demand_buckets`** — `(schedule_line_id, period_start, period_end,
+  quantity_required, status active|superseded|cancelled, source_label)`.
+  A day, a Monday week, a calendar month, or the whole range. A dark grid
+  week is a real row with quantity 0. Active buckets of one line never
+  overlap (`uw_guard_bucket_overlap`). The scheduler asks one question:
+  which active buckets are still short, and which eligible breaks fall
+  inside them.
+- **Placements and makegoods carry `demand_bucket_id`** (replacing the
+  period-start/end pair). A makegood placement carries the missed
+  placement's bucket, so a miss and its replacement are one contractual
+  credit.
+- **Log: `log_local_opportunities.traffic_key`** — a stable semantic key
+  (`marketplace.opening`, `science-friday.closing`, `five-corners.opening`,
+  `morning-edition.birdnote`), unique within a clock version, entered on
+  the clock screen's "Mark eligible"/"Edit" form and carried forward by
+  the producer onto the equivalent slot of a new version. A `slot`-mode
+  line places only into a break whose opportunity carries its key —
+  across clock revisions, without naming a clock-slot UUID. `target_time`
+  is gone; it is never a proxy for a position.
+- **`uw_industry_categories`** (requested during this pass): the
+  underwriter's industry is a typed row (`uw_underwriters.category_id`),
+  not free text, and the competitive-adjacency rule compares ids. Sixteen
+  starter industries seeded from what the audited orders name; staff
+  extend the list on the Underwriters screen.
+
+### 9.2 Compiler
+
+`lib/underwriting/demand-compiler.ts` (pure, tested against the corpus)
+turns an `EntrySpec` into buckets: fixed recurrence → one-day buckets;
+weekly quota → Monday weeks clipped to the line and flagged `partial`
+(counted at full quantity, never prorated); monthly quota → calendar
+months; every N weeks → only the weeks a whole number of intervals from
+the anchor (Fireman's ROS: 26 alternate weeks, nothing in between);
+explicit dates → one-day buckets, same-date entries summed, dates outside
+the line dropped and flagged by review; week grid → one bucket per column,
+zeros included; range total → one bucket. A week or month with no eligible
+weekday yields no bucket. The form (`schedule-line-form.ts`) compiles on
+save and refuses a line that compiles to nothing.
+
+### 9.3 Guard and planner
+
+`log_list_placeable_rundown_breaks()` returns, for a line, every marked
+break on a date `uw_bucket_for_date()` accepts (inside the line's dates,
+not cancelled, an eligible weekday, an active bucket with quantity) that
+is on the line's program, inside its pool, and satisfies
+`uw_time_eligible()` (window, exact ± tolerance, or traffic key) — each
+tagged with the bucket it would consume. `log_place_underwriting_credit()`
+additionally requires the line's revision to be `current`, refuses a
+bucket at its quantity (`bucket_quota_met`), applies `max_per_day` only
+when the order states one (`day_cap_met`), and attributes a makegood to
+its missed bucket. `lib/underwriting/eligibility.ts` is the TypeScript
+twin (`bucketForDate`, `isTimeEligible`, `EXACT_TIME_TOLERANCE_MINUTES`);
+keep them in step.
+
+`inventory-selection.ts` plans per bucket: makegoods first; then each
+bucket's fresh shortfall spread across its eligible days with inventory,
+least-loaded day first, so New South's "10 a week M–F" lands as two a day
+rather than ten on Monday; a per-day cap is respected when present and
+absent otherwise (Choral's two a day, FDOH's one a day are both data);
+distinct breaks per day; separation minutes; same-underwriter/same-
+industry adjacency; preferred time ranks within a day; copy rotates by
+least use. `datesNeedingInventory()` asks Log for rundowns on the bucket's
+own dates. The global one-per-day collapse is gone.
+
+Fulfillment (`demand.ts`) counts per bucket; a bonus line reports but is
+never "behind" and never makes the contract read behind; superseded and
+cancelled buckets drop out of the expected total.
+
+### 9.4 Revisions
+
+"Create a revision from the current schedule" makes a draft (optionally a
+copy of the current lines and their active buckets) beside the current
+revision; lines are added to either. The contract page previews exactly
+what activation will do — the current revision's active buckets still
+open on the effective date that become superseded, the scheduled
+placements dated on or after it that are cleared (through
+`log_clear_underwriting_credit()`), the earlier placements that stay, the
+draft's own buckets before the effective date that are dropped, and any
+awaiting-slot makegoods left open — then "Activate revision"
+(`lib/underwriting/revisions.ts`, audited as
+`underwriting.contract.revision_activated`) applies it. A revision changes
+future demand, not historical truth: aired credits, broadcast events and
+exceptions stay with the revision they happened under, and affidavits
+read placements by contract and period across revisions unchanged. A
+draft can be discarded; a draft's lines can be removed (a delete policy
+scoped to draft revisions, `20260925170000`).
+
+### 9.5 Acceptance corpus
+
+`fixtures/insertion-orders.ts` now holds 27 orders — the first pass's
+fifteen re-expressed, plus Fireman Termite (May 2026 IO), FDOH Escambia
+(July 2026 IO), Phil Hall 2020-21, 2022-23 and 2024-25, the Symphony
+2021-22, FPM/Atkins San Antonio Shoemakers (10/25–4/26), New South Window
+Solutions (rev 3 + IO), Cultural Arts Alliance (April 2026), Wild Birds
+Unlimited (Feb 2026), West Moss and International Paper (2026) — every
+one read from the original on Drive. `demand-compiler.test.ts` checks each
+of the brief's fifteen shapes against its stated totals (the known
+document inconsistencies are asserted as review warnings, not resolved);
+`inventory-selection.test.ts` covers the contested planner cases (New
+South's two-a-day spread, FDOH's cap, Choral's distinct breaks, USF's
+undersized break, adjacency by category id, preferred-time ranking,
+makegoods first). FPL Q1 2022 was not located in Drive under that title;
+the 2026 FPL grid on file already exercises the variable matrix with dark
+weeks (#9), and San Antonio Shoemakers the alternating one (#10).
+
+### 9.6 Shipped and verified
+
+Three migrations, applied to preview and production on 2026-09-25 and
+recorded in `APPLIED.md`: `20260925150000_underwriting_demand_buckets.sql`
+(everything in §9.1 but categories; a clean rewrite — both projects held
+zero contracts), `20260925160000_underwriting_industry_categories.sql`,
+`20260925170000_underwriting_draft_line_delete.sql`. The DDL and helpers
+were dry-run in a rolled-back transaction on preview first; after
+applying, a rolled-back RLS-impersonated scenario exercised the rewritten
+guard: a weekly-quota line with `max_per_day = 1` placed Monday, refused a
+second Monday break (`day_cap_met`), placed Wednesday, refused a third in
+the bucket (`bucket_quota_met`); an exact 7:06 line refused a 5:06 break
+(`exact_time_mismatch`) and placed the 7:06 one; a slot line refused a
+break without its key (`slot_key_mismatch`) and placed the keyed one; a
+line under a draft revision was refused (`revision_not_current`).
+`npm run lint`, `typecheck`, `test` (1,012 tests) and `db:check` pass.
+
+**Not yet exercised**: the TypeScript auto-fill and revision-activation
+paths against a live session (sign-in is magic-link-only from a sandbox).
+The SQL guard is what makes the first click safe.
+
+**Open with WUWF** (brief §15, unchanged by this pass): the unit of FPM's
+"separation: 3"; house rules for distribution inside a daypart when an
+order says only "AM Drive"; the default same-day concentration for
+high-frequency agency buys with no stated cap (the planner spreads
+evenly); whether every opening/closing position is a stable Log
+opportunity a producer can key; whether a revised order's future spots
+should supersede automatically (today: previewed, then one explicit
+click); whether affidavits must distinguish bonus credits; and whether
+"Drive Time" (FDOH, International Paper) should be its own pool spanning
+AM and PM Drive — seeded pools are AM Drive, PM Drive, Total Program
+Rotation, Weekend Edition, Carpool, Mid-day, and a "Drive Time"/"Weekend
+ROS" pool has to be created on `/underwriting/pools` before those lines
+find inventory.

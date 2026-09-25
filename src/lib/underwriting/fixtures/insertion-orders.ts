@@ -1,30 +1,46 @@
-// The real WUWF orders the 2026-09-24 redesign brief lists, transcribed from
-// the signed originals (read from Drive on 2026-09-25 — see
-// docs/underwriting-traffic-redesign.md §2) into the schedule-line model.
-// Used by demand.test.ts and inventory-selection.test.ts as the acceptance
-// fixtures; nothing here is invented — every stated total is the document's
-// own number, and the two known inconsistencies (309 Punk's "Oct. 3" is a
-// Saturday; the Symphony's revised flight lands after its end date) are kept
-// as the documents print them so the review warnings can be tested.
+// The real WUWF orders the redesign briefs list (docs/underwriting-traffic-
+// redesign.md §2 and §9's acceptance corpus), transcribed from the signed
+// originals (read from Drive on 2026-09-25) into the eligibility-line +
+// demand-bucket model. Used by demand-compiler.test.ts, demand.test.ts and
+// inventory-selection.test.ts as the acceptance fixtures; nothing here is
+// invented — every stated total is the document's own number, and the known
+// inconsistencies (309 Punk's "Oct. 3" is a Saturday; Phil Hall 2022's
+// Weekend Edition line prints 27 for a year of Saturdays; the Symphony's
+// 2021-22 "6 AM Drive spots: 1 each day Oct 11-15" names five days; its
+// 2025-26 revised flight lands after the order's end date) are kept as the
+// documents print them so the review warnings can be tested.
 //
 // Pools are named, not resolved: a fixture line names the inventory class
 // the order sells ("AM Drive", "Total Program Rotation") and leaves the
-// mapping to Log opportunities to the station's own pool targets.
+// mapping to Log opportunities to the station's own pool targets. A traffic
+// key names a sponsorship position ("marketplace.opening") the way Log's
+// clock screen would.
 
-import type { AllocationLike, ScheduleRuleLike } from "../demand";
+import type { UwServiceLevel, UwTimeMode } from "@/lib/database.types";
+import { compileDemandBuckets, type CompiledBucket, type EntrySpec } from "../demand-compiler";
+import type { ScheduleLineLike } from "../demand";
 
-export interface FixtureLine extends ScheduleRuleLike {
+export interface FixtureLine {
   label: string;
+  spec: EntrySpec;
+  /** Eligible weekdays; empty means any. */
+  days_of_week: number[];
   pool: string | null;
   program: string | null;
-  target_time: string | null;
+  time_mode: UwTimeMode;
+  preferred_time: string | null;
   window_start: string | null;
   window_end: string | null;
+  required_opportunity_key: string | null;
+  max_per_day: number | null;
+  service_level: UwServiceLevel;
   flight: string | null;
-  is_bonus: boolean;
+  start_date: string;
+  end_date: string | null;
+  status: "active" | "cancelled";
+  cancelled_from: string | null;
   /** The order's own count for this line, when it prints one. */
   stated_total: number | null;
-  allocations: AllocationLike[];
   source_text: string;
 }
 
@@ -41,78 +57,61 @@ export interface FixtureOrder {
   copy?: { label: string; flight: string | null }[];
 }
 
-type Partial = Omit<
-  FixtureLine,
-  | "days_of_week"
-  | "count_per_day"
-  | "quantity_per_week"
-  | "max_per_day"
-  | "status"
-  | "cancelled_from"
-  | "end_date"
-  | "pool"
-  | "program"
-  | "target_time"
-  | "window_start"
-  | "window_end"
-  | "flight"
-  | "is_bonus"
-  | "allocations"
-  | "stated_total"
-> &
-  Partial2;
+type LineInput = Pick<FixtureLine, "label" | "spec" | "start_date" | "source_text"> &
+  Partial<Omit<FixtureLine, "label" | "spec" | "start_date" | "source_text">>;
 
-interface Partial2 {
-  days_of_week?: number[];
-  count_per_day?: number | null;
-  quantity_per_week?: number | null;
-  max_per_day?: number | null;
-  status?: ScheduleRuleLike["status"];
-  cancelled_from?: string | null;
-  end_date?: string | null;
-  pool?: string | null;
-  program?: string | null;
-  target_time?: string | null;
-  window_start?: string | null;
-  window_end?: string | null;
-  flight?: string | null;
-  is_bonus?: boolean;
-  allocations?: AllocationLike[];
-  stated_total?: number | null;
-}
-
-function line(input: Partial): FixtureLine {
+function line(input: LineInput): FixtureLine {
   return {
     days_of_week: [],
-    count_per_day: null,
-    quantity_per_week: null,
-    max_per_day: null,
-    status: "active",
-    cancelled_from: null,
-    end_date: null,
     pool: null,
     program: null,
-    target_time: null,
+    time_mode: "any",
+    preferred_time: null,
     window_start: null,
     window_end: null,
+    required_opportunity_key: null,
+    max_per_day: null,
+    service_level: "guaranteed",
     flight: null,
-    is_bonus: false,
-    allocations: [],
+    end_date: null,
+    status: "active",
+    cancelled_from: null,
     stated_total: null,
     ...input,
   };
 }
 
+/** A fixture line as the pure modules see a stored schedule line. */
+export function toScheduleLine(fixtureLine: FixtureLine): ScheduleLineLike {
+  return {
+    entry_kind: fixtureLine.spec.kind,
+    entry_spec: fixtureLine.spec,
+    days_of_week: fixtureLine.days_of_week,
+    start_date: fixtureLine.start_date,
+    end_date: fixtureLine.end_date,
+    status: fixtureLine.status,
+    cancelled_from: fixtureLine.cancelled_from,
+    time_mode: fixtureLine.time_mode,
+    preferred_time: fixtureLine.preferred_time,
+    window_start: fixtureLine.window_start,
+    window_end: fixtureLine.window_end,
+    required_opportunity_key: fixtureLine.required_opportunity_key,
+    max_per_day: fixtureLine.max_per_day,
+    service_level: fixtureLine.service_level,
+    stated_total: fixtureLine.stated_total,
+  };
+}
+
+/** The demand buckets a fixture line compiles to. */
+export function compile(fixtureLine: FixtureLine): CompiledBucket[] {
+  return compileDemandBuckets(fixtureLine.spec, fixtureLine);
+}
+
 const WEEKDAYS = [1, 2, 3, 4, 5];
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 /** One credit on each listed date. */
-function dates(...isoDates: string[]): AllocationLike[] {
-  return isoDates.map((period_start) => ({
-    period_kind: "day" as const,
-    period_start,
-    quantity: 1,
-  }));
+function dates(...isoDates: string[]): { date: string; quantity: number }[] {
+  return isoDates.map((date) => ({ date, quantity: 1 }));
 }
 
 /** A run of dates, inclusive. */
@@ -129,17 +128,20 @@ function range(startISO: string, endISO: string): string[] {
 }
 
 /** Week-grid quantities starting the Monday given, one per column. */
-function grid(firstMondayISO: string, quantities: number[]): AllocationLike[] {
+function grid(
+  firstMondayISO: string,
+  quantities: number[],
+): { week_start: string; quantity: number }[] {
   return quantities.map((quantity, index) => {
     const d = new Date(`${firstMondayISO}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + index * 7);
-    return { period_kind: "week" as const, period_start: d.toISOString().slice(0, 10), quantity };
+    return { week_start: d.toISOString().slice(0, 10), quantity };
   });
 }
 
 // ----------------------------------------------------------------------------
 
-/** Autumn Beck Blackledge — the existing reference agreement (docs/underwriting-design.md §1). */
+/** Autumn Beck Blackledge — the existing reference agreement (docs/underwriting-design.md §1): "Monday ~7:49am x 26 weeks" is a preferred time, not an exact one. */
 export const AUTUMN_BECK_BLACKLEDGE: FixtureOrder = {
   name: "Autumn Beck Blackledge",
   effective_from: "2026-08-03",
@@ -155,11 +157,11 @@ export const AUTUMN_BECK_BLACKLEDGE: FixtureOrder = {
   lines: [
     line({
       label: "Monday AM drive",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [1],
-      count_per_day: 1,
       program: "Morning Edition",
-      target_time: "07:49",
+      time_mode: "preferred",
+      preferred_time: "07:49",
       start_date: "2026-08-03",
       end_date: "2027-01-31",
       stated_total: 26,
@@ -167,11 +169,11 @@ export const AUTUMN_BECK_BLACKLEDGE: FixtureOrder = {
     }),
     line({
       label: "Tuesday PM drive",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [2],
-      count_per_day: 1,
       program: "All Things Considered",
-      target_time: "16:48",
+      time_mode: "preferred",
+      preferred_time: "16:48",
       start_date: "2026-08-03",
       end_date: "2027-01-31",
       stated_total: 26,
@@ -179,11 +181,11 @@ export const AUTUMN_BECK_BLACKLEDGE: FixtureOrder = {
     }),
     line({
       label: "Wed/Thu AM drive",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [3, 4],
-      count_per_day: 1,
       program: "Morning Edition",
-      target_time: "08:06",
+      time_mode: "preferred",
+      preferred_time: "08:06",
       start_date: "2026-08-03",
       end_date: "2027-01-31",
       stated_total: 52,
@@ -204,9 +206,8 @@ export const BOYLES: FixtureOrder = {
   lines: [
     line({
       label: "Drive time",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 2 },
       days_of_week: WEEKDAYS,
-      quantity_per_week: 2,
       max_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-09-21",
@@ -216,9 +217,7 @@ export const BOYLES: FixtureOrder = {
     }),
     line({
       label: "Total Program Rotation",
-      rule_kind: "weekly_quota",
-      days_of_week: ALL_DAYS,
-      quantity_per_week: 3,
+      spec: { kind: "weekly_quota", quantity: 3 },
       max_per_day: 1,
       pool: "Total Program Rotation",
       start_date: "2026-09-21",
@@ -228,9 +227,8 @@ export const BOYLES: FixtureOrder = {
     }),
     line({
       label: "Weekend Edition",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 1 },
       days_of_week: [0, 6],
-      quantity_per_week: 1,
       max_per_day: 1,
       pool: "Weekend Edition",
       start_date: "2026-09-21",
@@ -253,9 +251,7 @@ export const NATURAL_AWAKENINGS: FixtureOrder = {
   lines: [
     line({
       label: "ROS",
-      rule_kind: "weekly_quota",
-      days_of_week: ALL_DAYS,
-      quantity_per_week: 3,
+      spec: { kind: "weekly_quota", quantity: 3 },
       max_per_day: 1,
       pool: "Total Program Rotation",
       start_date: "2026-04-13",
@@ -282,9 +278,8 @@ export const MOVE_PERIOD: FixtureOrder = {
   lines: [
     line({
       label: "AM drive",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [1, 3, 4],
-      count_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-08-31",
       end_date: "2026-11-29",
@@ -293,9 +288,8 @@ export const MOVE_PERIOD: FixtureOrder = {
     }),
     line({
       label: "PM drive",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [2],
-      count_per_day: 1,
       pool: "PM Drive",
       start_date: "2026-08-31",
       end_date: "2026-11-29",
@@ -304,9 +298,8 @@ export const MOVE_PERIOD: FixtureOrder = {
     }),
     line({
       label: "Total Program Rotation",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [2, 5],
-      count_per_day: 1,
       pool: "Total Program Rotation",
       start_date: "2026-08-31",
       end_date: "2026-11-29",
@@ -328,9 +321,8 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
   lines: [
     line({
       label: "Drive, Feb 16 – Apr 26 (AM)",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 2 },
       days_of_week: WEEKDAYS,
-      quantity_per_week: 2,
       max_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-02-16",
@@ -340,9 +332,8 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
     }),
     line({
       label: "Drive, Feb 16 – Apr 26 (PM)",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 1 },
       days_of_week: WEEKDAYS,
-      quantity_per_week: 1,
       max_per_day: 1,
       pool: "PM Drive",
       start_date: "2026-02-16",
@@ -352,9 +343,8 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
     }),
     line({
       label: "Drive, Apr 27 – Nov 29 (AM)",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 2 },
       days_of_week: WEEKDAYS,
-      quantity_per_week: 2,
       max_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-04-27",
@@ -364,9 +354,7 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
     }),
     line({
       label: "Rotation, week of Feb 16",
-      rule_kind: "weekly_quota",
-      days_of_week: ALL_DAYS,
-      quantity_per_week: 2,
+      spec: { kind: "weekly_quota", quantity: 2 },
       max_per_day: 1,
       pool: "Total Program Rotation",
       start_date: "2026-02-16",
@@ -376,9 +364,7 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
     }),
     line({
       label: "Rotation, Feb 23 – Nov 29",
-      rule_kind: "weekly_quota",
-      days_of_week: ALL_DAYS,
-      quantity_per_week: 1,
+      spec: { kind: "weekly_quota", quantity: 1 },
       max_per_day: 1,
       pool: "Total Program Rotation",
       start_date: "2026-02-23",
@@ -389,7 +375,7 @@ export const BUD_AND_ALLEYS: FixtureOrder = {
   ],
 };
 
-/** Lynn Keefe Pediatrics, 6/9/26–6/6/27: 52 spots, Carpool, Tuesday 8:19 AM. */
+/** Lynn Keefe Pediatrics, 6/9/26–6/6/27: 52 spots, Carpool, Tuesday 8:19 AM — an exact slot. */
 export const LYNN_KEEFE: FixtureOrder = {
   name: "Lynn Keefe Pediatrics",
   effective_from: "2026-06-09",
@@ -401,11 +387,11 @@ export const LYNN_KEEFE: FixtureOrder = {
   lines: [
     line({
       label: "Carpool Tuesday",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [2],
-      count_per_day: 1,
       pool: "Carpool",
-      target_time: "08:19",
+      time_mode: "exact",
+      preferred_time: "08:19",
       start_date: "2026-06-09",
       end_date: "2027-06-06",
       stated_total: 52,
@@ -414,7 +400,7 @@ export const LYNN_KEEFE: FixtureOrder = {
   ],
 };
 
-/** Open Books, 9/7/26–9/6/27: 52 spots, Carpool, Thursday 8:44 AM. */
+/** Open Books, 9/7/26–9/6/27: 52 spots, Carpool, Thursday 8:44 AM (corpus #1). */
 export const OPEN_BOOKS: FixtureOrder = {
   name: "Open Books",
   effective_from: "2026-09-07",
@@ -426,11 +412,11 @@ export const OPEN_BOOKS: FixtureOrder = {
   lines: [
     line({
       label: "Carpool Thursday",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [4],
-      count_per_day: 1,
       pool: "Carpool",
-      target_time: "08:44",
+      time_mode: "exact",
+      preferred_time: "08:44",
       start_date: "2026-09-07",
       end_date: "2027-09-06",
       stated_total: 52,
@@ -451,32 +437,62 @@ export const PUNK_309: FixtureOrder = {
   lines: [
     line({
       label: "Carpool, Friday phase",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [5],
-      count_per_day: 1,
       pool: "Carpool",
-      target_time: "07:49",
+      time_mode: "exact",
+      preferred_time: "07:49",
       start_date: "2026-10-03",
       end_date: "2026-10-23",
-      stated_total: null,
       source_text: "Oct. 3- Oct 23 Friday @ 7:49 AM",
     }),
     line({
       label: "Carpool, Thursday phase",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [4],
-      count_per_day: 1,
       pool: "Carpool",
-      target_time: "08:19",
+      time_mode: "exact",
+      preferred_time: "08:19",
       start_date: "2026-10-29",
       end_date: "2027-01-28",
-      stated_total: null,
       source_text: "Oct 29-Jan 28 Thursday @ 8:19 AM",
     }),
   ],
 };
 
-/** Choral Society, 10/5/26–5/15/27: four concert flights, each 1 AM/weekday then 2 AM/weekday. */
+function choralFlight(name: string, week1: string, week2: string): FixtureLine[] {
+  const end = (monday: string) => {
+    const d = new Date(`${monday}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 4);
+    return d.toISOString().slice(0, 10);
+  };
+  return [
+    line({
+      label: `${name}, week 1`,
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: WEEKDAYS,
+      pool: "AM Drive",
+      flight: name,
+      start_date: week1,
+      end_date: end(week1),
+      stated_total: 5,
+      source_text: `1 AM Drive each weekday, week of ${week1}`,
+    }),
+    line({
+      label: `${name}, week 2`,
+      spec: { kind: "fixed_days", count_per_day: 2 },
+      days_of_week: WEEKDAYS,
+      pool: "AM Drive",
+      flight: name,
+      start_date: week2,
+      end_date: end(week2),
+      stated_total: 10,
+      source_text: `2 AM Drive each weekday, week of ${week2}`,
+    }),
+  ];
+}
+
+/** Choral Society, 10/5/26–5/15/27: four concert flights, each 1 AM/weekday then 2 AM/weekday — no per-day cap. */
 export const CHORAL_SOCIETY: FixtureOrder = {
   name: "Choral Society of Pensacola",
   effective_from: "2026-10-05",
@@ -492,102 +508,10 @@ export const CHORAL_SOCIETY: FixtureOrder = {
     { label: "Mass in Blue", flight: "Mass in Blue" },
   ],
   lines: [
-    line({
-      label: "Voices of Sea & Sky, week 1",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 1,
-      pool: "AM Drive",
-      flight: "Voices of Sea & Sky",
-      start_date: "2026-10-05",
-      end_date: "2026-10-09",
-      stated_total: 5,
-      source_text: "1 AM Drive: Oct 5-9",
-    }),
-    line({
-      label: "Voices of Sea & Sky, week 2",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 2,
-      pool: "AM Drive",
-      flight: "Voices of Sea & Sky",
-      start_date: "2026-10-12",
-      end_date: "2026-10-16",
-      stated_total: 10,
-      source_text: "2 AM Drive: Ot 12-16",
-    }),
-    line({
-      label: "El Mesias, week 1",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 1,
-      pool: "AM Drive",
-      flight: "El Mesias",
-      start_date: "2026-11-23",
-      end_date: "2026-11-27",
-      stated_total: 5,
-      source_text: "1 AM Drive Each: Nov 23-27",
-    }),
-    line({
-      label: "El Mesias, week 2",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 2,
-      pool: "AM Drive",
-      flight: "El Mesias",
-      start_date: "2026-11-30",
-      end_date: "2026-12-04",
-      stated_total: 10,
-      source_text: "2 AM Drive each: Nov 30, Dec 1-4",
-    }),
-    line({
-      label: "Alzheimer's Stories, week 1",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 1,
-      pool: "AM Drive",
-      flight: "Alzheimer's Stories",
-      start_date: "2027-03-08",
-      end_date: "2027-03-12",
-      stated_total: 5,
-      source_text: "1 AM Drive each: March 8-12",
-    }),
-    line({
-      label: "Alzheimer's Stories, week 2",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 2,
-      pool: "AM Drive",
-      flight: "Alzheimer's Stories",
-      start_date: "2027-03-15",
-      end_date: "2027-03-19",
-      stated_total: 10,
-      source_text: "2 AM Drive each: March 15-19",
-    }),
-    line({
-      label: "Mass in Blue, week 1",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 1,
-      pool: "AM Drive",
-      flight: "Mass in Blue",
-      start_date: "2027-05-03",
-      end_date: "2027-05-07",
-      stated_total: 5,
-      source_text: "1 AM Drive each: May 3-7",
-    }),
-    line({
-      label: "Mass in Blue, week 2",
-      rule_kind: "fixed_days",
-      days_of_week: WEEKDAYS,
-      count_per_day: 2,
-      pool: "AM Drive",
-      flight: "Mass in Blue",
-      start_date: "2027-05-10",
-      end_date: "2027-05-14",
-      stated_total: 10,
-      source_text: "2 AM Drive each May 10-14",
-    }),
+    ...choralFlight("Voices of Sea & Sky", "2026-10-05", "2026-10-12"),
+    ...choralFlight("El Mesias", "2026-11-23", "2026-11-30"),
+    ...choralFlight("Alzheimer's Stories", "2027-03-08", "2027-03-15"),
+    ...choralFlight("Mass in Blue", "2027-05-03", "2027-05-10"),
   ],
 };
 
@@ -603,166 +527,169 @@ export const EMERALD_COAST_THEATRE: FixtureOrder = {
   lines: [
     line({
       label: "#1 Come From Away — AM drive",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-09-11", "2026-09-24") },
       pool: "AM Drive",
       flight: "Come From Away",
       start_date: "2026-09-08",
       end_date: "2026-09-27",
       stated_total: 2,
-      allocations: dates("2026-09-11", "2026-09-24"),
       source_text: "2 AM Drive Time Spots: 1 each day Sept 11, 24",
     }),
     line({
       label: "#1 Come From Away — ROS",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates(
+          "2026-09-09",
+          "2026-09-10",
+          "2026-09-11",
+          "2026-09-15",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-24",
+          "2026-09-25",
+        ),
+      },
       pool: "Total Program Rotation",
       flight: "Come From Away",
       start_date: "2026-09-08",
       end_date: "2026-09-27",
       stated_total: 8,
-      allocations: dates(
-        "2026-09-09",
-        "2026-09-10",
-        "2026-09-11",
-        "2026-09-15",
-        "2026-09-17",
-        "2026-09-18",
-        "2026-09-24",
-        "2026-09-25",
-      ),
       source_text: "8 ROS spots: 1 each Sept. 9, 10, 11, 15, 17, 18, 24, 25",
     }),
     line({
       label: "#2 39 Steps — AM drive",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-10-16", "2026-10-22") },
       pool: "AM Drive",
       flight: "39 Steps",
       start_date: "2026-10-14",
       end_date: "2026-10-25",
       stated_total: 2,
-      allocations: dates("2026-10-16", "2026-10-22"),
       source_text: "2 AM Drive Time Spots: 1 each day: Oct 16, 22",
     }),
     line({
       label: "#2 39 Steps — ROS",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates(
+          "2026-10-14",
+          "2026-10-15",
+          "2026-10-16",
+          "2026-10-20",
+          "2026-10-21",
+          "2026-10-22",
+          "2026-10-23",
+        ),
+      },
       pool: "Total Program Rotation",
       flight: "39 Steps",
       start_date: "2026-10-14",
       end_date: "2026-10-25",
       stated_total: 7,
-      allocations: dates(
-        "2026-10-14",
-        "2026-10-15",
-        "2026-10-16",
-        "2026-10-20",
-        "2026-10-21",
-        "2026-10-22",
-        "2026-10-23",
-      ),
       source_text: "7 ROS spots: 1 each: Oct 14, 15, 16, 20, 21,22, 23",
     }),
     line({
       label: "#3 Million Dollar Quartet Christmas — AM drive",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates(
+          "2026-12-02",
+          "2026-12-03",
+          "2026-12-04",
+          "2026-12-10",
+          "2026-12-11",
+          ...range("2026-12-14", "2026-12-18"),
+        ),
+      },
       pool: "AM Drive",
       flight: "Million Dollar Quartet Christmas",
       start_date: "2026-12-02",
       end_date: "2026-12-20",
       stated_total: 10,
-      allocations: dates(
-        "2026-12-02",
-        "2026-12-03",
-        "2026-12-04",
-        "2026-12-10",
-        "2026-12-11",
-        ...range("2026-12-14", "2026-12-18"),
-      ),
       source_text: "10 AM Drive: 1 each Dec 2,3,4, 10,11, 14-18",
     }),
     line({
       label: "#3 Million Dollar Quartet Christmas — ROS",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-12-03", "2026-12-10", "2026-12-17") },
       pool: "Total Program Rotation",
       flight: "Million Dollar Quartet Christmas",
       start_date: "2026-12-02",
       end_date: "2026-12-20",
       stated_total: 3,
-      allocations: dates("2026-12-03", "2026-12-10", "2026-12-17"),
       source_text: "3 ROS spots: 1 each Dec. 3, 10 17",
     }),
     line({
       label: "#4 9 to 5 — AM drive",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2027-01-22", "2027-01-28") },
       pool: "AM Drive",
       flight: "9 to 5 The Musical",
       start_date: "2027-01-21",
       end_date: "2027-02-07",
       stated_total: 2,
-      allocations: dates("2027-01-22", "2027-01-28"),
       source_text: "2 AM Drive: 1 each: Jan 22, 28",
     }),
     line({
       label: "#4 9 to 5 — ROS",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates("2027-01-27", "2027-01-28", ...range("2027-02-01", "2027-02-05")),
+      },
       pool: "Total Program Rotation",
       flight: "9 to 5 The Musical",
       start_date: "2027-01-21",
       end_date: "2027-02-07",
       stated_total: 7,
-      allocations: dates("2027-01-27", "2027-01-28", ...range("2027-02-01", "2027-02-05")),
       source_text: "7 ROS: 1 each: Jan 27,28 Feb 1-5",
     }),
     line({
       label: "#5 Dear Jack, Dear Louise — AM drive",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2027-02-18", "2027-02-25") },
       pool: "AM Drive",
       flight: "Dear Jack, Dear Louise",
       start_date: "2027-02-17",
       end_date: "2027-02-28",
       stated_total: 2,
-      allocations: dates("2027-02-18", "2027-02-25"),
       source_text: "2 AM Drive: 1 each Feb 18, 25",
     }),
     line({
       label: "#5 Dear Jack, Dear Louise — ROS",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates(...range("2027-02-17", "2027-02-19"), ...range("2027-02-22", "2027-02-26")),
+      },
       pool: "Total Program Rotation",
       flight: "Dear Jack, Dear Louise",
       start_date: "2027-02-17",
       end_date: "2027-02-28",
       stated_total: 8,
-      allocations: dates(
-        ...range("2027-02-17", "2027-02-19"),
-        ...range("2027-02-22", "2027-02-26"),
-      ),
       source_text: "8 ROS: Feb 17-19, 22-26",
     }),
     line({
       label: "#6 Frozen — AM drive",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates(
+          "2027-05-06",
+          "2027-05-07",
+          ...range("2027-05-12", "2027-05-14"),
+          ...range("2027-05-17", "2027-05-21"),
+        ),
+      },
       pool: "AM Drive",
       flight: "Frozen: The Musical",
       start_date: "2027-05-06",
       end_date: "2027-05-23",
       stated_total: 10,
-      allocations: dates(
-        "2027-05-06",
-        "2027-05-07",
-        ...range("2027-05-12", "2027-05-14"),
-        ...range("2027-05-17", "2027-05-21"),
-      ),
       source_text: "10 AM Drive: 1 cach May 6,7, 12-14, 17-21",
     }),
     line({
       label: "#6 Frozen — ROS",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2027-05-07", "2027-05-14", "2027-05-21") },
       pool: "Total Program Rotation",
       flight: "Frozen: The Musical",
       start_date: "2027-05-06",
       end_date: "2027-05-23",
       stated_total: 3,
-      allocations: dates("2027-05-07", "2027-05-14", "2027-05-21"),
       source_text: "3 ROS spots: 1 each; May 7, 14, 21",
     }),
   ],
@@ -780,38 +707,38 @@ export const LIVE_NATION: FixtureOrder = {
   lines: [
     line({
       label: "6:00–10:00 AM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-05-18", "2026-05-20", "2026-05-22") },
       pool: "AM Drive",
+      time_mode: "window",
       window_start: "06:00",
       window_end: "10:00",
       start_date: "2026-05-18",
       end_date: "2026-05-22",
       stated_total: 3,
-      allocations: dates("2026-05-18", "2026-05-20", "2026-05-22"),
       source_text: "Mon/Wed/Fri 6:00 AM – 10:00 AM, 30 secs, 1 each",
     }),
     line({
       label: "10:00 AM–3:00 PM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-05-18", "2026-05-20", "2026-05-22") },
       pool: "Mid-day",
+      time_mode: "window",
       window_start: "10:00",
       window_end: "15:00",
       start_date: "2026-05-18",
       end_date: "2026-05-22",
       stated_total: 3,
-      allocations: dates("2026-05-18", "2026-05-20", "2026-05-22"),
       source_text: "Mon/Wed/Fri 10:00 AM – 3:00 PM, 30 secs, 1 each",
     }),
     line({
       label: "3:00–7:00 PM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-05-18", "2026-05-20", "2026-05-22") },
       pool: "PM Drive",
+      time_mode: "window",
       window_start: "15:00",
       window_end: "19:00",
       start_date: "2026-05-18",
       end_date: "2026-05-22",
       stated_total: 3,
-      allocations: dates("2026-05-18", "2026-05-20", "2026-05-22"),
       source_text: "Mon/Wed/Fri 3:00 PM – 7:00 PM, 30 secs, 1 each",
     }),
   ],
@@ -829,10 +756,10 @@ export const FPM_USF: FixtureOrder = {
   lines: [
     line({
       label: "Putumayo, Fridays 7–8 PM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 2 },
       days_of_week: [5],
-      count_per_day: 2,
       program: "Putumayo World Music Hour",
+      time_mode: "window",
       window_start: "19:00",
       window_end: "20:00",
       start_date: "2026-04-06",
@@ -843,7 +770,7 @@ export const FPM_USF: FixtureOrder = {
   ],
 };
 
-/** FPM / Florida Power & Light, 1/26–12/27/26: a 48-column week grid, five lines, zero weeks, a bonus line. */
+/** FPM / Florida Power & Light, 1/26–12/27/26: a 48-column week grid, five lines, dark weeks, a bonus line (corpus #9). */
 const FPL_AM = [
   6, 4, 4, 4, 3, 2, 2, 2, 0, 3, 2, 2, 2, 3, 2, 2, 2, 0, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 0, 3, 2,
   2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 0, 3, 2, 2, 2,
@@ -876,81 +803,75 @@ export const FPM_FPL: FixtureOrder = {
   lines: [
     line({
       label: "AM 5:00a–9:00a M–F",
-      rule_kind: "week_grid",
+      spec: { kind: "week_grid", weeks: grid("2026-01-26", FPL_AM) },
       days_of_week: WEEKDAYS,
       max_per_day: 2,
       pool: "AM Drive",
+      time_mode: "window",
       window_start: "05:00",
       window_end: "09:00",
       start_date: "2026-01-26",
       end_date: "2026-12-27",
       stated_total: 108,
-      allocations: grid("2026-01-26", FPL_AM),
       source_text: "38 MTuWThF 5:00a- 9:00a AM … 108",
     }),
     line({
       label: "PM 3:00p–6:00p M–F",
-      rule_kind: "week_grid",
+      spec: { kind: "week_grid", weeks: grid("2026-01-26", FPL_PM) },
       days_of_week: WEEKDAYS,
       max_per_day: 2,
       pool: "PM Drive",
+      time_mode: "window",
       window_start: "15:00",
       window_end: "18:00",
       start_date: "2026-01-26",
       end_date: "2026-12-27",
       stated_total: 96,
-      allocations: grid("2026-01-26", FPL_PM),
       source_text: "39 MTuWThF 3:00p- 6:00p PM … 96",
     }),
     line({
       label: "RT 9:00a–3:00p M–F",
-      rule_kind: "week_grid",
+      spec: { kind: "week_grid", weeks: grid("2026-01-26", FPL_RT) },
       days_of_week: WEEKDAYS,
       max_per_day: 2,
       pool: "Mid-day",
+      time_mode: "window",
       window_start: "09:00",
       window_end: "15:00",
       start_date: "2026-01-26",
       end_date: "2026-12-27",
       stated_total: 84,
-      allocations: grid("2026-01-26", FPL_RT),
       source_text: "40 MTuWThF 9:00a- 3:00p RT … 84",
     }),
     line({
       label: "WK Sa 8:00a–12:00p",
-      rule_kind: "week_grid",
+      spec: { kind: "week_grid", weeks: grid("2026-01-26", FPL_WK) },
       days_of_week: [6],
-      max_per_day: 4,
       pool: "Weekend Edition",
+      time_mode: "window",
       window_start: "08:00",
       window_end: "12:00",
       start_date: "2026-01-26",
       end_date: "2026-12-27",
       stated_total: 72,
-      allocations: grid("2026-01-26", FPL_WK),
       source_text: "41 Sa 8:00a-12:00p WK … 72",
     }),
     line({
       label: "BN bonus 5:00a–12:00a",
-      rule_kind: "week_grid",
-      days_of_week: ALL_DAYS,
-      max_per_day: 3,
+      spec: { kind: "week_grid", weeks: grid("2026-01-26", FPL_BN) },
       pool: "Total Program Rotation",
-      window_start: "05:00",
-      window_end: "23:59",
-      is_bonus: true,
+      service_level: "bonus",
       start_date: "2026-01-26",
       end_date: "2026-12-27",
       stated_total: 180,
-      allocations: grid("2026-01-26", FPL_BN),
       source_text: "42 MTuWThFSaSu 5:00a-12:00a BN $0.00 … 180",
     }),
   ],
 };
 
-/** Pensacola Symphony, updated IO: five flights; #5 cancelled, replaced by May 11–15 (after the order's April 25 end date). */
+/** Pensacola Symphony 2025-26, updated IO: five event flights; #5 (the gala) cancelled, replaced by May 11–15 for the Jazz Brunch — after the order's own April 25 end date (corpus #7). */
 export const SYMPHONY: FixtureOrder = {
-  name: "Pensacola Symphony Orchestra",
+  name: "Pensacola Symphony Orchestra 2025-26",
   effective_from: "2025-09-29",
   effective_to: "2026-04-25",
   stated_total_spots: 28,
@@ -960,9 +881,8 @@ export const SYMPHONY: FixtureOrder = {
   lines: [
     line({
       label: "#1 Opening Night — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "Opening Night",
       start_date: "2025-09-29",
@@ -972,9 +892,8 @@ export const SYMPHONY: FixtureOrder = {
     }),
     line({
       label: "#2 Classically Connected — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "Classically Connected",
       start_date: "2025-11-03",
@@ -984,20 +903,18 @@ export const SYMPHONY: FixtureOrder = {
     }),
     line({
       label: "#2 Classically Connected — PM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2025-11-06") },
       pool: "PM Drive",
       flight: "Classically Connected",
       start_date: "2025-11-03",
       end_date: "2025-11-07",
       stated_total: 1,
-      allocations: dates("2025-11-06"),
       source_text: "1 PM Drive spot Nov 6",
     }),
     line({
       label: "#3 Mahler — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "Mahler",
       start_date: "2026-03-02",
@@ -1007,20 +924,18 @@ export const SYMPHONY: FixtureOrder = {
     }),
     line({
       label: "#3 Mahler — PM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-03-06") },
       pool: "PM Drive",
       flight: "Mahler",
       start_date: "2026-03-02",
       end_date: "2026-03-06",
       stated_total: 1,
-      allocations: dates("2026-03-06"),
       source_text: "1 PM Drive spot March 6",
     }),
     line({
       label: "#4 Symphonic Spectacular — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "Symphonic Spectacular",
       start_date: "2026-03-23",
@@ -1030,20 +945,18 @@ export const SYMPHONY: FixtureOrder = {
     }),
     line({
       label: "#4 Symphonic Spectacular — PM",
-      rule_kind: "explicit_dates",
+      spec: { kind: "explicit_dates", dates: dates("2026-03-27") },
       pool: "PM Drive",
       flight: "Symphonic Spectacular",
       start_date: "2026-03-23",
       end_date: "2026-03-27",
       stated_total: 1,
-      allocations: dates("2026-03-27"),
       source_text: "1 PM Drive spot March 27",
     }),
     line({
       label: "#5 100th Anniversary Gala — AM (cancelled)",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "100th Anniversary Gala",
       start_date: "2026-04-20",
@@ -1056,9 +969,8 @@ export const SYMPHONY: FixtureOrder = {
     }),
     line({
       label: "#5 Jazz Brunch — AM (revised)",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       flight: "Jazz Brunch",
       start_date: "2026-05-11",
@@ -1081,9 +993,8 @@ export const ARMSTRONG: FixtureOrder = {
   lines: [
     line({
       label: "May 4 – Jun 21 — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-05-04",
       end_date: "2026-06-21",
@@ -1092,9 +1003,8 @@ export const ARMSTRONG: FixtureOrder = {
     }),
     line({
       label: "May 4 – Jun 21 — PM (Wed or Thu)",
-      rule_kind: "weekly_quota",
+      spec: { kind: "weekly_quota", quantity: 1 },
       days_of_week: [3, 4],
-      quantity_per_week: 1,
       max_per_day: 1,
       pool: "PM Drive",
       start_date: "2026-05-04",
@@ -1104,9 +1014,8 @@ export const ARMSTRONG: FixtureOrder = {
     }),
     line({
       label: "Jun 22 – Jul 5 — AM",
-      rule_kind: "fixed_days",
+      spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: WEEKDAYS,
-      count_per_day: 1,
       pool: "AM Drive",
       start_date: "2026-06-22",
       end_date: "2026-07-05",
@@ -1115,13 +1024,698 @@ export const ARMSTRONG: FixtureOrder = {
     }),
     line({
       label: "Jun 22 – Jul 5 — PM",
-      rule_kind: "explicit_dates",
+      spec: {
+        kind: "explicit_dates",
+        dates: dates("2026-06-24", "2026-06-25", "2026-07-01", "2026-07-02"),
+      },
       pool: "PM Drive",
       start_date: "2026-06-22",
       end_date: "2026-07-05",
       stated_total: 4,
-      allocations: dates("2026-06-24", "2026-06-25", "2026-07-01", "2026-07-02"),
       source_text: "4 PM Drive: 1 each June 24,25 July 1,2",
+    }),
+  ],
+};
+
+// The second brief's corpus (§12) --------------------------------------------
+
+/** Fireman Termite & Pest Control, 5/18/26–5/16/27: a fixed weekly Carpool credit plus one ROS credit every other week (corpus #2). */
+export const FIREMAN_TERMITE: FixtureOrder = {
+  name: "Fireman Termite and Pest Control",
+  effective_from: "2026-05-18",
+  effective_to: "2027-05-16",
+  stated_total_spots: 78,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "Carpool Wednesday",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [3],
+      pool: "Carpool",
+      time_mode: "exact",
+      preferred_time: "08:44",
+      start_date: "2026-05-18",
+      end_date: "2027-05-16",
+      stated_total: 52,
+      source_text: "1 spot in Carpool on Wednesday @ 8:44 AM for 52 weeks",
+    }),
+    line({
+      label: "ROS every other week",
+      spec: { kind: "every_n_weeks", interval_weeks: 2, quantity: 1 },
+      pool: "Total Program Rotation",
+      start_date: "2026-05-18",
+      end_date: "2027-05-16",
+      stated_total: 26,
+      source_text: "26 ROS spots to air every other week Monday-Sunday",
+    }),
+  ],
+};
+
+/** Florida Department of Health, Escambia, 7/1/26–6/27/27: 4 Drive Time a week, Monday–Friday, 1 a day (corpus #3). */
+export const FDOH_ESCAMBIA: FixtureOrder = {
+  name: "Florida Dept of Health Escambia",
+  effective_from: "2026-07-01",
+  effective_to: "2027-06-27",
+  stated_total_spots: null,
+  affidavit_required: true,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "Drive Time, 4 a week",
+      spec: { kind: "weekly_quota", quantity: 4 },
+      days_of_week: WEEKDAYS,
+      max_per_day: 1,
+      pool: "Drive Time",
+      start_date: "2026-07-01",
+      end_date: "2027-06-27",
+      source_text: "4 Drive Time spots per week: 1 per day; Mon-Friday",
+    }),
+  ],
+};
+
+/** Phil Hall, P.A. 2022-23, 6/20/22–6/18/23: exact Carpool, a Marketplace opening credit, a flexible TPR week, Saturday Weekend Edition (corpus #4). */
+export const PHIL_HALL_2022: FixtureOrder = {
+  name: "Phil Hall, P.A. 2022-23",
+  effective_from: "2022-06-20",
+  effective_to: "2023-06-18",
+  stated_total_spots: null,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  copy: [
+    { label: "Copy 1", flight: null },
+    { label: "Copy 2", flight: null },
+    { label: "Copy 3", flight: null },
+    { label: "Copy 4", flight: null },
+    { label: "Carpool message", flight: null },
+  ],
+  lines: [
+    line({
+      label: "Carpool Tuesday 7:06",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [2],
+      pool: "Carpool",
+      time_mode: "exact",
+      preferred_time: "07:06",
+      start_date: "2022-06-20",
+      end_date: "2023-06-18",
+      stated_total: 52,
+      source_text: "52 AM Drive Time spots in Carpool Plan: 1 each week on Tuesday 7:06 AM",
+    }),
+    line({
+      label: "Marketplace opening credit, Wednesday",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [3],
+      program: "Marketplace",
+      time_mode: "slot",
+      required_opportunity_key: "marketplace.opening",
+      start_date: "2022-06-20",
+      end_date: "2023-06-18",
+      stated_total: 52,
+      source_text:
+        "52 PM Drive Time spots : 1 each week as Sponsor of Market Place on Wednesday @ 4:59 pm Opening Credit",
+    }),
+    line({
+      label: "Total Program Rotation, Mon/Thu/Fri",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: [1, 4, 5],
+      max_per_day: 1,
+      pool: "Total Program Rotation",
+      start_date: "2022-06-20",
+      end_date: "2023-06-18",
+      stated_total: 52,
+      source_text: "52 Total Program Rotation spots: 1 each week to air Monday, Thursday or Friday",
+    }),
+    line({
+      label: "Weekend Edition Saturday 8–10",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [6],
+      pool: "Weekend Edition",
+      time_mode: "window",
+      window_start: "08:00",
+      window_end: "10:00",
+      start_date: "2022-06-20",
+      end_date: "2023-06-18",
+      stated_total: 27,
+      source_text: "27 Spots in Morning Weekend Edition: 1 each week Saturday (8-10 am)",
+    }),
+  ],
+};
+
+/** Phil Hall, P.A. 2024-25, 6/17/24–6/15/25: AM and PM rotating Monday–Friday, Weekend Edition either day (corpus #5). */
+export const PHIL_HALL_2024: FixtureOrder = {
+  name: "Phil Hall, P.A. 2024-25",
+  effective_from: "2024-06-17",
+  effective_to: "2025-06-15",
+  stated_total_spots: 156,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "AM Drive, rotates Mon–Fri",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: WEEKDAYS,
+      max_per_day: 1,
+      pool: "AM Drive",
+      start_date: "2024-06-17",
+      end_date: "2025-06-15",
+      stated_total: 52,
+      source_text: "52 AM Drive 1 spot each week rotates Monday-Friday",
+    }),
+    line({
+      label: "PM Drive, rotates Mon–Fri",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: WEEKDAYS,
+      max_per_day: 1,
+      pool: "PM Drive",
+      start_date: "2024-06-17",
+      end_date: "2025-06-15",
+      stated_total: 52,
+      source_text: "52 PM Drive 1 spot rotates each week Monday- Friday",
+    }),
+    line({
+      label: "Weekend Edition, Sat or Sun 8–10",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: [0, 6],
+      max_per_day: 1,
+      pool: "Weekend Edition",
+      time_mode: "window",
+      window_start: "08:00",
+      window_end: "10:00",
+      start_date: "2024-06-17",
+      end_date: "2025-06-15",
+      stated_total: 52,
+      source_text:
+        "52 spots : 1 each week in Weekend Edition Morning news, Saturday or Sunday AM (8 am-10 am)",
+    }),
+  ],
+};
+
+/** Pensacola Symphony 2021-22, 10/7/21–4/30/22: four event phases with one- and two-per-day ROS runs (corpus #6). The AM lines print "6" against five listed days, as the order does. */
+function symphonyPhase(
+  name: string,
+  am: { dates: string[]; stated: number; text: string },
+  ros: { one: string[]; two: string[]; stated: number; text: string },
+): FixtureLine[] {
+  const first = [...am.dates, ...ros.one, ...ros.two].sort()[0]!;
+  const last = [...am.dates, ...ros.one, ...ros.two].sort().at(-1)!;
+  return [
+    line({
+      label: `${name} — AM`,
+      spec: { kind: "explicit_dates", dates: dates(...am.dates) },
+      pool: "AM Drive",
+      flight: name,
+      start_date: first,
+      end_date: last,
+      stated_total: am.stated,
+      source_text: am.text,
+    }),
+    line({
+      label: `${name} — ROS`,
+      spec: {
+        kind: "explicit_dates",
+        dates: [...dates(...ros.one), ...ros.two.map((date) => ({ date, quantity: 2 }))],
+      },
+      pool: "Total Program Rotation",
+      flight: name,
+      start_date: first,
+      end_date: last,
+      stated_total: ros.stated,
+      source_text: ros.text,
+    }),
+  ];
+}
+
+export const SYMPHONY_2021: FixtureOrder = {
+  name: "Pensacola Symphony Orchestra 2021-22",
+  effective_from: "2021-10-07",
+  effective_to: "2022-04-30",
+  stated_total_spots: 69,
+  affidavit_required: true,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    ...symphonyPhase(
+      "Opening Night",
+      {
+        dates: range("2021-10-11", "2021-10-15"),
+        stated: 6,
+        text: "6 AM Drive spots : 1 each day Oct 11-15",
+      },
+      {
+        one: ["2021-10-07", "2021-10-08", "2021-10-11"],
+        two: range("2021-10-12", "2021-10-15"),
+        stated: 11,
+        text: "11 ROS spots: 1 each day Oct 7, 8, 11 : 2 per day Oct 12-15",
+      },
+    ),
+    ...symphonyPhase(
+      "Variations & Virtuosity",
+      {
+        dates: range("2021-11-01", "2021-11-05"),
+        stated: 6,
+        text: "6 AM Drive spots: 1 each day Nov 1-5",
+      },
+      {
+        one: ["2021-10-28", "2021-10-29", "2021-11-01"],
+        two: range("2021-11-02", "2021-11-05"),
+        stated: 11,
+        text: "11 ROS spots: 1 each day Oct 28, 29, Nov 1; 2 each day Nov 2-5",
+      },
+    ),
+    ...symphonyPhase(
+      "Russian Spectacular",
+      {
+        dates: range("2022-02-28", "2022-03-04"),
+        stated: 6,
+        text: "6 AM Drive spots: 1 each day Feb. 28- March 4",
+      },
+      {
+        one: ["2022-02-24", "2022-02-25", "2022-02-28"],
+        two: range("2022-03-01", "2022-03-04"),
+        stated: 11,
+        text: "11 ROS spots : 1 each day Feb 24,25, 28; 2 each day March 1-4",
+      },
+    ),
+    {
+      ...line({
+        label: "Sounds Triumphant — AM",
+        spec: {
+          kind: "explicit_dates",
+          dates: [
+            ...dates(...range("2022-04-25", "2022-04-28")),
+            { date: "2022-04-29", quantity: 2 },
+          ],
+        },
+        pool: "AM Drive",
+        flight: "Sounds Triumphant",
+        start_date: "2022-04-22",
+        end_date: "2022-04-30",
+        stated_total: 7,
+        source_text: "7 AM Drive spots: 1 each day April 25-28; 2 spots April 29",
+      }),
+    },
+    line({
+      label: "Sounds Triumphant — ROS",
+      spec: {
+        kind: "explicit_dates",
+        dates: [
+          { date: "2022-04-22", quantity: 1 },
+          ...range("2022-04-25", "2022-04-29").map((date) => ({ date, quantity: 2 })),
+        ],
+      },
+      pool: "Total Program Rotation",
+      flight: "Sounds Triumphant",
+      start_date: "2022-04-22",
+      end_date: "2022-04-30",
+      stated_total: 11,
+      source_text: "11 ROS spots : 1 spot April 22; 2 each day April 25-29",
+    }),
+  ],
+};
+
+/** FPM / The Atkins Group — San Antonio Shoemakers, 10/20/25–4/19/26: an alternating-week grid with a two-week dark run at the new year, plus alternating bonus weight (corpus #10). */
+const SAS_WK = [2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2];
+const SAS_BN = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+
+export const SAN_ANTONIO_SHOEMAKERS: FixtureOrder = {
+  name: "FPM — Atkins — San Antonio Shoemakers",
+  effective_from: "2025-10-20",
+  effective_to: "2026-04-19",
+  stated_total_spots: 39,
+  affidavit_required: true,
+  makegood_requires_agency_approval: true,
+  separation_source_text: "3",
+  lines: [
+    line({
+      label: "WK SaSu 10:00a–4:00p",
+      spec: { kind: "week_grid", weeks: grid("2025-10-20", SAS_WK) },
+      days_of_week: [0, 6],
+      pool: "Weekend ROS",
+      time_mode: "window",
+      window_start: "10:00",
+      window_end: "16:00",
+      start_date: "2025-10-20",
+      end_date: "2026-04-19",
+      stated_total: 26,
+      source_text: "13 SaSu 10:00a- 4:00p WK … 26 — WEEKEND ROS",
+    }),
+    line({
+      label: "BN ROS 5:00a–12:00a",
+      spec: { kind: "week_grid", weeks: grid("2025-10-20", SAS_BN) },
+      pool: "Total Program Rotation",
+      service_level: "bonus",
+      start_date: "2025-10-20",
+      end_date: "2026-04-19",
+      stated_total: 13,
+      source_text: "14 MTuWThFSaSu 5:00a-12:00a BN $0.00 … 13 — ROS",
+    }),
+  ],
+};
+
+/** New South Window Solutions, 8/11/25–8/23/26 (rev 3): 27 selected weeks, each 10 AM + 10 PM + 6 weekend — two a day in a daypart is routine (corpus #11). */
+const NEW_SOUTH_WEEKS = [
+  "2025-08-11",
+  "2025-08-18",
+  "2025-09-01",
+  "2025-09-08",
+  "2025-10-06",
+  "2025-10-20",
+  "2025-11-03",
+  "2025-11-17",
+  "2025-12-01",
+  "2025-12-08",
+  "2026-01-05",
+  "2026-01-19",
+  "2026-02-02",
+  "2026-02-16",
+  "2026-03-02",
+  "2026-03-16",
+  "2026-04-06",
+  "2026-04-20",
+  "2026-05-04",
+  "2026-05-18",
+  "2026-06-01",
+  "2026-06-15",
+  "2026-06-22",
+  "2026-07-06",
+  "2026-07-20",
+  "2026-08-03",
+  "2026-08-17",
+];
+const newSouthGrid = (quantity: number) =>
+  NEW_SOUTH_WEEKS.map((week_start) => ({ week_start, quantity }));
+
+export const NEW_SOUTH_WINDOWS: FixtureOrder = {
+  name: "New South Window Solutions",
+  effective_from: "2025-08-11",
+  effective_to: "2026-08-23",
+  stated_total_spots: 702,
+  affidavit_required: false,
+  makegood_requires_agency_approval: true,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "AM 6A–9A M–F, 10 a week",
+      spec: { kind: "week_grid", weeks: newSouthGrid(10) },
+      days_of_week: WEEKDAYS,
+      pool: "AM Drive",
+      time_mode: "window",
+      window_start: "06:00",
+      window_end: "09:00",
+      start_date: "2025-08-11",
+      end_date: "2026-08-23",
+      stated_total: 270,
+      source_text: "08/11/25 M-F 6A-9A $44 10 $440 … 270 AM Drive spots",
+    }),
+    line({
+      label: "PM 3P–7P M–F, 10 a week",
+      spec: { kind: "week_grid", weeks: newSouthGrid(10) },
+      days_of_week: WEEKDAYS,
+      pool: "PM Drive",
+      time_mode: "window",
+      window_start: "15:00",
+      window_end: "19:00",
+      start_date: "2025-08-11",
+      end_date: "2026-08-23",
+      stated_total: 270,
+      source_text: "08/11/25 M-F 3P-7P $44 10 $440 … 270 PM Drive spots",
+    }),
+    line({
+      label: "SaSu 10A–4P, 6 a week",
+      spec: { kind: "week_grid", weeks: newSouthGrid(6) },
+      days_of_week: [0, 6],
+      pool: "Mid-day",
+      time_mode: "window",
+      window_start: "10:00",
+      window_end: "16:00",
+      start_date: "2025-08-11",
+      end_date: "2026-08-23",
+      stated_total: 162,
+      source_text: "08/11/25 SaSu 10A-4P $26 6 $156 … 162 Mid-day Sat/Sun spots",
+    }),
+  ],
+};
+
+/** Cultural Arts Alliance of Walton County, 4/13–5/31/26: a weekly AM quota, a ROS quota, an exact Carpool slot, and Tuesday/Thursday AM placements (corpus #12). */
+export const CULTURAL_ARTS_ALLIANCE: FixtureOrder = {
+  name: "Cultural Arts Alliance",
+  effective_from: "2026-04-13",
+  effective_to: "2026-05-31",
+  stated_total_spots: 34,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "ArtsQuest — AM Drive, 5 a week",
+      spec: { kind: "weekly_quota", quantity: 5 },
+      days_of_week: WEEKDAYS,
+      pool: "AM Drive",
+      flight: "ArtsQuest Fine Arts Festival",
+      start_date: "2026-04-13",
+      end_date: "2026-05-03",
+      stated_total: 15,
+      source_text: "15 AM DRIVE TIME SPOTS: 5 AM Drive each week of April 13, 20, 27",
+    }),
+    line({
+      label: "ArtsQuest — ROS, 2 a week",
+      spec: { kind: "weekly_quota", quantity: 2 },
+      pool: "Total Program Rotation",
+      flight: "ArtsQuest Fine Arts Festival",
+      start_date: "2026-04-13",
+      end_date: "2026-05-03",
+      stated_total: 6,
+      source_text: "6 TOTAL PROGRAM ROTATION SPOTS: 2 ROS each week of April 13, 20, 27",
+    }),
+    line({
+      label: "Arts Month — Carpool Wednesday 8:49",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [3],
+      pool: "Carpool",
+      time_mode: "exact",
+      preferred_time: "08:49",
+      flight: "Arts Month",
+      start_date: "2026-04-29",
+      end_date: "2026-05-27",
+      stated_total: 5,
+      source_text: "5 Carpool Spots to air each Wed @8:49 AM April 29-May 27",
+    }),
+    line({
+      label: "Arts Month — AM Drive Tue & Thu",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [2, 4],
+      pool: "AM Drive",
+      flight: "Arts Month",
+      start_date: "2026-05-01",
+      end_date: "2026-05-31",
+      stated_total: 8,
+      source_text: "8 AM Drive Time spots: 2 AM Drive each week on Tuesday & Thursday",
+    }),
+  ],
+};
+
+/** Wild Birds Unlimited, 2/23/26–2/21/27: one BirdNote sponsorship a week at 7:42, whose weekday changes every 13 weeks (corpus #13). */
+function wildBirdsPhase(day: number, dayName: string, start: string, end: string): FixtureLine {
+  return line({
+    label: `BirdNote, ${dayName}s`,
+    spec: { kind: "fixed_days", count_per_day: 1 },
+    days_of_week: [day],
+    program: "Morning Edition",
+    time_mode: "slot",
+    required_opportunity_key: "morning-edition.birdnote",
+    start_date: start,
+    end_date: end,
+    stated_total: 13,
+    source_text: `13 weeks on ${dayName} ${start} – ${end}, @7:42 as Sponsor of Bird Notes`,
+  });
+}
+
+export const WILD_BIRDS_UNLIMITED: FixtureOrder = {
+  name: "Wild Birds Unlimited",
+  effective_from: "2026-02-23",
+  effective_to: "2027-02-21",
+  stated_total_spots: 52,
+  affidavit_required: true,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    wildBirdsPhase(1, "Monday", "2026-02-23", "2026-05-24"),
+    wildBirdsPhase(2, "Tuesday", "2026-05-25", "2026-08-23"),
+    wildBirdsPhase(3, "Wednesday", "2026-08-24", "2026-11-22"),
+    wildBirdsPhase(4, "Thursday", "2026-11-23", "2027-02-21"),
+  ],
+};
+
+/** N. West Moss, 7/25–10/18/26: 13 opening credits for Five Corners — a position, not a time (corpus #14). */
+export const WEST_MOSS: FixtureOrder = {
+  name: "West Moss",
+  effective_from: "2026-07-25",
+  effective_to: "2026-10-18",
+  stated_total_spots: 13,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "Five Corners opening credit",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      program: "Five Corners",
+      time_mode: "slot",
+      required_opportunity_key: "five-corners.opening",
+      start_date: "2026-07-25",
+      end_date: "2026-10-18",
+      stated_total: 13,
+      source_text: "13 Opening Credits for Five Corners",
+    }),
+  ],
+};
+
+/** International Paper, 5/4/26–5/2/27: three a week — a Living on Earth closing credit, a rotating AM/PM drive credit, a Science Friday credit (corpus #14). */
+export const INTERNATIONAL_PAPER: FixtureOrder = {
+  name: "International Paper",
+  effective_from: "2026-05-04",
+  effective_to: "2027-05-02",
+  stated_total_spots: 156,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "Living on Earth closing credit, Sunday",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: [0],
+      program: "Living on Earth",
+      time_mode: "slot",
+      required_opportunity_key: "living-on-earth.closing",
+      start_date: "2026-05-04",
+      end_date: "2027-05-02",
+      stated_total: 52,
+      source_text: "1 spot Closing Credit in Living on Earth Sunday",
+    }),
+    line({
+      label: "Rotating AM/PM drive",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: WEEKDAYS,
+      max_per_day: 1,
+      pool: "Drive Time",
+      start_date: "2026-05-04",
+      end_date: "2027-05-02",
+      stated_total: 52,
+      source_text: "1 Rotating AM/PM Drive",
+    }),
+    line({
+      label: "Science Friday",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: [5],
+      program: "Science Friday",
+      start_date: "2026-05-04",
+      end_date: "2027-05-02",
+      stated_total: 52,
+      source_text: "1 Science Friday",
+    }),
+  ],
+};
+
+/** Phil Hall, P.A. 2020-21, 6/22/20–6/20/21: phased weekday lines, a Marketplace position, a Science Friday closing spot, ROS split weekday/weekend, and a bonus block "TBD" (corpus #14). */
+export const PHIL_HALL_2020: FixtureOrder = {
+  name: "Phil Hall, P.A. 2020-21",
+  effective_from: "2020-06-22",
+  effective_to: "2021-06-20",
+  stated_total_spots: null,
+  affidavit_required: false,
+  makegood_requires_agency_approval: false,
+  separation_source_text: null,
+  lines: [
+    line({
+      label: "AM Drive Monday, 13 weeks",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [1],
+      pool: "AM Drive",
+      start_date: "2020-06-22",
+      end_date: "2020-09-20",
+      stated_total: 13,
+      source_text: "13 AM Drive spots air: 1 each week Monday",
+    }),
+    line({
+      label: "AM Drive Tuesday, 8 weeks",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [2],
+      pool: "AM Drive",
+      start_date: "2020-06-22",
+      end_date: "2020-08-16",
+      stated_total: 8,
+      source_text: "8 AM Drive Spots air: 1 each week Tuesday",
+    }),
+    line({
+      label: "AM Drive Thursday, 52 weeks",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [4],
+      pool: "AM Drive",
+      start_date: "2020-06-22",
+      end_date: "2021-06-20",
+      stated_total: 52,
+      source_text: "52 AM Drive spots: 1 each week Thursday",
+    }),
+    line({
+      label: "Marketplace Wednesday @ 5 pm, 39 weeks",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [3],
+      program: "Marketplace",
+      time_mode: "slot",
+      required_opportunity_key: "marketplace.opening",
+      start_date: "2020-06-22",
+      end_date: "2021-03-21",
+      stated_total: 39,
+      source_text: "39 PM Drive spots: 1 each week Marketplace Wednesday @ 5 pm",
+    }),
+    line({
+      label: "Science Friday closing spot, 13 weeks",
+      spec: { kind: "fixed_days", count_per_day: 1 },
+      days_of_week: [5],
+      program: "Science Friday",
+      time_mode: "slot",
+      required_opportunity_key: "science-friday.closing",
+      start_date: "2020-06-22",
+      end_date: "2020-09-20",
+      stated_total: 13,
+      source_text: "13 Mid-day spots: 1 each week Closing spot for Science Friday",
+    }),
+    line({
+      label: "ROS weekdays, 26 weeks",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: WEEKDAYS,
+      max_per_day: 1,
+      pool: "Total Program Rotation",
+      start_date: "2020-06-22",
+      end_date: "2020-12-20",
+      stated_total: 26,
+      source_text: "26 ROS spots rotate through M-Friday",
+    }),
+    line({
+      label: "ROS weekends, 26 weeks",
+      spec: { kind: "weekly_quota", quantity: 1 },
+      days_of_week: [0, 6],
+      max_per_day: 1,
+      pool: "Total Program Rotation",
+      start_date: "2020-06-22",
+      end_date: "2020-12-20",
+      stated_total: 26,
+      source_text: "26 ROS spots rotate between Sat/Sun",
+    }),
+    line({
+      label: "COVID bonus for nonprofit, TBD",
+      spec: { kind: "range_total", quantity: 84 },
+      pool: "Total Program Rotation",
+      service_level: "bonus",
+      start_date: "2020-06-22",
+      end_date: "2021-06-20",
+      stated_total: 84,
+      source_text: "84 COVID Bonus for Nonprofit –TBD",
     }),
   ],
 };
@@ -1142,4 +1736,16 @@ export const ALL_ORDERS: FixtureOrder[] = [
   FPM_FPL,
   SYMPHONY,
   ARMSTRONG,
+  FIREMAN_TERMITE,
+  FDOH_ESCAMBIA,
+  PHIL_HALL_2022,
+  PHIL_HALL_2024,
+  SYMPHONY_2021,
+  SAN_ANTONIO_SHOEMAKERS,
+  NEW_SOUTH_WINDOWS,
+  CULTURAL_ARTS_ALLIANCE,
+  WILD_BIRDS_UNLIMITED,
+  WEST_MOSS,
+  INTERNATIONAL_PAPER,
+  PHIL_HALL_2020,
 ];

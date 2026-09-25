@@ -522,12 +522,26 @@ export type UwAffidavitStatus = "draft" | "certified";
 // docs/underwriting-traffic-redesign.md. Four typed schedule-rule shapes
 // replace the one-recurrence line; pools, flights, allocations, per-period
 // placements, agency makegood approval and a separation policy are new.
-export type UwScheduleRuleKind = "fixed_days" | "weekly_quota" | "explicit_dates" | "week_grid";
 export type UwScheduleLineStatus = "active" | "cancelled";
-export type UwAllocationPeriodKind = "day" | "week";
 export type UwFlightStatus = "active" | "cancelled";
 export type UwSeparationPolicy = "unspecified" | "none" | "min_minutes";
 export type UwMakegoodApproval = "not_required" | "pending" | "approved" | "declined";
+// Second pass (2026-09-25) — see
+// supabase/migrations/20260925150000_underwriting_demand_buckets.sql: schedule
+// lines are eligibility only, demand is explicit buckets, and contracts have
+// revisions.
+export type UwRevisionStatus = "draft" | "current" | "superseded" | "cancelled";
+export type UwScheduleEntryKind =
+  | "fixed_days"
+  | "weekly_quota"
+  | "monthly_quota"
+  | "every_n_weeks"
+  | "explicit_dates"
+  | "week_grid"
+  | "range_total";
+export type UwTimeMode = "any" | "window" | "preferred" | "exact" | "slot";
+export type UwServiceLevel = "guaranteed" | "bonus";
+export type UwDemandBucketStatus = "active" | "superseded" | "cancelled";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1672,6 +1686,8 @@ export interface Database {
           requirement: LogOpportunityRequirement;
           permitted_content_types: string[];
           notes: string | null;
+          /** A stable semantic key carried across clock versions ("marketplace.opening") that an Underwriting slot-mode line targets — 20260925150000. Unique within a version. */
+          traffic_key: string | null;
           active: boolean;
           created_at: string;
           created_by: string | null;
@@ -2003,7 +2019,8 @@ export interface Database {
           contact_name: string | null;
           email: string | null;
           phone: string | null;
-          category: string | null;
+          /** The industry (uw_industry_categories) the competitive-adjacency rule compares — 20260925160000, replacing free text. */
+          category_id: string | null;
           notes: string | null;
           created_by: string | null;
           created_at: string;
@@ -2013,6 +2030,23 @@ export interface Database {
           name: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_underwriters"]["Row"]>;
+        Relationships: [];
+      };
+      /** Typed industry categories for underwriters (20260925160000_underwriting_industry_categories.sql). Deactivate, never delete. */
+      uw_industry_categories: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_industry_categories"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_industry_categories"]["Row"]>;
         Relationships: [];
       };
       // Redesigned (2026-08-08): underwriter_name -> underwriter_id;
@@ -2054,40 +2088,74 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]>;
         Relationships: [];
       };
-      // New (2026-08-08), replaces uw_placement_obligations — a real
-      // recurring-schedule shape (day(s) of week, target time, duration,
-      // program, date range) instead of an abstract quantity/period. See
-      // lib/underwriting/schedule-lines.ts for the expected-occurrence math.
-      // Rewritten (2026-09-25) around four typed rule kinds — see
-      // lib/underwriting/demand.ts for the expansion and
-      // uw_line_period_for_date() for the SQL twin the placement guard uses.
+      /**
+       * Contract revisions (20260925150000): every schedule line belongs to
+       * one; exactly one per contract is current. Activating a draft
+       * supersedes the current revision's open buckets from its effective
+       * date — history is never rewritten.
+       */
+      uw_contract_revisions: {
+        Row: {
+          id: string;
+          contract_id: string;
+          revision_label: string | null;
+          document_path: string | null;
+          received_at: string | null;
+          effective_from: string;
+          status: UwRevisionStatus;
+          supersedes_revision_id: string | null;
+          notes: string | null;
+          activated_at: string | null;
+          activated_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_contract_revisions"]["Row"]> & {
+          contract_id: string;
+          effective_from: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_contract_revisions"]["Row"]>;
+        Relationships: [];
+      };
+      // New (2026-08-08), replaces uw_placement_obligations. Rewritten
+      // twice on 2026-09-25: first around four typed rule kinds, then
+      // (20260925150000_underwriting_demand_buckets.sql) into eligibility
+      // only — where a credit may air and how many a day at most. The
+      // quantities live in uw_demand_buckets; entry_kind/entry_spec only
+      // record how the staffer entered it (lib/underwriting/demand-compiler.ts).
       uw_contract_schedule_lines: {
         Row: {
           id: string;
           contract_id: string;
+          revision_id: string;
           label: string;
-          rule_kind: UwScheduleRuleKind;
+          entry_kind: UwScheduleEntryKind;
+          /** The compiler input as entered — see demand-compiler.ts's EntrySpec. */
+          entry_spec: unknown;
           flight_id: string | null;
           /** Inventory pool (uw_inventory_pools) and/or a program — at least one is set. */
           pool_id: string | null;
           program_id: string | null;
-          /** Station-local window narrowing the pool (end exclusive). Both or neither. */
+          /** Station-local window (end exclusive), a hard limit when time_mode = window. */
           window_start: string | null;
           window_end: string | null;
-          /** 0=Sunday..6=Saturday. fixed_days: airs on each; weekly_quota/week_grid: may air on any; explicit_dates: empty. */
+          /** Eligible weekdays, 0=Sunday..6=Saturday; empty means any day of the bucket. */
           days_of_week: number[];
-          target_time: string | null;
+          time_mode: UwTimeMode;
+          /** preferred: ranks candidates. exact: must start within EXACT_TIME_TOLERANCE_MINUTES. */
+          preferred_time: string | null;
+          /** slot mode: the Log traffic_key the break's opportunity must carry. */
+          required_opportunity_key: string | null;
           duration_seconds: number;
-          /** fixed_days only. */
-          count_per_day: number | null;
-          /** weekly_quota only. */
-          quantity_per_week: number | null;
-          /** weekly_quota and week_grid. */
+          /** A per-day cap the order states; null means no cap. */
           max_per_day: number | null;
+          service_level: UwServiceLevel;
+          distribution_preference: string | null;
+          makegood_policy_text: string | null;
           start_date: string;
           end_date: string | null;
-          is_bonus: boolean;
-          /** The order's own count for this line, compared against the expansion on screen. */
+          /** The order's own count for this line, compared against the buckets' total on screen. */
           stated_total: number | null;
           /** The order's wording, verbatim — nuance, never an executable rule. */
           source_text: string | null;
@@ -2103,34 +2171,37 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]> & {
           contract_id: string;
-          rule_kind: UwScheduleRuleKind;
+          revision_id: string;
+          entry_kind: UwScheduleEntryKind;
           duration_seconds: number;
           start_date: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]>;
         Relationships: [];
       };
-      /** The per-date (explicit_dates) or per-Monday-week (week_grid) quantities behind those two rule kinds. */
-      uw_schedule_allocations: {
+      /** How many credits a line owes inside one period (a day, a Monday week, a month, or the whole range). A dark week is a real row with quantity 0. */
+      uw_demand_buckets: {
         Row: {
           id: string;
           schedule_line_id: string;
-          period_kind: UwAllocationPeriodKind;
           period_start: string;
-          quantity: number;
-          notes: string | null;
+          period_end: string;
+          quantity_required: number;
+          status: UwDemandBucketStatus;
+          source_label: string | null;
+          superseded_by_revision_id: string | null;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["uw_schedule_allocations"]["Row"]> & {
+        Insert: Partial<Database["public"]["Tables"]["uw_demand_buckets"]["Row"]> & {
           schedule_line_id: string;
-          period_kind: UwAllocationPeriodKind;
           period_start: string;
-          quantity: number;
+          period_end: string;
+          quantity_required: number;
         };
-        Update: Partial<Database["public"]["Tables"]["uw_schedule_allocations"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["uw_demand_buckets"]["Row"]>;
         Relationships: [];
       };
-      /** A station-defined inventory class an order sells by name ("AM Drive", "Carpool"), mapped to Log by its targets. */
       uw_inventory_pools: {
         Row: {
           id: string;
@@ -2244,9 +2315,8 @@ export interface Database {
           break_label: string | null;
           status: UwPlacementStatus;
           override_reason: string | null;
-          /** The demand unit this placement consumes (a day, or a Monday-started week). A makegood inherits the missed placement's. */
-          demand_period_start: string;
-          demand_period_end: string;
+          /** The demand bucket this placement consumes. A makegood placement carries the missed placement's bucket. */
+          demand_bucket_id: string;
           makegood_id: string | null;
           created_by: string | null;
           created_at: string;
@@ -2307,9 +2377,8 @@ export interface Database {
           status: UwMakegoodStatus;
           scheduled_for: string | null;
           aired_log_broadcast_event_id: string | null;
-          /** Copied from the missed placement so the replacement airing is attributed to the period the order missed. */
-          demand_period_start: string | null;
-          demand_period_end: string | null;
+          /** Copied from the missed placement so the replacement airing is attributed to the bucket the order missed. */
+          demand_bucket_id: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -2666,6 +2735,10 @@ export interface Database {
                 minutes_of_day: number;
                 /** True when this contract already holds a credit in this break. */
                 holds_this_contract: boolean;
+                /** The break's opportunity traffic_key, if any (20260925150000). */
+                traffic_key: string | null;
+                /** The active demand bucket this break would consume. */
+                bucket_id: string;
               }[];
             }
           | { error: string };
@@ -2728,7 +2801,14 @@ export interface Database {
           p_makegood_id?: string | null;
         };
         Returns:
-          | { ok: true; placement_id: string; item_id: string; period_start: string; period_end: string }
+          | {
+              ok: true;
+              placement_id: string;
+              item_id: string;
+              bucket_id: string;
+              period_start: string;
+              period_end: string;
+            }
           | { error: string };
       };
       log_clear_underwriting_credit: {

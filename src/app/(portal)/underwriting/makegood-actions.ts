@@ -21,8 +21,8 @@ function exceptionPath(id: string): string {
 /**
  * Creates a bare makegood record against an exception — no slot yet, see
  * lib/underwriting/makegoods.ts on why that's a valid state. It carries the
- * missed placement's demand period, so the replacement airing is
- * attributed to the period the order missed rather than counted as a new
+ * missed placement's demand bucket, so the replacement airing is
+ * attributed to the bucket the order missed rather than counted as a new
  * unit (docs/underwriting-traffic-redesign.md §3). Picking a slot happens on
  * the makegoods list page or through auto-fill, not here.
  */
@@ -42,7 +42,7 @@ export async function createMakegood(formData: FormData): Promise<void> {
   const { data: placement } = exception.scheduled_placement_id
     ? await supabase
         .from("uw_scheduled_placements")
-        .select("demand_period_start, demand_period_end")
+        .select("demand_bucket_id")
         .eq("id", exception.scheduled_placement_id)
         .maybeSingle()
     : { data: null };
@@ -50,8 +50,7 @@ export async function createMakegood(formData: FormData): Promise<void> {
   const { error } = await supabase.from("uw_makegoods").insert({
     exception_id: exceptionId,
     schedule_line_id: exception.schedule_line_id,
-    demand_period_start: placement?.demand_period_start ?? null,
-    demand_period_end: placement?.demand_period_end ?? null,
+    demand_bucket_id: placement?.demand_bucket_id ?? null,
     created_by: profile.id,
   });
   failIfError(error, path, "Could not create a makegood record");

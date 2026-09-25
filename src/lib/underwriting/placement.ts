@@ -8,7 +8,7 @@ import { STATION_TIME_ZONE } from "@/lib/log/timezone";
  * definer functions this tool's migrations own
  * (log_place_underwriting_credit()/log_clear_underwriting_credit()/
  * log_list_placeable_rundown_breaks()/log_list_programs(), last rewritten
- * by 20260925120000_underwriting_traffic_redesign.sql) — never a bare
+ * by 20260925150000_underwriting_demand_buckets.sql) — never a bare
  * Supabase write against log_rundown_items or a direct read of Log's own
  * tables, which this tool has no RLS access to on its own.
  */
@@ -27,6 +27,10 @@ export interface PlaceableRundownBreak {
   last_item_id: string | null;
   /** This contract already has a credit in this break — the function refuses a second. */
   holds_this_contract: boolean;
+  /** The break's opportunity traffic_key (Log), if a producer gave it one. */
+  traffic_key: string | null;
+  /** The active demand bucket this break would consume — see uw_bucket_for_date(). */
+  bucket_id: string;
 }
 
 export type UnderwritingRpcResult<T> =
@@ -39,14 +43,21 @@ const ERROR_MESSAGES: Record<string, string> = {
   unknown_break: "That break no longer exists.",
   break_not_eligible: "That break isn't a marked opportunity that permits an underwriting credit.",
   contract_not_active: "This schedule line's contract isn't active.",
+  line_cancelled: "This schedule line is cancelled.",
+  revision_not_current:
+    "This schedule line belongs to a draft or superseded revision — only the current revision schedules.",
   date_not_eligible:
-    "The order doesn't call for a credit on that date — check the line's dates, days, or listed dates.",
+    "The order doesn't call for a credit on that date — no open demand covers it, or it's not an eligible day.",
   program_not_eligible: "This schedule line isn't eligible for that program.",
   pool_not_eligible: "That break isn't in this line's inventory pool (program, window, or day).",
   outside_window: "That break is outside the line's time window.",
+  exact_time_mismatch: "That break doesn't start at the exact time the order states.",
+  slot_key_mismatch:
+    "That break isn't the position the order names — its opportunity carries a different traffic key, or none.",
+  time_not_eligible: "That break doesn't satisfy the line's time rule.",
   same_contract_in_break:
     "This contract already has a credit in that break — the same underwriter never runs back to back.",
-  period_quota_met:
+  bucket_quota_met:
     "This period is already scheduled in full for this line — the order doesn't call for another credit here.",
   day_cap_met: "This line already has as many credits on that day as the order allows.",
   unknown_makegood: "That makegood no longer exists, or belongs to another schedule line.",
@@ -89,13 +100,18 @@ export interface PlaceCreditInput {
   scheduleLineId: string;
   copyId: string;
   overrideReason?: string;
-  /** Schedules this makegood with the placement — exempt from the period quota, checked for agency approval. */
+  /** Schedules this makegood with the placement — exempt from the bucket quota, checked for agency approval. */
   makegoodId?: string;
 }
 
-export async function placeCredit(
-  input: PlaceCreditInput,
-): Promise<UnderwritingRpcResult<{ placementId: string; periodStart: string; periodEnd: string }>> {
+export async function placeCredit(input: PlaceCreditInput): Promise<
+  UnderwritingRpcResult<{
+    placementId: string;
+    bucketId: string;
+    periodStart: string;
+    periodEnd: string;
+  }>
+> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("log_place_underwriting_credit", {
     p_break_id: input.breakId,
@@ -112,6 +128,7 @@ export async function placeCredit(
   return {
     ok: true,
     placementId: data.placement_id,
+    bucketId: data.bucket_id,
     periodStart: data.period_start,
     periodEnd: data.period_end,
   };

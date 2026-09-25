@@ -602,8 +602,8 @@ end $$;
 -- two rotating 30-second messages (one live-read, one WUWF-recorded),
 -- explicitly no affidavit required, and a preemption policy of
 -- rescheduling within the program originally sponsored. This is the
--- reference case lib/underwriting/schedule-lines.test.ts's 104-occurrence
--- test is built against.
+-- reference case lib/underwriting/demand-compiler.test.ts's 104-credit test
+-- is built against.
 do $$
 declare
   dana_id uuid := '10000000-0000-0000-0000-000000000001';
@@ -611,6 +611,11 @@ declare
   contract_id uuid := '80000000-0000-0000-0000-000000000002';
   copy_a_id uuid := '80000000-0000-0000-0000-000000000003';
   copy_b_id uuid := '80000000-0000-0000-0000-000000000004';
+  seed_revision_id uuid := '80000000-0000-0000-0000-000000000005';
+  line_mon_id uuid := '80000000-0000-0000-0000-000000000006';
+  line_tue_id uuid := '80000000-0000-0000-0000-000000000007';
+  line_wedthu_id uuid := '80000000-0000-0000-0000-000000000008';
+  category_id uuid;
   prog_morning_edition uuid;
   prog_atc uuid;
   campaign_start date := '2026-08-03'; -- a Monday
@@ -618,14 +623,15 @@ declare
 begin
   select id into prog_morning_edition from public.log_programs where name = 'Morning Edition';
   select id into prog_atc from public.log_programs where name = 'All Things Considered';
+  select id into category_id from public.uw_industry_categories where name = 'Real estate';
 
   insert into public.uw_underwriters (
-    id, name, mailing_address, contact_name, email, phone, category, notes, created_by
+    id, name, mailing_address, contact_name, email, phone, category_id, notes, created_by
   ) values (
     underwriter_id, 'Autumn Beck Blackledge',
     '4400 Bayou Blvd, Pensacola, FL 32503',
     'Autumn Beck Blackledge', 'autumn@blackledgerealty.example', '(850) 555-0142',
-    'Real Estate Services',
+    category_id,
     'Reasonable efforts should avoid scheduling adjacent to another real-estate underwriter''s credit — see the competitive-adjacency check on the placement screen.',
     dana_id
   )
@@ -644,22 +650,38 @@ begin
   )
   on conflict (id) do nothing;
 
-  -- Four weekly recurring lines, 26 weeks each — 4 x 26 = 104 expected
-  -- occurrences, matching the insertion order's own spot count exactly.
-  -- fixed_days lines (2026-09-25 redesign: docs/underwriting-traffic-
-  -- redesign.md): one credit on each named day, at the contracted time,
-  -- on the named program. Monday/Wednesday/Thursday fall inside Morning
-  -- Edition's 5-9am block; Tuesday inside All Things Considered.
+  -- The contract's first revision, current from day one (2026-09-25 second
+  -- pass: docs/underwriting-traffic-redesign.md §9) — schedule lines belong
+  -- to a revision, and demand is explicit buckets.
+  insert into public.uw_contract_revisions (id, contract_id, revision_label, effective_from, status, activated_at, activated_by, created_by)
+  values (seed_revision_id, contract_id, 'Original order', campaign_start, 'current', now(), dana_id, dana_id)
+  on conflict (id) do nothing;
+
+  -- Three eligibility lines: one credit on each named day, around the
+  -- contracted time (a preference, not a promise), on the named program.
+  -- Monday/Wednesday/Thursday fall inside Morning Edition's 5-9am block;
+  -- Tuesday inside All Things Considered. 26 + 26 + 52 = 104, the order's
+  -- own count.
   insert into public.uw_contract_schedule_lines (
-    contract_id, label, rule_kind, days_of_week, count_per_day, target_time, duration_seconds,
-    program_id, start_date, end_date, stated_total, source_text, notes, created_by
+    id, contract_id, revision_id, label, entry_kind, entry_spec, days_of_week, time_mode, preferred_time,
+    duration_seconds, program_id, start_date, end_date, stated_total, source_text, notes, created_by
   ) values
-    (contract_id, 'Monday AM drive', 'fixed_days', array[1], 1, '07:49', 30, prog_morning_edition,
+    (line_mon_id, contract_id, seed_revision_id, 'Monday AM drive', 'fixed_days', '{"kind":"fixed_days","count_per_day":1}', array[1], 'preferred', '07:49', 30, prog_morning_edition,
      campaign_start, campaign_end, 26, 'Monday ~7:49am x 26 weeks', 'Monday morning drive.', dana_id),
-    (contract_id, 'Tuesday PM drive', 'fixed_days', array[2], 1, '16:48', 30, prog_atc,
+    (line_tue_id, contract_id, seed_revision_id, 'Tuesday PM drive', 'fixed_days', '{"kind":"fixed_days","count_per_day":1}', array[2], 'preferred', '16:48', 30, prog_atc,
      campaign_start, campaign_end, 26, 'Tuesday ~4:48pm x 26 weeks', 'Tuesday afternoon drive.', dana_id),
-    (contract_id, 'Wed/Thu AM drive', 'fixed_days', array[3, 4], 1, '08:06', 30, prog_morning_edition,
+    (line_wedthu_id, contract_id, seed_revision_id, 'Wed/Thu AM drive', 'fixed_days', '{"kind":"fixed_days","count_per_day":1}', array[3, 4], 'preferred', '08:06', 30, prog_morning_edition,
      campaign_start, campaign_end, 52, 'Wednesday and Thursday ~8:06am x 26 weeks', 'Wednesday and Thursday morning drive.', dana_id)
+  on conflict (id) do nothing;
+
+  -- One demand bucket per eligible day — what lib/underwriting/demand-
+  -- compiler.ts compiles a fixed_days line to.
+  insert into public.uw_demand_buckets (schedule_line_id, period_start, period_end, quantity_required, source_label)
+  select l.id, d::date, d::date, 1, to_char(d, 'Mon DD')
+  from public.uw_contract_schedule_lines l
+  cross join generate_series(campaign_start, campaign_end, interval '1 day') d
+  where l.revision_id = seed_revision_id
+    and extract(dow from d)::integer = any(l.days_of_week)
   on conflict do nothing;
 
   -- Two rotating messages — one live-read, one WUWF-recorded per DAD cart,

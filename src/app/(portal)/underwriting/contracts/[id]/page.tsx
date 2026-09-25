@@ -11,17 +11,24 @@ import {
   listInventoryPools,
   listNearbyPlacementsForAdjacency,
   listScheduleLinePlacementContexts,
+  type ContractDetail,
   type ScheduleLineDemandView,
+  type UwContractRevisionRow,
 } from "@/lib/underwriting/queries";
+import { previewRevisionActivation } from "@/lib/underwriting/revisions";
 import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { checkCompetitiveAdjacency } from "@/lib/underwriting/adjacency";
 import {
+  activateRevisionAction,
   addScheduleLine,
+  cancelDraftRevision,
   cancelFlight,
   cancelScheduleLine,
   createFlight,
+  createRevisionFromCurrent,
   linkCopyToContract,
+  removeDraftScheduleLine,
   setContractStatus,
   setCopyFlight,
   unlinkCopyFromContract,
@@ -31,13 +38,20 @@ import { createCopy } from "../../copy-actions";
 import { clearCreditAction, placeCreditAction } from "../../placement-actions";
 import { autoFillContractAction, autoFillScheduleLineAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
-import type { UwContractStatus, UwPlacementStatus } from "@/lib/database.types";
+import type { UwContractStatus, UwPlacementStatus, UwRevisionStatus } from "@/lib/database.types";
 
 const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   draft: "neutral",
   active: "success",
   expired: "muted",
   terminated: "danger",
+};
+
+const REVISION_STATUS_VARIANT: Record<UwRevisionStatus, BadgeVariant> = {
+  draft: "warning",
+  current: "success",
+  superseded: "muted",
+  cancelled: "muted",
 };
 
 const PLACEMENT_STATUS_VARIANT: Record<UwPlacementStatus, BadgeVariant> = {
@@ -56,17 +70,19 @@ const FULFILLMENT_VARIANT: Record<FulfillmentStatus, BadgeVariant> = {
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function PeriodTable({ view }: { view: ScheduleLineDemandView }) {
-  if (view.periods.length === 0) return <p className="text-xs text-ink-500">No demand periods.</p>;
-  const label = (p: ScheduleLineDemandView["periods"][number]) =>
-    p.kind === "day" ? p.periodStart : `Week of ${p.periodStart}`;
+function revisionName(revision: UwContractRevisionRow, index: number): string {
+  return revision.revision_label ?? `Revision ${index + 1}`;
+}
+
+function BucketTable({ view }: { view: ScheduleLineDemandView }) {
+  if (view.buckets.length === 0) return <p className="text-xs text-ink-500">No demand buckets.</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
           <tr className="text-left text-ink-400">
             <th className="py-1 pr-3 font-semibold">Period</th>
-            <th className="py-1 pr-3 font-semibold">Expected</th>
+            <th className="py-1 pr-3 font-semibold">Owed</th>
             <th className="py-1 pr-3 font-semibold">Scheduled</th>
             <th className="py-1 pr-3 font-semibold">Aired</th>
             <th className="py-1 pr-3 font-semibold">Missed</th>
@@ -75,27 +91,39 @@ function PeriodTable({ view }: { view: ScheduleLineDemandView }) {
           </tr>
         </thead>
         <tbody>
-          {view.periods.map((p) => (
+          {view.buckets.map((bucket) => (
             <tr
-              key={p.periodStart}
-              className={p.freshShortfall > 0 ? "text-ink-900" : "text-ink-500"}
+              key={bucket.bucketId}
+              className={
+                bucket.status !== "active"
+                  ? "text-ink-400 line-through"
+                  : bucket.freshShortfall > 0
+                    ? "text-ink-900"
+                    : "text-ink-500"
+              }
             >
               <td className="py-1 pr-3 whitespace-nowrap">
-                {label(p)}
-                {p.partialWeek && <span className="ml-1 text-warning-fg">(partial)</span>}
+                {bucket.sourceLabel}
+                {bucket.status !== "active" && (
+                  <span className="ml-1 no-underline">({bucket.status})</span>
+                )}
               </td>
-              <td className="py-1 pr-3">{p.quantity}</td>
-              <td className="py-1 pr-3">{p.scheduled}</td>
-              <td className="py-1 pr-3">{p.aired}</td>
-              <td className="py-1 pr-3">{p.missed}</td>
+              <td className="py-1 pr-3">{bucket.quantity}</td>
+              <td className="py-1 pr-3">{bucket.scheduled}</td>
+              <td className="py-1 pr-3">{bucket.aired}</td>
+              <td className="py-1 pr-3">{bucket.missed}</td>
               <td className="py-1 pr-3">
-                {p.makegoodsAired > 0 && `${p.makegoodsAired} aired`}
-                {p.makegoodsScheduled > 0 && ` ${p.makegoodsScheduled} scheduled`}
-                {p.makegoodsAwaitingSlot > 0 && ` ${p.makegoodsAwaitingSlot} awaiting a slot`}
-                {p.makegoodsAired + p.makegoodsScheduled + p.makegoodsAwaitingSlot === 0 && "—"}
+                {bucket.makegoodsAired > 0 && `${bucket.makegoodsAired} aired`}
+                {bucket.makegoodsScheduled > 0 && ` ${bucket.makegoodsScheduled} scheduled`}
+                {bucket.makegoodsAwaitingSlot > 0 &&
+                  ` ${bucket.makegoodsAwaitingSlot} awaiting a slot`}
+                {bucket.makegoodsAired +
+                  bucket.makegoodsScheduled +
+                  bucket.makegoodsAwaitingSlot ===
+                  0 && "—"}
               </td>
               <td className="py-1 pr-3 font-semibold">
-                {p.freshShortfall > 0 ? p.freshShortfall : "—"}
+                {bucket.freshShortfall > 0 ? bucket.freshShortfall : "—"}
               </td>
             </tr>
           ))}
@@ -117,11 +145,15 @@ export default async function ContractDetailPage({
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
-  const [allCopy, programs, pools, lineContexts] = await Promise.all([
+  const currentLines = contract.scheduleLines.filter(
+    (line) => line.revision_id === contract.currentRevision?.id,
+  );
+  const [allCopy, programs, pools, lineContexts, activation] = await Promise.all([
     listCopy(),
     listProgramOptions(),
     listInventoryPools(),
-    listScheduleLinePlacementContexts(contract.scheduleLines),
+    listScheduleLinePlacementContexts(currentLines),
+    contract.draftRevision ? previewRevisionActivation(contract.draftRevision.id) : null,
   ]);
   const programNameById = new Map(programs.map((program) => [program.id, program.name]));
   const poolNameById = new Map(pools.map((pool) => [pool.id, pool.name]));
@@ -129,12 +161,15 @@ export default async function ContractDetailPage({
   const views = await buildScheduleLineDemandViews(
     contract,
     contract.scheduleLines,
-    contract.allocationsByLine,
-    {
-      poolNameById,
-      programNameById,
-    },
+    contract.bucketsByLine,
+    { poolNameById, programNameById },
   );
+  const viewsByRevision = new Map<string, ScheduleLineDemandView[]>();
+  for (const view of views) {
+    const list = viewsByRevision.get(view.scheduleLine.revision_id) ?? [];
+    list.push(view);
+    viewsByRevision.set(view.scheduleLine.revision_id, list);
+  }
   const placeableByLine = new Map(
     lineContexts.map((context) => [context.scheduleLine.id, context.placeable]),
   );
@@ -147,7 +182,7 @@ export default async function ContractDetailPage({
     string,
     Awaited<ReturnType<typeof listNearbyPlacementsForAdjacency>>
   >();
-  for (const line of contract.scheduleLines) {
+  for (const line of currentLines) {
     if (!line.program_id) continue;
     adjacencyByLine.set(
       line.id,
@@ -155,16 +190,19 @@ export default async function ContractDetailPage({
     );
   }
 
-  const activeViews = views.filter((view) => view.scheduleLine.status === "active");
-  const expectedTotal = activeViews.reduce((sum, view) => sum + view.summary.expected, 0);
-  const deliveredTotal = activeViews.reduce((sum, view) => sum + view.summary.delivered, 0);
-  const scheduledTotal = activeViews.reduce((sum, view) => sum + view.summary.scheduled, 0);
+  const currentViews = (
+    contract.currentRevision ? (viewsByRevision.get(contract.currentRevision.id) ?? []) : []
+  ).filter((view) => view.scheduleLine.status === "active");
+  const guaranteedViews = currentViews.filter((view) => !view.summary.bonus);
+  const expectedTotal = currentViews.reduce((sum, view) => sum + view.summary.expected, 0);
+  const deliveredTotal = currentViews.reduce((sum, view) => sum + view.summary.delivered, 0);
+  const scheduledTotal = currentViews.reduce((sum, view) => sum + view.summary.scheduled, 0);
   const contractStatus: FulfillmentStatus =
-    activeViews.length === 0
+    currentViews.length === 0
       ? "no_target"
-      : activeViews.some((view) => view.summary.status === "behind")
+      : guaranteedViews.some((view) => view.summary.status === "behind")
         ? "behind"
-        : activeViews.every((view) => view.summary.status === "fulfilled")
+        : currentViews.every((view) => view.summary.status === "fulfilled")
           ? "fulfilled"
           : "on_track";
   const statedMismatch =
@@ -173,6 +211,9 @@ export default async function ContractDetailPage({
       : null;
   const separationUndecided =
     Boolean(contract.separation_source_text) && contract.separation_policy === "unspecified";
+  const enterableRevisions = contract.revisions.filter(
+    (revision) => revision.status === "current" || revision.status === "draft",
+  );
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -215,9 +256,9 @@ export default async function ContractDetailPage({
         )}
         {statedMismatch != null && (
           <Alert variant="note" className="mb-4">
-            The order states {statedMismatch} spots in total, but the schedule lines as entered come
-            to {expectedTotal}. Check the lines against the signed order — a partial week, a missed
-            phase, or a typo in the order itself.
+            The order states {statedMismatch} spots in total, but the current revision&apos;s lines
+            come to {expectedTotal}. Check the lines against the signed order — a partial week, a
+            missed phase, or a typo in the order itself.
           </Alert>
         )}
         {separationUndecided && (
@@ -239,446 +280,415 @@ export default async function ContractDetailPage({
           />
         </div>
 
-        {/* Schedule lines ------------------------------------------------------- */}
-        <div className="rounded border border-line">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-            <div className="text-sm font-bold text-ink-900">Schedule lines</div>
-            {activeViews.length > 0 && contract.status === "active" && (
-              <form action={autoFillContractAction}>
-                <input type="hidden" name="contract_id" value={contract.id} />
-                <Button type="submit" variant="secondary">
-                  Auto-fill this contract
-                </Button>
-              </form>
-            )}
+        {/* Revisions ----------------------------------------------------------- */}
+        <div className="mb-6 rounded border border-line">
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            Revisions
           </div>
-          {views.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-ink-500">
-              No schedule lines yet — enter the order&apos;s schedule below.
-            </p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {views.map((view) => {
-                const { scheduleLine, summary } = view;
-                const placeable = placeableByLine.get(scheduleLine.id);
-                const nearby = adjacencyByLine.get(scheduleLine.id) ?? [];
-                const adjacency = checkCompetitiveAdjacency(
-                  {
-                    underwriterId: contract.underwriter.id,
-                    category: contract.underwriter.category,
-                  },
-                  nearby,
-                );
-                const cancelled = scheduleLine.status === "cancelled";
-                const flightCopy = contract.copy.filter((item) => {
-                  const scope = flightByCopy.get(item.id) ?? null;
-                  return scope === null || scope === scheduleLine.flight_id;
-                });
-                return (
-                  <li
-                    key={scheduleLine.id}
-                    id={`line-${scheduleLine.id}`}
-                    className={`flex flex-col gap-2 px-5 py-4 ${cancelled ? "opacity-60" : ""}`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-semibold text-ink-900">
-                        {scheduleLine.label || view.description}
-                      </span>
-                      {scheduleLine.flight_id && (
-                        <Badge variant="neutral">
-                          {flightNameById.get(scheduleLine.flight_id) ?? "Flight"}
-                        </Badge>
-                      )}
-                      {scheduleLine.is_bonus && <Badge variant="muted">bonus</Badge>}
-                      {cancelled ? (
-                        <Badge variant="danger">cancelled from {scheduleLine.cancelled_from}</Badge>
-                      ) : (
-                        <Badge variant={FULFILLMENT_VARIANT[summary.status]}>
-                          {FULFILLMENT_STATUS_LABEL[summary.status]}
-                          {summary.expected > 0 && ` · ${summary.delivered}/${summary.expected}`}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-ink-700">{view.description}</p>
-                    <p className="text-xs text-ink-400">
-                      {scheduleLine.start_date}
-                      {scheduleLine.end_date ? ` – ${scheduleLine.end_date}` : " (ongoing)"} ·{" "}
-                      {scheduleLine.duration_seconds}s
-                      {scheduleLine.stated_total != null &&
-                        ` · order states ${scheduleLine.stated_total}`}
-                      {` · expands to ${summary.expected}`}
-                    </p>
-                    {scheduleLine.source_text && (
-                      <p className="text-xs italic text-ink-400">
-                        &ldquo;{scheduleLine.source_text}&rdquo;
-                      </p>
-                    )}
-                    {view.warnings.length > 0 && !cancelled && (
-                      <ul className="flex flex-col gap-1">
-                        {view.warnings.map((warning) => (
-                          <li
-                            key={warning.code}
-                            className="rounded border border-warning-fg/30 bg-warning-fg/[0.06] px-2.5 py-1.5 text-xs text-ink-700"
-                          >
-                            {warning.message}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+          <ul className="divide-y divide-line">
+            {contract.revisions.map((revision, index) => (
+              <li
+                key={revision.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-ink-900">
+                    {revisionName(revision, index)}
+                  </span>
+                  <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
+                    {revision.status}
+                  </Badge>
+                  <span className="text-xs text-ink-400">
+                    effective {revision.effective_from}
+                    {revision.received_at ? ` · received ${revision.received_at}` : ""}
+                    {` · ${(viewsByRevision.get(revision.id) ?? []).length} line${(viewsByRevision.get(revision.id) ?? []).length === 1 ? "" : "s"}`}
+                  </span>
+                </span>
+                {revision.notes && <span className="text-xs text-ink-500">{revision.notes}</span>}
+              </li>
+            ))}
+          </ul>
 
-                    <details className="mt-1">
-                      <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                        Demand by {view.periods[0]?.kind === "week" ? "week" : "date"} (
-                        {view.periods.length})
-                      </summary>
-                      <div className="mt-2 rounded border border-dashed border-line p-2.5">
-                        <PeriodTable view={view} />
-                      </div>
-                    </details>
-
-                    {view.placements.length > 0 && (
-                      <details>
-                        <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                          Placements ({view.placements.length})
-                        </summary>
-                        <ul className="mt-2 flex flex-col gap-1.5 rounded border border-dashed border-line p-2.5">
-                          {view.placements.map((placement) => (
-                            <li
-                              key={placement.id}
-                              className="flex flex-wrap items-center gap-2 text-xs"
-                            >
-                              <Badge variant={PLACEMENT_STATUS_VARIANT[placement.status]}>
-                                {placement.outcome === "pending"
-                                  ? placement.status
-                                  : placement.outcome === "aired"
-                                    ? "aired"
-                                    : "not aired"}
-                              </Badge>
-                              {placement.makegood_id && <Badge variant="warning">makegood</Badge>}
-                              <span className="text-ink-700">
-                                {placement.program_name} —{" "}
-                                {formatPlacementTime(placement.scheduled_at)}
-                                {placement.break_label ? ` (${placement.break_label})` : ""}
-                              </span>
-                              <span className="text-ink-400">
-                                for{" "}
-                                {placement.demand_period_start === placement.demand_period_end
-                                  ? placement.demand_period_start
-                                  : `week of ${placement.demand_period_start}`}
-                              </span>
-                              {placement.override_reason && (
-                                <span className="text-warning-fg">
-                                  override: {placement.override_reason}
-                                </span>
-                              )}
-                              {placement.outcome === "pending" && (
-                                <form action={clearCreditAction}>
-                                  <input type="hidden" name="contract_id" value={contract.id} />
-                                  <input type="hidden" name="placement_id" value={placement.id} />
-                                  <Button type="submit" variant="ghost">
-                                    Clear
-                                  </Button>
-                                </form>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-
-                    {!cancelled && flightCopy.length > 0 && contract.status === "active" && (
-                      <form action={autoFillScheduleLineAction} className="mt-1">
-                        <input type="hidden" name="contract_id" value={contract.id} />
-                        <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
-                        <Button type="submit" variant="secondary">
-                          Auto-fill remaining
-                        </Button>
-                        <FieldHint>
-                          Fills every open period to its quantity — makegoods first — spreading
-                          credits across the eligible days, generating the Log rundowns it needs,
-                          and never placing this underwriter twice in one break or next to the same
-                          industry.
-                        </FieldHint>
-                      </form>
-                    )}
-
-                    {!cancelled && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                          Place a credit manually
-                        </summary>
-                        {flightCopy.length === 0 ? (
-                          <p className="mt-2 text-xs text-ink-500">
-                            Create or link copy to this contract first — see &quot;Copy&quot; below.
-                          </p>
-                        ) : !placeable || !placeable.ok ? (
-                          <p className="mt-2 text-xs text-danger">
-                            {placeable?.message ?? "Could not list eligible breaks."}
-                          </p>
-                        ) : placeable.breaks.length === 0 ? (
-                          <p className="mt-2 text-xs text-ink-500">
-                            No eligible open break right now — a rundown must exist on an eligible
-                            date, on a program this line&apos;s pool maps to, with a marked
-                            opportunity inside the window.
-                          </p>
-                        ) : (
-                          <form
-                            action={placeCreditAction}
-                            className="mt-2 flex flex-col gap-3 rounded border border-line p-3"
-                          >
-                            <input type="hidden" name="contract_id" value={contract.id} />
-                            <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
-                            {adjacency.warning && (
-                              <Alert variant="note">
-                                Another underwriter in {contract.underwriter.category} already has a
-                                placement on this program — consider spacing these out. Advisory
-                                only, not a block.
-                              </Alert>
-                            )}
-                            <div>
-                              <Label htmlFor={`break_${scheduleLine.id}`}>Open break</Label>
-                              <Select
-                                id={`break_${scheduleLine.id}`}
-                                name="break_id"
-                                defaultValue=""
-                              >
-                                <option value="" disabled>
-                                  Choose a break…
-                                </option>
-                                {placeable.breaks.map((brk) => (
-                                  <option
-                                    key={brk.break_id}
-                                    value={brk.break_id}
-                                    disabled={brk.holds_this_contract}
-                                  >
-                                    {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} (
-                                    {brk.label}) · {brk.remaining_seconds}s remaining
-                                    {brk.holds_this_contract
-                                      ? " · already holds this contract"
-                                      : ""}
-                                  </option>
-                                ))}
-                              </Select>
-                              <FieldHint>
-                                The database rejects a placement past the period&apos;s quantity or
-                                the day cap, so an extra credit can&apos;t slip in unnoticed.
-                              </FieldHint>
-                            </div>
-                            <div>
-                              <Label htmlFor={`copy_${scheduleLine.id}`}>Copy</Label>
-                              <Select id={`copy_${scheduleLine.id}`} name="copy_id" defaultValue="">
-                                <option value="" disabled>
-                                  Choose copy…
-                                </option>
-                                {flightCopy.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.label} ({item.approval_status})
-                                  </option>
-                                ))}
-                              </Select>
-                            </div>
-                            <div>
-                              <Label htmlFor={`override_${scheduleLine.id}`}>Override reason</Label>
-                              <Input id={`override_${scheduleLine.id}`} name="override_reason" />
-                              <FieldHint>
-                                Only needed if the copy isn&apos;t approved or is outside its
-                                effective dates — and only a manager&apos;s override is actually
-                                honored.
-                              </FieldHint>
-                            </div>
-                            <div className="flex justify-end">
-                              <Button type="submit">Place credit</Button>
-                            </div>
-                          </form>
-                        )}
-                      </details>
-                    )}
-
-                    {!cancelled && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-xs font-semibold text-ink-500">
-                          Cancel or revise this line
-                        </summary>
-                        <form
-                          action={cancelScheduleLine}
-                          className="mt-2 flex flex-wrap items-end gap-3 rounded border border-line p-3"
-                        >
-                          <input type="hidden" name="contract_id" value={contract.id} />
-                          <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
-                          <div>
-                            <Label htmlFor={`cancel_from_${scheduleLine.id}`}>Cancel from</Label>
-                            <Input
-                              id={`cancel_from_${scheduleLine.id}`}
-                              name="cancelled_from"
-                              type="date"
-                              defaultValue={scheduleLine.start_date}
-                            />
-                            <FieldHint>
-                              Demand on or after this date is void and scheduled credits on or after
-                              it are cleared. Add a new line for the revised instruction.
-                            </FieldHint>
-                          </div>
-                          <Button type="submit" variant="secondary">
-                            Cancel line
-                          </Button>
-                        </form>
-                      </details>
-                    )}
+          {contract.draftRevision && activation && (
+            <div className="border-t border-line bg-warning-bg/40 px-5 py-4 text-sm">
+              <div className="mb-1 font-semibold text-ink-900">
+                Activating &ldquo;
+                {revisionName(
+                  contract.draftRevision,
+                  contract.revisions.findIndex((r) => r.id === contract.draftRevision?.id),
+                )}
+                &rdquo; from {contract.draftRevision.effective_from} would:
+              </div>
+              <ul className="mb-3 list-disc pl-5 text-xs text-ink-700">
+                <li>
+                  Supersede {activation.bucketsToSupersede.length} open demand bucket
+                  {activation.bucketsToSupersede.length === 1 ? "" : "s"} of the current revision (
+                  {activation.bucketsToSupersede.reduce((s, b) => s + b.quantity_required, 0)}{" "}
+                  credits still owed there).
+                </li>
+                <li>
+                  Clear {activation.placementsToClear.length} scheduled placement
+                  {activation.placementsToClear.length === 1 ? "" : "s"} dated on or after the
+                  effective date
+                  {activation.placementsToClear.length > 0 &&
+                    ` (${activation.placementsToClear
+                      .slice(0, 4)
+                      .map((p) => formatPlacementTime(p.scheduled_at))
+                      .join(", ")}${activation.placementsToClear.length > 4 ? ", …" : ""})`}
+                  . {activation.placementsKept} earlier placement
+                  {activation.placementsKept === 1 ? "" : "s"} and every broadcast event stay with
+                  the old revision.
+                </li>
+                {activation.makegoodsLeftOpen > 0 && (
+                  <li>
+                    Leave {activation.makegoodsLeftOpen} makegood
+                    {activation.makegoodsLeftOpen === 1 ? "" : "s"} awaiting a slot open under the
+                    old revision — resolve or cancel them on the Makegoods screen.
                   </li>
-                );
-              })}
-            </ul>
+                )}
+                {activation.draftBucketsDropped.length > 0 && (
+                  <li>
+                    Drop {activation.draftBucketsDropped.length} of the draft&apos;s own bucket
+                    {activation.draftBucketsDropped.length === 1 ? "" : "s"} that end before the
+                    effective date, so no period is counted twice.
+                  </li>
+                )}
+                <li>
+                  Make the draft&apos;s{" "}
+                  {(viewsByRevision.get(contract.draftRevision.id) ?? []).length} line
+                  {(viewsByRevision.get(contract.draftRevision.id) ?? []).length === 1
+                    ? ""
+                    : "s"}{" "}
+                  the ones auto-fill and manual placement schedule from.
+                </li>
+              </ul>
+              <div className="flex flex-wrap gap-2">
+                <form action={activateRevisionAction}>
+                  <input type="hidden" name="contract_id" value={contract.id} />
+                  <input type="hidden" name="revision_id" value={contract.draftRevision.id} />
+                  <Button type="submit">Activate revision</Button>
+                </form>
+                <form action={cancelDraftRevision}>
+                  <input type="hidden" name="contract_id" value={contract.id} />
+                  <input type="hidden" name="revision_id" value={contract.draftRevision.id} />
+                  <Button type="submit" variant="ghost">
+                    Discard draft
+                  </Button>
+                </form>
+              </div>
+            </div>
           )}
 
-          {/* Add a line ------------------------------------------------------- */}
-          <details className="border-t border-line px-5 py-4">
-            <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-              Add a schedule line from the order
-            </summary>
-            <form action={addScheduleLine} className="mt-4 flex flex-col gap-4">
-              <input type="hidden" name="contract_id" value={contract.id} />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {!contract.draftRevision && contract.currentRevision && (
+            <details className="border-t border-line px-5 py-3">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                Create a revision from the current schedule
+              </summary>
+              <form
+                action={createRevisionFromCurrent}
+                className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+              >
+                <input type="hidden" name="contract_id" value={contract.id} />
                 <div>
-                  <Label htmlFor="line_label">Label</Label>
-                  <Input id="line_label" name="label" placeholder="AM drive" maxLength={120} />
+                  <Label htmlFor="revision_label">Label</Label>
+                  <Input
+                    id="revision_label"
+                    name="revision_label"
+                    placeholder="Revised order, Oct 1"
+                    maxLength={80}
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="rule_kind">How the order sells it</Label>
-                  <Select id="rule_kind" name="rule_kind" defaultValue="fixed_days">
-                    <option value="fixed_days">Fixed days — N credits on each named day</option>
-                    <option value="weekly_quota">
-                      Weekly quota — N credits a week on any of the allowed days
-                    </option>
-                    <option value="explicit_dates">
-                      Explicit dates — a list of dates and counts
-                    </option>
-                    <option value="week_grid">
-                      Week grid — a quantity per week (agency order)
-                    </option>
-                  </Select>
+                  <Label htmlFor="revision_effective_from">Takes effect</Label>
+                  <Input id="revision_effective_from" name="effective_from" type="date" required />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="pool_id">Inventory pool</Label>
-                  <Select id="pool_id" name="pool_id" defaultValue="">
-                    <option value="">None — use the program alone</option>
-                    {pools
-                      .filter((pool) => pool.active)
-                      .map((pool) => (
-                        <option key={pool.id} value={pool.id}>
-                          {pool.name}
-                          {pool.targets.length === 0 ? " (no Log mapping yet)" : ""}
+                  <Label htmlFor="revision_received_at">Received</Label>
+                  <Input id="revision_received_at" name="received_at" type="date" />
+                </div>
+                <label className="flex items-center gap-2 pb-2 text-sm text-ink-700">
+                  <input type="checkbox" name="copy_lines" className="h-4 w-4" defaultChecked />
+                  Start from a copy of the current lines
+                </label>
+                <Button type="submit" variant="secondary">
+                  Create draft
+                </Button>
+              </form>
+              <FieldHint>
+                A draft is edited beside the current schedule and schedules nothing until it is
+                activated. Activation changes future demand only — aired credits, broadcast events
+                and exceptions stay with the revision they happened under.
+              </FieldHint>
+            </details>
+          )}
+        </div>
+
+        {/* Schedule lines ------------------------------------------------------- */}
+        {[
+          ...(contract.draftRevision ? [contract.draftRevision] : []),
+          ...(contract.currentRevision ? [contract.currentRevision] : []),
+          ...contract.revisions.filter(
+            (revision) => revision.status === "superseded" || revision.status === "cancelled",
+          ),
+        ].map((revision) => {
+          const revisionViews = viewsByRevision.get(revision.id) ?? [];
+          const isCurrent = revision.status === "current";
+          const isDraft = revision.status === "draft";
+          const index = contract.revisions.findIndex((r) => r.id === revision.id);
+          if (!isCurrent && !isDraft && revisionViews.length === 0) return null;
+          return (
+            <details
+              key={revision.id}
+              open={isCurrent || isDraft}
+              className="mb-6 rounded border border-line"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+                <span className="flex items-center gap-2 text-sm font-bold text-ink-900">
+                  Schedule lines — {revisionName(revision, index)}
+                  <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
+                    {revision.status}
+                  </Badge>
+                </span>
+                {isCurrent && currentViews.length > 0 && contract.status === "active" && (
+                  <form action={autoFillContractAction}>
+                    <input type="hidden" name="contract_id" value={contract.id} />
+                    <Button type="submit" variant="secondary">
+                      Auto-fill this contract
+                    </Button>
+                  </form>
+                )}
+              </summary>
+              {revisionViews.length === 0 ? (
+                <p className="px-5 py-4 text-sm text-ink-500">
+                  No schedule lines yet — enter the order&apos;s schedule below.
+                </p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {revisionViews.map((view) => (
+                    <ScheduleLineItem
+                      key={view.scheduleLine.id}
+                      view={view}
+                      contract={contract}
+                      isCurrent={isCurrent}
+                      isDraft={isDraft}
+                      flightNameById={flightNameById}
+                      flightByCopy={flightByCopy}
+                      placeable={placeableByLine.get(view.scheduleLine.id) ?? null}
+                      nearby={adjacencyByLine.get(view.scheduleLine.id) ?? []}
+                    />
+                  ))}
+                </ul>
+              )}
+            </details>
+          );
+        })}
+
+        {/* Add a line ------------------------------------------------------- */}
+        {enterableRevisions.length > 0 && (
+          <div className="mb-6 rounded border border-line">
+            <details className="px-5 py-4">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                Add a schedule line from the order
+              </summary>
+              <form action={addScheduleLine} className="mt-4 flex flex-col gap-4">
+                <input type="hidden" name="contract_id" value={contract.id} />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="line_revision">Revision</Label>
+                    <Select
+                      id="line_revision"
+                      name="revision_id"
+                      defaultValue={
+                        contract.draftRevision?.id ?? contract.currentRevision?.id ?? ""
+                      }
+                    >
+                      {enterableRevisions.map((revision) => (
+                        <option key={revision.id} value={revision.id}>
+                          {revisionName(
+                            revision,
+                            contract.revisions.findIndex((r) => r.id === revision.id),
+                          )}{" "}
+                          ({revision.status})
                         </option>
                       ))}
-                  </Select>
-                  <FieldHint>
-                    The order&apos;s own name for the inventory — mapped to Log on the{" "}
-                    <Link href="/underwriting/pools" className="font-semibold text-brand-link">
-                      Pools
-                    </Link>{" "}
-                    screen.
-                  </FieldHint>
-                </div>
-                <div>
-                  <Label htmlFor="program_id">Program</Label>
-                  <Select id="program_id" name="program_id" defaultValue="">
-                    <option value="">Any program in the pool</option>
-                    {programs.map((program) => (
-                      <option key={program.id} value={program.id}>
-                        {program.name}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="line_label">Label</Label>
+                    <Input id="line_label" name="label" placeholder="AM drive" maxLength={120} />
+                  </div>
+                  <div>
+                    <Label htmlFor="entry_kind">How the order sells it</Label>
+                    <Select id="entry_kind" name="entry_kind" defaultValue="fixed_days">
+                      <option value="fixed_days">Fixed days — N credits on each named day</option>
+                      <option value="weekly_quota">Weekly quota — N credits a week</option>
+                      <option value="monthly_quota">Monthly quota — N credits a month</option>
+                      <option value="every_n_weeks">
+                        Every N weeks — N credits in one week out of every N
                       </option>
+                      <option value="explicit_dates">
+                        Explicit dates — a list of dates and counts
+                      </option>
+                      <option value="week_grid">Week grid — a quantity per week (agency)</option>
+                      <option value="range_total">
+                        Range total — N credits over the whole run
+                      </option>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="pool_id">Inventory pool</Label>
+                    <Select id="pool_id" name="pool_id" defaultValue="">
+                      <option value="">None — use the program alone</option>
+                      {pools
+                        .filter((pool) => pool.active)
+                        .map((pool) => (
+                          <option key={pool.id} value={pool.id}>
+                            {pool.name}
+                            {pool.targets.length === 0 ? " (no Log mapping yet)" : ""}
+                          </option>
+                        ))}
+                    </Select>
+                    <FieldHint>
+                      The order&apos;s own name for the inventory — mapped to Log on the{" "}
+                      <Link href="/underwriting/pools" className="font-semibold text-brand-link">
+                        Pools
+                      </Link>{" "}
+                      screen.
+                    </FieldHint>
+                  </div>
+                  <div>
+                    <Label htmlFor="program_id">Program</Label>
+                    <Select id="program_id" name="program_id" defaultValue="">
+                      <option value="">Any program in the pool</option>
+                      {programs.map((program) => (
+                        <option key={program.id} value={program.id}>
+                          {program.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <FieldHint>
+                      A named program narrows the pool; on its own it means any marked opportunity
+                      on that program.
+                    </FieldHint>
+                  </div>
+                </div>
+                <div>
+                  <Label>Eligible day(s) of week</Label>
+                  <div className="mt-1 flex flex-wrap gap-3 text-sm text-ink-700">
+                    {DAY_LABELS.map((label, index) => (
+                      <label key={label} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          name="days_of_week"
+                          value={index}
+                          className="h-4 w-4"
+                        />
+                        {label}
+                      </label>
                     ))}
-                  </Select>
+                  </div>
                   <FieldHint>
-                    A named program narrows the pool; on its own it means any marked opportunity on
-                    that program.
+                    Fixed days: the days it airs. Everything else: the days it may air — leave all
+                    unchecked for any day.
                   </FieldHint>
                 </div>
-              </div>
-              <div>
-                <Label>Day(s) of week</Label>
-                <div className="mt-1 flex flex-wrap gap-3 text-sm text-ink-700">
-                  {DAY_LABELS.map((label, index) => (
-                    <label key={label} className="flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        name="days_of_week"
-                        value={index}
-                        className="h-4 w-4"
-                      />
-                      {label}
-                    </label>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <div>
+                    <Label htmlFor="count_per_day">Per day (fixed days)</Label>
+                    <Input
+                      id="count_per_day"
+                      name="count_per_day"
+                      type="number"
+                      min={1}
+                      placeholder="1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">Quantity (quota / cycle / total)</Label>
+                    <Input id="quantity" name="quantity" type="number" min={1} />
+                  </div>
+                  <div>
+                    <Label htmlFor="interval_weeks">Every N weeks</Label>
+                    <Input
+                      id="interval_weeks"
+                      name="interval_weeks"
+                      type="number"
+                      min={2}
+                      placeholder="2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="max_per_day">Most per day</Label>
+                    <Input id="max_per_day" name="max_per_day" type="number" min={1} />
+                    <FieldHint>Only if the order says so.</FieldHint>
+                  </div>
+                  <div>
+                    <Label htmlFor="duration_seconds">Duration (s)</Label>
+                    <Input
+                      id="duration_seconds"
+                      name="duration_seconds"
+                      type="number"
+                      required
+                      min={1}
+                      defaultValue={30}
+                    />
+                  </div>
                 </div>
-                <FieldHint>
-                  Fixed days: the days it airs. Weekly quota / grid: the days it may air. Explicit
-                  dates: ignored.
-                </FieldHint>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  <Label htmlFor="count_per_day">Per day (fixed days)</Label>
-                  <Input
-                    id="count_per_day"
-                    name="count_per_day"
-                    type="number"
-                    min={1}
-                    placeholder="1"
-                  />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <Label htmlFor="start_date">Start date</Label>
+                    <Input id="start_date" name="start_date" type="date" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="end_date">End date</Label>
+                    <Input id="end_date" name="end_date" type="date" />
+                  </div>
+                  <div>
+                    <Label htmlFor="service_level">Service level</Label>
+                    <Select id="service_level" name="service_level" defaultValue="guaranteed">
+                      <option value="guaranteed">Guaranteed</option>
+                      <option value="bonus">Bonus weight</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="stated_total">Order states (spots)</Label>
+                    <Input id="stated_total" name="stated_total" type="number" min={0} />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="quantity_per_week">Per week (quota)</Label>
-                  <Input id="quantity_per_week" name="quantity_per_week" type="number" min={1} />
-                </div>
-                <div>
-                  <Label htmlFor="max_per_day">Most per day (quota/grid)</Label>
-                  <Input
-                    id="max_per_day"
-                    name="max_per_day"
-                    type="number"
-                    min={1}
-                    placeholder="1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="duration_seconds">Duration (s)</Label>
-                  <Input
-                    id="duration_seconds"
-                    name="duration_seconds"
-                    type="number"
-                    required
-                    min={1}
-                    defaultValue={30}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  <Label htmlFor="start_date">Start date</Label>
-                  <Input id="start_date" name="start_date" type="date" required />
-                </div>
-                <div>
-                  <Label htmlFor="end_date">End date</Label>
-                  <Input id="end_date" name="end_date" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="target_time">Target time</Label>
-                  <Input id="target_time" name="target_time" type="time" />
-                </div>
-                <div>
-                  <Label htmlFor="stated_total">Order states (spots)</Label>
-                  <Input id="stated_total" name="stated_total" type="number" min={0} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  <Label htmlFor="window_start">Window from</Label>
-                  <Input id="window_start" name="window_start" type="time" />
-                </div>
-                <div>
-                  <Label htmlFor="window_end">Window to</Label>
-                  <Input id="window_end" name="window_end" type="time" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <div>
+                    <Label htmlFor="time_mode">Time rule</Label>
+                    <Select id="time_mode" name="time_mode" defaultValue="any">
+                      <option value="any">Any time the pool allows</option>
+                      <option value="window">Inside a window</option>
+                      <option value="preferred">Around a preferred time</option>
+                      <option value="exact">At an exact time</option>
+                      <option value="slot">A named position (traffic key)</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="window_start">Window from</Label>
+                    <Input id="window_start" name="window_start" type="time" />
+                  </div>
+                  <div>
+                    <Label htmlFor="window_end">Window to</Label>
+                    <Input id="window_end" name="window_end" type="time" />
+                  </div>
+                  <div>
+                    <Label htmlFor="preferred_time">Preferred / exact time</Label>
+                    <Input id="preferred_time" name="preferred_time" type="time" />
+                  </div>
+                  <div>
+                    <Label htmlFor="required_opportunity_key">Traffic key</Label>
+                    <Input
+                      id="required_opportunity_key"
+                      name="required_opportunity_key"
+                      placeholder="marketplace.opening"
+                    />
+                    <FieldHint>As Log&apos;s clock screen names the position.</FieldHint>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="flight_id">Flight</Label>
@@ -693,60 +703,66 @@ export default async function ContractDetailPage({
                       ))}
                   </Select>
                 </div>
-                <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-700">
-                  <input type="checkbox" name="is_bonus" className="h-4 w-4" />
-                  Bonus line
-                </label>
-              </div>
-              <div>
-                <Label htmlFor="allocations_text">
-                  Dates or weeks (explicit dates / week grid)
-                </Label>
-                <Textarea
-                  id="allocations_text"
-                  name="allocations_text"
-                  rows={3}
-                  placeholder={
-                    "Explicit dates: 2026-09-11, 2026-09-24 x2\nWeek grid: 2026-01-26 6 (one week per line)"
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
-                  <Label htmlFor="grid_first_monday">Grid: first Monday</Label>
-                  <Input id="grid_first_monday" name="grid_first_monday" type="date" />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="grid_quantities">Grid: weekly quantities, in order</Label>
-                  <Input
-                    id="grid_quantities"
-                    name="grid_quantities"
-                    placeholder="6 4 4 4 3 2 2 2 0 3 …"
+                  <Label htmlFor="dates_text">Dates or weeks (explicit dates / week grid)</Label>
+                  <Textarea
+                    id="dates_text"
+                    name="dates_text"
+                    rows={3}
+                    placeholder={
+                      "Explicit dates: 2026-09-11, 2026-09-24 x2\nWeek grid: 2026-01-26 6 (one week per line)"
+                    }
                   />
-                  <FieldHint>
-                    Zeros are real weeks with no credits, exactly as the agency grid prints them.
-                  </FieldHint>
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="source_text">The order&apos;s own wording</Label>
-                <Input
-                  id="source_text"
-                  name="source_text"
-                  placeholder="52 spots in Carpool Tuesday @ 8:19 AM"
-                />
-                <FieldHint>Kept verbatim for nuance; never interpreted as a rule.</FieldHint>
-              </div>
-              <div>
-                <Label htmlFor="line_notes">Notes</Label>
-                <Input id="line_notes" name="notes" />
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit">Add schedule line</Button>
-              </div>
-            </form>
-          </details>
-        </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="grid_first_monday">Grid: first Monday</Label>
+                    <Input id="grid_first_monday" name="grid_first_monday" type="date" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="grid_quantities">Grid: weekly quantities, in order</Label>
+                    <Input
+                      id="grid_quantities"
+                      name="grid_quantities"
+                      placeholder="6 4 4 4 3 2 2 2 0 3 …"
+                    />
+                    <FieldHint>
+                      Zeros are real weeks with no credits, exactly as the agency grid prints them.
+                    </FieldHint>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="source_text">The order&apos;s own wording</Label>
+                    <Input
+                      id="source_text"
+                      name="source_text"
+                      placeholder="52 spots in Carpool Tuesday @ 8:19 AM"
+                    />
+                    <FieldHint>Kept verbatim for nuance; never interpreted as a rule.</FieldHint>
+                  </div>
+                  <div>
+                    <Label htmlFor="makegood_policy_text">
+                      Makegood policy, as the order states
+                    </Label>
+                    <Input
+                      id="makegood_policy_text"
+                      name="makegood_policy_text"
+                      placeholder="Rescheduled within the program originally sponsored"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="line_notes">Notes</Label>
+                  <Input id="line_notes" name="notes" />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit">Add schedule line</Button>
+                </div>
+              </form>
+            </details>
+          </div>
+        )}
 
         {/* Flights ------------------------------------------------------------- */}
         <div className="mt-6 rounded border border-line">
@@ -985,7 +1001,8 @@ export default async function ContractDetailPage({
                 defaultValue={contract.stated_total_spots ?? ""}
               />
               <FieldHint>
-                Checked against the lines&apos; expansion above — never the scheduling target.
+                Checked against the current revision&apos;s lines above — never the scheduling
+                target.
               </FieldHint>
             </div>
             <label className="flex items-center gap-2 text-sm text-ink-700">
@@ -1044,5 +1061,282 @@ export default async function ContractDetailPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function ScheduleLineItem({
+  view,
+  contract,
+  isCurrent,
+  isDraft,
+  flightNameById,
+  flightByCopy,
+  placeable,
+  nearby,
+}: {
+  view: ScheduleLineDemandView;
+  contract: ContractDetail;
+  isCurrent: boolean;
+  isDraft: boolean;
+  flightNameById: Map<string, string>;
+  flightByCopy: Map<string, string | null>;
+  placeable:
+    Awaited<ReturnType<typeof listScheduleLinePlacementContexts>>[number]["placeable"] | null;
+  nearby: Awaited<ReturnType<typeof listNearbyPlacementsForAdjacency>>;
+}) {
+  const { scheduleLine, summary } = view;
+  const adjacency = checkCompetitiveAdjacency(
+    { underwriterId: contract.underwriter.id, categoryId: contract.underwriter.category_id },
+    nearby,
+  );
+  const cancelled = scheduleLine.status === "cancelled";
+  const schedulable = isCurrent && !cancelled;
+  const flightCopy = contract.copy.filter((item) => {
+    const scope = flightByCopy.get(item.id) ?? null;
+    return scope === null || scope === scheduleLine.flight_id;
+  });
+  return (
+    <li
+      id={`line-${scheduleLine.id}`}
+      className={`flex flex-col gap-2 px-5 py-4 ${cancelled ? "opacity-60" : ""}`}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-semibold text-ink-900">{scheduleLine.label || view.description}</span>
+        {scheduleLine.flight_id && (
+          <Badge variant="neutral">{flightNameById.get(scheduleLine.flight_id) ?? "Flight"}</Badge>
+        )}
+        {scheduleLine.service_level === "bonus" && <Badge variant="muted">bonus</Badge>}
+        {scheduleLine.time_mode === "slot" && (
+          <Badge variant="accent">{scheduleLine.required_opportunity_key}</Badge>
+        )}
+        {cancelled ? (
+          <Badge variant="danger">cancelled from {scheduleLine.cancelled_from}</Badge>
+        ) : (
+          <Badge variant={FULFILLMENT_VARIANT[summary.status]}>
+            {FULFILLMENT_STATUS_LABEL[summary.status]}
+            {summary.expected > 0 && ` · ${summary.delivered}/${summary.expected}`}
+          </Badge>
+        )}
+      </div>
+      <p className="text-xs text-ink-700">{view.description}</p>
+      <p className="text-xs text-ink-400">
+        {scheduleLine.start_date}
+        {scheduleLine.end_date ? ` – ${scheduleLine.end_date}` : " (ongoing)"} ·{" "}
+        {scheduleLine.duration_seconds}s
+        {scheduleLine.stated_total != null && ` · order states ${scheduleLine.stated_total}`}
+        {` · compiles to ${summary.expected}`}
+      </p>
+      {scheduleLine.source_text && (
+        <p className="text-xs italic text-ink-400">&ldquo;{scheduleLine.source_text}&rdquo;</p>
+      )}
+      {scheduleLine.makegood_policy_text && (
+        <p className="text-xs text-ink-400">Makegoods: {scheduleLine.makegood_policy_text}</p>
+      )}
+      {view.warnings.length > 0 && !cancelled && (
+        <ul className="flex flex-col gap-1">
+          {view.warnings.map((warning) => (
+            <li
+              key={warning.code}
+              className="rounded border border-warning-fg/30 bg-warning-fg/[0.06] px-2.5 py-1.5 text-xs text-ink-700"
+            >
+              {warning.message}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <details className="mt-1">
+        <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+          Demand buckets ({view.buckets.length})
+        </summary>
+        <div className="mt-2 rounded border border-dashed border-line p-2.5">
+          <BucketTable view={view} />
+        </div>
+      </details>
+
+      {view.placements.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+            Placements ({view.placements.length})
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1.5 rounded border border-dashed border-line p-2.5">
+            {view.placements.map((placement) => {
+              const bucket = view.buckets.find((b) => b.bucketId === placement.demand_bucket_id);
+              return (
+                <li key={placement.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant={PLACEMENT_STATUS_VARIANT[placement.status]}>
+                    {placement.outcome === "pending"
+                      ? placement.status
+                      : placement.outcome === "aired"
+                        ? "aired"
+                        : "not aired"}
+                  </Badge>
+                  {placement.makegood_id && <Badge variant="warning">makegood</Badge>}
+                  <span className="text-ink-700">
+                    {placement.program_name} — {formatPlacementTime(placement.scheduled_at)}
+                    {placement.break_label ? ` (${placement.break_label})` : ""}
+                  </span>
+                  <span className="text-ink-400">for {bucket?.sourceLabel ?? "its bucket"}</span>
+                  {placement.override_reason && (
+                    <span className="text-warning-fg">override: {placement.override_reason}</span>
+                  )}
+                  {placement.outcome === "pending" && schedulable && (
+                    <form action={clearCreditAction}>
+                      <input type="hidden" name="contract_id" value={contract.id} />
+                      <input type="hidden" name="placement_id" value={placement.id} />
+                      <Button type="submit" variant="ghost">
+                        Clear
+                      </Button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+
+      {schedulable && flightCopy.length > 0 && contract.status === "active" && (
+        <form action={autoFillScheduleLineAction} className="mt-1">
+          <input type="hidden" name="contract_id" value={contract.id} />
+          <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
+          <Button type="submit" variant="secondary">
+            Auto-fill remaining
+          </Button>
+          <FieldHint>
+            Fills every open bucket to its quantity — makegoods first — spreading credits across the
+            eligible days, generating the Log rundowns it needs, and never placing this underwriter
+            twice in one break or next to the same industry.
+          </FieldHint>
+        </form>
+      )}
+
+      {schedulable && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+            Place a credit manually
+          </summary>
+          {flightCopy.length === 0 ? (
+            <p className="mt-2 text-xs text-ink-500">
+              Create or link copy to this contract first — see &quot;Copy&quot; below.
+            </p>
+          ) : !placeable || !placeable.ok ? (
+            <p className="mt-2 text-xs text-danger">
+              {placeable?.message ?? "Could not list eligible breaks."}
+            </p>
+          ) : placeable.breaks.length === 0 ? (
+            <p className="mt-2 text-xs text-ink-500">
+              No eligible open break right now — a rundown must exist on a date with open demand, on
+              a program this line&apos;s pool maps to, with a marked opportunity that satisfies the
+              line&apos;s time rule.
+            </p>
+          ) : (
+            <form
+              action={placeCreditAction}
+              className="mt-2 flex flex-col gap-3 rounded border border-line p-3"
+            >
+              <input type="hidden" name="contract_id" value={contract.id} />
+              <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
+              {adjacency.warning && (
+                <Alert variant="note">
+                  Another underwriter in the same industry already has a placement on this program —
+                  consider spacing these out. Advisory only, not a block.
+                </Alert>
+              )}
+              <div>
+                <Label htmlFor={`break_${scheduleLine.id}`}>Open break</Label>
+                <Select id={`break_${scheduleLine.id}`} name="break_id" defaultValue="">
+                  <option value="" disabled>
+                    Choose a break…
+                  </option>
+                  {placeable.breaks.map((brk) => (
+                    <option
+                      key={brk.break_id}
+                      value={brk.break_id}
+                      disabled={brk.holds_this_contract}
+                    >
+                      {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}
+                      {brk.traffic_key ? ` · ${brk.traffic_key}` : ""}) · {brk.remaining_seconds}s
+                      remaining
+                      {brk.holds_this_contract ? " · already holds this contract" : ""}
+                    </option>
+                  ))}
+                </Select>
+                <FieldHint>
+                  The database rejects a placement past the bucket&apos;s quantity or the
+                  order&apos;s per-day cap, so an extra credit can&apos;t slip in unnoticed.
+                </FieldHint>
+              </div>
+              <div>
+                <Label htmlFor={`copy_${scheduleLine.id}`}>Copy</Label>
+                <Select id={`copy_${scheduleLine.id}`} name="copy_id" defaultValue="">
+                  <option value="" disabled>
+                    Choose copy…
+                  </option>
+                  {flightCopy.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label} ({item.approval_status})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor={`override_${scheduleLine.id}`}>Override reason</Label>
+                <Input id={`override_${scheduleLine.id}`} name="override_reason" />
+                <FieldHint>
+                  Only needed if the copy isn&apos;t approved or is outside its effective dates —
+                  and only a manager&apos;s override is actually honored.
+                </FieldHint>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit">Place credit</Button>
+              </div>
+            </form>
+          )}
+        </details>
+      )}
+
+      {schedulable && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-xs font-semibold text-ink-500">
+            Cancel this line
+          </summary>
+          <form
+            action={cancelScheduleLine}
+            className="mt-2 flex flex-wrap items-end gap-3 rounded border border-line p-3"
+          >
+            <input type="hidden" name="contract_id" value={contract.id} />
+            <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
+            <div>
+              <Label htmlFor={`cancel_from_${scheduleLine.id}`}>Cancel from</Label>
+              <Input
+                id={`cancel_from_${scheduleLine.id}`}
+                name="cancelled_from"
+                type="date"
+                defaultValue={scheduleLine.start_date}
+              />
+              <FieldHint>
+                Demand still open on or after this date is cancelled and scheduled credits on or
+                after it are cleared. For a revised order, prefer a revision: it keeps the old
+                schedule&apos;s history in one place.
+              </FieldHint>
+            </div>
+            <Button type="submit" variant="secondary">
+              Cancel line
+            </Button>
+          </form>
+        </details>
+      )}
+
+      {isDraft && (
+        <form action={removeDraftScheduleLine} className="mt-1">
+          <input type="hidden" name="contract_id" value={contract.id} />
+          <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
+          <Button type="submit" variant="ghost">
+            Remove from draft
+          </Button>
+        </form>
+      )}
+    </li>
   );
 }

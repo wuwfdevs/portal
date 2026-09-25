@@ -62,7 +62,7 @@ export default async function ExceptionDetailPage({
           >
             {exception.contract.contract_identifier}
           </Link>{" "}
-          · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine, [])}
+          · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
         </p>
 
         {error && <Alert className="mb-4">{error}</Alert>}
