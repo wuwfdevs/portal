@@ -16,6 +16,8 @@ import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types"
 const CONTRACTS_LIST_PATH = "/underwriting/contracts";
 const UNDERWRITERS_LIST_PATH = "/underwriting/underwriters";
 
+const NEW_CONTRACT_PATH = "/underwriting/contracts/new";
+
 function contractPath(id: string): string {
   return `${CONTRACTS_LIST_PATH}/${id}`;
 }
@@ -26,6 +28,14 @@ function underwriterPath(id: string): string {
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
+}
+
+const WIZARD_STEPS = new Set(["order", "schedule", "policy"]);
+
+/** The contract page, or the setup step (order | schedule | policy) a wizard form named in return_to. */
+function returnPath(formData: FormData, contractId: string): string {
+  const step = field(formData, "return_to");
+  return WIZARD_STEPS.has(step) ? `${contractPath(contractId)}/${step}` : contractPath(contractId);
 }
 
 function optionalField(formData: FormData, name: string): string | null {
@@ -145,7 +155,7 @@ export async function createContract(formData: FormData): Promise<void> {
   const effectiveFrom = field(formData, "effective_from");
   if (underwriterId === "" || contractIdentifier === "" || effectiveFrom === "") {
     failWith(
-      CONTRACTS_LIST_PATH,
+      NEW_CONTRACT_PATH,
       "Give the contract an underwriter, identifier, and effective date.",
     );
   }
@@ -175,8 +185,8 @@ export async function createContract(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, CONTRACTS_LIST_PATH, "Could not create the contract");
-  if (!data) failWith(CONTRACTS_LIST_PATH, "Could not create the contract.");
+  failIfError(error, NEW_CONTRACT_PATH, "Could not create the contract");
+  if (!data) failWith(NEW_CONTRACT_PATH, "Could not create the contract.");
 
   const { error: revisionError } = await supabase.from("uw_contract_revisions").insert({
     contract_id: data.id,
@@ -188,14 +198,12 @@ export async function createContract(formData: FormData): Promise<void> {
     activated_by: profile.id,
     created_by: profile.id,
   });
-  failIfError(
-    revisionError,
-    CONTRACTS_LIST_PATH,
-    "Created the contract but not its first revision",
-  );
+  failIfError(revisionError, NEW_CONTRACT_PATH, "Created the contract but not its first revision");
 
+  // A new contract is a draft: the next step is its schedule (the wizard's
+  // step 2), not the contract page.
   revalidatePath(CONTRACTS_LIST_PATH);
-  redirect(contractPath(data.id));
+  redirect(`${contractPath(data.id)}/schedule`);
 }
 
 const CONTRACT_STATUSES: UwContractStatus[] = ["draft", "active", "expired", "terminated"];
@@ -219,6 +227,13 @@ export async function setContractStatus(formData: FormData): Promise<void> {
     .eq("id", id)
     .maybeSingle();
   const isNewTermination = status === "terminated" && existing?.status !== "terminated";
+  // Activation is the approval step — the moment a contract's lines start
+  // scheduling — so it gets a durable trace naming who did it, the same
+  // way a termination does (2026-09-25, after comparing against
+  // RadioTraffic's approval trail). Not one of §6's privileged actions:
+  // any traffic member may activate, and the same person who created the
+  // contract may.
+  const isNewActivation = status === "active" && existing?.status !== "active";
 
   const { error } = await supabase.from("uw_contracts").update({ status }).eq("id", id);
   failIfError(error, path, "Could not update the contract's status");
@@ -229,6 +244,15 @@ export async function setContractStatus(formData: FormData): Promise<void> {
       action: "underwriting.contract.terminated",
       targetType: "uw_contract",
       targetId: id,
+    });
+  }
+  if (isNewActivation) {
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.contract.activated",
+      targetType: "uw_contract",
+      targetId: id,
+      metadata: { previous_status: existing?.status ?? null },
     });
   }
 
@@ -250,7 +274,7 @@ const SEPARATION_POLICIES: UwSeparationPolicy[] = ["unspecified", "none", "min_m
 export async function updateContractPolicy(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "contract_id");
-  const path = contractPath(id);
+  const path = returnPath(formData, id);
 
   const separationPolicy = field(formData, "separation_policy") as UwSeparationPolicy;
   if (!SEPARATION_POLICIES.includes(separationPolicy))
@@ -266,6 +290,7 @@ export async function updateContractPolicy(formData: FormData): Promise<void> {
     .from("uw_contracts")
     .update({
       stated_total_spots: optionalInt(formData, "stated_total_spots"),
+      affidavit_required: formData.get("affidavit_required") === "on",
       makegood_requires_agency_approval: formData.get("makegood_requires_agency_approval") === "on",
       separation_source_text: optionalField(formData, "separation_source_text"),
       separation_policy: separationPolicy,
@@ -275,8 +300,49 @@ export async function updateContractPolicy(formData: FormData): Promise<void> {
     .eq("id", id);
   failIfError(error, path, "Could not update the contract's traffic policy");
 
+  revalidatePath(contractPath(id));
   revalidatePath(path);
   redirect(path);
+}
+
+/**
+ * The order's own facts (setup step 1, editable afterwards from the
+ * contract page): identifier, run dates, sponsorship total and category,
+ * notes. Never the traffic policy (updateContractPolicy) or the status.
+ */
+export async function updateContractOrder(formData: FormData): Promise<void> {
+  await assertUnderwritingAccess();
+  const id = field(formData, "contract_id");
+  const path = returnPath(formData, id);
+  const contractIdentifier = field(formData, "contract_identifier");
+  const effectiveFrom = field(formData, "effective_from");
+  if (contractIdentifier === "" || !isValidDateISO(effectiveFrom))
+    failWith(path, "Give the contract an identifier and a start date.");
+  const effectiveTo = optionalField(formData, "effective_to");
+  if (effectiveTo !== null && (!isValidDateISO(effectiveTo) || effectiveTo < effectiveFrom))
+    failWith(path, "The contract must end on or after it starts.");
+  const sponsorshipTotalRaw = optionalField(formData, "sponsorship_total");
+  const sponsorshipTotal =
+    sponsorshipTotalRaw === null ? null : Number.parseFloat(sponsorshipTotalRaw);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("uw_contracts")
+    .update({
+      contract_identifier: contractIdentifier,
+      effective_from: effectiveFrom,
+      effective_to: effectiveTo,
+      sponsorship_total:
+        sponsorshipTotal !== null && Number.isFinite(sponsorshipTotal) ? sponsorshipTotal : null,
+      sponsorship_category: optionalField(formData, "sponsorship_category"),
+      notes: optionalField(formData, "notes"),
+    })
+    .eq("id", id);
+  failIfError(error, path, "Could not update the order details");
+
+  revalidatePath(contractPath(id));
+  revalidatePath(CONTRACTS_LIST_PATH);
+  redirect(field(formData, "return_to") === "order" ? `${contractPath(id)}/schedule` : path);
 }
 
 /** Records the executed agreement's storage path after a direct-to-Storage upload — see contract-document-upload.tsx and point 19 of the domain redesign. */
@@ -395,6 +461,7 @@ export async function createRevisionFromCurrent(formData: FormData): Promise<voi
     }
   }
 
+  revalidatePath(contractPath(contractId));
   revalidatePath(path);
   redirect(path);
 }
@@ -526,8 +593,24 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const revisionId = field(formData, "revision_id");
-  const path = contractPath(contractId);
+  // The wizard's schedule step posts return_to=schedule so the staffer stays
+  // on it ("Add and start another"); the contract page posts nothing.
+  const returnTo = field(formData, "return_to") === "schedule" ? "schedule" : null;
+  const path = returnTo ? `${contractPath(contractId)}/schedule` : contractPath(contractId);
   if (revisionId === "") failWith(path, "Choose which revision the line belongs to.");
+
+  // Structured entries (2026-09-25): one row per explicit date, one
+  // quantity per Monday for a week grid — see schedule-line-form.ts.
+  const explicitDates = formData.getAll("explicit_date").map((date, index) => ({
+    date: String(date).trim(),
+    quantity: String(formData.getAll("explicit_quantity")[index] ?? "").trim(),
+  }));
+  const weekGrid = [...formData.entries()]
+    .filter(([key]) => key.startsWith("week_quantity:"))
+    .map(([key, value]) => ({
+      week_start: key.slice("week_quantity:".length),
+      quantity: String(value).trim(),
+    }));
 
   const parsed = parseScheduleLineForm({
     label: field(formData, "label"),
@@ -554,9 +637,8 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     source_text: field(formData, "source_text"),
     makegood_policy_text: field(formData, "makegood_policy_text"),
     notes: field(formData, "notes"),
-    dates_text: field(formData, "dates_text"),
-    grid_first_monday: field(formData, "grid_first_monday"),
-    grid_quantities: field(formData, "grid_quantities"),
+    explicit_dates: explicitDates,
+    week_grid: weekGrid,
   });
   if (!parsed.ok) failWith(path, parsed.error);
 
@@ -680,7 +762,7 @@ export async function removeDraftScheduleLine(formData: FormData): Promise<void>
   await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const lineId = field(formData, "schedule_line_id");
-  const path = contractPath(contractId);
+  const path = returnPath(formData, contractId);
 
   const supabase = await createClient();
   const { error: bucketError } = await supabase
@@ -700,7 +782,7 @@ export async function linkCopyToContract(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
-  const path = contractPath(contractId);
+  const path = returnPath(formData, contractId);
   if (copyId === "") failWith(path, "Choose a piece of copy to link.");
 
   const supabase = await createClient();
@@ -738,7 +820,7 @@ export async function unlinkCopyFromContract(formData: FormData): Promise<void> 
   await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
-  const path = contractPath(contractId);
+  const path = returnPath(formData, contractId);
 
   const supabase = await createClient();
   const { error } = await supabase

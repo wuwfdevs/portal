@@ -18,6 +18,8 @@ import {
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { computeScheduleLineConflicts, CONFLICT_LABEL } from "@/lib/underwriting/conflicts";
 import { addDays } from "@/lib/underwriting/demand";
+import { isFixedPosition } from "@/lib/underwriting/fill-order";
+import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { stationTodayISO } from "@/lib/log/timezone";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
@@ -72,18 +74,41 @@ export default async function UnderwritingDashboardPage({
   const contractByLine = new Map(scheduleLines.map((line) => [line.id, line.contract]));
 
   const todayISO = stationTodayISO();
+  const nowISO = new Date().toISOString();
   const horizon = addDays(todayISO, LOOK_AHEAD_DAYS);
   const conflicts = views
     .map((view) => {
       const contract = contractByLine.get(view.scheduleLine.id)!;
       const linkedCopy = copyByContract.get(contract.id) ?? [];
       const placeable = placeableByLine.get(view.scheduleLine.id);
+      const approvedDurations = linkedCopy
+        .filter(
+          ({ copy: item, flightId }) =>
+            item.approval_status === "approved" &&
+            item.duration_seconds != null &&
+            (flightId === null || flightId === view.scheduleLine.flight_id),
+        )
+        .map(({ copy: item }) => item.duration_seconds as number);
       const reasons = computeScheduleLineConflicts({
         hasApprovedLinkedCopy: linkedCopy.some(
           ({ copy: item, flightId }) =>
             item.approval_status === "approved" &&
             (flightId === null || flightId === view.scheduleLine.flight_id),
         ),
+        isFixedPosition: isFixedPosition(view.scheduleLine),
+        candidateBreaks: placeable?.ok
+          ? placeable.breaks.map((brk) => ({
+              airDate: brk.air_date,
+              remainingSeconds: brk.remaining_seconds,
+              openToAutomation:
+                automationBlockFor(
+                  { rundownStatus: brk.rundown_status, scheduledAt: brk.scheduled_at },
+                  nowISO,
+                ) === null,
+            }))
+          : [],
+        shortestApprovedCopySeconds:
+          approvedDurations.length > 0 ? Math.min(...approvedDurations) : null,
         separationUndecided:
           Boolean(contract.separation_source_text) && contract.separation_policy === "unspecified",
         bucketsShortSoon: view.buckets.filter(
@@ -111,10 +136,86 @@ export default async function UnderwritingDashboardPage({
       view.buckets.filter((b) => b.periodEnd >= todayISO).reduce((s, b) => s + b.freshShortfall, 0),
     0,
   );
+  const makegoodsPendingApproval = views.reduce(
+    (sum, view) => sum + view.openItems.makegoodsPendingApproval,
+    0,
+  );
+  const makegoodsAwaitingSlot = views.reduce(
+    (sum, view) => sum + view.openItems.awaitingSlot.length,
+    0,
+  );
+  const capacityConflicts = conflicts.filter((check) =>
+    check.reasons.includes("capacity_conflict"),
+  ).length;
+
+  // What needs action, first (2026-09-25, after comparing against
+  // RadioTraffic's own attention-first dashboard): each figure links to
+  // the screen where it is worked.
+  const attention: {
+    label: string;
+    count: number;
+    href: string;
+    tone: "danger" | "warning" | "neutral";
+  }[] = [
+    {
+      label: "Open exceptions",
+      count: unresolvedExceptions.length,
+      href: "/underwriting/exceptions",
+      tone: "warning",
+    },
+    {
+      label: "Makegoods pending agency approval",
+      count: makegoodsPendingApproval,
+      href: "/underwriting/exceptions",
+      tone: "warning",
+    },
+    {
+      label: "Makegoods awaiting a slot",
+      count: makegoodsAwaitingSlot,
+      href: "/underwriting/makegoods",
+      tone: "warning",
+    },
+    {
+      label: "Open units still unscheduled",
+      count: unplacedUnits,
+      href: "/underwriting/contracts",
+      tone: "neutral",
+    },
+    { label: "Capacity conflicts", count: capacityConflicts, href: "#conflicts", tone: "danger" },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
       {notice && <Alert variant="info">{notice}</Alert>}
+
+      <section aria-labelledby="attention" className="rounded border border-line">
+        <h2
+          id="attention"
+          className="border-b border-line px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink-400"
+        >
+          Needs attention
+        </h2>
+        <ul className="grid grid-cols-2 gap-px bg-line sm:grid-cols-5">
+          {attention.map((item) => (
+            <li key={item.label} className="bg-white">
+              <Link href={item.href} className="block px-4 py-3 hover:bg-panel-50">
+                <div
+                  className={
+                    item.count > 0 && item.tone !== "neutral"
+                      ? item.tone === "danger"
+                        ? "text-2xl font-bold text-danger"
+                        : "text-2xl font-bold text-warning-fg"
+                      : "text-2xl font-bold text-ink-900"
+                  }
+                >
+                  {item.count}
+                </div>
+                <div className="text-xs text-ink-500">{item.label}</div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-line p-4">
         <div>
@@ -155,7 +256,7 @@ export default async function UnderwritingDashboardPage({
         </div>
       </div>
 
-      <div>
+      <div id="conflicts">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-400">
             Pre-broadcast conflicts

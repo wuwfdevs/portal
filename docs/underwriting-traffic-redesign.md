@@ -510,3 +510,224 @@ AM and PM Drive — seeded pools are AM Drive, PM Drive, Total Program
 Rotation, Weekend Edition, Carpool, Mid-day, and a "Drive Time"/"Weekend
 ROS" pool has to be created on `/underwriting/pools` before those lines
 find inventory.
+
+## 10. Third pass: fill order, frozen rundowns, bumping (2026-09-25)
+
+Found by comparing the portal against RadioTraffic.com, WUWF's current
+traffic system, read-only. Every line there carries a hand-set placement
+priority (01 Highest – 10 Lowest, exact-time spots at 01) with a station
+tie-break order; competitive separation is "By Avail, 1" for every category
+(same break only — what §9's adjacency rule already enforces, so nothing
+changed there); and logs are locked before air and reconciled afterward.
+Four gaps against that, verified in the code first:
+
+- `log_list_placeable_rundown_breaks()` already reported
+  `remaining_seconds` as the break's window minus every item in it,
+  credits and host content alike — occupied time was blocked. Correct.
+- Every placed credit was treated as fixed: nothing distinguished one
+  that could move from one that could not. The host's
+  `log_relocate_underwriting_credit()` exists, but it is gated on Log
+  access, stays inside one rundown, and skips the contractual checks.
+- `runAutoFillOverLines()` filled lines in the order the query returned
+  them (`start_date`, then creation) — not random, but with no regard for
+  constraint, so an any-time line could take the one break an exact-time
+  line needed and the latter then read "no inventory".
+- The planner skipped days before today; the SQL guard checked nothing
+  about a rundown's state, so a placement could land in a live rundown or
+  an earlier-today break, and a manual placement anywhere at all.
+
+### 10.1 Fill order
+
+`lib/underwriting/fill-order.ts` (pure, tested). When more than one line
+is filled in one run — a contract's lines, or every active line from the
+dashboard — `orderLinesForFill()` sorts most-constrained first: exact /
+opening / closing; window (narrower before wider); preferred; any. Within a
+tier guaranteed goes before bonus, then the line with fewer open candidate
+breaks (counted live from the listing, frozen and full breaks excluded),
+then the order given. The constraint itself is the priority: no priority
+levels, no rate-based ranking (most WUWF spots are $0), no schema.
+
+### 10.2 Frozen rundowns
+
+Automation — auto-fill, rundown provisioning, bumping — never adds, moves
+or clears a credit in a rundown that is `in_progress` or `submitted`, nor
+in a break whose start has passed. Host actions (fill, move, aired/missed,
+relocate) and a traffic staffer's own manual placement or clear are not
+automation and stay unrestricted. Enforced twice, in the twin pattern:
+
+- SQL: `uw_automation_block(break, rundown)` returns `rundown_frozen`,
+  `break_in_past` or null. `log_place_underwriting_credit()` and
+  `log_clear_underwriting_credit()` gained `p_automated boolean default
+  false` (the old signatures dropped, so a caller passing five or one
+  arguments still resolves) and refuse with that code when it is true;
+  `log_bump_underwriting_credit()` is always automation;
+  `log_generate_rundown_for_underwriting()` refuses a date before
+  `uw_station_today()` (`air_date_in_past`).
+- TypeScript: `lib/underwriting/freeze.ts` (`automationBlockFor()`).
+  `CandidateBreak` carries `scheduledAt` and `rundownStatus`,
+  `SelectionDemand` carries `nowISO`, and `planInventorySelection()` drops
+  a frozen or started break before planning. `placeCredit()` takes
+  `automated`, and every auto-fill write passes it.
+
+Deliberately not frozen: revision activation and cancel-from-a-date still
+clear future placements through the manual path, since a human previews and
+clicks them; if one of those placements sits in a live rundown the clear
+goes through. Worth a decision if it ever bites.
+
+### 10.3 Bumping
+
+Movable = a `window`, `preferred` or `any` line's fresh placement with no
+recorded broadcast event. Fixed = `exact`, `opening`, `closing`, any
+makegood placement, anything with an outcome. When a fixed-position unit
+finds every eligible break too full for its shortest approved copy,
+`lib/underwriting/bump-plan.ts` (pure, tested) looks in those breaks for a
+movable credit with another legal home in its own demand bucket — the
+occupant's own listing, filtered to the same bucket, enough room, open to
+automation, not already holding that contract, and no same-underwriter or
+same-industry adjacency at the destination, plus the seat itself must not
+land next to the constrained unit's own identity. It prefers moving bonus
+over guaranteed, then the credit with the most alternatives; the
+destination is the closest same-day break, else the earliest. One hop,
+never a chain. Host content is never displaced (open policy question,
+§10.5): a break full of promos or PSAs is reported as exactly that.
+
+Execution (`auto-fill.ts`'s `bumpToSeat()`) runs after the ordinary plan
+for a fixed-position line: `log_bump_underwriting_credit(placement,
+destination)` clears and re-places inside one subtransaction, so the move
+passes every check `log_place_underwriting_credit()` makes — bucket quota
+(the cleared unit no longer counts), day cap, one per contract per break,
+copy, duration, freeze on both ends — or nothing changes. Then the
+constrained unit is placed in the room left. Each bump is audited as
+`underwriting.credit.bumped` (the moved placement, from/to break, the line
+seated). When no clean move exists, nothing moves and the unit is a named
+`CapacityConflict` (`no_eligible_break`, `host_content_only`,
+`no_movable_credit`, `no_legal_alternative`) in the auto-fill notice, and
+the dashboard's conflict check (`conflicts.ts`, `capacity_conflict`) shows
+the same condition without a run: a fixed-position line short in the next
+two weeks whose candidate breaks are all too full or frozen.
+
+The listing RPC now also returns each break's `rundown_status` and its
+`items` (placement, line, contract, underwriter, category, time mode,
+service level, makegood, bucket, has_outcome) so the planner can see who
+could make room without a second boundary function.
+
+### 10.4 Dashboard and approval trail
+
+`/underwriting` now leads with a "Needs attention" strip: open exceptions,
+makegoods pending agency approval, makegoods awaiting a slot, open units
+still unscheduled, and capacity conflicts, each linking to where it is
+worked. The rest of the page (auto-fill, counts, conflicts, exceptions) is
+unchanged.
+
+A contract records `created_by`; its first revision records
+`activated_by`/`activated_at` (set to the creator at creation, since the
+first revision is created current); a draft revision's activation records
+the same and is audited. Flipping the contract itself from draft to active
+was not audited — it is now (`underwriting.contract.activated`, transition
+only, mirroring the termination audit). The same person may create and
+activate; there is no second-person approval, and none was built.
+
+### 10.5 Open
+
+When a paid credit cannot fit because a break is full of host content,
+may it displace that content? Until answered, host content is never
+displaced and the conflict is reported. Out of scope, as before: automation
+export to ENCO DAD and As-Play import, cross-break or minute-based
+separation, per-line separation overrides, billing.
+
+### 10.6 Shipped and verified
+
+`20260925190000_underwriting_frozen_rundowns_and_bumping.sql`, dry-run in
+a rolled-back transaction on preview, then applied; a rolled-back,
+RLS-impersonated scenario on preview against real Morning Edition rundowns
+then exercised the guard end to end — an automated placement refused by a
+live rundown (`rundown_frozen`) and by a past break (`break_in_past`), a
+manual placement into the live rundown allowed and its automated clear
+refused, a 90-second any-time credit filling a 90-second avail, the exact
+5:06 line refused there (`too_long`), the bump moving the any-time credit
+to the next avail and the exact line seated in its place, and refusals for
+a fixed credit (`credit_fixed`), a live destination, a destination in the
+next bucket (`different_bucket`), the credit's own break, and a credit
+with a recorded outcome (`already_aired`). Tests: tier ordering, the
+freeze in the planner, a bump that seats an exact line, refused bumps (no
+alternative, frozen, cross-bucket, adjacency, too little room), bonus
+before guaranteed, host content named, and the dashboard's capacity
+conflict. `npm run lint`, `typecheck`, `test` and `db:check` pass.
+
+## 11. Contract setup and the contract page, redesigned (2026-09-25)
+
+Built from four reviewed Design boards ("Contract creation, redesigned":
+the contracts list, the order step, the schedule step, the contract page
+in draft), on the WUWF design system the app already uses — the same
+colours, type, radius and section nav, so nothing here changed the look of
+the rest of the tool. No migration: every field the boards show was already
+a column.
+
+### 11.1 Entering a line without free text
+
+`schedule-line-form.ts` no longer parses text. Explicit dates arrive as one
+row per date (`explicit_date`/`explicit_quantity`, a blank count meaning 1)
+and a week grid as one quantity per Monday (`week_quantity:<monday>`,
+blank meaning a dark week) — the editor lays the weeks out from the line's
+own dates, so a quantity cannot be counted into the wrong week and a week
+cannot fall outside the line and be dropped (a grid now requires an end
+date, and a row outside the dates is refused, not silently ignored). A
+field the chosen kind never reads — a quantity under a fixed-days line, an
+interval under a weekly quota — is refused with a message naming the kind,
+rather than ignored.
+
+`schedule-line-editor.tsx` (client) is the form: choice cards for how the
+order sells the credits, and only that kind's fields; a per-week grid
+(click a Monday to mark it with the quantity, type a count in a cell that
+differs, "Mark every week" / "Every other week" / "Clear all", partial
+first and last weeks flagged); explicit dates as rows; the time rule as a
+segmented control with its own fields; and an aside that compiles the line
+live with the very same `parseScheduleLineForm()` the Server Action runs,
+so "this line compiles to 162" and "reconciles with the order" show what
+saving will store. The label is suggested from the pool and the rule until
+edited. The wording "order states" is gone: fields read "Spots on the
+order" / "Total spots on the order", and the reconciliation copy says "the
+order says 162".
+
+### 11.2 Setup as four steps
+
+`/underwriting/contracts/new` (the order: underwriter, order number,
+sponsorship total, run dates, category, notes) creates the contract as a
+draft with its first revision and continues to
+`/contracts/[id]/schedule` (the lines entered so far with what each
+compiles to and whether it matches the order, plus the editor; "Add and
+start another" stays on the step), then `/contracts/[id]/policy` (copy —
+create and link, unlink — and the traffic policy, including the affidavit
+flag and the total spots on the order), then the contract page itself.
+`/contracts/[id]/order` edits the order's facts afterwards
+(`updateContractOrder`). Every step is the existing actions with a
+`return_to` field, so the wizard is navigation over what the contract page
+already did; a draft is saved as you go and schedules nothing until
+activated.
+
+### 11.3 The contract page
+
+Leads, for a draft, with a readiness checklist (`readiness.ts`, pure,
+tested: order details, agreement attached, schedule entered and reconciled,
+copy linked and approved, traffic policy decided — warnings never block
+activation), then six sub-tabs (Schedule, Copy, Flights, Placements,
+Revisions, Policy) via `?tab=`, with the facts, the delivery bar, the
+policy summary and the status beside them. A line is a card
+(`line-card.tsx`) with a delivery bar and a "⋮" menu (`line-actions.tsx`)
+holding Place a credit, Demand by period, Placements, Cancel from a date,
+and Remove from draft; Auto-fill stays a visible button. The contract's own
+activation button sits in the header for a draft.
+
+### 11.4 The list
+
+`/underwriting/contracts` searches by underwriter or order number, filters
+by All / Active / Draft / Needs attention (open exceptions, or a draft
+still in setup), and shows a delivery bar per contract from
+`listContractDeliveryRollups()` — the same per-bucket arithmetic as the
+contract page, summed, one read per table. New contracts start from the
+list's button.
+
+Six shared primitives came out of the boards (`components/ui`):
+`ChoiceCards`, `DayPicker`, `Segmented` (native radios and checkboxes via
+`peer-checked`, so they work in a plain form and controlled alike),
+`Steps`, `ProgressBar`, `FilterChips`.

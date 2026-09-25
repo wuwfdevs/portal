@@ -50,3 +50,41 @@ describe("computeScheduleLineConflicts", () => {
     ).toEqual([]);
   });
 });
+
+describe("capacity conflicts", () => {
+  const base = {
+    hasApprovedLinkedCopy: true,
+    separationUndecided: false,
+    makegoodsPendingApproval: 0,
+    bucketsShortSoon: [period()],
+    datesWithInventory: new Set(["2026-09-28"]),
+    shortestApprovedCopySeconds: 30,
+  };
+
+  it("flags a fixed-position line whose only eligible breaks are too full or frozen", () => {
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        isFixedPosition: true,
+        candidateBreaks: [
+          { airDate: "2026-09-28", remainingSeconds: 10, openToAutomation: true },
+          { airDate: "2026-09-28", remainingSeconds: 60, openToAutomation: false },
+        ],
+      }),
+    ).toEqual(["capacity_conflict"]);
+  });
+
+  it("never flags a line that can take any avail, nor one with room left", () => {
+    const tooFull = [{ airDate: "2026-09-28", remainingSeconds: 10, openToAutomation: true }];
+    expect(
+      computeScheduleLineConflicts({ ...base, isFixedPosition: false, candidateBreaks: tooFull }),
+    ).toEqual([]);
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        isFixedPosition: true,
+        candidateBreaks: [{ airDate: "2026-09-28", remainingSeconds: 30, openToAutomation: true }],
+      }),
+    ).toEqual([]);
+  });
+});

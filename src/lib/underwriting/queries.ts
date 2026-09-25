@@ -668,6 +668,7 @@ export async function buildSelectionDemand(
   underwriter: UwUnderwriterRow,
   buckets: UwDemandBucketRow[],
   todayISO: string = stationTodayISO(),
+  nowISO: string = new Date().toISOString(),
 ): Promise<SelectionDemand> {
   const [placementsByLine, openItemsByLine] = await Promise.all([
     listPlacementsWithOutcomes([scheduleLine.id]),
@@ -710,6 +711,7 @@ export async function buildSelectionDemand(
     separationMinutes:
       contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
     todayISO,
+    nowISO,
   };
 }
 
@@ -914,6 +916,97 @@ export async function listScheduleLinesWithActiveContracts(): Promise<ScheduleLi
     const contract = contractById.get(line.contract_id);
     return contract ? [{ ...line, contract }] : [];
   });
+}
+
+export interface ContractDeliveryRollup {
+  /** Active lines under the current revision. */
+  lineCount: number;
+  expected: number;
+  delivered: number;
+  scheduled: number;
+  /** A one-line reading of the schedule for a list row: the first line's rule, or the count. */
+  scheduleSummary: string;
+}
+
+/**
+ * Per-contract delivery for the contracts list (the reviewed mockup's
+ * delivery bar): what the current revision's active lines compile to, and
+ * how much of it has aired or is scheduled — the same per-bucket
+ * arithmetic the contract page uses, summed. One read per table, not per
+ * contract.
+ */
+export async function listContractDeliveryRollups(
+  contractIds: string[],
+): Promise<Map<string, ContractDeliveryRollup>> {
+  const result = new Map<string, ContractDeliveryRollup>();
+  if (contractIds.length === 0) return result;
+  const supabase = await createClient();
+  const revisions =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_revisions")
+        .select("id, contract_id")
+        .in("contract_id", contractIds)
+        .eq("status", "current"),
+      "the current revisions",
+    ) ?? [];
+  if (revisions.length === 0) return result;
+  const lines =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_schedule_lines")
+        .select("*")
+        .in(
+          "revision_id",
+          revisions.map((revision) => revision.id),
+        )
+        .eq("status", "active")
+        .order("start_date"),
+      "the contracts' schedule lines",
+    ) ?? [];
+  const lineIds = lines.map((line) => line.id);
+  const [bucketsByLine, placementsByLine] = await Promise.all([
+    listBucketsForLines(lineIds),
+    listPlacementsWithOutcomes(lineIds),
+  ]);
+
+  for (const contractId of contractIds) {
+    const own = lines.filter((line) => line.contract_id === contractId);
+    let expected = 0;
+    let delivered = 0;
+    let scheduled = 0;
+    for (const line of own) {
+      const buckets = computeBucketFulfillment(
+        line,
+        bucketsByLine.get(line.id) ?? [],
+        (placementsByLine.get(line.id) ?? []).map((placement) => ({
+          bucketId: placement.demand_bucket_id,
+          isMakegood: placement.makegood_id !== null,
+          outcome: placement.outcome,
+        })),
+      );
+      for (const bucket of buckets) {
+        if (bucket.status !== "active") continue;
+        expected += bucket.quantity;
+        delivered += bucket.delivered;
+        scheduled += bucket.scheduled + bucket.makegoodsScheduled;
+      }
+    }
+    const first = own[0];
+    result.set(contractId, {
+      lineCount: own.length,
+      expected,
+      delivered,
+      scheduled,
+      scheduleSummary:
+        own.length === 0
+          ? "No lines yet"
+          : own.length === 1 && first
+            ? first.label || describeScheduleLine(first, { poolName: null, programName: null })
+            : `${own.length} lines`,
+    });
+  }
+  return result;
 }
 
 // Exceptions -------------------------------------------------------------------

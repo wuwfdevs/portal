@@ -1,8 +1,16 @@
 // Pure parsing/validation for the order-entry form (docs/underwriting-
-// traffic-redesign.md §9) — turns what a traffic staffer typed from a
+// traffic-redesign.md §9) — turns what a traffic staffer entered from a
 // signed insertion order into a schedule-line insert (eligibility) plus the
 // compiled demand buckets, or a plain-language error. No Supabase import,
 // colocated test.
+//
+// Every entry is structured (2026-09-25, replacing two free-text formats):
+// explicit dates arrive as one row per date, and a week grid as one
+// quantity per Monday between the line's own dates — the editor lays the
+// weeks out from the dates, so nothing can be counted into the wrong week
+// or fall outside the line and be dropped. A field the chosen kind does not
+// use must be blank, so a quantity typed under the wrong kind is refused
+// rather than silently ignored.
 
 import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 import { isValidDateISO, weekStartOf } from "./dates";
@@ -34,10 +42,10 @@ export interface ScheduleLineFormValues {
   source_text: string;
   makegood_policy_text: string;
   notes: string;
-  /** explicit_dates: one date per line, optionally "x N"; week_grid: "YYYY-MM-DD N" per line, or a first Monday plus "grid_quantities". */
-  dates_text: string;
-  grid_first_monday: string;
-  grid_quantities: string;
+  /** explicit_dates: one row per date; a blank quantity means 1. */
+  explicit_dates: { date: string; quantity: string }[];
+  /** week_grid: one row per Monday week between the line's dates; a blank quantity is a dark week (0). */
+  week_grid: { week_start: string; quantity: string }[];
 }
 
 export interface ParsedScheduleLine {
@@ -92,23 +100,20 @@ function orNull(raw: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** "2026-09-11", "2026-09-11 x2", "2026-09-11 x 2", "2026-09-11, 2026-09-24" → one entry per date. */
+/** One row per date, each with a count (blank = 1); the same date twice is summed. */
 export function parseExplicitDates(
-  text: string,
+  rows: { date: string; quantity: string }[],
 ): { ok: true; value: { date: string; quantity: number }[] } | { ok: false; error: string } {
-  const entries = text
-    .split(/[\n,;]+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== "");
+  const entries = rows.filter((row) => row.date.trim() !== "" || row.quantity.trim() !== "");
   if (entries.length === 0) return { ok: false, error: "List at least one date." };
   const byDate = new Map<string, number>();
   for (const entry of entries) {
-    const match = /^(\d{4}-\d{2}-\d{2})(?:\s*[x×]\s*(\d+))?$/i.exec(entry);
-    if (!match || !isValidDateISO(match[1]!))
-      return { ok: false, error: `"${entry}" isn't a date (use YYYY-MM-DD, optionally "x 2").` };
-    const quantity = match[2] ? Number.parseInt(match[2], 10) : 1;
-    if (quantity < 1) return { ok: false, error: `"${entry}" asks for zero credits.` };
-    byDate.set(match[1]!, (byDate.get(match[1]!) ?? 0) + quantity);
+    const date = entry.date.trim();
+    if (!isValidDateISO(date)) return { ok: false, error: "Every listed date needs a real date." };
+    const quantity = entry.quantity.trim() === "" ? 1 : intOrNull(entry.quantity);
+    if (quantity == null || quantity < 1)
+      return { ok: false, error: `${date} needs a whole number of credits, at least 1.` };
+    byDate.set(date, (byDate.get(date) ?? 0) + quantity);
   }
   return {
     ok: true,
@@ -117,61 +122,78 @@ export function parseExplicitDates(
 }
 
 /**
- * Either "YYYY-MM-DD N" per line (any date in the week; snapped to its
- * Monday), or a first Monday plus a comma/space-separated run of
- * quantities, one per week, zeros included — the way an agency grid reads.
+ * One quantity per Monday week between the line's dates (blank = a dark
+ * week, 0), the way an agency grid prints. A week outside the line's own
+ * dates is refused rather than dropped: the editor lays the weeks out from
+ * the dates, so one can only get here by mistake.
  */
 export function parseWeekGrid(
-  text: string,
-  firstMonday: string,
-  quantities: string,
+  rows: { week_start: string; quantity: string }[],
+  startDate: string,
+  endDate: string,
 ): { ok: true; value: { week_start: string; quantity: number }[] } | { ok: false; error: string } {
+  if (rows.length === 0) return { ok: false, error: "Enter the grid: a quantity for each week." };
+  const firstWeek = weekStartOf(startDate);
+  const lastWeek = weekStartOf(endDate);
   const byWeek = new Map<string, number>();
-  const lines = text
-    .split(/\n+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== "");
-  for (const entry of lines) {
-    const match = /^(\d{4}-\d{2}-\d{2})[\s:,]+(\d+)$/.exec(entry);
-    if (!match || !isValidDateISO(match[1]!))
+  for (const row of rows) {
+    const weekStart = row.week_start.trim();
+    if (!isValidDateISO(weekStart) || weekStartOf(weekStart) !== weekStart)
+      return { ok: false, error: "Every grid week must be keyed by its Monday." };
+    if (weekStart < firstWeek || weekStart > lastWeek)
       return {
         ok: false,
-        error: `"${entry}" should read like "2026-01-26 6" (a date in the week, then the quantity).`,
+        error: `The week of ${weekStart} is outside the line's dates — change the dates or leave it out.`,
       };
-    byWeek.set(weekStartOf(match[1]!), Number.parseInt(match[2]!, 10));
+    const quantity = row.quantity.trim() === "" ? 0 : intOrNull(row.quantity);
+    if (quantity == null || quantity < 0)
+      return { ok: false, error: `The week of ${weekStart} needs a whole number of credits.` };
+    byWeek.set(weekStart, quantity);
   }
-  const run = quantities
-    .split(/[\s,;]+/)
-    .map((q) => q.trim())
-    .filter((q) => q !== "");
-  if (run.length > 0) {
-    if (!isValidDateISO(firstMonday))
-      return { ok: false, error: "Give the Monday the grid's first column starts on." };
-    let weekStart = weekStartOf(firstMonday);
-    for (const q of run) {
-      if (!/^\d+$/.test(q)) return { ok: false, error: `"${q}" isn't a whole number of credits.` };
-      byWeek.set(weekStart, Number.parseInt(q, 10));
-      const next = new Date(`${weekStart}T00:00:00Z`);
-      next.setUTCDate(next.getUTCDate() + 7);
-      weekStart = next.toISOString().slice(0, 10);
-    }
-  }
-  if (byWeek.size === 0)
-    return {
-      ok: false,
-      error:
-        "Enter the grid: one week per line, or a first Monday and the run of weekly quantities.",
-    };
   return {
     ok: true,
     value: [...byWeek.entries()].sort().map(([week_start, quantity]) => ({ week_start, quantity })),
   };
 }
 
+const KIND_LABEL: Record<UwScheduleEntryKind, string> = {
+  fixed_days: "fixed-days",
+  weekly_quota: "weekly-quota",
+  monthly_quota: "monthly-quota",
+  every_n_weeks: "every-N-weeks",
+  explicit_dates: "explicit-dates",
+  week_grid: "week-grid",
+  range_total: "range-total",
+};
+
+/** A field the chosen kind never reads must be blank — a value typed under the wrong kind is refused, not ignored. */
+function unusedFieldError(
+  values: ScheduleLineFormValues,
+  kind: UwScheduleEntryKind,
+): string | null {
+  const usesCountPerDay = kind === "fixed_days";
+  const usesQuantity =
+    kind === "weekly_quota" ||
+    kind === "monthly_quota" ||
+    kind === "every_n_weeks" ||
+    kind === "range_total";
+  const usesInterval = kind === "every_n_weeks";
+  const label = KIND_LABEL[kind];
+  if (!usesCountPerDay && values.count_per_day.trim() !== "")
+    return `Credits per day isn't used by a ${label} line — clear it or change how the order sells it.`;
+  if (!usesQuantity && values.quantity.trim() !== "")
+    return `Quantity isn't used by a ${label} line — clear it or change how the order sells it.`;
+  if (!usesInterval && values.interval_weeks.trim() !== "")
+    return `The interval isn't used by a ${label} line — clear it or change how the order sells it.`;
+  return null;
+}
+
 export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
   const entryKind = values.entry_kind as UwScheduleEntryKind;
   if (!ENTRY_KINDS.includes(entryKind))
     return { ok: false, error: "Choose how the order sells these credits." };
+  const unused = unusedFieldError(values, entryKind);
+  if (unused) return { ok: false, error: unused };
 
   const poolId = orNull(values.pool_id);
   const programId = orNull(values.program_id);
@@ -264,17 +286,23 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
       break;
     }
     case "explicit_dates": {
-      const parsed = parseExplicitDates(values.dates_text);
+      const parsed = parseExplicitDates(values.explicit_dates);
       if (!parsed.ok) return parsed;
+      const stray = parsed.value.filter(
+        (entry) => entry.date < startDate || (endDate !== null && entry.date > endDate),
+      );
+      if (stray.length > 0)
+        return {
+          ok: false,
+          error: `${stray[0]!.date} is outside the line's dates — change the dates or leave it out.`,
+        };
       spec = { kind: "explicit_dates", dates: parsed.value };
       break;
     }
     case "week_grid": {
-      const parsed = parseWeekGrid(
-        values.dates_text,
-        values.grid_first_monday,
-        values.grid_quantities,
-      );
+      if (endDate === null)
+        return { ok: false, error: "A week grid needs an end date so its weeks can be laid out." };
+      const parsed = parseWeekGrid(values.week_grid, startDate, endDate);
       if (!parsed.ok) return parsed;
       spec = { kind: "week_grid", weeks: parsed.value };
       break;
