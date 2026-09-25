@@ -1,7 +1,15 @@
 import "server-only";
 import { stationTodayISO } from "@/lib/log/timezone";
-import { listPlaceableRundownBreaks, placeCredit } from "./placement";
+import {
+  bumpCredit,
+  listPlaceableRundownBreaks,
+  placeCredit,
+  type PlaceableRundownBreak,
+} from "./placement";
 import { provisionRundownsForDates } from "./rundown-provisioning";
+import { isFixedPosition, orderLinesForFill } from "./fill-order";
+import { automationBlockFor } from "./freeze";
+import { planBump, type BumpBreak, type BumpMove, type CapacityConflict } from "./bump-plan";
 import {
   buildSelectionDemand,
   getContract,
@@ -19,6 +27,7 @@ import {
 import {
   datesNeedingInventory,
   planInventorySelection,
+  selectCopyForBreak,
   type CandidateBreak,
   type CopyCandidate,
   type UnplaceableUnit,
@@ -43,7 +52,26 @@ import {
  * the combined inventory is the one that executes. One computation drives
  * both what gets generated and what gets filled — see CLAUDE.md's
  * 2026-08-09 note on why that distinction matters.
+ *
+ * Three rules added 2026-09-25 (docs/underwriting-traffic-redesign.md §10):
+ * every automated write passes `automated: true`, so the SQL guard refuses
+ * a live or submitted rundown and a break that has already started
+ * (freeze.ts filters the same breaks out of the plan first); when several
+ * lines are filled in one run they go most-constrained first
+ * (fill-order.ts); and a fixed-position unit (exact, opening, closing)
+ * that finds every eligible break full may bump one movable credit to
+ * another legal break in its own bucket (bump-plan.ts chooses,
+ * log_bump_underwriting_credit() executes atomically) — or is reported
+ * as a named capacity conflict when no clean move exists.
  */
+
+/** A bump this run carried out: the moved placement, where it went, and the constrained unit seated in the room it left. */
+export interface ExecutedBump extends BumpMove {
+  /** The moved credit's new placement id (the old one is superseded). */
+  newPlacementId: string;
+  seatedScheduleLineId: string;
+  seatedPlacementId: string;
+}
 
 export interface AutoFillResult {
   placedCount: number;
@@ -54,6 +82,10 @@ export interface AutoFillResult {
   unschedulableAirDates: string[];
   /** Demand units the plan could not place, with the reason. */
   unplaceable: UnplaceableUnit[];
+  /** Movable credits this run relocated so a constrained unit could be seated. */
+  bumps: ExecutedBump[];
+  /** Constrained units that could not be seated even by bumping — named for staff. */
+  capacityConflicts: CapacityConflict[];
   /** A reason the whole line was skipped before planning, if any. */
   skippedReason: string | null;
   errors: string[];
@@ -65,9 +97,87 @@ const EMPTY_RESULT: AutoFillResult = {
   rundownsGeneratedCount: 0,
   unschedulableAirDates: [],
   unplaceable: [],
+  bumps: [],
+  capacityConflicts: [],
   skippedReason: null,
   errors: [],
 };
+
+/** The planner's view of a listed break. Items are kept beside it for the bump planner. */
+function toCandidate(
+  brk: PlaceableRundownBreak,
+  lastItem?: { underwriterId: string; categoryId: string | null },
+): CandidateBreak {
+  return {
+    breakId: brk.break_id,
+    airDate: brk.air_date,
+    minutesOfDay: brk.minutes_of_day,
+    scheduledAt: brk.scheduled_at,
+    rundownStatus: brk.rundown_status,
+    remainingSeconds: brk.remaining_seconds,
+    lastItemUnderwriterId: lastItem?.underwriterId ?? null,
+    lastItemCategoryId: lastItem?.categoryId ?? null,
+    holdsThisContract: brk.holds_this_contract,
+    bucketId: brk.bucket_id,
+  };
+}
+
+function toBumpBreak(brk: PlaceableRundownBreak, candidate: CandidateBreak): BumpBreak {
+  return {
+    ...candidate,
+    items: brk.items.map((item) => ({
+      itemId: item.item_id,
+      position: item.position,
+      durationSeconds: item.duration_seconds,
+      placementId: item.placement_id,
+      scheduleLineId: item.schedule_line_id,
+      contractId: item.contract_id,
+      underwriterId: item.underwriter_id,
+      categoryId: item.category_id,
+      timeMode: item.time_mode,
+      serviceLevel: item.service_level,
+      makegoodId: item.makegood_id,
+      bucketId: item.bucket_id,
+      hasOutcome: item.has_outcome,
+    })),
+  };
+}
+
+/** Lists a line's eligible breaks with each one's last-item adjacency resolved — the shape both the planner and the bump planner read. */
+async function listCandidates(
+  scheduleLineId: string,
+): Promise<
+  | { ok: true; breaks: PlaceableRundownBreak[]; candidates: CandidateBreak[] }
+  | { ok: false; message: string }
+> {
+  const placeable = await listPlaceableRundownBreaks(scheduleLineId);
+  if (!placeable.ok) return { ok: false, message: placeable.message };
+  const adjacencyByItemId = await resolveLastItemAdjacency(
+    placeable.breaks.map((brk) => brk.last_item_id),
+  );
+  return {
+    ok: true,
+    breaks: placeable.breaks,
+    candidates: placeable.breaks.map((brk) =>
+      toCandidate(brk, brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined),
+    ),
+  };
+}
+
+/** How many breaks a line could fill right now — its candidate count for constraint ordering. */
+function countOpenCandidates(
+  candidates: CandidateBreak[],
+  todayISO: string,
+  nowISO: string,
+): number {
+  return candidates.filter(
+    (brk) =>
+      brk.airDate >= todayISO &&
+      brk.remainingSeconds > 0 &&
+      !brk.holdsThisContract &&
+      automationBlockFor(brk, nowISO) === null,
+  ).length;
+}
 
 /** The programs auto-fill may provision rundowns for on a line's behalf: its own program, else every program its pool names explicitly. A pool target with no program ("any program") provisions nothing — it fills whatever rundowns exist. */
 export function programsForLine(
@@ -120,15 +230,18 @@ export async function autoFillScheduleLine(
   }
 
   const todayISO = stationTodayISO();
-  const [bucketsByLine, placeable, copyByContract, pools, activePlacements] = await Promise.all([
+  const nowISO = new Date().toISOString();
+  const [bucketsByLine, listed, copyByContract, pools, activePlacements] = await Promise.all([
     listBucketsForLines([scheduleLine.id]),
-    listPlaceableRundownBreaks(scheduleLine.id),
+    // Never the same underwriter, or the same industry, back to back within
+    // one break — listCandidates resolves each break's last item for that.
+    listCandidates(scheduleLine.id),
     listCopyLinkedToContracts([scheduleLine.contract_id]),
     listInventoryPools(),
     listPlacementsForScheduleLine(scheduleLine.id),
   ]);
-  if (!placeable.ok) {
-    return { ...EMPTY_RESULT, errors: [placeable.message] };
+  if (!listed.ok) {
+    return { ...EMPTY_RESULT, errors: [listed.message] };
   }
   const demand = await buildSelectionDemand(
     scheduleLine,
@@ -136,12 +249,7 @@ export async function autoFillScheduleLine(
     underwriter,
     bucketsByLine.get(scheduleLine.id) ?? [],
     todayISO,
-  );
-
-  // Never the same underwriter, or the same industry, back to back within
-  // one break — see inventory-selection.ts's header.
-  const adjacencyByItemId = await resolveLastItemAdjacency(
-    placeable.breaks.map((brk) => brk.last_item_id),
+    nowISO,
   );
 
   // Rotation fairness is seeded from every currently-active placement on
@@ -162,20 +270,8 @@ export async function autoFillScheduleLine(
     }),
   );
 
-  const toCandidate = (brk: (typeof placeable.breaks)[number]): CandidateBreak => {
-    const lastItem = brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined;
-    return {
-      breakId: brk.break_id,
-      airDate: brk.air_date,
-      minutesOfDay: brk.minutes_of_day,
-      remainingSeconds: brk.remaining_seconds,
-      lastItemUnderwriterId: lastItem?.underwriterId ?? null,
-      lastItemCategoryId: lastItem?.categoryId ?? null,
-      holdsThisContract: brk.holds_this_contract,
-      bucketId: brk.bucket_id,
-    };
-  };
-  const existingCandidates = placeable.breaks.map(toCandidate);
+  const existingCandidates = listed.candidates;
+  let listedBreaks = listed.breaks;
 
   // Probe: what can this run do with inventory that already exists? Its
   // shortfall is the one number provisioning is allowed to act on.
@@ -211,8 +307,11 @@ export async function autoFillScheduleLine(
     if (rundownsGeneratedCount > 0) {
       // Re-read candidates: the new breaks need the pool/window/date filter
       // the RPC applies, not a guess at which of them qualify.
-      const refreshed = await listPlaceableRundownBreaks(scheduleLine.id);
-      if (refreshed.ok) finalCandidates = refreshed.breaks.map(toCandidate);
+      const refreshed = await listCandidates(scheduleLine.id);
+      if (refreshed.ok) {
+        finalCandidates = refreshed.candidates;
+        listedBreaks = refreshed.breaks;
+      }
     }
   }
 
@@ -231,6 +330,7 @@ export async function autoFillScheduleLine(
       scheduleLineId: scheduleLine.id,
       copyId: item.copyId,
       makegoodId: item.makegoodId,
+      automated: true,
     });
     if (!result.ok) {
       errors.push(result.message);
@@ -240,15 +340,179 @@ export async function autoFillScheduleLine(
     if (item.makegoodId) makegoodsResolvedCount++;
   }
 
+  // Bumping: a fixed-position unit that found every eligible break full
+  // may move one movable credit out of the way — one hop, inside that
+  // credit's own bucket, through every check the guard makes. Anything
+  // it can't seat cleanly is named as a capacity conflict, never forced.
+  const bumps: ExecutedBump[] = [];
+  const capacityConflicts: CapacityConflict[] = [];
+  let unplaceable = finalPlan.unplaceable;
+  if (isFixedPosition(scheduleLine)) {
+    const bumped = await bumpToSeat(
+      scheduleLine,
+      demand.underwriterId,
+      demand.categoryId,
+      unplaceable,
+      listedBreaks,
+      finalCandidates,
+      copyCandidates,
+      usageCounts,
+      nowISO,
+    );
+    bumps.push(...bumped.bumps);
+    capacityConflicts.push(...bumped.capacityConflicts);
+    errors.push(...bumped.errors);
+    placedCount += bumped.placedCount;
+    makegoodsResolvedCount += bumped.makegoodsResolvedCount;
+    unplaceable = bumped.stillUnplaceable;
+  }
+
   return {
     placedCount,
     makegoodsResolvedCount,
     rundownsGeneratedCount,
     unschedulableAirDates,
-    unplaceable: finalPlan.unplaceable,
+    unplaceable,
+    bumps,
+    capacityConflicts,
     skippedReason: null,
     errors,
   };
+}
+
+/**
+ * For each unit a fixed-position line could not seat for lack of room,
+ * plans and carries out at most one bump (bump-plan.ts), then seats the
+ * unit. Movable credits' own legal homes come from the same listing RPC,
+ * asked once per line involved.
+ */
+async function bumpToSeat(
+  scheduleLine: UwContractScheduleLineRow,
+  underwriterId: string,
+  categoryId: string | null,
+  unplaceable: UnplaceableUnit[],
+  listedBreaks: PlaceableRundownBreak[],
+  candidates: CandidateBreak[],
+  copyCandidates: CopyCandidate[],
+  usageCounts: Map<string, number>,
+  nowISO: string,
+): Promise<{
+  bumps: ExecutedBump[];
+  capacityConflicts: CapacityConflict[];
+  stillUnplaceable: UnplaceableUnit[];
+  placedCount: number;
+  makegoodsResolvedCount: number;
+  errors: string[];
+}> {
+  const result = {
+    bumps: [] as ExecutedBump[],
+    capacityConflicts: [] as CapacityConflict[],
+    stillUnplaceable: [] as UnplaceableUnit[],
+    placedCount: 0,
+    makegoodsResolvedCount: 0,
+    errors: [] as string[],
+  };
+  const approvedDurations = copyCandidates
+    .filter((copy) => copy.approvalStatus === "approved" && copy.durationSeconds != null)
+    .map((copy) => copy.durationSeconds as number);
+  const shortest = approvedDurations.length > 0 ? Math.min(...approvedDurations) : null;
+  const candidateById = new Map(candidates.map((candidate) => [candidate.breakId, candidate]));
+  const alternativesByLine = new Map<string, CandidateBreak[]>();
+  const usage = new Map(usageCounts);
+
+  for (const unit of unplaceable) {
+    // Only room is bumpable: a unit short of inventory or of copy that
+    // fits. Anything else (day cap, adjacency, separation, no copy at all)
+    // is not a capacity problem a move would solve.
+    if ((unit.why !== "no_inventory" && unit.why !== "no_eligible_copy") || shortest == null) {
+      result.stillUnplaceable.push(unit);
+      continue;
+    }
+    const bumpBreaks = listedBreaks
+      .filter((brk) => brk.bucket_id === unit.bucketId || unit.reason === "makegood")
+      .flatMap((brk) => {
+        const candidate = candidateById.get(brk.break_id);
+        return candidate ? [toBumpBreak(brk, candidate)] : [];
+      });
+    for (const brk of bumpBreaks) {
+      for (const item of brk.items) {
+        if (!item.scheduleLineId || item.placementId === null) continue;
+        if (alternativesByLine.has(item.scheduleLineId)) continue;
+        const homes = await listCandidates(item.scheduleLineId);
+        alternativesByLine.set(item.scheduleLineId, homes.ok ? homes.candidates : []);
+      }
+    }
+    const plan = planBump(
+      {
+        scheduleLineId: scheduleLine.id,
+        bucketId: unit.bucketId,
+        contractId: scheduleLine.contract_id,
+        underwriterId,
+        categoryId,
+        copyDurationSeconds: shortest,
+      },
+      bumpBreaks,
+      alternativesByLine,
+      nowISO,
+    );
+    if (plan.kind === "conflict") {
+      result.capacityConflicts.push(plan.conflict);
+      result.stillUnplaceable.push(unit);
+      continue;
+    }
+
+    const moved = await bumpCredit(plan.move.placementId, plan.move.toBreakId);
+    if (!moved.ok) {
+      result.errors.push(`Could not move a credit to make room: ${moved.message}`);
+      result.stillUnplaceable.push(unit);
+      continue;
+    }
+    const seat = bumpBreaks.find((brk) => brk.breakId === plan.move.seatBreakId)!;
+    const movedItem = seat.items.find((item) => item.itemId === plan.move.itemId)!;
+    const copy = selectCopyForBreak(
+      copyCandidates,
+      {
+        remainingSeconds: seat.remainingSeconds + movedItem.durationSeconds,
+        airDate: seat.airDate,
+      },
+      scheduleLine.flight_id,
+      usage,
+    );
+    if (!copy) {
+      result.errors.push(
+        "Moved a credit to make room, but no linked copy fits the room it left; the moved credit stays where it is now.",
+      );
+      result.stillUnplaceable.push(unit);
+      continue;
+    }
+    const seated = await placeCredit({
+      breakId: seat.breakId,
+      scheduleLineId: scheduleLine.id,
+      copyId: copy.id,
+      makegoodId: unit.makegoodId,
+      automated: true,
+    });
+    if (!seated.ok) {
+      result.errors.push(
+        `Moved a credit to make room, but the constrained credit could not be seated: ${seated.message}`,
+      );
+      result.stillUnplaceable.push(unit);
+      continue;
+    }
+    usage.set(copy.id, (usage.get(copy.id) ?? 0) + 1);
+    seat.remainingSeconds =
+      seat.remainingSeconds + movedItem.durationSeconds - (copy.durationSeconds ?? 0);
+    seat.items = seat.items.filter((item) => item.itemId !== plan.move.itemId);
+    result.placedCount++;
+    if (unit.makegoodId) result.makegoodsResolvedCount++;
+    result.bumps.push({
+      ...plan.move,
+      newPlacementId: moved.placementId,
+      seatedScheduleLineId: scheduleLine.id,
+      seatedPlacementId: seated.placementId,
+    });
+  }
+  return result;
 }
 
 export interface AutoFillAllResult {
@@ -263,7 +527,10 @@ export interface AutoFillAllResult {
  * real possibility, and log_list_placeable_rundown_breaks() reads live
  * occupancy at call time, so running lines one after another is what keeps
  * both the occupancy count and the adjacency check correct (the RPC's row
- * lock is the backstop, not the plan).
+ * lock is the backstop, not the plan). Most-constrained first
+ * (fill-order.ts): an exact-time or opening/closing line claims its one
+ * break before an any-time line takes it by accident of list order, and
+ * within a tier the line with fewer open candidates goes first.
  */
 async function runAutoFillOverLines(
   scheduleLines: UwContractScheduleLineRow[],
@@ -271,7 +538,19 @@ async function runAutoFillOverLines(
 ): Promise<AutoFillAllResult> {
   const perLine: { scheduleLine: UwContractScheduleLineRow; result: AutoFillResult }[] = [];
 
+  const todayISO = stationTodayISO();
+  const nowISO = new Date().toISOString();
+  const candidateCounts = new Map<string, number | null>();
   for (const scheduleLine of scheduleLines) {
+    const listed = await listCandidates(scheduleLine.id);
+    candidateCounts.set(
+      scheduleLine.id,
+      listed.ok ? countOpenCandidates(listed.candidates, todayISO, nowISO) : null,
+    );
+  }
+  const ordered = orderLinesForFill(scheduleLines, (line) => candidateCounts.get(line.id) ?? null);
+
+  for (const scheduleLine of ordered) {
     const result = await autoFillScheduleLine(scheduleLine, { contract });
     perLine.push({ scheduleLine, result });
   }
@@ -285,6 +564,8 @@ async function runAutoFillOverLines(
         ...new Set([...acc.unschedulableAirDates, ...result.unschedulableAirDates]),
       ],
       unplaceable: [...acc.unplaceable, ...result.unplaceable],
+      bumps: [...acc.bumps, ...result.bumps],
+      capacityConflicts: [...acc.capacityConflicts, ...result.capacityConflicts],
       skippedReason: acc.skippedReason ?? result.skippedReason,
       errors: [...acc.errors, ...result.errors],
     }),

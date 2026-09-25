@@ -668,6 +668,7 @@ export async function buildSelectionDemand(
   underwriter: UwUnderwriterRow,
   buckets: UwDemandBucketRow[],
   todayISO: string = stationTodayISO(),
+  nowISO: string = new Date().toISOString(),
 ): Promise<SelectionDemand> {
   const [placementsByLine, openItemsByLine] = await Promise.all([
     listPlacementsWithOutcomes([scheduleLine.id]),
@@ -710,6 +711,7 @@ export async function buildSelectionDemand(
     separationMinutes:
       contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
     todayISO,
+    nowISO,
   };
 }
 

@@ -11,7 +11,9 @@ export type ScheduleLineConflictReason =
   | "no_approved_copy"
   | "separation_policy_undecided"
   | "no_inventory_for_open_demand"
-  | "makegoods_awaiting_agency_approval";
+  | "makegoods_awaiting_agency_approval"
+  /** A fixed-position line (exact/opening/closing) whose only eligible breaks in an upcoming period are already too full for its shortest approved copy — the capacity conflict bumping reports when no clean move exists. */
+  | "capacity_conflict";
 
 export interface ScheduleLineConflictCheckInput {
   hasApprovedLinkedCopy: boolean;
@@ -22,6 +24,12 @@ export interface ScheduleLineConflictCheckInput {
   /** Dates (YYYY-MM-DD) with at least one candidate break for this line. */
   datesWithInventory: Set<string>;
   makegoodsPendingApproval: number;
+  /** The line's time rule fixes its position (exact, opening, closing) — only such a line can be blocked by capacity, since anything else takes any avail in its eligibility. */
+  isFixedPosition?: boolean;
+  /** Every candidate break for the line, with the room it has left and whether automation may use it. */
+  candidateBreaks?: { airDate: string; remainingSeconds: number; openToAutomation: boolean }[];
+  /** The shortest approved copy linked to the line's contract, or null when none. */
+  shortestApprovedCopySeconds?: number | null;
 }
 
 export function computeScheduleLineConflicts(
@@ -40,6 +48,26 @@ export function computeScheduleLineConflicts(
     reasons.push("no_inventory_for_open_demand");
   }
   if (input.makegoodsPendingApproval > 0) reasons.push("makegoods_awaiting_agency_approval");
+  if (
+    input.isFixedPosition &&
+    input.shortestApprovedCopySeconds != null &&
+    input.candidateBreaks != null &&
+    input.bucketsShortSoon.some((bucket) => {
+      if (bucket.freshShortfall <= 0) return false;
+      const onDates = input.candidateBreaks!.filter((brk) =>
+        bucket.eligibleDates.includes(brk.airDate),
+      );
+      return (
+        onDates.length > 0 &&
+        !onDates.some(
+          (brk) =>
+            brk.openToAutomation && brk.remainingSeconds >= input.shortestApprovedCopySeconds!,
+        )
+      );
+    })
+  ) {
+    reasons.push("capacity_conflict");
+  }
   return reasons;
 }
 
@@ -50,4 +78,6 @@ export const CONFLICT_LABEL: Record<ScheduleLineConflictReason, string> = {
   no_inventory_for_open_demand:
     "An upcoming period has demand but no eligible break to fill it with",
   makegoods_awaiting_agency_approval: "A makegood is waiting on agency approval",
+  capacity_conflict:
+    "A fixed-position credit has no room: its only eligible breaks in an upcoming period are full",
 };

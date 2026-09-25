@@ -2717,6 +2717,8 @@ export interface Database {
               breaks: {
                 break_id: string;
                 rundown_id: string;
+                /** 20260925190000 — a live/submitted rundown is frozen to automation. */
+                rundown_status: LogRundownStatus;
                 air_date: string;
                 scheduled_at: string;
                 label: string;
@@ -2733,6 +2735,22 @@ export interface Database {
                 holds_this_contract: boolean;
                 /** The active demand bucket this break would consume. */
                 bucket_id: string;
+                /** 20260925190000 — every item in the break, with the placement/line/underwriter behind a credit (null for host content). */
+                items: {
+                  item_id: string;
+                  position: number;
+                  duration_seconds: number;
+                  placement_id: string | null;
+                  schedule_line_id: string | null;
+                  contract_id: string | null;
+                  underwriter_id: string | null;
+                  category_id: string | null;
+                  time_mode: UwTimeMode | null;
+                  service_level: UwServiceLevel | null;
+                  makegood_id: string | null;
+                  bucket_id: string | null;
+                  has_outcome: boolean;
+                }[];
               }[];
             }
           | { error: string };
@@ -2793,6 +2811,8 @@ export interface Database {
           p_override_reason: string | null;
           /** 2026-09-25: schedules this makegood with the placement (exempt from the period quota, not the day cap). */
           p_makegood_id?: string | null;
+          /** 20260925190000: true for auto-fill/provisioning/bumping — refuses a live/submitted rundown or a past break. */
+          p_automated?: boolean;
         };
         Returns:
           | {
@@ -2805,8 +2825,23 @@ export interface Database {
             }
           | { error: string };
       };
+      /** 20260925190000: moves a movable credit to another break in its own bucket (clear + place, one subtransaction) so a constrained credit can be seated. */
+      log_bump_underwriting_credit: {
+        Args: { p_placement_id: string; p_destination_break_id: string };
+        Returns:
+          | {
+              ok: true;
+              placement_id: string;
+              item_id: string;
+              superseded_placement_id: string;
+              from_break_id: string;
+              to_break_id: string;
+            }
+          | { error: string };
+      };
       log_clear_underwriting_credit: {
-        Args: { p_placement_id: string };
+        /** 20260925190000: p_automated refuses a frozen rundown or a past break. */
+        Args: { p_placement_id: string; p_automated?: boolean };
         Returns: { ok: true } | { error: string };
       };
       /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */

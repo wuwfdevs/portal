@@ -13,6 +13,7 @@ import {
 } from "@/lib/underwriting/auto-fill";
 import { getContract, getContractDetail, getScheduleLine } from "@/lib/underwriting/queries";
 import type { UnplaceableReason } from "@/lib/underwriting/inventory-selection";
+import { CAPACITY_CONFLICT_LABEL } from "@/lib/underwriting/bump-plan";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -46,10 +47,20 @@ function summarizeAutoFill(result: AutoFillResult): string {
       `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no Log schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
     );
   }
+  if (result.bumps.length > 0) {
+    parts.push(
+      `moved ${result.bumps.length} movable credit${result.bumps.length === 1 ? "" : "s"} to seat a fixed-position one`,
+    );
+  }
   const counts = new Map<UnplaceableReason, number>();
   for (const unit of result.unplaceable) counts.set(unit.why, (counts.get(unit.why) ?? 0) + 1);
   for (const [why, count] of counts) {
     parts.push(`${count} unit${count === 1 ? "" : "s"} still unplaced — ${UNPLACEABLE_LABEL[why]}`);
+  }
+  for (const conflict of result.capacityConflicts) {
+    parts.push(
+      `capacity conflict: a fixed-position credit could not be seated — ${CAPACITY_CONFLICT_LABEL[conflict.reason]}`,
+    );
   }
   if (result.errors.length > 0) {
     parts.push(
@@ -59,6 +70,26 @@ function summarizeAutoFill(result: AutoFillResult): string {
   if (parts.length === 0)
     return "Nothing to auto-fill right now — every open period is already scheduled in full.";
   return `Auto-fill: ${parts.join("; ")}.`;
+}
+
+/** One audit row per bump (docs/underwriting-traffic-redesign.md §10): the moved placement, where it went, and the line seated in its room. */
+async function auditBumps(actorId: string, result: AutoFillResult): Promise<void> {
+  for (const bump of result.bumps) {
+    await logAuditEvent({
+      actorId,
+      action: "underwriting.credit.bumped",
+      targetType: "uw_scheduled_placement",
+      targetId: bump.placementId,
+      metadata: {
+        new_placement_id: bump.newPlacementId,
+        moved_schedule_line_id: bump.movedScheduleLineId,
+        from_break_id: bump.fromBreakId,
+        to_break_id: bump.toBreakId,
+        seated_schedule_line_id: bump.seatedScheduleLineId,
+        seated_placement_id: bump.seatedPlacementId,
+      },
+    });
+  }
 }
 
 /**
@@ -90,9 +121,11 @@ export async function autoFillScheduleLineAction(formData: FormData): Promise<vo
         placed_count: result.placedCount,
         makegoods_resolved_count: result.makegoodsResolvedCount,
         rundowns_generated_count: result.rundownsGeneratedCount,
+        bump_count: result.bumps.length,
       },
     });
   }
+  await auditBumps(profile.id, result);
 
   revalidatePath(path);
   revalidatePath("/underwriting/makegoods");
@@ -114,6 +147,7 @@ export async function autoFillContractAction(formData: FormData): Promise<void> 
     contract.scheduleLines.filter((line) => line.status === "active"),
   );
   for (const { scheduleLine, result } of perLine) {
+    await auditBumps(profile.id, result);
     if (result.placedCount === 0 && result.rundownsGeneratedCount === 0) continue;
     await logAuditEvent({
       actorId: profile.id,
@@ -124,6 +158,7 @@ export async function autoFillContractAction(formData: FormData): Promise<void> 
         placed_count: result.placedCount,
         makegoods_resolved_count: result.makegoodsResolvedCount,
         rundowns_generated_count: result.rundownsGeneratedCount,
+        bump_count: result.bumps.length,
       },
     });
   }
@@ -140,6 +175,7 @@ export async function autoFillAllAction(): Promise<void> {
 
   const { perLine, totals } = await autoFillActiveScheduleLines();
   for (const { scheduleLine, result } of perLine) {
+    await auditBumps(profile.id, result);
     if (result.placedCount === 0 && result.rundownsGeneratedCount === 0) continue;
     await logAuditEvent({
       actorId: profile.id,
@@ -150,6 +186,7 @@ export async function autoFillAllAction(): Promise<void> {
         placed_count: result.placedCount,
         makegoods_resolved_count: result.makegoodsResolvedCount,
         rundowns_generated_count: result.rundownsGeneratedCount,
+        bump_count: result.bumps.length,
       },
     });
   }

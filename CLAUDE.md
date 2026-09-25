@@ -1290,6 +1290,32 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: fill order, frozen rundowns, bumping (2026-09-25,
+third pass).** Read `docs/underwriting-traffic-redesign.md` §10 before
+touching auto-fill, the placement guard, or anything that moves a credit;
+this note is a pointer. Found against RadioTraffic.com, WUWF's current
+system. `20260925190000_underwriting_frozen_rundowns_and_bumping.sql`:
+(1) **automation never writes into a live or submitted rundown or a
+started break** — `uw_automation_block()` in SQL, `lib/underwriting/
+freeze.ts` in TypeScript (keep them in step); `log_place_underwriting_
+credit()` and `log_clear_underwriting_credit()` take `p_automated`
+(auto-fill, provisioning and bumping pass true; a staffer's manual
+placement and every host action stay unrestricted); (2) **lines fill
+most-constrained first** (`fill-order.ts`: exact/opening/closing, window
+narrowest first, preferred, any; guaranteed before bonus; fewer candidates
+first) — no priority levels, no rate ranking; (3) **a fixed-position unit
+that finds every break full may bump one movable credit** (`bump-plan.ts`
+chooses, `log_bump_underwriting_credit()` executes clear + place in one
+subtransaction so every contractual check holds or nothing changes; one
+hop; never a makegood, an aired credit, or host content; audited as
+`underwriting.credit.bumped`), else it is a named capacity conflict on the
+notice and the dashboard. The host's `log_relocate_underwriting_credit()`
+is deliberately not the bump path: Log-gated, same-rundown, no contractual
+checks. Open policy question, not decided: whether a paid credit may
+displace host content. Contract activation is now audited
+(`underwriting.contract.activated`); the same person may create and
+activate.
+
 **Underwriting & Traffic: revisions, eligibility lines, demand buckets
 (2026-09-25, second pass — supersedes the entry below where they differ).**
 Read `docs/underwriting-traffic-redesign.md` §9 before touching contracts,

@@ -9,8 +9,10 @@
 // row lock — this module plans, the database enforces.
 //
 // Hard rules (the order's, or the station's):
-//   * Never in the past (a break before todayISO), never in a break this
-//     contract already holds a credit in, never in a break whose last item
+//   * Never in the past (a break before todayISO, or one already started
+//     by nowISO), never in a rundown that is live or submitted (freeze.ts —
+//     the log belongs to the host from the moment the broadcast starts),
+//     never in a break this contract already holds a credit in, never in a break whose last item
 //     is the same underwriter or the same industry (the reference
 //     agreement's "does not run adjacent to a business with similar
 //     services or products").
@@ -29,13 +31,18 @@
 //     preference, the earliest.
 //   * Copy rotates by least use; copy tied to another flight is never used.
 
-import type { UwCopyApprovalStatus } from "@/lib/database.types";
+import type { LogRundownStatus, UwCopyApprovalStatus } from "@/lib/database.types";
+import { automationBlockFor } from "./freeze";
 
 export interface CandidateBreak {
   breakId: string;
   airDate: string;
   /** Minutes since midnight, station-local. */
   minutesOfDay: number;
+  /** The break's start, as a UTC instant — with nowISO, whether it has already gone by. */
+  scheduledAt: string;
+  /** The break's rundown's status — a live or submitted rundown is frozen to automation. */
+  rundownStatus: LogRundownStatus;
   remainingSeconds: number;
   lastItemUnderwriterId: string | null;
   lastItemCategoryId: string | null;
@@ -93,6 +100,8 @@ export interface SelectionDemand {
   /** From the contract's separation policy; null when none applies. */
   separationMinutes: number | null;
   todayISO: string;
+  /** The current instant, for the past-break half of the freeze rule. */
+  nowISO: string;
 }
 
 export interface PlanItem {
@@ -126,9 +135,9 @@ interface DayState {
   usedBreakIds: Set<string>;
 }
 
-function copyEligible(
+export function copyEligible(
   copy: CopyCandidate,
-  brk: CandidateBreak,
+  brk: Pick<CandidateBreak, "remainingSeconds" | "airDate">,
   lineFlightId: string | null,
 ): boolean {
   if (copy.approvalStatus !== "approved") return false;
@@ -137,6 +146,28 @@ function copyEligible(
   if (copy.effectiveTo != null && copy.effectiveTo < brk.airDate) return false;
   if (copy.flightId != null && copy.flightId !== lineFlightId) return false;
   return true;
+}
+
+/**
+ * The approved, in-date, flight-appropriate copy that fits the break and
+ * has aired least (ties by id), or null. `usage` counts each copy's
+ * placements so far, this run's included.
+ */
+export function selectCopyForBreak(
+  copies: CopyCandidate[],
+  brk: Pick<CandidateBreak, "remainingSeconds" | "airDate">,
+  lineFlightId: string | null,
+  usage: Map<string, number>,
+): CopyCandidate | null {
+  return (
+    copies
+      .filter((copy) => copyEligible(copy, brk, lineFlightId))
+      .sort(
+        (a, b) =>
+          (usage.get(a.id) ?? a.existingUsageCount) - (usage.get(b.id) ?? b.existingUsageCount) ||
+          a.id.localeCompare(b.id),
+      )[0] ?? null
+  );
 }
 
 /**
@@ -168,7 +199,12 @@ export function planInventorySelection(
   demand: SelectionDemand,
   copies: CopyCandidate[],
 ): SelectionPlan {
-  const usable = breaks.filter((brk) => brk.airDate >= demand.todayISO && brk.remainingSeconds > 0);
+  const usable = breaks.filter(
+    (brk) =>
+      brk.airDate >= demand.todayISO &&
+      brk.remainingSeconds > 0 &&
+      automationBlockFor(brk, demand.nowISO) === null,
+  );
   const byDate = new Map<string, CandidateBreak[]>();
   for (const brk of usable) {
     const list = byDate.get(brk.airDate) ?? [];
@@ -232,14 +268,11 @@ export function planInventorySelection(
         why = "separation";
         continue;
       }
-      const eligible = copies
-        .filter((copy) => copyEligible(copy, brk, demand.lineFlightId))
-        .sort((a, b) => usage.get(a.id)! - usage.get(b.id)! || a.id.localeCompare(b.id));
-      if (eligible.length === 0) {
+      const copy = selectCopyForBreak(copies, brk, demand.lineFlightId, usage);
+      if (!copy) {
         why = "no_eligible_copy";
         continue;
       }
-      const copy = eligible[0]!;
       usage.set(copy.id, (usage.get(copy.id) ?? 0) + 1);
       state.used++;
       state.times.push(brk.minutesOfDay);

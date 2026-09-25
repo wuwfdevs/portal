@@ -26,6 +26,8 @@ function brk(
 ): CandidateBreak {
   return {
     minutesOfDay: 7 * 60 + 49,
+    scheduledAt: `${overrides.airDate}T12:49:00Z`,
+    rundownStatus: "generated",
     remainingSeconds: 90,
     lastItemUnderwriterId: null,
     lastItemCategoryId: null,
@@ -80,6 +82,7 @@ function demandFor(
     lineFlightId: null,
     separationMinutes: null,
     todayISO: "2020-01-01",
+    nowISO: "2020-01-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -378,5 +381,28 @@ describe("datesNeedingInventory", () => {
       0,
     );
     expect(datesNeedingInventory(demand, [], 5)).toEqual([]);
+  });
+});
+
+describe("frozen rundowns", () => {
+  it("never plans into a live or submitted rundown, or a break that has already started", () => {
+    const demand = only(
+      demandFor(BOYLES, 2, { todayISO: "2026-09-21", nowISO: "2026-09-21T12:30:00Z" }),
+      0,
+      1,
+      2,
+    );
+    const dates = demand.buckets.map((bucket) => bucket.eligibleDates[0]!);
+    const live = breaksOn(demand, [dates[0]!]).map((b) => ({
+      ...b,
+      rundownStatus: "in_progress" as const,
+    }));
+    const past = breaksOn(demand, [dates[1]!]).map((b) => ({
+      ...b,
+      scheduledAt: "2026-09-21T12:00:00Z",
+    }));
+    const open = breaksOn(demand, [dates[2]!]);
+    const plan = planInventorySelection([...live, ...past, ...open], demand, [copy()]);
+    expect(plan.items.map((item) => item.breakId)).toEqual(open.map((b) => b.breakId));
   });
 });

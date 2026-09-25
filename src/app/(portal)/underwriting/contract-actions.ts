@@ -219,6 +219,13 @@ export async function setContractStatus(formData: FormData): Promise<void> {
     .eq("id", id)
     .maybeSingle();
   const isNewTermination = status === "terminated" && existing?.status !== "terminated";
+  // Activation is the approval step — the moment a contract's lines start
+  // scheduling — so it gets a durable trace naming who did it, the same
+  // way a termination does (2026-09-25, after comparing against
+  // RadioTraffic's approval trail). Not one of §6's privileged actions:
+  // any traffic member may activate, and the same person who created the
+  // contract may.
+  const isNewActivation = status === "active" && existing?.status !== "active";
 
   const { error } = await supabase.from("uw_contracts").update({ status }).eq("id", id);
   failIfError(error, path, "Could not update the contract's status");
@@ -229,6 +236,15 @@ export async function setContractStatus(formData: FormData): Promise<void> {
       action: "underwriting.contract.terminated",
       targetType: "uw_contract",
       targetId: id,
+    });
+  }
+  if (isNewActivation) {
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.contract.activated",
+      targetType: "uw_contract",
+      targetId: id,
+      metadata: { previous_status: existing?.status ?? null },
     });
   }
 
