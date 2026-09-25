@@ -18,7 +18,14 @@ function exceptionPath(id: string): string {
   return `/underwriting/exceptions/${id}`;
 }
 
-/** Creates a bare makegood record against an exception — no slot yet, see lib/underwriting/makegoods.ts on why that's a valid state. Picking a slot happens on the makegoods list page (Workflow F's own screen), not here. */
+/**
+ * Creates a bare makegood record against an exception — no slot yet, see
+ * lib/underwriting/makegoods.ts on why that's a valid state. It carries the
+ * missed placement's demand period, so the replacement airing is
+ * attributed to the period the order missed rather than counted as a new
+ * unit (docs/underwriting-traffic-redesign.md §3). Picking a slot happens on
+ * the makegoods list page or through auto-fill, not here.
+ */
 export async function createMakegood(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const exceptionId = field(formData, "exception_id");
@@ -27,14 +34,24 @@ export async function createMakegood(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: exception } = await supabase
     .from("uw_exceptions")
-    .select("schedule_line_id")
+    .select("schedule_line_id, scheduled_placement_id")
     .eq("id", exceptionId)
     .maybeSingle();
   if (!exception) failWith(path, "That exception no longer exists.");
 
+  const { data: placement } = exception.scheduled_placement_id
+    ? await supabase
+        .from("uw_scheduled_placements")
+        .select("demand_period_start, demand_period_end")
+        .eq("id", exception.scheduled_placement_id)
+        .maybeSingle()
+    : { data: null };
+
   const { error } = await supabase.from("uw_makegoods").insert({
     exception_id: exceptionId,
     schedule_line_id: exception.schedule_line_id,
+    demand_period_start: placement?.demand_period_start ?? null,
+    demand_period_end: placement?.demand_period_end ?? null,
     created_by: profile.id,
   });
   failIfError(error, path, "Could not create a makegood record");
@@ -48,9 +65,9 @@ export async function createMakegood(formData: FormData): Promise<void> {
  * Picks the slot for a makegood already created against an exception — the
  * same eligibility check as any other placement (§3F), via the identical
  * log_place_underwriting_credit() RPC the contract page's "Place a credit"
- * form calls. Unlike that form, this also records scheduled_placement_id/
- * scheduled_for on the makegood row itself, and — same as placeCreditAction
- * — only audits the override when the placement actually needed one.
+ * form calls, which links the makegood in the same transaction and refuses
+ * one still waiting on agency approval. Same as placeCreditAction, only
+ * audits the override when the placement actually needed one.
  */
 export async function scheduleMakegoodAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
@@ -60,28 +77,24 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
   const copyId = field(formData, "copy_id");
   const overrideReason = field(formData, "override_reason");
 
-  if (breakId === "" || copyId === "") failWith(LIST_PATH, "Choose an open break and a copy to place.");
+  if (breakId === "" || copyId === "")
+    failWith(LIST_PATH, "Choose an open break and a copy to place.");
 
   const result = await placeCredit({
     breakId,
     scheduleLineId,
     copyId,
     overrideReason: overrideReason || undefined,
+    makegoodId,
   });
   if (!result.ok) failWith(LIST_PATH, result.message);
 
   const supabase = await createClient();
   const { data: placement } = await supabase
     .from("uw_scheduled_placements")
-    .select("scheduled_at, override_reason")
+    .select("override_reason")
     .eq("id", result.placementId)
     .maybeSingle();
-
-  const { error } = await supabase
-    .from("uw_makegoods")
-    .update({ scheduled_placement_id: result.placementId, scheduled_for: placement?.scheduled_at ?? null })
-    .eq("id", makegoodId);
-  failIfError(error, LIST_PATH, "Placed the credit, but could not record it against this makegood");
 
   if (placement?.override_reason) {
     await logAuditEvent({
@@ -109,13 +122,17 @@ export async function cancelMakegoodAction(formData: FormData): Promise<void> {
     .eq("id", id)
     .maybeSingle();
   if (!makegood) failWith(LIST_PATH, "That makegood no longer exists.");
-  if (makegood.status !== "scheduled") failWith(LIST_PATH, "Only a scheduled makegood can be cancelled.");
+  if (makegood.status !== "scheduled")
+    failWith(LIST_PATH, "Only a scheduled makegood can be cancelled.");
 
   if (makegood.scheduled_placement_id) {
     await clearCredit(makegood.scheduled_placement_id);
   }
 
-  const { error } = await supabase.from("uw_makegoods").update({ status: "cancelled" }).eq("id", id);
+  const { error } = await supabase
+    .from("uw_makegoods")
+    .update({ status: "cancelled" })
+    .eq("id", id);
   failIfError(error, LIST_PATH, "Could not cancel this makegood");
 
   revalidatePath(LIST_PATH);

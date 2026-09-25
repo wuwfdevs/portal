@@ -3,12 +3,16 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { getExceptionDetail, listMakegoodsForException } from "@/lib/underwriting/queries";
-import { describeScheduleLineRecurrence } from "@/lib/underwriting/schedule-lines";
+import { describeScheduleLine } from "@/lib/underwriting/demand";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
-import { describeMakegoodState, MAKEGOOD_STATE_LABEL, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
-import { resolveException } from "../../exception-actions";
+import {
+  describeMakegoodState,
+  MAKEGOOD_STATE_LABEL,
+  type MakegoodDisplayState,
+} from "@/lib/underwriting/makegoods";
+import { recordMakegoodApproval, resolveException } from "../../exception-actions";
 import { createMakegood } from "../../makegood-actions";
 import type { UwResolutionStatus } from "@/lib/database.types";
 
@@ -44,24 +48,35 @@ export default async function ExceptionDetailPage({
           ← Back to exceptions
         </Link>
         <div className="mt-2 mb-1 flex flex-wrap items-center gap-2.5">
-          <h2 className="font-serif text-xl font-bold text-ink-900">{exception.contract.underwriter.name}</h2>
-          <Badge variant={STATUS_VARIANT[exception.resolution_status]}>{exception.resolution_status}</Badge>
+          <h2 className="font-serif text-xl font-bold text-ink-900">
+            {exception.contract.underwriter.name}
+          </h2>
+          <Badge variant={STATUS_VARIANT[exception.resolution_status]}>
+            {exception.resolution_status}
+          </Badge>
         </div>
         <p className="mb-4 text-xs text-ink-500">
-          <Link href={`/underwriting/contracts/${exception.contract.id}`} className="font-semibold text-brand-link">
+          <Link
+            href={`/underwriting/contracts/${exception.contract.id}`}
+            className="font-semibold text-brand-link"
+          >
             {exception.contract.contract_identifier}
           </Link>{" "}
-          · {describeScheduleLineRecurrence(exception.scheduleLine)}
+          · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine, [])}
         </p>
 
         {error && <Alert className="mb-4">{error}</Alert>}
 
         <div className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">What happened</div>
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            What happened
+          </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-5 text-sm sm:grid-cols-3">
             <div>
               <dt className="text-xs text-ink-400">Originally scheduled</dt>
-              <dd className="text-ink-900">{formatPlacementTime(exception.original_scheduled_at)}</dd>
+              <dd className="text-ink-900">
+                {formatPlacementTime(exception.original_scheduled_at)}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-400">Outcome</dt>
@@ -96,20 +111,73 @@ export default async function ExceptionDetailPage({
           </dl>
         </div>
 
+        {exception.makegood_approval !== "not_required" && (
+          <div className="mt-6 rounded border border-line">
+            <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+              Agency approval
+            </div>
+            <form action={recordMakegoodApproval} className="flex flex-col gap-3 p-5">
+              <input type="hidden" name="exception_id" value={exception.id} />
+              <p className="text-xs text-ink-500">
+                This contract&apos;s makegoods must be approved by the agency. Nothing schedules a
+                makegood for this exception until the answer is recorded here.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="makegood_approval">Agency&apos;s answer</Label>
+                  <Select
+                    id="makegood_approval"
+                    name="makegood_approval"
+                    defaultValue={exception.makegood_approval}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="declined">Declined</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="makegood_approval_note">Note</Label>
+                  <Input
+                    id="makegood_approval_note"
+                    name="makegood_approval_note"
+                    defaultValue={exception.makegood_approval_note ?? ""}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" variant="secondary">
+                  Record answer
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
         <div className="mt-6 rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Makegoods</div>
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            Makegoods
+          </div>
           {makegoods.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-ink-500">No makegood scheduled against this exception yet.</p>
+            <p className="px-5 py-4 text-sm text-ink-500">
+              No makegood scheduled against this exception yet.
+            </p>
           ) : (
             <ul className="divide-y divide-line">
               {makegoods.map((makegood) => {
                 const state = describeMakegoodState(makegood);
                 return (
-                  <li key={makegood.id} className="flex items-center justify-between gap-2 px-5 py-3 text-sm">
+                  <li
+                    key={makegood.id}
+                    className="flex items-center justify-between gap-2 px-5 py-3 text-sm"
+                  >
                     <span className="text-ink-700">
-                      {makegood.scheduled_for ? formatPlacementTime(makegood.scheduled_for) : "Not yet scheduled"}
+                      {makegood.scheduled_for
+                        ? formatPlacementTime(makegood.scheduled_for)
+                        : "Not yet scheduled"}
                     </span>
-                    <Badge variant={MAKEGOOD_STATE_VARIANT[state]}>{MAKEGOOD_STATE_LABEL[state]}</Badge>
+                    <Badge variant={MAKEGOOD_STATE_VARIANT[state]}>
+                      {MAKEGOOD_STATE_LABEL[state]}
+                    </Badge>
                   </li>
                 );
               })}
@@ -132,12 +200,18 @@ export default async function ExceptionDetailPage({
       </div>
 
       <div className="w-full shrink-0 rounded border border-line lg:w-96">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Resolution</div>
+        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+          Resolution
+        </div>
         <form action={resolveException} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="exception_id" value={exception.id} />
           <div>
             <Label htmlFor="compliance_judgment">Compliance judgment</Label>
-            <Select id="compliance_judgment" name="compliance_judgment" defaultValue={exception.compliance_judgment}>
+            <Select
+              id="compliance_judgment"
+              name="compliance_judgment"
+              defaultValue={exception.compliance_judgment}
+            >
               <option value="pending">Pending</option>
               <option value="compliant">Compliant</option>
               <option value="noncompliant">Noncompliant</option>
@@ -154,7 +228,11 @@ export default async function ExceptionDetailPage({
           </div>
           <div>
             <Label htmlFor="resolution_action">Resolution action</Label>
-            <Select id="resolution_action" name="resolution_action" defaultValue={exception.resolution_action ?? ""}>
+            <Select
+              id="resolution_action"
+              name="resolution_action"
+              defaultValue={exception.resolution_action ?? ""}
+            >
               <option value="">Not yet decided</option>
               <option value="accept_alternate">Accept alternate airing</option>
               <option value="schedule_makegood">Schedule a makegood</option>
@@ -164,15 +242,26 @@ export default async function ExceptionDetailPage({
               <option value="corrected">Correct the record</option>
               <option value="closed">Close, no action</option>
             </Select>
-            <FieldHint>Waiving requires a manager — anyone else&apos;s attempt is rejected.</FieldHint>
+            <FieldHint>
+              Waiving requires a manager — anyone else&apos;s attempt is rejected.
+            </FieldHint>
           </div>
           <div>
             <Label htmlFor="resolution_notes">Notes</Label>
-            <Textarea id="resolution_notes" name="resolution_notes" rows={3} defaultValue={exception.resolution_notes ?? ""} />
+            <Textarea
+              id="resolution_notes"
+              name="resolution_notes"
+              rows={3}
+              defaultValue={exception.resolution_notes ?? ""}
+            />
           </div>
           <div>
             <Label htmlFor="resolution_status">Status</Label>
-            <Select id="resolution_status" name="resolution_status" defaultValue={exception.resolution_status}>
+            <Select
+              id="resolution_status"
+              name="resolution_status"
+              defaultValue={exception.resolution_status}
+            >
               <option value="open">Open</option>
               <option value="resolved">Resolved</option>
             </Select>

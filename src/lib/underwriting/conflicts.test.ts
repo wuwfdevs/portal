@@ -1,48 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { computeScheduleLineConflicts, type ScheduleLineConflictCheckInput } from "./conflicts";
+import { computeScheduleLineConflicts } from "./conflicts";
+import type { PeriodFulfillment } from "./demand";
 
-function input(overrides: Partial<ScheduleLineConflictCheckInput> = {}): ScheduleLineConflictCheckInput {
+function period(overrides: Partial<PeriodFulfillment> = {}): PeriodFulfillment {
   return {
-    hasApprovedLinkedCopy: true,
-    eligibleOpenBreakCount: 3,
-    activePlacementCount: 0,
-    expectedOccurrences: 4,
+    kind: "week",
+    periodStart: "2026-09-28",
+    periodEnd: "2026-10-04",
+    eligibleDates: ["2026-09-28", "2026-09-29"],
+    quantity: 2,
+    maxPerDay: 1,
+    partialWeek: false,
+    scheduled: 0,
+    aired: 0,
+    missed: 0,
+    makegoodsAwaitingSlot: 0,
+    makegoodsScheduled: 0,
+    makegoodsAired: 0,
+    freshShortfall: 2,
+    delivered: 0,
     ...overrides,
   };
 }
 
 describe("computeScheduleLineConflicts", () => {
-  it("flags nothing when copy is approved and breaks remain", () => {
-    expect(computeScheduleLineConflicts(input())).toEqual([]);
-  });
-
-  it("flags missing approved copy", () => {
-    expect(computeScheduleLineConflicts(input({ hasApprovedLinkedCopy: false }))).toEqual(["no_approved_copy"]);
-  });
-
-  it("flags insufficient inventory once the quota is unmet and nothing is open", () => {
+  it("flags missing copy and an undecided separation rule", () => {
     expect(
-      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 1 })),
-    ).toEqual(["insufficient_inventory"]);
+      computeScheduleLineConflicts({
+        hasApprovedLinkedCopy: false,
+        separationUndecided: true,
+        periodsShortSoon: [],
+        datesWithInventory: new Set(),
+        makegoodsPendingApproval: 0,
+      }),
+    ).toEqual(["no_approved_copy", "separation_policy_undecided"]);
   });
 
-  it("does not flag insufficient inventory once the quota is already met", () => {
+  it("flags open demand only when none of its eligible dates has a break", () => {
+    const base = {
+      hasApprovedLinkedCopy: true,
+      separationUndecided: false,
+      makegoodsPendingApproval: 0,
+    };
     expect(
-      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 4 })),
+      computeScheduleLineConflicts({
+        ...base,
+        periodsShortSoon: [period()],
+        datesWithInventory: new Set(["2026-09-29"]),
+      }),
     ).toEqual([]);
-  });
-
-  it("does not flag insufficient inventory for an open-ended line with no fixed target", () => {
     expect(
-      computeScheduleLineConflicts(input({ eligibleOpenBreakCount: 0, activePlacementCount: 0, expectedOccurrences: null })),
+      computeScheduleLineConflicts({
+        ...base,
+        periodsShortSoon: [period()],
+        datesWithInventory: new Set(["2026-10-06"]),
+      }),
+    ).toEqual(["no_inventory_for_open_demand"]);
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        periodsShortSoon: [period({ freshShortfall: 0 })],
+        datesWithInventory: new Set(),
+      }),
     ).toEqual([]);
-  });
-
-  it("can flag both reasons at once", () => {
-    expect(
-      computeScheduleLineConflicts(
-        input({ hasApprovedLinkedCopy: false, eligibleOpenBreakCount: 0, activePlacementCount: 0 }),
-      ),
-    ).toEqual(["no_approved_copy", "insufficient_inventory"]);
   });
 });

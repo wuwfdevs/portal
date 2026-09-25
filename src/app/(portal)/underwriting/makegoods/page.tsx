@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { listMakegoods } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
-import { describeScheduleLineRecurrence } from "@/lib/underwriting/schedule-lines";
-import { describeMakegoodState, MAKEGOOD_STATE_LABEL, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
+import { describeScheduleLine } from "@/lib/underwriting/demand";
+import {
+  describeMakegoodState,
+  MAKEGOOD_STATE_LABEL,
+  type MakegoodDisplayState,
+} from "@/lib/underwriting/makegoods";
 import { cancelMakegoodAction, scheduleMakegoodAction } from "../makegood-actions";
 
 const STATE_VARIANT: Record<MakegoodDisplayState, BadgeVariant> = {
@@ -45,9 +49,12 @@ export default async function MakegoodsPage({
     <div className="flex flex-col gap-4">
       {error && <Alert>{error}</Alert>}
       <Alert variant="note">
-        A makegood awaiting a slot is picked up automatically the next time its schedule line is auto-filled
-        (from the contract&apos;s own page, or the dashboard&apos;s &quot;Auto-fill everything&quot;) — it doesn&apos;t need
-        to be scheduled manually here unless you want to pick a specific break yourself.
+        A makegood awaiting a slot is picked up automatically the next time its schedule line is
+        auto-filled (from the contract&apos;s own page, or the dashboard&apos;s &quot;Auto-fill
+        everything&quot;) — it doesn&apos;t need to be scheduled manually here unless you want to
+        pick a specific break yourself. Its airing is attributed to the period the original credit
+        missed, so it never counts as an extra unit. One under a contract whose makegoods need
+        agency approval waits until the agency&apos;s answer is recorded on the exception.
       </Alert>
       <ul className="flex flex-col gap-4">
         {makegoods.map((makegood) => {
@@ -64,35 +71,59 @@ export default async function MakegoodsPage({
                 <Badge variant={STATE_VARIANT[state]}>{MAKEGOOD_STATE_LABEL[state]}</Badge>
               </div>
               <p className="mb-3 text-xs text-ink-500">
-                {describeScheduleLineRecurrence(makegood.scheduleLine)} · resolving{" "}
-                <Link href={`/underwriting/exceptions/${makegood.exception.id}`} className="font-semibold text-brand-link">
+                {makegood.scheduleLine.label || describeScheduleLine(makegood.scheduleLine, [])} ·
+                resolving{" "}
+                <Link
+                  href={`/underwriting/exceptions/${makegood.exception.id}`}
+                  className="font-semibold text-brand-link"
+                >
                   the exception from {formatPlacementTime(makegood.exception.original_scheduled_at)}
                 </Link>
               </p>
 
               {makegood.placement && (
                 <p className="mb-3 text-xs text-ink-700">
-                  {makegood.placement.program_name} — {formatPlacementTime(makegood.placement.scheduled_at)}
+                  {makegood.placement.program_name} —{" "}
+                  {formatPlacementTime(makegood.placement.scheduled_at)}
                   {makegood.placement.break_label ? ` (${makegood.placement.break_label})` : ""}
                   {makegood.placement.override_reason && (
-                    <span className="ml-2 text-warning-fg">override: {makegood.placement.override_reason}</span>
+                    <span className="ml-2 text-warning-fg">
+                      override: {makegood.placement.override_reason}
+                    </span>
                   )}
                 </p>
               )}
 
+              {state === "awaiting_slot" && makegood.exception.makegood_approval === "pending" && (
+                <p className="mb-3 text-xs text-warning-fg">
+                  Waiting on agency approval — record the agency&apos;s answer on the exception
+                  before scheduling this makegood.
+                </p>
+              )}
+              {state === "awaiting_slot" && makegood.exception.makegood_approval === "declined" && (
+                <p className="mb-3 text-xs text-danger">The agency declined this makegood.</p>
+              )}
               {state === "awaiting_slot" &&
+                makegood.exception.makegood_approval !== "pending" &&
+                makegood.exception.makegood_approval !== "declined" &&
                 (!makegood.placeable || !makegood.placeable.ok ? (
                   <p className="text-xs text-danger">
-                    {makegood.placeable ? makegood.placeable.message : "Could not check for eligible breaks."}
+                    {makegood.placeable
+                      ? makegood.placeable.message
+                      : "Could not check for eligible breaks."}
                   </p>
                 ) : makegood.placeable.breaks.length === 0 ? (
                   <p className="text-xs text-ink-500">
-                    No eligible open breaks right now — a rundown must exist for an eligible program first.
+                    No eligible open breaks right now — a rundown must exist for an eligible program
+                    first.
                   </p>
                 ) : makegood.linkedCopy.length === 0 ? (
                   <p className="text-xs text-ink-500">
                     Link copy to{" "}
-                    <Link href={`/underwriting/contracts/${makegood.contract.id}`} className="font-semibold text-brand-link">
+                    <Link
+                      href={`/underwriting/contracts/${makegood.contract.id}`}
+                      className="font-semibold text-brand-link"
+                    >
                       this contract
                     </Link>{" "}
                     before scheduling a makegood.
@@ -103,7 +134,11 @@ export default async function MakegoodsPage({
                     className="flex flex-col gap-3 rounded border border-dashed border-line p-3"
                   >
                     <input type="hidden" name="makegood_id" value={makegood.id} />
-                    <input type="hidden" name="schedule_line_id" value={makegood.schedule_line_id} />
+                    <input
+                      type="hidden"
+                      name="schedule_line_id"
+                      value={makegood.schedule_line_id}
+                    />
                     <div>
                       <Label htmlFor={`break_${makegood.id}`}>Open break</Label>
                       <Select id={`break_${makegood.id}`} name="break_id" defaultValue="">
@@ -112,8 +147,8 @@ export default async function MakegoodsPage({
                         </option>
                         {makegood.placeable.breaks.map((brk) => (
                           <option key={brk.break_id} value={brk.break_id}>
-                            {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}) ·{" "}
-                            {brk.remaining_seconds}s remaining
+                            {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} (
+                            {brk.label}) · {brk.remaining_seconds}s remaining
                           </option>
                         ))}
                       </Select>
@@ -135,8 +170,8 @@ export default async function MakegoodsPage({
                       <Label htmlFor={`override_${makegood.id}`}>Override reason</Label>
                       <Input id={`override_${makegood.id}`} name="override_reason" />
                       <FieldHint>
-                        Only needed if the copy isn&apos;t approved or is outside its effective dates — and only a
-                        manager&apos;s override is actually honored.
+                        Only needed if the copy isn&apos;t approved or is outside its effective
+                        dates — and only a manager&apos;s override is actually honored.
                       </FieldHint>
                     </div>
                     <div className="flex justify-end">

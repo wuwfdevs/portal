@@ -633,11 +633,11 @@ begin
 
   insert into public.uw_contracts (
     id, underwriter_id, contract_identifier, effective_from, effective_to, status,
-    affidavit_required, sponsorship_category, sponsorship_total, preemption_policy,
+    affidavit_required, sponsorship_category, sponsorship_total, stated_total_spots, preemption_policy,
     notes, created_by
   ) values (
     contract_id, underwriter_id, 'IO-2026-0142', campaign_start, campaign_end, 'active',
-    false, 'Real Estate Services', 6240.00,
+    false, 'Real Estate Services', 6240.00, 104,
     'Preempted spots are rescheduled within the program originally sponsored, per the executed insertion order.',
     'Copy reviewed by WUWF for FCC underwriting-compliance language before each flight. Executed agreement and insertion order kept on file — attach via the contract''s Document panel.',
     dana_id
@@ -646,19 +646,20 @@ begin
 
   -- Four weekly recurring lines, 26 weeks each — 4 x 26 = 104 expected
   -- occurrences, matching the insertion order's own spot count exactly.
-  -- Monday/Wednesday/Thursday morning spots fall inside Morning Edition's
-  -- 5-9am block; the Tuesday afternoon spot falls inside All Things
-  -- Considered's drive-time block.
+  -- fixed_days lines (2026-09-25 redesign: docs/underwriting-traffic-
+  -- redesign.md): one credit on each named day, at the contracted time,
+  -- on the named program. Monday/Wednesday/Thursday fall inside Morning
+  -- Edition's 5-9am block; Tuesday inside All Things Considered.
   insert into public.uw_contract_schedule_lines (
-    contract_id, days_of_week, target_time, duration_seconds, program_id,
-    start_date, end_date, notes, created_by
+    contract_id, label, rule_kind, days_of_week, count_per_day, target_time, duration_seconds,
+    program_id, start_date, end_date, stated_total, source_text, notes, created_by
   ) values
-    (contract_id, array[1], '07:49', 30, prog_morning_edition,
-     campaign_start, campaign_end, 'Monday morning drive.', dana_id),
-    (contract_id, array[2], '16:48', 30, prog_atc,
-     campaign_start, campaign_end, 'Tuesday afternoon drive.', dana_id),
-    (contract_id, array[3, 4], '08:06', 30, prog_morning_edition,
-     campaign_start, campaign_end, 'Wednesday and Thursday morning drive.', dana_id)
+    (contract_id, 'Monday AM drive', 'fixed_days', array[1], 1, '07:49', 30, prog_morning_edition,
+     campaign_start, campaign_end, 26, 'Monday ~7:49am x 26 weeks', 'Monday morning drive.', dana_id),
+    (contract_id, 'Tuesday PM drive', 'fixed_days', array[2], 1, '16:48', 30, prog_atc,
+     campaign_start, campaign_end, 26, 'Tuesday ~4:48pm x 26 weeks', 'Tuesday afternoon drive.', dana_id),
+    (contract_id, 'Wed/Thu AM drive', 'fixed_days', array[3, 4], 1, '08:06', 30, prog_morning_edition,
+     campaign_start, campaign_end, 52, 'Wednesday and Thursday ~8:06am x 26 weeks', 'Wednesday and Thursday morning drive.', dana_id)
   on conflict do nothing;
 
   -- Two rotating messages — one live-read, one WUWF-recorded per DAD cart,

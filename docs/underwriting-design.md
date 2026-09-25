@@ -2,8 +2,12 @@
 
 Status: **Milestone 1 shipped in full, then redesigned (2026-08-07/08)
 grounded in a real WUWF underwriting agreement; the automatic rules-based
-scheduler (§7) has since landed too (2026-08-09) — see CLAUDE.md's dated
-note.** Second of the three tools
+scheduler (§7) landed 2026-08-09; and on 2026-09-25 the schedule-line model,
+placement guard and scheduler were redesigned again around the full range of
+signed WUWF insertion orders — see `docs/underwriting-traffic-redesign.md`,
+which supersedes this document's §2 "Contract schedule line", §5's
+`uw_contract_schedule_lines`, and the auto-fill description in §3C/§6/§7
+wherever they conflict.** Second of the three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
 Rundown and Traffic System spec into, following `docs/log-design.md` in the
 strategy doc's build order (§6) — this tool depends on Log's rundown and
@@ -549,12 +553,10 @@ browser-printable certified affidavits with a durable evidence link.
 
 **Open questions specific to this tool:**
 
-- Beyond the one reference agreement this redesign is grounded in, do WUWF's
+- ~~Beyond the one reference agreement this redesign is grounded in, do WUWF's
   other real contracts exercise schedule-line shapes this model doesn't
-  cleanly cover (e.g. a genuinely irregular cadence beyond what
-  `occurrence_count_override` expresses)? Each should be checked the same
-  way the reference agreement was before the automatic scheduler is built
-  against assumptions nobody's confirmed at scale.
+  cleanly cover?~~ Answered 2026-09-25: yes, in four ways — see
+  `docs/underwriting-traffic-redesign.md` §1–§3.
 - Who holds final authority to waive an exception, certify an affidavit, and
   approve an alternate airing — is "manager" one role, or does it split
   between a traffic lead and station management?
