@@ -1,19 +1,23 @@
-// Pure competitive-adjacency advisory (docs/underwriting-design.md §11,
-// point 30 of the domain redesign) — grounded in the real Autumn Beck
-// Blackledge agreement's own language: "reasonable efforts" to avoid
-// scheduling a credit next to another underwriter offering similar
-// products/services. This is advisory guidance for a human, never an
-// absolute prohibition or a rules DSL — staff judgment decides what to do
-// with the warning.
+// Competitive-adjacency advisory (point 30 of the domain redesign,
+// docs/underwriting-design.md): "WUWF will make appropriate changes in
+// scheduling to insure that your sponsorship message does not run adjacent
+// to a business with similar services or products." Pure, colocated test.
+// An advisory on the manual placement form — never a block there — and the
+// same identity rule auto-fill enforces within a break
+// (lib/underwriting/inventory-selection.ts).
+//
+// Industry is a typed category (uw_industry_categories, 2026-09-25), so
+// two underwriters conflict when they reference the same category id —
+// never by comparing spellings.
 
 export interface AdjacencyCandidate {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 export interface NearbyPlacement {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 export interface AdjacencyCheckResult {
@@ -23,25 +27,26 @@ export interface AdjacencyCheckResult {
 }
 
 /**
- * Checks a candidate placement against other placements already scheduled
- * nearby (same program/day, or whatever window the caller decides counts as
- * "adjacent" — that judgment lives in the caller, not here). No warning
+ * Flags when another underwriter in the same industry already has a nearby
+ * placement. Never fires against the candidate's own placements, and never
  * when the underwriter has no category set at all — there's nothing to
  * compare.
  */
 export function checkCompetitiveAdjacency(
   candidate: AdjacencyCandidate,
-  nearbyPlacements: NearbyPlacement[],
+  nearby: NearbyPlacement[],
 ): AdjacencyCheckResult {
-  if (!candidate.category) return { warning: false, conflictingUnderwriterIds: [] };
-
-  const conflicting = [
+  if (!candidate.categoryId) return { warning: false, conflictingUnderwriterIds: [] };
+  const conflictingUnderwriterIds = [
     ...new Set(
-      nearbyPlacements
-        .filter((placement) => placement.underwriterId !== candidate.underwriterId && placement.category === candidate.category)
+      nearby
+        .filter(
+          (placement) =>
+            placement.underwriterId !== candidate.underwriterId &&
+            placement.categoryId === candidate.categoryId,
+        )
         .map((placement) => placement.underwriterId),
     ),
   ];
-
-  return { warning: conflicting.length > 0, conflictingUnderwriterIds: conflicting };
+  return { warning: conflictingUnderwriterIds.length > 0, conflictingUnderwriterIds };
 }

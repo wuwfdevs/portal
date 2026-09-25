@@ -12,6 +12,7 @@ const TABS = [
   { href: "/underwriting/exceptions", label: "Exceptions" },
   { href: "/underwriting/makegoods", label: "Makegoods" },
   { href: "/underwriting/affidavits", label: "Affidavits" },
+  { href: "/underwriting/pools", label: "Pools" },
 ] as const;
 
 export function NavTabs() {
@@ -21,7 +22,8 @@ export function NavTabs() {
     <TabNav
       tabs={TABS.map((tab) => ({
         ...tab,
-        active: tab.href === "/underwriting" ? pathname === tab.href : pathname.startsWith(tab.href),
+        active:
+          tab.href === "/underwriting" ? pathname === tab.href : pathname.startsWith(tab.href),
       }))}
     />
   );

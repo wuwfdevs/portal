@@ -45,7 +45,10 @@ export default async function ContractsPage({
                 {contracts.map((contract) => (
                   <Row key={contract.id}>
                     <Cell className="font-semibold text-ink-900">
-                      <Link href={`/underwriting/contracts/${contract.id}`} className="text-brand-link">
+                      <Link
+                        href={`/underwriting/contracts/${contract.id}`}
+                        className="text-brand-link"
+                      >
                         {contract.underwriter.name}
                       </Link>
                     </Cell>
@@ -66,7 +69,9 @@ export default async function ContractsPage({
       </div>
 
       <div className="w-full shrink-0 rounded border border-line lg:w-96">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">New contract</div>
+        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+          New contract
+        </div>
         <form action={createContract} className="flex flex-col gap-4 p-5">
           {error && <Alert>{error}</Alert>}
           <div>
@@ -109,18 +114,52 @@ export default async function ContractsPage({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="sponsorship_category">Sponsorship category</Label>
-              <Input id="sponsorship_category" name="sponsorship_category" placeholder="Real Estate Services" />
+              <Input
+                id="sponsorship_category"
+                name="sponsorship_category"
+                placeholder="Real Estate Services"
+              />
             </div>
             <div>
               <Label htmlFor="sponsorship_total">Sponsorship total ($)</Label>
-              <Input id="sponsorship_total" name="sponsorship_total" type="number" step="0.01" min={0} />
+              <Input
+                id="sponsorship_total"
+                name="sponsorship_total"
+                type="number"
+                step="0.01"
+                min={0}
+              />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="stated_total_spots">Order states (total spots)</Label>
+            <Input id="stated_total_spots" name="stated_total_spots" type="number" min={0} />
+            <FieldHint>
+              Validated against the schedule lines you enter — never the scheduling target.
+            </FieldHint>
           </div>
           <label className="flex items-center gap-2 text-sm text-ink-700">
             <input type="checkbox" name="affidavit_required" className="h-4 w-4" />
             Affidavit required
           </label>
-          <FieldHint>Most WUWF agreements do not require one — leave unchecked unless the contract says so.</FieldHint>
+          <FieldHint>
+            Most WUWF agreements do not require one — leave unchecked unless the contract says so.
+          </FieldHint>
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <input type="checkbox" name="makegood_requires_agency_approval" className="h-4 w-4" />
+            Makegoods need agency approval
+          </label>
+          <div>
+            <Label htmlFor="separation_source_text">Separation, as the order prints it</Label>
+            <Input
+              id="separation_source_text"
+              name="separation_source_text"
+              placeholder='e.g. "3"'
+            />
+            <FieldHint>
+              Kept verbatim; choose a policy on the contract page before auto-filling.
+            </FieldHint>
+          </div>
           <div>
             <Label htmlFor="preemption_policy">Preemption / makegood policy</Label>
             <Input

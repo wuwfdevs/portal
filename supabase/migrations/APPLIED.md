@@ -135,6 +135,12 @@ repo and a project's history, not the version number.
 | `20260922120000_log_import_copy_script_updates.sql`                   | 2026-09-24 | 2026-09-22 |
 | `20260924120000_log_import_copy_duration_estimates.sql`               | 2026-09-24 | 2026-09-24 |
 | `20260924140000_log_slot_keyed_breaks.sql`                           | 2026-09-24 | 2026-09-24 |
+| `20260925120000_underwriting_traffic_redesign.sql`                    | 2026-09-25 | 2026-09-25 |
+| `20260925130000_underwriting_line_period_fix.sql`                     | 2026-09-25 | 2026-09-25 |
+| `20260925150000_underwriting_demand_buckets.sql`                      | 2026-09-25 | 2026-09-25 |
+| `20260925160000_underwriting_industry_categories.sql`                 | 2026-09-25 | 2026-09-25 |
+| `20260925170000_underwriting_draft_line_delete.sql`                   | 2026-09-25 | 2026-09-25 |
+| `20260925180000_underwriting_opening_closing.sql`                     | 2026-09-25 | 2026-09-25 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

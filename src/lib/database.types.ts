@@ -517,6 +517,31 @@ export type UwResolutionAction =
 export type UwMakegoodStatus = "scheduled" | "aired" | "cancelled";
 // Slice 5 (affidavits) — see supabase/migrations/20260807250000_underwriting_affidavits.sql.
 export type UwAffidavitStatus = "draft" | "certified";
+// Insertion-order-grounded redesign (2026-09-25) — see
+// supabase/migrations/20260925120000_underwriting_traffic_redesign.sql and
+// docs/underwriting-traffic-redesign.md. Four typed schedule-rule shapes
+// replace the one-recurrence line; pools, flights, allocations, per-period
+// placements, agency makegood approval and a separation policy are new.
+export type UwScheduleLineStatus = "active" | "cancelled";
+export type UwFlightStatus = "active" | "cancelled";
+export type UwSeparationPolicy = "unspecified" | "none" | "min_minutes";
+export type UwMakegoodApproval = "not_required" | "pending" | "approved" | "declined";
+// Second pass (2026-09-25) — see
+// supabase/migrations/20260925150000_underwriting_demand_buckets.sql: schedule
+// lines are eligibility only, demand is explicit buckets, and contracts have
+// revisions.
+export type UwRevisionStatus = "draft" | "current" | "superseded" | "cancelled";
+export type UwScheduleEntryKind =
+  | "fixed_days"
+  | "weekly_quota"
+  | "monthly_quota"
+  | "every_n_weeks"
+  | "explicit_dates"
+  | "week_grid"
+  | "range_total";
+export type UwTimeMode = "any" | "window" | "preferred" | "exact" | "opening" | "closing";
+export type UwServiceLevel = "guaranteed" | "bonus";
+export type UwDemandBucketStatus = "active" | "superseded" | "cancelled";
 
 // Roadmap (rd_*) — see supabase/migrations/20260801121000_roadmap.sql.
 export type RdPostKind = "feature" | "improvement" | "bug" | "new_tool";
@@ -1992,7 +2017,8 @@ export interface Database {
           contact_name: string | null;
           email: string | null;
           phone: string | null;
-          category: string | null;
+          /** The industry (uw_industry_categories) the competitive-adjacency rule compares — 20260925160000, replacing free text. */
+          category_id: string | null;
           notes: string | null;
           created_by: string | null;
           created_at: string;
@@ -2002,6 +2028,23 @@ export interface Database {
           name: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_underwriters"]["Row"]>;
+        Relationships: [];
+      };
+      /** Typed industry categories for underwriters (20260925160000_underwriting_industry_categories.sql). Deactivate, never delete. */
+      uw_industry_categories: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_industry_categories"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_industry_categories"]["Row"]>;
         Relationships: [];
       };
       // Redesigned (2026-08-08): underwriter_name -> underwriter_id;
@@ -2023,6 +2066,14 @@ export interface Database {
           sponsorship_total: number | null;
           preemption_policy: string | null;
           notes: string | null;
+          /** The order's own total spot count, when printed — validated against the lines' expansion on screen, never the target. */
+          stated_total_spots: number | null;
+          /** FPM orders: every new exception starts pending agency approval, and no makegood is scheduled until staff record it. */
+          makegood_requires_agency_approval: boolean;
+          /** The order's separation instruction verbatim (FPM prints "3", no unit). Never interpreted. */
+          separation_source_text: string | null;
+          separation_policy: UwSeparationPolicy;
+          separation_minutes: number | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2035,35 +2086,169 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]>;
         Relationships: [];
       };
-      // New (2026-08-08), replaces uw_placement_obligations — a real
-      // recurring-schedule shape (day(s) of week, target time, duration,
-      // program, date range) instead of an abstract quantity/period. See
-      // lib/underwriting/schedule-lines.ts for the expected-occurrence math.
+      /**
+       * Contract revisions (20260925150000): every schedule line belongs to
+       * one; exactly one per contract is current. Activating a draft
+       * supersedes the current revision's open buckets from its effective
+       * date — history is never rewritten.
+       */
+      uw_contract_revisions: {
+        Row: {
+          id: string;
+          contract_id: string;
+          revision_label: string | null;
+          document_path: string | null;
+          received_at: string | null;
+          effective_from: string;
+          status: UwRevisionStatus;
+          supersedes_revision_id: string | null;
+          notes: string | null;
+          activated_at: string | null;
+          activated_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_contract_revisions"]["Row"]> & {
+          contract_id: string;
+          effective_from: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_contract_revisions"]["Row"]>;
+        Relationships: [];
+      };
+      // New (2026-08-08), replaces uw_placement_obligations. Rewritten
+      // twice on 2026-09-25: first around four typed rule kinds, then
+      // (20260925150000_underwriting_demand_buckets.sql) into eligibility
+      // only — where a credit may air and how many a day at most. The
+      // quantities live in uw_demand_buckets; entry_kind/entry_spec only
+      // record how the staffer entered it (lib/underwriting/demand-compiler.ts).
       uw_contract_schedule_lines: {
         Row: {
           id: string;
           contract_id: string;
-          /** 0=Sunday..6=Saturday, matching log_schedule.days_of_week. */
-          days_of_week: number[];
-          target_time: string | null;
-          duration_seconds: number;
+          revision_id: string;
+          label: string;
+          entry_kind: UwScheduleEntryKind;
+          /** The compiler input as entered — see demand-compiler.ts's EntrySpec. */
+          entry_spec: unknown;
+          flight_id: string | null;
+          /** Inventory pool (uw_inventory_pools) and/or a program — at least one is set. */
+          pool_id: string | null;
           program_id: string | null;
+          /** Station-local window (end exclusive), a hard limit when time_mode = window. */
+          window_start: string | null;
+          window_end: string | null;
+          /** Eligible weekdays, 0=Sunday..6=Saturday; empty means any day of the bucket. */
+          days_of_week: number[];
+          time_mode: UwTimeMode;
+          /** preferred: ranks candidates. exact: must start within EXACT_TIME_TOLERANCE_MINUTES. opening / closing: the rundown's first / last underwriting-permitted marked break (20260925180000). */
+          preferred_time: string | null;
+          duration_seconds: number;
+          /** A per-day cap the order states; null means no cap. */
+          max_per_day: number | null;
+          service_level: UwServiceLevel;
+          distribution_preference: string | null;
+          makegood_policy_text: string | null;
           start_date: string;
           end_date: string | null;
-          /** Set only for a non-day-of-week-recurring obligation (e.g. "12 credits a month") — see lib/underwriting/schedule-lines.ts. */
-          occurrence_count_override: number | null;
-          makegood_policy: string | null;
+          /** The order's own count for this line, compared against the buckets' total on screen. */
+          stated_total: number | null;
+          /** The order's wording, verbatim — nuance, never an executable rule. */
+          source_text: string | null;
+          status: UwScheduleLineStatus;
+          /** Demand on or after this date is void once cancelled. */
+          cancelled_from: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           notes: string | null;
           created_by: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]> & {
           contract_id: string;
-          days_of_week: number[];
+          revision_id: string;
+          entry_kind: UwScheduleEntryKind;
           duration_seconds: number;
           start_date: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"]>;
+        Relationships: [];
+      };
+      /** How many credits a line owes inside one period (a day, a Monday week, a month, or the whole range). A dark week is a real row with quantity 0. */
+      uw_demand_buckets: {
+        Row: {
+          id: string;
+          schedule_line_id: string;
+          period_start: string;
+          period_end: string;
+          quantity_required: number;
+          status: UwDemandBucketStatus;
+          source_label: string | null;
+          superseded_by_revision_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_demand_buckets"]["Row"]> & {
+          schedule_line_id: string;
+          period_start: string;
+          period_end: string;
+          quantity_required: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_demand_buckets"]["Row"]>;
+        Relationships: [];
+      };
+      uw_inventory_pools: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_inventory_pools"]["Row"]> & { name: string };
+        Update: Partial<Database["public"]["Tables"]["uw_inventory_pools"]["Row"]>;
+        Relationships: [];
+      };
+      uw_inventory_pool_targets: {
+        Row: {
+          id: string;
+          pool_id: string;
+          program_id: string | null;
+          window_start: string | null;
+          window_end: string | null;
+          days_of_week: number[] | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_inventory_pool_targets"]["Row"]> & { pool_id: string };
+        Update: Partial<Database["public"]["Tables"]["uw_inventory_pool_targets"]["Row"]>;
+        Relationships: [];
+      };
+      /** An event or production under a contract, grouping lines and scoping copy. */
+      uw_contract_flights: {
+        Row: {
+          id: string;
+          contract_id: string;
+          name: string;
+          start_date: string;
+          end_date: string;
+          status: UwFlightStatus;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_contract_flights"]["Row"]> & {
+          contract_id: string;
+          name: string;
+          start_date: string;
+          end_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_contract_flights"]["Row"]>;
         Relationships: [];
       };
       // Redesigned (2026-08-08): removed production_status and
@@ -2095,10 +2280,13 @@ export interface Database {
         Row: {
           contract_id: string;
           copy_id: string;
+          /** Null: serves the whole contract. Set: only lines in this flight may place it. */
+          flight_id: string | null;
         };
         Insert: {
           contract_id: string;
           copy_id: string;
+          flight_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
         Relationships: [];
@@ -2123,6 +2311,9 @@ export interface Database {
           break_label: string | null;
           status: UwPlacementStatus;
           override_reason: string | null;
+          /** The demand bucket this placement consumes. A makegood placement carries the missed placement's bucket. */
+          demand_bucket_id: string;
+          makegood_id: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -2155,6 +2346,11 @@ export interface Database {
           resolution_notes: string | null;
           resolved_by: string | null;
           resolved_at: string | null;
+          scheduled_placement_id: string | null;
+          makegood_approval: UwMakegoodApproval;
+          makegood_approval_note: string | null;
+          makegood_approval_at: string | null;
+          makegood_approval_by: string | null;
           created_at: string;
         };
         /** Insert-only from the trigger (uw_flag_exception_from_broadcast_event) — no insert grant to authenticated. Listed for completeness, not expected to be used from application code. */
@@ -2177,6 +2373,8 @@ export interface Database {
           status: UwMakegoodStatus;
           scheduled_for: string | null;
           aired_log_broadcast_event_id: string | null;
+          /** Copied from the missed placement so the replacement airing is attributed to the bucket the order missed. */
+          demand_bucket_id: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -2529,6 +2727,12 @@ export interface Database {
                 // highest position, for the auto-fill scheduler's
                 // same-underwriter/same-industry adjacency check.
                 last_item_id: string | null;
+                /** Minutes since midnight, station-local (2026-09-25). */
+                minutes_of_day: number;
+                /** True when this contract already holds a credit in this break. */
+                holds_this_contract: boolean;
+                /** The active demand bucket this break would consume. */
+                bucket_id: string;
               }[];
             }
           | { error: string };
@@ -2587,8 +2791,19 @@ export interface Database {
           p_schedule_line_id: string;
           p_copy_id: string;
           p_override_reason: string | null;
+          /** 2026-09-25: schedules this makegood with the placement (exempt from the period quota, not the day cap). */
+          p_makegood_id?: string | null;
         };
-        Returns: { ok: true; placement_id: string; item_id: string } | { error: string };
+        Returns:
+          | {
+              ok: true;
+              placement_id: string;
+              item_id: string;
+              bucket_id: string;
+              period_start: string;
+              period_end: string;
+            }
+          | { error: string };
       };
       log_clear_underwriting_credit: {
         Args: { p_placement_id: string };

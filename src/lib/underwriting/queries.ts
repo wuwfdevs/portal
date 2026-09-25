@@ -1,9 +1,24 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import { listPlaceableRundownBreaks, type PlaceableRundownBreak, type UnderwritingRpcResult } from "./placement";
-import { expectedOccurrenceCount, sumExpectedOccurrences } from "./schedule-lines";
-import { computeFulfillment, type FulfillmentResult } from "./fulfillment";
+import { stationTodayISO } from "@/lib/log/timezone";
+import {
+  listPlaceableRundownBreaks,
+  type PlaceableRundownBreak,
+  type UnderwritingRpcResult,
+} from "./placement";
+import {
+  computeBucketFulfillment,
+  describeScheduleLine,
+  reviewScheduleLine,
+  summarizeLineFulfillment,
+  type BucketFulfillment,
+  type LineFulfillmentSummary,
+  type PlacementForFulfillment,
+  type ReviewWarning,
+} from "./demand";
+import { eligibleDatesInBucket, minutesFromTimeString } from "./eligibility";
+import type { SelectionDemand } from "./inventory-selection";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -17,9 +32,18 @@ import type { Database } from "@/lib/database.types";
 
 export type UwUnderwriterRow = Database["public"]["Tables"]["uw_underwriters"]["Row"];
 export type UwContractRow = Database["public"]["Tables"]["uw_contracts"]["Row"];
-export type UwContractScheduleLineRow = Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"];
+export type UwContractRevisionRow = Database["public"]["Tables"]["uw_contract_revisions"]["Row"];
+export type UwContractScheduleLineRow =
+  Database["public"]["Tables"]["uw_contract_schedule_lines"]["Row"];
+export type UwDemandBucketRow = Database["public"]["Tables"]["uw_demand_buckets"]["Row"];
+export type UwInventoryPoolRow = Database["public"]["Tables"]["uw_inventory_pools"]["Row"];
+export type UwInventoryPoolTargetRow =
+  Database["public"]["Tables"]["uw_inventory_pool_targets"]["Row"];
+export type UwContractFlightRow = Database["public"]["Tables"]["uw_contract_flights"]["Row"];
+export type UwContractCopyRow = Database["public"]["Tables"]["uw_contract_copy"]["Row"];
 export type UwCopyRow = Database["public"]["Tables"]["uw_copy"]["Row"];
-export type UwScheduledPlacementRow = Database["public"]["Tables"]["uw_scheduled_placements"]["Row"];
+export type UwScheduledPlacementRow =
+  Database["public"]["Tables"]["uw_scheduled_placements"]["Row"];
 export type UwExceptionRow = Database["public"]["Tables"]["uw_exceptions"]["Row"];
 export type UwMakegoodRow = Database["public"]["Tables"]["uw_makegoods"]["Row"];
 export type UwAffidavitRow = Database["public"]["Tables"]["uw_affidavits"]["Row"];
@@ -44,10 +68,30 @@ async function displayNames(userIds: (string | null)[]): Promise<Map<string, str
 
 // Underwriters -----------------------------------------------------------
 
+export type UwIndustryCategoryRow = Database["public"]["Tables"]["uw_industry_categories"]["Row"];
+
+/** The typed industry list (uw_industry_categories), active first, by name. */
+export async function listIndustryCategories(): Promise<UwIndustryCategoryRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_industry_categories")
+        .select("*")
+        .order("active", { ascending: false })
+        .order("name"),
+      "the industry categories",
+    ) ?? []
+  );
+}
+
 export async function listUnderwriters(): Promise<UwUnderwriterRow[]> {
   const supabase = await createClient();
   return (
-    unwrapRead(await supabase.from("uw_underwriters").select("*").order("name"), "the underwriters") ?? []
+    unwrapRead(
+      await supabase.from("uw_underwriters").select("*").order("name"),
+      "the underwriters",
+    ) ?? []
   );
 }
 
@@ -69,10 +113,47 @@ export async function getUnderwriterDetail(id: string): Promise<UnderwriterDetai
   const supabase = await createClient();
   const contracts =
     unwrapRead(
-      await supabase.from("uw_contracts").select("*").eq("underwriter_id", id).order("effective_from", { ascending: false }),
+      await supabase
+        .from("uw_contracts")
+        .select("*")
+        .eq("underwriter_id", id)
+        .order("effective_from", { ascending: false }),
       "this underwriter's contracts",
     ) ?? [];
   return { ...underwriter, contracts };
+}
+
+// Inventory pools ---------------------------------------------------------------
+
+export interface InventoryPoolWithTargets extends UwInventoryPoolRow {
+  targets: UwInventoryPoolTargetRow[];
+}
+
+/** Every pool with its Log targets — the station's own mapping from an order's inventory names to real opportunities (docs/underwriting-traffic-redesign.md §3). */
+export async function listInventoryPools(): Promise<InventoryPoolWithTargets[]> {
+  const supabase = await createClient();
+  const pools =
+    unwrapRead(
+      await supabase.from("uw_inventory_pools").select("*").order("name"),
+      "the inventory pools",
+    ) ?? [];
+  if (pools.length === 0) return [];
+  const targets =
+    unwrapRead(
+      await supabase
+        .from("uw_inventory_pool_targets")
+        .select("*")
+        .in(
+          "pool_id",
+          pools.map((pool) => pool.id),
+        )
+        .order("created_at"),
+      "the inventory pool targets",
+    ) ?? [];
+  return pools.map((pool) => ({
+    ...pool,
+    targets: targets.filter((target) => target.pool_id === pool.id),
+  }));
 }
 
 // Contracts ----------------------------------------------------------------
@@ -112,13 +193,51 @@ export async function getContract(id: string): Promise<UwContractRow | null> {
   );
 }
 
-export interface ContractDetail extends UwContractRow {
-  underwriter: UwUnderwriterRow;
-  scheduleLines: UwContractScheduleLineRow[];
-  copy: UwCopyRow[];
+// Revisions ------------------------------------------------------------------
+
+/** A contract's revisions, oldest first. */
+export async function listRevisionsForContract(
+  contractId: string,
+): Promise<UwContractRevisionRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_contract_revisions")
+        .select("*")
+        .eq("contract_id", contractId)
+        .order("created_at"),
+      "this contract's revisions",
+    ) ?? []
+  );
 }
 
-/** A contract plus its underwriter, schedule lines, and every copy version linked to it (via uw_contract_copy). */
+export async function getRevision(id: string): Promise<UwContractRevisionRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase.from("uw_contract_revisions").select("*").eq("id", id).maybeSingle(),
+    "this revision",
+  );
+}
+
+export interface ContractDetail extends UwContractRow {
+  underwriter: UwUnderwriterRow;
+  revisions: UwContractRevisionRow[];
+  /** The revision whose lines schedule today; null only for a contract whose first revision is still a draft. */
+  currentRevision: UwContractRevisionRow | null;
+  /** The draft being entered, if any (at most one is kept open at a time by the UI). */
+  draftRevision: UwContractRevisionRow | null;
+  /** Every schedule line under every revision, in start-date order. */
+  scheduleLines: UwContractScheduleLineRow[];
+  /** Demand buckets per schedule line id, in period order. */
+  bucketsByLine: Map<string, UwDemandBucketRow[]>;
+  flights: UwContractFlightRow[];
+  copy: UwCopyRow[];
+  /** The uw_contract_copy links, carrying each copy's flight scope. */
+  copyLinks: UwContractCopyRow[];
+}
+
+/** A contract plus its underwriter, revisions, schedule lines (with buckets), flights, and every copy version linked to it (via uw_contract_copy). */
 export async function getContractDetail(id: string): Promise<ContractDetail | null> {
   const supabase = await createClient();
   const contract = unwrapRead(
@@ -130,23 +249,25 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
   const underwriter = await getUnderwriter(contract.underwriter_id);
   if (!underwriter) return null;
 
-  const scheduleLines =
-    unwrapRead(
-      await supabase
-        .from("uw_contract_schedule_lines")
-        .select("*")
-        .eq("contract_id", id)
-        .order("created_at"),
-      "this contract's schedule lines",
-    ) ?? [];
+  const [revisionsResult, linesResult, flightsResult, linksResult] = await Promise.all([
+    supabase.from("uw_contract_revisions").select("*").eq("contract_id", id).order("created_at"),
+    supabase
+      .from("uw_contract_schedule_lines")
+      .select("*")
+      .eq("contract_id", id)
+      .order("start_date")
+      .order("created_at"),
+    supabase.from("uw_contract_flights").select("*").eq("contract_id", id).order("start_date"),
+    supabase.from("uw_contract_copy").select("*").eq("contract_id", id),
+  ]);
+  const revisions = unwrapRead(revisionsResult, "this contract's revisions") ?? [];
+  const scheduleLines = unwrapRead(linesResult, "this contract's schedule lines") ?? [];
+  const flights = unwrapRead(flightsResult, "this contract's flights") ?? [];
+  const copyLinks = unwrapRead(linksResult, "this contract's linked copy") ?? [];
 
-  const links =
-    unwrapRead(
-      await supabase.from("uw_contract_copy").select("copy_id").eq("contract_id", id),
-      "this contract's linked copy",
-    ) ?? [];
-  const copyIds = links.map((link) => link.copy_id);
+  const bucketsByLine = await listBucketsForLines(scheduleLines.map((line) => line.id));
 
+  const copyIds = copyLinks.map((link) => link.copy_id);
   const copy =
     copyIds.length === 0
       ? []
@@ -155,56 +276,41 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
           "this contract's linked copy",
         ) ?? []);
 
-  return { ...contract, underwriter, scheduleLines, copy };
+  return {
+    ...contract,
+    underwriter,
+    revisions,
+    currentRevision: revisions.find((revision) => revision.status === "current") ?? null,
+    draftRevision: revisions.find((revision) => revision.status === "draft") ?? null,
+    scheduleLines,
+    bucketsByLine,
+    flights,
+    copy,
+    copyLinks,
+  };
 }
 
-/**
- * Derived fulfillment for a contract (point 31 of the domain redesign) —
- * never a stored status. Aggregates its schedule lines' expected occurrence
- * total against confirmed airings, open exceptions, and open makegoods —
- * see lib/underwriting/fulfillment.ts.
- */
-export async function getContractFulfillment(
-  contractId: string,
-  scheduleLines: UwContractScheduleLineRow[],
-): Promise<FulfillmentResult> {
+export async function listBucketsForLines(
+  lineIds: string[],
+): Promise<Map<string, UwDemandBucketRow[]>> {
+  const result = new Map<string, UwDemandBucketRow[]>();
+  if (lineIds.length === 0) return result;
   const supabase = await createClient();
-  const lineIds = scheduleLines.map((line) => line.id);
-  if (lineIds.length === 0) {
-    return computeFulfillment({ expectedOccurrences: null, completedCount: 0, openExceptionCount: 0, openMakegoodCount: 0 });
+  const rows =
+    unwrapRead(
+      await supabase
+        .from("uw_demand_buckets")
+        .select("*")
+        .in("schedule_line_id", lineIds)
+        .order("period_start"),
+      "these schedule lines' demand buckets",
+    ) ?? [];
+  for (const row of rows) {
+    const list = result.get(row.schedule_line_id) ?? [];
+    list.push(row);
+    result.set(row.schedule_line_id, list);
   }
-
-  const [placementsResult, exceptionsResult, makegoodsResult] = await Promise.all([
-    supabase.from("uw_scheduled_placements").select("*").in("schedule_line_id", lineIds).neq("status", "superseded"),
-    supabase.from("uw_exceptions").select("id").in("schedule_line_id", lineIds).eq("resolution_status", "open"),
-    supabase.from("uw_makegoods").select("id").in("schedule_line_id", lineIds).eq("status", "scheduled"),
-  ]);
-  const placements = unwrapRead(placementsResult, "this contract's placements") ?? [];
-  const openExceptions = unwrapRead(exceptionsResult, "this contract's open exceptions") ?? [];
-  const openMakegoods = unwrapRead(makegoodsResult, "this contract's open makegoods") ?? [];
-
-  // null for a cleared placement (log_clear_underwriting_credit nulls it on
-  // delete rather than cascading the row away — see
-  // 20260809130000_underwriting_credit_relocation.sql) — nothing to look up
-  // a broadcast event by in that case.
-  const rundownItemIds = placements
-    .map((placement) => placement.log_rundown_item_id)
-    .filter((id): id is string => id !== null);
-  const events =
-    rundownItemIds.length === 0
-      ? []
-      : (unwrapRead(
-          await supabase.from("log_broadcast_events").select("outcome").in("rundown_item_id", rundownItemIds),
-          "this contract's broadcast events",
-        ) ?? []);
-  const completedCount = events.filter((event) => event.outcome === "aired_as_scheduled").length;
-
-  return computeFulfillment({
-    expectedOccurrences: sumExpectedOccurrences(scheduleLines),
-    completedCount,
-    openExceptionCount: openExceptions.length,
-    openMakegoodCount: openMakegoods.length,
-  });
+  return result;
 }
 
 // Copy -----------------------------------------------------------------------
@@ -212,8 +318,10 @@ export async function getContractFulfillment(
 export async function listCopy(): Promise<UwCopyRow[]> {
   const supabase = await createClient();
   return (
-    unwrapRead(await supabase.from("uw_copy").select("*").order("created_at", { ascending: false }), "the copy library") ??
-    []
+    unwrapRead(
+      await supabase.from("uw_copy").select("*").order("created_at", { ascending: false }),
+      "the copy library",
+    ) ?? []
   );
 }
 
@@ -248,10 +356,45 @@ export async function getCopyDetail(id: string): Promise<CopyDetail | null> {
   return { ...copy, contracts };
 }
 
-// Placements -----------------------------------------------------------------
+/** Every uw_contract_copy link for the given contracts, with the copy rows, grouped by contract id. */
+export async function listCopyLinkedToContracts(
+  contractIds: string[],
+): Promise<Map<string, { copy: UwCopyRow; flightId: string | null }[]>> {
+  if (contractIds.length === 0) return new Map();
+  const supabase = await createClient();
+  const links =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_copy")
+        .select("contract_id, copy_id, flight_id")
+        .in("contract_id", contractIds),
+      "linked copy",
+    ) ?? [];
+  const copyIds = [...new Set(links.map((link) => link.copy_id))];
+  const copyRows =
+    copyIds.length === 0
+      ? []
+      : (unwrapRead(await supabase.from("uw_copy").select("*").in("id", copyIds), "linked copy") ??
+        []);
+  const copyById = new Map(copyRows.map((copy) => [copy.id, copy]));
 
-/** Active (non-superseded) placements for one schedule line, most recent first — this table is select-only from RLS, so a plain read is fine here (writes go through lib/underwriting/placement.ts's RPC calls). */
-export async function listPlacementsForScheduleLine(scheduleLineId: string): Promise<UwScheduledPlacementRow[]> {
+  const result = new Map<string, { copy: UwCopyRow; flightId: string | null }[]>();
+  for (const link of links) {
+    const copy = copyById.get(link.copy_id);
+    if (!copy) continue;
+    const list = result.get(link.contract_id) ?? [];
+    list.push({ copy, flightId: link.flight_id });
+    result.set(link.contract_id, list);
+  }
+  return result;
+}
+
+// Placements and demand ----------------------------------------------------------
+
+/** Active (non-superseded) placements for one schedule line, soonest first — this table is select-only from RLS, so a plain read is fine here (writes go through lib/underwriting/placement.ts's RPC calls). */
+export async function listPlacementsForScheduleLine(
+  scheduleLineId: string,
+): Promise<UwScheduledPlacementRow[]> {
   const supabase = await createClient();
   return (
     unwrapRead(
@@ -266,6 +409,202 @@ export async function listPlacementsForScheduleLine(scheduleLineId: string): Pro
   );
 }
 
+export interface PlacementWithOutcome extends UwScheduledPlacementRow {
+  outcome: PlacementForFulfillment["outcome"];
+}
+
+/**
+ * Active placements for several lines, each with its broadcast outcome:
+ * pending (no event yet), aired (aired_as_scheduled), or not_aired. Read
+ * through log_broadcast_events_select_for_underwriting_placements.
+ */
+export async function listPlacementsWithOutcomes(
+  lineIds: string[],
+): Promise<Map<string, PlacementWithOutcome[]>> {
+  const result = new Map<string, PlacementWithOutcome[]>();
+  if (lineIds.length === 0) return result;
+  const supabase = await createClient();
+  const placements =
+    unwrapRead(
+      await supabase
+        .from("uw_scheduled_placements")
+        .select("*")
+        .in("schedule_line_id", lineIds)
+        .neq("status", "superseded")
+        .order("scheduled_at"),
+      "these schedule lines' placements",
+    ) ?? [];
+  const itemIds = placements
+    .map((p) => p.log_rundown_item_id)
+    .filter((id): id is string => id !== null);
+  const events =
+    itemIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("log_broadcast_events")
+            .select("rundown_item_id, outcome")
+            .in("rundown_item_id", itemIds),
+          "these placements' broadcast events",
+        ) ?? []);
+  const outcomeByItem = new Map(events.map((event) => [event.rundown_item_id, event.outcome]));
+
+  for (const placement of placements) {
+    const raw = placement.log_rundown_item_id
+      ? outcomeByItem.get(placement.log_rundown_item_id)
+      : undefined;
+    const outcome: PlacementForFulfillment["outcome"] =
+      raw === undefined ? "pending" : raw === "aired_as_scheduled" ? "aired" : "not_aired";
+    const list = result.get(placement.schedule_line_id) ?? [];
+    list.push({ ...placement, outcome });
+    result.set(placement.schedule_line_id, list);
+  }
+  return result;
+}
+
+export interface OpenItemsForLine {
+  openExceptions: number;
+  /** Makegoods still status = scheduled (with or without a slot). */
+  openMakegoods: number;
+  /** Scheduled makegoods with no slot yet whose exception is not waiting on the agency. */
+  awaitingSlot: { id: string; bucketId: string | null }[];
+  makegoodsPendingApproval: number;
+}
+
+export async function listOpenItemsForLines(
+  lineIds: string[],
+): Promise<Map<string, OpenItemsForLine>> {
+  const result = new Map<string, OpenItemsForLine>();
+  if (lineIds.length === 0) return result;
+  const supabase = await createClient();
+  const [exceptionsResult, makegoodsResult] = await Promise.all([
+    supabase
+      .from("uw_exceptions")
+      .select("id, schedule_line_id, makegood_approval")
+      .in("schedule_line_id", lineIds)
+      .eq("resolution_status", "open"),
+    supabase
+      .from("uw_makegoods")
+      .select("id, schedule_line_id, exception_id, scheduled_placement_id, demand_bucket_id")
+      .in("schedule_line_id", lineIds)
+      .eq("status", "scheduled")
+      .order("created_at"),
+  ]);
+  const exceptions = unwrapRead(exceptionsResult, "these schedule lines' open exceptions") ?? [];
+  const makegoods = unwrapRead(makegoodsResult, "these schedule lines' makegoods") ?? [];
+
+  // A makegood's approval state lives on its exception, which may already
+  // be resolved (schedule_makegood) — read every referenced exception, not
+  // just the open ones.
+  const exceptionIds = [...new Set(makegoods.map((m) => m.exception_id))];
+  const approvalByException = new Map<string, string>();
+  if (exceptionIds.length > 0) {
+    const rows =
+      unwrapRead(
+        await supabase.from("uw_exceptions").select("id, makegood_approval").in("id", exceptionIds),
+        "these makegoods' exceptions",
+      ) ?? [];
+    for (const row of rows) approvalByException.set(row.id, row.makegood_approval);
+  }
+
+  for (const lineId of lineIds) {
+    const own = makegoods.filter((m) => m.schedule_line_id === lineId);
+    result.set(lineId, {
+      openExceptions: exceptions.filter((e) => e.schedule_line_id === lineId).length,
+      openMakegoods: own.length,
+      awaitingSlot: own
+        .filter((m) => m.scheduled_placement_id === null)
+        .filter((m) => {
+          const approval = approvalByException.get(m.exception_id) ?? "not_required";
+          return approval === "not_required" || approval === "approved";
+        })
+        .map((m) => ({ id: m.id, bucketId: m.demand_bucket_id })),
+      makegoodsPendingApproval: own.filter(
+        (m) => approvalByException.get(m.exception_id) === "pending",
+      ).length,
+    });
+  }
+  return result;
+}
+
+export interface ScheduleLineDemandView {
+  scheduleLine: UwContractScheduleLineRow;
+  description: string;
+  buckets: BucketFulfillment[];
+  summary: LineFulfillmentSummary;
+  warnings: ReviewWarning[];
+  placements: PlacementWithOutcome[];
+  openItems: OpenItemsForLine;
+}
+
+/**
+ * Everything the contract screen shows about a line's demand: its buckets
+ * with per-bucket fulfillment, the line-level summary, the review
+ * warnings, and the placements behind them. Shared with the dashboard's
+ * conflict check so the two never drift on what "short" means.
+ */
+export async function buildScheduleLineDemandViews(
+  contract: UwContractRow,
+  scheduleLines: UwContractScheduleLineRow[],
+  bucketsByLine: Map<string, UwDemandBucketRow[]>,
+  names: { poolNameById: Map<string, string>; programNameById: Map<string, string> },
+): Promise<ScheduleLineDemandView[]> {
+  const lineIds = scheduleLines.map((line) => line.id);
+  const [placementsByLine, openItemsByLine] = await Promise.all([
+    listPlacementsWithOutcomes(lineIds),
+    listOpenItemsForLines(lineIds),
+  ]);
+  const todayISO = stationTodayISO();
+
+  return scheduleLines.map((scheduleLine) => {
+    const bucketRows = bucketsByLine.get(scheduleLine.id) ?? [];
+    const placements = placementsByLine.get(scheduleLine.id) ?? [];
+    const openItems = openItemsByLine.get(scheduleLine.id) ?? {
+      openExceptions: 0,
+      openMakegoods: 0,
+      awaitingSlot: [],
+      makegoodsPendingApproval: 0,
+    };
+    const buckets = computeBucketFulfillment(
+      scheduleLine,
+      bucketRows,
+      placements.map((placement) => ({
+        bucketId: placement.demand_bucket_id,
+        isMakegood: placement.makegood_id !== null,
+        outcome: placement.outcome,
+      })),
+      openItems.awaitingSlot.map((makegood) => ({
+        bucketId: makegood.bucketId,
+        awaitingSlot: true,
+      })),
+    );
+    return {
+      scheduleLine,
+      description: describeScheduleLine(scheduleLine, {
+        poolName: scheduleLine.pool_id ? names.poolNameById.get(scheduleLine.pool_id) : null,
+        programName: scheduleLine.program_id
+          ? names.programNameById.get(scheduleLine.program_id)
+          : null,
+      }),
+      buckets,
+      summary: summarizeLineFulfillment(buckets, openItems, todayISO, scheduleLine.service_level),
+      warnings: reviewScheduleLine(
+        scheduleLine,
+        bucketRows
+          .filter((bucket) => bucket.status === "active")
+          .map((bucket) => ({
+            periodStart: bucket.period_start,
+            periodEnd: bucket.period_end,
+            quantity: bucket.quantity_required,
+          })),
+        contract,
+      ),
+      placements,
+      openItems,
+    };
+  });
+}
+
 export interface ScheduleLinePlacementContext {
   scheduleLine: UwContractScheduleLineRow;
   placements: UwScheduledPlacementRow[];
@@ -275,12 +614,9 @@ export interface ScheduleLinePlacementContext {
 /**
  * Existing placements plus currently-placeable open breaks, per schedule
  * line — shared by the contract detail screen's "Place a credit" section
- * and the dashboard's conflict check (lib/underwriting/conflicts.ts), so
- * the two don't drift on how that pair of reads is combined. One
- * log_list_placeable_rundown_breaks RPC call per schedule line, unbatched —
- * fine at this tool's current scale (a handful of contracts for one
- * station), same tradeoff Academic Partnerships' dashboard makes
- * aggregating in application code rather than a new SQL aggregate.
+ * and the dashboard's conflict check, so the two don't drift on how that
+ * pair of reads is combined. One log_list_placeable_rundown_breaks RPC call
+ * per schedule line, unbatched — fine at this tool's current scale.
  */
 export async function listScheduleLinePlacementContexts(
   scheduleLines: UwContractScheduleLineRow[],
@@ -304,77 +640,82 @@ export async function getScheduleLine(id: string): Promise<UwContractScheduleLin
   );
 }
 
-export interface ScheduleLineAutoFillDemand {
-  /** Brand-new occurrences still needed beyond what's pending or already awaiting a makegood slot — null for an open-ended line (see lib/underwriting/auto-fill-plan.ts). */
-  freshOccurrencesNeeded: number | null;
-  /** Makegood ids for this line with status='scheduled' and no slot yet, oldest first — priority demand for the auto-fill scheduler. */
-  awaitingSlotMakegoodIds: string[];
+export { minutesFromTimeString };
+
+/** Minutes since midnight in the station's own zone for a placement's scheduled_at. */
+function minutesOfDayInStationTime(iso: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(iso));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
 }
 
 /**
- * Demand inputs for the auto-fill scheduler (lib/underwriting/auto-fill.ts),
- * per schedule line. "Fresh" need is deliberately not just
- * expected - completed: an active (non-superseded) placement whose
- * broadcast event hasn't happened yet is still a live claim on one of the
- * expected occurrences and must not be double-scheduled, but a placement
- * whose event already recorded a non-compliant outcome (missed/preempted,
- * left uncleared by uw_flag_exception_from_broadcast_event()) is not —
- * that's exactly what its makegood is for, which is why it surfaces
- * separately as awaitingSlotMakegoodIds instead of silently inflating this
- * count.
+ * The scheduler's view of one line: its open demand buckets (active, with
+ * quantity, ending today or later), every active placement with its bucket
+ * and station-local time, the makegoods it may still schedule, the order's
+ * per-day cap and preferred time, and the contract's own adjacency/
+ * separation identity (lib/underwriting/inventory-selection.ts).
  */
-export async function getScheduleLineAutoFillDemand(
+export async function buildSelectionDemand(
   scheduleLine: UwContractScheduleLineRow,
-): Promise<ScheduleLineAutoFillDemand> {
-  const supabase = await createClient();
-  const [placements, makegoodsResult] = await Promise.all([
-    listPlacementsForScheduleLine(scheduleLine.id),
-    supabase
-      .from("uw_makegoods")
-      .select("id")
-      .eq("schedule_line_id", scheduleLine.id)
-      .eq("status", "scheduled")
-      .is("scheduled_placement_id", null)
-      .order("created_at"),
+  contract: UwContractRow,
+  underwriter: UwUnderwriterRow,
+  buckets: UwDemandBucketRow[],
+  todayISO: string = stationTodayISO(),
+): Promise<SelectionDemand> {
+  const [placementsByLine, openItemsByLine] = await Promise.all([
+    listPlacementsWithOutcomes([scheduleLine.id]),
+    listOpenItemsForLines([scheduleLine.id]),
   ]);
-  const awaitingSlotMakegoods =
-    unwrapRead(makegoodsResult, "this schedule line's makegoods awaiting a slot") ?? [];
-
-  const rundownItemIds = placements
-    .map((placement) => placement.log_rundown_item_id)
-    .filter((id): id is string => id !== null);
-
-  let completedCount = 0;
-  let pendingCount = 0;
-  if (rundownItemIds.length > 0) {
-    const events =
-      unwrapRead(
-        await supabase
-          .from("log_broadcast_events")
-          .select("rundown_item_id, outcome")
-          .in("rundown_item_id", rundownItemIds),
-        "this schedule line's broadcast events",
-      ) ?? [];
-    const outcomeByItem = new Map(events.map((event) => [event.rundown_item_id, event.outcome]));
-    for (const itemId of rundownItemIds) {
-      const outcome = outcomeByItem.get(itemId);
-      if (outcome === undefined) pendingCount++;
-      else if (outcome === "aired_as_scheduled") completedCount++;
-    }
-  }
-
-  const expected = expectedOccurrenceCount(scheduleLine);
-  const freshOccurrencesNeeded = expected == null ? null : Math.max(0, expected - completedCount - pendingCount);
+  const placements = placementsByLine.get(scheduleLine.id) ?? [];
+  const openItems = openItemsByLine.get(scheduleLine.id);
 
   return {
-    freshOccurrencesNeeded,
-    awaitingSlotMakegoodIds: awaitingSlotMakegoods.map((makegood) => makegood.id),
+    buckets: buckets
+      .filter(
+        (bucket) =>
+          bucket.status === "active" &&
+          bucket.quantity_required > 0 &&
+          bucket.period_end >= todayISO,
+      )
+      .map((bucket) => ({
+        bucketId: bucket.id,
+        periodStart: bucket.period_start,
+        periodEnd: bucket.period_end,
+        quantity: bucket.quantity_required,
+        eligibleDates: eligibleDatesInBucket(scheduleLine, bucket),
+      })),
+    existingPlacements: placements.map((placement) => ({
+      bucketId: placement.demand_bucket_id,
+      airDate: placement.placement_date,
+      minutesOfDay: minutesOfDayInStationTime(placement.scheduled_at),
+      isMakegood: placement.makegood_id !== null,
+    })),
+    makegoodsAwaitingSlot: openItems?.awaitingSlot ?? [],
+    maxPerDay: scheduleLine.max_per_day,
+    preferredTimeMinutes:
+      (scheduleLine.time_mode === "preferred" || scheduleLine.time_mode === "exact") &&
+      scheduleLine.preferred_time
+        ? minutesFromTimeString(scheduleLine.preferred_time)
+        : null,
+    underwriterId: underwriter.id,
+    categoryId: underwriter.category_id,
+    lineFlightId: scheduleLine.flight_id,
+    separationMinutes:
+      contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
+    todayISO,
   };
 }
 
 export interface LastItemAdjacencyInfo {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 /**
@@ -413,7 +754,10 @@ export async function resolveLastItemAdjacency(
   const scheduleLineIds = [...new Set(placements.map((placement) => placement.schedule_line_id))];
   const scheduleLines =
     unwrapRead(
-      await supabase.from("uw_contract_schedule_lines").select("id, contract_id").in("id", scheduleLineIds),
+      await supabase
+        .from("uw_contract_schedule_lines")
+        .select("id, contract_id")
+        .in("id", scheduleLineIds),
       "these breaks' schedule lines",
     ) ?? [];
   const contractIdByLine = new Map(scheduleLines.map((line) => [line.id, line.contract_id]));
@@ -426,17 +770,21 @@ export async function resolveLastItemAdjacency(
           await supabase.from("uw_contracts").select("id, underwriter_id").in("id", contractIds),
           "these breaks' contracts",
         ) ?? []);
-  const underwriterIdByContract = new Map(contracts.map((contract) => [contract.id, contract.underwriter_id]));
+  const underwriterIdByContract = new Map(
+    contracts.map((contract) => [contract.id, contract.underwriter_id]),
+  );
 
   const underwriterIds = [...new Set(contracts.map((contract) => contract.underwriter_id))];
   const underwriters =
     underwriterIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("uw_underwriters").select("id, category").in("id", underwriterIds),
+          await supabase.from("uw_underwriters").select("id, category_id").in("id", underwriterIds),
           "these breaks' underwriters",
         ) ?? []);
-  const categoryByUnderwriter = new Map(underwriters.map((underwriter) => [underwriter.id, underwriter.category]));
+  const categoryByUnderwriter = new Map(
+    underwriters.map((underwriter) => [underwriter.id, underwriter.category_id]),
+  );
 
   const result = new Map<string, LastItemAdjacencyInfo>();
   for (const placement of placements) {
@@ -446,7 +794,7 @@ export async function resolveLastItemAdjacency(
     if (!underwriterId) continue;
     result.set(placement.log_rundown_item_id, {
       underwriterId,
-      category: categoryByUnderwriter.get(underwriterId) ?? null,
+      categoryId: categoryByUnderwriter.get(underwriterId) ?? null,
     });
   }
   return result;
@@ -454,7 +802,7 @@ export async function resolveLastItemAdjacency(
 
 export interface NearbyPlacementForAdjacency {
   underwriterId: string;
-  category: string | null;
+  categoryId: string | null;
 }
 
 /**
@@ -483,10 +831,15 @@ export async function listNearbyPlacementsForAdjacency(
   const scheduleLineIds = [...new Set(placements.map((p) => p.schedule_line_id))];
   const scheduleLines =
     unwrapRead(
-      await supabase.from("uw_contract_schedule_lines").select("id, contract_id").in("id", scheduleLineIds),
+      await supabase
+        .from("uw_contract_schedule_lines")
+        .select("id, contract_id")
+        .in("id", scheduleLineIds),
       "nearby placements' schedule lines",
     ) ?? [];
-  const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))].filter((id) => id !== excludeContractId);
+  const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))].filter(
+    (id) => id !== excludeContractId,
+  );
   if (contractIds.length === 0) return [];
 
   const contracts =
@@ -499,14 +852,14 @@ export async function listNearbyPlacementsForAdjacency(
     underwriterIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("uw_underwriters").select("id, category").in("id", underwriterIds),
+          await supabase.from("uw_underwriters").select("id, category_id").in("id", underwriterIds),
           "nearby placements' underwriters",
         ) ?? []);
-  const categoryByUnderwriter = new Map(underwriters.map((u) => [u.id, u.category]));
+  const categoryByUnderwriter = new Map(underwriters.map((u) => [u.id, u.category_id]));
 
   return contracts.map((contract) => ({
     underwriterId: contract.underwriter_id,
-    category: categoryByUnderwriter.get(contract.underwriter_id) ?? null,
+    categoryId: categoryByUnderwriter.get(contract.underwriter_id) ?? null,
   }));
 }
 
@@ -514,22 +867,45 @@ export interface ScheduleLineWithContract extends UwContractScheduleLineRow {
   contract: ContractWithUnderwriter;
 }
 
-/** Every schedule line under an active contract — Workflow D's conflict dashboard starting point. A line under a paused/terminated contract can't be placed regardless of inventory, so it's excluded rather than flagged as a conflict. */
+/**
+ * Every active schedule line under the current revision of an active
+ * contract — Workflow D's conflict dashboard and the dashboard-wide
+ * auto-fill's starting point. A line under a paused/terminated contract, a
+ * draft or superseded revision, or a cancelled line can't be placed
+ * regardless of inventory, so it's excluded rather than flagged as a
+ * conflict.
+ */
 export async function listScheduleLinesWithActiveContracts(): Promise<ScheduleLineWithContract[]> {
   const contracts = await listContracts();
   const activeContracts = contracts.filter((contract) => contract.status === "active");
   if (activeContracts.length === 0) return [];
 
   const supabase = await createClient();
+  const currentRevisions =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_revisions")
+        .select("id")
+        .eq("status", "current")
+        .in(
+          "contract_id",
+          activeContracts.map((contract) => contract.id),
+        ),
+      "the current revisions",
+    ) ?? [];
+  if (currentRevisions.length === 0) return [];
+
   const scheduleLines =
     unwrapRead(
       await supabase
         .from("uw_contract_schedule_lines")
         .select("*")
+        .eq("status", "active")
         .in(
-          "contract_id",
-          activeContracts.map((contract) => contract.id),
-        ),
+          "revision_id",
+          currentRevisions.map((revision) => revision.id),
+        )
+        .order("start_date"),
       "the active schedule lines",
     ) ?? [];
 
@@ -538,33 +914,6 @@ export async function listScheduleLinesWithActiveContracts(): Promise<ScheduleLi
     const contract = contractById.get(line.contract_id);
     return contract ? [{ ...line, contract }] : [];
   });
-}
-
-/** Every uw_copy row linked (via uw_contract_copy) to any of the given contracts, grouped by contract id. */
-export async function listCopyLinkedToContracts(contractIds: string[]): Promise<Map<string, UwCopyRow[]>> {
-  if (contractIds.length === 0) return new Map();
-  const supabase = await createClient();
-  const links =
-    unwrapRead(
-      await supabase.from("uw_contract_copy").select("contract_id, copy_id").in("contract_id", contractIds),
-      "linked copy",
-    ) ?? [];
-  const copyIds = [...new Set(links.map((link) => link.copy_id))];
-  const copyRows =
-    copyIds.length === 0
-      ? []
-      : (unwrapRead(await supabase.from("uw_copy").select("*").in("id", copyIds), "linked copy") ?? []);
-  const copyById = new Map(copyRows.map((copy) => [copy.id, copy]));
-
-  const result = new Map<string, UwCopyRow[]>();
-  for (const link of links) {
-    const copy = copyById.get(link.copy_id);
-    if (!copy) continue;
-    const list = result.get(link.contract_id) ?? [];
-    list.push(copy);
-    result.set(link.contract_id, list);
-  }
-  return result;
 }
 
 // Exceptions -------------------------------------------------------------------
@@ -620,8 +969,16 @@ export async function getExceptionDetail(id: string): Promise<ExceptionDetail | 
   if (!exception) return null;
 
   const [scheduleLineResult, broadcastEventResult] = await Promise.all([
-    supabase.from("uw_contract_schedule_lines").select("*").eq("id", exception.schedule_line_id).maybeSingle(),
-    supabase.from("log_broadcast_events").select("*").eq("id", exception.log_broadcast_event_id).maybeSingle(),
+    supabase
+      .from("uw_contract_schedule_lines")
+      .select("*")
+      .eq("id", exception.schedule_line_id)
+      .maybeSingle(),
+    supabase
+      .from("log_broadcast_events")
+      .select("*")
+      .eq("id", exception.log_broadcast_event_id)
+      .maybeSingle(),
   ]);
   const scheduleLine = unwrapRead(scheduleLineResult, "this exception's schedule line");
   const broadcastEvent = unwrapRead(broadcastEventResult, "this exception's broadcast event");
@@ -630,18 +987,29 @@ export async function getExceptionDetail(id: string): Promise<ExceptionDetail | 
   const contract = (await listContracts()).find((c) => c.id === scheduleLine.contract_id);
   if (!contract) return null;
 
-  const placement = broadcastEvent
+  // The trigger records the placement directly (2026-09-25); the item-id
+  // lookup is the fallback for rows created before that column existed.
+  const placement = exception.scheduled_placement_id
     ? unwrapRead(
         await supabase
           .from("uw_scheduled_placements")
           .select("*")
-          .eq("log_rundown_item_id", broadcastEvent.rundown_item_id)
-          .order("created_at", { ascending: false })
-          .limit(1)
+          .eq("id", exception.scheduled_placement_id)
           .maybeSingle(),
         "this exception's placement",
       )
-    : null;
+    : broadcastEvent
+      ? unwrapRead(
+          await supabase
+            .from("uw_scheduled_placements")
+            .select("*")
+            .eq("log_rundown_item_id", broadcastEvent.rundown_item_id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          "this exception's placement",
+        )
+      : null;
 
   return { ...exception, scheduleLine, contract, broadcastEvent, placement };
 }
@@ -704,7 +1072,11 @@ export async function listMakegoods(): Promise<MakegoodListItem[]> {
   const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
 
   const placementIds = [
-    ...new Set(makegoods.flatMap((makegood) => (makegood.scheduled_placement_id ? [makegood.scheduled_placement_id] : []))),
+    ...new Set(
+      makegoods.flatMap((makegood) =>
+        makegood.scheduled_placement_id ? [makegood.scheduled_placement_id] : [],
+      ),
+    ),
   ];
   const placements =
     placementIds.length === 0
@@ -715,7 +1087,9 @@ export async function listMakegoods(): Promise<MakegoodListItem[]> {
         ) ?? []);
   const placementById = new Map(placements.map((placement) => [placement.id, placement]));
 
-  const copyByContract = await listCopyLinkedToContracts([...new Set(scheduleLines.map((line) => line.contract_id))]);
+  const copyByContract = await listCopyLinkedToContracts([
+    ...new Set(scheduleLines.map((line) => line.contract_id)),
+  ]);
 
   return Promise.all(
     makegoods.flatMap((makegood) => {
@@ -740,7 +1114,9 @@ export async function listMakegoods(): Promise<MakegoodListItem[]> {
             contract,
             placement,
             placeable,
-            linkedCopy: copyByContract.get(contract.id) ?? [],
+            linkedCopy: (copyByContract.get(contract.id) ?? [])
+              .filter((link) => link.flightId === null || link.flightId === scheduleLine.flight_id)
+              .map((link) => link.copy),
           };
         })(),
       ];
@@ -882,7 +1258,8 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
       await supabase.from("uw_affidavit_line_items").select("*").eq("affidavit_id", id),
       "this affidavit's line items",
     ) ?? [];
-  if (lineItemRows.length === 0) return { ...affidavit, contract, lineItems: [], certifyingStaffName };
+  if (lineItemRows.length === 0)
+    return { ...affidavit, contract, lineItems: [], certifyingStaffName };
 
   const broadcastEventIds = lineItemRows.map((row) => row.log_broadcast_event_id);
   const placementIds = [...new Set(lineItemRows.map((row) => row.scheduled_placement_id))];
@@ -892,7 +1269,8 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
     supabase.from("uw_scheduled_placements").select("*").in("id", placementIds),
     supabase.from("uw_exceptions").select("*").in("log_broadcast_event_id", broadcastEventIds),
   ]);
-  const broadcastEvents = unwrapRead(broadcastEventsResult, "this affidavit's broadcast events") ?? [];
+  const broadcastEvents =
+    unwrapRead(broadcastEventsResult, "this affidavit's broadcast events") ?? [];
   const placements = unwrapRead(placementsResult, "this affidavit's placements") ?? [];
   const exceptions = unwrapRead(exceptionsResult, "this affidavit's exceptions") ?? [];
   const broadcastEventById = new Map(broadcastEvents.map((event) => [event.id, event]));
@@ -915,7 +1293,9 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
     ];
   });
   lineItems.sort(
-    (a, b) => new Date(a.broadcastEvent.recorded_at).getTime() - new Date(b.broadcastEvent.recorded_at).getTime(),
+    (a, b) =>
+      new Date(a.broadcastEvent.recorded_at).getTime() -
+      new Date(b.broadcastEvent.recorded_at).getTime(),
   );
 
   return { ...affidavit, contract, lineItems, certifyingStaffName };

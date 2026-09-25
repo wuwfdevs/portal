@@ -1,44 +1,48 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { listPlaceableRundownBreaks, placeCredit } from "./placement";
-import { minutesOfDayInStationTime, provisionRundownsForDates } from "./rundown-provisioning";
+import { provisionRundownsForDates } from "./rundown-provisioning";
 import {
+  buildSelectionDemand,
   getContract,
-  getScheduleLineAutoFillDemand,
+  getRevision,
   getUnderwriter,
+  listBucketsForLines,
   listCopyLinkedToContracts,
+  listInventoryPools,
   listPlacementsForScheduleLine,
   listScheduleLinesWithActiveContracts,
   resolveLastItemAdjacency,
+  type UwContractRow,
   type UwContractScheduleLineRow,
 } from "./queries";
-import { remainingOccurrenceDates } from "./schedule-lines";
 import {
-  planAutoFill,
-  type AutoFillBreakCandidate,
-  type AutoFillCopyCandidate,
-  type AutoFillDemand,
-  type AutoFillSkippedBreak,
-} from "./auto-fill-plan";
+  datesNeedingInventory,
+  planInventorySelection,
+  type CandidateBreak,
+  type CopyCandidate,
+  type UnplaceableUnit,
+} from "./inventory-selection";
 
 /**
- * Execution side of the rules-based scheduler (docs/underwriting-design.md
- * §7 "Automatic rules-based scheduling"). Every planned item
- * (lib/underwriting/auto-fill-plan.ts) is written through the exact same
+ * Execution side of the scheduler (docs/underwriting-traffic-redesign.md
+ * §9): the demand buckets say which periods need how many units;
+ * inventory selection (inventory-selection.ts) picks real Log breaks for
+ * them; this module gathers the inputs, provisions the rundowns a plan is
+ * still short, and writes every planned item through the exact same
  * log_place_underwriting_credit() RPC the manual "Place a credit" form
- * calls — never an override, since auto-fill only ever selects approved,
- * in-date copy in the first place (§6: override support stays a UI-only
- * judgment call, deliberately not something the scheduler exercises).
+ * uses — never an override, since the planner only ever selects approved,
+ * in-date, flight-appropriate copy. The RPC re-checks every contractual
+ * limit under a row lock, so a plan built from stale reads fails an item
+ * rather than over-filling.
  *
- * Rundowns get provisioned as credits are actually scheduled against them,
- * not as a separate pre-pass sized by its own independent guess at what a
- * schedule line's campaign needs: autoFillScheduleLine() plans against
- * whatever inventory already exists first (the "probe" plan below), and
- * only ever asks lib/underwriting/rundown-provisioning.ts for exactly the
- * additional days that first plan is still short — never more, never a
- * number computed some other way. See that module's own header for why
- * this replaced an earlier, separately-sized version.
+ * Rundowns are provisioned as credits are scheduled against them, not as
+ * a separate pre-pass: the first ("probe") plan runs against inventory that
+ * already exists, datesNeedingInventory() names exactly the dates the plan
+ * is still short, provisioning generates those, and a second plan against
+ * the combined inventory is the one that executes. One computation drives
+ * both what gets generated and what gets filled — see CLAUDE.md's
+ * 2026-08-09 note on why that distinction matters.
  */
 
 export interface AutoFillResult {
@@ -46,10 +50,12 @@ export interface AutoFillResult {
   makegoodsResolvedCount: number;
   /** New Log rundowns this run provisioned to cover a real shortfall — see rundown-provisioning.ts. */
   rundownsGeneratedCount: number;
-  /** Dates this schedule line still needs but has no active Log schedule entry, no clock version in effect, or no underwriting-eligible local opportunity on that clock at all. */
+  /** Dates this line still needs but no program it can use has an active Log schedule entry, a clock version in effect, or an underwriting-eligible local opportunity on. */
   unschedulableAirDates: string[];
-  skipped: AutoFillSkippedBreak[];
-  demandExceedsSupply: boolean;
+  /** Demand units the plan could not place, with the reason. */
+  unplaceable: UnplaceableUnit[];
+  /** A reason the whole line was skipped before planning, if any. */
+  skippedReason: string | null;
   errors: string[];
 }
 
@@ -58,166 +64,180 @@ const EMPTY_RESULT: AutoFillResult = {
   makegoodsResolvedCount: 0,
   rundownsGeneratedCount: 0,
   unschedulableAirDates: [],
-  skipped: [],
-  demandExceedsSupply: false,
+  unplaceable: [],
+  skippedReason: null,
   errors: [],
 };
 
-/** A schedule line's target_time ("HH:MM:SS", already station-local wall-clock — no timezone conversion needed) as minutes since midnight. */
-function minutesFromTimeString(time: string): number {
-  const [hourStr, minuteStr] = time.split(":");
-  return Number(hourStr) * 60 + Number(minuteStr);
+/** The programs auto-fill may provision rundowns for on a line's behalf: its own program, else every program its pool names explicitly. A pool target with no program ("any program") provisions nothing — it fills whatever rundowns exist. */
+export function programsForLine(
+  line: UwContractScheduleLineRow,
+  poolTargets: { pool_id: string; program_id: string | null }[],
+): string[] {
+  if (line.program_id) return [line.program_id];
+  if (!line.pool_id) return [];
+  return [
+    ...new Set(
+      poolTargets
+        .filter((target) => target.pool_id === line.pool_id && target.program_id !== null)
+        .map((target) => target.program_id as string),
+    ),
+  ];
 }
 
-/** Runs the scheduler for one schedule line: gathers its current demand, its underwriter/category, and its eligible open breaks (with each one's current last item, for the adjacency rule below), plans an assignment, then executes it. */
-export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineRow): Promise<AutoFillResult> {
-  const contract = await getContract(scheduleLine.contract_id);
+/** Runs the scheduler for one schedule line: gathers its open demand, its eligible open breaks (with each one's current last item, for the adjacency rule), plans, provisions the shortfall, plans again, executes. */
+export async function autoFillScheduleLine(
+  scheduleLine: UwContractScheduleLineRow,
+  preloaded: { contract?: UwContractRow | null } = {},
+): Promise<AutoFillResult> {
+  if (scheduleLine.status !== "active") {
+    return { ...EMPTY_RESULT, skippedReason: "This schedule line is cancelled." };
+  }
+  const revision = await getRevision(scheduleLine.revision_id);
+  if (!revision || revision.status !== "current") {
+    return {
+      ...EMPTY_RESULT,
+      skippedReason: "This schedule line belongs to a revision that isn't current.",
+    };
+  }
+  const contract = preloaded.contract ?? (await getContract(scheduleLine.contract_id));
   if (!contract) {
     return { ...EMPTY_RESULT, errors: ["This schedule line's contract no longer exists."] };
+  }
+  if (contract.status !== "active") {
+    return { ...EMPTY_RESULT, skippedReason: "The contract isn't active." };
+  }
+  if (contract.separation_source_text && contract.separation_policy === "unspecified") {
+    return {
+      ...EMPTY_RESULT,
+      skippedReason:
+        "The order states a separation rule that hasn't been turned into a policy yet — decide it on the contract before auto-filling.",
+    };
   }
   const underwriter = await getUnderwriter(contract.underwriter_id);
   if (!underwriter) {
     return { ...EMPTY_RESULT, errors: ["This schedule line's underwriter no longer exists."] };
   }
 
-  const [demand, placeable, placements, copyByContract] = await Promise.all([
-    getScheduleLineAutoFillDemand(scheduleLine),
+  const todayISO = stationTodayISO();
+  const [bucketsByLine, placeable, copyByContract, pools, activePlacements] = await Promise.all([
+    listBucketsForLines([scheduleLine.id]),
     listPlaceableRundownBreaks(scheduleLine.id),
-    listPlacementsForScheduleLine(scheduleLine.id),
     listCopyLinkedToContracts([scheduleLine.contract_id]),
+    listInventoryPools(),
+    listPlacementsForScheduleLine(scheduleLine.id),
   ]);
-
   if (!placeable.ok) {
     return { ...EMPTY_RESULT, errors: [placeable.message] };
   }
+  const demand = await buildSelectionDemand(
+    scheduleLine,
+    contract,
+    underwriter,
+    bucketsByLine.get(scheduleLine.id) ?? [],
+    todayISO,
+  );
 
   // Never the same underwriter, or the same industry, back to back within
-  // one break — see auto-fill-plan.ts's header for why this is enforced
-  // here rather than left as the manual-placement advisory.
-  const adjacencyByItemId = await resolveLastItemAdjacency(placeable.breaks.map((brk) => brk.last_item_id));
+  // one break — see inventory-selection.ts's header.
+  const adjacencyByItemId = await resolveLastItemAdjacency(
+    placeable.breaks.map((brk) => brk.last_item_id),
+  );
 
   // Rotation fairness is seeded from every currently-active placement on
-  // this line, not just ones this pass adds — a superseded (cleared)
-  // placement's copy usage isn't counted, matching that it's no longer a
-  // live commitment.
+  // this line, not just ones this pass adds.
   const usageCounts = new Map<string, number>();
-  for (const placement of placements) {
+  for (const placement of activePlacements) {
     usageCounts.set(placement.copy_id, (usageCounts.get(placement.copy_id) ?? 0) + 1);
   }
+  const copyCandidates: CopyCandidate[] = (copyByContract.get(scheduleLine.contract_id) ?? []).map(
+    ({ copy, flightId }) => ({
+      id: copy.id,
+      approvalStatus: copy.approval_status,
+      durationSeconds: copy.duration_seconds,
+      effectiveFrom: copy.effective_from,
+      effectiveTo: copy.effective_to,
+      flightId,
+      existingUsageCount: usageCounts.get(copy.id) ?? 0,
+    }),
+  );
 
-  const copyCandidates: AutoFillCopyCandidate[] = (copyByContract.get(scheduleLine.contract_id) ?? []).map((copy) => ({
-    id: copy.id,
-    approvalStatus: copy.approval_status,
-    durationSeconds: copy.duration_seconds,
-    effectiveFrom: copy.effective_from,
-    effectiveTo: copy.effective_to,
-    existingUsageCount: usageCounts.get(copy.id) ?? 0,
-  }));
-
-  const existingBreakCandidates: AutoFillBreakCandidate[] = placeable.breaks.map((brk) => {
+  const toCandidate = (brk: (typeof placeable.breaks)[number]): CandidateBreak => {
     const lastItem = brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined;
     return {
       breakId: brk.break_id,
       airDate: brk.air_date,
-      minutesOfDay: minutesOfDayInStationTime(brk.scheduled_at),
+      minutesOfDay: brk.minutes_of_day,
       remainingSeconds: brk.remaining_seconds,
       lastItemUnderwriterId: lastItem?.underwriterId ?? null,
-      lastItemCategory: lastItem?.category ?? null,
+      lastItemCategoryId: lastItem?.categoryId ?? null,
+      holdsThisContract: brk.holds_this_contract,
+      bucketId: brk.bucket_id,
     };
-  });
-
-  const demandInput: AutoFillDemand = {
-    awaitingSlotMakegoodIds: demand.awaitingSlotMakegoodIds,
-    freshOccurrencesNeeded: demand.freshOccurrencesNeeded,
-    underwriterId: underwriter.id,
-    category: underwriter.category,
-    targetTimeMinutes: scheduleLine.target_time ? minutesFromTimeString(scheduleLine.target_time) : null,
-    // Active (non-superseded — see listPlacementsForScheduleLine) placements
-    // this line already has, by their own air date — a day already spoken
-    // for is dropped from consideration entirely, fresh or makegood.
-    coveredAirDates: placements.map((placement) => placement.placement_date),
   };
+  const existingCandidates = placeable.breaks.map(toCandidate);
 
-  // Probe: what can this run do with inventory that already exists? Sizes
-  // exactly how much more is actually needed — the one number provisioning
-  // below is allowed to act on.
-  const probePlan = planAutoFill(existingBreakCandidates, demandInput, copyCandidates);
+  // Probe: what can this run do with inventory that already exists? Its
+  // shortfall is the one number provisioning is allowed to act on.
+  const probePlan = planInventorySelection(existingCandidates, demand, copyCandidates);
 
-  let finalBreakCandidates = existingBreakCandidates;
+  let finalCandidates = existingCandidates;
   let rundownsGeneratedCount = 0;
   let unschedulableAirDates: string[] = [];
   const provisioningErrors: string[] = [];
 
-  const totalRequests = demandInput.awaitingSlotMakegoodIds.length + (demandInput.freshOccurrencesNeeded ?? existingBreakCandidates.length);
-  const remaining = totalRequests - probePlan.items.length;
-  // No point generating inventory nothing could ever fill: a schedule line
-  // with no approved copy at all would just skip a freshly-provisioned
-  // break the same way it skipped every existing one.
-  const canProvision =
-    copyCandidates.some((copy) => copy.approvalStatus === "approved") &&
-    scheduleLine.program_id != null &&
-    scheduleLine.end_date != null &&
-    scheduleLine.occurrence_count_override == null;
+  const remaining = probePlan.unplaceable.filter(
+    (unit) => unit.why === "no_inventory" || unit.why === "day_cap",
+  ).length;
+  const canProvision = copyCandidates.some((copy) => copy.approvalStatus === "approved");
+  const programs = programsForLine(
+    scheduleLine,
+    pools.flatMap((pool) =>
+      pool.targets.map((target) => ({ pool_id: target.pool_id, program_id: target.program_id })),
+    ),
+  );
 
-  if (remaining > 0 && canProvision) {
-    const excludeDates = [...demandInput.coveredAirDates, ...existingBreakCandidates.map((brk) => brk.airDate)];
-    const candidateDates = remainingOccurrenceDates(scheduleLine, stationTodayISO(), excludeDates);
-
-    const provisioning = await provisionRundownsForDates(scheduleLine, candidateDates, remaining);
-    rundownsGeneratedCount = provisioning.generatedCount;
-    unschedulableAirDates = provisioning.unschedulableAirDates;
-    provisioningErrors.push(...provisioning.errors);
-
-    if (provisioning.provisionedBreaks.length > 0) {
-      const newBreakCandidates: AutoFillBreakCandidate[] = provisioning.provisionedBreaks.map((brk) => ({
-        breakId: brk.breakId,
-        airDate: brk.airDate,
-        minutesOfDay: brk.minutesOfDay,
-        remainingSeconds: brk.remainingSeconds,
-        // Never adjacent to anything — this break didn't exist a moment ago.
-        lastItemUnderwriterId: null,
-        lastItemCategory: null,
-      }));
-      finalBreakCandidates = [...existingBreakCandidates, ...newBreakCandidates];
+  if (remaining > 0 && canProvision && programs.length > 0) {
+    // Dates come from the buckets' own periods and the line's eligible
+    // days — an exact-date bucket names its date, a weekly quota asks only
+    // for as many days as it is short.
+    const candidateDates = datesNeedingInventory(demand, existingCandidates, remaining);
+    for (const programId of programs) {
+      const provisioning = await provisionRundownsForDates(programId, candidateDates, remaining);
+      rundownsGeneratedCount += provisioning.generatedCount;
+      unschedulableAirDates = provisioning.unschedulableAirDates;
+      provisioningErrors.push(...provisioning.errors);
+    }
+    if (rundownsGeneratedCount > 0) {
+      // Re-read candidates: the new breaks need the pool/window/date filter
+      // the RPC applies, not a guess at which of them qualify.
+      const refreshed = await listPlaceableRundownBreaks(scheduleLine.id);
+      if (refreshed.ok) finalCandidates = refreshed.breaks.map(toCandidate);
     }
   }
 
   const finalPlan =
-    finalBreakCandidates === existingBreakCandidates
+    finalCandidates === existingCandidates
       ? probePlan
-      : planAutoFill(finalBreakCandidates, demandInput, copyCandidates);
+      : planInventorySelection(finalCandidates, demand, copyCandidates);
 
-  const supabase = await createClient();
   let placedCount = 0;
   let makegoodsResolvedCount = 0;
   const errors: string[] = [...provisioningErrors];
 
   for (const item of finalPlan.items) {
-    const result = await placeCredit({ breakId: item.breakId, scheduleLineId: scheduleLine.id, copyId: item.copyId });
+    const result = await placeCredit({
+      breakId: item.breakId,
+      scheduleLineId: scheduleLine.id,
+      copyId: item.copyId,
+      makegoodId: item.makegoodId,
+    });
     if (!result.ok) {
       errors.push(result.message);
       continue;
     }
     placedCount++;
-
-    if (item.makegoodId) {
-      // Mirrors makegood-actions.ts's scheduleMakegoodAction: record the
-      // new placement against the makegood it resolves.
-      const { data: placementRow } = await supabase
-        .from("uw_scheduled_placements")
-        .select("scheduled_at")
-        .eq("id", result.placementId)
-        .maybeSingle();
-      const { error } = await supabase
-        .from("uw_makegoods")
-        .update({ scheduled_placement_id: result.placementId, scheduled_for: placementRow?.scheduled_at ?? null })
-        .eq("id", item.makegoodId);
-      if (error) {
-        errors.push(`Placed the credit, but could not record it against its makegood: ${error.message}`);
-      } else {
-        makegoodsResolvedCount++;
-      }
-    }
+    if (item.makegoodId) makegoodsResolvedCount++;
   }
 
   return {
@@ -225,8 +245,8 @@ export async function autoFillScheduleLine(scheduleLine: UwContractScheduleLineR
     makegoodsResolvedCount,
     rundownsGeneratedCount,
     unschedulableAirDates,
-    skipped: finalPlan.skipped,
-    demandExceedsSupply: finalPlan.demandExceedsSupply,
+    unplaceable: finalPlan.unplaceable,
+    skippedReason: null,
     errors,
   };
 }
@@ -240,18 +260,19 @@ export interface AutoFillAllResult {
  * Runs auto-fill over a given list of schedule lines, one after another —
  * shared by the dashboard-wide sweep and the per-contract one below.
  * Sequential, not parallel: two lines racing for the same open break is a
- * real possibility (e.g. two different underwriters both eligible for one
- * generic local avail — and, now that a break can hold several credits,
- * exactly the case the adjacency rule in auto-fill-plan.ts exists for), and
- * log_list_placeable_rundown_breaks() reads live occupancy at call time, so
- * running lines one after another is what keeps both the occupancy count
- * and the adjacency check correct.
+ * real possibility, and log_list_placeable_rundown_breaks() reads live
+ * occupancy at call time, so running lines one after another is what keeps
+ * both the occupancy count and the adjacency check correct (the RPC's row
+ * lock is the backstop, not the plan).
  */
-async function runAutoFillOverLines(scheduleLines: UwContractScheduleLineRow[]): Promise<AutoFillAllResult> {
+async function runAutoFillOverLines(
+  scheduleLines: UwContractScheduleLineRow[],
+  contract?: UwContractRow,
+): Promise<AutoFillAllResult> {
   const perLine: { scheduleLine: UwContractScheduleLineRow; result: AutoFillResult }[] = [];
 
   for (const scheduleLine of scheduleLines) {
-    const result = await autoFillScheduleLine(scheduleLine);
+    const result = await autoFillScheduleLine(scheduleLine, { contract });
     perLine.push({ scheduleLine, result });
   }
 
@@ -260,9 +281,11 @@ async function runAutoFillOverLines(scheduleLines: UwContractScheduleLineRow[]):
       placedCount: acc.placedCount + result.placedCount,
       makegoodsResolvedCount: acc.makegoodsResolvedCount + result.makegoodsResolvedCount,
       rundownsGeneratedCount: acc.rundownsGeneratedCount + result.rundownsGeneratedCount,
-      unschedulableAirDates: [...acc.unschedulableAirDates, ...result.unschedulableAirDates],
-      skipped: [...acc.skipped, ...result.skipped],
-      demandExceedsSupply: acc.demandExceedsSupply || result.demandExceedsSupply,
+      unschedulableAirDates: [
+        ...new Set([...acc.unschedulableAirDates, ...result.unschedulableAirDates]),
+      ],
+      unplaceable: [...acc.unplaceable, ...result.unplaceable],
+      skippedReason: acc.skippedReason ?? result.skippedReason,
       errors: [...acc.errors, ...result.errors],
     }),
     { ...EMPTY_RESULT },
@@ -271,19 +294,15 @@ async function runAutoFillOverLines(scheduleLines: UwContractScheduleLineRow[]):
   return { perLine, totals };
 }
 
-/** Runs auto-fill across every schedule line under every active contract — Workflow D's dashboard, one click. */
+/** Runs auto-fill across every active schedule line under the current revision of every active contract — Workflow D's dashboard, one click. */
 export async function autoFillActiveScheduleLines(): Promise<AutoFillAllResult> {
   return runAutoFillOverLines(await listScheduleLinesWithActiveContracts());
 }
 
-/**
- * Runs auto-fill across every schedule line under one contract — the
- * middle ground between the per-line button and the dashboard's
- * every-active-contract sweep, for a traffic staffer who just wants "fill
- * everything for this renewal conversation" without leaving the contract
- * page. Same sequential execution and per-line skip/error reporting as the
- * dashboard version, just scoped to one contract's own lines.
- */
-export async function autoFillContractScheduleLines(scheduleLines: UwContractScheduleLineRow[]): Promise<AutoFillAllResult> {
-  return runAutoFillOverLines(scheduleLines);
+/** Runs auto-fill across every schedule line under one contract. */
+export async function autoFillContractScheduleLines(
+  contract: UwContractRow,
+  scheduleLines: UwContractScheduleLineRow[],
+): Promise<AutoFillAllResult> {
+  return runAutoFillOverLines(scheduleLines, contract);
 }

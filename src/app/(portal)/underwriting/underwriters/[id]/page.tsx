@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
-import { getUnderwriterDetail } from "@/lib/underwriting/queries";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { getUnderwriterDetail, listIndustryCategories } from "@/lib/underwriting/queries";
 import { updateUnderwriter } from "../../contract-actions";
 import type { UwContractStatus } from "@/lib/database.types";
 
@@ -24,7 +24,10 @@ export default async function UnderwriterDetailPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const underwriter = await getUnderwriterDetail(id);
+  const [underwriter, categories] = await Promise.all([
+    getUnderwriterDetail(id),
+    listIndustryCategories(),
+  ]);
   if (!underwriter) notFound();
 
   return (
@@ -38,14 +41,22 @@ export default async function UnderwriterDetailPage({
         {error && <Alert className="mb-4">{error}</Alert>}
 
         <div className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Contracts</div>
+          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            Contracts
+          </div>
           {underwriter.contracts.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No contracts yet.</p>
           ) : (
             <ul className="divide-y divide-line">
               {underwriter.contracts.map((contract) => (
-                <li key={contract.id} className="flex items-center justify-between gap-2 px-5 py-3 text-sm">
-                  <Link href={`/underwriting/contracts/${contract.id}`} className="font-semibold text-brand-link">
+                <li
+                  key={contract.id}
+                  className="flex items-center justify-between gap-2 px-5 py-3 text-sm"
+                >
+                  <Link
+                    href={`/underwriting/contracts/${contract.id}`}
+                    className="font-semibold text-brand-link"
+                  >
                     {contract.contract_identifier}
                   </Link>
                   <Badge variant={STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
@@ -57,7 +68,9 @@ export default async function UnderwriterDetailPage({
       </div>
 
       <div className="w-full shrink-0 rounded border border-line lg:w-96">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Details</div>
+        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+          Details
+        </div>
         <form action={updateUnderwriter} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="underwriter_id" value={underwriter.id} />
           <div>
@@ -66,16 +79,31 @@ export default async function UnderwriterDetailPage({
           </div>
           <div>
             <Label htmlFor="mailing_address">Mailing address</Label>
-            <Textarea id="mailing_address" name="mailing_address" rows={2} defaultValue={underwriter.mailing_address ?? ""} />
+            <Textarea
+              id="mailing_address"
+              name="mailing_address"
+              rows={2}
+              defaultValue={underwriter.mailing_address ?? ""}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="contact_name">Contact name</Label>
-              <Input id="contact_name" name="contact_name" defaultValue={underwriter.contact_name ?? ""} maxLength={200} />
+              <Input
+                id="contact_name"
+                name="contact_name"
+                defaultValue={underwriter.contact_name ?? ""}
+                maxLength={200}
+              />
             </div>
             <div>
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" defaultValue={underwriter.phone ?? ""} maxLength={40} />
+              <Input
+                id="phone"
+                name="phone"
+                defaultValue={underwriter.phone ?? ""}
+                maxLength={40}
+              />
             </div>
           </div>
           <div>
@@ -83,8 +111,21 @@ export default async function UnderwriterDetailPage({
             <Input id="email" name="email" type="email" defaultValue={underwriter.email ?? ""} />
           </div>
           <div>
-            <Label htmlFor="category">Category</Label>
-            <Input id="category" name="category" defaultValue={underwriter.category ?? ""} />
+            <Label htmlFor="category_id">Industry</Label>
+            <Select
+              id="category_id"
+              name="category_id"
+              defaultValue={underwriter.category_id ?? ""}
+            >
+              <option value="">None</option>
+              {categories
+                .filter((category) => category.active || category.id === underwriter.category_id)
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+            </Select>
           </div>
           <div>
             <Label htmlFor="notes">Notes</Label>

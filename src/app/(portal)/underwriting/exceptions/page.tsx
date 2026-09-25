@@ -3,7 +3,7 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listExceptions } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
-import { describeScheduleLineRecurrence } from "@/lib/underwriting/schedule-lines";
+import { describeScheduleLine } from "@/lib/underwriting/demand";
 import type { UwResolutionStatus } from "@/lib/database.types";
 
 const STATUS_VARIANT: Record<UwResolutionStatus, BadgeVariant> = {
@@ -48,7 +48,9 @@ export default async function ExceptionsPage() {
                   {exception.contract.underwriter.name}
                 </Link>
               </Cell>
-              <Cell className="text-ink-500">{describeScheduleLineRecurrence(exception.scheduleLine)}</Cell>
+              <Cell className="text-ink-500">
+                {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
+              </Cell>
               <Cell className="whitespace-nowrap text-ink-500">
                 {formatPlacementTime(exception.original_scheduled_at)}
               </Cell>
@@ -57,7 +59,9 @@ export default async function ExceptionsPage() {
                 {exception.host_reason ? ` (${exception.host_reason.replace(/_/g, " ")})` : ""}
               </Cell>
               <Cell>
-                <Badge variant={STATUS_VARIANT[exception.resolution_status]}>{exception.resolution_status}</Badge>
+                <Badge variant={STATUS_VARIANT[exception.resolution_status]}>
+                  {exception.resolution_status}
+                </Badge>
               </Cell>
             </Row>
           ))}

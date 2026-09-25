@@ -9,7 +9,6 @@ import {
   type OpportunityAssignmentLike,
 } from "@/lib/log/opportunity-assignments";
 import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/log/timezone";
-import type { UwContractScheduleLineRow } from "./queries";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 /**
@@ -117,7 +116,10 @@ export function minutesOfDayInStationTime(iso: string): number {
  * recurring entries (shouldn't happen in practice), the one with the later
  * start_date is the more specific, more recently added one.
  */
-function pickScheduleEntry(entries: ScheduleEntryContext[], dateISO: string): ScheduleEntryContext | null {
+function pickScheduleEntry(
+  entries: ScheduleEntryContext[],
+  dateISO: string,
+): ScheduleEntryContext | null {
   const active = entries.filter((entry) => isScheduleEntryActiveOn(entry, dateISO));
   if (active.length === 0) return null;
   const override = active.find((entry) => entry.entry_type !== "recurring");
@@ -135,22 +137,26 @@ function pickScheduleEntry(entries: ScheduleEntryContext[], dateISO: string): Sc
  * knows what "already covered" means for both reasons.
  */
 export async function provisionRundownsForDates(
-  scheduleLine: UwContractScheduleLineRow,
+  programId: string,
   candidateDates: string[],
   targetCount: number,
 ): Promise<RundownProvisioningResult> {
-  if (scheduleLine.program_id == null || targetCount <= 0 || candidateDates.length === 0) {
+  if (targetCount <= 0 || candidateDates.length === 0) {
     return EMPTY_PROVISIONING_RESULT;
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("log_get_program_schedule_context", {
-    p_program_id: scheduleLine.program_id,
+    p_program_id: programId,
   });
   if (error || !data || "error" in data) {
     return {
       ...EMPTY_PROVISIONING_RESULT,
-      errors: [error?.message ?? (data as { error?: string } | null)?.error ?? "Could not read this program's schedule."],
+      errors: [
+        error?.message ??
+          (data as { error?: string } | null)?.error ??
+          "Could not read this program's schedule.",
+      ],
     };
   }
   const context = data as ProgramScheduleContext;
@@ -178,7 +184,9 @@ export async function provisionRundownsForDates(
       unschedulableAirDates.push(airDate);
       continue;
     }
-    const opportunities = context.local_opportunities.filter((o) => o.clock_version_id === version.id);
+    const opportunities = context.local_opportunities.filter(
+      (o) => o.clock_version_id === version.id,
+    );
     // A clock with no underwriting-eligible local opportunity at all (e.g.
     // a program WUWF hasn't defined any local avails for yet — several of
     // the seeded NPR clocks are still in exactly this state, see
@@ -193,18 +201,27 @@ export async function provisionRundownsForDates(
     }
 
     const shiftStartAt = stationLocalDateTimeToUTC(airDate, scheduleEntry.air_time);
-    const shiftEndAt = new Date(new Date(shiftStartAt).getTime() + scheduleEntry.duration_minutes * 60_000).toISOString();
-    const drafts = buildRundownBreakDrafts(opportunities, shiftStartAt, scheduleEntry.duration_minutes);
+    const shiftEndAt = new Date(
+      new Date(shiftStartAt).getTime() + scheduleEntry.duration_minutes * 60_000,
+    ).toISOString();
+    const drafts = buildRundownBreakDrafts(
+      opportunities,
+      shiftStartAt,
+      scheduleEntry.duration_minutes,
+    );
 
-    const { data: genData, error: genError } = await supabase.rpc("log_generate_rundown_for_underwriting", {
-      p_program_id: scheduleLine.program_id,
-      p_schedule_entry_id: scheduleEntry.id,
-      p_clock_version_id: version.id,
-      p_air_date: airDate,
-      p_shift_start_at: shiftStartAt,
-      p_shift_end_at: shiftEndAt,
-      p_break_drafts: drafts as unknown as Record<string, unknown>[],
-    });
+    const { data: genData, error: genError } = await supabase.rpc(
+      "log_generate_rundown_for_underwriting",
+      {
+        p_program_id: programId,
+        p_schedule_entry_id: scheduleEntry.id,
+        p_clock_version_id: version.id,
+        p_air_date: airDate,
+        p_shift_start_at: shiftStartAt,
+        p_shift_end_at: shiftEndAt,
+        p_break_drafts: drafts as unknown as Record<string, unknown>[],
+      },
+    );
     if (genError || !genData || "error" in genData) {
       errors.push(
         genError?.message ??
@@ -235,7 +252,13 @@ export async function provisionRundownsForDates(
       // content) placed at all, because this path never planned or wrote
       // anything equivalent before. See CLAUDE.md's dated note.
       const contentItemsById = new Map(
-        context.content_items.map((item) => [item.id, { expected_duration_seconds: item.expected_duration_seconds, components: item.components }]),
+        context.content_items.map((item) => [
+          item.id,
+          {
+            expected_duration_seconds: item.expected_duration_seconds,
+            components: item.components,
+          },
+        ]),
       );
       const plannedItems = planAssignedContentPlacements(
         result.breaks.map((brk) => ({
@@ -249,11 +272,16 @@ export async function provisionRundownsForDates(
         airDate,
       );
       if (plannedItems.length > 0) {
-        const { error: placeError } = await supabase.rpc("log_insert_rundown_items_for_underwriting", {
-          p_items: plannedItems as unknown as Record<string, unknown>[],
-        });
+        const { error: placeError } = await supabase.rpc(
+          "log_insert_rundown_items_for_underwriting",
+          {
+            p_items: plannedItems as unknown as Record<string, unknown>[],
+          },
+        );
         if (placeError) {
-          errors.push(`Rundown generated for ${airDate}, but its assigned content could not be placed: ${placeError.message}`);
+          errors.push(
+            `Rundown generated for ${airDate}, but its assigned content could not be placed: ${placeError.message}`,
+          );
         }
       }
     }

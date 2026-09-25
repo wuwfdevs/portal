@@ -6,7 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
-import type { UwComplianceJudgment, UwResolutionAction, UwResolutionStatus } from "@/lib/database.types";
+import type {
+  UwComplianceJudgment,
+  UwMakegoodApproval,
+  UwResolutionAction,
+  UwResolutionStatus,
+} from "@/lib/database.types";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -104,5 +109,42 @@ export async function resolveException(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   revalidatePath("/underwriting/exceptions");
+  redirect(path);
+}
+
+const APPROVAL_STATES: UwMakegoodApproval[] = ["not_required", "pending", "approved", "declined"];
+
+/**
+ * Records the agency's answer on a makegood (docs/underwriting-traffic-
+ * redesign.md §3 — FPM's "MAKEGOODS MUST BE APPROVED BY AGENCY"). Until it
+ * is approved, log_place_underwriting_credit() refuses to schedule the
+ * makegood and auto-fill leaves it out of its queue; this action is the
+ * only way the state moves. Ordinary traffic-staff work — the approval is
+ * the agency's, this just records it.
+ */
+export async function recordMakegoodApproval(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const id = field(formData, "exception_id");
+  const path = exceptionPath(id);
+  const approval = field(formData, "makegood_approval") as UwMakegoodApproval;
+  if (!APPROVAL_STATES.includes(approval))
+    failWith(path, "That is not a recognized approval state.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("uw_exceptions")
+    .update({
+      makegood_approval: approval,
+      makegood_approval_note: optionalField(formData, "makegood_approval_note"),
+      makegood_approval_at:
+        approval === "pending" || approval === "not_required" ? null : new Date().toISOString(),
+      makegood_approval_by:
+        approval === "pending" || approval === "not_required" ? null : profile.id,
+    })
+    .eq("id", id);
+  failIfError(error, path, "Could not record the agency's answer");
+
+  revalidatePath(path);
+  revalidatePath("/underwriting/makegoods");
   redirect(path);
 }
