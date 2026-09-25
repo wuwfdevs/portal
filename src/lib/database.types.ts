@@ -539,7 +539,7 @@ export type UwScheduleEntryKind =
   | "explicit_dates"
   | "week_grid"
   | "range_total";
-export type UwTimeMode = "any" | "window" | "preferred" | "exact" | "slot";
+export type UwTimeMode = "any" | "window" | "preferred" | "exact" | "opening" | "closing";
 export type UwServiceLevel = "guaranteed" | "bonus";
 export type UwDemandBucketStatus = "active" | "superseded" | "cancelled";
 
@@ -1686,8 +1686,6 @@ export interface Database {
           requirement: LogOpportunityRequirement;
           permitted_content_types: string[];
           notes: string | null;
-          /** A stable semantic key carried across clock versions ("marketplace.opening") that an Underwriting slot-mode line targets — 20260925150000. Unique within a version. */
-          traffic_key: string | null;
           active: boolean;
           created_at: string;
           created_by: string | null;
@@ -2143,10 +2141,8 @@ export interface Database {
           /** Eligible weekdays, 0=Sunday..6=Saturday; empty means any day of the bucket. */
           days_of_week: number[];
           time_mode: UwTimeMode;
-          /** preferred: ranks candidates. exact: must start within EXACT_TIME_TOLERANCE_MINUTES. */
+          /** preferred: ranks candidates. exact: must start within EXACT_TIME_TOLERANCE_MINUTES. opening / closing: the rundown's first / last underwriting-permitted marked break (20260925180000). */
           preferred_time: string | null;
-          /** slot mode: the Log traffic_key the break's opportunity must carry. */
-          required_opportunity_key: string | null;
           duration_seconds: number;
           /** A per-day cap the order states; null means no cap. */
           max_per_day: number | null;
@@ -2735,8 +2731,6 @@ export interface Database {
                 minutes_of_day: number;
                 /** True when this contract already holds a credit in this break. */
                 holds_this_contract: boolean;
-                /** The break's opportunity traffic_key, if any (20260925150000). */
-                traffic_key: string | null;
                 /** The active demand bucket this break would consume. */
                 bucket_id: string;
               }[];

@@ -20,7 +20,6 @@ function values(overrides: Partial<ScheduleLineFormValues> = {}): ScheduleLineFo
     window_start: "",
     window_end: "",
     preferred_time: "",
-    required_opportunity_key: "",
     max_per_day: "",
     service_level: "guaranteed",
     duration_seconds: "30",
@@ -163,17 +162,15 @@ describe("parseScheduleLineForm", () => {
       ).ok,
     ).toBe(false);
     expect(parseScheduleLineForm(values({ time_mode: "exact" })).ok).toBe(false);
-    expect(
-      parseScheduleLineForm(
-        values({ time_mode: "slot", required_opportunity_key: "Marketplace Opening" }),
-      ).ok,
-    ).toBe(false);
-    const slot = parseScheduleLineForm(
-      values({ time_mode: "slot", required_opportunity_key: "marketplace.opening" }),
+    expect(parseScheduleLineForm(values({ time_mode: "opening", pool_id: "pool-am" })).ok).toBe(
+      false,
     );
-    expect(slot.ok && slot.value.line).toMatchObject({
-      time_mode: "slot",
-      required_opportunity_key: "marketplace.opening",
+    const opening = parseScheduleLineForm(
+      values({ time_mode: "opening", pool_id: "", program_id: "marketplace" }),
+    );
+    expect(opening.ok && opening.value.line).toMatchObject({
+      time_mode: "opening",
+      program_id: "marketplace",
       preferred_time: null,
       window_start: null,
     });

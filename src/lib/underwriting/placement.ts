@@ -27,8 +27,6 @@ export interface PlaceableRundownBreak {
   last_item_id: string | null;
   /** This contract already has a credit in this break — the function refuses a second. */
   holds_this_contract: boolean;
-  /** The break's opportunity traffic_key (Log), if a producer gave it one. */
-  traffic_key: string | null;
   /** The active demand bucket this break would consume — see uw_bucket_for_date(). */
   bucket_id: string;
 }
@@ -52,8 +50,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   pool_not_eligible: "That break isn't in this line's inventory pool (program, window, or day).",
   outside_window: "That break is outside the line's time window.",
   exact_time_mismatch: "That break doesn't start at the exact time the order states.",
-  slot_key_mismatch:
-    "That break isn't the position the order names — its opportunity carries a different traffic key, or none.",
+  not_opening_break:
+    "That break isn't the program's opening credit — an earlier marked avail in that rundown permits a credit.",
+  not_closing_break:
+    "That break isn't the program's closing credit — a later marked avail in that rundown permits a credit.",
   time_not_eligible: "That break doesn't satisfy the line's time rule.",
   same_contract_in_break:
     "This contract already has a credit in that break — the same underwriter never runs back to back.",

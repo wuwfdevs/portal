@@ -173,7 +173,7 @@ describe("describeScheduleLine", () => {
       describeScheduleLine(toScheduleLine(PHIL_HALL_2022.lines[1]!), {
         programName: "Marketplace",
       }),
-    ).toBe('1 Marketplace credit each Wed in the "marketplace.opening" position');
+    ).toBe("1 Marketplace credit each Wed as the opening credit");
     expect(
       describeScheduleLine(toScheduleLine(PHIL_HALL_2022.lines[0]!), { poolName: "Carpool" }),
     ).toBe("1 Carpool credit each Tue at 7:06 AM");
@@ -239,13 +239,17 @@ describe("reviewScheduleLine", () => {
     expect(warnings.map((w) => w.code)).toEqual(["partial_period"]);
   });
 
-  it("is quiet for a clean position-keyed order", () => {
+  it("is quiet for a clean opening-credit order, and asks for the program without one", () => {
     const moss = WEST_MOSS.lines[0]!;
-    const warnings = reviewScheduleLine(toScheduleLine(moss), compile(moss), contract(WEST_MOSS));
+    const warnings = reviewScheduleLine(
+      { ...toScheduleLine(moss), program_id: "five-corners" },
+      compile(moss),
+      contract(WEST_MOSS),
+    );
     expect(warnings.map((w) => w.code)).toEqual(["partial_period"]); // starts on a Saturday
-    const noKey = { ...toScheduleLine(moss), required_opportunity_key: null };
+    const noProgram = { ...toScheduleLine(moss), program_id: null, pool_id: null };
     expect(
-      reviewScheduleLine(noKey, compile(moss), contract(WEST_MOSS)).map((w) => w.code),
-    ).toContain("slot_needs_key");
+      reviewScheduleLine(noProgram, compile(moss), contract(WEST_MOSS)).map((w) => w.code),
+    ).toContain("position_without_program");
   });
 });

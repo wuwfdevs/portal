@@ -161,25 +161,6 @@ function readPermittedContentTypes(formData: FormData): string[] {
  * no sign the row already exists. Upserting reactivates and overwrites that
  * row with this call's own values instead of trying to create a second one.
  */
-const TRAFFIC_KEY_RE = /^[a-z0-9][a-z0-9._-]{1,79}$/;
-
-/**
- * The stable semantic key Underwriting's position-specific lines target
- * ("marketplace.opening", "science-friday.closing") — carried forward by
- * the producer onto the equivalent slot of each new clock version. See
- * 20260925150000_underwriting_demand_buckets.sql.
- */
-function readTrafficKey(formData: FormData, path: string): string | null {
-  const raw = optionalField(formData, "traffic_key")?.toLowerCase() ?? null;
-  if (raw !== null && !TRAFFIC_KEY_RE.test(raw)) {
-    failWith(
-      path,
-      "A traffic key is lowercase letters, digits, dots and dashes, e.g. marketplace.opening.",
-    );
-  }
-  return raw;
-}
-
 export async function addLocalOpportunity(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
@@ -190,7 +171,6 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
 
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
-  const trafficKey = readTrafficKey(formData, path);
 
   const supabase = await createClient();
   const { error } = await supabase.from("log_local_opportunities").upsert(
@@ -199,7 +179,6 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
       slot_id: slotId,
       requirement,
       permitted_content_types: readPermittedContentTypes(formData),
-      traffic_key: trafficKey,
       notes: optionalField(formData, "notes"),
       created_by: profile.id,
       active: true,
@@ -228,7 +207,6 @@ export async function updateLocalOpportunity(formData: FormData): Promise<void> 
 
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
-  const trafficKey = readTrafficKey(formData, path);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -236,7 +214,6 @@ export async function updateLocalOpportunity(formData: FormData): Promise<void> 
     .update({
       requirement,
       permitted_content_types: readPermittedContentTypes(formData),
-      traffic_key: trafficKey,
       notes: optionalField(formData, "notes"),
     })
     .eq("id", opportunityId);

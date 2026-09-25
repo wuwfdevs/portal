@@ -188,13 +188,6 @@ export default async function ClockTemplateDetailPage({
                                         >
                                           {opportunity.requirement}
                                         </Badge>
-                                        {opportunity.traffic_key && (
-                                          <span title="Traffic key — the position Underwriting targets">
-                                            <Badge variant="accent">
-                                              {opportunity.traffic_key}
-                                            </Badge>
-                                          </span>
-                                        )}
                                       </div>
                                       <span className="text-xs text-ink-500">
                                         {opportunity.permitted_content_types.length > 0
@@ -323,7 +316,6 @@ export default async function ClockTemplateDetailPage({
                                       defaultRequirement={opportunity.requirement}
                                       defaultPermittedTypes={opportunity.permitted_content_types}
                                       defaultNotes={opportunity.notes}
-                                      defaultTrafficKey={opportunity.traffic_key}
                                       submitLabel="Save changes"
                                     />
                                   </Cell>
@@ -491,7 +483,6 @@ function OpportunityForm({
   defaultRequirement,
   defaultPermittedTypes,
   defaultNotes,
-  defaultTrafficKey,
   submitLabel,
 }: {
   action: (formData: FormData) => Promise<void>;
@@ -502,7 +493,6 @@ function OpportunityForm({
   defaultRequirement: LogLocalOpportunityWithSlot["requirement"];
   defaultPermittedTypes: string[];
   defaultNotes: string | null;
-  defaultTrafficKey?: string | null;
   submitLabel: string;
 }) {
   const idPrefix = opportunityId ?? slotId ?? "new";
@@ -540,21 +530,6 @@ function OpportunityForm({
           ))}
         </div>
         <FieldHint>Leave every box unchecked to permit anything.</FieldHint>
-      </div>
-      <div>
-        <Label htmlFor={`opp-traffic-key-${idPrefix}`}>Traffic key</Label>
-        <Input
-          id={`opp-traffic-key-${idPrefix}`}
-          name="traffic_key"
-          maxLength={80}
-          placeholder="marketplace.opening"
-          defaultValue={defaultTrafficKey ?? undefined}
-        />
-        <FieldHint>
-          Optional. A stable name for a sponsorship position (&quot;opening credit for
-          Marketplace&quot;) that Underwriting can target across clock versions — reuse the same key
-          when this slot is marked on a new version.
-        </FieldHint>
       </div>
       <div>
         <Label htmlFor={`opp-notes-${idPrefix}`}>Notes</Label>

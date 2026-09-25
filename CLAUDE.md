@@ -1306,7 +1306,7 @@ effective date, clears its placements from that date through
 `log_clear_underwriting_credit()`, and never touches aired history —
 `lib/underwriting/revisions.ts`, previewed on the contract page before the
 click); `uw_contract_schedule_lines` is eligibility only (program/pool,
-eligible days, `time_mode` any|window|preferred|exact|slot, nullable
+eligible days, `time_mode` any|window|preferred|exact|opening|closing, nullable
 `max_per_day`, `service_level` guaranteed|bonus) with `entry_kind`/
 `entry_spec` recording how it was entered; `uw_demand_buckets` is the
 quantity per period (a dark grid week is a real zero row);
@@ -1317,19 +1317,25 @@ total into buckets; `eligibility.ts` is the TypeScript twin of the SQL
 guard's `uw_bucket_for_date()`/`uw_time_eligible()` — keep them in step.
 Six things are load-bearing:
 
-1. **Log's `log_local_opportunities.traffic_key`** (same migration) is how
-   an order's "Opening Credit for Marketplace" is expressed: a producer
-   gives the opportunity a stable key on the clock screen and carries it
-   onto the equivalent slot of each new clock version; a `slot`-mode line
-   (`required_opportunity_key`) places only into a break carrying it.
-   Never use a time as a proxy for a position.
+1. **An opening or closing credit is derived from the clock, never
+   labelled on it.** The first cut of this pass gave Log opportunities a
+   `traffic_key` a producer typed and retyped per clock version, and a
+   `slot` time mode matching it; reversed the same day
+   (`20260925180000_underwriting_opening_closing.sql`) once it was clear
+   every such credit in the archive means "the program's first / last
+   avail". The line says `opening` or `closing` (the order's own
+   instruction) and `uw_break_position_eligible()` resolves it against
+   the rundown's marked, underwriting-permitted breaks — nothing is
+   entered in Log, and a new clock version needs no upkeep. A named
+   mid-program feature (BirdNote at 7:42) is an `exact` line. Never use a
+   time as a proxy for a position, and don't reintroduce a key.
 2. **A per-day cap is data, not doctrine.** `max_per_day` null means
    several a day are fine (New South's 10 a week M–F lands two a day);
    the planner still spreads evenly, least-loaded day first. The old
    global one-per-day collapse is gone.
 3. **`exact` is ± 3 minutes** (`uw_exact_time_tolerance()`,
-   `EXACT_TIME_TOLERANCE_MINUTES`) because slot-keyed breaks start at the
-   clock's own second; `preferred` only ranks.
+   `EXACT_TIME_TOLERANCE_MINUTES`) because breaks start at the clock's
+   own second; `preferred` only ranks.
 4. **A bonus line is never "behind"** and its miss is not owed a makegood
    unless the order says so; exceptions still record the miss.
 5. **Only the current revision schedules**: `log_place_underwriting_credit()`
@@ -1342,7 +1348,7 @@ Six things are load-bearing:
    pass); the adjacency rule compares category ids, never strings.
 
 Corpus: 27 orders in `fixtures/insertion-orders.ts`, all read from the
-originals; 1,012 tests. FPL Q1 2022 was not located in Drive. The
+originals; 1,015 tests. FPL Q1 2022 was not located in Drive. The
 TypeScript auto-fill and activation paths are still unexercised against a
 live session.
 

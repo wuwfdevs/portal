@@ -544,7 +544,6 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     window_start: field(formData, "window_start"),
     window_end: field(formData, "window_end"),
     preferred_time: field(formData, "preferred_time"),
-    required_opportunity_key: field(formData, "required_opportunity_key"),
     max_per_day: field(formData, "max_per_day"),
     service_level: field(formData, "service_level"),
     duration_seconds: field(formData, "duration_seconds"),

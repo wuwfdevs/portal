@@ -665,7 +665,8 @@ export default async function ContractDetailPage({
                       <option value="window">Inside a window</option>
                       <option value="preferred">Around a preferred time</option>
                       <option value="exact">At an exact time</option>
-                      <option value="slot">A named position (traffic key)</option>
+                      <option value="opening">The program&apos;s opening credit</option>
+                      <option value="closing">The program&apos;s closing credit</option>
                     </Select>
                   </div>
                   <div>
@@ -679,15 +680,6 @@ export default async function ContractDetailPage({
                   <div>
                     <Label htmlFor="preferred_time">Preferred / exact time</Label>
                     <Input id="preferred_time" name="preferred_time" type="time" />
-                  </div>
-                  <div>
-                    <Label htmlFor="required_opportunity_key">Traffic key</Label>
-                    <Input
-                      id="required_opportunity_key"
-                      name="required_opportunity_key"
-                      placeholder="marketplace.opening"
-                    />
-                    <FieldHint>As Log&apos;s clock screen names the position.</FieldHint>
                   </div>
                 </div>
                 <div>
@@ -1106,8 +1098,8 @@ function ScheduleLineItem({
           <Badge variant="neutral">{flightNameById.get(scheduleLine.flight_id) ?? "Flight"}</Badge>
         )}
         {scheduleLine.service_level === "bonus" && <Badge variant="muted">bonus</Badge>}
-        {scheduleLine.time_mode === "slot" && (
-          <Badge variant="accent">{scheduleLine.required_opportunity_key}</Badge>
+        {(scheduleLine.time_mode === "opening" || scheduleLine.time_mode === "closing") && (
+          <Badge variant="accent">{scheduleLine.time_mode} credit</Badge>
         )}
         {cancelled ? (
           <Badge variant="danger">cancelled from {scheduleLine.cancelled_from}</Badge>
@@ -1255,9 +1247,8 @@ function ScheduleLineItem({
                       value={brk.break_id}
                       disabled={brk.holds_this_contract}
                     >
-                      {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}
-                      {brk.traffic_key ? ` · ${brk.traffic_key}` : ""}) · {brk.remaining_seconds}s
-                      remaining
+                      {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}) ·{" "}
+                      {brk.remaining_seconds}s remaining
                       {brk.holds_this_contract ? " · already holds this contract" : ""}
                     </option>
                   ))}

@@ -31,7 +31,6 @@ export interface FixtureLine {
   preferred_time: string | null;
   window_start: string | null;
   window_end: string | null;
-  required_opportunity_key: string | null;
   max_per_day: number | null;
   service_level: UwServiceLevel;
   flight: string | null;
@@ -69,7 +68,6 @@ function line(input: LineInput): FixtureLine {
     preferred_time: null,
     window_start: null,
     window_end: null,
-    required_opportunity_key: null,
     max_per_day: null,
     service_level: "guaranteed",
     flight: null,
@@ -95,7 +93,6 @@ export function toScheduleLine(fixtureLine: FixtureLine): ScheduleLineLike {
     preferred_time: fixtureLine.preferred_time,
     window_start: fixtureLine.window_start,
     window_end: fixtureLine.window_end,
-    required_opportunity_key: fixtureLine.required_opportunity_key,
     max_per_day: fixtureLine.max_per_day,
     service_level: fixtureLine.service_level,
     stated_total: fixtureLine.stated_total,
@@ -1130,8 +1127,7 @@ export const PHIL_HALL_2022: FixtureOrder = {
       spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [3],
       program: "Marketplace",
-      time_mode: "slot",
-      required_opportunity_key: "marketplace.opening",
+      time_mode: "opening",
       start_date: "2022-06-20",
       end_date: "2023-06-18",
       stated_total: 52,
@@ -1519,15 +1515,15 @@ export const CULTURAL_ARTS_ALLIANCE: FixtureOrder = {
   ],
 };
 
-/** Wild Birds Unlimited, 2/23/26–2/21/27: one BirdNote sponsorship a week at 7:42, whose weekday changes every 13 weeks (corpus #13). */
+/** Wild Birds Unlimited, 2/23/26–2/21/27: one BirdNote sponsorship a week at 7:42 — a named mid-program feature, so an exact-time line — whose weekday changes every 13 weeks (corpus #13). */
 function wildBirdsPhase(day: number, dayName: string, start: string, end: string): FixtureLine {
   return line({
     label: `BirdNote, ${dayName}s`,
     spec: { kind: "fixed_days", count_per_day: 1 },
     days_of_week: [day],
     program: "Morning Edition",
-    time_mode: "slot",
-    required_opportunity_key: "morning-edition.birdnote",
+    time_mode: "exact",
+    preferred_time: "07:42",
     start_date: start,
     end_date: end,
     stated_total: 13,
@@ -1565,8 +1561,7 @@ export const WEST_MOSS: FixtureOrder = {
       label: "Five Corners opening credit",
       spec: { kind: "weekly_quota", quantity: 1 },
       program: "Five Corners",
-      time_mode: "slot",
-      required_opportunity_key: "five-corners.opening",
+      time_mode: "opening",
       start_date: "2026-07-25",
       end_date: "2026-10-18",
       stated_total: 13,
@@ -1590,8 +1585,7 @@ export const INTERNATIONAL_PAPER: FixtureOrder = {
       spec: { kind: "weekly_quota", quantity: 1 },
       days_of_week: [0],
       program: "Living on Earth",
-      time_mode: "slot",
-      required_opportunity_key: "living-on-earth.closing",
+      time_mode: "closing",
       start_date: "2026-05-04",
       end_date: "2027-05-02",
       stated_total: 52,
@@ -1666,8 +1660,7 @@ export const PHIL_HALL_2020: FixtureOrder = {
       spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [3],
       program: "Marketplace",
-      time_mode: "slot",
-      required_opportunity_key: "marketplace.opening",
+      time_mode: "opening",
       start_date: "2020-06-22",
       end_date: "2021-03-21",
       stated_total: 39,
@@ -1678,8 +1671,7 @@ export const PHIL_HALL_2020: FixtureOrder = {
       spec: { kind: "fixed_days", count_per_day: 1 },
       days_of_week: [5],
       program: "Science Friday",
-      time_mode: "slot",
-      required_opportunity_key: "science-friday.closing",
+      time_mode: "closing",
       start_date: "2020-06-22",
       end_date: "2020-09-20",
       stated_total: 13,

@@ -345,8 +345,9 @@ to
   air: `program_id` and/or `pool_id`, `days_of_week` (empty = any day),
   a `time_mode` of `any` | `window` (`window_start..window_end`, hard) |
   `preferred` (`preferred_time` ranks, never excludes) | `exact`
-  (`preferred_time` ± `uw_exact_time_tolerance()`, 3 minutes) | `slot`
-  (`required_opportunity_key` = a Log `traffic_key`); `max_per_day`
+  (`preferred_time` ± `uw_exact_time_tolerance()`, 3 minutes) | `opening`
+  | `closing` (the program's first / last underwriting-permitted marked
+  break, derived — see below); `max_per_day`
   (nullable — a cap is data from the order, never doctrine);
   `service_level` guaranteed | bonus; `distribution_preference`;
   `makegood_policy_text`; `duration_seconds`; `start_date`/`end_date`;
@@ -365,14 +366,23 @@ to
   period-start/end pair). A makegood placement carries the missed
   placement's bucket, so a miss and its replacement are one contractual
   credit.
-- **Log: `log_local_opportunities.traffic_key`** — a stable semantic key
-  (`marketplace.opening`, `science-friday.closing`, `five-corners.opening`,
-  `morning-edition.birdnote`), unique within a clock version, entered on
-  the clock screen's "Mark eligible"/"Edit" form and carried forward by
-  the producer onto the equivalent slot of a new version. A `slot`-mode
-  line places only into a break whose opportunity carries its key —
-  across clock revisions, without naming a clock-slot UUID. `target_time`
-  is gone; it is never a proxy for a position.
+- **Opening and closing credits are derived from the clock, not labelled
+  on it** (`20260925180000_underwriting_opening_closing.sql`, reversing
+  this pass's first cut the same day). The first cut gave
+  `log_local_opportunities` a `traffic_key` (`marketplace.opening`,
+  `science-friday.closing`) that a producer typed on the clock screen and
+  had to retype on every new clock version, and a `slot` time mode whose
+  `required_opportunity_key` matched it. Reviewed: every opening/closing
+  credit in the archive means exactly "the first / last avail of that
+  program", so nothing needs entering in Log. The line keeps a time rule
+  — `opening` or `closing`, since the order says which it bought — and
+  `uw_break_position_eligible()` resolves it against the rundown: the
+  break is eligible when no other marked, underwriting-permitted break of
+  the same rundown is scheduled earlier (opening) or later (closing). A
+  multi-hour shift's opening credit is its first hour's first avail. A
+  named mid-program feature (Wild Birds' BirdNote at 7:42) is an `exact`
+  line. `traffic_key` and `required_opportunity_key` are dropped;
+  `target_time` stays gone — a time is never a proxy for a position.
 - **`uw_industry_categories`** (requested during this pass): the
   underwriter's industry is a typed row (`uw_underwriters.category_id`),
   not free text, and the competitive-adjacency rule compares ids. Sixteen
@@ -399,14 +409,15 @@ save and refuses a line that compiles to nothing.
 break on a date `uw_bucket_for_date()` accepts (inside the line's dates,
 not cancelled, an eligible weekday, an active bucket with quantity) that
 is on the line's program, inside its pool, and satisfies
-`uw_time_eligible()` (window, exact ± tolerance, or traffic key) — each
-tagged with the bucket it would consume. `log_place_underwriting_credit()`
+`uw_time_eligible()` (window, exact ± tolerance) and, for an opening or
+closing line, `uw_break_position_eligible()` — each tagged with the bucket
+it would consume. `log_place_underwriting_credit()`
 additionally requires the line's revision to be `current`, refuses a
 bucket at its quantity (`bucket_quota_met`), applies `max_per_day` only
 when the order states one (`day_cap_met`), and attributes a makegood to
 its missed bucket. `lib/underwriting/eligibility.ts` is the TypeScript
-twin (`bucketForDate`, `isTimeEligible`, `EXACT_TIME_TOLERANCE_MINUTES`);
-keep them in step.
+twin (`bucketForDate`, `isTimeEligible`, `isBreakPositionEligible`,
+`EXACT_TIME_TOLERANCE_MINUTES`); keep them in step.
 
 `inventory-selection.ts` plans per bucket: makegoods first; then each
 bucket's fresh shortfall spread across its eligible days with inventory,
@@ -474,7 +485,14 @@ the bucket (`bucket_quota_met`); an exact 7:06 line refused a 5:06 break
 (`exact_time_mismatch`) and placed the 7:06 one; a slot line refused a
 break without its key (`slot_key_mismatch`) and placed the keyed one; a
 line under a draft revision was refused (`revision_not_current`).
-`npm run lint`, `typecheck`, `test` (1,012 tests) and `db:check` pass.
+`20260925180000_underwriting_opening_closing.sql` (both projects, same
+day) then replaced the slot/traffic-key mechanism with derived opening/
+closing positions; its own rolled-back scenario against a real four-hour
+Morning Edition rundown on preview listed exactly one break for an
+`opening` line (5:06) and one for a `closing` line (8:19), refused the
+wrong positions (`not_opening_break`, `not_closing_break`) and placed the
+right ones. `npm run lint`, `typecheck`, `test` (1,015 tests) and
+`db:check` pass.
 
 **Not yet exercised**: the TypeScript auto-fill and revision-activation
 paths against a live session (sign-in is magic-link-only from a sandbox).
@@ -484,8 +502,7 @@ The SQL guard is what makes the first click safe.
 "separation: 3"; house rules for distribution inside a daypart when an
 order says only "AM Drive"; the default same-day concentration for
 high-frequency agency buys with no stated cap (the planner spreads
-evenly); whether every opening/closing position is a stable Log
-opportunity a producer can key; whether a revised order's future spots
+evenly); whether a revised order's future spots
 should supersede automatically (today: previewed, then one explicit
 click); whether affidavits must distinguish bonus credits; and whether
 "Drive Time" (FDOH, International Paper) should be its own pool spanning

@@ -24,7 +24,6 @@ export interface ScheduleLineFormValues {
   window_start: string;
   window_end: string;
   preferred_time: string;
-  required_opportunity_key: string;
   max_per_day: string;
   service_level: string;
   duration_seconds: string;
@@ -53,7 +52,6 @@ export interface ParsedScheduleLine {
     window_start: string | null;
     window_end: string | null;
     preferred_time: string | null;
-    required_opportunity_key: string | null;
     max_per_day: number | null;
     service_level: UwServiceLevel;
     duration_seconds: number;
@@ -79,7 +77,7 @@ const ENTRY_KINDS: UwScheduleEntryKind[] = [
   "week_grid",
   "range_total",
 ];
-const TIME_MODES: UwTimeMode[] = ["any", "window", "preferred", "exact", "slot"];
+const TIME_MODES: UwTimeMode[] = ["any", "window", "preferred", "exact", "opening", "closing"];
 const SERVICE_LEVELS: UwServiceLevel[] = ["guaranteed", "bonus"];
 
 function intOrNull(raw: string): number | null {
@@ -170,8 +168,6 @@ export function parseWeekGrid(
   };
 }
 
-const TRAFFIC_KEY_RE = /^[a-z0-9][a-z0-9._-]{1,79}$/;
-
 export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
   const entryKind = values.entry_kind as UwScheduleEntryKind;
   if (!ENTRY_KINDS.includes(entryKind))
@@ -197,7 +193,6 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
   const windowStart = orNull(values.window_start);
   const windowEnd = orNull(values.window_end);
   const preferredTime = orNull(values.preferred_time);
-  const requiredKey = orNull(values.required_opportunity_key);
   if (timeMode === "window") {
     if (windowStart === null || windowEnd === null)
       return { ok: false, error: "Give both ends of the time window." };
@@ -210,19 +205,11 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
       error:
         timeMode === "exact" ? "Give the exact time the order states." : "Give the preferred time.",
     };
-  if (timeMode === "slot") {
-    if (requiredKey === null)
-      return {
-        ok: false,
-        error: "Give the Log traffic key of the position (e.g. marketplace.opening).",
-      };
-    if (!TRAFFIC_KEY_RE.test(requiredKey))
-      return {
-        ok: false,
-        error:
-          "A traffic key is lowercase letters, digits, dots and dashes — as Log's clock screen shows it.",
-      };
-  }
+  if ((timeMode === "opening" || timeMode === "closing") && programId === null)
+    return {
+      ok: false,
+      error: "An opening or closing credit needs the program it opens or closes.",
+    };
 
   const serviceLevel = (orNull(values.service_level) ?? "guaranteed") as UwServiceLevel;
   if (!SERVICE_LEVELS.includes(serviceLevel))
@@ -316,7 +303,6 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
         window_start: timeMode === "window" ? windowStart : null,
         window_end: timeMode === "window" ? windowEnd : null,
         preferred_time: timeMode === "preferred" || timeMode === "exact" ? preferredTime : null,
-        required_opportunity_key: timeMode === "slot" ? requiredKey : null,
         max_per_day: maxPerDay,
         service_level: serviceLevel,
         duration_seconds: durationSeconds,

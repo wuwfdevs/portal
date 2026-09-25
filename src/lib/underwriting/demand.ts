@@ -205,10 +205,7 @@ export interface DescribeNames {
 }
 
 export function describeTimeMode(
-  line: Pick<
-    LineEligibilityLike,
-    "time_mode" | "preferred_time" | "window_start" | "window_end" | "required_opportunity_key"
-  >,
+  line: Pick<LineEligibilityLike, "time_mode" | "preferred_time" | "window_start" | "window_end">,
 ): string {
   switch (line.time_mode) {
     case "any":
@@ -219,8 +216,10 @@ export function describeTimeMode(
       return `, around ${formatTime(line.preferred_time)}`;
     case "exact":
       return ` at ${formatTime(line.preferred_time)}`;
-    case "slot":
-      return ` in the "${line.required_opportunity_key}" position`;
+    case "opening":
+      return " as the opening credit";
+    case "closing":
+      return " as the closing credit";
   }
 }
 
@@ -240,7 +239,6 @@ export function describeScheduleLine(
     | "preferred_time"
     | "window_start"
     | "window_end"
-    | "required_opportunity_key"
     | "max_per_day"
     | "service_level"
     | "status"
@@ -274,7 +272,7 @@ export interface ReviewWarning {
     | "outside_contract"
     | "date_outside_line"
     | "no_demand"
-    | "slot_needs_key"
+    | "position_without_program"
     | "exact_without_program";
   message: string;
 }
@@ -295,7 +293,6 @@ export function reviewScheduleLine(
     | "end_date"
     | "stated_total"
     | "time_mode"
-    | "required_opportunity_key"
   > & { program_id?: string | null; pool_id?: string | null },
   buckets: { periodStart: string; periodEnd: string; quantity: number; partial?: boolean }[],
   contract: { effective_from: string; effective_to: string | null },
@@ -363,10 +360,11 @@ export function reviewScheduleLine(
       message: `${stray.length} listed ${spec?.kind === "week_grid" ? "week" : "date"}${stray.length === 1 ? "" : "s"} fall outside the line's own start/end and were dropped (${stray.join(", ")}).`,
     });
   }
-  if (line.time_mode === "slot" && !line.required_opportunity_key) {
+  if ((line.time_mode === "opening" || line.time_mode === "closing") && !line.program_id) {
     warnings.push({
-      code: "slot_needs_key",
-      message: "A position-specific line needs the Log traffic key of the opportunity it targets.",
+      code: "position_without_program",
+      message:
+        "An opening or closing credit belongs to a program — name it, so the position is that program's first or last avail.",
     });
   }
   if (line.time_mode === "exact" && !line.program_id && !line.pool_id) {

@@ -246,8 +246,8 @@ describe("#3 FDOH Escambia — 4 a week Mon–Fri, max 1 a day", () => {
 describe("#4 Phil Hall 2022-23 — exact Carpool, Marketplace opening credit, flexible TPR, Saturday WE", () => {
   it("expresses the opening credit as a position, not a time", () => {
     const marketplace = PHIL_HALL_2022.lines[1]!;
-    expect(marketplace.time_mode).toBe("slot");
-    expect(marketplace.required_opportunity_key).toBe("marketplace.opening");
+    expect(marketplace.time_mode).toBe("opening");
+    expect(marketplace.program).toBe("Marketplace");
     expect(compile(marketplace)).toHaveLength(52);
   });
   it("lets the TPR week land on Monday, Thursday or Friday without saying which", () => {
@@ -364,24 +364,26 @@ describe("#12 Cultural Arts Alliance — mixed products", () => {
 });
 
 describe("#13 Wild Birds Unlimited — a weekday that changes every 13 weeks", () => {
-  it("is four 13-credit phases on the same position, 52 in all", () => {
+  it("is four 13-credit phases at the same 7:42 feature, 52 in all", () => {
     for (const phase of WILD_BIRDS_UNLIMITED.lines) {
       expect(compile(phase)).toHaveLength(13);
-      expect(phase.required_opportunity_key).toBe("morning-edition.birdnote");
+      expect(phase.time_mode).toBe("exact");
+      expect(phase.preferred_time).toBe("07:42");
     }
     expect(orderTotal(WILD_BIRDS_UNLIMITED)).toBe(52);
   });
 });
 
 describe("#14 West Moss / International Paper / Phil Hall 2020 — opening and closing positions", () => {
-  it("West Moss: 13 weekly opening credits keyed to the Five Corners opening position", () => {
+  it("West Moss: 13 weekly opening credits on Five Corners", () => {
     const [line] = WEST_MOSS.lines;
-    expect(line!.time_mode).toBe("slot");
+    expect(line!.time_mode).toBe("opening");
+    expect(line!.program).toBe("Five Corners");
     expect(compile(line!)).toHaveLength(13);
   });
   it("International Paper: a Sunday closing credit, a rotating drive credit, a Science Friday credit — 156", () => {
     expect(orderTotal(INTERNATIONAL_PAPER)).toBe(156);
-    expect(INTERNATIONAL_PAPER.lines[0]!.required_opportunity_key).toBe("living-on-earth.closing");
+    expect(INTERNATIONAL_PAPER.lines[0]!.time_mode).toBe("closing");
     expect(INTERNATIONAL_PAPER.lines[1]!.pool).toBe("Drive Time");
   });
   it("Phil Hall 2020: phased weekday lines sum to the printed counts and the bonus block is one range bucket", () => {

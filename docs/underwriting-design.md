@@ -9,7 +9,7 @@ which supersedes this document's §2 "Contract schedule line", §5's
 `uw_contract_schedule_lines`, and the auto-fill description in §3C/§6/§7
 wherever they conflict; its §9 (a second pass the same day) is the current
 model: contract revisions, eligibility-only schedule lines, explicit
-demand buckets, Log traffic keys for opening/closing positions, and a
+demand buckets, opening/closing positions derived from the clock, and a
 typed industry category on underwriters.** Second of the three tools
 `docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
 Rundown and Traffic System spec into, following `docs/log-design.md` in the
