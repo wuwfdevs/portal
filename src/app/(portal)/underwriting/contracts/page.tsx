@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { Input } from "@/components/ui/input";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listContracts, listUnderwriters } from "@/lib/underwriting/queries";
-import { createContract } from "../contract-actions";
+import {
+  listContractDeliveryRollups,
+  listContracts,
+  listExceptions,
+  listIndustryCategories,
+} from "@/lib/underwriting/queries";
 import type { UwContractStatus } from "@/lib/database.types";
 
 const STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
@@ -15,168 +19,212 @@ const STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   terminated: "danger",
 };
 
+const FILTERS = ["all", "active", "draft", "attention"] as const;
+type Filter = (typeof FILTERS)[number];
+
+/**
+ * The contracts list (docs/underwriting-traffic-redesign.md §11): search by
+ * underwriter or order number, a status filter, and a delivery bar per
+ * contract — aired and scheduled credits against the current revision's
+ * compiled demand. Creating a contract moved to its own four-step setup at
+ * /underwriting/contracts/new.
+ */
 export default async function ContractsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { error } = await searchParams;
-  const [contracts, underwriters] = await Promise.all([listContracts(), listUnderwriters()]);
+  const { q, status } = await searchParams;
+  const filter: Filter = (FILTERS as readonly string[]).includes(status ?? "")
+    ? (status as Filter)
+    : "all";
+  const query = (q ?? "").trim().toLowerCase();
+
+  const [contracts, exceptions, categories] = await Promise.all([
+    listContracts(),
+    listExceptions(),
+    listIndustryCategories(),
+  ]);
+  const rollups = await listContractDeliveryRollups(contracts.map((contract) => contract.id));
+  const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
+  const openExceptionsByContract = new Map<string, number>();
+  for (const exception of exceptions) {
+    if (exception.resolution_status !== "open") continue;
+    openExceptionsByContract.set(
+      exception.contract.id,
+      (openExceptionsByContract.get(exception.contract.id) ?? 0) + 1,
+    );
+  }
+
+  const needsAttention = (contractId: string, contractStatus: UwContractStatus): boolean =>
+    (openExceptionsByContract.get(contractId) ?? 0) > 0 || contractStatus === "draft";
+
+  const matching = contracts.filter(
+    (contract) =>
+      query === "" ||
+      contract.underwriter.name.toLowerCase().includes(query) ||
+      contract.contract_identifier.toLowerCase().includes(query),
+  );
+  const counts = {
+    all: matching.length,
+    active: matching.filter((contract) => contract.status === "active").length,
+    draft: matching.filter((contract) => contract.status === "draft").length,
+    attention: matching.filter((contract) => needsAttention(contract.id, contract.status)).length,
+  };
+  const shown = matching.filter((contract) =>
+    filter === "all"
+      ? true
+      : filter === "attention"
+        ? needsAttention(contract.id, contract.status)
+        : contract.status === filter,
+  );
+  const hrefFor = (next: Filter) =>
+    `/underwriting/contracts?${new URLSearchParams({
+      ...(query ? { q: q ?? "" } : {}),
+      ...(next !== "all" ? { status: next } : {}),
+    }).toString()}`.replace(/\?$/, "");
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        {contracts.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            No contracts yet.
-          </div>
-        ) : (
-          <TableFrame>
-            <Table>
-              <thead>
-                <HeaderRow>
-                  <Th>Underwriter</Th>
-                  <Th>Contract #</Th>
-                  <Th>Effective</Th>
-                  <Th>Status</Th>
-                </HeaderRow>
-              </thead>
-              <tbody>
-                {contracts.map((contract) => (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <form method="get" className="w-full sm:w-80">
+          {filter !== "all" && <input type="hidden" name="status" value={filter} />}
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search underwriter or order number"
+            aria-label="Search contracts"
+          />
+        </form>
+        <FilterChips
+          label="Filter by status"
+          chips={[
+            { label: "All", count: counts.all, href: hrefFor("all"), active: filter === "all" },
+            {
+              label: "Active",
+              count: counts.active,
+              href: hrefFor("active"),
+              active: filter === "active",
+            },
+            {
+              label: "Draft",
+              count: counts.draft,
+              href: hrefFor("draft"),
+              active: filter === "draft",
+            },
+            {
+              label: "Needs attention",
+              count: counts.attention,
+              href: hrefFor("attention"),
+              active: filter === "attention",
+            },
+          ]}
+        />
+        <span className="flex-1" />
+        <Link
+          href="/underwriting/contracts/new"
+          className="inline-flex items-center justify-center gap-1.5 rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
+        >
+          + New contract
+        </Link>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+          {contracts.length === 0 ? "No contracts yet." : "No contracts match."}
+        </div>
+      ) : (
+        <TableFrame>
+          <Table>
+            <thead>
+              <HeaderRow>
+                <Th>Underwriter · order</Th>
+                <Th>Runs</Th>
+                <Th>Delivery</Th>
+                <Th>Attention</Th>
+                <Th>Status</Th>
+              </HeaderRow>
+            </thead>
+            <tbody>
+              {shown.map((contract) => {
+                const rollup = rollups.get(contract.id);
+                const openExceptions = openExceptionsByContract.get(contract.id) ?? 0;
+                const industry = contract.underwriter.category_id
+                  ? categoryNameById.get(contract.underwriter.category_id)
+                  : null;
+                const fulfilled =
+                  rollup != null && rollup.expected > 0 && rollup.delivered >= rollup.expected;
+                return (
                   <Row key={contract.id}>
-                    <Cell className="font-semibold text-ink-900">
+                    <Cell>
                       <Link
                         href={`/underwriting/contracts/${contract.id}`}
-                        className="text-brand-link"
+                        className="font-bold text-brand-link"
                       >
                         {contract.underwriter.name}
                       </Link>
+                      <div className="mt-0.5 text-xs text-ink-500">
+                        {contract.contract_identifier}
+                        {industry ? ` · ${industry}` : ""}
+                      </div>
                     </Cell>
-                    <Cell className="text-ink-500">{contract.contract_identifier}</Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {contract.effective_from}
-                      {contract.effective_to ? ` – ${contract.effective_to}` : ""}
+                    <Cell className="whitespace-nowrap">
+                      <div className="text-ink-900">
+                        {contract.effective_from}
+                        {contract.effective_to ? ` – ${contract.effective_to}` : ""}
+                      </div>
+                      <div className="mt-0.5 text-xs text-ink-500">
+                        {rollup?.scheduleSummary ?? "No current revision"}
+                      </div>
+                    </Cell>
+                    <Cell>
+                      {contract.status === "draft" ? (
+                        <span className="text-[13px] text-ink-500">Setup in progress</span>
+                      ) : rollup && rollup.expected > 0 ? (
+                        <div className="flex items-center gap-3">
+                          <ProgressBar
+                            done={rollup.delivered}
+                            pending={rollup.scheduled}
+                            total={rollup.expected}
+                            complete={fulfilled}
+                            className="w-36"
+                          />
+                          <span className="whitespace-nowrap text-[13px] text-ink-700">
+                            {fulfilled
+                              ? `${rollup.delivered} aired of ${rollup.expected} · fulfilled`
+                              : `${rollup.delivered} aired · ${rollup.scheduled} scheduled of ${rollup.expected}`}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[13px] text-ink-500">No demand</span>
+                      )}
+                    </Cell>
+                    <Cell>
+                      {openExceptions > 0 ? (
+                        <Badge variant="warning">
+                          {openExceptions} exception{openExceptions === 1 ? "" : "s"} open
+                        </Badge>
+                      ) : contract.status === "draft" ? (
+                        <Badge variant="warning">Finish setup</Badge>
+                      ) : (
+                        <span className="text-[13px] text-ink-500">—</span>
+                      )}
                     </Cell>
                     <Cell>
                       <Badge variant={STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
                     </Cell>
                   </Row>
-                ))}
-              </tbody>
-            </Table>
-          </TableFrame>
-        )}
-      </div>
-
-      <div className="w-full shrink-0 rounded border border-line lg:w-96">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-          New contract
-        </div>
-        <form action={createContract} className="flex flex-col gap-4 p-5">
-          {error && <Alert>{error}</Alert>}
-          <div>
-            <Label htmlFor="underwriter_id">Underwriter</Label>
-            {underwriters.length === 0 ? (
-              <p className="text-xs text-ink-500">
-                No underwriters yet —{" "}
-                <Link href="/underwriting/underwriters" className="font-semibold text-brand-link">
-                  create one first
-                </Link>
-                .
-              </p>
-            ) : (
-              <Select id="underwriter_id" name="underwriter_id" required defaultValue="">
-                <option value="" disabled>
-                  Choose an underwriter…
-                </option>
-                {underwriters.map((underwriter) => (
-                  <option key={underwriter.id} value={underwriter.id}>
-                    {underwriter.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="contract_identifier">Contract / insertion order #</Label>
-            <Input id="contract_identifier" name="contract_identifier" required maxLength={120} />
-          </div>
-          <div className="flex gap-3">
-            <div>
-              <Label htmlFor="effective_from">Effective from</Label>
-              <Input id="effective_from" name="effective_from" type="date" required />
-            </div>
-            <div>
-              <Label htmlFor="effective_to">Effective to</Label>
-              <Input id="effective_to" name="effective_to" type="date" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="sponsorship_category">Sponsorship category</Label>
-              <Input
-                id="sponsorship_category"
-                name="sponsorship_category"
-                placeholder="Real Estate Services"
-              />
-            </div>
-            <div>
-              <Label htmlFor="sponsorship_total">Sponsorship total ($)</Label>
-              <Input
-                id="sponsorship_total"
-                name="sponsorship_total"
-                type="number"
-                step="0.01"
-                min={0}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="stated_total_spots">Order states (total spots)</Label>
-            <Input id="stated_total_spots" name="stated_total_spots" type="number" min={0} />
-            <FieldHint>
-              Validated against the schedule lines you enter — never the scheduling target.
-            </FieldHint>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-ink-700">
-            <input type="checkbox" name="affidavit_required" className="h-4 w-4" />
-            Affidavit required
-          </label>
-          <FieldHint>
-            Most WUWF agreements do not require one — leave unchecked unless the contract says so.
-          </FieldHint>
-          <label className="flex items-center gap-2 text-sm text-ink-700">
-            <input type="checkbox" name="makegood_requires_agency_approval" className="h-4 w-4" />
-            Makegoods need agency approval
-          </label>
-          <div>
-            <Label htmlFor="separation_source_text">Separation, as the order prints it</Label>
-            <Input
-              id="separation_source_text"
-              name="separation_source_text"
-              placeholder='e.g. "3"'
-            />
-            <FieldHint>
-              Kept verbatim; choose a policy on the contract page before auto-filling.
-            </FieldHint>
-          </div>
-          <div>
-            <Label htmlFor="preemption_policy">Preemption / makegood policy</Label>
-            <Input
-              id="preemption_policy"
-              name="preemption_policy"
-              placeholder="Rescheduled within the program originally sponsored"
-            />
-          </div>
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" name="notes" rows={3} />
-          </div>
-          <div className="flex justify-end border-t border-line pt-4">
-            <Button type="submit">Create contract</Button>
-          </div>
-        </form>
-      </div>
+                );
+              })}
+            </tbody>
+          </Table>
+        </TableFrame>
+      )}
+      <p className="text-xs text-ink-500">
+        Delivery counts aired and scheduled credits against the current revision&apos;s compiled
+        demand. Bonus lines report but never read as behind.
+      </p>
     </div>
   );
 }

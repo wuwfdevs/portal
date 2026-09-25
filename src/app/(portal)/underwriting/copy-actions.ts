@@ -34,16 +34,20 @@ const EXECUTION_KINDS: UwCopyExecutionKind[] = ["live_read", "recorded"];
  * same default the program-log import stores (lib/log/read-time.ts). A
  * recorded spot's length is the audio's, which no script can estimate.
  */
-function defaultCopyDuration(executionKind: UwCopyExecutionKind, script: string | null): number | null {
+function defaultCopyDuration(
+  executionKind: UwCopyExecutionKind,
+  script: string | null,
+): number | null {
   return executionKind === "live_read" ? estimateReadSeconds(script) : null;
 }
 
 export async function createCopy(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const label = field(formData, "label");
-  if (label === "") failWith(LIST_PATH, "Give this copy a short label (e.g. \"Message A\").");
+  if (label === "") failWith(LIST_PATH, 'Give this copy a short label (e.g. "Message A").');
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
-  if (!EXECUTION_KINDS.includes(executionKind)) failWith(LIST_PATH, "That is not a recognized execution kind.");
+  if (!EXECUTION_KINDS.includes(executionKind))
+    failWith(LIST_PATH, "That is not a recognized execution kind.");
 
   const script = optionalField(formData, "script");
   const durationRaw = optionalField(formData, "duration_seconds");
@@ -78,9 +82,18 @@ export async function createCopy(formData: FormData): Promise<void> {
     const { error: linkError } = await supabase
       .from("uw_contract_copy")
       .insert({ contract_id: contractId, copy_id: data.id });
-    failIfError(linkError, contractPath(contractId), "Copy created, but could not link it to this contract");
+    failIfError(
+      linkError,
+      contractPath(contractId),
+      "Copy created, but could not link it to this contract",
+    );
     revalidatePath(contractPath(contractId));
-    redirect(contractPath(contractId));
+    // The setup wizard's copy step posts return_to=policy to stay on it.
+    redirect(
+      field(formData, "return_to") === "policy"
+        ? `${contractPath(contractId)}/policy`
+        : contractPath(contractId),
+    );
   }
 
   revalidatePath(LIST_PATH);
@@ -100,7 +113,8 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
   }
 
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
-  if (!EXECUTION_KINDS.includes(executionKind)) failWith(path, "That is not a recognized execution kind.");
+  if (!EXECUTION_KINDS.includes(executionKind))
+    failWith(path, "That is not a recognized execution kind.");
 
   const script = optionalField(formData, "script");
   const supabase = await createClient();
@@ -129,10 +143,14 @@ export async function setCopyStatus(formData: FormData): Promise<void> {
   const id = field(formData, "copy_id");
   const path = copyPath(id);
   const approvalStatus = field(formData, "approval_status") as UwCopyApprovalStatus;
-  if (!APPROVAL_STATUSES.includes(approvalStatus)) failWith(path, "That is not a recognized approval status.");
+  if (!APPROVAL_STATUSES.includes(approvalStatus))
+    failWith(path, "That is not a recognized approval status.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("uw_copy").update({ approval_status: approvalStatus }).eq("id", id);
+  const { error } = await supabase
+    .from("uw_copy")
+    .update({ approval_status: approvalStatus })
+    .eq("id", id);
   failIfError(error, path, "Could not update the copy's status");
 
   revalidatePath(path);

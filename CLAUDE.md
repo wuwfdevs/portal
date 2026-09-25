@@ -1290,6 +1290,26 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: contract setup and the contract page, redesigned
+(2026-09-25).** Read `docs/underwriting-traffic-redesign.md` §11 before
+touching the contracts list, the contract page, or the schedule-line form;
+this note is a pointer. Built from reviewed Design boards on the design
+system the app already uses; no migration. The schedule-line form takes
+**structured entries only** — one row per explicit date, one quantity per
+Monday for a week grid (`week_quantity:<monday>`), laid out by the client
+editor (`underwriting/schedule-line-editor.tsx`) from the line's own dates —
+and `schedule-line-form.ts` refuses a field the chosen kind doesn't use
+rather than ignoring it; the editor compiles the line live with that same
+parser. Setup is four steps (`/contracts/new` → `[id]/schedule` →
+`[id]/policy` → the contract page; `[id]/order` edits the order later),
+each an existing action carrying `return_to`. The contract page leads with
+a readiness checklist for a draft (`lib/underwriting/readiness.ts`, pure)
+and splits into `?tab=` sections; a line is a card with a "⋮" menu. The
+copy reads "Spots on the order", never "order states". Six primitives in
+`components/ui` (`ChoiceCards`, `DayPicker`, `Segmented`, `Steps`,
+`ProgressBar`, `FilterChips`) came out of it — reuse them before styling a
+new radio group, day picker, step flow, bar, or filter row inline.
+
 **Underwriting & Traffic: fill order, frozen rundowns, bumping (2026-09-25,
 third pass).** Read `docs/underwriting-traffic-redesign.md` §10 before
 touching auto-fill, the placement guard, or anything that moves a credit;

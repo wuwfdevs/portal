@@ -30,16 +30,22 @@ function values(overrides: Partial<ScheduleLineFormValues> = {}): ScheduleLineFo
     source_text: "",
     makegood_policy_text: "",
     notes: "",
-    dates_text: "",
-    grid_first_monday: "",
-    grid_quantities: "",
+    explicit_dates: [],
+    week_grid: [],
     ...overrides,
   };
 }
 
 describe("parseExplicitDates", () => {
-  it("reads one date per line with an optional count", () => {
-    expect(parseExplicitDates("2026-09-11\n2026-09-24 x2, 2026-09-11")).toEqual({
+  it("reads one row per date, a blank count as 1, and sums a repeated date", () => {
+    expect(
+      parseExplicitDates([
+        { date: "2026-09-11", quantity: "" },
+        { date: "2026-09-24", quantity: "2" },
+        { date: "2026-09-11", quantity: "1" },
+        { date: "", quantity: "" },
+      ]),
+    ).toEqual({
       ok: true,
       value: [
         { date: "2026-09-11", quantity: 2 },
@@ -47,14 +53,26 @@ describe("parseExplicitDates", () => {
       ],
     });
   });
-  it("rejects a non-date", () => {
-    expect(parseExplicitDates("Sept 11").ok).toBe(false);
+  it("rejects a non-date and a zero count", () => {
+    expect(parseExplicitDates([{ date: "Sept 11", quantity: "" }]).ok).toBe(false);
+    expect(parseExplicitDates([{ date: "2026-09-11", quantity: "0" }]).ok).toBe(false);
   });
 });
 
 describe("parseWeekGrid", () => {
-  it("reads an agency run of quantities from a first Monday, zeros included", () => {
-    expect(parseWeekGrid("", "2026-01-26", "6 4 0 3")).toEqual({
+  it("reads one quantity per Monday, a blank as a dark week, inside the line's dates", () => {
+    expect(
+      parseWeekGrid(
+        [
+          { week_start: "2026-01-26", quantity: "6" },
+          { week_start: "2026-02-02", quantity: "4" },
+          { week_start: "2026-02-09", quantity: "" },
+          { week_start: "2026-02-16", quantity: "3" },
+        ],
+        "2026-01-26",
+        "2026-02-22",
+      ),
+    ).toEqual({
       ok: true,
       value: [
         { week_start: "2026-01-26", quantity: 6 },
@@ -64,11 +82,13 @@ describe("parseWeekGrid", () => {
       ],
     });
   });
-  it("snaps a per-line date to its Monday", () => {
-    expect(parseWeekGrid("2026-01-28 6", "", "")).toEqual({
-      ok: true,
-      value: [{ week_start: "2026-01-26", quantity: 6 }],
-    });
+  it("refuses a week that is not keyed by its Monday, or that falls outside the line", () => {
+    expect(
+      parseWeekGrid([{ week_start: "2026-01-28", quantity: "6" }], "2026-01-26", "2026-02-22").ok,
+    ).toBe(false);
+    expect(
+      parseWeekGrid([{ week_start: "2026-03-02", quantity: "6" }], "2026-01-26", "2026-02-22").ok,
+    ).toBe(false);
   });
 });
 
@@ -98,6 +118,7 @@ describe("parseScheduleLineForm", () => {
       values({
         entry_kind: "weekly_quota",
         quantity: "4",
+        count_per_day: "",
         max_per_day: "1",
         end_date: "2026-10-18",
       }),
@@ -110,6 +131,7 @@ describe("parseScheduleLineForm", () => {
       values({
         entry_kind: "every_n_weeks",
         quantity: "1",
+        count_per_day: "",
         interval_weeks: "2",
         days_of_week: [],
         end_date: "2026-11-01",
@@ -121,7 +143,51 @@ describe("parseScheduleLineForm", () => {
     ]);
     expect(
       parseScheduleLineForm(
-        values({ entry_kind: "every_n_weeks", quantity: "1", interval_weeks: "1" }),
+        values({
+          entry_kind: "every_n_weeks",
+          quantity: "1",
+          count_per_day: "",
+          interval_weeks: "1",
+        }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("refuses a field the chosen kind does not use, rather than ignoring it", () => {
+    const result = parseScheduleLineForm(values({ quantity: "4" }));
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/Quantity isn't used by a fixed-days line/);
+    expect(
+      parseScheduleLineForm(
+        values({ entry_kind: "weekly_quota", quantity: "4", count_per_day: "1" }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("builds a week grid laid out between the line's dates, dark weeks included", () => {
+    const grid = parseScheduleLineForm(
+      values({
+        entry_kind: "week_grid",
+        count_per_day: "",
+        days_of_week: [0, 6],
+        start_date: "2025-08-11",
+        end_date: "2025-08-31",
+        week_grid: [
+          { week_start: "2025-08-11", quantity: "6" },
+          { week_start: "2025-08-18", quantity: "" },
+          { week_start: "2025-08-25", quantity: "6" },
+        ],
+        stated_total: "12",
+      }),
+    );
+    expect(grid.ok && grid.value.buckets.map((b) => [b.periodStart, b.quantity])).toEqual([
+      ["2025-08-11", 6],
+      ["2025-08-18", 0],
+      ["2025-08-25", 6],
+    ]);
+    expect(
+      parseScheduleLineForm(
+        values({ entry_kind: "week_grid", count_per_day: "", end_date: "", week_grid: [] }),
       ).ok,
     ).toBe(false);
   });
@@ -131,7 +197,11 @@ describe("parseScheduleLineForm", () => {
       values({
         entry_kind: "explicit_dates",
         days_of_week: [],
-        dates_text: "2026-10-06, 2026-10-08 x2",
+        count_per_day: "",
+        explicit_dates: [
+          { date: "2026-10-06", quantity: "" },
+          { date: "2026-10-08", quantity: "2" },
+        ],
       }),
     );
     expect(explicit.ok && explicit.value.buckets.map((b) => [b.periodStart, b.quantity])).toEqual([
@@ -139,7 +209,7 @@ describe("parseScheduleLineForm", () => {
       ["2026-10-08", 2],
     ]);
     const total = parseScheduleLineForm(
-      values({ entry_kind: "range_total", quantity: "13", days_of_week: [] }),
+      values({ entry_kind: "range_total", quantity: "13", count_per_day: "", days_of_week: [] }),
     );
     expect(total.ok && total.value.buckets).toEqual([
       {

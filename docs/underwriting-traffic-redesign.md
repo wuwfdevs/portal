@@ -653,3 +653,81 @@ freeze in the planner, a bump that seats an exact line, refused bumps (no
 alternative, frozen, cross-bucket, adjacency, too little room), bonus
 before guaranteed, host content named, and the dashboard's capacity
 conflict. `npm run lint`, `typecheck`, `test` and `db:check` pass.
+
+## 11. Contract setup and the contract page, redesigned (2026-09-25)
+
+Built from four reviewed Design boards ("Contract creation, redesigned":
+the contracts list, the order step, the schedule step, the contract page
+in draft), on the WUWF design system the app already uses — the same
+colours, type, radius and section nav, so nothing here changed the look of
+the rest of the tool. No migration: every field the boards show was already
+a column.
+
+### 11.1 Entering a line without free text
+
+`schedule-line-form.ts` no longer parses text. Explicit dates arrive as one
+row per date (`explicit_date`/`explicit_quantity`, a blank count meaning 1)
+and a week grid as one quantity per Monday (`week_quantity:<monday>`,
+blank meaning a dark week) — the editor lays the weeks out from the line's
+own dates, so a quantity cannot be counted into the wrong week and a week
+cannot fall outside the line and be dropped (a grid now requires an end
+date, and a row outside the dates is refused, not silently ignored). A
+field the chosen kind never reads — a quantity under a fixed-days line, an
+interval under a weekly quota — is refused with a message naming the kind,
+rather than ignored.
+
+`schedule-line-editor.tsx` (client) is the form: choice cards for how the
+order sells the credits, and only that kind's fields; a per-week grid
+(click a Monday to mark it with the quantity, type a count in a cell that
+differs, "Mark every week" / "Every other week" / "Clear all", partial
+first and last weeks flagged); explicit dates as rows; the time rule as a
+segmented control with its own fields; and an aside that compiles the line
+live with the very same `parseScheduleLineForm()` the Server Action runs,
+so "this line compiles to 162" and "reconciles with the order" show what
+saving will store. The label is suggested from the pool and the rule until
+edited. The wording "order states" is gone: fields read "Spots on the
+order" / "Total spots on the order", and the reconciliation copy says "the
+order says 162".
+
+### 11.2 Setup as four steps
+
+`/underwriting/contracts/new` (the order: underwriter, order number,
+sponsorship total, run dates, category, notes) creates the contract as a
+draft with its first revision and continues to
+`/contracts/[id]/schedule` (the lines entered so far with what each
+compiles to and whether it matches the order, plus the editor; "Add and
+start another" stays on the step), then `/contracts/[id]/policy` (copy —
+create and link, unlink — and the traffic policy, including the affidavit
+flag and the total spots on the order), then the contract page itself.
+`/contracts/[id]/order` edits the order's facts afterwards
+(`updateContractOrder`). Every step is the existing actions with a
+`return_to` field, so the wizard is navigation over what the contract page
+already did; a draft is saved as you go and schedules nothing until
+activated.
+
+### 11.3 The contract page
+
+Leads, for a draft, with a readiness checklist (`readiness.ts`, pure,
+tested: order details, agreement attached, schedule entered and reconciled,
+copy linked and approved, traffic policy decided — warnings never block
+activation), then six sub-tabs (Schedule, Copy, Flights, Placements,
+Revisions, Policy) via `?tab=`, with the facts, the delivery bar, the
+policy summary and the status beside them. A line is a card
+(`line-card.tsx`) with a delivery bar and a "⋮" menu (`line-actions.tsx`)
+holding Place a credit, Demand by period, Placements, Cancel from a date,
+and Remove from draft; Auto-fill stays a visible button. The contract's own
+activation button sits in the header for a draft.
+
+### 11.4 The list
+
+`/underwriting/contracts` searches by underwriter or order number, filters
+by All / Active / Draft / Needs attention (open exceptions, or a draft
+still in setup), and shows a delivery bar per contract from
+`listContractDeliveryRollups()` — the same per-bucket arithmetic as the
+contract page, summed, one read per table. New contracts start from the
+list's button.
+
+Six shared primitives came out of the boards (`components/ui`):
+`ChoiceCards`, `DayPicker`, `Segmented` (native radios and checkboxes via
+`peer-checked`, so they work in a plain form and controlled alike),
+`Steps`, `ProgressBar`, `FilterChips`.
