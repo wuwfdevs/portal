@@ -72,15 +72,31 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 
 ### Rollout
 
-Done: shared components; Pools (inline create with targets, atomic via
-`uw_create_inventory_pool()`); Underwriters (list, `/new`, `/[id]/edit`, read-only detail
-aside); Industries (own view, inline create row); Contracts (already on the layout, now on
-`ListToolbar`).
+Done (2026-09-27, in two passes):
 
-Still on the old layout, to move in this order when touched:
+- Shared components; Pools (inline create with targets, atomic via
+  `uw_create_inventory_pool()`); Underwriters (list, `/new`, `/[id]/edit`, read-only detail
+  aside); Industries (own view, inline create row); Contracts (already on the layout, now on
+  `ListToolbar`).
+- `underwriting/copy`: list on the toolbar with an approval filter; `/copy/new` and
+  `/copy/[id]/edit` share `copy/copy-form.tsx`; the detail page is read-only (script, linked
+  contracts, a `DetailSummary` with Edit) and keeps the approval-status control in its aside,
+  since that is a workflow action, not an edit. The contract setup wizard's own copy step is
+  unchanged — it links the copy to the contract in the same submit.
+- `log/programs`: a program is created inline; each program now has its own page
+  (`/log/programs/[id]`) listing its schedule with a read-only summary aside, and "Schedule a
+  program" became `/log/programs/[id]/schedule/new`, a producer-only dedicated page.
+- `log/clocks`: a template is created inline; versions and slots stay on the template's page.
+- `editorial/settings/form`, `pillars`, `rubric`: the Active/Retired view tabs became
+  `FilterChips` on a `ListToolbar`, and each "Add a …" side form became an inline card. The
+  two client components that show or hide a field by type (`AddFieldFields`,
+  `CriterionFields`) now render only their fields; the card owns the `<form>`.
 
-1. `underwriting/copy` (dedicated page); `log/programs` (the "Schedule a program" form
-   moves to a program detail page or its own `schedule/new` route); `log/clocks`.
-2. `editorial/settings/form`, `pillars`, and `rubric` — inline, since their records are small.
-3. Review each detail-page aside individually against rule 5: `copy/[id]`,
-   `exceptions/[id]`, `log/library/[id]`, `academic-partnerships/[id]`.
+Detail-page asides reviewed against rule 5 and kept as they are: `exceptions/[id]` (the
+resolution form is the triage action), `log/library/[id]` (approval status),
+`academic-partnerships/[id]` (owner, stage, disposition, delete — all actions). None held a
+create form or a duplicate of an edit page.
+
+Not on the old layout, and not touched: `log/library` filters with two selects and a Filter
+button rather than a search box and chips. It is a candidate for `ListToolbar` when next
+worked on, not a sidebar to remove.

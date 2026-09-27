@@ -1310,8 +1310,17 @@ pool.sql`, security invoker — atomicity only, RLS unchanged; the same
 migration makes pool names unique case-insensitively), with
 `lib/underwriting/pool-targets.ts` (pure, tested) parsing the keyed
 `target_<k>_*` rows both the card and the per-pool "Add a target" form
-submit. Pages still on the old layout, and the order to move them in, are
-listed at the end of that doc.
+submit. The same day's second pass moved the rest: `underwriting/copy`
+(`/copy/new`, `/copy/[id]/edit`, `copy/copy-form.tsx`; the detail page is
+read-only with the approval-status action kept in its aside), `log/programs`
+(inline create; a new `/log/programs/[id]` page whose "+ Schedule" leads to
+`/log/programs/[id]/schedule/new`, the old side form's new home),
+`log/clocks` (inline create), and the three Editorial settings lists (their
+Active/Retired tabs are now `FilterChips`, their "Add a …" side forms inline
+cards; `AddFieldFields`/`CriterionFields` render only fields, the card owns
+the form). The four detail asides the handoff named were reviewed and kept —
+each holds an action, which rule 5 allows. The doc's "Rollout" section is the
+record.
 
 **Underwriting & Traffic: contract setup and the contract page, redesigned
 (2026-09-25).** Read `docs/underwriting-traffic-redesign.md` §11 before
