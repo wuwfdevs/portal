@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { listProgramOptions } from "@/lib/underwriting/placement";
+import { programsPermittedByPool } from "@/lib/underwriting/pool-targets";
 import {
   buildScheduleLineDemandViews,
   getContractDetail,
@@ -99,6 +100,7 @@ export default async function EditScheduleLinePage({
               id: pool.id,
               name: pool.name,
               hint: pool.targets.length === 0 ? "(no Log mapping yet)" : undefined,
+              programIds: programsPermittedByPool(pool.targets),
             }))}
           programs={programs.map((program) => ({ id: program.id, name: program.name }))}
           flights={contract.flights
@@ -120,8 +122,8 @@ export default async function EditScheduleLinePage({
         />
       ) : (
         <Alert>
-          This line has scheduled credits behind it, so it can&apos;t be rewritten. Cancel it from
-          a date on the contract page and enter the correction as a new line.
+          This line has scheduled credits behind it, so it can&apos;t be rewritten. Cancel it from a
+          date on the contract page and enter the correction as a new line.
         </Alert>
       )}
     </div>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/underwriting/queries";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { listProgramOptions } from "@/lib/underwriting/placement";
+import { programsPermittedByPool } from "@/lib/underwriting/pool-targets";
 import { addScheduleLine, removeDraftScheduleLine } from "../../../contract-actions";
 import { ScheduleLineEditor } from "../../../schedule-line-editor";
 import { WizardHeader } from "../wizard-header";
@@ -147,6 +148,7 @@ export default async function ContractSchedulePage({
               id: pool.id,
               name: pool.name,
               hint: pool.targets.length === 0 ? "(no Log mapping yet)" : undefined,
+              programIds: programsPermittedByPool(pool.targets),
             }))}
           programs={programs.map((program) => ({ id: program.id, name: program.name }))}
           flights={contract.flights

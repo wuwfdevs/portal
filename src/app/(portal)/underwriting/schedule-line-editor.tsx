@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ export interface EditorOption {
   id: string;
   name: string;
   hint?: string;
+  /** Pools only: the programs the pool's targets cover; null when unrestricted (programsPermittedByPool). */
+  programIds?: string[] | null;
 }
 
 export interface EditorLineSummary {
@@ -273,8 +276,17 @@ export function ScheduleLineEditor({
   const otherTotal = otherLines.reduce((sum, line) => sum + line.expected, 0);
   const contractTotal = otherTotal + compiledTotal;
 
-  const poolName = pools.find((pool) => pool.id === poolId)?.name;
+  const selectedPool = pools.find((pool) => pool.id === poolId);
+  const poolName = selectedPool?.name;
   const programName = programs.find((program) => program.id === programId)?.name;
+  // A line naming both is the intersection, so only offer the programs the
+  // chosen pool can place into; picking a pool that excludes the current
+  // program clears it (see the pool select's onChange).
+  const permittedProgramIds = selectedPool?.programIds ?? null;
+  const offeredPrograms =
+    permittedProgramIds === null
+      ? programs
+      : programs.filter((program) => permittedProgramIds.includes(program.id));
   const suggestedLabel =
     demand.ok && (poolName || programName)
       ? `${poolName ?? programName}, ${describeEntrySpec(demand.value.entry_spec, demand.value.days_of_week).split(",")[0]}`
@@ -694,7 +706,13 @@ export function ScheduleLineEditor({
               id="pool_id"
               name="pool_id"
               value={poolId}
-              onChange={(e) => setPoolId(e.target.value)}
+              onChange={(e) => {
+                const nextPoolId = e.target.value;
+                setPoolId(nextPoolId);
+                const permitted = pools.find((pool) => pool.id === nextPoolId)?.programIds ?? null;
+                if (programId && permitted !== null && !permitted.includes(programId))
+                  setProgramId("");
+              }}
             >
               <option value="">
                 {programId ? "No pool — the program alone" : "Choose a pool, or a program below"}
@@ -707,7 +725,13 @@ export function ScheduleLineEditor({
               ))}
             </Select>
             <FieldHint>
-              The order&apos;s own name for the inventory, mapped to Log on the Pools screen.
+              The order&apos;s own name for the inventory, mapped to Log on the Pools screen. A
+              bundle of programs that isn&apos;t here yet — &ldquo;Drive Time&rdquo;, &ldquo;ME and
+              ATC&rdquo; — is a pool:{" "}
+              <Link href="/underwriting/pools?new=1" className="font-semibold text-brand-link">
+                create it
+              </Link>
+              , then pick it here.
             </FieldHint>
           </div>
           <div>
@@ -721,14 +745,17 @@ export function ScheduleLineEditor({
               <option value="">
                 {poolId ? "Any program in the pool" : "Choose a program, or a pool above"}
               </option>
-              {programs.map((program) => (
+              {offeredPrograms.map((program) => (
                 <option key={program.id} value={program.id}>
                   {program.name}
                 </option>
               ))}
             </Select>
             <FieldHint>
-              A line needs a pool, a program, or both. Naming a program narrows the pool to it.
+              A line needs a pool, a program, or both. Naming a program narrows the pool to it
+              {permittedProgramIds !== null &&
+                ` — only the ${plural(offeredPrograms.length, "program")} this pool covers ${offeredPrograms.length === 1 ? "is" : "are"} offered`}
+              .
             </FieldHint>
           </div>
         </div>
@@ -866,12 +893,7 @@ export function ScheduleLineEditor({
             </div>
             <div>
               <Label htmlFor="line_notes">Notes</Label>
-              <Textarea
-                id="line_notes"
-                name="notes"
-                rows={1}
-                defaultValue={initial?.notes ?? ""}
-              />
+              <Textarea id="line_notes" name="notes" rows={1} defaultValue={initial?.notes ?? ""} />
             </div>
           </div>
         </details>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { collectTargetRows, parseTarget } from "./pool-targets";
+import {
+  collectTargetRows,
+  parseTarget,
+  poolPermitsProgram,
+  programsPermittedByPool,
+} from "./pool-targets";
 
 function form(entries: [string, string][]): FormData {
   const formData = new FormData();
@@ -141,5 +146,24 @@ describe("collectTargetRows", () => {
 
   it("allows zero targets", () => {
     expect(collectTargetRows(form([]))).toEqual({ ok: true, targets: [] });
+  });
+});
+
+describe("programsPermittedByPool / poolPermitsProgram", () => {
+  const me = { program_id: "me" };
+  const atc = { program_id: "atc" };
+  const anyProgram = { program_id: null };
+
+  it("lists the named programs of a pool built from program targets", () => {
+    expect(programsPermittedByPool([me, atc, me])).toEqual(["me", "atc"]);
+    expect(poolPermitsProgram([me, atc], "me")).toBe(true);
+    expect(poolPermitsProgram([me, atc], "scifri")).toBe(false);
+  });
+
+  it("is unrestricted when any target is an any-program window, or the pool has no targets", () => {
+    expect(programsPermittedByPool([me, anyProgram])).toBeNull();
+    expect(programsPermittedByPool([])).toBeNull();
+    expect(poolPermitsProgram([anyProgram], "scifri")).toBe(true);
+    expect(poolPermitsProgram([], "scifri")).toBe(true);
   });
 });
