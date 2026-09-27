@@ -78,10 +78,13 @@ A field whose options grow with the data — an underwriter, a program, a conten
 contract — is a `SearchableSelect` (`components/ui/searchable-select.tsx`): a text box that
 filters as you type over a keyboard-navigable listbox, posting the chosen id through a hidden
 input so the surrounding form stays an ordinary `<form action>`. The threshold is "more than
-a few records now, or likely to be": the underwriter picker on the order step is the first
-use; the program picker in the schedule editor and the copy pickers are the next candidates.
-It is the rundown builder's insertion-point combobox lifted into a primitive, so the two
-behave the same.
+a few records now, or likely to be". In Underwriting it is every such picker: the underwriter
+on the order step, the program in the schedule editor (controlled, since its options follow
+the chosen pool), the existing-copy link on the policy step, the contract on the affidavit
+form, the open break on a line card and on a makegood (a break that already holds the
+contract is shown disabled), and the program on a pool target. Pools, industries, statuses,
+time rules and a contract's own handful of linked copy stay native selects. It is the rundown
+builder's insertion-point combobox lifted into a primitive, so the two behave the same.
 
 ### Rollout
 

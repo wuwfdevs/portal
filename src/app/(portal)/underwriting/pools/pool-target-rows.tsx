@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DayPicker } from "@/components/ui/day-picker";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export interface ProgramOption {
   id: string;
@@ -43,14 +44,12 @@ export function PoolTargetRows({ programs }: { programs: ProgramOption[] }) {
             <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,2fr)_120px_120px_minmax(0,2fr)_auto]">
               <div>
                 <Label htmlFor={`${prefix}program_id`}>Program</Label>
-                <Select id={`${prefix}program_id`} name={`${prefix}program_id`} defaultValue="">
-                  <option value="">Any program</option>
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.name}
-                    </option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  id={`${prefix}program_id`}
+                  name={`${prefix}program_id`}
+                  placeholder="Any program"
+                  options={programs.map((program) => ({ id: program.id, label: program.name }))}
+                />
               </div>
               <div>
                 <Label htmlFor={`${prefix}window_start`}>From</Label>

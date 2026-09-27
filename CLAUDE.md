@@ -1333,8 +1333,9 @@ only — a contract that ran is terminated, never deleted.
 `components/ui/searchable-select.tsx` is the rundown builder's
 insertion-point combobox as a primitive (hidden input for the id, so the
 form stays an ordinary `<form action>`); use it instead of a `<select>` for
-any field whose options grow with the data. First use: the order step's
-underwriter.
+any field whose options grow with the data — it now backs every such
+picker in Underwriting (underwriter, program, contract, existing copy, open
+break); the fixed-option selects stay native.
 
 **Underwriting & Traffic: a contract can be created from its signed
 agreement (2026-09-27).** Read `docs/underwriting-traffic-redesign.md`

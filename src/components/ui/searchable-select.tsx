@@ -25,8 +25,10 @@ import { controlClasses } from "@/components/ui/input";
 export interface SearchableOption {
   id: string;
   label: string;
-  /** Muted text after the label — an industry, a program's time, a count. */
+  /** Muted text after the label — an industry, a program's time, a count. Searched too. */
   hint?: string;
+  /** Shown but not pickable — a break that already holds this contract. */
+  disabled?: boolean;
 }
 
 export function SearchableSelect({
@@ -34,9 +36,11 @@ export function SearchableSelect({
   name,
   options,
   defaultValue,
+  value: controlledValue,
   placeholder = "Type to search…",
   required,
   emptyMessage = "No matches.",
+  className,
   onChange,
 }: {
   /** The id the <Label htmlFor> points at — the text box. */
@@ -44,16 +48,34 @@ export function SearchableSelect({
   /** The form field name; the chosen option's id is posted under it. */
   name: string;
   options: SearchableOption[];
+  /** Uncontrolled: the option chosen at first render. */
   defaultValue?: string;
+  /** Controlled: the chosen id, kept in step by the caller through onChange — for a picker whose options depend on another field. */
+  value?: string;
   placeholder?: string;
   required?: boolean;
   emptyMessage?: string;
+  className?: string;
   onChange?: (value: string) => void;
 }) {
   const listId = useId();
-  const initial = options.find((option) => option.id === defaultValue) ?? null;
+  const initial = options.find((option) => option.id === (controlledValue ?? defaultValue)) ?? null;
   const [value, setValue] = useState(initial?.id ?? "");
   const [query, setQuery] = useState(initial?.label ?? "");
+
+  // Controlled: when the caller changes the value (or clears it because the
+  // options changed under it), the box follows — React's "adjust state
+  // during render" pattern, the same one lib/use-synced-state.ts uses, so
+  // the stale label is never painted for a frame first.
+  const [lastControlledValue, setLastControlledValue] = useState(controlledValue);
+  if (controlledValue !== lastControlledValue) {
+    setLastControlledValue(controlledValue);
+    if (controlledValue !== undefined && controlledValue !== value) {
+      const next = options.find((option) => option.id === controlledValue) ?? null;
+      setValue(next?.id ?? "");
+      setQuery(next?.label ?? "");
+    }
+  }
   const [open, setOpen] = useState(false);
   // -1 means nothing highlighted yet — arrow keys start it at the first/last
   // result, and Enter with nothing highlighted picks the first.
@@ -94,6 +116,7 @@ export function SearchableSelect({
   }, [open, chosen]);
 
   function pick(option: SearchableOption) {
+    if (option.disabled) return;
     setValue(option.id);
     setQuery(option.label);
     setOpen(false);
@@ -133,7 +156,7 @@ export function SearchableSelect({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className={cn("relative", className)}>
       <input type="hidden" name={name} value={value} />
       <div className="relative">
         <input
@@ -193,12 +216,15 @@ export function SearchableSelect({
                 role="option"
                 aria-selected={option.id === value}
                 type="button"
+                disabled={option.disabled}
+                aria-disabled={option.disabled}
                 onClick={() => pick(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={cn(
                   "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
                   highlightedIndex === index ? "bg-brand-surface" : "hover:bg-brand-surface",
                   option.id === value && "font-semibold",
+                  option.disabled && "cursor-not-allowed text-ink-400 hover:bg-transparent",
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>

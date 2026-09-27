@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { getContractDetail, listCopy } from "@/lib/underwriting/queries";
 import {
@@ -145,16 +146,15 @@ export default async function ContractPolicyPage({
               >
                 <input type="hidden" name="contract_id" value={contract.id} />
                 <input type="hidden" name="return_to" value="policy" />
-                <Select name="copy_id" defaultValue="" className="max-w-xs">
-                  <option value="" disabled>
-                    Or link existing copy…
-                  </option>
-                  {linkable.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </Select>
+                <div className="w-full max-w-xs">
+                  <SearchableSelect
+                    id="link_copy_id"
+                    name="copy_id"
+                    required
+                    placeholder="Or link existing copy…"
+                    options={linkable.map((item) => ({ id: item.id, label: item.label }))}
+                  />
+                </div>
                 <Button type="submit" variant="secondary">
                   Link
                 </Button>

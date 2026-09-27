@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { listMakegoods } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
@@ -141,17 +142,17 @@ export default async function MakegoodsPage({
                     />
                     <div>
                       <Label htmlFor={`break_${makegood.id}`}>Open break</Label>
-                      <Select id={`break_${makegood.id}`} name="break_id" defaultValue="">
-                        <option value="" disabled>
-                          Choose a break…
-                        </option>
-                        {makegood.placeable.breaks.map((brk) => (
-                          <option key={brk.break_id} value={brk.break_id}>
-                            {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} (
-                            {brk.label}) · {brk.remaining_seconds}s remaining
-                          </option>
-                        ))}
-                      </Select>
+                      <SearchableSelect
+                        id={`break_${makegood.id}`}
+                        name="break_id"
+                        required
+                        placeholder="Type a program or date…"
+                        options={makegood.placeable.breaks.map((brk) => ({
+                          id: brk.break_id,
+                          label: `${brk.program_name} — ${formatPlacementTime(brk.scheduled_at)} (${brk.label})`,
+                          hint: `${brk.remaining_seconds}s remaining`,
+                        }))}
+                      />
                     </div>
                     <div>
                       <Label htmlFor={`copy_${makegood.id}`}>Copy</Label>

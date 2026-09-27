@@ -811,8 +811,13 @@ The same day, the order step's underwriter field became a search-to-select
 (`components/ui/searchable-select.tsx`, docs/ui-patterns.md "Pickers"): a
 `<select>` is the wrong interaction for a list that grows with the data
 long before it stops working. The primitive is the rundown builder's
-insertion-point combobox lifted out; the program picker in the schedule
-editor and the copy pickers are the next candidates.
+insertion-point combobox lifted out, and the same day it replaced every
+picker in the tool whose list grows with the data — the schedule editor's
+program (controlled, following the chosen pool), the policy step's
+existing-copy link, the affidavit form's contract, the open-break pickers
+on a line card and a makegood, and a pool target's program — leaving the
+fixed-option selects (pools, industries, statuses, time rules, a contract's
+own linked copy) native.
 
 ## 12. Creating a contract from its signed agreement (2026-09-27)
 
