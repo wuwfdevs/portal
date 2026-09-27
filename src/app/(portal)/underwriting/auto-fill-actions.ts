@@ -30,7 +30,6 @@ const UNPLACEABLE_LABEL: Record<UnplaceableReason, string> = {
 };
 
 function summarizeAutoFill(result: AutoFillResult): string {
-  if (result.skippedReason) return `Auto-fill skipped: ${result.skippedReason}`;
   const parts: string[] = [];
   if (result.rundownsGeneratedCount > 0) {
     parts.push(
@@ -67,6 +66,12 @@ function summarizeAutoFill(result: AutoFillResult): string {
     parts.push(
       `${result.errors.length} placement attempt${result.errors.length === 1 ? "" : "s"} failed (${result.errors[0]})`,
     );
+  }
+  // A skipped line in a contract-wide run sits beside what the other lines
+  // did rather than hiding it; on its own it is the whole story.
+  if (result.skippedReason) {
+    if (parts.length === 0) return `Auto-fill skipped: ${result.skippedReason}`;
+    parts.push(`a line was skipped — ${result.skippedReason}`);
   }
   if (parts.length === 0)
     return "Nothing to auto-fill right now — every open period is already scheduled in full.";

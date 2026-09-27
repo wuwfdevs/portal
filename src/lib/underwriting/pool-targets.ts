@@ -6,6 +6,8 @@
  * same way. Pure: no Supabase, no redirect.
  */
 
+import type { UwTimeMode } from "@/lib/database.types";
+
 export interface PoolTargetInput {
   program_id: string | null;
   window_start: string | null;
@@ -127,4 +129,168 @@ export function poolPermitsProgram(
 ): boolean {
   const permitted = programsPermittedByPool(targets);
   return permitted === null || permitted.includes(programId);
+}
+
+// ---------------------------------------------------------------------------
+// Can the pool reach the line at all? (2026-09-27)
+//
+// A line names *where* a credit may air (pool and/or program, days, a time
+// rule); a pool's targets name *what the pool reaches* (a program, a window,
+// days). A line asking for a day or a time none of the pool's targets
+// serves can never find a break — or, for a `preferred` line, whose time
+// only ranks and never excludes, finds one quietly in the wrong daypart: a
+// 4:48 pm line on a pool whose one target was Morning Edition 6–9 am seated
+// every credit at 8:59 am, and nothing said so. Same class of contradiction
+// as a program the pool never targets (programsPermittedByPool above), so
+// the same treatment: refused at save, named on the dashboard and by
+// auto-fill. Coverage is judged against the targets alone — a target with
+// no window is taken to reach any time, since its program's own air hours
+// live in Log, which this tool's session can't read. That is the known gap
+// (docs/underwriting-traffic-redesign.md §11.6), not an oversight.
+
+const EXACT_REACH_TOLERANCE_MINUTES = 3;
+
+export interface PoolTargetReach {
+  program_id: string | null;
+  /** "HH:MM" or "HH:MM:SS", station-local; null means any time. */
+  window_start: string | null;
+  window_end: string | null;
+  /** 0=Sunday..6=Saturday; null means any day. */
+  days_of_week: number[] | null;
+}
+
+export interface LineReachLike {
+  program_id: string | null;
+  /** Empty means any day. */
+  days_of_week: number[];
+  time_mode: UwTimeMode;
+  preferred_time: string | null;
+  window_start: string | null;
+  window_end: string | null;
+}
+
+export type PoolReachability =
+  | { kind: "reachable" }
+  /** The pool has no targets yet — unfinished, not wrong; warn, never refuse. */
+  | { kind: "no_targets" }
+  /** Targets exist and none serves the line's program, days, or time — a contradiction to refuse. */
+  | { kind: "unreachable"; why: "program" | "days" | "time" };
+
+function minutes(time: string): number {
+  const [hour, minute] = time.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
+
+/** Does this target's window (null = any time) admit a break the line's time rule could use? */
+function targetReachesTime(target: PoolTargetReach, line: LineReachLike): boolean {
+  if (target.window_start === null || target.window_end === null) return true;
+  const start = minutes(target.window_start);
+  const end = minutes(target.window_end);
+  switch (line.time_mode) {
+    case "preferred": {
+      if (line.preferred_time === null) return true;
+      const at = minutes(line.preferred_time);
+      return at >= start && at < end;
+    }
+    case "exact": {
+      // A break up to the guard's tolerance either side satisfies the line,
+      // so the window only has to touch that band.
+      if (line.preferred_time === null) return true;
+      const at = minutes(line.preferred_time);
+      return (
+        at + EXACT_REACH_TOLERANCE_MINUTES >= start && at - EXACT_REACH_TOLERANCE_MINUTES < end
+      );
+    }
+    case "window": {
+      if (line.window_start === null || line.window_end === null) return true;
+      return minutes(line.window_start) < end && minutes(line.window_end) > start;
+    }
+    case "any":
+    case "opening":
+    case "closing":
+      return true;
+  }
+}
+
+function targetReachesDays(target: PoolTargetReach, line: LineReachLike): boolean {
+  if (target.days_of_week === null || line.days_of_week.length === 0) return true;
+  return line.days_of_week.some((day) => target.days_of_week!.includes(day));
+}
+
+/**
+ * Whether any of the pool's targets serves the line — its program (when it
+ * names one), at least one of its days, and its time rule. Checked in that
+ * order so `why` names the first axis nothing reaches.
+ */
+export function poolReachability(
+  targets: PoolTargetReach[],
+  line: LineReachLike,
+): PoolReachability {
+  if (targets.length === 0) return { kind: "no_targets" };
+  const onProgram = targets.filter(
+    (target) =>
+      line.program_id === null ||
+      target.program_id === null ||
+      target.program_id === line.program_id,
+  );
+  if (onProgram.length === 0) return { kind: "unreachable", why: "program" };
+  const onDays = onProgram.filter((target) => targetReachesDays(target, line));
+  if (onDays.length === 0) return { kind: "unreachable", why: "days" };
+  if (!onDays.some((target) => targetReachesTime(target, line)))
+    return { kind: "unreachable", why: "time" };
+  return { kind: "reachable" };
+}
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** "16:48:00" → "4:48 PM". */
+export function formatWallClock(time: string): string {
+  const total = minutes(time);
+  const hour24 = Math.floor(total / 60);
+  const minute = total % 60;
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${hour24 < 12 ? "AM" : "PM"}`;
+}
+
+/** The line's own time rule in words, for a message about it. */
+function describeLineTime(line: LineReachLike): string {
+  if ((line.time_mode === "preferred" || line.time_mode === "exact") && line.preferred_time)
+    return formatWallClock(line.preferred_time);
+  if (line.time_mode === "window" && line.window_start && line.window_end)
+    return `${formatWallClock(line.window_start)}–${formatWallClock(line.window_end)}`;
+  return "that time";
+}
+
+/**
+ * One sentence saying why the pool can't serve the line, with the two ways
+ * out — shared by the save refusal, auto-fill's skip reason and the
+ * dashboard so they never drift. Null when the pool reaches the line.
+ */
+export function describePoolReachability(
+  reach: PoolReachability,
+  poolName: string,
+  line: LineReachLike,
+): string | null {
+  switch (reach.kind) {
+    case "reachable":
+      return null;
+    case "no_targets":
+      return `The ${poolName} pool has no targets yet, so nothing can be placed through it. Map it to programs on the Pools screen.`;
+    case "unreachable": {
+      const fix = "Add a target to the pool that does, or change the pool on the line.";
+      switch (reach.why) {
+        case "program":
+          return `The ${poolName} pool never places into that program, so the line could never find a break. Pick a program the pool covers, or leave the program blank.`;
+        case "days": {
+          const days =
+            line.days_of_week.length === 1
+              ? DAY_NAMES[line.days_of_week[0]!]
+              : line.days_of_week.map((day) => DAY_NAMES[day]).join(", ");
+          return `The ${poolName} pool never airs on ${days}: none of its targets covers that day. ${fix}`;
+        }
+        case "time":
+          return `The ${poolName} pool never reaches ${describeLineTime(line)}: none of its targets' windows includes that time. ${fix}`;
+      }
+    }
+  }
 }

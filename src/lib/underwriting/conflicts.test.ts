@@ -88,3 +88,35 @@ describe("capacity conflicts", () => {
     ).toEqual([]);
   });
 });
+
+describe("computeScheduleLineConflicts — the line's pool", () => {
+  const base = {
+    hasApprovedLinkedCopy: true,
+    separationUndecided: false,
+    makegoodsPendingApproval: 0,
+    bucketsShortSoon: [period()],
+    datesWithInventory: new Set<string>(),
+  };
+
+  it("names an unmapped pool as the cause and drops the no-inventory symptom", () => {
+    expect(
+      computeScheduleLineConflicts({ ...base, poolReachability: { kind: "no_targets" } }),
+    ).toEqual(["pool_unmapped"]);
+  });
+
+  it("names a pool whose targets never reach the line", () => {
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        poolReachability: { kind: "unreachable", why: "time" },
+      }),
+    ).toEqual(["pool_unreachable"]);
+  });
+
+  it("still reports missing inventory when the pool reaches the line, or the line has no pool", () => {
+    expect(
+      computeScheduleLineConflicts({ ...base, poolReachability: { kind: "reachable" } }),
+    ).toEqual(["no_inventory_for_open_demand"]);
+    expect(computeScheduleLineConflicts(base)).toEqual(["no_inventory_for_open_demand"]);
+  });
+});

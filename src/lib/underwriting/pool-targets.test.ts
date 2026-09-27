@@ -167,3 +167,175 @@ describe("programsPermittedByPool / poolPermitsProgram", () => {
     expect(poolPermitsProgram([], "scifri")).toBe(true);
   });
 });
+
+import {
+  describePoolReachability,
+  formatWallClock,
+  poolReachability,
+  type LineReachLike,
+  type PoolTargetReach,
+} from "./pool-targets";
+
+describe("poolReachability", () => {
+  const meMorning: PoolTargetReach = {
+    program_id: "me",
+    window_start: "06:00:00",
+    window_end: "09:00:00",
+    days_of_week: [1, 2, 3, 4, 5],
+  };
+  const atcAfternoon: PoolTargetReach = {
+    program_id: "atc",
+    window_start: "15:00:00",
+    window_end: "17:00:00",
+    days_of_week: null,
+  };
+  const anyTime: PoolTargetReach = {
+    program_id: null,
+    window_start: null,
+    window_end: null,
+    days_of_week: null,
+  };
+  const line = (overrides: Partial<LineReachLike>): LineReachLike => ({
+    program_id: null,
+    days_of_week: [],
+    time_mode: "any",
+    preferred_time: null,
+    window_start: null,
+    window_end: null,
+    ...overrides,
+  });
+
+  it("reports a pool with no targets as unfinished, not wrong", () => {
+    expect(poolReachability([], line({ time_mode: "preferred", preferred_time: "16:48" }))).toEqual(
+      { kind: "no_targets" },
+    );
+  });
+
+  it("refuses a preferred time outside every target window — the Carpool 4:48 pm case", () => {
+    expect(
+      poolReachability(
+        [meMorning],
+        line({ days_of_week: [2], time_mode: "preferred", preferred_time: "16:48:00" }),
+      ),
+    ).toEqual({ kind: "unreachable", why: "time" });
+    expect(
+      poolReachability(
+        [meMorning, atcAfternoon],
+        line({ days_of_week: [2], time_mode: "preferred", preferred_time: "16:48:00" }),
+      ),
+    ).toEqual({ kind: "reachable" });
+  });
+
+  it("treats a window's end as exclusive for a preferred time", () => {
+    expect(
+      poolReachability([meMorning], line({ time_mode: "preferred", preferred_time: "09:00" })),
+    ).toEqual({ kind: "unreachable", why: "time" });
+    expect(
+      poolReachability([meMorning], line({ time_mode: "preferred", preferred_time: "08:59" })),
+    ).toEqual({ kind: "reachable" });
+  });
+
+  it("lets an exact time reach a window within the guard's tolerance", () => {
+    expect(
+      poolReachability([meMorning], line({ time_mode: "exact", preferred_time: "09:02" })),
+    ).toEqual({ kind: "reachable" });
+    expect(
+      poolReachability([meMorning], line({ time_mode: "exact", preferred_time: "09:04" })),
+    ).toEqual({ kind: "unreachable", why: "time" });
+    expect(
+      poolReachability([meMorning], line({ time_mode: "exact", preferred_time: "05:57" })),
+    ).toEqual({ kind: "reachable" });
+  });
+
+  it("needs a line window to overlap a target window", () => {
+    expect(
+      poolReachability(
+        [meMorning],
+        line({ time_mode: "window", window_start: "09:00", window_end: "12:00" }),
+      ),
+    ).toEqual({ kind: "unreachable", why: "time" });
+    expect(
+      poolReachability(
+        [meMorning],
+        line({ time_mode: "window", window_start: "08:30", window_end: "12:00" }),
+      ),
+    ).toEqual({ kind: "reachable" });
+  });
+
+  it("ignores the time for any, opening and closing lines", () => {
+    for (const time_mode of ["any", "opening", "closing"] as const) {
+      expect(poolReachability([meMorning], line({ time_mode }))).toEqual({ kind: "reachable" });
+    }
+  });
+
+  it("takes a windowless target to reach any time", () => {
+    expect(
+      poolReachability([anyTime], line({ time_mode: "exact", preferred_time: "23:30" })),
+    ).toEqual({ kind: "reachable" });
+  });
+
+  it("refuses a day none of the targets covers, before looking at the time", () => {
+    expect(
+      poolReachability(
+        [meMorning],
+        line({ days_of_week: [6], time_mode: "preferred", preferred_time: "16:48" }),
+      ),
+    ).toEqual({ kind: "unreachable", why: "days" });
+    expect(poolReachability([meMorning], line({ days_of_week: [0, 1] }))).toEqual({
+      kind: "reachable",
+    });
+  });
+
+  it("judges only the targets on the line's own program when it names one", () => {
+    // ATC is the only target that reaches 4:48 pm, but the line pins Morning Edition.
+    expect(
+      poolReachability(
+        [meMorning, atcAfternoon],
+        line({ program_id: "me", time_mode: "preferred", preferred_time: "16:48" }),
+      ),
+    ).toEqual({ kind: "unreachable", why: "time" });
+    expect(poolReachability([meMorning, atcAfternoon], line({ program_id: "scifri" }))).toEqual({
+      kind: "unreachable",
+      why: "program",
+    });
+  });
+});
+
+describe("describePoolReachability / formatWallClock", () => {
+  const line: LineReachLike = {
+    program_id: null,
+    days_of_week: [2],
+    time_mode: "preferred",
+    preferred_time: "16:48:00",
+    window_start: null,
+    window_end: null,
+  };
+
+  it("formats a wall-clock time for a message", () => {
+    expect(formatWallClock("16:48:00")).toBe("4:48 PM");
+    expect(formatWallClock("00:05")).toBe("12:05 AM");
+    expect(formatWallClock("12:00")).toBe("12:00 PM");
+  });
+
+  it("says nothing for a reachable line and names the axis otherwise", () => {
+    expect(describePoolReachability({ kind: "reachable" }, "Carpool", line)).toBeNull();
+    expect(describePoolReachability({ kind: "no_targets" }, "Carpool", line)).toMatch(
+      /Carpool pool has no targets yet/,
+    );
+    expect(describePoolReachability({ kind: "unreachable", why: "time" }, "Carpool", line)).toMatch(
+      /never reaches 4:48 PM/,
+    );
+    expect(describePoolReachability({ kind: "unreachable", why: "days" }, "Carpool", line)).toMatch(
+      /never airs on Tuesday/,
+    );
+    expect(
+      describePoolReachability({ kind: "unreachable", why: "time" }, "AM Drive", {
+        ...line,
+        time_mode: "window",
+        preferred_time: null,
+        window_start: "15:00",
+        window_end: "17:00",
+      }),
+    ).toMatch(/never reaches 3:00 PM–5:00 PM/);
+  });
+});

@@ -17,6 +17,7 @@ import {
 } from "@/lib/underwriting/queries";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { computeScheduleLineConflicts, CONFLICT_LABEL } from "@/lib/underwriting/conflicts";
+import { poolReachability } from "@/lib/underwriting/pool-targets";
 import { addDays } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
@@ -58,6 +59,7 @@ export default async function UnderwritingDashboardPage({
     listBucketsForLines(scheduleLines.map((line) => line.id)),
     listScheduleLinePlacementContexts(scheduleLines),
   ]);
+  const poolById = new Map(pools.map((pool) => [pool.id, pool]));
   const names = {
     poolNameById: new Map(pools.map((pool) => [pool.id, pool.name])),
     programNameById: new Map(programs.map((program) => [program.id, program.name])),
@@ -121,6 +123,12 @@ export default async function UnderwritingDashboardPage({
           placeable?.ok ? placeable.breaks.map((brk) => brk.air_date) : [],
         ),
         makegoodsPendingApproval: view.openItems.makegoodsPendingApproval,
+        poolReachability: view.scheduleLine.pool_id
+          ? poolReachability(
+              poolById.get(view.scheduleLine.pool_id)?.targets ?? [],
+              view.scheduleLine,
+            )
+          : undefined,
       });
       return { view, contract, reasons };
     })
