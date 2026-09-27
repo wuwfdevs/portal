@@ -10,7 +10,10 @@ import type { LogRundownStatus, UwServiceLevel, UwTimeMode } from "@/lib/databas
  * (log_place_underwriting_credit()/log_clear_underwriting_credit()/
  * log_list_placeable_rundown_breaks()/log_bump_underwriting_credit()/
  * log_list_programs(), last rewritten by
- * 20260925190000_underwriting_frozen_rundowns_and_bumping.sql) — never a bare
+ * 20260925190000_underwriting_frozen_rundowns_and_bumping.sql, plus the
+ * rotation walk's pair, log_list_underwriting_credit_rooms()/
+ * log_reassign_underwriting_credit_copy(), from
+ * 20260927160000_underwriting_copy_rotation.sql) — never a bare
  * Supabase write against log_rundown_items or a direct read of Log's own
  * tables, which this tool has no RLS access to on its own.
  */
@@ -109,6 +112,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   already_aired: "That credit already has a recorded outcome and is never moved.",
   same_break: "That is the break the credit is already in.",
   different_bucket: "That break falls in a different period of the order than the credit consumes.",
+  placement_pinned:
+    "That credit was placed with a manager override, which pins its message — the rotation leaves it alone.",
+  copy_not_approved:
+    "That copy isn't approved, or is outside its effective dates for that air date.",
 };
 
 function messageFor(code: string | undefined): string {
@@ -235,6 +242,52 @@ export async function bumpCredit(
     fromBreakId: data.from_break_id,
     toBreakId: data.to_break_id,
   };
+}
+
+/** One of a contract's placements as the rotation walk sees it — see log_list_underwriting_credit_rooms(). */
+export interface CreditRoom {
+  placement_id: string;
+  /** The break's remaining room plus this item's own current length. */
+  room_seconds: number;
+  rundown_status: LogRundownStatus;
+  break_scheduled_at: string;
+  has_outcome: boolean;
+}
+
+export async function listCreditRooms(
+  contractId: string,
+): Promise<UnderwritingRpcResult<{ rooms: CreditRoom[] }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("log_list_underwriting_credit_rooms", {
+    p_contract_id: contractId,
+  });
+  if (error) return { ok: false, message: error.message };
+  if (!data || "error" in data)
+    return { ok: false, message: messageFor((data as { error?: string })?.error) };
+  return { ok: true, rooms: data.rooms };
+}
+
+/**
+ * Swaps which linked message one future placement carries — the rotation
+ * walk's write (lib/underwriting/rotation-rebalance.ts). The guard refuses
+ * anything aired, frozen, pinned by an override, or a message that isn't
+ * linked, approved, in date, flight-appropriate and short enough.
+ */
+export async function reassignCreditCopy(
+  placementId: string,
+  copyId: string,
+): Promise<UnderwritingRpcResult<{ changed: boolean }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("log_reassign_underwriting_credit_copy", {
+    p_placement_id: placementId,
+    p_copy_id: copyId,
+  });
+  if (error) return { ok: false, message: error.message };
+  if (!data || "error" in data) {
+    const code = (data as { error?: string })?.error;
+    return { ok: false, message: messageFor(code), code };
+  }
+  return { ok: true, changed: data.changed };
 }
 
 export interface LogProgramOption {

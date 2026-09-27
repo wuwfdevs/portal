@@ -134,18 +134,19 @@ repo and a project's history, not the version number.
 | `20260914140000_rls_initplan_wrapping_advisor_form.sql`               | 2026-09-24 | 2026-09-14 |
 | `20260922120000_log_import_copy_script_updates.sql`                   | 2026-09-24 | 2026-09-22 |
 | `20260924120000_log_import_copy_duration_estimates.sql`               | 2026-09-24 | 2026-09-24 |
-| `20260924140000_log_slot_keyed_breaks.sql`                           | 2026-09-24 | 2026-09-24 |
+| `20260924140000_log_slot_keyed_breaks.sql`                            | 2026-09-24 | 2026-09-24 |
 | `20260925120000_underwriting_traffic_redesign.sql`                    | 2026-09-25 | 2026-09-25 |
 | `20260925130000_underwriting_line_period_fix.sql`                     | 2026-09-25 | 2026-09-25 |
 | `20260925150000_underwriting_demand_buckets.sql`                      | 2026-09-25 | 2026-09-25 |
 | `20260925160000_underwriting_industry_categories.sql`                 | 2026-09-25 | 2026-09-25 |
 | `20260925170000_underwriting_draft_line_delete.sql`                   | 2026-09-25 | 2026-09-25 |
 | `20260925180000_underwriting_opening_closing.sql`                     | 2026-09-25 | 2026-09-25 |
-| `20260925190000_underwriting_frozen_rundowns_and_bumping.sql`          | 2026-09-25 | 2026-09-25 |
+| `20260925190000_underwriting_frozen_rundowns_and_bumping.sql`         | 2026-09-25 | 2026-09-25 |
 | `20260927120000_underwriting_create_inventory_pool.sql`               | 2026-09-27 | 2026-09-27 |
 | `20260927130000_underwriting_draft_contract_line_delete.sql`          | 2026-09-27 | 2026-09-27 |
-| `20260927140000_underwriting_contract_agreement_reading.sql`         | 2026-09-27 | 2026-09-27 |
-| `20260927150000_underwriting_draft_contract_delete.sql`              | 2026-09-27 | 2026-09-27 |
+| `20260927140000_underwriting_contract_agreement_reading.sql`          | 2026-09-27 | 2026-09-27 |
+| `20260927150000_underwriting_draft_contract_delete.sql`               | 2026-09-27 | 2026-09-27 |
+| `20260927160000_underwriting_copy_rotation.sql`                       | 2026-09-27 | 2026-09-27 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

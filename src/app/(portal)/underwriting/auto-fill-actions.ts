@@ -14,6 +14,7 @@ import {
 import { getContract, getContractDetail, getScheduleLine } from "@/lib/underwriting/queries";
 import type { UnplaceableReason } from "@/lib/underwriting/inventory-selection";
 import { CAPACITY_CONFLICT_LABEL } from "@/lib/underwriting/bump-plan";
+import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -111,6 +112,9 @@ export async function autoFillScheduleLineAction(formData: FormData): Promise<vo
   if (!scheduleLine) failWith(path, "That schedule line no longer exists.");
 
   const result = await autoFillScheduleLine(scheduleLine, { contract });
+  // One line's new credits were sequenced against the contract's existing
+  // timeline; the walk over the whole contract settles the rest.
+  await rebalanceContractRotation(contractId, profile.id);
   if (result.placedCount > 0 || result.rundownsGeneratedCount > 0) {
     await logAuditEvent({
       actorId: profile.id,

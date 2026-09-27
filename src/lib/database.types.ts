@@ -2846,6 +2846,27 @@ export interface Database {
         Args: { p_placement_id: string; p_automated?: boolean };
         Returns: { ok: true } | { error: string };
       };
+      /** Added by 20260927160000_underwriting_copy_rotation.sql — the rotation walk's read: each of a contract's non-superseded placements with the room its break could give it, its rundown status and break start (for the freeze rule), and whether it has a broadcast event. */
+      log_list_underwriting_credit_rooms: {
+        Args: { p_contract_id: string };
+        Returns:
+          | {
+              ok: true;
+              rooms: {
+                placement_id: string;
+                room_seconds: number;
+                rundown_status: LogRundownStatus;
+                break_scheduled_at: string;
+                has_outcome: boolean;
+              }[];
+            }
+          | { error: string };
+      };
+      /** Added by 20260927160000_underwriting_copy_rotation.sql — the rotation walk's write: swaps which linked message one future, unaired, unfrozen, un-overridden placement carries. */
+      log_reassign_underwriting_credit_copy: {
+        Args: { p_placement_id: string; p_copy_id: string };
+        Returns: { ok: true; changed: boolean } | { error: string };
+      };
       /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */
       log_list_programs: {
         Args: Record<string, never>;

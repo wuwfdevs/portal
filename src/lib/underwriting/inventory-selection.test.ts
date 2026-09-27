@@ -45,7 +45,7 @@ function copy(overrides: Partial<CopyCandidate> = {}): CopyCandidate {
     effectiveFrom: "2020-01-01",
     effectiveTo: null,
     flightId: null,
-    existingUsageCount: 0,
+    createdAt: `2026-01-01T00:00:00Z`,
     ...overrides,
   };
 }
@@ -74,6 +74,7 @@ function demandFor(
   return {
     buckets,
     existingPlacements: [],
+    contractSequence: [],
     makegoodsAwaitingSlot: [],
     maxPerDay: fixture.max_per_day,
     preferredTimeMinutes: null,
@@ -283,18 +284,28 @@ describe("contractual and adjacency rules", () => {
     ]);
   });
 
-  it("only places approved, in-date, contract-wide or same-flight copy, rotating by least use", () => {
+  it("only places approved, in-date, contract-wide or same-flight copy, following the contract's rotation", () => {
     const breaks = breaksOn(demand, ["2026-09-21", "2026-09-23"]);
     const copies = [
       copy({ id: "draft", approvalStatus: "draft" }),
       copy({ id: "other-flight", flightId: "flight-x" }),
       copy({ id: "expired", effectiveTo: "2026-09-01" }),
-      copy({ id: "a", existingUsageCount: 2 }),
-      copy({ id: "b", existingUsageCount: 1 }),
+      copy({ id: "a", createdAt: "2026-01-01T00:00:01Z" }),
+      copy({ id: "b", createdAt: "2026-01-01T00:00:02Z" }),
     ];
+    // The contract's latest existing placement (another line's, the Friday
+    // before) carried A, so this line's Monday takes B and its Wednesday A.
+    const withSequence = {
+      ...demand,
+      contractSequence: [{ scheduledAt: "2026-09-18T12:49:00Z", copyId: "a" }],
+    };
+    expect(planInventorySelection(breaks, withSequence, copies).items.map((i) => i.copyId)).toEqual(
+      ["b", "a"],
+    );
+    // With no history the cycle starts from the top.
     expect(planInventorySelection(breaks, demand, copies).items.map((i) => i.copyId)).toEqual([
-      "b",
       "a",
+      "b",
     ]);
   });
 

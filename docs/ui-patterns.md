@@ -97,8 +97,14 @@ Done (2026-09-27, in two passes):
 - `underwriting/copy`: list on the toolbar with an approval filter; `/copy/new` and
   `/copy/[id]/edit` share `copy/copy-form.tsx`; the detail page is read-only (script, linked
   contracts, a `DetailSummary` with Edit) and keeps the approval-status control in its aside,
-  since that is a workflow action, not an edit. The contract setup wizard's own copy step is
-  unchanged — it links the copy to the contract in the same submit.
+  since that is a workflow action, not an edit. Since 2026-09-27 the contract setup wizard's
+  own copy step (`/contracts/[id]/copy`) and the contract page's Copy tab share one panel
+  (`contracts/[id]/copy-panel.tsx`): create and link is an `InlineCreateCard` (`?new=1`),
+  linking existing copy is a second card (`?link=1`), and edit is the same fields in place
+  (`?edit=<id>`), all rendering `copy/copy-form.tsx`'s `CopyFormFields` — the card owns the
+  form, the fields component renders only fields. `SearchableSelect` gained `detail` (a
+  second line per option) and `groups` (a secondary tier that surfaces only through search) for
+  the underwriter-first copy picker.
 - `log/programs`: a program is created inline; each program now has its own page
   (`/log/programs/[id]`) listing its schedule with a read-only summary aside, and "Schedule a
   program" became `/log/programs/[id]/schedule/new`, a producer-only dedicated page.

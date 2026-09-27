@@ -18,6 +18,7 @@ import { previewRevisionActivation } from "@/lib/underwriting/revisions";
 import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { computeReadiness, countReady } from "@/lib/underwriting/readiness";
+import { suggestNextCopyForLines } from "@/lib/underwriting/rotation-rebalance";
 import {
   activateRevisionAction,
   cancelDraftRevision,
@@ -25,12 +26,11 @@ import {
   createFlight,
   createRevisionFromCurrent,
   setContractStatus,
-  setCopyFlight,
-  unlinkCopyFromContract,
   updateContractPolicy,
 } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
+import { ContractCopyPanel, type CopyPanelParams } from "./copy-panel";
 import { DeleteContractControl } from "./delete-contract-control";
 import { FULFILLMENT_VARIANT, LineCard } from "./line-card";
 import type { UwContractStatus, UwRevisionStatus } from "@/lib/database.types";
@@ -68,10 +68,11 @@ export default async function ContractDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; notice?: string; tab?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string; tab?: string } & CopyPanelParams>;
 }) {
   const { id } = await params;
-  const { error, notice, tab: rawTab } = await searchParams;
+  const query = await searchParams;
+  const { error, notice, tab: rawTab } = query;
   const tab: Tab = (TABS as readonly string[]).includes(rawTab ?? "")
     ? (rawTab as Tab)
     : "schedule";
@@ -106,6 +107,12 @@ export default async function ContractDetailPage({
     lineContexts.map((context) => [context.scheduleLine.id, context.placeable]),
   );
   const flightByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link.flight_id]));
+  // The message each line's "Place a credit" form defaults to — the
+  // rotation's next pick (docs/underwriting-traffic-redesign.md §13).
+  const suggestedCopyByLine =
+    contract.status === "active"
+      ? await suggestNextCopyForLines(contract.id, currentLines)
+      : new Map<string, string | null>();
 
   const adjacencyByLine = new Map<
     string,
@@ -165,7 +172,7 @@ export default async function ContractDetailPage({
     order: `${base}/order`,
     agreement: `${base}?tab=policy`,
     schedule: `${base}/schedule`,
-    copy: `${base}/policy`,
+    copy: `${base}/copy`,
     policy: `${base}/policy`,
   };
 
@@ -241,7 +248,7 @@ export default async function ContractDetailPage({
         </div>
       </div>
 
-      {error && <Alert className="mb-4">{error}</Alert>}
+      {error && tab !== "copy" && <Alert className="mb-4">{error}</Alert>}
       {notice && (
         <Alert variant="info" className="mb-4">
           {notice}
@@ -385,6 +392,7 @@ export default async function ContractDetailPage({
                             flightByCopy={flightByCopy}
                             placeable={placeableByLine.get(view.scheduleLine.id) ?? null}
                             nearby={adjacencyByLine.get(view.scheduleLine.id) ?? []}
+                            suggestedCopyId={suggestedCopyByLine.get(view.scheduleLine.id) ?? null}
                           />
                         ))}
                       </ul>
@@ -432,6 +440,7 @@ export default async function ContractDetailPage({
                               flightByCopy={flightByCopy}
                               placeable={null}
                               nearby={[]}
+                              suggestedCopyId={null}
                             />
                           ))}
                         </ul>
@@ -444,76 +453,7 @@ export default async function ContractDetailPage({
           )}
 
           {tab === "copy" && (
-            <section className="rounded border border-line">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-                <span className="text-sm font-bold text-ink-900">Copy linked to this contract</span>
-                <Link
-                  href={`${base}/policy`}
-                  className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                >
-                  Create or link copy
-                </Link>
-              </div>
-              {contract.copy.length === 0 ? (
-                <p className="px-5 py-4 text-sm text-ink-500">No copy yet.</p>
-              ) : (
-                <ul className="divide-y divide-line">
-                  {contract.copy.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm"
-                    >
-                      <Link
-                        href={`/underwriting/copy/${item.id}`}
-                        className="font-semibold text-brand-link"
-                      >
-                        {item.label}
-                      </Link>
-                      <span className="text-xs text-ink-500">
-                        {item.execution_kind === "live_read" ? "live read" : "recorded"}
-                        {item.duration_seconds != null && ` · ${item.duration_seconds}s`}
-                      </span>
-                      <Badge variant={item.approval_status === "approved" ? "success" : "warning"}>
-                        {item.approval_status}
-                      </Badge>
-                      <span className="flex-1" />
-                      {contract.flights.length > 0 && (
-                        <form action={setCopyFlight} className="flex items-center gap-2">
-                          <input type="hidden" name="contract_id" value={contract.id} />
-                          <input type="hidden" name="copy_id" value={item.id} />
-                          <Select
-                            name="flight_id"
-                            defaultValue={flightByCopy.get(item.id) ?? ""}
-                            className="max-w-[220px]"
-                          >
-                            <option value="">Whole contract</option>
-                            {contract.flights.map((flight) => (
-                              <option key={flight.id} value={flight.id}>
-                                {flight.name}
-                              </option>
-                            ))}
-                          </Select>
-                          <Button type="submit" variant="ghost">
-                            Set flight
-                          </Button>
-                        </form>
-                      )}
-                      <form action={unlinkCopyFromContract}>
-                        <input type="hidden" name="contract_id" value={contract.id} />
-                        <input type="hidden" name="copy_id" value={item.id} />
-                        <Button type="submit" variant="ghost">
-                          Unlink
-                        </Button>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="border-t border-line px-5 py-3 text-xs text-ink-500">
-                Existing copy is linked on the copy &amp; policy step, where new messages are
-                written too.
-              </p>
-            </section>
+            <ContractCopyPanel contract={contract} surface="tab" params={query} />
           )}
 
           {tab === "flights" && (

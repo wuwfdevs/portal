@@ -157,15 +157,18 @@ export default async function MakegoodsPage({
                     <div>
                       <Label htmlFor={`copy_${makegood.id}`}>Copy</Label>
                       <Select id={`copy_${makegood.id}`} name="copy_id" defaultValue="">
-                        <option value="" disabled>
-                          Choose copy…
-                        </option>
+                        <option value="">Next in rotation</option>
                         {makegood.linkedCopy.map((item) => (
                           <option key={item.id} value={item.id}>
                             {item.label} ({item.approval_status})
                           </option>
                         ))}
                       </Select>
+                      <FieldHint>
+                        Left on &ldquo;Next in rotation&rdquo;, the contract&apos;s rotation picks
+                        the message for the chosen break; a hand-picked one may be re-sequenced
+                        later unless placed with an override.
+                      </FieldHint>
                     </div>
                     <div>
                       <Label htmlFor={`override_${makegood.id}`}>Override reason</Label>

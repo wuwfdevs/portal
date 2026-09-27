@@ -7,6 +7,7 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwCopyApprovalStatus, UwCopyExecutionKind } from "@/lib/database.types";
 import { estimateReadSeconds } from "@/lib/log/read-time";
+import { rebalanceRotationForCopy } from "@/lib/underwriting/rotation-rebalance";
 
 const LIST_PATH = "/underwriting/copy";
 const NEW_COPY_PATH = `${LIST_PATH}/new`;
@@ -25,13 +26,18 @@ function contractPath(id: string): string {
 
 /**
  * Where a contract-scoped copy submit returns to: the setup wizard's copy
- * step (return_to=policy) or the contract page. A failure lands there too,
- * so the message renders on the form that raised it.
+ * step (return_to=copy) or the contract page's Copy tab. A failure lands
+ * there too, with the card that raised it reopened (`?new=1`,
+ * `?edit=<id>`), so the message renders on the form that raised it.
  */
 function contractReturnPath(formData: FormData, contractId: string): string {
-  return field(formData, "return_to") === "policy"
-    ? `${contractPath(contractId)}/policy`
-    : contractPath(contractId);
+  return field(formData, "return_to") === "copy"
+    ? `${contractPath(contractId)}/copy`
+    : `${contractPath(contractId)}?tab=copy`;
+}
+
+function withQuery(path: string, query: string): string {
+  return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 }
 
 function field(formData: FormData, name: string): string {
@@ -61,8 +67,10 @@ export async function createCopy(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = optionalField(formData, "contract_id");
   // A failure returns to whichever form posted: the library's /new page, or
-  // the contract's own copy step.
-  const failPath = contractId ? contractReturnPath(formData, contractId) : NEW_COPY_PATH;
+  // the contract's own inline "New message" card.
+  const failPath = contractId
+    ? withQuery(contractReturnPath(formData, contractId), "new=1")
+    : NEW_COPY_PATH;
   const label = field(formData, "label");
   if (label === "") failWith(failPath, 'Give this copy a short label (e.g. "Message A").');
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
@@ -74,6 +82,24 @@ export async function createCopy(formData: FormData): Promise<void> {
   const durationSeconds = durationRaw === null ? null : Number.parseInt(durationRaw, 10);
 
   const supabase = await createClient();
+  // From a contract's own screen the message is attributed to that
+  // contract's underwriter directly (uw_copy.underwriter_id, the same
+  // column the program-log import fills), so the "link existing" picker
+  // can list the underwriter's copy before any placement exists; and
+  // "Approved — ready to place" skips the draft round trip for wording the
+  // sponsor has already signed off (docs/underwriting-traffic-redesign.md
+  // §13).
+  const contract = contractId
+    ? (
+        await supabase
+          .from("uw_contracts")
+          .select("underwriter_id, effective_from")
+          .eq("id", contractId)
+          .maybeSingle()
+      ).data
+    : null;
+  if (contractId && !contract) failWith(failPath, "That contract no longer exists.");
+  const approveNow = contractId !== null && formData.get("approve_now") === "on";
   const { data, error } = await supabase
     .from("uw_copy")
     .insert({
@@ -85,8 +111,11 @@ export async function createCopy(formData: FormData): Promise<void> {
         durationSeconds !== null && Number.isFinite(durationSeconds)
           ? durationSeconds
           : defaultCopyDuration(executionKind, script),
-      effective_from: optionalField(formData, "effective_from") ?? undefined,
+      effective_from:
+        optionalField(formData, "effective_from") ?? contract?.effective_from ?? undefined,
       effective_to: optionalField(formData, "effective_to"),
+      approval_status: approveNow ? "approved" : "draft",
+      underwriter_id: contract?.underwriter_id ?? null,
       created_by: profile.id,
     })
     .select("id")
@@ -106,8 +135,9 @@ export async function createCopy(formData: FormData): Promise<void> {
       contractPath(contractId),
       "Copy created, but could not link it to this contract",
     );
+    if (approveNow) await rebalanceRotationForCopy(data.id, profile.id);
     revalidatePath(contractPath(contractId));
-    // The setup wizard's copy step posts return_to=policy to stay on it.
+    revalidatePath(LIST_PATH);
     redirect(contractReturnPath(formData, contractId));
   }
 
@@ -115,11 +145,21 @@ export async function createCopy(formData: FormData): Promise<void> {
   redirect(`${copyPath(data.id)}?saved=created`);
 }
 
-/** Corrects a copy's own metadata in place — label, script, cart #, duration, effective dates — from /copy/[id]/edit. No approval workflow gate: see setCopyStatus below for that. */
+/**
+ * Corrects a copy's own metadata in place — label, script, cart #,
+ * duration, effective dates — from /copy/[id]/edit, or from the in-place
+ * edit card on a contract's copy step or Copy tab (contract_id +
+ * return_to). No approval workflow gate: see setCopyStatus below for that.
+ * The row is shared by every contract it's linked to, so each of them
+ * re-sequences afterwards.
+ */
 export async function updateCopyDetails(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const id = field(formData, "copy_id");
-  const path = editCopyPath(id);
+  const contractId = optionalField(formData, "contract_id");
+  const path = contractId
+    ? withQuery(contractReturnPath(formData, contractId), `edit=${id}`)
+    : editCopyPath(id);
 
   const durationRaw = optionalField(formData, "duration_seconds");
   const durationSeconds = durationRaw === null ? null : Number.parseInt(durationRaw, 10);
@@ -146,18 +186,31 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
     })
     .eq("id", id);
   failIfError(error, path, "Could not update this copy");
+  await rebalanceRotationForCopy(id, profile.id);
 
   revalidatePath(copyPath(id));
   revalidatePath(LIST_PATH);
+  if (contractId) {
+    revalidatePath(contractPath(contractId));
+    redirect(contractReturnPath(formData, contractId));
+  }
   redirect(`${copyPath(id)}?saved=1`);
 }
 
 const APPROVAL_STATUSES: UwCopyApprovalStatus[] = ["draft", "approved", "expired", "retired"];
 
+/**
+ * The approval gate — from the copy library's detail page, or from a
+ * message card's Approve button / "Change status…" on a contract's copy
+ * step or Copy tab (contract_id + return_to). A status change alters
+ * which messages the rotation may use, so every linked contract
+ * re-sequences its future placements.
+ */
 export async function setCopyStatus(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const id = field(formData, "copy_id");
-  const path = copyPath(id);
+  const contractId = optionalField(formData, "contract_id");
+  const path = contractId ? contractReturnPath(formData, contractId) : copyPath(id);
   const approvalStatus = field(formData, "approval_status") as UwCopyApprovalStatus;
   if (!APPROVAL_STATUSES.includes(approvalStatus))
     failWith(path, "That is not a recognized approval status.");
@@ -168,8 +221,10 @@ export async function setCopyStatus(formData: FormData): Promise<void> {
     .update({ approval_status: approvalStatus })
     .eq("id", id);
   failIfError(error, path, "Could not update the copy's status");
+  await rebalanceRotationForCopy(id, profile.id);
 
-  revalidatePath(path);
+  revalidatePath(copyPath(id));
   revalidatePath(LIST_PATH);
+  if (contractId) revalidatePath(contractPath(contractId));
   redirect(path);
 }

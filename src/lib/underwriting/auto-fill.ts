@@ -18,7 +18,6 @@ import {
   listBucketsForLines,
   listCopyLinkedToContracts,
   listInventoryPools,
-  listPlacementsForScheduleLine,
   listScheduleLinesWithActiveContracts,
   resolveLastItemAdjacency,
   type UwContractRow,
@@ -27,11 +26,14 @@ import {
 import {
   datesNeedingInventory,
   planInventorySelection,
-  selectCopyForBreak,
+  toRotationCopy,
   type CandidateBreak,
   type CopyCandidate,
+  type ExistingSequenceEntry,
   type UnplaceableUnit,
 } from "./inventory-selection";
+import { nextInRotation } from "./rotation";
+import { rebalanceContractRotation } from "./rotation-rebalance";
 
 /**
  * Execution side of the scheduler (docs/underwriting-traffic-redesign.md
@@ -231,14 +233,13 @@ export async function autoFillScheduleLine(
 
   const todayISO = stationTodayISO();
   const nowISO = new Date().toISOString();
-  const [bucketsByLine, listed, copyByContract, pools, activePlacements] = await Promise.all([
+  const [bucketsByLine, listed, copyByContract, pools] = await Promise.all([
     listBucketsForLines([scheduleLine.id]),
     // Never the same underwriter, or the same industry, back to back within
     // one break — listCandidates resolves each break's last item for that.
     listCandidates(scheduleLine.id),
     listCopyLinkedToContracts([scheduleLine.contract_id]),
     listInventoryPools(),
-    listPlacementsForScheduleLine(scheduleLine.id),
   ]);
   if (!listed.ok) {
     return { ...EMPTY_RESULT, errors: [listed.message] };
@@ -252,12 +253,10 @@ export async function autoFillScheduleLine(
     nowISO,
   );
 
-  // Rotation fairness is seeded from every currently-active placement on
-  // this line, not just ones this pass adds.
-  const usageCounts = new Map<string, number>();
-  for (const placement of activePlacements) {
-    usageCounts.set(placement.copy_id, (usageCounts.get(placement.copy_id) ?? 0) + 1);
-  }
+  // Copy follows the contract-wide rotation (rotation.ts): the planner
+  // sequences this run's units against demand.contractSequence — every
+  // placement of the contract's revision, all lines — and the caller
+  // re-walks the whole contract once the run has written.
   const copyCandidates: CopyCandidate[] = (copyByContract.get(scheduleLine.contract_id) ?? []).map(
     ({ copy, flightId }) => ({
       id: copy.id,
@@ -266,7 +265,7 @@ export async function autoFillScheduleLine(
       effectiveFrom: copy.effective_from,
       effectiveTo: copy.effective_to,
       flightId,
-      existingUsageCount: usageCounts.get(copy.id) ?? 0,
+      createdAt: copy.created_at,
     }),
   );
 
@@ -323,6 +322,12 @@ export async function autoFillScheduleLine(
   let placedCount = 0;
   let makegoodsResolvedCount = 0;
   const errors: string[] = [...provisioningErrors];
+  // The contract's sequence as this run extends it — what a bumped seat's
+  // message is chosen against below.
+  const sequence: ExistingSequenceEntry[] = [...demand.contractSequence];
+  const scheduledAtByBreak = new Map(
+    finalCandidates.map((candidate) => [candidate.breakId, candidate.scheduledAt]),
+  );
 
   for (const item of finalPlan.items) {
     const result = await placeCredit({
@@ -338,6 +343,10 @@ export async function autoFillScheduleLine(
     }
     placedCount++;
     if (item.makegoodId) makegoodsResolvedCount++;
+    sequence.push({
+      scheduledAt: scheduledAtByBreak.get(item.breakId) ?? `${item.airDate}T00:00:00Z`,
+      copyId: item.copyId,
+    });
   }
 
   // Bumping: a fixed-position unit that found every eligible break full
@@ -356,7 +365,7 @@ export async function autoFillScheduleLine(
       listedBreaks,
       finalCandidates,
       copyCandidates,
-      usageCounts,
+      sequence,
       nowISO,
     );
     bumps.push(...bumped.bumps);
@@ -394,7 +403,7 @@ async function bumpToSeat(
   listedBreaks: PlaceableRundownBreak[],
   candidates: CandidateBreak[],
   copyCandidates: CopyCandidate[],
-  usageCounts: Map<string, number>,
+  sequence: ExistingSequenceEntry[],
   nowISO: string,
 ): Promise<{
   bumps: ExecutedBump[];
@@ -418,7 +427,19 @@ async function bumpToSeat(
   const shortest = approvedDurations.length > 0 ? Math.min(...approvedDurations) : null;
   const candidateById = new Map(candidates.map((candidate) => [candidate.breakId, candidate]));
   const alternativesByLine = new Map<string, CandidateBreak[]>();
-  const usage = new Map(usageCounts);
+  const rotationCopies = copyCandidates.map(toRotationCopy);
+  /** The message the rotation gives a seat at this instant: the one after the contract's latest placement before it. */
+  const copyForSeat = (seatScheduledAt: string, airDate: string, roomSeconds: number) => {
+    const before = sequence
+      .filter((entry) => entry.scheduledAt < seatScheduledAt)
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    const previous = before.length > 0 ? before[before.length - 1]!.copyId : null;
+    return nextInRotation(rotationCopies, previous, {
+      airDate,
+      lineFlightId: scheduleLine.flight_id,
+      roomSeconds,
+    });
+  };
 
   for (const unit of unplaceable) {
     // Only room is bumpable: a unit short of inventory or of copy that
@@ -469,14 +490,10 @@ async function bumpToSeat(
     }
     const seat = bumpBreaks.find((brk) => brk.breakId === plan.move.seatBreakId)!;
     const movedItem = seat.items.find((item) => item.itemId === plan.move.itemId)!;
-    const copy = selectCopyForBreak(
-      copyCandidates,
-      {
-        remainingSeconds: seat.remainingSeconds + movedItem.durationSeconds,
-        airDate: seat.airDate,
-      },
-      scheduleLine.flight_id,
-      usage,
+    const copy = copyForSeat(
+      seat.scheduledAt,
+      seat.airDate,
+      seat.remainingSeconds + movedItem.durationSeconds,
     );
     if (!copy) {
       result.errors.push(
@@ -499,7 +516,7 @@ async function bumpToSeat(
       result.stillUnplaceable.push(unit);
       continue;
     }
-    usage.set(copy.id, (usage.get(copy.id) ?? 0) + 1);
+    sequence.push({ scheduledAt: seat.scheduledAt, copyId: copy.id });
     seat.remainingSeconds =
       seat.remainingSeconds + movedItem.durationSeconds - (copy.durationSeconds ?? 0);
     seat.items = seat.items.filter((item) => item.itemId !== plan.move.itemId);
@@ -553,6 +570,13 @@ async function runAutoFillOverLines(
   for (const scheduleLine of ordered) {
     const result = await autoFillScheduleLine(scheduleLine, { contract });
     perLine.push({ scheduleLine, result });
+  }
+
+  // Each line's units were sequenced against the placements that existed
+  // when it ran; one walk per contract afterwards settles the whole
+  // timeline (rotation-rebalance.ts).
+  for (const contractId of new Set(scheduleLines.map((line) => line.contract_id))) {
+    await rebalanceContractRotation(contractId);
   }
 
   const totals = perLine.reduce<AutoFillResult>(

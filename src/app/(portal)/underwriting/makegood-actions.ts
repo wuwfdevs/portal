@@ -7,6 +7,11 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { clearCredit, placeCredit } from "@/lib/underwriting/placement";
+import {
+  rebalanceContractRotation,
+  resolveCopyForBreak,
+} from "@/lib/underwriting/rotation-rebalance";
+import { getScheduleLine } from "@/lib/underwriting/queries";
 
 const LIST_PATH = "/underwriting/makegoods";
 
@@ -73,11 +78,18 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
   const makegoodId = field(formData, "makegood_id");
   const scheduleLineId = field(formData, "schedule_line_id");
   const breakId = field(formData, "break_id");
-  const copyId = field(formData, "copy_id");
   const overrideReason = field(formData, "override_reason");
 
-  if (breakId === "" || copyId === "")
-    failWith(LIST_PATH, "Choose an open break and a copy to place.");
+  if (breakId === "") failWith(LIST_PATH, "Choose an open break to place into.");
+  // Rotation decides the message unless the form named one — same rule as
+  // placeCreditAction.
+  const copyId =
+    (await resolveCopyForBreak(scheduleLineId, breakId, field(formData, "copy_id") || null)) ?? "";
+  if (copyId === "")
+    failWith(
+      LIST_PATH,
+      "No linked message is approved, in date, and short enough for that break — choose one, or approve a message on the contract's Copy tab.",
+    );
 
   const result = await placeCredit({
     breakId,
@@ -87,6 +99,8 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
     makegoodId,
   });
   if (!result.ok) failWith(LIST_PATH, result.message);
+  const line = await getScheduleLine(scheduleLineId);
+  if (line) await rebalanceContractRotation(line.contract_id, profile.id);
 
   const supabase = await createClient();
   const { data: placement } = await supabase
