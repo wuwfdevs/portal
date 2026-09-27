@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import type { UwPlacementStatus } from "@/lib/database.types";
@@ -174,25 +175,26 @@ export function LineCard({
             )}
             <div>
               <Label htmlFor={`break_${scheduleLine.id}`}>Open break</Label>
-              <Select id={`break_${scheduleLine.id}`} name="break_id" defaultValue="">
-                <option value="" disabled>
-                  Choose a break…
-                </option>
-                {placeable.breaks.map((brk) => (
-                  <option
-                    key={brk.break_id}
-                    value={brk.break_id}
-                    disabled={brk.holds_this_contract}
-                  >
-                    {brk.program_name} — {formatPlacementTime(brk.scheduled_at)} ({brk.label}) ·{" "}
-                    {brk.remaining_seconds}s remaining
-                    {brk.holds_this_contract ? " · already holds this contract" : ""}
-                    {brk.rundown_status === "in_progress" || brk.rundown_status === "submitted"
-                      ? " · live rundown"
-                      : ""}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                id={`break_${scheduleLine.id}`}
+                name="break_id"
+                required
+                placeholder="Type a program or date…"
+                options={placeable.breaks.map((brk) => ({
+                  id: brk.break_id,
+                  label: `${brk.program_name} — ${formatPlacementTime(brk.scheduled_at)} (${brk.label})`,
+                  hint: [
+                    `${brk.remaining_seconds}s remaining`,
+                    brk.holds_this_contract ? "already holds this contract" : null,
+                    brk.rundown_status === "in_progress" || brk.rundown_status === "submitted"
+                      ? "live rundown"
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                  disabled: brk.holds_this_contract,
+                }))}
+              />
               <FieldHint>
                 The database rejects a placement past the bucket&apos;s quantity or the order&apos;s
                 per-day cap, so an extra credit can&apos;t slip in unnoticed.

@@ -69,6 +69,22 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 | `PrimaryLink`      | A primary-styled `<Link>` — the "+ New X" action                          |
 | `InlineCreateCard` | The `?new=1` inline create form for a small record                        |
 | `DetailSummary`    | Read-only field list with an Edit link, for a detail page's aside         |
+| `SearchableSelect` | Search-to-select for a form field whose options grow with the data        |
+
+### Pickers (2026-09-27)
+
+A `<select>` is for a handful of fixed options: a status, a pool, an industry, a time rule.
+A field whose options grow with the data — an underwriter, a program, a content item, a
+contract — is a `SearchableSelect` (`components/ui/searchable-select.tsx`): a text box that
+filters as you type over a keyboard-navigable listbox, posting the chosen id through a hidden
+input so the surrounding form stays an ordinary `<form action>`. The threshold is "more than
+a few records now, or likely to be". In Underwriting it is every such picker: the underwriter
+on the order step, the program in the schedule editor (controlled, since its options follow
+the chosen pool), the existing-copy link on the policy step, the contract on the affidavit
+form, the open break on a line card and on a makegood (a break that already holds the
+contract is shown disabled), and the program on a pool target. Pools, industries, statuses,
+time rules and a contract's own handful of linked copy stay native selects. It is the rundown
+builder's insertion-point combobox lifted into a primitive, so the two behave the same.
 
 ### Rollout
 

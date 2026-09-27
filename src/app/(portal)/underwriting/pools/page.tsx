@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DayPicker } from "@/components/ui/day-picker";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldError, FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { listInventoryPools } from "@/lib/underwriting/queries";
@@ -187,14 +188,15 @@ export default async function InventoryPoolsPage({
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div>
                       <Label htmlFor={`program_${pool.id}`}>Program</Label>
-                      <Select id={`program_${pool.id}`} name="program_id" defaultValue="">
-                        <option value="">Any program</option>
-                        {programs.map((program) => (
-                          <option key={program.id} value={program.id}>
-                            {program.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <SearchableSelect
+                        id={`program_${pool.id}`}
+                        name="program_id"
+                        placeholder="Any program"
+                        options={programs.map((program) => ({
+                          id: program.id,
+                          label: program.name,
+                        }))}
+                      />
                     </div>
                     <div>
                       <Label htmlFor={`ws_${pool.id}`}>Window from</Label>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { DayPicker } from "@/components/ui/day-picker";
 import { FieldHint, Input, Label, Select, Textarea, controlClasses } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/cn";
 import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
@@ -736,21 +737,17 @@ export function ScheduleLineEditor({
           </div>
           <div>
             <Label htmlFor="program_id">Program</Label>
-            <Select
+            <SearchableSelect
               id="program_id"
               name="program_id"
               value={programId}
-              onChange={(e) => setProgramId(e.target.value)}
-            >
-              <option value="">
-                {poolId ? "Any program in the pool" : "Choose a program, or a pool above"}
-              </option>
-              {offeredPrograms.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.name}
-                </option>
-              ))}
-            </Select>
+              onChange={setProgramId}
+              options={offeredPrograms.map((program) => ({ id: program.id, label: program.name }))}
+              placeholder={poolId ? "Any program in the pool" : "Choose a program, or a pool above"}
+              emptyMessage={
+                poolId ? "No program in this pool by that name." : "No program by that name."
+              }
+            />
             <FieldHint>
               A line needs a pool, a program, or both. Naming a program narrows the pool to it
               {permittedProgramIds !== null &&

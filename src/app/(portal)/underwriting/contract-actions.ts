@@ -212,6 +212,69 @@ export async function createContract(formData: FormData): Promise<void> {
   redirect(`${contractPath(created.id)}/schedule`);
 }
 
+/**
+ * Permanently deletes a draft contract (docs/underwriting-traffic-
+ * redesign.md §11.5). A draft has nothing scheduled from it —
+ * log_place_underwriting_credit() refuses a non-active contract — so the
+ * cascade removes only its own setup (revisions, lines and buckets,
+ * flights, copy links); the library copy stays, and the attached agreement
+ * is removed from storage best-effort. The status is checked here as well
+ * as by the delete policy (20260927150000): a delete RLS refuses matches
+ * zero rows with no error. A contract that ran is terminated, never
+ * deleted. Returns a plain result for the two-step confirm control.
+ */
+export async function deleteContract(contractId: string): Promise<{ error?: string }> {
+  const { profile } = await assertUnderwritingAccess();
+  const supabase = await createClient();
+  const { data: contract, error: readError } = await supabase
+    .from("uw_contracts")
+    .select("id, status, contract_identifier, underwriter_id, agreement_document_path")
+    .eq("id", contractId)
+    .maybeSingle();
+  if (readError) {
+    console.error("Could not read the contract to delete", readError);
+    return { error: "Could not read this contract." };
+  }
+  if (!contract) return { error: "This contract no longer exists." };
+  if (contract.status !== "draft")
+    return { error: "Only a draft can be deleted. A contract that has run is terminated instead." };
+
+  const { data: deleted, error } = await supabase
+    .from("uw_contracts")
+    .delete()
+    .eq("id", contractId)
+    .eq("status", "draft")
+    .select("id");
+  if (error) {
+    console.error("Could not delete the contract", error);
+    return { error: `Could not delete this draft: ${error.message}` };
+  }
+  if (!deleted || deleted.length === 0) return { error: "This draft could not be deleted." };
+
+  if (contract.agreement_document_path) {
+    const { error: storageError } = await supabase.storage
+      .from("underwriting-documents")
+      .remove([contract.agreement_document_path]);
+    if (storageError)
+      console.error("Deleted the draft but could not remove its agreement document", storageError);
+  }
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "underwriting.contract.deleted",
+    targetType: "uw_contract",
+    targetId: contractId,
+    metadata: {
+      contract_identifier: contract.contract_identifier,
+      underwriter_id: contract.underwriter_id,
+      agreement_document_path: contract.agreement_document_path,
+    },
+  });
+
+  revalidatePath(CONTRACTS_LIST_PATH);
+  return {};
+}
+
 const CONTRACT_STATUSES: UwContractStatus[] = ["draft", "active", "expired", "terminated"];
 
 /** Terminating a contract is audited (docs/underwriting-design.md §6's four privileged actions) — every other status change here is ordinary traffic-staff work. */
