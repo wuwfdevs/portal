@@ -1,48 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { FIELD_TYPE_LABEL } from "@/lib/editorial/form";
-import { createFormField } from "../actions";
 import type { EpFieldType } from "@/lib/database.types";
 
 /**
- * Client component purely so the options box appears only for the field types
- * that have options — everything else is a plain server action form.
+ * The fields of the "Add a field" inline card. A client component purely so
+ * the options box appears only for the field types that have options — the
+ * surrounding <form action={createFormField}> is the server-rendered
+ * InlineCreateCard on the settings page.
  */
-export function AddFieldForm({ error }: { error?: string }) {
+export function AddFieldFields() {
   const [fieldType, setFieldType] = useState<EpFieldType>("short_text");
   const takesOptions = fieldType === "select" || fieldType === "multi_select";
 
   return (
-    <form action={createFormField} className="flex flex-col gap-4 p-5">
-      {error && <Alert>{error}</Alert>}
-
-      <div>
-        <Label htmlFor="label">Label</Label>
-        <Input id="label" name="label" required maxLength={120} placeholder="e.g. Why now?" />
-        <FieldHint>
-          Writers see this above the input. Its key is generated from the label.
-        </FieldHint>
-      </div>
-
-      <div>
-        <Label htmlFor="field_type">Type</Label>
-        <Select
-          id="field_type"
-          name="field_type"
-          value={fieldType}
-          onChange={(event) => setFieldType(event.target.value as EpFieldType)}
-        >
-          {Object.entries(FIELD_TYPE_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-        <FieldHint>Type is fixed once the field exists.</FieldHint>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="label">Label</Label>
+          <Input
+            id="label"
+            name="label"
+            required
+            maxLength={120}
+            placeholder="e.g. Why now?"
+            autoFocus
+          />
+          <FieldHint>
+            Writers see this above the input. Its key is generated from the label.
+          </FieldHint>
+        </div>
+        <div>
+          <Label htmlFor="field_type">Type</Label>
+          <Select
+            id="field_type"
+            name="field_type"
+            value={fieldType}
+            onChange={(event) => setFieldType(event.target.value as EpFieldType)}
+          >
+            {Object.entries(FIELD_TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <FieldHint>Type is fixed once the field exists.</FieldHint>
+        </div>
       </div>
 
       {takesOptions && (
@@ -67,10 +72,6 @@ export function AddFieldForm({ error }: { error?: string }) {
         <input type="checkbox" name="required" className="h-4 w-4" />
         Required
       </label>
-
-      <div className="flex justify-end border-t border-line pt-4">
-        <Button type="submit">Add field</Button>
-      </div>
-    </form>
+    </div>
   );
 }

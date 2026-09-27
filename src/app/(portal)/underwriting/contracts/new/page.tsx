@@ -16,9 +16,9 @@ import { WizardHeader } from "../[id]/wizard-header";
 export default async function NewContractPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; underwriter?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, underwriter: preselectedUnderwriterId } = await searchParams;
   const [underwriters, categories] = await Promise.all([
     listUnderwriters(),
     listIndustryCategories(),
@@ -36,13 +36,25 @@ export default async function NewContractPage({
             {underwriters.length === 0 ? (
               <p className="text-xs text-ink-500">
                 No underwriters yet —{" "}
-                <Link href="/underwriting/underwriters" className="font-semibold text-brand-link">
+                <Link
+                  href="/underwriting/underwriters/new"
+                  className="font-semibold text-brand-link"
+                >
                   add one first
                 </Link>
                 .
               </p>
             ) : (
-              <Select id="underwriter_id" name="underwriter_id" required defaultValue="">
+              <Select
+                id="underwriter_id"
+                name="underwriter_id"
+                required
+                defaultValue={
+                  underwriters.some((underwriter) => underwriter.id === preselectedUnderwriterId)
+                    ? preselectedUnderwriterId
+                    : ""
+                }
+              >
                 <option value="" disabled>
                   Choose an underwriter…
                 </option>
@@ -58,7 +70,7 @@ export default async function NewContractPage({
             )}
             <FieldHint>
               Not listed?{" "}
-              <Link href="/underwriting/underwriters" className="font-semibold text-brand-link">
+              <Link href="/underwriting/underwriters/new" className="font-semibold text-brand-link">
                 Add an underwriter
               </Link>{" "}
               and come back — the industry on the underwriter is what the adjacency rule reads.

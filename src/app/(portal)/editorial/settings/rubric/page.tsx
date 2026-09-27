@@ -3,28 +3,34 @@ import { getSettings, listCriteria, listRubricProfiles } from "@/lib/editorial/d
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { Input, Label } from "@/components/ui/input";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
-import { cn } from "@/lib/cn";
 import type { CriterionRow, RubricProfileRow } from "@/lib/editorial/data";
 import {
+  createCriterion,
   moveCriterion,
   toggleCriterionActive,
   updateModifierThreshold,
   updateScale,
 } from "../actions";
-import { CriterionForm } from "./criterion-form";
+import { CriterionFields } from "./criterion-form";
 
+const RUBRIC_PATH = "/editorial/settings/rubric";
 type CriterionView = "active" | "retired";
 
+/** The rubric (docs/ui-patterns.md): "+ Add criterion" opens an inline card above the profiles' criteria tables; the scale and threshold settings stay below them. */
 export default async function RubricSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; view?: string }>;
+  searchParams: Promise<{ error?: string; view?: string; new?: string }>;
 }) {
-  const { error, view: viewParam } = await searchParams;
+  const { error, view: viewParam, new: newParam } = await searchParams;
   const view: CriterionView = viewParam === "retired" ? "retired" : "active";
+  const creating = newParam === "1";
   const [allCriteria, settings, profiles] = await Promise.all([
     listCriteria(),
     getSettings(),
@@ -35,21 +41,44 @@ export default async function RubricSettingsPage({
   const criteria = allCriteria.filter((c) => (view === "active" ? c.active : !c.active));
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        <Alert variant="note" className="mb-4">
-          Weights express this newsroom&apos;s priorities and are worth revisiting periodically.
-          Changing a criterion&apos;s <em>meaning</em> (not just fixing a typo) should be a retire +
-          add, not an edit — past scores were given against the wording in force at the time, and
-          editing in place would silently rewrite what they meant. The rubric is a structured aid to
-          judgment, not an automatic commissioning system — editors always retain discretion.
-        </Alert>
+    <div className="flex flex-col gap-4">
+      <ListToolbar
+        chipsLabel="Show criteria"
+        chips={[
+          { label: "Active", count: activeCount, href: RUBRIC_PATH, active: view === "active" },
+          {
+            label: "Retired",
+            count: retiredCount,
+            href: `${RUBRIC_PATH}?view=retired`,
+            active: view === "retired",
+          },
+        ]}
+      >
+        {!creating && <PrimaryLink href={`${RUBRIC_PATH}?new=1`}>+ Add criterion</PrimaryLink>}
+      </ListToolbar>
 
-        <div className="mb-3 flex gap-1.5">
-          <ViewTab view="active" current={view} count={activeCount} />
-          <ViewTab view="retired" current={view} count={retiredCount} />
-        </div>
+      {error && !creating && <Alert>{error}</Alert>}
+      <Alert variant="note">
+        Weights express this newsroom&apos;s priorities and are worth revisiting periodically.
+        Changing a criterion&apos;s <em>meaning</em> (not just fixing a typo) should be a retire +
+        add, not an edit — past scores were given against the wording in force at the time, and
+        editing in place would silently rewrite what they meant. The rubric is a structured aid to
+        judgment, not an automatic commissioning system — editors always retain discretion.
+      </Alert>
 
+      {creating && (
+        <InlineCreateCard
+          title="Add a criterion"
+          action={createCriterion}
+          submitLabel="Add criterion"
+          cancelHref={RUBRIC_PATH}
+        >
+          {error && <Alert className="mb-4">{error}</Alert>}
+          <CriterionFields profiles={profiles} />
+        </InlineCreateCard>
+      )}
+
+      <div>
         {profiles.map((profile) => (
           <ProfileRubric
             key={profile.id}
@@ -132,42 +161,7 @@ export default async function RubricSettingsPage({
           </div>
         </div>
       </div>
-
-      <div className="w-full shrink-0 lg:w-80">
-        <CriterionForm profiles={profiles} error={error} />
-      </div>
     </div>
-  );
-}
-
-function ViewTab({
-  view,
-  current,
-  count,
-}: {
-  view: CriterionView;
-  current: CriterionView;
-  count: number;
-}) {
-  const label = view === "active" ? "Active" : "Retired";
-  return (
-    <Link
-      href={
-        view === "active" ? "/editorial/settings/rubric" : "/editorial/settings/rubric?view=retired"
-      }
-      aria-current={view === current ? "page" : undefined}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-        view === current
-          ? "bg-brand-surface text-brand-link"
-          : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
-      )}
-    >
-      {label}
-      <span className={cn("ml-1.5", view === current ? "text-brand-link/70" : "text-ink-400")}>
-        {count}
-      </span>
-    </Link>
   );
 }
 
@@ -205,7 +199,9 @@ function ProfileRubric({
         {view === "active" && (
           <span
             className={
-              activeCoreWeight === 100 ? "text-xs text-ink-400" : "text-xs font-semibold text-danger"
+              activeCoreWeight === 100
+                ? "text-xs text-ink-400"
+                : "text-xs font-semibold text-danger"
             }
           >
             Active core weights sum to {activeCoreWeight}

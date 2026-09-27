@@ -2849,6 +2849,21 @@ export interface Database {
         Args: Record<string, never>;
         Returns: { ok: true; programs: { id: string; name: string }[] } | { error: string };
       };
+      /** Added by 20260927120000_underwriting_create_inventory_pool.sql — the Pools screen's inline New pool card creates a pool and its targets in one transaction. Security invoker; returns the new pool's id. */
+      uw_create_inventory_pool: {
+        Args: {
+          p_name: string;
+          p_description: string | null;
+          p_targets: {
+            program_id: string | null;
+            window_start: string | null;
+            window_end: string | null;
+            days_of_week: number[] | null;
+            notes: string | null;
+          }[];
+        };
+        Returns: string;
+      };
       /** Owned by Underwriting (reads uw_exceptions), gated to Log members — backs the rundown submission attestation. */
       uw_has_open_exceptions_for_rundown: {
         Args: { p_rundown_id: string };

@@ -2,23 +2,27 @@ import Link from "next/link";
 import { listPillars } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
-import { cn } from "@/lib/cn";
 import type { PillarRow } from "@/lib/editorial/data";
 import { createPillar, deletePillar, movePillar, togglePillarActive } from "../actions";
 
+const PILLARS_PATH = "/editorial/settings/pillars";
 type PillarView = "active" | "retired";
 
+/** Coverage pillars (docs/ui-patterns.md): a pillar is two fields, so "+ Add pillar" opens an inline card above the list. */
 export default async function PillarsSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; view?: string }>;
+  searchParams: Promise<{ error?: string; view?: string; new?: string }>;
 }) {
-  const { error, view: viewParam } = await searchParams;
+  const { error, view: viewParam, new: newParam } = await searchParams;
   const view: PillarView = viewParam === "retired" ? "retired" : "active";
+  const creating = newParam === "1";
   const allPillars = await listPillars();
   const activeCount = allPillars.filter((pillar) => pillar.active).length;
   const retiredCount = allPillars.length - activeCount;
@@ -27,25 +31,68 @@ export default async function PillarsSettingsPage({
   );
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        <Alert variant="note" className="mb-4">
-          These are the pillars writers pick from on the pitch form, each with the guiding question
-          that explains what it means. A pitch that doesn&apos;t fit a current pillar isn&apos;t
-          penalized — the form always offers &quot;Outside current pillars,&quot; &quot;Emerging
-          issue,&quot; and &quot;Immediate public need&quot; alongside whatever&apos;s listed here.
-          Changing a pillar&apos;s <em>meaning</em> (not just fixing a typo) should be a retire +
-          add, since past pitches recorded the name they picked.
-        </Alert>
+    <div className="flex flex-col gap-4">
+      <ListToolbar
+        chipsLabel="Show pillars"
+        chips={[
+          { label: "Active", count: activeCount, href: PILLARS_PATH, active: view === "active" },
+          {
+            label: "Retired",
+            count: retiredCount,
+            href: `${PILLARS_PATH}?view=retired`,
+            active: view === "retired",
+          },
+        ]}
+      >
+        {!creating && <PrimaryLink href={`${PILLARS_PATH}?new=1`}>+ Add pillar</PrimaryLink>}
+      </ListToolbar>
 
-        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-ink-900">Coverage pillars</h2>
-          <div className="flex gap-1.5">
-            <ViewTab view="active" current={view} count={activeCount} />
-            <ViewTab view="retired" current={view} count={retiredCount} />
+      {error && !creating && <Alert>{error}</Alert>}
+      <Alert variant="note">
+        These are the pillars writers pick from on the pitch form, each with the guiding question
+        that explains what it means. A pitch that doesn&apos;t fit a current pillar isn&apos;t
+        penalized — the form always offers &quot;Outside current pillars,&quot; &quot;Emerging
+        issue,&quot; and &quot;Immediate public need&quot; alongside whatever&apos;s listed here.
+        Changing a pillar&apos;s <em>meaning</em> (not just fixing a typo) should be a retire + add,
+        since past pitches recorded the name they picked.
+      </Alert>
+
+      {creating && (
+        <InlineCreateCard
+          title="Add a pillar"
+          action={createPillar}
+          submitLabel="Add pillar"
+          cancelHref={PILLARS_PATH}
+        >
+          {error && <Alert className="mb-4">{error}</Alert>}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[280px_minmax(0,1fr)]">
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                required
+                maxLength={120}
+                placeholder="e.g. Growth and Resilience"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label htmlFor="guiding_question">Guiding question</Label>
+              <Textarea
+                id="guiding_question"
+                name="guiding_question"
+                rows={2}
+                placeholder="What enduring tension does this pillar organize coverage around?"
+              />
+              <FieldHint>Shown to writers on the pitch form.</FieldHint>
+            </div>
           </div>
-        </div>
+        </InlineCreateCard>
+      )}
 
+      <div>
+        <h2 className="mb-2.5 text-sm font-bold text-ink-900">Coverage pillars</h2>
         <TableFrame>
           <Table className="min-w-[640px]">
             <thead>
@@ -79,72 +126,7 @@ export default async function PillarsSettingsPage({
           </p>
         )}
       </div>
-
-      <div className="w-full shrink-0 rounded border border-line lg:w-80">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-          Add a pillar
-        </div>
-        <form action={createPillar} className="flex flex-col gap-4 p-5">
-          {error && <Alert>{error}</Alert>}
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              name="name"
-              required
-              maxLength={120}
-              placeholder="e.g. Growth and Resilience"
-            />
-          </div>
-          <div>
-            <Label htmlFor="guiding_question">Guiding question</Label>
-            <Textarea
-              id="guiding_question"
-              name="guiding_question"
-              rows={3}
-              placeholder="What enduring tension does this pillar organize coverage around?"
-            />
-            <FieldHint>Shown to writers on the pitch form.</FieldHint>
-          </div>
-          <div className="flex justify-end border-t border-line pt-4">
-            <Button type="submit">Add pillar</Button>
-          </div>
-        </form>
-      </div>
     </div>
-  );
-}
-
-function ViewTab({
-  view,
-  current,
-  count,
-}: {
-  view: PillarView;
-  current: PillarView;
-  count: number;
-}) {
-  const label = view === "active" ? "Active" : "Retired";
-  return (
-    <Link
-      href={
-        view === "active"
-          ? "/editorial/settings/pillars"
-          : "/editorial/settings/pillars?view=retired"
-      }
-      aria-current={view === current ? "page" : undefined}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-        view === current
-          ? "bg-brand-surface text-brand-link"
-          : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
-      )}
-    >
-      {label}
-      <span className={cn("ml-1.5", view === current ? "text-brand-link/70" : "text-ink-400")}>
-        {count}
-      </span>
-    </Link>
   );
 }
 

@@ -9,13 +9,29 @@ import type { UwCopyApprovalStatus, UwCopyExecutionKind } from "@/lib/database.t
 import { estimateReadSeconds } from "@/lib/log/read-time";
 
 const LIST_PATH = "/underwriting/copy";
+const NEW_COPY_PATH = `${LIST_PATH}/new`;
 
 function copyPath(id: string): string {
   return `${LIST_PATH}/${id}`;
 }
 
+function editCopyPath(id: string): string {
+  return `${copyPath(id)}/edit`;
+}
+
 function contractPath(id: string): string {
   return `/underwriting/contracts/${id}`;
+}
+
+/**
+ * Where a contract-scoped copy submit returns to: the setup wizard's copy
+ * step (return_to=policy) or the contract page. A failure lands there too,
+ * so the message renders on the form that raised it.
+ */
+function contractReturnPath(formData: FormData, contractId: string): string {
+  return field(formData, "return_to") === "policy"
+    ? `${contractPath(contractId)}/policy`
+    : contractPath(contractId);
 }
 
 function field(formData: FormData, name: string): string {
@@ -43,11 +59,15 @@ function defaultCopyDuration(
 
 export async function createCopy(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
+  const contractId = optionalField(formData, "contract_id");
+  // A failure returns to whichever form posted: the library's /new page, or
+  // the contract's own copy step.
+  const failPath = contractId ? contractReturnPath(formData, contractId) : NEW_COPY_PATH;
   const label = field(formData, "label");
-  if (label === "") failWith(LIST_PATH, 'Give this copy a short label (e.g. "Message A").');
+  if (label === "") failWith(failPath, 'Give this copy a short label (e.g. "Message A").');
   const executionKind = field(formData, "execution_kind") as UwCopyExecutionKind;
   if (!EXECUTION_KINDS.includes(executionKind))
-    failWith(LIST_PATH, "That is not a recognized execution kind.");
+    failWith(failPath, "That is not a recognized execution kind.");
 
   const script = optionalField(formData, "script");
   const durationRaw = optionalField(formData, "duration_seconds");
@@ -71,13 +91,12 @@ export async function createCopy(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, LIST_PATH, "Could not create the copy");
-  if (!data) failWith(LIST_PATH, "Could not create the copy.");
+  failIfError(error, failPath, "Could not create the copy");
+  if (!data) failWith(failPath, "Could not create the copy.");
 
   // Point 23 of the domain redesign: creating copy from a contract's own
   // screen links it to that contract in the same step, rather than forcing
   // a separate "create, then go link it" round trip.
-  const contractId = optionalField(formData, "contract_id");
   if (contractId) {
     const { error: linkError } = await supabase
       .from("uw_contract_copy")
@@ -89,22 +108,18 @@ export async function createCopy(formData: FormData): Promise<void> {
     );
     revalidatePath(contractPath(contractId));
     // The setup wizard's copy step posts return_to=policy to stay on it.
-    redirect(
-      field(formData, "return_to") === "policy"
-        ? `${contractPath(contractId)}/policy`
-        : contractPath(contractId),
-    );
+    redirect(contractReturnPath(formData, contractId));
   }
 
   revalidatePath(LIST_PATH);
-  redirect(copyPath(data.id));
+  redirect(`${copyPath(data.id)}?saved=created`);
 }
 
-/** Corrects a copy's own metadata in place — label, script, cart #, duration, effective dates. No approval workflow gate: see setCopyStatus below for that. */
+/** Corrects a copy's own metadata in place — label, script, cart #, duration, effective dates — from /copy/[id]/edit. No approval workflow gate: see setCopyStatus below for that. */
 export async function updateCopyDetails(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "copy_id");
-  const path = copyPath(id);
+  const path = editCopyPath(id);
 
   const durationRaw = optionalField(formData, "duration_seconds");
   const durationSeconds = durationRaw === null ? null : Number.parseInt(durationRaw, 10);
@@ -132,8 +147,9 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
     .eq("id", id);
   failIfError(error, path, "Could not update this copy");
 
-  revalidatePath(path);
-  redirect(path);
+  revalidatePath(copyPath(id));
+  revalidatePath(LIST_PATH);
+  redirect(`${copyPath(id)}?saved=1`);
 }
 
 const APPROVAL_STATUSES: UwCopyApprovalStatus[] = ["draft", "approved", "expired", "retired"];

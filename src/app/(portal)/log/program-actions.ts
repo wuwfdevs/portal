@@ -8,6 +8,12 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { LogProgramKind, LogScheduleEntryType } from "@/lib/database.types";
 
 const LIST_PATH = "/log/programs";
+/** The list with the inline "New program" card open — where a create failure lands. */
+const NEW_PROGRAM_PATH = `${LIST_PATH}?new=1`;
+
+function programPath(id: string): string {
+  return `${LIST_PATH}/${id}`;
+}
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -23,42 +29,50 @@ const PROGRAM_KINDS: LogProgramKind[] = ["recurring", "special"];
 export async function createProgram(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
   const name = field(formData, "name");
-  if (name === "") failWith(LIST_PATH, "Give the program a name.");
+  if (name === "") failWith(NEW_PROGRAM_PATH, "Give the program a name.");
   const kind = field(formData, "kind") as LogProgramKind;
-  if (!PROGRAM_KINDS.includes(kind)) failWith(LIST_PATH, "That is not a recognized program kind.");
+  if (!PROGRAM_KINDS.includes(kind)) {
+    failWith(NEW_PROGRAM_PATH, "That is not a recognized program kind.");
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("log_programs").insert({
-    name,
-    description: optionalField(formData, "description"),
-    kind,
-    created_by: profile.id,
-  });
-  failIfError(error, LIST_PATH, "Could not create the program");
+  const { data, error } = await supabase
+    .from("log_programs")
+    .insert({
+      name,
+      description: optionalField(formData, "description"),
+      kind,
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
+  failIfError(error, NEW_PROGRAM_PATH, "Could not create the program");
+  if (!data) failWith(NEW_PROGRAM_PATH, "Could not create the program.");
 
   revalidatePath(LIST_PATH);
   revalidatePath("/log");
-  redirect(LIST_PATH);
+  redirect(programPath(data.id));
 }
 
 const ENTRY_TYPES: LogScheduleEntryType[] = ["recurring", "override", "holiday"];
 
+/** Posted from /log/programs/[id]/schedule/new; a failure returns there, success lands on the program's page. */
 export async function createScheduleEntry(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
   const programId = field(formData, "program_id");
+  if (programId === "") failWith(LIST_PATH, "Choose a program to schedule.");
+  const formPath = `${programPath(programId)}/schedule/new`;
   const clockTemplateId = field(formData, "clock_template_id");
-  if (programId === "" || clockTemplateId === "") {
-    failWith(LIST_PATH, "Choose a program and a clock template.");
-  }
+  if (clockTemplateId === "") failWith(formPath, "Choose a clock template.");
   const entryType = field(formData, "entry_type") as LogScheduleEntryType;
-  if (!ENTRY_TYPES.includes(entryType)) failWith(LIST_PATH, "That is not a recognized entry type.");
+  if (!ENTRY_TYPES.includes(entryType)) failWith(formPath, "That is not a recognized entry type.");
   const startDate = field(formData, "start_date");
-  if (startDate === "") failWith(LIST_PATH, "Give the entry a start date.");
+  if (startDate === "") failWith(formPath, "Give the entry a start date.");
   const airTime = field(formData, "air_time");
-  if (airTime === "") failWith(LIST_PATH, "Give the entry an air time.");
+  if (airTime === "") failWith(formPath, "Give the entry an air time.");
   const durationMinutes = Number.parseInt(field(formData, "duration_minutes"), 10);
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-    failWith(LIST_PATH, "Give the entry a duration greater than zero.");
+    failWith(formPath, "Give the entry a duration greater than zero.");
   }
 
   const daysOfWeek = formData
@@ -80,9 +94,10 @@ export async function createScheduleEntry(formData: FormData): Promise<void> {
     notes: optionalField(formData, "notes"),
     created_by: profile.id,
   });
-  failIfError(error, LIST_PATH, "Could not add the schedule entry");
+  failIfError(error, formPath, "Could not add the schedule entry");
 
   revalidatePath(LIST_PATH);
+  revalidatePath(programPath(programId));
   revalidatePath("/log");
-  redirect(LIST_PATH);
+  redirect(`${programPath(programId)}?saved=scheduled`);
 }

@@ -1,39 +1,67 @@
 import Link from "next/link";
 import { listFormFields } from "@/lib/editorial/data";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { InlineCreateCard } from "@/components/ui/inline-create-card";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
-import { cn } from "@/lib/cn";
 import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
-import { moveFormField, toggleFormFieldActive } from "../actions";
-import { AddFieldForm } from "./add-field-form";
+import { createFormField, moveFormField, toggleFormFieldActive } from "../actions";
+import { AddFieldFields } from "./add-field-form";
 import type { FormFieldRow } from "@/lib/editorial/data";
 
+const FORM_PATH = "/editorial/settings/form";
 type FieldView = "active" | "retired";
 
+/** The pitch form's fields (docs/ui-patterns.md): an Active/Retired filter and "+ Add field", which opens an inline card since a field is a handful of fields itself. */
 export default async function FormSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; view?: string }>;
+  searchParams: Promise<{ error?: string; view?: string; new?: string }>;
 }) {
-  const { error, view: viewParam } = await searchParams;
+  const { error, view: viewParam, new: newParam } = await searchParams;
   const view: FieldView = viewParam === "retired" ? "retired" : "active";
+  const creating = newParam === "1";
   const allFields = await listFormFields();
   const activeCount = allFields.filter((field) => field.active).length;
   const retiredCount = allFields.length - activeCount;
   const fields = allFields.filter((field) => (view === "active" ? field.active : !field.active));
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-ink-900">Fields on the pitch form</h2>
-          <div className="flex gap-1.5">
-            <ViewTab view="active" current={view} count={activeCount} />
-            <ViewTab view="retired" current={view} count={retiredCount} />
-          </div>
-        </div>
+    <div className="flex flex-col gap-4">
+      <ListToolbar
+        chipsLabel="Show fields"
+        chips={[
+          { label: "Active", count: activeCount, href: FORM_PATH, active: view === "active" },
+          {
+            label: "Retired",
+            count: retiredCount,
+            href: `${FORM_PATH}?view=retired`,
+            active: view === "retired",
+          },
+        ]}
+      >
+        {!creating && <PrimaryLink href={`${FORM_PATH}?new=1`}>+ Add field</PrimaryLink>}
+      </ListToolbar>
 
+      {error && !creating && <Alert>{error}</Alert>}
+
+      {creating && (
+        <InlineCreateCard
+          title="Add a field"
+          action={createFormField}
+          submitLabel="Add field"
+          cancelHref={FORM_PATH}
+        >
+          {error && <Alert className="mb-4">{error}</Alert>}
+          <AddFieldFields />
+        </InlineCreateCard>
+      )}
+
+      <div>
+        <h2 className="mb-2.5 text-sm font-bold text-ink-900">Fields on the pitch form</h2>
         <TableFrame>
           <Table className="min-w-[680px]">
             <thead>
@@ -83,43 +111,7 @@ export default async function FormSettingsPage({
           </p>
         )}
       </div>
-
-      <div className="w-full shrink-0 rounded border border-line lg:w-80">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-          Add a field
-        </div>
-        <AddFieldForm error={error} />
-      </div>
     </div>
-  );
-}
-
-function ViewTab({
-  view,
-  current,
-  count,
-}: {
-  view: FieldView;
-  current: FieldView;
-  count: number;
-}) {
-  const label = view === "active" ? "Active" : "Retired";
-  return (
-    <Link
-      href={view === "active" ? "/editorial/settings/form" : "/editorial/settings/form?view=retired"}
-      aria-current={view === current ? "page" : undefined}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-        view === current
-          ? "bg-brand-surface text-brand-link"
-          : "text-ink-500 hover:bg-panel-50 hover:text-ink-900",
-      )}
-    >
-      {label}
-      <span className={cn("ml-1.5", view === current ? "text-brand-link/70" : "text-ink-400")}>
-        {count}
-      </span>
-    </Link>
   );
 }
 

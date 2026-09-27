@@ -23,6 +23,11 @@ const CRITERION_TYPES: EpCriterionType[] = ["core", "modifier"];
 const FORM_PATH = "/editorial/settings/form";
 const RUBRIC_PATH = "/editorial/settings/rubric";
 const PILLARS_PATH = "/editorial/settings/pillars";
+// Each settings list creates inline (docs/ui-patterns.md): a create failure
+// returns with the card open so the message renders inside it.
+const NEW_FIELD_PATH = `${FORM_PATH}?new=1`;
+const NEW_CRITERION_PATH = `${RUBRIC_PATH}?new=1`;
+const NEW_PILLAR_PATH = `${PILLARS_PATH}?new=1`;
 
 /** Only select-style fields carry an options list. */
 function takesOptions(fieldType: EpFieldType): boolean {
@@ -86,11 +91,11 @@ export async function createFormField(formData: FormData): Promise<void> {
     : "short_text";
   const required = formData.get("required") === "on";
 
-  if (!label) failWith(FORM_PATH, "Give the field a label.");
+  if (!label) failWith(NEW_FIELD_PATH, "Give the field a label.");
 
   const options = takesOptions(fieldType) ? parseOptions(formData) : null;
   if (options !== null && options.length === 0) {
-    failWith(FORM_PATH, "A select field needs at least one option, one per line.");
+    failWith(NEW_FIELD_PATH, "A select field needs at least one option, one per line.");
   }
 
   const existing = await listFormFields();
@@ -114,8 +119,8 @@ export async function createFormField(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, FORM_PATH, "Could not add the field");
-  if (!created) failWith(FORM_PATH, "Could not add the field — no row was created.");
+  failIfError(error, NEW_FIELD_PATH, "Could not add the field");
+  if (!created) failWith(NEW_FIELD_PATH, "Could not add the field — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -266,18 +271,18 @@ export async function createCriterion(formData: FormData): Promise<void> {
   const { anchors, error: anchorsError } = parseAnchors(String(formData.get("anchors") ?? ""));
 
   if (!name || !description || !profileId) {
-    failWith(RUBRIC_PATH, "Name, description, and a rubric profile are required.");
+    failWith(NEW_CRITERION_PATH, "Name, description, and a rubric profile are required.");
   }
   if (criterionType === "core" && (!Number.isFinite(weight) || weight <= 0 || weight > 100)) {
-    failWith(RUBRIC_PATH, "Weight must be between 0 and 100.");
+    failWith(NEW_CRITERION_PATH, "Weight must be between 0 and 100.");
   }
   if (Number.isNaN(scaleMin) || Number.isNaN(scaleMax)) {
-    failWith(RUBRIC_PATH, "Scale override values must be whole numbers.");
+    failWith(NEW_CRITERION_PATH, "Scale override values must be whole numbers.");
   }
   if (scaleMin !== null && scaleMax !== null && scaleMax <= scaleMin) {
-    failWith(RUBRIC_PATH, "The scale override's highest value must be above its lowest.");
+    failWith(NEW_CRITERION_PATH, "The scale override's highest value must be above its lowest.");
   }
-  if (anchorsError) failWith(RUBRIC_PATH, anchorsError);
+  if (anchorsError) failWith(NEW_CRITERION_PATH, anchorsError);
 
   const existing = await listCriteria();
   const sortOrder =
@@ -300,8 +305,8 @@ export async function createCriterion(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, RUBRIC_PATH, "Could not add the criterion");
-  if (!created) failWith(RUBRIC_PATH, "Could not add the criterion — no row was created.");
+  failIfError(error, NEW_CRITERION_PATH, "Could not add the criterion");
+  if (!created) failWith(NEW_CRITERION_PATH, "Could not add the criterion — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,
@@ -509,7 +514,7 @@ export async function createPillar(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   const guidingQuestion = String(formData.get("guiding_question") ?? "").trim() || null;
 
-  if (!name) failWith(PILLARS_PATH, "Give the pillar a name.");
+  if (!name) failWith(NEW_PILLAR_PATH, "Give the pillar a name.");
 
   const existing = await listPillars();
   const sortOrder = Math.max(0, ...existing.map((pillar) => pillar.sort_order)) + 1;
@@ -520,8 +525,8 @@ export async function createPillar(formData: FormData): Promise<void> {
     .insert({ name, guiding_question: guidingQuestion, sort_order: sortOrder })
     .select("id")
     .single();
-  failIfError(error, PILLARS_PATH, "Could not add the pillar");
-  if (!created) failWith(PILLARS_PATH, "Could not add the pillar — no row was created.");
+  failIfError(error, NEW_PILLAR_PATH, "Could not add the pillar");
+  if (!created) failWith(NEW_PILLAR_PATH, "Could not add the pillar — no row was created.");
 
   await logAuditEvent({
     actorId: editor.profile.id,

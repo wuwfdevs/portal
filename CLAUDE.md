@@ -1290,6 +1290,38 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**List pages, create, edit, and right columns — one rule for the whole portal
+(2026-09-27).** Read `docs/ui-patterns.md` before adding a list page, a
+create or edit form, or a right column; this note is a pointer. The old
+"list on the left, permanent New X form in a `lg:w-80`/`lg:w-96` right
+column" layout is retired: a list page is a `ListToolbar` (search, optional
+`FilterChips`, spacer, secondary links, `PrimaryLink` "+ New X") over a
+full-width table or card list; create is a dedicated `/x/new` page for a
+record of about five or more fields (Underwriters) or an `InlineCreateCard`
+opened by `?new=1` for a small one (Pools, Industries); edit reuses the
+create form (`/x/[id]/edit`, `underwriters/underwriter-form.tsx`); a
+secondary lookup gets its own view (`/underwriting/underwriters/industries`);
+a right column exists only on a detail page, for context and read-only
+summaries (`DetailSummary`). Errors render inside the form that caused them
+— `failWith` now appends `&error=` to a path that already carries `?new=1`.
+The Pools card creates a pool and its targets in one step through
+`uw_create_inventory_pool()` (`20260927120000_underwriting_create_inventory_
+pool.sql`, security invoker — atomicity only, RLS unchanged; the same
+migration makes pool names unique case-insensitively), with
+`lib/underwriting/pool-targets.ts` (pure, tested) parsing the keyed
+`target_<k>_*` rows both the card and the per-pool "Add a target" form
+submit. The same day's second pass moved the rest: `underwriting/copy`
+(`/copy/new`, `/copy/[id]/edit`, `copy/copy-form.tsx`; the detail page is
+read-only with the approval-status action kept in its aside), `log/programs`
+(inline create; a new `/log/programs/[id]` page whose "+ Schedule" leads to
+`/log/programs/[id]/schedule/new`, the old side form's new home),
+`log/clocks` (inline create), and the three Editorial settings lists (their
+Active/Retired tabs are now `FilterChips`, their "Add a …" side forms inline
+cards; `AddFieldFields`/`CriterionFields` render only fields, the card owns
+the form). The four detail asides the handoff named were reviewed and kept —
+each holds an action, which rule 5 allows. The doc's "Rollout" section is the
+record.
+
 **Underwriting & Traffic: contract setup and the contract page, redesigned
 (2026-09-25).** Read `docs/underwriting-traffic-redesign.md` §11 before
 touching the contracts list, the contract page, or the schedule-line form;
@@ -3211,7 +3243,10 @@ src/app/api/mcp/           the internal MCP server's route handler (Phase C, see
                             cookie session as everything else
 src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
                            Alert, Table) — keep generic; use these rather than re-typing
-                           control/table class strings inline. Also the rich-text trio:
+                           control/table class strings inline. The list-page set —
+                           ListToolbar, PrimaryLink, InlineCreateCard, DetailSummary — is
+                           how every list/create/edit/detail screen is laid out; read
+                           docs/ui-patterns.md before adding one. Also the rich-text trio:
                            rich-text.tsx (server renderer), rich-text-editor.tsx (Tiptap,
                            client), rich-text-field.tsx (the ssr:false wrapper every caller
                            uses) — see "Roadmap" above before importing the editor directly

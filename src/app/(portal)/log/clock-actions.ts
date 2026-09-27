@@ -13,6 +13,8 @@ import type {
 } from "@/lib/database.types";
 
 const LIST_PATH = "/log/clocks";
+/** The list with the inline "New clock template" card open — where a create failure lands. */
+const NEW_TEMPLATE_PATH = `${LIST_PATH}?new=1`;
 
 function templatePath(id: string): string {
   return `${LIST_PATH}/${id}`;
@@ -30,7 +32,7 @@ function optionalField(formData: FormData, name: string): string | null {
 export async function createClockTemplate(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
   const name = field(formData, "name");
-  if (name === "") failWith(LIST_PATH, "Give the clock template a name.");
+  if (name === "") failWith(NEW_TEMPLATE_PATH, "Give the clock template a name.");
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -42,8 +44,8 @@ export async function createClockTemplate(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, LIST_PATH, "Could not create the clock template");
-  if (!data) failWith(LIST_PATH, "Could not create the clock template.");
+  failIfError(error, NEW_TEMPLATE_PATH, "Could not create the clock template");
+  if (!data) failWith(NEW_TEMPLATE_PATH, "Could not create the clock template.");
 
   revalidatePath(LIST_PATH);
   redirect(templatePath(data.id));

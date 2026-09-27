@@ -4,9 +4,15 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
+import { collectTargetRows, parseTarget } from "@/lib/underwriting/pool-targets";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 
 const POOLS_PATH = "/underwriting/pools";
+/** The list with the inline "New pool" card open — where a create failure lands so its message renders inside the card. */
+const NEW_POOL_PATH = `${POOLS_PATH}?new=1`;
+
+/** Postgres unique_violation — the case-insensitive name index (20260927120000). */
+const UNIQUE_VIOLATION = "23505";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -21,20 +27,28 @@ function optionalField(formData: FormData, name: string): string | null {
  * Inventory pools are station data (docs/underwriting-traffic-redesign.md
  * §3): the names an insertion order sells by — "AM Drive", "Carpool" — and
  * the Log programs/windows each one actually means. Ordinary traffic-staff
- * work, no manager gate.
+ * work, no manager gate. The pool and the targets entered with it are
+ * written by one RPC (uw_create_inventory_pool), so a target that fails
+ * never leaves a half-made pool behind.
  */
 export async function createInventoryPool(formData: FormData): Promise<void> {
-  const { profile } = await assertUnderwritingAccess();
+  await assertUnderwritingAccess();
   const name = field(formData, "name");
-  if (name === "") failWith(POOLS_PATH, "Give the pool a name.");
+  if (name === "") failWith(`${NEW_POOL_PATH}&field=name`, "Give the pool a name.");
+
+  const rows = collectTargetRows(formData);
+  if (!rows.ok) failWith(`${NEW_POOL_PATH}&field=targets`, rows.message);
 
   const supabase = await createClient();
-  const { error } = await supabase.from("uw_inventory_pools").insert({
-    name,
-    description: optionalField(formData, "description"),
-    created_by: profile.id,
+  const { error } = await supabase.rpc("uw_create_inventory_pool", {
+    p_name: name,
+    p_description: optionalField(formData, "description"),
+    p_targets: rows.targets,
   });
-  failIfError(error, POOLS_PATH, "Could not create the pool");
+  if (error?.code === UNIQUE_VIOLATION) {
+    failWith(`${NEW_POOL_PATH}&field=name`, "A pool with this name already exists.");
+  }
+  failIfError(error, NEW_POOL_PATH, "Could not create the pool");
 
   revalidatePath(POOLS_PATH);
   redirect(POOLS_PATH);
@@ -53,32 +67,24 @@ export async function setInventoryPoolActive(formData: FormData): Promise<void> 
   redirect(POOLS_PATH);
 }
 
-/** One more way a pool maps onto Log: an optional program, an optional station-local window, optional days. */
+/** One more way an existing pool maps onto Log: an optional program, an optional station-local window, optional days. */
 export async function addInventoryPoolTarget(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const poolId = field(formData, "pool_id");
-  const programId = optionalField(formData, "program_id");
-  const windowStart = optionalField(formData, "window_start");
-  const windowEnd = optionalField(formData, "window_end");
-  if ((windowStart === null) !== (windowEnd === null))
-    failWith(POOLS_PATH, "Give both ends of the window, or neither.");
-  if (windowStart !== null && windowEnd !== null && windowEnd <= windowStart) {
-    failWith(POOLS_PATH, "The window must end after it starts.");
-  }
-  const days = formData
-    .getAll("days_of_week")
-    .map((value) => Number.parseInt(String(value), 10))
-    .filter((d) => d >= 0 && d <= 6);
+  const parsed = parseTarget(formData, "");
+  if (parsed.kind === "error") failWith(POOLS_PATH, parsed.message);
+  // A deliberately blank target on an existing pool is the all-null "any
+  // marked opportunity, any program" mapping (Total Program Rotation) — only
+  // the create card's untouched starter row is skipped, not this.
+  const target =
+    parsed.kind === "blank"
+      ? { program_id: null, window_start: null, window_end: null, days_of_week: null, notes: null }
+      : parsed.target;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("uw_inventory_pool_targets").insert({
-    pool_id: poolId,
-    program_id: programId,
-    window_start: windowStart,
-    window_end: windowEnd,
-    days_of_week: days.length === 0 ? null : days,
-    notes: optionalField(formData, "notes"),
-  });
+  const { error } = await supabase
+    .from("uw_inventory_pool_targets")
+    .insert({ pool_id: poolId, ...target });
   failIfError(error, POOLS_PATH, "Could not add the target");
 
   revalidatePath(POOLS_PATH);

@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy } from "@/lib/underwriting/queries";
-import { createCopy } from "../copy-actions";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
 const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
@@ -15,105 +13,130 @@ const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
   retired: "muted",
 };
 
+const FILTERS = ["all", "approved", "draft", "inactive"] as const;
+type Filter = (typeof FILTERS)[number];
+
+function matchesFilter(status: UwCopyApprovalStatus, filter: Filter): boolean {
+  if (filter === "all") return true;
+  if (filter === "inactive") return status === "expired" || status === "retired";
+  return status === filter;
+}
+
+/** The copy library (docs/ui-patterns.md): search, an approval filter, and "+ New copy" over a full-width table. */
 export default async function CopyLibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { q, status } = await searchParams;
+  const filter: Filter = (FILTERS as readonly string[]).includes(status ?? "")
+    ? (status as Filter)
+    : "all";
+  const query = (q ?? "").trim().toLowerCase();
   const copy = await listCopy();
 
-  return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        {copy.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            No copy yet — usually created from a contract&apos;s own page.
-          </div>
-        ) : (
-          <TableFrame>
-            <Table>
-              <thead>
-                <HeaderRow>
-                  <Th>Label</Th>
-                  <Th>Script</Th>
-                  <Th>Duration</Th>
-                  <Th>Execution</Th>
-                  <Th>Approval</Th>
-                </HeaderRow>
-              </thead>
-              <tbody>
-                {copy.map((item) => (
-                  <Row key={item.id}>
-                    <Cell className="font-semibold text-ink-900">
-                      <Link href={`/underwriting/copy/${item.id}`} className="text-brand-link">
-                        {item.label}
-                      </Link>
-                    </Cell>
-                    <Cell className="max-w-xs truncate text-ink-500">{item.script ?? "—"}</Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {item.duration_seconds ? `${item.duration_seconds}s` : "—"}
-                    </Cell>
-                    <Cell className="text-ink-500">{item.execution_kind === "recorded" ? "Recorded" : "Live read"}</Cell>
-                    <Cell>
-                      <Badge variant={APPROVAL_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
-                    </Cell>
-                  </Row>
-                ))}
-              </tbody>
-            </Table>
-          </TableFrame>
-        )}
-      </div>
+  const matching = copy.filter(
+    (item) =>
+      query === "" ||
+      item.label.toLowerCase().includes(query) ||
+      (item.script ?? "").toLowerCase().includes(query) ||
+      (item.cart_identifier ?? "").toLowerCase().includes(query),
+  );
+  const count = (next: Filter) =>
+    matching.filter((item) => matchesFilter(item.approval_status, next)).length;
+  const shown = matching.filter((item) => matchesFilter(item.approval_status, filter));
+  const hrefFor = (next: Filter) =>
+    `/underwriting/copy?${new URLSearchParams({
+      ...(query ? { q: q ?? "" } : {}),
+      ...(next !== "all" ? { status: next } : {}),
+    }).toString()}`.replace(/\?$/, "");
 
-      <div className="w-full shrink-0 rounded border border-line lg:w-96">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">New copy</div>
-        <form action={createCopy} className="flex flex-col gap-4 p-5">
-          {error && <Alert>{error}</Alert>}
-          <div>
-            <Label htmlFor="label">Label</Label>
-            <Input id="label" name="label" required maxLength={80} placeholder="Message A" />
-          </div>
-          <div>
-            <Label htmlFor="execution_kind">Execution</Label>
-            <Select id="execution_kind" name="execution_kind" defaultValue="live_read">
-              <option value="live_read">Live read</option>
-              <option value="recorded">Recorded (via DAD)</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="script">Script</Label>
-            <Textarea id="script" name="script" rows={5} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="duration_seconds">Duration (s)</Label>
-              <Input id="duration_seconds" name="duration_seconds" type="number" min={1} />
-            </div>
-            <div>
-              <Label htmlFor="cart_identifier">DAD cart #</Label>
-              <Input id="cart_identifier" name="cart_identifier" maxLength={120} />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div>
-              <Label htmlFor="effective_from">Effective from</Label>
-              <Input id="effective_from" name="effective_from" type="date" />
-            </div>
-            <div>
-              <Label htmlFor="effective_to">Effective to</Label>
-              <Input id="effective_to" name="effective_to" type="date" />
-            </div>
-          </div>
-          <FieldHint>
-            Not linked to a contract from here — usually copy is created from the contract&apos;s own page
-            instead, which links it in the same step.
-          </FieldHint>
-          <div className="flex justify-end border-t border-line pt-4">
-            <Button type="submit">Create copy</Button>
-          </div>
-        </form>
-      </div>
+  return (
+    <div className="flex flex-col gap-4">
+      <ListToolbar
+        search={{
+          placeholder: "Search label, script, or cart",
+          label: "Search copy",
+          defaultValue: q,
+          hidden: filter !== "all" ? { status: filter } : undefined,
+        }}
+        chipsLabel="Filter by approval"
+        chips={[
+          { label: "All", count: count("all"), href: hrefFor("all"), active: filter === "all" },
+          {
+            label: "Approved",
+            count: count("approved"),
+            href: hrefFor("approved"),
+            active: filter === "approved",
+          },
+          {
+            label: "Draft",
+            count: count("draft"),
+            href: hrefFor("draft"),
+            active: filter === "draft",
+          },
+          {
+            label: "Expired or retired",
+            count: count("inactive"),
+            href: hrefFor("inactive"),
+            active: filter === "inactive",
+          },
+        ]}
+      >
+        <PrimaryLink href="/underwriting/copy/new">+ New copy</PrimaryLink>
+      </ListToolbar>
+
+      {shown.length === 0 ? (
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+          {copy.length === 0
+            ? "No copy yet — usually created from a contract's own page."
+            : "No copy matches."}
+        </div>
+      ) : (
+        <TableFrame>
+          <Table>
+            <thead>
+              <HeaderRow>
+                <Th>Label</Th>
+                <Th>Script</Th>
+                <Th>Duration</Th>
+                <Th>Execution</Th>
+                <Th>Approval</Th>
+              </HeaderRow>
+            </thead>
+            <tbody>
+              {shown.map((item) => (
+                <Row key={item.id}>
+                  <Cell>
+                    <Link
+                      href={`/underwriting/copy/${item.id}`}
+                      className="font-bold text-brand-link"
+                    >
+                      {item.label}
+                    </Link>
+                  </Cell>
+                  <Cell className="max-w-xs truncate text-ink-500">{item.script ?? "—"}</Cell>
+                  <Cell className="whitespace-nowrap text-ink-500">
+                    {item.duration_seconds ? `${item.duration_seconds}s` : "—"}
+                  </Cell>
+                  <Cell className="text-ink-500">
+                    {item.execution_kind === "recorded" ? "Recorded" : "Live read"}
+                  </Cell>
+                  <Cell>
+                    <Badge variant={APPROVAL_VARIANT[item.approval_status]}>
+                      {item.approval_status}
+                    </Badge>
+                  </Cell>
+                </Row>
+              ))}
+            </tbody>
+          </Table>
+        </TableFrame>
+      )}
+      <p className="text-xs text-ink-500">
+        Copy is usually created from a contract&apos;s own setup, which links it to the contract in
+        the same step; copy created here is linked from the contract afterward.
+      </p>
     </div>
   );
 }
