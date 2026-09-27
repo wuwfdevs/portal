@@ -113,6 +113,7 @@ export function LineCard({
   flightByCopy,
   placeable,
   nearby,
+  suggestedCopyId,
 }: {
   view: ScheduleLineDemandView;
   contract: ContractDetail;
@@ -122,6 +123,8 @@ export function LineCard({
   flightByCopy: Map<string, string | null>;
   placeable: ScheduleLinePlacementContext["placeable"] | null;
   nearby: Awaited<ReturnType<typeof listNearbyPlacementsForAdjacency>>;
+  /** The message the contract's rotation would give this line's next credit — the placement form's default (null: nothing linked is eligible). */
+  suggestedCopyId: string | null;
 }) {
   const { scheduleLine, summary } = view;
   const adjacency = checkCompetitiveAdjacency(
@@ -142,6 +145,7 @@ export function LineCard({
     const scope = flightByCopy.get(item.id) ?? null;
     return scope === null || scope === scheduleLine.flight_id;
   });
+  const suggestedCopy = flightCopy.find((item) => item.id === suggestedCopyId) ?? null;
 
   const panels: LinePanel[] = [];
   if (schedulable) {
@@ -200,27 +204,46 @@ export function LineCard({
                 per-day cap, so an extra credit can&apos;t slip in unnoticed.
               </FieldHint>
             </div>
-            <div>
-              <Label htmlFor={`copy_${scheduleLine.id}`}>Copy</Label>
-              <Select id={`copy_${scheduleLine.id}`} name="copy_id" defaultValue="">
-                <option value="" disabled>
-                  Choose copy…
-                </option>
-                {flightCopy.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label} ({item.approval_status})
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor={`override_${scheduleLine.id}`}>Override reason</Label>
-              <Input id={`override_${scheduleLine.id}`} name="override_reason" />
+            <div className="text-[13px] text-ink-700">
+              <span className="font-semibold text-ink-900">Copy:</span>{" "}
+              {suggestedCopy
+                ? `next in rotation — ${suggestedCopy.label}`
+                : "next in rotation for the chosen break"}
               <FieldHint>
-                Only needed if the copy isn&apos;t approved or is outside its effective dates — and
-                only a manager&apos;s override is actually honored.
+                The rotation picks the message: the one after the credit that airs just before
+                this break, whichever line it belongs to.
               </FieldHint>
             </div>
+            <details className="rounded border border-dashed border-line px-3 py-2">
+              <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+                Choose a specific message
+              </summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <div>
+                  <Label htmlFor={`copy_${scheduleLine.id}`}>Copy</Label>
+                  <Select id={`copy_${scheduleLine.id}`} name="copy_id" defaultValue="">
+                    <option value="">Next in rotation</option>
+                    {flightCopy.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label} ({item.approval_status})
+                      </option>
+                    ))}
+                  </Select>
+                  <FieldHint>
+                    A hand-picked approved message is a starting point the rotation may later
+                    re-sequence. Placing with an override pins it.
+                  </FieldHint>
+                </div>
+                <div>
+                  <Label htmlFor={`override_${scheduleLine.id}`}>Override reason</Label>
+                  <Input id={`override_${scheduleLine.id}`} name="override_reason" />
+                  <FieldHint>
+                    Only needed if the copy isn&apos;t approved or is outside its effective dates —
+                    and only a manager&apos;s override is actually honored.
+                  </FieldHint>
+                </div>
+              </div>
+            </details>
             <div className="flex justify-end">
               <Button type="submit">Place credit</Button>
             </div>

@@ -29,10 +29,15 @@
 //     day rather than ten on Monday.
 //   * Within a day, the break closest to preferred_time wins; with no
 //     preference, the earliest.
-//   * Copy rotates by least use; copy tied to another flight is never used.
+//   * Copy follows the contract's rotation (rotation.ts): the run's new
+//     units are sequenced in air order against the contract's existing
+//     placements, whichever line those belong to, each taking the message
+//     after the one aired just before it; copy tied to another flight is
+//     never used. The execution side re-walks the whole contract afterwards.
 
 import type { LogRundownStatus, UwCopyApprovalStatus } from "@/lib/database.types";
 import { automationBlockFor } from "./freeze";
+import { walkRotation, type RotationCopy, type RotationSlot } from "./rotation";
 
 export interface CandidateBreak {
   breakId: string;
@@ -60,7 +65,14 @@ export interface CopyCandidate {
   effectiveTo: string | null;
   /** The flight this copy is linked to on the contract, or null for contract-wide copy. */
   flightId: string | null;
-  existingUsageCount: number;
+  /** uw_copy.created_at — the rotation's cycle order. */
+  createdAt: string;
+}
+
+/** One of the contract's existing placements, any line, as the rotation sees it: fixed in the sequence the run's new units slot into. */
+export interface ExistingSequenceEntry {
+  scheduledAt: string;
+  copyId: string;
 }
 
 export interface ExistingPlacement {
@@ -88,6 +100,8 @@ export interface BucketDemand {
 export interface SelectionDemand {
   buckets: BucketDemand[];
   existingPlacements: ExistingPlacement[];
+  /** Every active placement of the whole contract (not just this line), for the copy rotation. */
+  contractSequence: ExistingSequenceEntry[];
   makegoodsAwaitingSlot: AwaitingMakegood[];
   /** The order's per-day cap, or null for none. */
   maxPerDay: number | null;
@@ -148,26 +162,69 @@ export function copyEligible(
   return true;
 }
 
+export function toRotationCopy(copy: CopyCandidate): RotationCopy {
+  return {
+    id: copy.id,
+    approvalStatus: copy.approvalStatus,
+    durationSeconds: copy.durationSeconds,
+    effectiveFrom: copy.effectiveFrom,
+    effectiveTo: copy.effectiveTo,
+    flightId: copy.flightId,
+    createdAt: copy.createdAt,
+  };
+}
+
 /**
- * The approved, in-date, flight-appropriate copy that fits the break and
- * has aired least (ties by id), or null. `usage` counts each copy's
- * placements so far, this run's included.
+ * Gives each planned unit its message by walking the contract's existing
+ * placements and the run's units together in air order (rotation.ts).
+ * Existing placements are fixed here — the execution side's rebalance
+ * re-sequences them afterwards — and a unit nothing eligible fits is
+ * dropped (the caller already checked one fits, so this is a guard).
  */
-export function selectCopyForBreak(
+export function assignCopyByRotation(
+  items: (Omit<PlanItem, "copyId"> & { scheduledAt: string; roomSeconds: number })[],
   copies: CopyCandidate[],
-  brk: Pick<CandidateBreak, "remainingSeconds" | "airDate">,
+  sequence: ExistingSequenceEntry[],
   lineFlightId: string | null,
-  usage: Map<string, number>,
-): CopyCandidate | null {
-  return (
-    copies
-      .filter((copy) => copyEligible(copy, brk, lineFlightId))
-      .sort(
-        (a, b) =>
-          (usage.get(a.id) ?? a.existingUsageCount) - (usage.get(b.id) ?? b.existingUsageCount) ||
-          a.id.localeCompare(b.id),
-      )[0] ?? null
+): { items: PlanItem[]; dropped: Omit<PlanItem, "copyId">[] } {
+  const slots: RotationSlot[] = [
+    ...sequence.map((entry, index) => ({
+      id: `existing-${index}`,
+      scheduledAt: entry.scheduledAt,
+      airDate: entry.scheduledAt.slice(0, 10),
+      lineFlightId: null,
+      copyId: entry.copyId,
+      fixed: true,
+      roomSeconds: 0,
+    })),
+    ...items.map((item) => ({
+      id: `unit-${item.breakId}`,
+      scheduledAt: item.scheduledAt,
+      airDate: item.airDate,
+      lineFlightId,
+      copyId: null,
+      fixed: false,
+      roomSeconds: item.roomSeconds,
+    })),
+  ];
+  const copyByUnit = new Map(
+    walkRotation(copies.map(toRotationCopy), slots).map((change) => [change.id, change.copyId]),
   );
+  const assigned: PlanItem[] = [];
+  const dropped: Omit<PlanItem, "copyId">[] = [];
+  for (const item of items) {
+    const copyId = copyByUnit.get(`unit-${item.breakId}`);
+    const rest: Omit<PlanItem, "copyId"> = {
+      breakId: item.breakId,
+      airDate: item.airDate,
+      reason: item.reason,
+      bucketId: item.bucketId,
+      ...(item.makegoodId !== undefined ? { makegoodId: item.makegoodId } : {}),
+    };
+    if (copyId === undefined) dropped.push(rest);
+    else assigned.push({ ...rest, copyId });
+  }
+  return { items: assigned, dropped };
 }
 
 /**
@@ -238,12 +295,12 @@ export function planInventorySelection(
     state.times.push(placement.minutesOfDay);
   }
 
-  const usage = new Map(copies.map((copy) => [copy.id, copy.existingUsageCount]));
-  const items: PlanItem[] = [];
+  type PendingItem = Omit<PlanItem, "copyId"> & { scheduledAt: string; roomSeconds: number };
+  const pending: PendingItem[] = [];
   const unplaceable: UnplaceableUnit[] = [];
 
-  /** Tries to place one unit on one date; returns the item or the reason it couldn't. */
-  const tryDate = (date: string): PlanItem | UnplaceableReason => {
+  /** Tries to place one unit on one date; returns the item (message assigned later, by rotation) or the reason it couldn't. */
+  const tryDate = (date: string): PendingItem | UnplaceableReason => {
     const state = stateFor(date);
     if (state.used >= cap) return "day_cap";
     const candidates = byDate.get(date) ?? [];
@@ -268,21 +325,20 @@ export function planInventorySelection(
         why = "separation";
         continue;
       }
-      const copy = selectCopyForBreak(copies, brk, demand.lineFlightId, usage);
-      if (!copy) {
+      if (!copies.some((copy) => copyEligible(copy, brk, demand.lineFlightId))) {
         why = "no_eligible_copy";
         continue;
       }
-      usage.set(copy.id, (usage.get(copy.id) ?? 0) + 1);
       state.used++;
       state.times.push(brk.minutesOfDay);
       state.usedBreakIds.add(brk.breakId);
       return {
         breakId: brk.breakId,
-        copyId: copy.id,
         airDate: date,
         reason: "fresh",
         bucketId: brk.bucketId,
+        scheduledAt: brk.scheduledAt,
+        roomSeconds: brk.remainingSeconds,
       };
     }
     return why;
@@ -304,7 +360,7 @@ export function planInventorySelection(
         else if (why === "no_inventory") why = result;
         continue;
       }
-      items.push({
+      pending.push({
         ...result,
         reason: "makegood",
         makegoodId: makegood.id,
@@ -354,7 +410,7 @@ export function planInventorySelection(
           if (result !== "day_cap") why = result;
           continue;
         }
-        items.push({ ...result, bucketId: bucket.bucketId });
+        pending.push({ ...result, bucketId: bucket.bucketId });
         shortfall--;
         progress = true;
       }
@@ -363,6 +419,20 @@ export function planInventorySelection(
       unplaceable.push({ bucketId: bucket.bucketId, reason: "fresh", why });
   }
 
+  const { items, dropped } = assignCopyByRotation(
+    pending,
+    copies,
+    demand.contractSequence,
+    demand.lineFlightId,
+  );
+  for (const unit of dropped) {
+    unplaceable.push({
+      bucketId: unit.bucketId,
+      reason: unit.reason,
+      makegoodId: unit.makegoodId,
+      why: "no_eligible_copy",
+    });
+  }
   items.sort((a, b) => a.airDate.localeCompare(b.airDate) || a.breakId.localeCompare(b.breakId));
   return { items, unplaceable };
 }

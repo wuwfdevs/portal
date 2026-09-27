@@ -103,6 +103,7 @@ exactly 104 expected occurrences.
 ## 2. Product model
 
 ### Underwriter (new)
+
 A durable sponsor entity (`uw_underwriters`): name, mailing address, contact
 name, email, phone, category, notes. Replaces free-text
 `underwriter_name` on the contract. `category` is what makes the
@@ -110,6 +111,7 @@ competitive-adjacency advisory (§6) useful — this is not a CRM, just enough
 identity to reuse across contracts and reason about competing sponsors.
 
 ### Contract (redesigned)
+
 The underwriting agreement itself: an underwriter reference, contract
 identifier, effective dates, **sponsorship total and category**, an
 **`affidavit_required` flag** (most WUWF agreements are `false`, per the
@@ -121,6 +123,7 @@ see §6), status, and notes. Fulfillment is never stored here — always
 computed, see §6/§7.
 
 ### Contract schedule line (new — replaces Placement obligation)
+
 The real shape of a WUWF insertion order: one or more days of the week, a
 target air time, a duration, an eligible program, and a date range. "Monday
 ~7:49am × 26 weeks" is one line; "Wednesday and Thursday ~8:06am × 26 weeks"
@@ -132,32 +135,41 @@ single target time). `sponsorship_position` is gone entirely — it never had
 a basis in a real agreement.
 
 ### Underwriting copy (redesigned)
+
 Script, cart identifier (an ENCO/DAD reference, not portal-hosted audio —
 see §6), duration, a short `label` distinguishing rotating messages under
 one contract ("Message A"/"Message B" — see §6's copy rotation), effective/
 expiration dates, approval status, and `execution_kind` (`live_read` |
 `recorded`) — replacing the universal `production_status`, which never fit
-a live-read message. A contract's schedule line says *how often*; its copy
-says *what plays*, and a contract can rotate between several linked copy
-rows.
+a live-read message. A contract's schedule line says _how often_; its copy
+says _what plays_, and a contract can rotate between several linked copy
+rows. Rotation is one cycle in broadcast order across every line of the
+contract — each credit takes the message after the one aired just before
+it — and is kept current automatically after any change to the linked
+messages or the timeline (`docs/underwriting-traffic-redesign.md` §13,
+2026-09-27).
 
 ### Scheduled placement
+
 One schedule line's occurrence slated into a specific Log rundown break on a
 specific date — the record this tool produces whether a human picked the
 break (milestone 1 and this redesign both) or a rules engine did (deferred,
 §7).
 
 ### Exception
+
 An unresolved discrepancy between what a contract required and what
 actually aired, created against one of Log's `log_broadcast_events` rows
 once its outcome is anything other than "aired as scheduled."
 
 ### Makegood
+
 A scheduled or aired alternate airing that resolves an exception, per the
 reference agreement's own preemption policy: rescheduled within the program
 originally sponsored.
 
 ### Affidavit
+
 A proof-of-performance document generated from confirmed or
 management-approved broadcast events — never from the original schedule
 alone. Can be generated for any contract regardless of `affidavit_required`
@@ -165,6 +177,7 @@ alone. Can be generated for any contract regardless of `affidavit_required`
 dashboard treats as an expected workflow item.
 
 ### Critical distinction, carried from Log
+
 A schedule line is not the same as an airing, for the same reason a content
 item isn't (Log §3). One line can produce many scheduled placements across
 a contract's whole run, each independently outcome-tracked.
@@ -174,6 +187,7 @@ a contract's whole run, each independently outcome-tracked.
 ## 3. Primary user workflows
 
 ### A. Creating and maintaining a contract (traffic staff)
+
 Pick or create an underwriter, enter contract identifier, sponsorship
 total/category, affidavit requirement, preemption policy, attach the
 executed agreement document, and add one or more schedule lines.
@@ -181,6 +195,7 @@ Fulfillment status derives from scheduled placements and broadcast events
 against it, not a field someone updates by hand.
 
 ### B. Managing underwriting copy (traffic staff)
+
 Create copy **directly from a contract's own screen** (auto-linking it, no
 separate navigation round-trip) or from the standalone copy library; set
 label, execution kind, script or cart identifier, effective/expiration
@@ -189,6 +204,7 @@ to use it. Expired or unapproved copy cannot be scheduled without an
 explicit manager-checked override.
 
 ### C. Placing credits into the rundown (traffic staff, manual or auto-fill)
+
 From a contract's schedule line, a traffic staffer picks an eligible Log
 rundown break on an eligible date and places the credit. Eligibility
 (program, day-of-week, duration fit) is checked at the moment of placement,
@@ -208,11 +224,13 @@ campaign inventory in Log first (§6's "Provisioning inventory in Log, not
 just filling it").
 
 ### D. Reviewing pre-broadcast conflicts (traffic staff)
+
 A dashboard of schedule lines that can't currently be placed — insufficient
 inventory, missing approved copy, an unfulfilled expected-occurrence count
 with no eligible breaks left this period.
 
 ### E. Reviewing the post-broadcast exception queue (traffic staff, manager)
+
 Every underwriting-kind `log_broadcast_event` whose outcome isn't "aired as
 scheduled" appears here with the underwriter/contract, original scheduled
 time, actual outcome, host action and reason, the applicable schedule line,
@@ -221,11 +239,13 @@ alternate airing, schedule a makegood, waive it (manager-only), request
 clarification, correct the record, add a note, or close the exception.
 
 ### F. Scheduling and confirming makegoods (traffic staff)
+
 A makegood created from an exception is itself a scheduled placement once a
 slot is chosen — reusing the exact same placement path as an ordinary
 credit — then tracked through to its own broadcast event.
 
 ### G. Generating affidavits (traffic staff, certified by manager)
+
 Select a contract and a campaign period; the system assembles verified air
 dates/times, actual durations, approved alternates and makegoods, and
 relevant exceptions from the underlying broadcast events, and produces a
@@ -272,11 +292,13 @@ Eleven tables, prefixed `uw_`, plus two additive changes to `log_*` tables
 (`20260808200000_underwriting_redesign.sql`).
 
 ### `uw_underwriters` (new)
+
 `id`, `name`, `mailing_address` (nullable), `contact_name` (nullable),
 `email` (nullable), `phone` (nullable), `category` (nullable), `notes`
 (nullable), `created_by`, `created_at`, `updated_at`.
 
 ### `uw_contracts` (redesigned)
+
 `id`, `underwriter_id` (references `uw_underwriters`, not null),
 `contract_identifier`, `agreement_document_path` (nullable — a real object
 path in the `underwriting-documents` bucket, replacing the bare
@@ -287,6 +309,7 @@ path in the `underwriting-documents` bucket, replacing the bare
 `notes`, `created_by`, `created_at`, `updated_at`.
 
 ### `uw_contract_schedule_lines` (new — replaces `uw_placement_obligations`)
+
 `id`, `contract_id`, `days_of_week` (`int[]`, 0=Sunday..6=Saturday, matching
 `log_schedule`'s own convention — non-empty), `target_time` (nullable time —
 null for a looser obligation with no single target), `duration_seconds`,
@@ -298,6 +321,7 @@ an obligation that isn't cleanly day-of-week-recurring), `makegood_policy`
 26 weeks = 104 for the reference agreement.
 
 ### `uw_copy` (redesigned)
+
 `id`, `label` (short human label — "Message A"/"Message B"), `script`
 (nullable), `cart_identifier` (nullable — an ENCO/DAD reference, meaningful
 when `execution_kind = 'recorded'`), `execution_kind` (`live_read` |
@@ -306,10 +330,12 @@ when `execution_kind = 'recorded'`), `execution_kind` (`live_read` |
 `approved` | `expired` | `retired`), `created_by`, `created_at`.
 
 ### `uw_contract_copy`
+
 `contract_id`, `copy_id` — many-to-many join; a copy row can serve more than
 one contract, and a contract can rotate between several.
 
 ### `uw_scheduled_placements` (redesigned: `obligation_id` → `schedule_line_id`)
+
 `id`, `schedule_line_id`, `copy_id`, `log_rundown_item_id` (set once the
 write into Log succeeds), `placement_date`, `scheduled_at`, `program_id`,
 `program_name` (denormalized at write time — see §6), `break_label`
@@ -317,6 +343,7 @@ write into Log succeeds), `placement_date`, `scheduled_at`, `program_id`,
 `superseded`), `override_reason` (nullable), `created_by`, `created_at`.
 
 ### `uw_exceptions` (redesigned: `obligation_id` → `schedule_line_id`)
+
 `id`, `log_broadcast_event_id`, `schedule_line_id`, `original_scheduled_at`,
 `host_action`, `host_reason` (nullable), `requirement_note` (nullable),
 `compliance_judgment` (`compliant` | `noncompliant` | `pending`),
@@ -327,17 +354,20 @@ write into Log succeeds), `placement_date`, `scheduled_at`, `program_id`,
 (nullable).
 
 ### `uw_makegoods` (redesigned: `obligation_id` → `schedule_line_id`)
+
 `id`, `exception_id`, `schedule_line_id`, `scheduled_placement_id`
 (nullable until scheduled), `status` (`scheduled` | `aired` | `cancelled`),
 `scheduled_for` (nullable), `aired_log_broadcast_event_id` (nullable).
 
 ### `uw_affidavits`
+
 `id`, `contract_id`, `campaign_period_start`, `campaign_period_end`,
 `generated_at`, `generated_by`, `certifying_staff_id` (nullable until
 certified), `certification_text` (nullable), `report_identifier`, `status`
 (`draft` | `certified`).
 
 ### `uw_affidavit_line_items`
+
 `affidavit_id`, `log_broadcast_event_id`, `scheduled_placement_id` —
 composite primary key `(affidavit_id, log_broadcast_event_id)`, no separate
 id column.
@@ -388,7 +418,7 @@ air dates already have a rundown, and
 `log_generate_rundown_for_underwriting(...)` inserts exactly what
 `generateRundown()` itself inserts (and returns the breaks it just
 inserted), idempotent on the same `(program_id, air_date)` constraint.
-Deciding *what* a rundown should contain is never reimplemented in SQL:
+Deciding _what_ a rundown should contain is never reimplemented in SQL:
 `lib/underwriting/rundown-provisioning.ts` calls Log's own pure generation
 functions directly (`buildRundownBreakDrafts`, `resolveCurrentVersion`,
 `isScheduleEntryActiveOn` — dependency-free, and this is one monolith, so
@@ -461,13 +491,13 @@ case even if the raw completed count already meets the target.
 `lib/underwriting/adjacency.ts`'s `checkCompetitiveAdjacency()` flags when
 another underwriter sharing the current one's `category` already has a
 nearby placement — purely informational (an `Alert`, never a block) on the
-*manual* placement form, and never triggered by the same underwriter's own
+_manual_ placement form, and never triggered by the same underwriter's own
 other placements. This is deliberately not a scheduling constraint or a
 spacing rule engine; WUWF asked for a simple advisory there, not automated
 enforcement, since a human is already looking at the screen. Auto-fill
 (§7) has no human in the loop at the moment it places a credit, so the
 same real promise — the reference agreement's own "does not run adjacent
-to a business with similar services or products" — is an *enforced* rule
+to a business with similar services or products" — is an _enforced_ rule
 there instead, scoped to within one break (see CLAUDE.md's dated note and
 `lib/underwriting/auto-fill-plan.ts`). The two aren't the same check: the
 manual advisory is program-wide and coarse; the auto-fill rule is exact,
@@ -477,8 +507,8 @@ candidate break's last position.
 ### Milestone 1 (and this redesign) ships the real write path, not a fake one
 
 Manual placement and the automatic scheduler (§7, landed 2026-08-09) produce
-the *same* `uw_scheduled_placements`/`log_rundown_items` rows through the
-*same* `log_place_underwriting_credit()` function — a human choosing the
+the _same_ `uw_scheduled_placements`/`log_rundown_items` rows through the
+_same_ `log_place_underwriting_credit()` function — a human choosing the
 break today, a rules engine choosing it later. `lib/underwriting/
 auto-fill-plan.ts` is the rules engine's pure planning half; `lib/
 underwriting/auto-fill.ts` is what actually calls the RPC.

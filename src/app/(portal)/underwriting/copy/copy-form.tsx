@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { ChoiceCards } from "@/components/ui/choice-cards";
+import { FieldHint, Input, Label } from "@/components/ui/input";
 import type { UwCopyRow } from "@/lib/underwriting/queries";
+import { ScriptField } from "./script-field";
 
 export type CopyFormDefaults = Pick<
   UwCopyRow,
@@ -16,11 +18,118 @@ export type CopyFormDefaults = Pick<
 >;
 
 /**
- * The one copy form, shared by /copy/new and /copy/[id]/edit
- * (docs/ui-patterns.md rule 3). The contract setup wizard's copy step keeps
- * its own shorter form, since it links the copy to the contract in the same
- * submit; this one is the library's standalone create/edit.
+ * The one set of copy fields (docs/ui-patterns.md rule 3), rendered by the
+ * library's standalone create/edit form below and by the contract's own
+ * inline "New message" and in-place edit cards (contracts/[id]/copy-
+ * panel.tsx) — the card owns the <form>, this renders only fields, the
+ * same split as the Editorial settings' AddFieldFields. `idPrefix` keeps
+ * ids unique when a page shows more than one copy form.
  */
+export function CopyFormFields({
+  defaults,
+  idPrefix = "copy",
+  effectiveFromDefault,
+}: {
+  defaults?: CopyFormDefaults;
+  idPrefix?: string;
+  /** For a new message: the contract's start, so the field isn't blank. */
+  effectiveFromDefault?: string;
+}) {
+  const id = (field: string) => `${idPrefix}_${field}`;
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <span className="mb-1.5 block text-xs font-semibold text-ink-700">Execution</span>
+        <ChoiceCards
+          name="execution_kind"
+          columns={2}
+          defaultValue={defaults?.execution_kind ?? "live_read"}
+          options={[
+            {
+              value: "live_read",
+              title: "Live read",
+              description:
+                "The host reads the script on air. Length is estimated from the words unless you time it.",
+            },
+            {
+              value: "recorded",
+              title: "Recorded (via DAD)",
+              description: "ENCO/DAD plays the cart. Enter the cart number and the audio's length.",
+            },
+          ]}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
+        <div>
+          <Label htmlFor={id("label")}>Label</Label>
+          <Input
+            id={id("label")}
+            name="label"
+            required
+            maxLength={80}
+            placeholder="Message A"
+            defaultValue={defaults?.label ?? ""}
+            autoFocus
+          />
+          <FieldHint>
+            How the message is referred to on the rundown and in the library — the sponsor&apos;s
+            own name for it, if the order gives one.
+          </FieldHint>
+        </div>
+        <div>
+          <Label htmlFor={id("duration")}>Timed duration (s)</Label>
+          <Input
+            id={id("duration")}
+            name="duration_seconds"
+            type="number"
+            min={1}
+            placeholder="Estimate"
+            defaultValue={defaults?.duration_seconds ?? ""}
+          />
+          <FieldHint>Blank uses the estimate; a recorded spot needs its audio&apos;s length.</FieldHint>
+        </div>
+      </div>
+      <ScriptField id={id("script")} defaultValue={defaults?.script ?? ""} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <Label htmlFor={id("from")}>Effective from</Label>
+          <Input
+            id={id("from")}
+            name="effective_from"
+            type="date"
+            required={defaults !== undefined}
+            defaultValue={defaults?.effective_from ?? effectiveFromDefault ?? ""}
+          />
+          {effectiveFromDefault && !defaults && (
+            <FieldHint>Defaults to the contract&apos;s start.</FieldHint>
+          )}
+        </div>
+        <div>
+          <Label htmlFor={id("to")}>Effective to</Label>
+          <Input
+            id={id("to")}
+            name="effective_to"
+            type="date"
+            defaultValue={defaults?.effective_to ?? ""}
+          />
+          <FieldHint>Blank runs until retired.</FieldHint>
+        </div>
+        <div>
+          <Label htmlFor={id("cart")}>DAD cart #</Label>
+          <Input
+            id={id("cart")}
+            name="cart_identifier"
+            maxLength={120}
+            defaultValue={defaults?.cart_identifier ?? ""}
+          />
+          <FieldHint>Recorded spots only — ENCO/DAD plays the audio, not the portal.</FieldHint>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The copy library's standalone create/edit form, shared by /copy/new and /copy/[id]/edit. */
 export function CopyForm({
   action,
   defaults,
@@ -42,83 +151,7 @@ export function CopyForm({
       {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="label">Label</Label>
-          <Input
-            id="label"
-            name="label"
-            required
-            maxLength={80}
-            placeholder="Message A"
-            defaultValue={defaults?.label ?? ""}
-            autoFocus
-          />
-        </div>
-        <div>
-          <Label htmlFor="execution_kind">Execution</Label>
-          <Select
-            id="execution_kind"
-            name="execution_kind"
-            defaultValue={defaults?.execution_kind ?? "live_read"}
-          >
-            <option value="live_read">Live read</option>
-            <option value="recorded">Recorded (via DAD)</option>
-          </Select>
-        </div>
-      </div>
-      <div>
-        <Label htmlFor="script">Script</Label>
-        <Textarea id="script" name="script" rows={5} defaultValue={defaults?.script ?? ""} />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="duration_seconds">Duration (s)</Label>
-          <Input
-            id="duration_seconds"
-            name="duration_seconds"
-            type="number"
-            min={1}
-            defaultValue={defaults?.duration_seconds ?? ""}
-          />
-          <FieldHint>
-            Left blank, a live read is planned at its estimated read time from the script.
-          </FieldHint>
-        </div>
-        <div>
-          <Label htmlFor="cart_identifier">DAD cart #</Label>
-          <Input
-            id="cart_identifier"
-            name="cart_identifier"
-            maxLength={120}
-            defaultValue={defaults?.cart_identifier ?? ""}
-          />
-          <FieldHint>
-            Only meaningful when execution is recorded — ENCO/DAD plays the audio, not the portal.
-          </FieldHint>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="effective_from">Effective from</Label>
-          <Input
-            id="effective_from"
-            name="effective_from"
-            type="date"
-            required={defaults !== undefined}
-            defaultValue={defaults?.effective_from ?? ""}
-          />
-        </div>
-        <div>
-          <Label htmlFor="effective_to">Effective to</Label>
-          <Input
-            id="effective_to"
-            name="effective_to"
-            type="date"
-            defaultValue={defaults?.effective_to ?? ""}
-          />
-        </div>
-      </div>
+      <CopyFormFields defaults={defaults} />
       <div className="flex items-center gap-4 border-t border-line pt-5">
         <Button type="submit">{submitLabel}</Button>
         <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">

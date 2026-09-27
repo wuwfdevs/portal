@@ -27,8 +27,21 @@ export interface SearchableOption {
   label: string;
   /** Muted text after the label — an industry, a program's time, a count. Searched too. */
   hint?: string;
+  /** A second, muted line under the label — a script's opening words. Searched too. */
+  detail?: string;
   /** Shown but not pickable — a break that already holds this contract. */
   disabled?: boolean;
+}
+
+export interface SearchableGroup {
+  /** A group line above the primary options ("Autumn Beck Blackledge · 3 on file"). */
+  primaryLabel?: string;
+  /** Options listed only once the query is two or more characters and matches them — every other underwriter's copy behind this one's. */
+  secondaryOptions: SearchableOption[];
+  /** The group line above the secondary matches. */
+  secondaryLabel: string;
+  /** Shown under the list while the secondary options are hidden. */
+  secondaryHint?: string;
 }
 
 export function SearchableSelect({
@@ -42,6 +55,7 @@ export function SearchableSelect({
   emptyMessage = "No matches.",
   className,
   onChange,
+  groups,
 }: {
   /** The id the <Label htmlFor> points at — the text box. */
   id: string;
@@ -57,9 +71,13 @@ export function SearchableSelect({
   emptyMessage?: string;
   className?: string;
   onChange?: (value: string) => void;
+  /** A second tier of options that only surfaces through search (docs/ui-patterns.md "Pickers"). */
+  groups?: SearchableGroup;
 }) {
   const listId = useId();
-  const initial = options.find((option) => option.id === (controlledValue ?? defaultValue)) ?? null;
+  const allOptions = groups ? [...options, ...groups.secondaryOptions] : options;
+  const initial =
+    allOptions.find((option) => option.id === (controlledValue ?? defaultValue)) ?? null;
   const [value, setValue] = useState(initial?.id ?? "");
   const [query, setQuery] = useState(initial?.label ?? "");
 
@@ -71,7 +89,7 @@ export function SearchableSelect({
   if (controlledValue !== lastControlledValue) {
     setLastControlledValue(controlledValue);
     if (controlledValue !== undefined && controlledValue !== value) {
-      const next = options.find((option) => option.id === controlledValue) ?? null;
+      const next = allOptions.find((option) => option.id === controlledValue) ?? null;
       setValue(next?.id ?? "");
       setQuery(next?.label ?? "");
     }
@@ -84,18 +102,20 @@ export function SearchableSelect({
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const needle = query.trim().toLowerCase();
-  const chosen = options.find((option) => option.id === value) ?? null;
+  const chosen = allOptions.find((option) => option.id === value) ?? null;
+  const matches = (option: SearchableOption) =>
+    option.label.toLowerCase().includes(needle) ||
+    (option.hint?.toLowerCase().includes(needle) ?? false) ||
+    (option.detail?.toLowerCase().includes(needle) ?? false);
   // With a choice made and its label untouched, show the whole list on
   // focus rather than only the one match — a re-pick shouldn't need the
   // label cleared first.
-  const filtered =
-    needle === "" || (chosen !== null && query === chosen.label)
-      ? options
-      : options.filter(
-          (option) =>
-            option.label.toLowerCase().includes(needle) ||
-            (option.hint?.toLowerCase().includes(needle) ?? false),
-        );
+  const browsing = needle === "" || (chosen !== null && query === chosen.label);
+  const filteredPrimary = browsing ? options : options.filter(matches);
+  const filteredSecondary =
+    groups && !browsing && needle.length >= 2 ? groups.secondaryOptions.filter(matches) : [];
+  const filtered = [...filteredPrimary, ...filteredSecondary];
+  const secondaryStart = filteredPrimary.length;
 
   useEffect(() => {
     optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
@@ -208,6 +228,16 @@ export function SearchableSelect({
         >
           {filtered.map((option, index) => (
             <li key={option.id}>
+              {groups && index === 0 && filteredPrimary.length > 0 && groups.primaryLabel && (
+                <div className="px-2 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                  {groups.primaryLabel}
+                </div>
+              )}
+              {groups && index === secondaryStart && filteredSecondary.length > 0 && (
+                <div className="mt-1 border-t border-line px-2 pt-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                  {groups.secondaryLabel}
+                </div>
+              )}
               <button
                 ref={(el) => {
                   optionRefs.current[index] = el;
@@ -221,21 +251,33 @@ export function SearchableSelect({
                 onClick={() => pick(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
+                  "flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm text-ink-900",
                   highlightedIndex === index ? "bg-brand-surface" : "hover:bg-brand-surface",
                   option.id === value && "font-semibold",
                   option.disabled && "cursor-not-allowed text-ink-400 hover:bg-transparent",
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                {option.hint && (
-                  <span className="shrink-0 truncate text-xs text-ink-400">{option.hint}</span>
+                <span className="flex w-full items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  {option.hint && (
+                    <span className="shrink-0 truncate text-xs text-ink-400">{option.hint}</span>
+                  )}
+                </span>
+                {option.detail && (
+                  <span className="w-full truncate text-xs font-normal text-ink-400">
+                    {option.detail}
+                  </span>
                 )}
               </button>
             </li>
           ))}
           {filtered.length === 0 && (
             <li className="px-2 py-1.5 text-xs text-ink-400">{emptyMessage}</li>
+          )}
+          {groups && filteredSecondary.length === 0 && groups.secondaryHint && (
+            <li className="mt-1 border-t border-line px-2 pt-2 pb-1 text-xs text-ink-400">
+              {groups.secondaryHint}
+            </li>
           )}
         </ul>
       )}

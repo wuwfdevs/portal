@@ -4,9 +4,10 @@ import { Steps } from "@/components/ui/steps";
 
 /**
  * The header every step of contract setup shares (docs/underwriting-
- * traffic-redesign.md §11): who and which order, a status badge, and the
- * four-step indicator. Step 1 (the order) lives at /contracts/new before
- * the contract exists, so it renders this with no contract.
+ * traffic-redesign.md §11, five steps since §13 split copy from the
+ * traffic policy): who and which order, a status badge, and the step
+ * indicator. Step 1 (the order) lives at /contracts/new before the
+ * contract exists, so it renders this with no contract.
  */
 export function WizardHeader({
   contract,
@@ -26,7 +27,8 @@ export function WizardHeader({
   const steps = [
     { label: "The order", href: base ? `${base}/order` : "/underwriting/contracts/new" },
     { label: "Schedule", href: base ? `${base}/schedule` : undefined },
-    { label: "Copy & policy", href: base ? `${base}/policy` : undefined },
+    { label: "Copy", href: base ? `${base}/copy` : undefined },
+    { label: "Traffic policy", href: base ? `${base}/policy` : undefined },
     { label: "Review & activate", href: base ?? undefined },
   ];
   return (

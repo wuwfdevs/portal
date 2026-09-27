@@ -696,12 +696,30 @@ export async function buildSelectionDemand(
   todayISO: string = stationTodayISO(),
   nowISO: string = new Date().toISOString(),
 ): Promise<SelectionDemand> {
+  const supabase = await createClient();
+  // The copy rotation runs across every line of the contract's revision,
+  // not this line alone (rotation.ts), so the planner needs the whole
+  // contract's placements as the sequence its new units slot into.
+  const revisionLines =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_schedule_lines")
+        .select("id")
+        .eq("contract_id", contract.id)
+        .eq("revision_id", scheduleLine.revision_id),
+      "this contract's schedule lines",
+    ) ?? [];
+  const lineIds = [...new Set([scheduleLine.id, ...revisionLines.map((line) => line.id)])];
   const [placementsByLine, openItemsByLine] = await Promise.all([
-    listPlacementsWithOutcomes([scheduleLine.id]),
+    listPlacementsWithOutcomes(lineIds),
     listOpenItemsForLines([scheduleLine.id]),
   ]);
   const placements = placementsByLine.get(scheduleLine.id) ?? [];
   const openItems = openItemsByLine.get(scheduleLine.id);
+  const contractSequence = [...placementsByLine.values()]
+    .flat()
+    .map((placement) => ({ scheduledAt: placement.scheduled_at, copyId: placement.copy_id }))
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   return {
     buckets: buckets
@@ -724,6 +742,7 @@ export async function buildSelectionDemand(
       minutesOfDay: minutesOfDayInStationTime(placement.scheduled_at),
       isMakegood: placement.makegood_id !== null,
     })),
+    contractSequence,
     makegoodsAwaitingSlot: openItems?.awaitingSlot ?? [],
     maxPerDay: scheduleLine.max_per_day,
     preferredTimeMinutes:
@@ -1418,4 +1437,166 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
   );
 
   return { ...affidavit, contract, lineItems, certifyingStaffName };
+}
+
+// Copy on a contract (docs/underwriting-traffic-redesign.md §13) -----------------
+
+export interface LinkableCopyOption {
+  copy: UwCopyRow;
+  /** Order numbers of the contracts this message is already linked to, newest first. */
+  linkedTo: { contractIdentifier: string; effectiveTo: string | null }[];
+}
+
+export interface ContractCopyContext {
+  /** This underwriter's messages not yet linked here — attributed directly (uw_copy.underwriter_id) or through another of their contracts. */
+  linkablePrimary: LinkableCopyOption[];
+  /** Every other underwriter's message — offered only through search. */
+  linkableSecondary: LinkableCopyOption[];
+  /** For each message linked here, the other contracts it also serves. */
+  otherContractsByCopy: Map<
+    string,
+    { id: string; contractIdentifier: string; underwriterName: string }[]
+  >;
+  /** This underwriter's messages on file, linked here or not. */
+  onFile: { total: number; approved: number; lastContractIdentifier: string | null };
+}
+
+/**
+ * What the copy step and the Copy tab need beyond the contract itself:
+ * which messages could be linked (the underwriter's own first), and which
+ * other contracts each linked message serves (named on the edit card,
+ * since editing changes the shared row). Reads the whole copy library and
+ * link table once — both are small.
+ */
+export async function getContractCopyContext(
+  contract: Pick<ContractDetail, "id" | "underwriter_id" | "copy">,
+): Promise<ContractCopyContext> {
+  const supabase = await createClient();
+  const [copyRows, links, contracts, underwriters] = await Promise.all([
+    listCopy(),
+    unwrapRead(
+      await supabase.from("uw_contract_copy").select("contract_id, copy_id"),
+      "the copy links",
+    ) ?? [],
+    unwrapRead(
+      await supabase
+        .from("uw_contracts")
+        .select("id, underwriter_id, contract_identifier, effective_to, created_at")
+        .order("created_at", { ascending: false }),
+      "the contracts",
+    ) ?? [],
+    unwrapRead(await supabase.from("uw_underwriters").select("id, name"), "the underwriters") ?? [],
+  ]);
+  const contractById = new Map(contracts.map((row) => [row.id, row]));
+  const underwriterNameById = new Map(underwriters.map((row) => [row.id, row.name]));
+  const linksByCopy = new Map<string, string[]>();
+  for (const link of links) {
+    const list = linksByCopy.get(link.copy_id) ?? [];
+    list.push(link.contract_id);
+    linksByCopy.set(link.copy_id, list);
+  }
+  const linkedHere = new Set(contract.copy.map((item) => item.id));
+
+  const isUnderwriters = (copy: UwCopyRow): boolean =>
+    copy.underwriter_id === contract.underwriter_id ||
+    (linksByCopy.get(copy.id) ?? []).some(
+      (contractId) => contractById.get(contractId)?.underwriter_id === contract.underwriter_id,
+    );
+  const toOption = (copy: UwCopyRow): LinkableCopyOption => ({
+    copy,
+    linkedTo: (linksByCopy.get(copy.id) ?? [])
+      .map((contractId) => contractById.get(contractId))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((row) => ({
+        contractIdentifier: row.contract_identifier,
+        effectiveTo: row.effective_to,
+      })),
+  });
+
+  const linkablePrimary: LinkableCopyOption[] = [];
+  const linkableSecondary: LinkableCopyOption[] = [];
+  let onFileTotal = 0;
+  let onFileApproved = 0;
+  let lastContractIdentifier: string | null = null;
+  for (const copy of copyRows) {
+    const ours = isUnderwriters(copy);
+    if (ours) {
+      onFileTotal++;
+      if (copy.approval_status === "approved") onFileApproved++;
+      if (lastContractIdentifier === null) {
+        const other = (linksByCopy.get(copy.id) ?? [])
+          .map((contractId) => contractById.get(contractId))
+          .find((row) => row !== undefined && row.id !== contract.id);
+        if (other) lastContractIdentifier = other.contract_identifier;
+      }
+    }
+    if (linkedHere.has(copy.id)) continue;
+    (ours ? linkablePrimary : linkableSecondary).push(toOption(copy));
+  }
+
+  const otherContractsByCopy = new Map<
+    string,
+    { id: string; contractIdentifier: string; underwriterName: string }[]
+  >();
+  for (const item of contract.copy) {
+    otherContractsByCopy.set(
+      item.id,
+      (linksByCopy.get(item.id) ?? [])
+        .filter((contractId) => contractId !== contract.id)
+        .map((contractId) => contractById.get(contractId))
+        .filter((row): row is NonNullable<typeof row> => row !== undefined)
+        .map((row) => ({
+          id: row.id,
+          contractIdentifier: row.contract_identifier,
+          underwriterName: underwriterNameById.get(row.underwriter_id) ?? "another underwriter",
+        })),
+    );
+  }
+
+  return {
+    linkablePrimary,
+    linkableSecondary,
+    otherContractsByCopy,
+    onFile: { total: onFileTotal, approved: onFileApproved, lastContractIdentifier },
+  };
+}
+
+export interface CopyUsage {
+  scheduled: number;
+  aired: number;
+  /** The earliest pending placement's scheduled_at, station-formatted by the caller. */
+  nextScheduledAt: string | null;
+}
+
+/**
+ * How each linked message is doing on this contract — scheduled ahead,
+ * aired, next up — from the current revision's placements. Program-log-
+ * imported credits carry no placement row and are not counted.
+ */
+export async function listCopyUsageForContract(
+  contract: Pick<ContractDetail, "scheduleLines" | "currentRevision">,
+): Promise<Map<string, CopyUsage>> {
+  const lineIds = contract.scheduleLines
+    .filter((line) => line.revision_id === contract.currentRevision?.id)
+    .map((line) => line.id);
+  const byLine = await listPlacementsWithOutcomes(lineIds);
+  const usage = new Map<string, CopyUsage>();
+  for (const placements of byLine.values()) {
+    for (const placement of placements) {
+      const current = usage.get(placement.copy_id) ?? {
+        scheduled: 0,
+        aired: 0,
+        nextScheduledAt: null,
+      };
+      if (placement.outcome === "aired") current.aired++;
+      else if (placement.outcome === "pending") {
+        current.scheduled++;
+        if (current.nextScheduledAt === null || placement.scheduled_at < current.nextScheduledAt)
+          current.nextScheduledAt = placement.scheduled_at;
+      }
+      usage.set(placement.copy_id, current);
+    }
+  }
+  return usage;
 }

@@ -17,6 +17,7 @@ import { createDraftContractWithRevision } from "@/lib/underwriting/contract-wri
 import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
+import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
 import { stationTodayISO } from "@/lib/log/timezone";
 import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types";
 
@@ -37,12 +38,19 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
-const WIZARD_STEPS = new Set(["order", "schedule", "policy"]);
+const WIZARD_STEPS = new Set(["order", "schedule", "copy", "policy"]);
 
-/** The contract page, or the setup step (order | schedule | policy) a wizard form named in return_to. */
+/** The contract page, or the setup step (order | schedule | copy | policy) a wizard form named in return_to. */
 function returnPath(formData: FormData, contractId: string): string {
   const step = field(formData, "return_to");
   return WIZARD_STEPS.has(step) ? `${contractPath(contractId)}/${step}` : contractPath(contractId);
+}
+
+/** Where a copy-linking form returns: the setup wizard's copy step, or the contract page's Copy tab (docs/underwriting-traffic-redesign.md §13). */
+function copyReturnPath(formData: FormData, contractId: string): string {
+  return field(formData, "return_to") === "copy"
+    ? `${contractPath(contractId)}/copy`
+    : `${contractPath(contractId)}?tab=copy`;
 }
 
 function optionalField(formData: FormData, name: string): string | null {
@@ -549,6 +557,9 @@ export async function activateRevisionAction(formData: FormData): Promise<void> 
 
   const message = await activateRevision(revisionId, profile.id);
   if (message) failWith(path, message);
+  // The activation cleared placements from its effective date; whatever
+  // remains ahead of it re-sequences.
+  await rebalanceContractRotation(contractId, profile.id);
 
   await logAuditEvent({
     actorId: profile.id,
@@ -644,6 +655,7 @@ export async function cancelFlight(formData: FormData): Promise<void> {
     })
     .eq("id", flightId);
   failIfError(error, path, "Could not cancel the flight");
+  await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
   redirect(path);
@@ -938,6 +950,7 @@ export async function cancelScheduleLine(formData: FormData): Promise<void> {
 
   const message = await cancelScheduleLineFrom(lineId, from, profile.id);
   if (message) failWith(path, message);
+  await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
   revalidatePath("/underwriting/makegoods");
@@ -967,11 +980,13 @@ export async function removeDraftScheduleLine(formData: FormData): Promise<void>
 
 /** Links an existing piece of copy to this contract — optionally scoped to one flight (a script that names a specific show). */
 export async function linkCopyToContract(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
-  const path = returnPath(formData, contractId);
-  if (copyId === "") failWith(path, "Choose a piece of copy to link.");
+  const path = copyReturnPath(formData, contractId);
+  // A failure lands back on the open link card so its message renders there.
+  const failPath = `${path}${path.includes("?") ? "&" : "?"}link=1`;
+  if (copyId === "") failWith(failPath, "Choose a message to link.");
 
   const supabase = await createClient();
   const { error } = await supabase.from("uw_contract_copy").insert({
@@ -979,18 +994,20 @@ export async function linkCopyToContract(formData: FormData): Promise<void> {
     copy_id: copyId,
     flight_id: optionalField(formData, "flight_id"),
   });
-  failIfError(error, path, "Could not link that copy");
+  if (error?.code === "23505") failWith(failPath, "That message is already linked to this contract.");
+  failIfError(error, failPath, "Could not link that copy");
+  await rebalanceContractRotation(contractId, profile.id);
 
-  revalidatePath(path);
+  revalidatePath(contractPath(contractId));
   redirect(path);
 }
 
 /** Changes which flight a linked copy serves (or makes it contract-wide again). */
 export async function setCopyFlight(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
-  const path = contractPath(contractId);
+  const path = copyReturnPath(formData, contractId);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -999,16 +1016,17 @@ export async function setCopyFlight(formData: FormData): Promise<void> {
     .eq("contract_id", contractId)
     .eq("copy_id", copyId);
   failIfError(error, path, "Could not change that copy's flight");
+  await rebalanceContractRotation(contractId, profile.id);
 
-  revalidatePath(path);
+  revalidatePath(contractPath(contractId));
   redirect(path);
 }
 
 export async function unlinkCopyFromContract(formData: FormData): Promise<void> {
-  await assertUnderwritingAccess();
+  const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const copyId = field(formData, "copy_id");
-  const path = returnPath(formData, contractId);
+  const path = copyReturnPath(formData, contractId);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -1017,7 +1035,10 @@ export async function unlinkCopyFromContract(formData: FormData): Promise<void> 
     .eq("contract_id", contractId)
     .eq("copy_id", copyId);
   failIfError(error, path, "Could not unlink that copy");
+  // Placements already carrying the unlinked message keep it (the walk never
+  // clears a placement); everything else re-sequences without it.
+  await rebalanceContractRotation(contractId, profile.id);
 
-  revalidatePath(path);
+  revalidatePath(contractPath(contractId));
   redirect(path);
 }

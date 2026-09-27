@@ -1322,6 +1322,27 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Underwriting & Traffic: copy on the contract, and copy rotation
+(2026-09-27).** Read `docs/underwriting-traffic-redesign.md` §13 before
+touching the copy step, the Copy tab, the planner's copy pass, or anything
+that writes `uw_scheduled_placements.copy_id`; this is a pointer. Setup is
+five steps (Copy at `/contracts/[id]/copy`, then Traffic policy); the step
+and the contract page's Copy tab share `contracts/[id]/copy-panel.tsx`
+(script in full, Edit/Approve/Unlink in place, `?new=1`/`?link=1`/
+`?edit=<id>` cards, an underwriter-first link picker). **Rotation is one
+contract-wide cycle in broadcast order** (`lib/underwriting/rotation.ts`,
+pure, tested) and is maintained automatically: the planner assigns copy in
+a final pass over the contract's merged timeline, and
+`rebalanceContractRotation()` (`rotation-rebalance.ts`) re-walks the
+contract after every write that changes the linked messages or the
+timeline, writing each change through
+`log_reassign_underwriting_credit_copy()`
+(`20260927160000_underwriting_copy_rotation.sql`, applied to both projects,
+which also adds the `update` policy `uw_contract_copy` never had). Aired,
+frozen, and manager-overridden placements are fixed points; there is no
+manual re-rotate action. Manual placement, the makegood slot form, and the
+`underwriting.credit.schedule` capability default to the rotation's pick.
+
 **Underwriting & Traffic: a draft contract can be deleted, and pickers
 that grow with the data are search-to-select (2026-09-27).** Read
 `docs/underwriting-traffic-redesign.md` §11.5 and `docs/ui-patterns.md`

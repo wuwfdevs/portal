@@ -1,6 +1,8 @@
 # Contract copy flow and copy rotation — hand-off
 
-**Date:** 2026-09-27 · **Status:** designed, reviewed with WUWF, not built ·
+**Date:** 2026-09-27 · **Status:** built the same day (see
+`docs/underwriting-traffic-redesign.md` §13); kept as the record of the
+decisions ·
 **Boards:** https://claude.ai/artifact/D7piH7tes9QWFX4nUag1JG (six artboards: the
 step as built, the proposed Copy step, its edit / new / link states, and the
 contract page's Copy tab).
@@ -96,9 +98,9 @@ the files in §0, before touching anything.
 
 Renders one linked `uw_copy` row for a contract. Header row: label (bold),
 approval badge (`success` approved, `warning` draft, `muted`
-expired/retired), meta line "Live read · ~18s estimated from 48 words ·
+expired/retired), meta line "Live read · ~~18s estimated from 48 words ·
 effective 2026-10-05 onward" (recorded: "Recorded · 30s · cart 1234"; the
-"~" and word count only when `duration_seconds` equals
+"~~" and word count only when `duration_seconds` equals
 `estimateReadSeconds(script)` — otherwise "18s timed"), then on the contract
 page only: "scheduled 38 · aired 11 · next Mon 7:49 AM" (§2.6). Right side:
 Edit (ghost link to `?edit=<id>` on the current surface), Unlink (a form to

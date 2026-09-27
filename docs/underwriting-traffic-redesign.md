@@ -923,3 +923,80 @@ signed originals on WUWF's Drive, named per fixture in
 `fixtures/index.ts`, and are added by hand: none are committed with this
 pass, so the first run is the first real test of the reader, the same
 position the program-log importer's rebuild was in on 2026-09-22.
+
+## 13. Copy on the contract, and rotation (2026-09-27)
+
+Reviewed on Design boards (https://claude.ai/artifact/D7piH7tes9QWFX4nUag1JG)
+against the step as built; the decisions are recorded in full in
+`docs/contract-copy-and-rotation-handoff.md`. In short:
+
+### 13.1 The copy step and the Copy tab
+
+Setup is five steps: The order → Schedule → **Copy** (`/contracts/[id]/copy`)
+→ Traffic policy (`/contracts/[id]/policy`, the policy form only) → Review &
+activate. The old "Copy & policy" step had two jobs and put the only way
+forward inside the policy form; a linked message was a label, a badge and
+Unlink, with its script never shown and no edit or approve short of the
+copy library.
+
+One panel (`contracts/[id]/copy-panel.tsx`) now serves the step and the
+contract page's Copy tab: a heading row with "Link existing…" and "+ New
+message", then one card per linked message with its script in full. Edit
+opens the library's own fields in place (`?edit=<id>`, `CopyFormFields`,
+the shared row named as serving other contracts before Save), Approve is a
+one-click gate on a draft card, "⋮" holds Change status… and Serve one
+flight only…, Unlink stays visible. "+ New message" is an `InlineCreateCard`
+(`?new=1`) with an "Approved — ready to place" checkbox, attributing the
+row to the contract's underwriter (`uw_copy.underwriter_id`) and defaulting
+its effective date to the contract's start. "Link existing…" (`?link=1`)
+lists this underwriter's messages first — attributed directly or through
+another of their contracts, each with status, length, last order and the
+script's opening words — and other underwriters' only once the search
+matches them. On the contract page each card also reads "scheduled N ·
+aired N · next …". Nothing on the contract page links back into the
+wizard. `return_to=copy` returns a form to the step; anything else returns
+to the Copy tab.
+
+### 13.2 Rotation
+
+A contract's messages rotate as **one cycle in broadcast order across
+every schedule line**, not per line and not by counting. The cycle is the
+linked copy in the Copy tab's order (`uw_copy.created_at`); each credit
+takes the first eligible message after the one aired immediately before
+it, whichever line either belongs to (`lib/underwriting/rotation.ts`, pure,
+tested). Eligible means approved, in date for the air date, contract-wide
+or scoped to the line's flight, and short enough for the room. A placement
+that has aired, sits in a live or submitted rundown or a started break
+(`uw_automation_block()`), or was placed with a manager override
+(`override_reason` — the pin) is fixed: never changed, still advancing the
+cycle. Where the cycle offers a choice, the message before a fixed slot
+avoids matching it.
+
+The planner (`inventory-selection.ts`) keeps its break selection and gives
+each new unit its message in a final pass over the merged timeline of the
+run's units and the contract's existing placements
+(`SelectionDemand.contractSequence`, every line of the revision). Then,
+and after every other write that changes the inputs or the timeline, the
+same walk runs over the whole contract
+(`lib/underwriting/rotation-rebalance.ts`'s `rebalanceContractRotation`):
+link, unlink, flight scope, create-and-link, edit, approval status, a
+manual or makegood placement, a clear, a bump, a line or flight cancelled
+from a date, a revision activated, an auto-fill run (once per contract).
+Each change goes through `log_reassign_underwriting_credit_copy()`
+(`20260927160000_underwriting_copy_rotation.sql`, with
+`log_list_underwriting_credit_rooms()` as its read), which re-checks every
+guard and refuses with a named error; a refusal is skipped, never thrown,
+and the walk never clears a placement. There is no manual "re-rotate"
+action — every case one would fix is a moment the system already knows
+about. The same migration adds the `update` policy `uw_contract_copy`
+never had, so "Set flight" actually takes.
+
+Manual placement and the makegood slot form default to "Next in rotation";
+"Choose a specific message" is a disclosure. A hand-picked approved message
+is a starting point the rotation may re-sequence; only an override pins.
+`underwriting.credit.schedule`'s `copyId` is optional the same way.
+
+Not built, deliberately: weights, fixed day assignments, per-line rotation
+settings, a stored rotation position, lazy assignment at rundown read time,
+a "duplicate into this contract" action. A message for a period or an event
+is effective dates or a flight.

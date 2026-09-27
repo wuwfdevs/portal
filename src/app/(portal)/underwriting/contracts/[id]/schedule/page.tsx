@@ -194,8 +194,8 @@ export default async function ContractSchedulePage({
             error={error ?? null}
             initial={prefillLine?.values}
             continueHref={{
-              href: `/underwriting/contracts/${contract.id}/policy`,
-              label: "Continue to copy & policy",
+              href: `/underwriting/contracts/${contract.id}/copy`,
+              label: "Continue to copy",
             }}
           />
         </div>
