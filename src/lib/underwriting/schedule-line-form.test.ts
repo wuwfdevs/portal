@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compileScheduleLineDemand,
+  formValuesFromScheduleLine,
   parseExplicitDates,
   parseScheduleLineForm,
   parseWeekGrid,
@@ -291,5 +292,93 @@ describe("parseScheduleLineForm", () => {
         values({ days_of_week: [6], start_date: "2026-10-05", end_date: "2026-10-09" }),
       ).ok,
     ).toBe(false);
+  });
+});
+
+describe("formValuesFromScheduleLine", () => {
+  const stored = {
+    label: "AM drive",
+    days_of_week: [1, 3],
+    pool_id: "pool-am",
+    program_id: null,
+    time_mode: "window" as const,
+    window_start: "06:00:00",
+    window_end: "09:00:00",
+    preferred_time: null,
+    max_per_day: 2,
+    service_level: "bonus" as const,
+    duration_seconds: 15,
+    start_date: "2026-10-05",
+    end_date: "2026-12-25",
+    flight_id: "flight-1",
+    stated_total: 24,
+    source_text: "Mon & Wed AM",
+    makegood_policy_text: null,
+    notes: null,
+  };
+
+  it("round-trips a saved line through the parser", () => {
+    // Every kind: what the editor prefills must parse back to the same
+    // spec and buckets the line was saved with.
+    const specs = [
+      { kind: "fixed_days", count_per_day: 2 },
+      { kind: "weekly_quota", quantity: 3 },
+      { kind: "every_n_weeks", interval_weeks: 2, quantity: 1 },
+      { kind: "explicit_dates", dates: [{ date: "2026-10-07", quantity: 2 }] },
+      {
+        kind: "week_grid",
+        weeks: [
+          { week_start: "2026-10-05", quantity: 2 },
+          { week_start: "2026-10-12", quantity: 0 },
+        ],
+      },
+    ] as const;
+    for (const spec of specs) {
+      const values = formValuesFromScheduleLine({
+        ...stored,
+        entry_kind: spec.kind,
+        entry_spec: spec,
+      });
+      const parsed = parseScheduleLineForm(values);
+      expect(parsed.ok, spec.kind).toBe(true);
+      if (!parsed.ok) continue;
+      expect(parsed.value.line.entry_spec).toEqual(spec);
+      expect(parsed.value.line).toMatchObject({
+        label: "AM drive",
+        pool_id: "pool-am",
+        program_id: null,
+        time_mode: "window",
+        window_start: "06:00",
+        window_end: "09:00",
+        max_per_day: 2,
+        service_level: "bonus",
+        duration_seconds: 15,
+        flight_id: "flight-1",
+        stated_total: 24,
+        source_text: "Mon & Wed AM",
+      });
+    }
+  });
+
+  it("trims stored times to HH:MM and blanks nulls", () => {
+    const values = formValuesFromScheduleLine({
+      ...stored,
+      entry_kind: "fixed_days",
+      entry_spec: { kind: "fixed_days", count_per_day: 1 },
+      window_start: null,
+      window_end: null,
+      preferred_time: "07:49:00",
+      max_per_day: null,
+      end_date: null,
+      stated_total: null,
+    });
+    expect(values).toMatchObject({
+      window_start: "",
+      preferred_time: "07:49",
+      max_per_day: "",
+      end_date: "",
+      stated_total: "",
+      count_per_day: "1",
+    });
   });
 });

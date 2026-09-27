@@ -25,7 +25,12 @@
 
 import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 import { isValidDateISO, weekStartOf } from "./dates";
-import { compileDemandBuckets, type CompiledBucket, type EntrySpec } from "./demand-compiler";
+import {
+  compileDemandBuckets,
+  parseEntrySpec,
+  type CompiledBucket,
+  type EntrySpec,
+} from "./demand-compiler";
 
 export interface ScheduleLineFormValues {
   label: string;
@@ -392,4 +397,97 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
       buckets: demand.value.buckets,
     },
   };
+}
+
+/** The stored line fields the editor prefills from — a subset of the uw_contract_schedule_lines row. */
+export interface StoredScheduleLine {
+  label: string;
+  entry_kind: UwScheduleEntryKind;
+  entry_spec: unknown;
+  days_of_week: number[];
+  pool_id: string | null;
+  program_id: string | null;
+  time_mode: UwTimeMode;
+  window_start: string | null;
+  window_end: string | null;
+  preferred_time: string | null;
+  max_per_day: number | null;
+  service_level: UwServiceLevel;
+  duration_seconds: number;
+  start_date: string;
+  end_date: string | null;
+  flight_id: string | null;
+  stated_total: number | null;
+  source_text: string | null;
+  makegood_policy_text: string | null;
+  notes: string | null;
+}
+
+/** Postgres returns a `time` as HH:MM:SS; the editor's <input type="time"> wants HH:MM. */
+function timeInputValue(raw: string | null): string {
+  return raw === null ? "" : raw.slice(0, 5);
+}
+
+/**
+ * The inverse of parseScheduleLineForm() for the editor's prefill: a stored
+ * line back into the form's own values, so editing (2026-09-27) reuses the
+ * create form unchanged. An entry_spec that no longer parses (it never
+ * should — the compiler wrote it) prefills the kind alone.
+ */
+export function formValuesFromScheduleLine(line: StoredScheduleLine): ScheduleLineFormValues {
+  const spec = parseEntrySpec(line.entry_spec);
+  const values: ScheduleLineFormValues = {
+    label: line.label,
+    entry_kind: line.entry_kind,
+    days_of_week: [...line.days_of_week],
+    count_per_day: "",
+    quantity: "",
+    interval_weeks: "",
+    pool_id: line.pool_id ?? "",
+    program_id: line.program_id ?? "",
+    time_mode: line.time_mode,
+    window_start: timeInputValue(line.window_start),
+    window_end: timeInputValue(line.window_end),
+    preferred_time: timeInputValue(line.preferred_time),
+    max_per_day: line.max_per_day === null ? "" : String(line.max_per_day),
+    service_level: line.service_level,
+    duration_seconds: String(line.duration_seconds),
+    start_date: line.start_date,
+    end_date: line.end_date ?? "",
+    flight_id: line.flight_id ?? "",
+    stated_total: line.stated_total === null ? "" : String(line.stated_total),
+    source_text: line.source_text ?? "",
+    makegood_policy_text: line.makegood_policy_text ?? "",
+    notes: line.notes ?? "",
+    explicit_dates: [],
+    week_grid: [],
+  };
+  if (!spec) return values;
+  switch (spec.kind) {
+    case "fixed_days":
+      values.count_per_day = String(spec.count_per_day);
+      break;
+    case "weekly_quota":
+    case "monthly_quota":
+    case "range_total":
+      values.quantity = String(spec.quantity);
+      break;
+    case "every_n_weeks":
+      values.quantity = String(spec.quantity);
+      values.interval_weeks = String(spec.interval_weeks);
+      break;
+    case "explicit_dates":
+      values.explicit_dates = spec.dates.map((entry) => ({
+        date: entry.date,
+        quantity: String(entry.quantity),
+      }));
+      break;
+    case "week_grid":
+      values.week_grid = spec.weeks.map((week) => ({
+        week_start: week.week_start,
+        quantity: String(week.quantity),
+      }));
+      break;
+  }
+  return values;
 }

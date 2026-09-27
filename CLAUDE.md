@@ -1322,6 +1322,22 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Underwriting & Traffic: a schedule line can be edited or removed while
+nothing has scheduled from it (2026-09-27).** Read
+`docs/underwriting-traffic-redesign.md` §11.4; this is a pointer. The setup
+wizard creates a contract's first revision as `current` while the contract
+itself is the draft, so the earlier "remove from a draft revision" gate
+(UI and the delete RLS policy alike) never applied during setup, and no
+edit action existed at all. `lib/underwriting/line-mutability.ts` is the
+one rule — draft contract or draft revision, no placement — mirrored by
+`20260927130000_underwriting_draft_contract_line_delete.sql`; edit is the
+same `ScheduleLineEditor` prefilled by `formValuesFromScheduleLine()` at
+`/contracts/[id]/lines/[lineId]/edit`, posting to `updateScheduleLine`. A
+line with placements is still cancelled from a date, never rewritten. The
+same pass split `parseScheduleLineForm()` into `compileScheduleLineDemand()`
+plus error-collecting eligibility checks so the editor's aside shows the
+count as the dates and days are typed and lists what still blocks a save.
+
 **Underwriting & Traffic: contract setup and the contract page, redesigned
 (2026-09-25).** Read `docs/underwriting-traffic-redesign.md` §11 before
 touching the contracts list, the contract page, or the schedule-line form;

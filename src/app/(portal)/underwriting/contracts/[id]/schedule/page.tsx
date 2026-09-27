@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import {
   getContractDetail,
   listInventoryPools,
 } from "@/lib/underwriting/queries";
+import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { addScheduleLine, removeDraftScheduleLine } from "../../../contract-actions";
 import { ScheduleLineEditor } from "../../../schedule-line-editor";
@@ -16,7 +18,9 @@ import { WizardHeader } from "../wizard-header";
  * (docs/underwriting-traffic-redesign.md §11). Lines already entered under
  * the revision being set up are listed with what they compile to and
  * whether that matches the order; the editor below adds the next one and
- * compiles it live.
+ * compiles it live. Each entered line can be edited or removed while
+ * nothing has scheduled from it (line-mutability.ts) — during setup the
+ * contract itself is the draft, its first revision is already `current`.
  */
 export default async function ContractSchedulePage({
   params,
@@ -47,6 +51,10 @@ export default async function ContractSchedulePage({
   const enterable = contract.revisions.filter(
     (candidate) => candidate.status === "current" || candidate.status === "draft",
   );
+  const rewritable = canRewriteScheduleLine({
+    contractStatus: contract.status,
+    revisionStatus: revision?.status ?? "",
+  });
 
   return (
     <div>
@@ -95,15 +103,23 @@ export default async function ContractSchedulePage({
                       Order says {stated} · compiles to {expected}
                     </Badge>
                   )}
-                  {revision?.status === "draft" && (
-                    <form action={removeDraftScheduleLine}>
-                      <input type="hidden" name="contract_id" value={contract.id} />
-                      <input type="hidden" name="schedule_line_id" value={view.scheduleLine.id} />
-                      <input type="hidden" name="return_to" value="schedule" />
-                      <Button type="submit" variant="ghost">
-                        Remove
-                      </Button>
-                    </form>
+                  {rewritable && (
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/underwriting/contracts/${contract.id}/lines/${view.scheduleLine.id}/edit?return_to=schedule`}
+                        className="inline-flex items-center justify-center rounded px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                      >
+                        Edit
+                      </Link>
+                      <form action={removeDraftScheduleLine}>
+                        <input type="hidden" name="contract_id" value={contract.id} />
+                        <input type="hidden" name="schedule_line_id" value={view.scheduleLine.id} />
+                        <input type="hidden" name="return_to" value="schedule" />
+                        <Button type="submit" variant="ghost">
+                          Remove
+                        </Button>
+                      </form>
+                    </div>
                   )}
                 </li>
               );

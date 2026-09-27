@@ -7,7 +7,11 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { clearCredit } from "@/lib/underwriting/placement";
-import { parseScheduleLineForm } from "@/lib/underwriting/schedule-line-form";
+import {
+  parseScheduleLineForm,
+  type ScheduleLineFormValues,
+} from "@/lib/underwriting/schedule-line-form";
+import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
 import { stationTodayISO } from "@/lib/log/timezone";
@@ -606,16 +610,8 @@ export async function cancelFlight(formData: FormData): Promise<void> {
  * lib/underwriting/schedule-line-form.ts, written under the revision the
  * form named (the current one, or the draft being entered).
  */
-export async function addScheduleLine(formData: FormData): Promise<void> {
-  const { profile } = await assertUnderwritingAccess();
-  const contractId = field(formData, "contract_id");
-  const revisionId = field(formData, "revision_id");
-  // The wizard's schedule step posts return_to=schedule so the staffer stays
-  // on it ("Add and start another"); the contract page posts nothing.
-  const returnTo = field(formData, "return_to") === "schedule" ? "schedule" : null;
-  const path = returnTo ? `${contractPath(contractId)}/schedule` : contractPath(contractId);
-  if (revisionId === "") failWith(path, "Choose which revision the line belongs to.");
-
+/** The editor's posted fields as the parser's values — shared by add and update. */
+function scheduleLineValuesFromForm(formData: FormData): ScheduleLineFormValues {
   // Structured entries (2026-09-25): one row per explicit date, one
   // quantity per Monday for a week grid — see schedule-line-form.ts.
   const explicitDates = formData.getAll("explicit_date").map((date, index) => ({
@@ -628,8 +624,7 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
       week_start: key.slice("week_quantity:".length),
       quantity: String(value).trim(),
     }));
-
-  const parsed = parseScheduleLineForm({
+  return {
     label: field(formData, "label"),
     entry_kind: field(formData, "entry_kind"),
     days_of_week: formData
@@ -656,7 +651,20 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     notes: field(formData, "notes"),
     explicit_dates: explicitDates,
     week_grid: weekGrid,
-  });
+  };
+}
+
+export async function addScheduleLine(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const revisionId = field(formData, "revision_id");
+  // The wizard's schedule step posts return_to=schedule so the staffer stays
+  // on it ("Add and start another"); the contract page posts nothing.
+  const returnTo = field(formData, "return_to") === "schedule" ? "schedule" : null;
+  const path = returnTo ? `${contractPath(contractId)}/schedule` : contractPath(contractId);
+  if (revisionId === "") failWith(path, "Choose which revision the line belongs to.");
+
+  const parsed = parseScheduleLineForm(scheduleLineValuesFromForm(formData));
   if (!parsed.ok) failWith(path, parsed.error);
 
   const supabase = await createClient();
@@ -697,6 +705,101 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
 
   revalidatePath(path);
   redirect(`${path}#line-${data.id}`);
+}
+
+/**
+ * The line, if it may still be rewritten (edited in place or removed
+ * outright): under a draft revision, or on a draft contract, with no
+ * placement referencing it — lib/underwriting/line-mutability.ts. Checked
+ * here as well as by RLS because a delete RLS refuses matches zero rows
+ * with no error, which would otherwise redirect as if it had succeeded.
+ */
+async function requireRewritableLine(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  lineId: string,
+  contractId: string,
+  path: string,
+): Promise<{ id: string; revision_id: string }> {
+  const { data: line, error } = await supabase
+    .from("uw_contract_schedule_lines")
+    .select("id, revision_id, contract_id")
+    .eq("id", lineId)
+    .eq("contract_id", contractId)
+    .maybeSingle();
+  failIfError(error, path, "Could not read the schedule line");
+  if (!line) failWith(path, "That schedule line no longer exists.");
+
+  const [revisionResult, contractResult, placementsResult] = await Promise.all([
+    supabase.from("uw_contract_revisions").select("status").eq("id", line.revision_id).single(),
+    supabase.from("uw_contracts").select("status").eq("id", line.contract_id).single(),
+    supabase
+      .from("uw_scheduled_placements")
+      .select("id", { count: "exact", head: true })
+      .eq("schedule_line_id", line.id)
+      .neq("status", "superseded"),
+  ]);
+  failIfError(revisionResult.error, path, "Could not read the line's revision");
+  failIfError(contractResult.error, path, "Could not read the line's contract");
+  failIfError(placementsResult.error, path, "Could not read the line's placements");
+  if (
+    !canRewriteScheduleLine({
+      contractStatus: contractResult.data?.status ?? "",
+      revisionStatus: revisionResult.data?.status ?? "",
+      placementCount: placementsResult.count ?? 0,
+    })
+  )
+    failWith(
+      path,
+      "This line has scheduled credits behind it. Cancel it from a date and enter the correction as a new line.",
+    );
+  return { id: line.id, revision_id: line.revision_id };
+}
+
+/**
+ * Rewrites a line in place (2026-09-27): the same parse as addScheduleLine,
+ * the row updated and its demand buckets replaced. Only for a line nothing
+ * has scheduled from — requireRewritableLine() — so there is no history
+ * to keep; a line with placements is cancelled from a date instead. The
+ * revision is never changed by an edit.
+ */
+export async function updateScheduleLine(formData: FormData): Promise<void> {
+  await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const lineId = field(formData, "schedule_line_id");
+  const path = returnPath(formData, contractId);
+  const editPath = `${contractPath(contractId)}/lines/${lineId}/edit?return_to=${encodeURIComponent(field(formData, "return_to"))}`;
+
+  const parsed = parseScheduleLineForm(scheduleLineValuesFromForm(formData));
+  if (!parsed.ok) failWith(editPath, parsed.error);
+
+  const supabase = await createClient();
+  await requireRewritableLine(supabase, lineId, contractId, editPath);
+
+  const { entry_spec, ...lineFields } = parsed.value.line;
+  const { error } = await supabase
+    .from("uw_contract_schedule_lines")
+    .update({ ...lineFields, entry_spec })
+    .eq("id", lineId);
+  failIfError(error, editPath, "Could not save the schedule line");
+
+  const { error: clearError } = await supabase
+    .from("uw_demand_buckets")
+    .delete()
+    .eq("schedule_line_id", lineId);
+  failIfError(clearError, editPath, "Saved the line, but could not replace its demand");
+  const { error: bucketError } = await supabase.from("uw_demand_buckets").insert(
+    parsed.value.buckets.map((bucket) => ({
+      schedule_line_id: lineId,
+      period_start: bucket.periodStart,
+      period_end: bucket.periodEnd,
+      quantity_required: bucket.quantity,
+      source_label: bucket.sourceLabel,
+    })),
+  );
+  failIfError(bucketError, editPath, "Saved the line, but could not save its demand");
+
+  revalidatePath(path);
+  redirect(`${path}#line-${lineId}`);
 }
 
 /**
@@ -774,7 +877,7 @@ export async function cancelScheduleLine(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Removes a line from a draft revision outright — nothing has scheduled from a draft, so there is no history to keep (RLS admits the delete only under a draft: 20260925170000). */
+/** Removes a line outright — under a draft revision or on a draft contract, nothing has scheduled from it, so there is no history to keep (RLS admits the delete only then: 20260925170000, 20260927130000). */
 export async function removeDraftScheduleLine(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
@@ -782,6 +885,7 @@ export async function removeDraftScheduleLine(formData: FormData): Promise<void>
   const path = returnPath(formData, contractId);
 
   const supabase = await createClient();
+  await requireRewritableLine(supabase, lineId, contractId, path);
   const { error: bucketError } = await supabase
     .from("uw_demand_buckets")
     .delete()

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import type { UwPlacementStatus } from "@/lib/database.types";
 import { checkCompetitiveAdjacency } from "@/lib/underwriting/adjacency";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
+import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
 import type {
   ContractDetail,
@@ -96,7 +98,10 @@ export function BucketTable({ view }: { view: ScheduleLineDemandView }) {
  * line's name and rule, a delivery bar, and a "⋮" menu holding the
  * less-frequent actions — manual placement, demand by period, placements,
  * cancel from a date, remove from draft. Auto-fill stays a visible button
- * because it is the normal path.
+ * because it is the normal path; so does Edit, for a line nothing has
+ * scheduled from (a draft contract's, or a draft revision's —
+ * line-mutability.ts), since correcting a mistyped line is the normal
+ * path there too.
  */
 export function LineCard({
   view,
@@ -124,6 +129,14 @@ export function LineCard({
   );
   const cancelled = scheduleLine.status === "cancelled";
   const schedulable = isCurrent && !cancelled;
+  const rewritable =
+    !cancelled &&
+    canRewriteScheduleLine({
+      contractStatus: contract.status,
+      revisionStatus: isDraft ? "draft" : "current",
+      placementCount: view.placements.filter((placement) => placement.status !== "superseded")
+        .length,
+    });
   const flightCopy = contract.copy.filter((item) => {
     const scope = flightByCopy.get(item.id) ?? null;
     return scope === null || scope === scheduleLine.flight_id;
@@ -290,16 +303,18 @@ export function LineCard({
       ),
     });
   }
-  if (isDraft) {
+  if (rewritable) {
     panels.push({
       key: "remove",
-      label: "Remove from draft",
+      label: "Remove line",
       variant: "danger",
       content: (
         <form action={removeDraftScheduleLine} className="flex items-center gap-3">
           <input type="hidden" name="contract_id" value={contract.id} />
           <input type="hidden" name="schedule_line_id" value={scheduleLine.id} />
-          <span className="text-xs text-ink-700">Nothing has scheduled from a draft line.</span>
+          <span className="text-xs text-ink-700">
+            Nothing has scheduled from this line, so it goes away with no history to keep.
+          </span>
           <Button type="submit" variant="secondary">
             Remove
           </Button>
@@ -400,6 +415,14 @@ export function LineCard({
               Auto-fill remaining
             </Button>
           </form>
+        )}
+        {rewritable && (
+          <Link
+            href={`/underwriting/contracts/${contract.id}/lines/${scheduleLine.id}/edit`}
+            className="inline-flex items-center justify-center rounded border border-line px-3 py-2 text-[13px] font-bold text-ink-700 hover:bg-panel-50"
+          >
+            Edit
+          </Link>
         )}
         <LineActions
           label={`More actions for ${scheduleLine.label || view.description}`}
