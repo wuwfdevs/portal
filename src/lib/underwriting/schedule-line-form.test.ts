@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  compileScheduleLineDemand,
   parseExplicitDates,
   parseScheduleLineForm,
   parseWeekGrid,
@@ -92,6 +93,26 @@ describe("parseWeekGrid", () => {
   });
 });
 
+describe("compileScheduleLineDemand", () => {
+  it("counts the line from kind, dates, and days alone, before a pool or time rule is chosen", () => {
+    // The editor's aside shows this number while the rest of the row is
+    // still being filled in; eligibility never changes the count.
+    const result = compileScheduleLineDemand(
+      values({ pool_id: "", program_id: "", time_mode: "window", duration_seconds: "" }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.buckets).toHaveLength(5);
+    expect(result.value.entry_spec).toEqual({ kind: "fixed_days", count_per_day: 1 });
+    expect(parseScheduleLineForm(values({ pool_id: "" })).ok).toBe(false);
+  });
+
+  it("still fails fast on the demand's own inputs", () => {
+    expect(compileScheduleLineDemand(values({ days_of_week: [] })).ok).toBe(false);
+    expect(compileScheduleLineDemand(values({ end_date: "" })).ok).toBe(false);
+  });
+});
+
 describe("parseScheduleLineForm", () => {
   it("builds a fixed-days line and its buckets", () => {
     const result = parseScheduleLineForm(values());
@@ -111,6 +132,22 @@ describe("parseScheduleLineForm", () => {
 
   it("requires a pool or a program", () => {
     expect(parseScheduleLineForm(values({ pool_id: "" })).ok).toBe(false);
+  });
+
+  it("reports every remaining problem, the demand's first, in the form's own order", () => {
+    // Days missing (demand), no target, and a window with one end: three
+    // problems, all named, so the editor can list what still blocks a save.
+    const result = parseScheduleLineForm(
+      values({ days_of_week: [], pool_id: "", time_mode: "window", window_start: "05:00" }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toEqual([
+      "Choose the day(s) of the week the credit airs.",
+      "Choose an inventory pool, a program, or both — a line can't be station-wide.",
+      "Give both ends of the time window.",
+    ]);
+    expect(result.error).toBe(result.errors[0]);
   });
 
   it("builds a weekly quota with an optional per-day cap, and every-other-week from an interval", () => {
