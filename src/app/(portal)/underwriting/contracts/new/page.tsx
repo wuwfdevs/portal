@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { listIndustryCategories, listUnderwriters } from "@/lib/underwriting/queries";
 import { createContract } from "../../contract-actions";
 import { createContractFromAgreement } from "../../agreement-import-actions";
@@ -61,28 +62,26 @@ export default async function NewContractPage({
                 .
               </p>
             ) : (
-              <Select
+              <SearchableSelect
                 id="underwriter_id"
                 name="underwriter_id"
                 required
+                placeholder="Type the underwriter's name…"
                 defaultValue={
                   underwriters.some((underwriter) => underwriter.id === preselectedUnderwriterId)
                     ? preselectedUnderwriterId
-                    : ""
+                    : undefined
                 }
-              >
-                <option value="" disabled>
-                  Choose an underwriter…
-                </option>
-                {underwriters.map((underwriter) => (
-                  <option key={underwriter.id} value={underwriter.id}>
-                    {underwriter.name}
-                    {underwriter.category_id && categoryNameById.has(underwriter.category_id)
-                      ? ` · ${categoryNameById.get(underwriter.category_id)}`
-                      : ""}
-                  </option>
-                ))}
-              </Select>
+                options={underwriters.map((underwriter) => ({
+                  id: underwriter.id,
+                  label: underwriter.name,
+                  hint:
+                    underwriter.category_id && categoryNameById.has(underwriter.category_id)
+                      ? categoryNameById.get(underwriter.category_id)
+                      : undefined,
+                }))}
+                emptyMessage="No underwriter by that name — add one below."
+              />
             )}
             <FieldHint>
               Not listed?{" "}

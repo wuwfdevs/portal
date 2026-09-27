@@ -789,6 +789,31 @@ the pool hint now points at `/underwriting/pools?new=1` for a bundle that
 doesn't exist yet rather than the line growing a multi-select that every
 guard would have to mirror.
 
+### 11.5 Deleting a draft, and the underwriter picker (2026-09-27)
+
+Nothing had ever admitted a delete on `uw_contracts` — no policy, no
+action — so a contract created by mistake could only be terminated, a
+status meant for a contract with history behind it. A draft has none:
+placement refuses a non-active contract, so a draft has no placements,
+broadcast events, exceptions or makegoods, and every row that hangs off
+it already cascades. `20260927150000_underwriting_draft_contract_delete.sql`
+adds a delete policy scoped to `status = 'draft'` (the contract-level twin
+of §11.4's draft-line rule); `deleteContract` in `contract-actions.ts`
+checks the status too (a delete RLS refuses matches zero rows silently),
+removes the attached agreement from storage best-effort, and logs
+`underwriting.contract.deleted`. The control is a two-step "Delete this
+draft" danger zone at the foot of the contract page's aside
+(`[id]/delete-contract-control.tsx`), mirroring Academic Partnerships'
+inquiry delete, shown for drafts only. An active, expired or terminated
+contract stays undeletable through the API.
+
+The same day, the order step's underwriter field became a search-to-select
+(`components/ui/searchable-select.tsx`, docs/ui-patterns.md "Pickers"): a
+`<select>` is the wrong interaction for a list that grows with the data
+long before it stops working. The primitive is the rundown builder's
+insertion-point combobox lifted out; the program picker in the schedule
+editor and the copy pickers are the next candidates.
+
 ## 12. Creating a contract from its signed agreement (2026-09-27)
 
 The order step can now start from the signed agreement or insertion order

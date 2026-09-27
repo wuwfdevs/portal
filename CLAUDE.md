@@ -1322,6 +1322,20 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Underwriting & Traffic: a draft contract can be deleted, and pickers
+that grow with the data are search-to-select (2026-09-27).** Read
+`docs/underwriting-traffic-redesign.md` §11.5 and `docs/ui-patterns.md`
+"Pickers"; this is a pointer. `uw_contracts` gained a delete policy scoped
+to drafts (`20260927150000`, applied to both projects), `deleteContract`
+checks the status server-side and removes the attached document, and the
+contract page's aside ends in a two-step "Delete this draft" for drafts
+only — a contract that ran is terminated, never deleted.
+`components/ui/searchable-select.tsx` is the rundown builder's
+insertion-point combobox as a primitive (hidden input for the id, so the
+form stays an ordinary `<form action>`); use it instead of a `<select>` for
+any field whose options grow with the data. First use: the order step's
+underwriter.
+
 **Underwriting & Traffic: a contract can be created from its signed
 agreement (2026-09-27).** Read `docs/underwriting-traffic-redesign.md`
 §12; this is a pointer. The order step's form gained a second submit,

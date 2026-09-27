@@ -31,6 +31,7 @@ import {
 } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
+import { DeleteContractControl } from "./delete-contract-control";
 import { FULFILLMENT_VARIANT, LineCard } from "./line-card";
 import type { UwContractStatus, UwRevisionStatus } from "@/lib/database.types";
 
@@ -1015,6 +1016,13 @@ export default async function ContractDetailPage({
               </form>
             )}
           </div>
+
+          {isDraft && (
+            <DeleteContractControl
+              contractId={contract.id}
+              label={`${contract.underwriter.name} · ${contract.contract_identifier}`}
+            />
+          )}
         </aside>
       </div>
     </div>
