@@ -13,6 +13,11 @@ import { programsPermittedByPool } from "@/lib/underwriting/pool-targets";
 import { addScheduleLine, removeDraftScheduleLine } from "../../../contract-actions";
 import { ScheduleLineEditor } from "../../../schedule-line-editor";
 import { WizardHeader } from "../wizard-header";
+import { AgreementReadingNotes } from "./agreement-reading";
+import {
+  parseAgreementReading,
+  proposeScheduleFromModelOutput,
+} from "@/lib/underwriting/agreement-import";
 
 /**
  * Setup step 2: the order's schedule, one line per printed instruction
@@ -28,10 +33,10 @@ export default async function ContractSchedulePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; prefill?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, prefill } = await searchParams;
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
@@ -56,6 +61,24 @@ export default async function ContractSchedulePage({
     contractStatus: contract.status,
     revisionStatus: revision?.status ?? "",
   });
+
+  // A contract created from its agreement (§12) keeps the model's reading;
+  // the lines it could save are in the list above like any other, and the
+  // rest are listed from the reading — with ?prefill=<index> loading one
+  // into the editor so a partly-right reading is corrected, not retyped.
+  const reading = parseAgreementReading(contract.agreement_reading);
+  const proposal = reading
+    ? proposeScheduleFromModelOutput(reading.output, {
+        pools: pools.map((pool) => ({ id: pool.id, name: pool.name })),
+        programs: programs.map((program) => ({ id: program.id, name: program.name })),
+        flights: contract.flights
+          .filter((flight) => flight.status === "active")
+          .map((flight) => ({ id: flight.id, name: flight.name })),
+      })
+    : null;
+  const prefillIndex = prefill === undefined ? Number.NaN : Number.parseInt(prefill, 10);
+  const prefillLine =
+    proposal && Number.isInteger(prefillIndex) ? proposal.lines[prefillIndex] : undefined;
 
   return (
     <div>
@@ -129,46 +152,53 @@ export default async function ContractSchedulePage({
         )}
       </section>
 
+      {reading && proposal && rewritable && (
+        <AgreementReadingNotes contractId={contract.id} reading={reading} proposal={proposal} />
+      )}
+
       {enterable.length === 0 ? (
         <p className="text-sm text-ink-500">
           This contract has no current or draft revision to add lines to.
         </p>
       ) : (
-        <ScheduleLineEditor
-          contractId={contract.id}
-          revisions={enterable.map((candidate, index) => ({
-            id: candidate.id,
-            label: candidate.revision_label ?? `Revision ${index + 1}`,
-            status: candidate.status,
-          }))}
-          defaultRevisionId={revision?.id ?? enterable[0]!.id}
-          pools={pools
-            .filter((pool) => pool.active)
-            .map((pool) => ({
-              id: pool.id,
-              name: pool.name,
-              hint: pool.targets.length === 0 ? "(no Log mapping yet)" : undefined,
-              programIds: programsPermittedByPool(pool.targets),
+        <div id="line-editor">
+          <ScheduleLineEditor
+            contractId={contract.id}
+            revisions={enterable.map((candidate, index) => ({
+              id: candidate.id,
+              label: candidate.revision_label ?? `Revision ${index + 1}`,
+              status: candidate.status,
             }))}
-          programs={programs.map((program) => ({ id: program.id, name: program.name }))}
-          flights={contract.flights
-            .filter((flight) => flight.status === "active")
-            .map((flight) => ({ id: flight.id, name: flight.name }))}
-          contractStart={contract.effective_from}
-          contractEnd={contract.effective_to}
-          otherLines={views.map((view) => ({
-            label: view.scheduleLine.label || view.description,
-            expected: view.summary.expected,
-          }))}
-          statedTotalSpots={contract.stated_total_spots}
-          action={addScheduleLine}
-          returnTo="schedule"
-          error={error ?? null}
-          continueHref={{
-            href: `/underwriting/contracts/${contract.id}/policy`,
-            label: "Continue to copy & policy",
-          }}
-        />
+            defaultRevisionId={revision?.id ?? enterable[0]!.id}
+            pools={pools
+              .filter((pool) => pool.active)
+              .map((pool) => ({
+                id: pool.id,
+                name: pool.name,
+                hint: pool.targets.length === 0 ? "(no Log mapping yet)" : undefined,
+                programIds: programsPermittedByPool(pool.targets),
+              }))}
+            programs={programs.map((program) => ({ id: program.id, name: program.name }))}
+            flights={contract.flights
+              .filter((flight) => flight.status === "active")
+              .map((flight) => ({ id: flight.id, name: flight.name }))}
+            contractStart={contract.effective_from}
+            contractEnd={contract.effective_to}
+            otherLines={views.map((view) => ({
+              label: view.scheduleLine.label || view.description,
+              expected: view.summary.expected,
+            }))}
+            statedTotalSpots={contract.stated_total_spots}
+            action={addScheduleLine}
+            returnTo="schedule"
+            error={error ?? null}
+            initial={prefillLine?.values}
+            continueHref={{
+              href: `/underwriting/contracts/${contract.id}/policy`,
+              label: "Continue to copy & policy",
+            }}
+          />
+        </div>
       )}
     </div>
   );

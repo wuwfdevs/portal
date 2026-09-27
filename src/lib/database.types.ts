@@ -2058,6 +2058,8 @@ export interface Database {
           underwriter_id: string;
           contract_identifier: string;
           agreement_document_path: string | null;
+          /** The model's reading of the agreement this contract was created from (lib/underwriting/agreement-import.ts's AgreementReading), or null for a hand-entered contract. */
+          agreement_reading: unknown;
           effective_from: string;
           effective_to: string | null;
           status: UwContractStatus;

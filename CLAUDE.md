@@ -488,7 +488,7 @@ new dependency this module adds: `@dnd-kit/core`. Nothing else in this repositor
 drag-and-drop — Editorial Planning's and Audience Listening's own reordering both use
 plain up/down `<button>` forms — but a real kanban board is the one part of this tool's
 UI a button-based alternative would make substantially worse, and `@dnd-kit/core` alone
-(no `@dnd-kit/sortable`) is enough because cards move *between* columns, not to a
+(no `@dnd-kit/sortable`) is enough because cards move _between_ columns, not to a
 position within one. Every card also carries a plain "Move to…" `<select>`, always
 present, never a fallback bolted on for compliance — it is how a keyboard or
 screen-reader user, or anyone on a touch device, moves a card at all. A `tool_access`
@@ -714,7 +714,7 @@ Credit combo's 65s the diagram's own label already named it for — the same
 combined-float-slot modeling Hidden Brain already used, not a new pattern).
 Fresh Air Weekend's floating break had the same undercounted-duration bug
 even more severely (41s instead of 101s), and — more seriously — the
-following Segment B was anchored to the floating window's *latest* bound
+following Segment B was anchored to the floating window's _latest_ bound
 instead of right after the break's actual nominal placement, leaving a real
 379-second hole in the schedule that nothing in the schema catches (a
 `log_schedule` row covering a program doesn't validate that its clock's own
@@ -737,7 +737,7 @@ drawn over the same spot in every one of these clocks, because at lower
 resolution the thin wedge and the thick arrow on top of it were
 indistinguishable. `20260807180000_log_morning_edition_top_of_hour_fix.sql`
 fixes Morning Edition specifically: Newscast 2 ends at 5:40 as already
-recorded, but what follows is Funding Credit (5:40–6:00, 20s) *then* Music
+recorded, but what follows is Funding Credit (5:40–6:00, 20s) _then_ Music
 Bed (6:00–7:30, 90s) — the two prior passes had merged both into one
 110-second "Music Bed" starting at 5:40, which is what prompted the report.
 Re-checking the same junction on a second clock at the same resolution
@@ -982,7 +982,7 @@ by `providers/npr-response.ts` and stored as
 `log_npr_episode_items.duration_seconds`,
 `20260821130000_log_npr_item_durations.sql`) and the episode's item order
 (which the rundown document confirmed IS broadcast order, and whose
-durations track the official per-story timings within ~5s).
+durations track the official per-story timings within ~~5s).
 `lib/log/npr-story-times.ts` (pure, tested — its test file encodes the
 official rundown as a calibration fixture) derives **estimated** air times:
 it packs the stories, in order, into the program clock's lettered segment
@@ -1002,11 +1002,11 @@ WUWF's 5:00 AM CT hour carries HR2) —
 Edition = 5, the one anchor the document confirms) feeds
 `episodeHourOffset()`, and null falls back to shift-aligned. With both
 fixes the derivation reproduces the official rundown segment-for-segment,
-within a minute everywhere. Estimates always render with "~"
+within a minute everywhere. Estimates always render with "~~"
 (`formatStationTimeHM`). Three surfaces consume them: `/log/npr`'s Est.
 air/Length columns (anchored to that program+date's generated rundown —
 no rundown, no time column); the rundown screen's NPR sidebar (the next
-*story segment's* stories by the station's wall clock — revised
+_story segment's_ stories by the station's wall clock — revised
 2026-08-24: it walks break-to-break windows forward from the upcoming
 break and shows the first non-empty one, because scoping to exactly the
 upcoming break's own window was usually empty mid-broadcast and read as
@@ -1179,7 +1179,7 @@ curation guard): RLS admits any member's update, and the trigger alone
 raises unless `private.is_underwriting_manager()` is the one setting
 `resolution_action = 'waive'`. **The corrected read boundary**: Slice 3
 originally scoped `log_broadcast_events_select_for_underwriting` (the read
-side named in Slice 2's own note) to the rundown item's *current*
+side named in Slice 2's own note) to the rundown item's _current_
 `item_kind = 'underwriting_credit'` — caught by a self-review before it
 shipped to production reliance: clearing a placement after its exception
 was already raised (an ordinary reassign) flips `item_kind` back to
@@ -1321,6 +1321,29 @@ cards; `AddFieldFields`/`CriterionFields` render only fields, the card owns
 the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
+
+**Underwriting & Traffic: a contract can be created from its signed
+agreement (2026-09-27).** Read `docs/underwriting-traffic-redesign.md`
+§12; this is a pointer. The order step's form gained a second submit,
+"Create from the agreement": the uploaded PDF/PNG/JPEG goes through one
+strict-schema model call (`lib/underwriting/agreement-ai-import.ts`,
+server-only, native file input — signed originals are often scans), what
+the staffer typed wins over the reading (`mergeOrderFacts()`), the draft
+contract is created through `lib/underwriting/contract-writes.ts`'s
+`createDraftContractWithRevision()` (now shared with `createContract`), and
+every read line that compiles is saved as an ordinary draft line through
+`lib/underwriting/schedule-line-writes.ts`'s `insertScheduleLineWithBuckets()`
+(now shared with `addScheduleLine`) — reviewed, edited and removed on the
+schedule step like any other, with **no separate review UI**. Underwriters,
+pools and programs are enums of the names on file; a sponsor not on file is
+refused by name, never created from a document. The reading is kept on the
+contract (`uw_contracts.agreement_reading`, jsonb, applied to both projects)
+only so the schedule step can list the lines that could _not_ be saved,
+with "Enter" prefilling the editor from the reading (`?prefill=`). The eval
+(`npm run eval:agreement`, `scripts/agreement-eval/`) compares a reading to
+the insertion-order corpus's own transcription; its fixture PDFs are the
+Drive originals named in `fixtures/index.ts` and are not committed, so the
+reader has not yet run against a real document.
 
 **Underwriting & Traffic: a schedule line can be edited or removed while
 nothing has scheduled from it (2026-09-27).** Read
@@ -1526,13 +1549,13 @@ duplicate.
 (`required`/`optional`/`host_fillable`) conflated the network's own
 published structure with WUWF's local-substitution decisions. Every slot in
 every clock seeded so far was `fill_mode = 'required'`
-— there was never a real host-fillable *network slot* in this data, because
+— there was never a real host-fillable _network slot_ in this data, because
 a WUWF local opportunity (a music-bed cover, a longer story substitution) is
 not a property of one network segment. It's WUWF's own overlay on an
 accurate network clock, and it routinely spans several segments — Morning
 Edition's real ~29:30–34:00 local-story window covers a cross-promo tail, a
 Music Bed, and both Newscast 3 and 4, four network slots for one WUWF
-opportunity. `20260808120000_log_local_opportunities.sql` splits this: 
+opportunity. `20260808120000_log_local_opportunities.sql` splits this:
 `log_clock_slots` goes back to describing only network structure (every
 fillability column dropped, along with `log_slot_fill_mode`/
 `log_slot_assignment_mode`), and `log_local_opportunities` is new — WUWF's
@@ -1693,7 +1716,7 @@ redesign above shipped.** Two separate real bugs, one migration
    just one: `lib/log/rundown-generation.ts`'s `selectMissingBreakDrafts`
    now compares parsed instants (`new Date(...).getTime()`), and the
    migration adds a real `unique (rundown_id, local_opportunity_id,
-   scheduled_at)` constraint that both `generateRundown()`'s and
+scheduled_at)` constraint that both `generateRundown()`'s and
    `syncRundownBreaks()`'s inserts now write through as
    `upsert(..., { onConflict, ignoreDuplicates: true })` — so a duplicate
    is impossible at the database level regardless of what application code
@@ -1748,7 +1771,7 @@ fix. The console originally shipped read-only against the plan: aired,
 missed, move, and nothing else, on the assumption that "building" happens
 in the builder and the console only "executes" what's already there. That
 assumption was wrong — a solo host at a small station is routinely deciding
-what fills an open avail *while on air*, not always executing a plan
+what fills an open avail _while on air_, not always executing a plan
 someone finished building ahead of time. Fixed by sharing the builder's own
 fill actions (`fillRundownItem`/`createLiveReadItem`/`addWeatherItem` in
 `rundown-actions.ts`) with the console instead of duplicating or rebuilding
@@ -1784,7 +1807,7 @@ now"), its items render through the same card layout as every other break
 system — the current break's separate larger-type CopyDisplay view was
 removed 2026-08-24), and the three
 mid-broadcast actions (aired/missed/move) appear on any unconfirmed item in
-*any* break, not only the current one — the whole show being visible at
+_any_ break, not only the current one — the whole show being visible at
 once is what makes "full context and control," the actual goal, mean
 something. Before live, the sidebar's status panel shows a "Start
 broadcast" button; once live, it shows the wrap-up/submit panel. `console-
@@ -1800,7 +1823,7 @@ button with its own form next to the ordinary content picker read as an
 arbitrary inconsistency to a host — "why isn't this just in the list?" It
 should be, and now is: `WEATHER_ITEM_SENTINEL`
 (`lib/log/content-library.ts`) is a plain string value included as an
-option in the *same* `<select>` the eligible content items populate, and
+option in the _same_ `<select>` the eligible content items populate, and
 `fillRundownItem` (`rundown-actions.ts`) branches on that sentinel before
 falling through to the ordinary `buildRundownItem` capability call for a
 real content item. The underlying write still differs, because it has to —
@@ -1837,7 +1860,7 @@ The shipped version needs no new action at all: `lib/log/timing.ts`'s new
 `computeBreakStatuses` (whole-rundown, spillover-aware, superseding the old
 single-break-only `computeBreakStatus` as what `computeRundownSummary` and
 the builder/console screen actually call) treats a break that runs over its
-own `available_duration_seconds` as covering the *immediately following*
+own `available_duration_seconds` as covering the _immediately following_
 break for free, as long as that next break is empty, `optional`, and starts
 exactly at the first break's `network_rejoin_at` (no gap) and its own
 `available_duration_seconds` is enough to absorb the overage. That covered
@@ -1854,10 +1877,10 @@ this was built for); chaining further is a straightforward follow-up to
 `computeBreakStatuses` if a real case needs it, not something to
 speculatively build now. No migration — purely a computed read, the same
 "pure, tested, not stored state" discipline the rest of the timing engine
-follows. *Superseded by the 2026-08-10 rework below; the current rules and
+follows. _Superseded by the 2026-08-10 rework below; the current rules and
 a worked example (a four-minute story across Morning Edition's 29:30
 window) are in `docs/log-design.md` §6, "Overruns and content that spans
-several breaks".*
+several breaks"._
 
 **Underwriting & Traffic: the automatic rules-based scheduler has landed
 (2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
@@ -1865,8 +1888,8 @@ more real contract patterns beyond the reference agreement; now authorized
 and built against that same one agreement, since no others have surfaced
 yet to check it against. No migration: the design doc's own §6 already
 committed to this shape — "manual placement and the eventual automatic
-scheduler produce the *same* `uw_scheduled_placements`/`log_rundown_items`
-rows through the *same* `log_place_underwriting_credit()` function" — so
+scheduler produce the _same_ `uw_scheduled_placements`/`log_rundown_items`
+rows through the _same_ `log_place_underwriting_credit()` function" — so
 this is purely an application-layer planner sitting in front of the
 existing write path, never a new one.
 `lib/underwriting/auto-fill-plan.ts` (pure, tested) plans an assignment of
@@ -1915,7 +1938,7 @@ message does not run adjacent to a business with similar services or
 products," with a real conflict category of "Lawyers" — as a rule that
 should already be enforced here if it wasn't. It wasn't: the existing
 competitive-adjacency check (`lib/underwriting/adjacency.ts`) is a
-program-wide *advisory* a human sees on the manual placement form and
+program-wide _advisory_ a human sees on the manual placement form and
 decides what to do with (design doc §6: "never a block"); auto-fill has no
 human in the loop at the moment it places a credit, so the same concern
 needed to be an enforced rule there instead. "Back to back" is scoped to
@@ -1929,7 +1952,7 @@ a new one could ever be adjacent to); `lib/underwriting/queries.ts`'s
 `resolveLastItemAdjacency()` resolves that id to an underwriter/category
 through this tool's own `uw_scheduled_placements` (a copy row alone can't
 identify the underwriter, since `uw_contract_copy` is many-to-many — a
-specific *placement* is what pins one). `planAutoFill()` now takes each
+specific _placement_ is what pins one). `planAutoFill()` now takes each
 break's last-item underwriter/category plus the current schedule line's
 own, and skips (tries the next break for the same demand) rather than
 placing whenever either would run back to back. One schedule line's own
@@ -1980,7 +2003,7 @@ the schedule line's own `target_time` (converted to station-local minutes
 via `lib/log/timezone.ts`, since `target_time` is a plain wall-clock value
 and `scheduled_at` is UTC) — and any day the line already has an active
 placement on is dropped outright, so a makegood or a later run's fresh
-occurrence always lands on a *different* day rather than stacking a second
+occurrence always lands on a _different_ day rather than stacking a second
 credit onto one already spoken for. No migration; this is app-layer demand
 shaping in front of the same unchanged write path. The 8 wrongly-placed
 credits this produced against the real contract were cleared from preview
@@ -2024,7 +2047,7 @@ longer as its own independent sizing pass.
 pass that fills, not sized by a second, independent computation.** The
 first cut of provisioning ran as a separate pre-pass — walk every
 remaining matching day through the line's own `end_date`, generate a
-rundown for each missing one, *then* run the ordinary fill planner against
+rundown for each missing one, _then_ run the ordinary fill planner against
 the result. Direct pushback caught the real flaw: "rundowns should be
 created as underwriting credits are scheduled against them," and this
 shape wasn't that — "how much inventory to create" and "how much demand
@@ -2035,14 +2058,14 @@ the same day (a per-break-vs-per-day mismatch, then an ignored
 provisioning_returns_breaks.sql` (widens `log_generate_rundown_for_
 underwriting()` to return the breaks it just inserted, avoiding a second
 read) and a restructured `autoFillScheduleLine()`
-(`lib/underwriting/auto-fill.ts`): it now calls `planAutoFill()` *twice* —
+(`lib/underwriting/auto-fill.ts`): it now calls `planAutoFill()` _twice_ —
 a cheap, in-memory **probe** against whatever inventory already exists,
 which sizes exactly how many requests it's still short
 (`remaining = totalRequests - probePlan.items.length`); then, only if
 `remaining > 0` and the line has a bounded campaign and at least one
 approved copy (no point generating inventory nothing could ever fill),
 `lib/underwriting/rundown-provisioning.ts`'s renamed
-`provisionRundownsForDates()` generates *exactly* `remaining` additional
+`provisionRundownsForDates()` generates _exactly_ `remaining` additional
 days (stopping the moment it reaches that count, skipping an unschedulable
 date without counting it) walking `remainingOccurrenceDates()`'s own
 output, excluding dates the probe already had inventory for; a second,
@@ -2074,7 +2097,7 @@ still generated a rundown for all 25 remaining Tuesdays before discovering
 each one was useless, producing "generated 99 rundowns... placed 75
 credits... more are still needed" with no explanation, and leaving 25
 empty rundowns behind as clutter. Fixed by checking, before generating,
-whether the resolved clock version has *any* local opportunity permitting
+whether the resolved clock version has _any_ local opportunity permitting
 `underwriting_credit` — if not, the date is reported as unschedulable
 immediately, the same bucket as "no schedule entry" or "no clock version
 in effect," and no rundown is written. The 25 empty ATC rundowns this
@@ -2253,7 +2276,7 @@ also return active opportunity assignments and the content items they
 reference (`20260810130000_log_opportunity_assignment_placement_boundary.sql`),
 and a new `log_insert_rundown_items_for_underwriting()` writes whatever
 `planAssignedContentPlacements` computes in TS past RLS — nothing about
-*what* to place is decided in SQL, only the read and the write cross the
+_what_ to place is decided in SQL, only the read and the write cross the
 boundary. That same migration's first version of the widened
 `log_get_program_schedule_context()` shipped a real regression, caught
 immediately while verifying the feature end to end against preview before
@@ -2357,12 +2380,12 @@ first hypothesis — `lib/log/mid-broadcast.ts`'s
 `isValidCreditRelocationDestination()` carrying the same "reject a
 destination already in the past, when live" gate `isValidMoveDestination()`
 applies to ordinary content moves — was real (see below) but turned out not
-to be what the user hit: they saw the failure *before* clicking "Start
+to be what the user hit: they saw the failure _before_ clicking "Start
 broadcast," when the rundown isn't live and that gate is never even
 evaluated. Reproducing the exact case directly against production (`select
 log_relocate_underwriting_credit(...)` inside a rolled-back transaction,
 impersonating the reporting host's own `auth.uid()`) found the real cause:
-the credit lived on a program-log-*imported* rundown
+the credit lived on a program-log-_imported_ rundown
 (`log_rundowns.source = 'imported'`), and every one of its
 `underwriting_credit` items had **no `uw_scheduled_placements` row at all** —
 exactly the placement-less state the program-log import's own design
@@ -2373,7 +2396,7 @@ relocation.sql`, last replaced by `20260809170000_log_local_opportunities_
 slot_based.sql`) never accounted for that state: it required a placement
 row unconditionally and returned `unknown_placement` otherwise — before
 ever even looking at the destination break. That made relocation fail for
-*every* imported credit, on *every* destination, live or not — matching the
+_every_ imported credit, on _every_ destination, live or not — matching the
 report exactly once the "before Start broadcast" detail ruled out the live
 gate. Fixed by `20260827120000_log_relocate_unplaced_underwriting_credit.sql`:
 the `uw_scheduled_placements` lookup is now optional — a credit with no
@@ -2385,7 +2408,7 @@ success, item's `break_id` actually changed) — applied to both projects,
 recorded in `APPLIED.md`, `db:check` passes.
 
 The first hypothesis was still worth fixing in its own right, since it's a
-real, separate bug for the *live*-broadcast case: `isValidCreditRelocationDestination()`'s
+real, separate bug for the _live_-broadcast case: `isValidCreditRelocationDestination()`'s
 "already in the past, when live" gate is self-defeating for a credit —
 this relocation path exists specifically so a host can recover from a
 missed credit or fix an exception mid-broadcast (see the 2026-08-09
@@ -2428,7 +2451,7 @@ printout, not a scan, and standing up a Storage round trip to maybe-OCR a
 case that shouldn't occur isn't worth it yet). Getting characters out of a
 container format is low-risk and mechanical regardless of who reads the
 result afterward, so there was no reason to keep two different bespoke
-per-format row-parsers when the *interpretation* step was moving to AI
+per-format row-parsers when the _interpretation_ step was moving to AI
 anyway. **Interpretation — which row is a program start vs. an ordinary
 fill vs. an avail marker, how many credits are bundled into one script, who
 each one is for — is real judgment a fixed pattern can't reliably make**,
@@ -2443,7 +2466,7 @@ less: **verbatim scripts** and **closed-set underwriter matching**. The
 model is never asked to retype a credit's script — only to copy a short
 opening and closing phrase from the source text, which
 `program-log-verification.ts`'s `extractVerifiedSpan` (pure, tested) then
-locates with plain substring search and slices from the *original* text;
+locates with plain substring search and slices from the _original_ text;
 an unlocatable phrase drops that credit with a warning rather than being
 trusted. Underwriter attribution is a JSON-schema enum of the existing
 underwriter names plus a literal `"NEW"` escape hatch, not free-text
@@ -2492,9 +2515,9 @@ could not be found in the source text and was skipped"), while the
 credits scheduled inside those same breaks mostly still came through.
 Root cause: `program-log-verification.ts`'s `verifyAndResolveEvents`
 originally located every row with one search position shared across the
-*entire* array, advancing monotonically as each row verified — which only
+_entire_ array, advancing monotonically as each row verified — which only
 works if the model reports rows in exact document order. An avail marker
-and the credit that fills it print the *identical* timestamp on adjacent
+and the credit that fills it print the _identical_ timestamp on adjacent
 lines, and the model doesn't reliably preserve document order for that
 pair (describing "this credit airs in this break" before the break itself
 is a very natural thing for it to do). Reporting the credit first let the
@@ -2507,14 +2530,14 @@ request the model can and does deviate from — so treating the array's
 emitted order as reliable positional ground truth was never sound.
 
 Fixed by making every row resolve independently of array order and of any
-other row: `findRowIndex` finds *every* occurrence of a row's printed
+other row: `findRowIndex` finds _every_ occurrence of a row's printed
 time, then — only when the time repeats — disambiguates using that row's
 own printed description, checked against the same line the time occurred
 on (both text extractors put one row on one line). This has to be
 line-scoped rather than "within N characters": an avail marker and its
 same-time credit sit only a few dozen characters apart, so a merely-nearby
 window is wide enough to match either row's description against the
-*other* row's timestamp, defeating the disambiguation in exactly the case
+_other_ row's timestamp, defeating the disambiguation in exactly the case
 it exists for. A softer nearest-match-within-window fallback covers text
 that isn't cleanly one-row-per-line (real for the PDF path). The returned
 event list is also now explicitly sorted by time before being handed to
@@ -2531,7 +2554,7 @@ otherwise), each refresh re-running the page's ~15 Supabase reads, about
 3,000 requests an hour from one open tab. Nothing on that screen needs a
 15-second tick: NPR and weather are allowed to be 15/30 minutes old by
 their own thresholds, a host's own aired/missed taps re-render immediately
-through the action, and a *second* viewer's taps can lag minutes. The one
+through the action, and a _second_ viewer's taps can lag minutes. The one
 thing the short tick genuinely did was advance the server-computed live
 state (current-break highlight, timing badge, the "coming up" NPR window),
 and that changes only at knowable instants — a break's start, the
@@ -2542,7 +2565,7 @@ between them) lists exactly those, and `LogPoller` now takes them as
 `refreshAtISO`, arming a one-shot timer for the next one
 (`nextRefreshDelayMs`, with a grace period past the boundary and a floor so
 a skewed clock can't tight-loop) under a 5-minute fallback interval — so the
-highlight moves *at* the boundary instead of up to 15s late, at a fraction
+highlight moves _at_ the boundary instead of up to 15s late, at a fraction
 of the requests. `/log/npr` (was 20s) and `/log/weather` (was 60s) got the
 same 5-minute fallback. The countdowns and station clock were already
 client-side ticks and are unchanged. The compute-tier problem itself is a
@@ -2640,8 +2663,8 @@ the rest with a warning. This is deliberately narrower than deduping by
 underwriter+label+cart — `script` is always a verbatim excerpt of the
 source (never model-generated), so an exact match at the same instant can
 only mean the same words were located twice, not two different credits
-that happen to share attribution; a *later* re-airing of the identical
-copy at a *different* time is untouched, since that's real repeated demand
+that happen to share attribution; a _later_ re-airing of the identical
+copy at a _different_ time is untouched, since that's real repeated demand
 across the day that `program-log-plan.ts`'s own airings count still needs
 to see. A "credit"-kind row emptied entirely by this drop is removed
 outright (it has nothing left to contribute, and its own warning already
@@ -2793,7 +2816,7 @@ the first real test.
 **Log: program-log import — the export's script prevails, and the preview
 is laid out by what needs review (2026-09-22, from the first real preview
 of the rebuilt importer).** Every "script differs from the library's" flag
-on that preview turned out to be the *library* being wrong — copy rows
+on that preview turned out to be the _library_ being wrong — copy rows
 carrying text glued across line breaks by the pre-2026-08-28 Word
 extractor, and one holding two credits merged by the pre-AI parser — while
 the import reused those rows untouched and hosts read the damaged text on
@@ -2851,7 +2874,7 @@ alignment.ts` (pure, tested) now aligns the model's breaks onto the
 program's clock at preview time: every marked opportunity gets its normal
 break; an export break starting at a slot goes into that slot's break —
 the opportunity's if marked, otherwise a break with the slot's own clock
-times (the export prevails on *whether* something airs there, never on
+times (the export prevails on _whether_ something airs there, never on
 the window); the export's own window is used only where the clock has no
 avail-sized slot; empty export avails create nothing. The executor writes
 exactly the aligned breaks and refuses a clock version that changed since

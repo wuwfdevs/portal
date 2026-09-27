@@ -4,7 +4,14 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { listIndustryCategories, listUnderwriters } from "@/lib/underwriting/queries";
 import { createContract } from "../../contract-actions";
+import { createContractFromAgreement } from "../../agreement-import-actions";
 import { WizardHeader } from "../[id]/wizard-header";
+
+// Creating from the agreement (§12) sends the upload through the model,
+// which can run past a Server Action's default budget; raised here, on the
+// page, the same way the program-log import page does it — never in the
+// actions file itself (see CLAUDE.md's Sourcework Phase 3b note).
+export const maxDuration = 300;
 
 /**
  * Step 1 of contract setup: the order itself (docs/underwriting-traffic-
@@ -12,6 +19,15 @@ import { WizardHeader } from "../[id]/wizard-header";
  * and continues to the schedule step; nothing schedules until step 4
  * activates it. The traffic-policy fields the old inline form asked here
  * moved to step 3, where they sit beside the copy they govern.
+ *
+ * The same form has two ways out (docs/underwriting-traffic-redesign.md
+ * §12): "Continue to schedule" with the fields typed by hand, or "Create
+ * from the agreement" with the signed document chosen — the model reads
+ * it, whatever was typed wins over the reading, and every line that
+ * compiles lands on the schedule step as an ordinary draft line. The
+ * second button skips the browser's required-field checks (formNoValidate)
+ * because the document supplies what was left blank; the action refuses a
+ * reading that leaves the underwriter or the start date unknown.
  */
 export default async function NewContractPage({
   searchParams,
@@ -142,8 +158,35 @@ export default async function NewContractPage({
           <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
             <Button type="submit">Continue to schedule</Button>
             <span className="text-xs text-ink-500">
-              The signed order is attached on the review step, once the contract exists.
+              With the fields above as typed. The signed order can be attached on the review step
+              once the contract exists.
             </span>
+          </div>
+
+          <div className="rounded border border-line bg-panel-50 px-5 py-4">
+            <Label htmlFor="agreement_file">Or start from the signed agreement</Label>
+            <Input
+              id="agreement_file"
+              name="agreement_file"
+              type="file"
+              accept="application/pdf,image/png,image/jpeg"
+            />
+            <FieldHint>
+              Upload the signed order or agreement (PDF, or a photo as PNG/JPEG) and it is read into
+              the order&apos;s facts and its schedule lines for you to review. Anything typed above
+              takes precedence over the reading; leave blank whatever the document should fill. The
+              underwriter must already be on file.
+            </FieldHint>
+            <div className="mt-3">
+              <Button
+                type="submit"
+                variant="secondary"
+                formAction={createContractFromAgreement}
+                formNoValidate
+              >
+                Create from the agreement
+              </Button>
+            </div>
           </div>
         </form>
 

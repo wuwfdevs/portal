@@ -356,7 +356,7 @@ to
   month, every N weeks, explicit dates, a week grid, a range total — for
   display and recompilation only. Nothing schedules from them.
 - **`uw_demand_buckets`** — `(schedule_line_id, period_start, period_end,
-  quantity_required, status active|superseded|cancelled, source_label)`.
+quantity_required, status active|superseded|cancelled, source_label)`.
   A day, a Monday week, a calendar month, or the whole range. A dark grid
   week is a real row with quantity 0. Active buckets of one line never
   overlap (`uw_guard_bucket_overlap`). The scheduler asks one question:
@@ -558,7 +558,7 @@ automation and stay unrestricted. Enforced twice, in the twin pattern:
 - SQL: `uw_automation_block(break, rundown)` returns `rundown_frozen`,
   `break_in_past` or null. `log_place_underwriting_credit()` and
   `log_clear_underwriting_credit()` gained `p_automated boolean default
-  false` (the old signatures dropped, so a caller passing five or one
+false` (the old signatures dropped, so a caller passing five or one
   arguments still resolves) and refuse with that code when it is true;
   `log_bump_underwriting_credit()` is always automation;
   `log_generate_rundown_for_underwriting()` refuses a date before
@@ -746,9 +746,9 @@ Six shared primitives came out of the boards (`components/ui`):
 
 First real use of the wizard found that a line, once added, could only be
 added to — not corrected. There was no edit action for a schedule line at
-all, and the Remove button on the schedule step was gated on the *revision*
+all, and the Remove button on the schedule step was gated on the _revision_
 being a draft, while `createContract` makes a contract's first revision
-`current` at once (the *contract* is the draft). The delete policy
+`current` at once (the _contract_ is the draft). The delete policy
 (`20260925170000`) had the same gate, so on a fresh contract a mistyped
 line could be neither edited nor removed; the only path was "cancel from a
 date", which is the mechanism for a line with history behind it.
@@ -773,7 +773,7 @@ now checks the rule server-side too: a delete RLS refuses matches zero
 rows with no error, which would otherwise have redirected as a success.
 
 The same day, the pool and program selects were made to agree with the
-guard. A line naming both is their *intersection* —
+guard. A line naming both is their _intersection_ —
 `log_place_underwriting_credit()` and `log_list_placeable_rundown_breaks()`
 each check the program and the pool in turn — so "AM Drive" plus a
 program the pool never targets saved cleanly and could never place. The
@@ -783,8 +783,113 @@ a target with no program, or a pool with no targets yet, leaves the list
 unrestricted), clears a program the newly chosen pool excludes, and the
 add and update actions refuse a non-overlapping pair
 (`requirePoolProgramOverlap`). A line still holds one pool and one
-program, deliberately: the pool *is* the multi-program mechanism (about
+program, deliberately: the pool _is_ the multi-program mechanism (about
 85 of the archive's ~95 lines name a pool, none a list of programs), so
 the pool hint now points at `/underwriting/pools?new=1` for a bundle that
 doesn't exist yet rather than the line growing a multi-select that every
 guard would have to mirror.
+
+## 12. Creating a contract from its signed agreement (2026-09-27)
+
+The order step can now start from the signed agreement or insertion order
+itself: upload the document, and one model call reads it into the order's
+facts and its schedule lines, which land as an ordinary draft. The shape
+is the program-log importer's — a native file to the Responses API, one
+strict-schema answer, closed sets as enums — with one difference in how
+the reading is checked: not a reviewed digest recorded after the fact but
+the corpus of §2 and §9.5, which a person already read from the same
+originals.
+
+### 12.1 Shape
+
+`/contracts/new` keeps its form and gains a second way out. "Continue to
+schedule" creates the contract from the fields as typed, as before. "Create
+from the agreement" (`agreement-import-actions.ts`'s
+`createContractFromAgreement`, the form's second submit, `formNoValidate`
+so the document can supply what was left blank) sends the chosen file
+through `lib/underwriting/agreement-ai-import.ts` (server-only): a PDF as
+`input_file`, a PNG or JPEG as `input_image`, since a signed original is
+often a scan and Sourcework's text extraction would read nothing from one.
+There are no lookup tools — the closed sets the reading needs (the
+underwriters, pools and programs on file) ride in the schema as enums, the
+underwriter with a `NEW` escape. The answer is the order's facts (sponsor,
+order number, run dates, what is sponsored, totals, the policy flags, the
+separation and preemption language verbatim), its flights, one line per
+printed instruction in the schedule editor's own vocabulary, the
+instructions it could not express, and notes.
+
+`lib/underwriting/agreement-import.ts` (pure, tested) is the schema and
+everything done with the answer. `mergeOrderFacts()` gives what the
+staffer typed precedence and fills the rest from the reading; it refuses a
+sponsor nobody has added (with the name, so the staffer adds them and
+uploads again) rather than minting an underwriter from a document, and a
+missing order number gets a placeholder and a warning. The draft contract
+and its first revision are created through
+`lib/underwriting/contract-writes.ts`'s `createDraftContractWithRevision()`,
+extracted from `createContract` so both paths make the same rows; the
+document is stored at the same per-contract path the Policy tab's upload
+uses (the contract's id is minted before the insert so the path exists
+first). `proposeScheduleFromModelOutput()` turns each read line into
+`ScheduleLineFormValues`, the editor's own posted values, run through the
+same `parseScheduleLineForm()` a manual entry goes through; every line
+that compiles is written through `lib/underwriting/schedule-line-writes.ts`'s
+`insertScheduleLineWithBuckets()`, extracted from `addScheduleLine`, with
+any flight the order names created first. One
+`underwriting.contract.created_from_agreement` audit event, then the
+schedule step.
+
+There is no separate review surface. The saved lines are draft lines in
+the schedule step's own "Lines entered" list, with the compiled-vs-printed
+badge and Edit / Remove under §11.4's rule; a staffer corrects one in the
+same editor or continues. What the schedule step adds is the part that
+could _not_ be saved: the reading is kept on the contract
+(`uw_contracts.agreement_reading`, `20260927140000_underwriting_contract_
+agreement_reading.sql` — the raw answer, each line's outcome, the
+document path, the merge's warnings), and the step's "From the agreement"
+section (`schedule/agreement-reading.tsx`) lists a line whose reading the
+parser refused with its error and an "Enter" link that prefills the
+editor from it (`?prefill=<index>`), so what the model got right is kept
+rather than retyped; the instructions the model could not express; and
+its notes. Nothing in the reading is read by placement or auto-fill.
+
+### 12.2 Decisions
+
+- **The draft is the staging area.** A first cut listed the reading in a
+  panel with a checkbox per line and an "add the ticked lines" action.
+  That duplicated the schedule step's own list and the editor's own
+  feedback, and its failure mode for a line that didn't compile was
+  "enter by hand" — the partial reading thrown away. Saving straight in
+  costs nothing (a draft schedules nothing) and every correction happens
+  in the one editor.
+- **Transcribe, don't correct.** The prompt says so outright: a date that
+  doesn't fall on the weekday the order names, per-line counts that don't
+  add to the total, are kept as printed and noted — they surface as the
+  review warnings §2 already asks for, not as a model's silent repair.
+- **What was typed wins.** The order step's fields stay usable with the
+  upload: a staffer who knows the order number or the dates types them and
+  the reading fills the rest. Nothing the document says overwrites a typed
+  value.
+- **`separation_policy` stays `unspecified`.** The separation text is
+  carried verbatim, never interpreted, per §5.
+- **Copy is not read.** The order may print the credit's script; the model
+  is told to mention that in notes. Copy is the policy step's job.
+- **A missing length is assumed, and said so.** Most WUWF credits are :30;
+  a line the order prints no length for gets 30s with a warning, since the
+  parser requires one and the line can be edited.
+- **The reading happens once, at creation.** A contract entered by hand
+  and given its document later is not re-read: the read is tied to the
+  upload that creates the contract, so lines are never doubled by a second
+  pass.
+
+### 12.3 Eval
+
+`scripts/agreement-eval/` (`npm run eval:agreement`) runs the documents in
+its `fixtures/` folder through the live call and compares each reading,
+line for line, to the corpus transcription in
+`fixtures/insertion-orders.ts` — rule, days, pool, program, time mode and
+times, cap, service level, dates, printed count — plus the order facts and
+whether the sponsor was matched to the name on file. The PDFs are the
+signed originals on WUWF's Drive, named per fixture in
+`fixtures/index.ts`, and are added by hand: none are committed with this
+pass, so the first run is the first real test of the reader, the same
+position the program-log importer's rebuild was in on 2026-09-22.
