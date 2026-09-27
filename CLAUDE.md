@@ -1322,22 +1322,24 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
-**Underwriting & Traffic: a draft contract's schedule can be read from its
-attached agreement (2026-09-27).** Read
-`docs/underwriting-traffic-redesign.md` §12; this is a pointer. The
-schedule step's "From the agreement" section sends the contract's attached
-PDF/PNG/JPEG (`agreement_document_path`) through one strict-schema model
-call (`lib/underwriting/agreement-ai-import.ts`, server-only, native file
-input — signed originals are often scans) and shows the reading for review:
-each line as the editor's own `ScheduleLineFormValues`, parsed by the same
-`parseScheduleLineForm()` a hand entry goes through and badged with what it
-compiles to against the printed count. `lib/underwriting/agreement-import.ts`
-(pure, tested) is the schema and the conversion; pools and programs are
-enums of the names on file, and anything else the order sells lands in
-"unresolved". Applying re-parses server-side and writes through
-`lib/underwriting/schedule-line-writes.ts`'s `insertScheduleLineWithBuckets()`,
-now shared with `addScheduleLine`; order facts are proposed only where the
-contract is blank and never overwrite an entry. The eval
+**Underwriting & Traffic: a contract can be created from its signed
+agreement (2026-09-27).** Read `docs/underwriting-traffic-redesign.md`
+§12; this is a pointer. The order step's form gained a second submit,
+"Create from the agreement": the uploaded PDF/PNG/JPEG goes through one
+strict-schema model call (`lib/underwriting/agreement-ai-import.ts`,
+server-only, native file input — signed originals are often scans), what
+the staffer typed wins over the reading (`mergeOrderFacts()`), the draft
+contract is created through `lib/underwriting/contract-writes.ts`'s
+`createDraftContractWithRevision()` (now shared with `createContract`), and
+every read line that compiles is saved as an ordinary draft line through
+`lib/underwriting/schedule-line-writes.ts`'s `insertScheduleLineWithBuckets()`
+(now shared with `addScheduleLine`) — reviewed, edited and removed on the
+schedule step like any other, with **no separate review UI**. Underwriters,
+pools and programs are enums of the names on file; a sponsor not on file is
+refused by name, never created from a document. The reading is kept on the
+contract (`uw_contracts.agreement_reading`, jsonb, applied to both projects)
+only so the schedule step can list the lines that could _not_ be saved,
+with "Enter" prefilling the editor from the reading (`?prefill=`). The eval
 (`npm run eval:agreement`, `scripts/agreement-eval/`) compares a reading to
 the insertion-order corpus's own transcription; its fixture PDFs are the
 Drive originals named in `fixtures/index.ts` and are not committed, so the

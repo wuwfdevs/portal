@@ -1,353 +1,235 @@
 "use server";
 
-// "Read the schedule from the agreement" (docs/underwriting-traffic-
-// redesign.md §12): two Server Actions for the schedule step. The first
-// reads the contract's attached agreement through the model and returns a
-// proposal — the lines as the schedule editor's own values, each already
-// parsed and compiled, plus order facts and anything unresolved — writing
-// nothing. The second writes the lines a staffer ticked, through the same
-// parser and the same insert a hand-entered line goes through. Both return
-// plain results for the client component (contracts/[id]/schedule/
-// agreement-import.tsx) rather than redirecting, the same non-redirecting
-// shape the program-log import uses, since the proposal round-trips through
-// the client. The proposal's values travel back as JSON, so applying
-// re-parses every line and re-checks access: a tampered proposal can't
-// write anything the session couldn't already write by hand.
+// Creating a contract from its signed agreement (docs/underwriting-traffic-
+// redesign.md §12): the order step's second submit. The uploaded document
+// goes through one model call (lib/underwriting/agreement-ai-import.ts);
+// what the staffer typed on the step wins and the reading fills the rest
+// (mergeOrderFacts); the draft contract is created through the same helper
+// createContract uses, the document is stored where the Policy tab's
+// upload would have put it, and every read line that compiles is saved
+// through the same parser and insert a hand-entered line goes through. The
+// reading itself is kept on the contract (agreement_reading) so the
+// schedule step can list what could NOT be saved and prefill the editor
+// from it. Lands on the schedule step, where the saved lines are reviewed
+// like any other: edited, removed, or left alone.
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
+import { failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { readAgreementWithAI } from "@/lib/underwriting/agreement-ai-import";
 import {
+  mergeOrderFacts,
   proposeScheduleFromModelOutput,
-  type AgreementProposal,
-  type OrderUpdateField,
-  type ProposedFlight,
+  type AgreementReading,
+  type AgreementReadingLineOutcome,
+  type TypedOrderFields,
 } from "@/lib/underwriting/agreement-import";
-import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
+import { createDraftContractWithRevision } from "@/lib/underwriting/contract-writes";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
-import { getContractDetail, listInventoryPools } from "@/lib/underwriting/queries";
-import {
-  parseScheduleLineForm,
-  type ScheduleLineFormValues,
-} from "@/lib/underwriting/schedule-line-form";
+import { listInventoryPools, listUnderwriters } from "@/lib/underwriting/queries";
+import { parseScheduleLineForm } from "@/lib/underwriting/schedule-line-form";
 import { insertScheduleLineWithBuckets } from "@/lib/underwriting/schedule-line-writes";
-import { isValidDateISO } from "@/lib/underwriting/dates";
-import type { Database } from "@/lib/database.types";
 
-/** The uw_contracts columns an order fact may write — the whitelist orderUpdateColumn() narrows to. */
-type ContractOrderColumns = Pick<
-  Database["public"]["Tables"]["uw_contracts"]["Update"],
-  | "effective_from"
-  | "effective_to"
-  | "stated_total_spots"
-  | "sponsorship_total"
-  | "affidavit_required"
-  | "makegood_requires_agency_approval"
-  | "separation_source_text"
-  | "preemption_policy"
->;
-
+const NEW_CONTRACT_PATH = "/underwriting/contracts/new";
 const CONTRACT_DOCUMENTS_BUCKET = "underwriting-documents";
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
-export type ProposeResult =
-  { ok: true; proposal: AgreementProposal; revisionId: string } | { ok: false; error: string };
+const CONTENT_TYPES: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+};
 
-function contentTypeForPath(path: string): string | null {
-  const lower = path.toLowerCase();
+function field(formData: FormData, name: string): string {
+  return String(formData.get(name) ?? "").trim();
+}
+
+/** The upload's content type from its declared type or, failing that, its name — the same three types the Policy tab's upload accepts. */
+function documentContentType(file: File): string | null {
+  if (file.type in CONTENT_TYPES) return file.type;
+  const lower = file.name.toLowerCase();
   if (lower.endsWith(".pdf")) return "application/pdf";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   return null;
 }
 
-/** The revision the schedule step is entering lines under: a draft when one is open, else the current one. */
-function targetRevision(contract: NonNullable<Awaited<ReturnType<typeof getContractDetail>>>) {
-  return contract.draftRevision ?? contract.currentRevision;
-}
+export async function createContractFromAgreement(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
 
-export async function proposeScheduleFromAgreement(contractId: string): Promise<ProposeResult> {
-  await assertUnderwritingAccess();
-  const contract = await getContractDetail(contractId);
-  if (!contract) return { ok: false, error: "That contract no longer exists." };
-  if (!contract.agreement_document_path)
-    return { ok: false, error: "Attach the signed agreement first, on the Policy tab." };
-  const revision = targetRevision(contract);
-  if (!revision) return { ok: false, error: "This contract has no revision to add lines to." };
-  if (!canRewriteScheduleLine({ contractStatus: contract.status, revisionStatus: revision.status }))
-    return {
-      ok: false,
-      error:
-        "Lines can only be read in while the contract is a draft, or into a draft revision — this schedule already schedules credits.",
-    };
-
-  const contentType = contentTypeForPath(contract.agreement_document_path);
+  const file = formData.get("agreement_file");
+  if (!(file instanceof File) || file.size === 0)
+    failWith(NEW_CONTRACT_PATH, "Choose the signed agreement to read (PDF, PNG, or JPEG).");
+  if (file.size > MAX_UPLOAD_BYTES)
+    failWith(NEW_CONTRACT_PATH, "That file is too large to be an agreement (10 MB at most).");
+  const contentType = documentContentType(file);
   if (!contentType)
-    return { ok: false, error: "The attached agreement isn't a PDF, PNG, or JPEG." };
+    failWith(NEW_CONTRACT_PATH, "That file type isn't supported. Use PDF, PNG, or JPEG.");
 
-  const supabase = await createClient();
-  const { data: file, error: downloadError } = await supabase.storage
-    .from(CONTRACT_DOCUMENTS_BUCKET)
-    .download(contract.agreement_document_path);
-  if (downloadError || !file) {
-    console.error("Could not download the contract document", downloadError);
-    return { ok: false, error: "Could not read the attached agreement from storage." };
-  }
+  const typed: TypedOrderFields = {
+    underwriter_id: field(formData, "underwriter_id"),
+    contract_identifier: field(formData, "contract_identifier"),
+    effective_from: field(formData, "effective_from"),
+    effective_to: field(formData, "effective_to"),
+    sponsorship_total: field(formData, "sponsorship_total"),
+    sponsorship_category: field(formData, "sponsorship_category"),
+    notes: field(formData, "notes"),
+  };
 
-  const [pools, programs] = await Promise.all([listInventoryPools(), listProgramOptions()]);
+  const [underwriters, pools, programs] = await Promise.all([
+    listUnderwriters(),
+    listInventoryPools(),
+    listProgramOptions(),
+  ]);
   const activePools = pools.filter((pool) => pool.active);
-  const activeFlights = contract.flights.filter((flight) => flight.status === "active");
+  const typedUnderwriter = underwriters.find((entry) => entry.id === typed.underwriter_id) ?? null;
 
+  const bytes = new Uint8Array(await file.arrayBuffer());
   const read = await readAgreementWithAI({
-    document: {
-      bytes: new Uint8Array(await file.arrayBuffer()),
-      filename: contract.agreement_document_path.split("/").pop() ?? "agreement",
-      contentType,
-    },
+    document: { bytes, filename: file.name, contentType },
+    underwriterNames: underwriters.map((entry) => entry.name),
     poolNames: activePools.map((pool) => pool.name),
     programNames: programs.map((program) => program.name),
-    contract: {
-      underwriterName: contract.underwriter.name,
-      contractIdentifier: contract.contract_identifier,
-      effectiveFrom: contract.effective_from,
-      effectiveTo: contract.effective_to,
+    typed: {
+      underwriterName: typedUnderwriter?.name ?? null,
+      contractIdentifier: typed.contract_identifier || null,
+      effectiveFrom: typed.effective_from || null,
+      effectiveTo: typed.effective_to || null,
     },
   });
-  if (!read.ok) return read;
+  if (!read.ok) failWith(NEW_CONTRACT_PATH, read.error);
 
+  const facts = mergeOrderFacts(
+    typed,
+    read.output.order,
+    underwriters.map((entry) => ({ id: entry.id, name: entry.name })),
+  );
+  if (!facts.ok) failWith(NEW_CONTRACT_PATH, facts.error);
+
+  // The contract's id is minted here so the document can be stored at the
+  // same per-contract path the Policy tab's upload uses before the row
+  // exists — an orphaned object if the insert then fails is harmless and
+  // overwritten by the next attempt's upsert.
+  const supabase = await createClient();
+  const contractId = crypto.randomUUID();
+  const documentPath = `${contractId}/agreement.${CONTENT_TYPES[contentType]}`;
+  const { error: uploadError } = await supabase.storage
+    .from(CONTRACT_DOCUMENTS_BUCKET)
+    .upload(documentPath, bytes, { contentType, upsert: true });
+  if (uploadError) {
+    console.error("Could not store the uploaded agreement", uploadError);
+    failWith(NEW_CONTRACT_PATH, `Could not store the agreement: ${uploadError.message}`);
+  }
+
+  const created = await createDraftContractWithRevision(supabase, profile.id, {
+    ...facts.value,
+    id: contractId,
+    agreement_document_path: documentPath,
+  });
+  if (!created.ok) failWith(NEW_CONTRACT_PATH, created.error);
+
+  // Every read line that compiles becomes an ordinary draft line; the
+  // outcome per line is kept so the schedule step can list the rest.
   const proposal = proposeScheduleFromModelOutput(read.output, {
     pools: activePools.map((pool) => ({ id: pool.id, name: pool.name })),
     programs: programs.map((program) => ({ id: program.id, name: program.name })),
-    flights: activeFlights.map((flight) => ({ id: flight.id, name: flight.name })),
-    contract: {
-      effective_from: contract.effective_from,
-      effective_to: contract.effective_to,
-      stated_total_spots: contract.stated_total_spots,
-      sponsorship_total: contract.sponsorship_total,
-      affidavit_required: contract.affidavit_required,
-      makegood_requires_agency_approval: contract.makegood_requires_agency_approval,
-      separation_source_text: contract.separation_source_text,
-      preemption_policy: contract.preemption_policy,
-    },
+    flights: [],
   });
-  return { ok: true, proposal, revisionId: revision.id };
-}
-
-export interface ApplyLineInput {
-  values: ScheduleLineFormValues;
-  /** A flight to create first, when the order names one the contract doesn't have. */
-  newFlight: ProposedFlight | null;
-}
-
-export interface ApplyOrderUpdateInput {
-  field: OrderUpdateField;
-  value: string | number | boolean;
-}
-
-export interface ApplyAgreementInput {
-  contractId: string;
-  revisionId: string;
-  lines: ApplyLineInput[];
-  orderUpdates: ApplyOrderUpdateInput[];
-}
-
-export type ApplyResult =
-  | { ok: true; linesAdded: number; flightsCreated: number; orderFieldsUpdated: number }
-  | { ok: false; error: string };
-
-const ORDER_UPDATE_FIELDS: OrderUpdateField[] = [
-  "effective_from",
-  "effective_to",
-  "stated_total_spots",
-  "sponsorship_total",
-  "affidavit_required",
-  "makegood_requires_agency_approval",
-  "separation_source_text",
-  "preemption_policy",
-];
-
-/** The typed column write for one proposed order fact, or null when the value isn't the shape the column takes. */
-function orderUpdateColumn(update: ApplyOrderUpdateInput): ContractOrderColumns | null {
-  switch (update.field) {
-    case "effective_from":
-    case "effective_to":
-      return typeof update.value === "string" && isValidDateISO(update.value)
-        ? { [update.field]: update.value }
-        : null;
-    case "stated_total_spots":
-      return typeof update.value === "number" && Number.isInteger(update.value) && update.value >= 0
-        ? { stated_total_spots: update.value }
-        : null;
-    case "sponsorship_total":
-      return typeof update.value === "number" && Number.isFinite(update.value)
-        ? { sponsorship_total: update.value }
-        : null;
-    case "affidavit_required":
-    case "makegood_requires_agency_approval":
-      return update.value === true ? { [update.field]: true } : null;
-    case "separation_source_text":
-    case "preemption_policy":
-      return typeof update.value === "string" && update.value.trim() !== ""
-        ? { [update.field]: update.value.trim() }
-        : null;
-  }
-}
-
-export async function applyAgreementProposal(input: ApplyAgreementInput): Promise<ApplyResult> {
-  const { profile } = await assertUnderwritingAccess();
-  const contract = await getContractDetail(input.contractId);
-  if (!contract) return { ok: false, error: "That contract no longer exists." };
-  const revision = contract.revisions.find((candidate) => candidate.id === input.revisionId);
-  if (!revision || (revision.status !== "current" && revision.status !== "draft"))
-    return { ok: false, error: "Lines can only be added to the current revision or a draft." };
-  if (!canRewriteScheduleLine({ contractStatus: contract.status, revisionStatus: revision.status }))
-    return {
-      ok: false,
-      error: "This schedule already schedules credits — enter changes as a revision instead.",
-    };
-  if (input.lines.length === 0 && input.orderUpdates.length === 0)
-    return { ok: false, error: "Nothing was selected." };
-
-  // Parse everything before writing anything, so a bad line stops the whole
-  // batch rather than leaving half of it in.
-  const parsedLines = input.lines.map((line, index) => ({
-    index,
-    parsed: parseScheduleLineForm(line.values),
-    newFlight: line.newFlight,
-  }));
-  const failed = parsedLines.find((line) => !line.parsed.ok);
-  if (failed && !failed.parsed.ok)
-    return {
-      ok: false,
-      error: `Line ${failed.index + 1} can't be saved as read: ${failed.parsed.error}`,
-    };
-
-  const supabase = await createClient();
-
-  // The pool/program intersection rule the editor and addScheduleLine both
-  // enforce: a line naming a program its pool never targets could never place.
-  const poolIds = [
-    ...new Set(
-      parsedLines.flatMap((line) =>
-        line.parsed.ok && line.parsed.value.line.pool_id && line.parsed.value.line.program_id
-          ? [line.parsed.value.line.pool_id]
-          : [],
-      ),
-    ),
-  ];
-  if (poolIds.length > 0) {
-    const { data: targets, error } = await supabase
-      .from("uw_inventory_pool_targets")
-      .select("pool_id, program_id")
-      .in("pool_id", poolIds);
-    if (error) return { ok: false, error: "Could not read the pools' targets." };
-    for (const line of parsedLines) {
-      if (!line.parsed.ok) continue;
-      const { pool_id, program_id } = line.parsed.value.line;
-      if (!pool_id || !program_id) continue;
-      const poolTargets = (targets ?? []).filter((target) => target.pool_id === pool_id);
-      if (!poolPermitsProgram(poolTargets, program_id))
-        return {
-          ok: false,
-          error: `Line ${line.index + 1} names a program its pool never places into — pick one or the other, then add it by hand.`,
-        };
-    }
-  }
-
-  // Flights the order names that the contract doesn't have yet, one row each
-  // however many lines share it; an existing flight of the same name is reused.
-  const flightIdByName = new Map(
-    contract.flights
-      .filter((flight) => flight.status === "active")
-      .map((flight) => [flight.name.trim().toLowerCase(), flight.id]),
-  );
+  const poolTargets = new Map(activePools.map((pool) => [pool.id, pool.targets]));
+  const flightIdByName = new Map<string, string>();
+  const outcomes: AgreementReadingLineOutcome[] = [];
+  let linesSaved = 0;
   let flightsCreated = 0;
-  for (const line of parsedLines) {
-    const flight = line.newFlight;
-    if (!flight) continue;
-    const key = flight.name.trim().toLowerCase();
-    if (key === "" || flightIdByName.has(key)) continue;
-    if (
-      !isValidDateISO(flight.start_date) ||
-      !isValidDateISO(flight.end_date) ||
-      flight.end_date < flight.start_date
-    )
-      return { ok: false, error: `The flight "${flight.name}" has no usable dates.` };
-    const { data, error } = await supabase
-      .from("uw_contract_flights")
-      .insert({
-        contract_id: contract.id,
-        name: flight.name.trim(),
-        start_date: flight.start_date,
-        end_date: flight.end_date,
-        created_by: profile.id,
-      })
-      .select("id")
-      .single();
-    if (error || !data)
-      return { ok: false, error: `Could not create the flight "${flight.name}".` };
-    flightIdByName.set(key, data.id);
-    flightsCreated += 1;
-  }
 
-  let linesAdded = 0;
-  for (const line of parsedLines) {
-    if (!line.parsed.ok) continue;
-    const flightId = line.newFlight
-      ? (flightIdByName.get(line.newFlight.name.trim().toLowerCase()) ?? null)
-      : line.parsed.value.line.flight_id;
+  for (const line of proposal.lines) {
+    const parsed = parseScheduleLineForm(line.values);
+    if (!parsed.ok) {
+      outcomes.push({ saved: false, error: parsed.error });
+      continue;
+    }
+    const { pool_id, program_id } = parsed.value.line;
+    if (pool_id && program_id && !poolPermitsProgram(poolTargets.get(pool_id) ?? [], program_id)) {
+      outcomes.push({
+        saved: false,
+        error: "The pool never places into that program — keep one or the other.",
+      });
+      continue;
+    }
+
+    let flightId = parsed.value.line.flight_id;
+    if (line.newFlight) {
+      const key = line.newFlight.name.toLowerCase();
+      if (!flightIdByName.has(key)) {
+        const { data, error } = await supabase
+          .from("uw_contract_flights")
+          .insert({
+            contract_id: contractId,
+            name: line.newFlight.name,
+            start_date: line.newFlight.start_date,
+            end_date: line.newFlight.end_date,
+            created_by: profile.id,
+          })
+          .select("id")
+          .single();
+        if (error || !data) {
+          console.error("Could not create a flight the agreement names", error);
+          outcomes.push({
+            saved: false,
+            error: `Could not create the flight "${line.newFlight.name}" this line belongs to.`,
+          });
+          continue;
+        }
+        flightIdByName.set(key, data.id);
+        flightsCreated += 1;
+      }
+      flightId = flightIdByName.get(key) ?? null;
+    }
+
     const inserted = await insertScheduleLineWithBuckets(
       supabase,
-      { contractId: contract.id, revisionId: revision.id, createdBy: profile.id },
-      { ...line.parsed.value, line: { ...line.parsed.value.line, flight_id: flightId } },
+      { contractId, revisionId: created.revisionId, createdBy: profile.id },
+      { ...parsed.value, line: { ...parsed.value.line, flight_id: flightId } },
     );
-    if (!inserted.ok)
-      return {
-        ok: false,
-        error: `${inserted.error} (${linesAdded} of ${parsedLines.length} lines were added before this.)`,
-      };
-    linesAdded += 1;
+    if (!inserted.ok) {
+      outcomes.push({ saved: false, error: inserted.error });
+      continue;
+    }
+    outcomes.push({ saved: true, error: null });
+    linesSaved += 1;
   }
 
-  let orderFieldsUpdated = 0;
-  const columns: ContractOrderColumns = {};
-  for (const update of input.orderUpdates) {
-    if (!ORDER_UPDATE_FIELDS.includes(update.field)) continue;
-    const column = orderUpdateColumn(update);
-    if (column) {
-      Object.assign(columns, column);
-      orderFieldsUpdated += 1;
-    }
-  }
-  if (orderFieldsUpdated > 0) {
-    const { error } = await supabase.from("uw_contracts").update(columns).eq("id", contract.id);
-    if (error) {
-      console.error("Could not update the contract's order facts", error);
-      return {
-        ok: false,
-        error: `Added ${linesAdded} lines, but could not update the order's facts: ${error.message}`,
-      };
-    }
-  }
+  const reading: AgreementReading = {
+    version: 1,
+    read_at: new Date().toISOString(),
+    document_path: documentPath,
+    output: read.output,
+    lines: outcomes,
+    warnings: facts.warnings,
+  };
+  const { error: readingError } = await supabase
+    .from("uw_contracts")
+    .update({ agreement_reading: JSON.parse(JSON.stringify(reading)) })
+    .eq("id", contractId);
+  if (readingError) console.error("Could not keep the agreement reading", readingError);
 
   await logAuditEvent({
     actorId: profile.id,
-    action: "underwriting.contract.schedule_read_from_agreement",
+    action: "underwriting.contract.created_from_agreement",
     targetType: "uw_contract",
-    targetId: contract.id,
+    targetId: contractId,
     metadata: {
-      revision_id: revision.id,
-      lines_added: linesAdded,
+      document_path: documentPath,
+      lines_read: proposal.lines.length,
+      lines_saved: linesSaved,
       flights_created: flightsCreated,
-      order_fields_updated: Object.keys(columns),
+      unresolved: proposal.unresolved.length,
     },
   });
 
-  const base = `/underwriting/contracts/${contract.id}`;
-  revalidatePath(base);
-  revalidatePath(`${base}/schedule`);
   revalidatePath("/underwriting/contracts");
-  return { ok: true, linesAdded, flightsCreated, orderFieldsUpdated };
+  redirect(`/underwriting/contracts/${contractId}/schedule`);
 }

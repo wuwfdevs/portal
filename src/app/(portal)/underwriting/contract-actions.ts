@@ -13,6 +13,7 @@ import {
 } from "@/lib/underwriting/schedule-line-form";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { insertScheduleLineWithBuckets } from "@/lib/underwriting/schedule-line-writes";
+import { createDraftContractWithRevision } from "@/lib/underwriting/contract-writes";
 import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
@@ -188,45 +189,27 @@ export async function createContract(formData: FormData): Promise<void> {
     sponsorshipTotalRaw === null ? null : Number.parseFloat(sponsorshipTotalRaw);
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("uw_contracts")
-    .insert({
-      underwriter_id: underwriterId,
-      contract_identifier: contractIdentifier,
-      effective_from: effectiveFrom,
-      effective_to: optionalField(formData, "effective_to"),
-      affidavit_required: formData.get("affidavit_required") === "on",
-      sponsorship_category: optionalField(formData, "sponsorship_category"),
-      sponsorship_total:
-        sponsorshipTotal !== null && Number.isFinite(sponsorshipTotal) ? sponsorshipTotal : null,
-      stated_total_spots: optionalInt(formData, "stated_total_spots"),
-      preemption_policy: optionalField(formData, "preemption_policy"),
-      makegood_requires_agency_approval: formData.get("makegood_requires_agency_approval") === "on",
-      separation_source_text: optionalField(formData, "separation_source_text"),
-      notes: optionalField(formData, "notes"),
-      created_by: profile.id,
-    })
-    .select("id")
-    .single();
-  failIfError(error, NEW_CONTRACT_PATH, "Could not create the contract");
-  if (!data) failWith(NEW_CONTRACT_PATH, "Could not create the contract.");
-
-  const { error: revisionError } = await supabase.from("uw_contract_revisions").insert({
-    contract_id: data.id,
-    revision_label: "Original order",
+  const created = await createDraftContractWithRevision(supabase, profile.id, {
+    underwriter_id: underwriterId,
+    contract_identifier: contractIdentifier,
     effective_from: effectiveFrom,
-    received_at: stationTodayISO(),
-    status: "current",
-    activated_at: new Date().toISOString(),
-    activated_by: profile.id,
-    created_by: profile.id,
+    effective_to: optionalField(formData, "effective_to"),
+    affidavit_required: formData.get("affidavit_required") === "on",
+    sponsorship_category: optionalField(formData, "sponsorship_category"),
+    sponsorship_total:
+      sponsorshipTotal !== null && Number.isFinite(sponsorshipTotal) ? sponsorshipTotal : null,
+    stated_total_spots: optionalInt(formData, "stated_total_spots"),
+    preemption_policy: optionalField(formData, "preemption_policy"),
+    makegood_requires_agency_approval: formData.get("makegood_requires_agency_approval") === "on",
+    separation_source_text: optionalField(formData, "separation_source_text"),
+    notes: optionalField(formData, "notes"),
   });
-  failIfError(revisionError, NEW_CONTRACT_PATH, "Created the contract but not its first revision");
+  if (!created.ok) failWith(NEW_CONTRACT_PATH, created.error);
 
   // A new contract is a draft: the next step is its schedule (the wizard's
   // step 2), not the contract page.
   revalidatePath(CONTRACTS_LIST_PATH);
-  redirect(`${contractPath(data.id)}/schedule`);
+  redirect(`${contractPath(created.id)}/schedule`);
 }
 
 const CONTRACT_STATUSES: UwContractStatus[] = ["draft", "active", "expired", "terminated"];

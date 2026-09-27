@@ -56,13 +56,16 @@ describe.skipIf(!ready)("agreement reading against the insertion-order corpus", 
       const bytes = new Uint8Array(readFileSync(path.join(FIXTURES_DIR, doc.file)));
       const read = await readAgreementWithAI({
         document: { bytes, filename: doc.file, contentType: "application/pdf" },
+        underwriterNames: [doc.underwriterName],
         poolNames: POOL_NAMES,
         programNames: PROGRAM_NAMES,
-        contract: {
-          underwriterName: doc.underwriterName,
-          contractIdentifier: doc.contractIdentifier,
-          effectiveFrom: order.effective_from,
-          effectiveTo: order.effective_to,
+        // What a staffer would have typed before uploading: nothing — the
+        // document is the only source, which is what the eval measures.
+        typed: {
+          underwriterName: null,
+          contractIdentifier: null,
+          effectiveFrom: null,
+          effectiveTo: null,
         },
       });
       if (!read.ok) throw new Error(read.error);
@@ -71,16 +74,6 @@ describe.skipIf(!ready)("agreement reading against the insertion-order corpus", 
         pools: POOL_NAMES.map((name) => ({ id: name, name })),
         programs: PROGRAM_NAMES.map((name) => ({ id: name, name })),
         flights: [],
-        contract: {
-          effective_from: order.effective_from,
-          effective_to: order.effective_to,
-          stated_total_spots: null,
-          sponsorship_total: null,
-          affidavit_required: false,
-          makegood_requires_agency_approval: false,
-          separation_source_text: null,
-          preemption_policy: null,
-        },
       });
 
       const actual = digestProposal(proposal, read.output.order);
@@ -93,6 +86,8 @@ describe.skipIf(!ready)("agreement reading against the insertion-order corpus", 
       const expected = digestFixture(order);
       expect(actual.lines).toEqual(expected.lines);
       expect(actual.order).toEqual(expected.order);
+      // The document should name the sponsor on file, not a new one.
+      expect(read.output.order.underwriter).toBe(doc.underwriterName);
     });
   }
 });

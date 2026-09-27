@@ -789,84 +789,107 @@ the pool hint now points at `/underwriting/pools?new=1` for a bundle that
 doesn't exist yet rather than the line growing a multi-select that every
 guard would have to mirror.
 
-## 12. Reading the schedule from the attached agreement (2026-09-27)
+## 12. Creating a contract from its signed agreement (2026-09-27)
 
-A draft contract's schedule step can now propose its lines from the signed
-agreement or insertion order already attached to the contract
-(`agreement_document_path`), instead of a staffer retyping each printed
-instruction into the editor. The shape is the program-log importer's, with
-one difference: the check on the model's reading is not a reviewed digest
-recorded after the fact but the corpus of §2 and §9.5, which a person
-already read from the same originals.
+The order step can now start from the signed agreement or insertion order
+itself: upload the document, and one model call reads it into the order's
+facts and its schedule lines, which land as an ordinary draft. The shape
+is the program-log importer's — a native file to the Responses API, one
+strict-schema answer, closed sets as enums — with one difference in how
+the reading is checked: not a reviewed digest recorded after the fact but
+the corpus of §2 and §9.5, which a person already read from the same
+originals.
 
 ### 12.1 Shape
 
-`lib/underwriting/agreement-ai-import.ts` (server-only) sends the document
-to the Responses API as a native file — a PDF as `input_file`, a PNG or
-JPEG as `input_image`, since a signed original is often a scan and
-Sourcework's text extraction would read nothing from one — and gets back
-one strict-schema answer: the order's facts, its flights, one line per
+`/contracts/new` keeps its form and gains a second way out. "Continue to
+schedule" creates the contract from the fields as typed, as before. "Create
+from the agreement" (`agreement-import-actions.ts`'s
+`createContractFromAgreement`, the form's second submit, `formNoValidate`
+so the document can supply what was left blank) sends the chosen file
+through `lib/underwriting/agreement-ai-import.ts` (server-only): a PDF as
+`input_file`, a PNG or JPEG as `input_image`, since a signed original is
+often a scan and Sourcework's text extraction would read nothing from one.
+There are no lookup tools — the closed sets the reading needs (the
+underwriters, pools and programs on file) ride in the schema as enums, the
+underwriter with a `NEW` escape. The answer is the order's facts (sponsor,
+order number, run dates, what is sponsored, totals, the policy flags, the
+separation and preemption language verbatim), its flights, one line per
 printed instruction in the schedule editor's own vocabulary, the
-instructions it could not express, and notes. There are no lookup tools:
-the closed sets a line needs are small enough to ride in the schema, and
-the underwriter is the contract's. `lib/underwriting/agreement-import.ts`
-(pure, tested) builds that schema — pools and programs as enums of the
-names on file, null the only way off the list, so "Carpool" resolves to the
-station's own pool rather than a new name — and converts the answer into
-`ScheduleLineFormValues`, the editor's posted values, run through the same
-`parseScheduleLineForm()` a manual entry goes through. The existing parser
-is the validator; the compiled count against the line's own printed total
-and the order's is the reconciliation, the same badge the schedule step
-already shows.
+instructions it could not express, and notes.
 
-The schedule step's "From the agreement" section
-(`contracts/[id]/schedule/agreement-import.tsx`) shows the proposal for
-review: each line with what it compiles to, its source text quoted, the
-parser's errors where a reading doesn't compile (that line is unticked
-and disabled — "enter by hand"), and warnings (a pool or program the
-document names that isn't on file, a length the order didn't print and
-the default assumed, a per-line total that disagrees); the order facts the
-document states that the contract doesn't have yet, each with its own
-checkbox; the facts where the document and the contract disagree, listed
-and never applied; and the unresolved instructions and notes. "Add the
-ticked lines" (`agreement-import-actions.ts`'s `applyAgreementProposal`)
-re-parses every line server-side — the proposal round-trips through the
-client, so nothing in it is trusted — creates any flight the order names
-that the contract lacks, writes each line through the same
-`insertScheduleLineWithBuckets()` (`lib/underwriting/schedule-line-writes.ts`,
-extracted from `addScheduleLine`) a hand-entered line uses, applies the
-ticked order facts through a typed whitelist, and logs one
-`underwriting.contract.schedule_read_from_agreement` audit event. What
-lands is an ordinary draft line, editable and removable under §11.4's
-rule; the action refuses a schedule that already schedules credits, the
-same rule.
+`lib/underwriting/agreement-import.ts` (pure, tested) is the schema and
+everything done with the answer. `mergeOrderFacts()` gives what the
+staffer typed precedence and fills the rest from the reading; it refuses a
+sponsor nobody has added (with the name, so the staffer adds them and
+uploads again) rather than minting an underwriter from a document, and a
+missing order number gets a placeholder and a warning. The draft contract
+and its first revision are created through
+`lib/underwriting/contract-writes.ts`'s `createDraftContractWithRevision()`,
+extracted from `createContract` so both paths make the same rows; the
+document is stored at the same per-contract path the Policy tab's upload
+uses (the contract's id is minted before the insert so the path exists
+first). `proposeScheduleFromModelOutput()` turns each read line into
+`ScheduleLineFormValues`, the editor's own posted values, run through the
+same `parseScheduleLineForm()` a manual entry goes through; every line
+that compiles is written through `lib/underwriting/schedule-line-writes.ts`'s
+`insertScheduleLineWithBuckets()`, extracted from `addScheduleLine`, with
+any flight the order names created first. One
+`underwriting.contract.created_from_agreement` audit event, then the
+schedule step.
+
+There is no separate review surface. The saved lines are draft lines in
+the schedule step's own "Lines entered" list, with the compiled-vs-printed
+badge and Edit / Remove under §11.4's rule; a staffer corrects one in the
+same editor or continues. What the schedule step adds is the part that
+could _not_ be saved: the reading is kept on the contract
+(`uw_contracts.agreement_reading`, `20260927140000_underwriting_contract_
+agreement_reading.sql` — the raw answer, each line's outcome, the
+document path, the merge's warnings), and the step's "From the agreement"
+section (`schedule/agreement-reading.tsx`) lists a line whose reading the
+parser refused with its error and an "Enter" link that prefills the
+editor from it (`?prefill=<index>`), so what the model got right is kept
+rather than retyped; the instructions the model could not express; and
+its notes. Nothing in the reading is read by placement or auto-fill.
 
 ### 12.2 Decisions
 
+- **The draft is the staging area.** A first cut listed the reading in a
+  panel with a checkbox per line and an "add the ticked lines" action.
+  That duplicated the schedule step's own list and the editor's own
+  feedback, and its failure mode for a line that didn't compile was
+  "enter by hand" — the partial reading thrown away. Saving straight in
+  costs nothing (a draft schedules nothing) and every correction happens
+  in the one editor.
 - **Transcribe, don't correct.** The prompt says so outright: a date that
   doesn't fall on the weekday the order names, per-line counts that don't
   add to the total, are kept as printed and noted — they surface as the
   review warnings §2 already asks for, not as a model's silent repair.
-- **The contract's own entry wins.** An order fact is proposed only where
-  the contract has nothing yet (a blank field, a policy flag still false);
-  where both say something different, the difference is shown and the
-  staffer changes it on the Order step if the document is right.
+- **What was typed wins.** The order step's fields stay usable with the
+  upload: a staffer who knows the order number or the dates types them and
+  the reading fills the rest. Nothing the document says overwrites a typed
+  value.
 - **`separation_policy` stays `unspecified`.** The separation text is
   carried verbatim, never interpreted, per §5.
 - **Copy is not read.** The order may print the credit's script; the model
   is told to mention that in notes. Copy is the policy step's job.
 - **A missing length is assumed, and said so.** Most WUWF credits are :30;
   a line the order prints no length for gets 30s with a warning, since the
-  parser requires one and a staffer can change it on the line.
+  parser requires one and the line can be edited.
+- **The reading happens once, at creation.** A contract entered by hand
+  and given its document later is not re-read: the read is tied to the
+  upload that creates the contract, so lines are never doubled by a second
+  pass.
 
 ### 12.3 Eval
 
 `scripts/agreement-eval/` (`npm run eval:agreement`) runs the documents in
-its `fixtures/` folder through the live call and compares each proposal,
+its `fixtures/` folder through the live call and compares each reading,
 line for line, to the corpus transcription in
 `fixtures/insertion-orders.ts` — rule, days, pool, program, time mode and
-times, cap, service level, dates, printed count — plus the order facts. The
-PDFs are the signed originals on WUWF's Drive, named per fixture in
+times, cap, service level, dates, printed count — plus the order facts and
+whether the sponsor was matched to the name on file. The PDFs are the
+signed originals on WUWF's Drive, named per fixture in
 `fixtures/index.ts`, and are added by hand: none are committed with this
 pass, so the first run is the first real test of the reader, the same
 position the program-log importer's rebuild was in on 2026-09-22.
