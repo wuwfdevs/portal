@@ -11,6 +11,17 @@
 // or fall outside the line and be dropped. A field the chosen kind does not
 // use must be blank, so a quantity typed under the wrong kind is refused
 // rather than silently ignored.
+//
+// Two stages (2026-09-27). `compileScheduleLineDemand()` reads only what
+// the count depends on — the kind, the dates, the days and quantities — so
+// the editor can show "this compiles to 52" the moment those are in, before
+// a pool or time rule is chosen. `parseScheduleLineForm()` runs that and
+// then checks everything else the row needs (a pool or program, a duration,
+// the time rule's own fields), collecting every problem rather than
+// stopping at the first, so the editor can list what still stands between
+// the entry and a save. The original fail-fast aside showed "0 credits" and
+// "choose a pool or program" for the whole time a staffer typed dates and
+// days, which read as the compile not running at all.
 
 import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 import { isValidDateISO, weekStartOf } from "./dates";
@@ -74,7 +85,24 @@ export interface ParsedScheduleLine {
   buckets: CompiledBucket[];
 }
 
-export type ParseResult = { ok: true; value: ParsedScheduleLine } | { ok: false; error: string };
+/** The part of a line the count depends on — everything but eligibility. */
+export interface CompiledDemand {
+  entry_kind: UwScheduleEntryKind;
+  entry_spec: EntrySpec;
+  days_of_week: number[];
+  start_date: string;
+  end_date: string | null;
+  buckets: CompiledBucket[];
+}
+
+export type DemandResult = { ok: true; value: CompiledDemand } | { ok: false; error: string };
+
+/**
+ * `error` is the first problem, in the form's own top-to-bottom order; `errors`
+ * is every problem found, the demand's (if any) first.
+ */
+export type ParseResult =
+  { ok: true; value: ParsedScheduleLine } | { ok: false; error: string; errors: string[] };
 
 const ENTRY_KINDS: UwScheduleEntryKind[] = [
   "fixed_days",
@@ -188,21 +216,17 @@ function unusedFieldError(
   return null;
 }
 
-export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
+/**
+ * The count alone: kind, dates, days, and quantities compiled to demand
+ * buckets. Fails fast, since each step needs the one before it (no dates, no
+ * weeks to lay out). Knows nothing about pools, programs, or time rules.
+ */
+export function compileScheduleLineDemand(values: ScheduleLineFormValues): DemandResult {
   const entryKind = values.entry_kind as UwScheduleEntryKind;
   if (!ENTRY_KINDS.includes(entryKind))
     return { ok: false, error: "Choose how the order sells these credits." };
   const unused = unusedFieldError(values, entryKind);
   if (unused) return { ok: false, error: unused };
-
-  const poolId = orNull(values.pool_id);
-  const programId = orNull(values.program_id);
-  if (!poolId && !programId)
-    return { ok: false, error: "Choose an inventory pool, a program, or both." };
-
-  const durationSeconds = intOrNull(values.duration_seconds);
-  if (durationSeconds == null || durationSeconds <= 0)
-    return { ok: false, error: "Give the credit a duration greater than zero." };
 
   const startDate = values.start_date.trim();
   if (!isValidDateISO(startDate)) return { ok: false, error: "Give the line a start date." };
@@ -210,42 +234,9 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
   if (endDate !== null && (!isValidDateISO(endDate) || endDate < startDate))
     return { ok: false, error: "The end date must be on or after the start date." };
 
-  const timeMode = values.time_mode as UwTimeMode;
-  if (!TIME_MODES.includes(timeMode)) return { ok: false, error: "Choose a time rule." };
-  const windowStart = orNull(values.window_start);
-  const windowEnd = orNull(values.window_end);
-  const preferredTime = orNull(values.preferred_time);
-  if (timeMode === "window") {
-    if (windowStart === null || windowEnd === null)
-      return { ok: false, error: "Give both ends of the time window." };
-    if (windowEnd <= windowStart)
-      return { ok: false, error: "The window must end after it starts." };
-  }
-  if ((timeMode === "preferred" || timeMode === "exact") && preferredTime === null)
-    return {
-      ok: false,
-      error:
-        timeMode === "exact" ? "Give the exact time the order states." : "Give the preferred time.",
-    };
-  if ((timeMode === "opening" || timeMode === "closing") && programId === null)
-    return {
-      ok: false,
-      error: "An opening or closing credit needs the program it opens or closes.",
-    };
-
-  const serviceLevel = (orNull(values.service_level) ?? "guaranteed") as UwServiceLevel;
-  if (!SERVICE_LEVELS.includes(serviceLevel))
-    return { ok: false, error: "Choose guaranteed or bonus." };
-
   const days = [
     ...new Set(values.days_of_week.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
   ].sort((a, b) => a - b);
-  const statedTotal = intOrNull(values.stated_total);
-  if (statedTotal !== null && statedTotal < 0)
-    return { ok: false, error: "The stated total can't be negative." };
-  const maxPerDay = intOrNull(values.max_per_day);
-  if (maxPerDay !== null && maxPerDay < 1)
-    return { ok: false, error: "Most per day must be at least 1, or blank for no cap." };
 
   let spec: EntrySpec;
   switch (entryKind) {
@@ -320,11 +311,67 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
   return {
     ok: true,
     value: {
+      entry_kind: entryKind,
+      entry_spec: spec,
+      days_of_week: days,
+      start_date: startDate,
+      end_date: endDate,
+      buckets,
+    },
+  };
+}
+
+export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
+  const demand = compileScheduleLineDemand(values);
+  const problems: string[] = [];
+
+  const poolId = orNull(values.pool_id);
+  const programId = orNull(values.program_id);
+  if (!poolId && !programId)
+    problems.push("Choose an inventory pool, a program, or both — a line can't be station-wide.");
+
+  const rawDuration = intOrNull(values.duration_seconds);
+  const durationSeconds = rawDuration != null && rawDuration > 0 ? rawDuration : null;
+  if (durationSeconds === null) problems.push("Give the credit a duration greater than zero.");
+
+  const timeMode = values.time_mode as UwTimeMode;
+  const windowStart = orNull(values.window_start);
+  const windowEnd = orNull(values.window_end);
+  const preferredTime = orNull(values.preferred_time);
+  if (!TIME_MODES.includes(timeMode)) problems.push("Choose a time rule.");
+  if (timeMode === "window") {
+    if (windowStart === null || windowEnd === null)
+      problems.push("Give both ends of the time window.");
+    else if (windowEnd <= windowStart) problems.push("The window must end after it starts.");
+  }
+  if ((timeMode === "preferred" || timeMode === "exact") && preferredTime === null)
+    problems.push(
+      timeMode === "exact" ? "Give the exact time the order states." : "Give the preferred time.",
+    );
+  if ((timeMode === "opening" || timeMode === "closing") && programId === null)
+    problems.push("An opening or closing credit needs the program it opens or closes.");
+
+  const serviceLevel = (orNull(values.service_level) ?? "guaranteed") as UwServiceLevel;
+  if (!SERVICE_LEVELS.includes(serviceLevel)) problems.push("Choose guaranteed or bonus.");
+
+  const statedTotal = intOrNull(values.stated_total);
+  if (statedTotal !== null && statedTotal < 0) problems.push("The stated total can't be negative.");
+  const maxPerDay = intOrNull(values.max_per_day);
+  if (maxPerDay !== null && maxPerDay < 1)
+    problems.push("Most per day must be at least 1, or blank for no cap.");
+
+  const errors = demand.ok ? problems : [demand.error, ...problems];
+  if (!demand.ok || durationSeconds === null || errors.length > 0)
+    return { ok: false, error: errors[0]!, errors };
+
+  return {
+    ok: true,
+    value: {
       line: {
         label: values.label.trim(),
-        entry_kind: entryKind,
-        entry_spec: spec,
-        days_of_week: days,
+        entry_kind: demand.value.entry_kind,
+        entry_spec: demand.value.entry_spec,
+        days_of_week: demand.value.days_of_week,
         pool_id: poolId,
         program_id: programId,
         time_mode: timeMode,
@@ -334,15 +381,15 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
         max_per_day: maxPerDay,
         service_level: serviceLevel,
         duration_seconds: durationSeconds,
-        start_date: startDate,
-        end_date: endDate,
+        start_date: demand.value.start_date,
+        end_date: demand.value.end_date,
         flight_id: orNull(values.flight_id),
         stated_total: statedTotal,
         source_text: orNull(values.source_text),
         makegood_policy_text: orNull(values.makegood_policy_text),
         notes: orNull(values.notes),
       },
-      buckets,
+      buckets: demand.value.buckets,
     },
   };
 }

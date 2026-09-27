@@ -12,6 +12,7 @@ import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/data
 import { addDays, isValidDateISO, shortDate, weekStartOf } from "@/lib/underwriting/dates";
 import { describeEntrySpec, totalQuantity } from "@/lib/underwriting/demand-compiler";
 import {
+  compileScheduleLineDemand,
   parseScheduleLineForm,
   type ScheduleLineFormValues,
 } from "@/lib/underwriting/schedule-line-form";
@@ -219,18 +220,24 @@ export function ScheduleLineEditor({
             .map((row) => ({ week_start: row.weekStart, quantity: row.quantity }))
         : [],
   };
-  // Compiled on every render: the same pure parser the Server Action runs, so
-  // the aside shows exactly what saving will store.
+  // Compiled on every render with the same pure parser the Server Action
+  // runs, so the aside shows exactly what saving will store. The count comes
+  // from the demand stage alone (kind, dates, days, quantities) so it moves
+  // as those are typed; whatever else the row still needs — a pool or
+  // program, a time rule's fields — is listed beneath it rather than
+  // blanking the number.
+  const demand = compileScheduleLineDemand(values);
   const parsed = parseScheduleLineForm(values);
+  const blockers = !parsed.ok && demand.ok ? parsed.errors : [];
 
-  const compiledTotal = parsed.ok ? totalQuantity(parsed.value.buckets) : 0;
-  const compiledDescription = parsed.ok
-    ? describeEntrySpec(parsed.value.line.entry_spec, parsed.value.line.days_of_week)
+  const compiledTotal = demand.ok ? totalQuantity(demand.value.buckets) : 0;
+  const compiledDescription = demand.ok
+    ? describeEntrySpec(demand.value.entry_spec, demand.value.days_of_week)
     : null;
-  const partialCount = parsed.ok ? parsed.value.buckets.filter((b) => b.partial).length : 0;
+  const partialCount = demand.ok ? demand.value.buckets.filter((b) => b.partial).length : 0;
   const statedN = Number.parseInt(statedTotal, 10);
-  const lineMatches = Number.isFinite(statedN) && parsed.ok && statedN === compiledTotal;
-  const lineOff = Number.isFinite(statedN) && parsed.ok && statedN !== compiledTotal;
+  const lineMatches = Number.isFinite(statedN) && demand.ok && statedN === compiledTotal;
+  const lineOff = Number.isFinite(statedN) && demand.ok && statedN !== compiledTotal;
 
   const otherTotal = otherLines.reduce((sum, line) => sum + line.expected, 0);
   const contractTotal = otherTotal + compiledTotal;
@@ -238,8 +245,8 @@ export function ScheduleLineEditor({
   const poolName = pools.find((pool) => pool.id === poolId)?.name;
   const programName = programs.find((program) => program.id === programId)?.name;
   const suggestedLabel =
-    parsed.ok && (poolName || programName)
-      ? `${poolName ?? programName}, ${describeEntrySpec(parsed.value.line.entry_spec, parsed.value.line.days_of_week).split(",")[0]}`
+    demand.ok && (poolName || programName)
+      ? `${poolName ?? programName}, ${describeEntrySpec(demand.value.entry_spec, demand.value.days_of_week).split(",")[0]}`
       : "";
   const effectiveLabel = labelEdited ? label : suggestedLabel;
 
@@ -368,6 +375,10 @@ export function ScheduleLineEditor({
               onChange={(e) => setStatedTotal(e.target.value)}
               placeholder="As printed"
             />
+            <FieldHint>
+              The count the order prints for this line, if it prints one. Checked against what the
+              line compiles to; a mismatch warns but never blocks saving.
+            </FieldHint>
           </div>
         </div>
 
@@ -650,7 +661,9 @@ export function ScheduleLineEditor({
               value={poolId}
               onChange={(e) => setPoolId(e.target.value)}
             >
-              <option value="">None — use the program alone</option>
+              <option value="">
+                {programId ? "No pool — the program alone" : "Choose a pool, or a program below"}
+              </option>
               {pools.map((pool) => (
                 <option key={pool.id} value={pool.id}>
                   {pool.name}
@@ -670,14 +683,18 @@ export function ScheduleLineEditor({
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
             >
-              <option value="">Any program in the pool</option>
+              <option value="">
+                {poolId ? "Any program in the pool" : "Choose a program, or a pool above"}
+              </option>
               {programs.map((program) => (
                 <option key={program.id} value={program.id}>
                   {program.name}
                 </option>
               ))}
             </Select>
-            <FieldHint>Naming a program narrows the pool to it.</FieldHint>
+            <FieldHint>
+              A line needs a pool, a program, or both. Naming a program narrows the pool to it.
+            </FieldHint>
           </div>
         </div>
 
@@ -851,10 +868,20 @@ export function ScheduleLineEditor({
             <span className="text-sm text-ink-700">credits</span>
           </div>
           <p className="mt-2 text-[13px] leading-snug text-ink-700">
-            {parsed.ok
+            {demand.ok
               ? `${compiledDescription}${poolName || programName ? ` in ${poolName ?? programName}` : ""}.${partialCount > 0 ? ` ${plural(partialCount, "partial period")} counted at full quantity, never prorated.` : ""}`
-              : parsed.error}
+              : demand.error}
           </p>
+          {blockers.length > 0 && (
+            <div className="mt-3 rounded bg-warning-bg px-3 py-2 text-[13px] leading-snug text-warning-fg">
+              <div className="font-semibold">Still needed before this line can be saved</div>
+              <ul className="mt-1 list-disc pl-4">
+                {blockers.map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {lineMatches && (
             <p className="mt-3 text-[13px] font-semibold text-success-fg">
               ✓ Matches the order for this line

@@ -685,9 +685,19 @@ segmented control with its own fields; and an aside that compiles the line
 live with the very same `parseScheduleLineForm()` the Server Action runs,
 so "this line compiles to 162" and "reconciles with the order" show what
 saving will store. The label is suggested from the pool and the rule until
-edited. The wording "order states" is gone: fields read "Spots on the
-order" / "Total spots on the order", and the reconciliation copy says "the
-order says 162".
+edited. Revised 2026-09-27, after the first real use read the aside
+as inert: the parser is now two stages — `compileScheduleLineDemand()`
+(kind, dates, days, quantities → buckets) and the eligibility checks that
+follow it, which collect every problem instead of stopping at the first —
+so the count moves as soon as the dates and days are in, and whatever the
+row still needs (a pool or program, a time rule's fields) is listed under
+it as "still needed before this line can be saved". The pool and program
+selects' blank options used to describe each other ("None — use the program
+alone" / "Any program in the pool"), leaving both blank the default and the
+one combination the check constraint refuses; each now names what it needs
+given the other's state. The wording "order states" is gone: fields read
+"Spots on the order" / "Total spots on the order", and the reconciliation
+copy says "the order says 162".
 
 ### 11.2 Setup as four steps
 
