@@ -142,6 +142,7 @@ repo and a project's history, not the version number.
 | `20260925170000_underwriting_draft_line_delete.sql`                   | 2026-09-25 | 2026-09-25 |
 | `20260925180000_underwriting_opening_closing.sql`                     | 2026-09-25 | 2026-09-25 |
 | `20260925190000_underwriting_frozen_rundowns_and_bumping.sql`          | 2026-09-25 | 2026-09-25 |
+| `20260927120000_underwriting_create_inventory_pool.sql`               | 2026-09-27 | 2026-09-27 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

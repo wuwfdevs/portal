@@ -52,11 +52,15 @@ function optionalInt(formData: FormData, name: string): number | null {
 
 // Industry categories ------------------------------------------------------
 
+const INDUSTRIES_PATH = `${UNDERWRITERS_LIST_PATH}/industries`;
+/** The industries list with its inline create row open — where a create failure lands so its message renders in the row. */
+const NEW_INDUSTRY_PATH = `${INDUSTRIES_PATH}?new=1`;
+
 /** A typed industry for the competitive-adjacency rule (uw_industry_categories, 2026-09-25) — never free text on the underwriter. */
 export async function createIndustryCategory(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const name = field(formData, "name");
-  if (name === "") failWith(UNDERWRITERS_LIST_PATH, "Give the industry a name.");
+  if (name === "") failWith(NEW_INDUSTRY_PATH, "Give the industry a name.");
 
   const supabase = await createClient();
   const { error } = await supabase.from("uw_industry_categories").insert({
@@ -64,10 +68,14 @@ export async function createIndustryCategory(formData: FormData): Promise<void> 
     description: optionalField(formData, "description"),
     created_by: profile.id,
   });
-  failIfError(error, UNDERWRITERS_LIST_PATH, "Could not add the industry");
+  if (error?.code === "23505") {
+    failWith(NEW_INDUSTRY_PATH, "An industry with this name already exists.");
+  }
+  failIfError(error, NEW_INDUSTRY_PATH, "Could not add the industry");
 
+  revalidatePath(INDUSTRIES_PATH);
   revalidatePath(UNDERWRITERS_LIST_PATH);
-  redirect(UNDERWRITERS_LIST_PATH);
+  redirect(INDUSTRIES_PATH);
 }
 
 export async function setIndustryCategoryActive(formData: FormData): Promise<void> {
@@ -77,19 +85,26 @@ export async function setIndustryCategoryActive(formData: FormData): Promise<voi
 
   const supabase = await createClient();
   const { error } = await supabase.from("uw_industry_categories").update({ active }).eq("id", id);
-  failIfError(error, UNDERWRITERS_LIST_PATH, "Could not update the industry");
+  failIfError(error, INDUSTRIES_PATH, "Could not update the industry");
 
+  revalidatePath(INDUSTRIES_PATH);
   revalidatePath(UNDERWRITERS_LIST_PATH);
-  redirect(UNDERWRITERS_LIST_PATH);
+  redirect(INDUSTRIES_PATH);
 }
 
 // Underwriters ---------------------------------------------------------------
 
-/** A durable underwriter/sponsor entity (point 17 of the domain redesign) — replaces free-text underwriter_name on the contract. */
+const NEW_UNDERWRITER_PATH = `${UNDERWRITERS_LIST_PATH}/new`;
+
+function editUnderwriterPath(id: string): string {
+  return `${underwriterPath(id)}/edit`;
+}
+
+/** A durable underwriter/sponsor entity (point 17 of the domain redesign) — replaces free-text underwriter_name on the contract. Created on its own page; a validation failure returns to that page. */
 export async function createUnderwriter(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const name = field(formData, "name");
-  if (name === "") failWith(UNDERWRITERS_LIST_PATH, "Give the underwriter a name.");
+  if (name === "") failWith(NEW_UNDERWRITER_PATH, "Give the underwriter a name.");
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -106,19 +121,21 @@ export async function createUnderwriter(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, UNDERWRITERS_LIST_PATH, "Could not create the underwriter");
-  if (!data) failWith(UNDERWRITERS_LIST_PATH, "Could not create the underwriter.");
+  failIfError(error, NEW_UNDERWRITER_PATH, "Could not create the underwriter");
+  if (!data) failWith(NEW_UNDERWRITER_PATH, "Could not create the underwriter.");
 
   revalidatePath(UNDERWRITERS_LIST_PATH);
-  redirect(underwriterPath(data.id));
+  redirect(`${underwriterPath(data.id)}?saved=created`);
 }
 
+/** Edits share the create form at /underwriting/underwriters/[id]/edit; a validation failure returns there, success lands on the detail page. */
 export async function updateUnderwriter(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "underwriter_id");
   const path = underwriterPath(id);
+  const editPath = editUnderwriterPath(id);
   const name = field(formData, "name");
-  if (name === "") failWith(path, "Give the underwriter a name.");
+  if (name === "") failWith(editPath, "Give the underwriter a name.");
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -133,11 +150,11 @@ export async function updateUnderwriter(formData: FormData): Promise<void> {
       notes: optionalField(formData, "notes"),
     })
     .eq("id", id);
-  failIfError(error, path, "Could not update the underwriter");
+  failIfError(error, editPath, "Could not update the underwriter");
 
   revalidatePath(path);
   revalidatePath(UNDERWRITERS_LIST_PATH);
-  redirect(path);
+  redirect(`${path}?saved=1`);
 }
 
 // Contracts --------------------------------------------------------------------

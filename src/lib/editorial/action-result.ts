@@ -6,9 +6,14 @@ import type { PostgrestError } from "@supabase/supabase-js";
 // screen — which is exactly how an unapplied migration once looked like "the
 // settings aren't configurable". Screens render the message from ?error=.
 
-/** Abandon the action and send the user back to `path` with a message. */
+/**
+ * Abandon the action and send the user back to `path` with a message. `path`
+ * may already carry a query string (an inline create card's `?new=1`), in
+ * which case the error is appended to it.
+ */
 export function failWith(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}error=${encodeURIComponent(message)}`);
 }
 
 /**

@@ -95,6 +95,32 @@ export async function listUnderwriters(): Promise<UwUnderwriterRow[]> {
   );
 }
 
+export interface UnderwriterContractCounts {
+  active: number;
+  /** Draft, expired, or terminated. */
+  other: number;
+}
+
+/** How many contracts each underwriter has, active and otherwise — the Contracts column on the underwriters list. One narrow read, never the full contract rows. */
+export async function listUnderwriterContractCounts(): Promise<
+  Map<string, UnderwriterContractCounts>
+> {
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(
+      await supabase.from("uw_contracts").select("underwriter_id, status"),
+      "the underwriters' contract counts",
+    ) ?? [];
+  const counts = new Map<string, UnderwriterContractCounts>();
+  for (const row of rows) {
+    const current = counts.get(row.underwriter_id) ?? { active: 0, other: 0 };
+    if (row.status === "active") current.active += 1;
+    else current.other += 1;
+    counts.set(row.underwriter_id, current);
+  }
+  return counts;
+}
+
 export async function getUnderwriter(id: string): Promise<UwUnderwriterRow | null> {
   const supabase = await createClient();
   return unwrapRead(

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { FilterChips } from "@/components/ui/filter-chips";
-import { Input } from "@/components/ui/input";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
@@ -86,49 +86,38 @@ export default async function ContractsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <form method="get" className="w-full sm:w-80">
-          {filter !== "all" && <input type="hidden" name="status" value={filter} />}
-          <Input
-            type="search"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Search underwriter or order number"
-            aria-label="Search contracts"
-          />
-        </form>
-        <FilterChips
-          label="Filter by status"
-          chips={[
-            { label: "All", count: counts.all, href: hrefFor("all"), active: filter === "all" },
-            {
-              label: "Active",
-              count: counts.active,
-              href: hrefFor("active"),
-              active: filter === "active",
-            },
-            {
-              label: "Draft",
-              count: counts.draft,
-              href: hrefFor("draft"),
-              active: filter === "draft",
-            },
-            {
-              label: "Needs attention",
-              count: counts.attention,
-              href: hrefFor("attention"),
-              active: filter === "attention",
-            },
-          ]}
-        />
-        <span className="flex-1" />
-        <Link
-          href="/underwriting/contracts/new"
-          className="inline-flex items-center justify-center gap-1.5 rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-        >
-          + New contract
-        </Link>
-      </div>
+      <ListToolbar
+        search={{
+          placeholder: "Search underwriter or order number",
+          label: "Search contracts",
+          defaultValue: q,
+          hidden: filter !== "all" ? { status: filter } : undefined,
+        }}
+        chipsLabel="Filter by status"
+        chips={[
+          { label: "All", count: counts.all, href: hrefFor("all"), active: filter === "all" },
+          {
+            label: "Active",
+            count: counts.active,
+            href: hrefFor("active"),
+            active: filter === "active",
+          },
+          {
+            label: "Draft",
+            count: counts.draft,
+            href: hrefFor("draft"),
+            active: filter === "draft",
+          },
+          {
+            label: "Needs attention",
+            count: counts.attention,
+            href: hrefFor("attention"),
+            active: filter === "attention",
+          },
+        ]}
+      >
+        <PrimaryLink href="/underwriting/contracts/new">+ New contract</PrimaryLink>
+      </ListToolbar>
 
       {shown.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
