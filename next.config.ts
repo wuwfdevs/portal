@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
   // bundle (Vercel) when the package is marked external rather than bundled.
   // Used by lib/transcription/export.ts for clip WAV export.
   serverExternalPackages: ["ffmpeg-static"],
+  experimental: {
+    serverActions: {
+      // Two Server Actions take a document as their form's payload — the
+      // program-log import (log/import-actions.ts) and creating a contract
+      // from its agreement (underwriting/agreement-import-actions.ts) — and
+      // both cap the upload at 10 MB. Next's default cap for an action's
+      // body is 1 MB, which a scanned agreement packet (1.15 MB, the first
+      // real one tried) exceeded outright: "Body exceeded 1 MB limit", a
+      // 413 surfaced to the user as an opaque Server Components error.
+      bodySizeLimit: "12mb",
+    },
+  },
   async headers() {
     return [
       {
