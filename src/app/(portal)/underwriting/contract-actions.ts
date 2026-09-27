@@ -12,6 +12,7 @@ import {
   type ScheduleLineFormValues,
 } from "@/lib/underwriting/schedule-line-form";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
+import { insertScheduleLineWithBuckets } from "@/lib/underwriting/schedule-line-writes";
 import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
@@ -710,34 +711,15 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     path,
   );
 
-  const { entry_spec, ...lineFields } = parsed.value.line;
-  const { data, error } = await supabase
-    .from("uw_contract_schedule_lines")
-    .insert({
-      ...lineFields,
-      entry_spec,
-      contract_id: contractId,
-      revision_id: revisionId,
-      created_by: profile.id,
-    })
-    .select("id")
-    .single();
-  failIfError(error, path, "Could not add the schedule line");
-  if (!data) failWith(path, "Could not add the schedule line.");
-
-  const { error: bucketError } = await supabase.from("uw_demand_buckets").insert(
-    parsed.value.buckets.map((bucket) => ({
-      schedule_line_id: data.id,
-      period_start: bucket.periodStart,
-      period_end: bucket.periodEnd,
-      quantity_required: bucket.quantity,
-      source_label: bucket.sourceLabel,
-    })),
+  const inserted = await insertScheduleLineWithBuckets(
+    supabase,
+    { contractId, revisionId, createdBy: profile.id },
+    parsed.value,
   );
-  failIfError(bucketError, path, "Added the line, but could not save its demand");
+  if (!inserted.ok) failWith(path, inserted.error);
 
   revalidatePath(path);
-  redirect(`${path}#line-${data.id}`);
+  redirect(`${path}#line-${inserted.id}`);
 }
 
 /**

@@ -13,6 +13,13 @@ import { programsPermittedByPool } from "@/lib/underwriting/pool-targets";
 import { addScheduleLine, removeDraftScheduleLine } from "../../../contract-actions";
 import { ScheduleLineEditor } from "../../../schedule-line-editor";
 import { WizardHeader } from "../wizard-header";
+import { AgreementImport } from "./agreement-import";
+
+// Reading the attached agreement through the model (agreement-import.tsx's
+// action) can run past a Server Action's default budget; raised here, on
+// the page, the same way the program-log import pages do it — never in the
+// actions file itself (see CLAUDE.md's Sourcework Phase 3b note).
+export const maxDuration = 300;
 
 /**
  * Setup step 2: the order's schedule, one line per printed instruction
@@ -128,6 +135,22 @@ export default async function ContractSchedulePage({
           </ul>
         )}
       </section>
+
+      {rewritable && enterable.length > 0 && (
+        <section aria-labelledby="from-agreement" className="mb-5">
+          <h3
+            id="from-agreement"
+            className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500"
+          >
+            From the agreement
+          </h3>
+          <AgreementImport
+            contractId={contract.id}
+            hasAgreement={contract.agreement_document_path !== null}
+            existingLineCount={views.length}
+          />
+        </section>
+      )}
 
       {enterable.length === 0 ? (
         <p className="text-sm text-ink-500">

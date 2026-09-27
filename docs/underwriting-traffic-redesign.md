@@ -356,7 +356,7 @@ to
   month, every N weeks, explicit dates, a week grid, a range total — for
   display and recompilation only. Nothing schedules from them.
 - **`uw_demand_buckets`** — `(schedule_line_id, period_start, period_end,
-  quantity_required, status active|superseded|cancelled, source_label)`.
+quantity_required, status active|superseded|cancelled, source_label)`.
   A day, a Monday week, a calendar month, or the whole range. A dark grid
   week is a real row with quantity 0. Active buckets of one line never
   overlap (`uw_guard_bucket_overlap`). The scheduler asks one question:
@@ -558,7 +558,7 @@ automation and stay unrestricted. Enforced twice, in the twin pattern:
 - SQL: `uw_automation_block(break, rundown)` returns `rundown_frozen`,
   `break_in_past` or null. `log_place_underwriting_credit()` and
   `log_clear_underwriting_credit()` gained `p_automated boolean default
-  false` (the old signatures dropped, so a caller passing five or one
+false` (the old signatures dropped, so a caller passing five or one
   arguments still resolves) and refuse with that code when it is true;
   `log_bump_underwriting_credit()` is always automation;
   `log_generate_rundown_for_underwriting()` refuses a date before
@@ -746,9 +746,9 @@ Six shared primitives came out of the boards (`components/ui`):
 
 First real use of the wizard found that a line, once added, could only be
 added to — not corrected. There was no edit action for a schedule line at
-all, and the Remove button on the schedule step was gated on the *revision*
+all, and the Remove button on the schedule step was gated on the _revision_
 being a draft, while `createContract` makes a contract's first revision
-`current` at once (the *contract* is the draft). The delete policy
+`current` at once (the _contract_ is the draft). The delete policy
 (`20260925170000`) had the same gate, so on a fresh contract a mistyped
 line could be neither edited nor removed; the only path was "cancel from a
 date", which is the mechanism for a line with history behind it.
@@ -773,7 +773,7 @@ now checks the rule server-side too: a delete RLS refuses matches zero
 rows with no error, which would otherwise have redirected as a success.
 
 The same day, the pool and program selects were made to agree with the
-guard. A line naming both is their *intersection* —
+guard. A line naming both is their _intersection_ —
 `log_place_underwriting_credit()` and `log_list_placeable_rundown_breaks()`
 each check the program and the pool in turn — so "AM Drive" plus a
 program the pool never targets saved cleanly and could never place. The
@@ -783,8 +783,90 @@ a target with no program, or a pool with no targets yet, leaves the list
 unrestricted), clears a program the newly chosen pool excludes, and the
 add and update actions refuse a non-overlapping pair
 (`requirePoolProgramOverlap`). A line still holds one pool and one
-program, deliberately: the pool *is* the multi-program mechanism (about
+program, deliberately: the pool _is_ the multi-program mechanism (about
 85 of the archive's ~95 lines name a pool, none a list of programs), so
 the pool hint now points at `/underwriting/pools?new=1` for a bundle that
 doesn't exist yet rather than the line growing a multi-select that every
 guard would have to mirror.
+
+## 12. Reading the schedule from the attached agreement (2026-09-27)
+
+A draft contract's schedule step can now propose its lines from the signed
+agreement or insertion order already attached to the contract
+(`agreement_document_path`), instead of a staffer retyping each printed
+instruction into the editor. The shape is the program-log importer's, with
+one difference: the check on the model's reading is not a reviewed digest
+recorded after the fact but the corpus of §2 and §9.5, which a person
+already read from the same originals.
+
+### 12.1 Shape
+
+`lib/underwriting/agreement-ai-import.ts` (server-only) sends the document
+to the Responses API as a native file — a PDF as `input_file`, a PNG or
+JPEG as `input_image`, since a signed original is often a scan and
+Sourcework's text extraction would read nothing from one — and gets back
+one strict-schema answer: the order's facts, its flights, one line per
+printed instruction in the schedule editor's own vocabulary, the
+instructions it could not express, and notes. There are no lookup tools:
+the closed sets a line needs are small enough to ride in the schema, and
+the underwriter is the contract's. `lib/underwriting/agreement-import.ts`
+(pure, tested) builds that schema — pools and programs as enums of the
+names on file, null the only way off the list, so "Carpool" resolves to the
+station's own pool rather than a new name — and converts the answer into
+`ScheduleLineFormValues`, the editor's posted values, run through the same
+`parseScheduleLineForm()` a manual entry goes through. The existing parser
+is the validator; the compiled count against the line's own printed total
+and the order's is the reconciliation, the same badge the schedule step
+already shows.
+
+The schedule step's "From the agreement" section
+(`contracts/[id]/schedule/agreement-import.tsx`) shows the proposal for
+review: each line with what it compiles to, its source text quoted, the
+parser's errors where a reading doesn't compile (that line is unticked
+and disabled — "enter by hand"), and warnings (a pool or program the
+document names that isn't on file, a length the order didn't print and
+the default assumed, a per-line total that disagrees); the order facts the
+document states that the contract doesn't have yet, each with its own
+checkbox; the facts where the document and the contract disagree, listed
+and never applied; and the unresolved instructions and notes. "Add the
+ticked lines" (`agreement-import-actions.ts`'s `applyAgreementProposal`)
+re-parses every line server-side — the proposal round-trips through the
+client, so nothing in it is trusted — creates any flight the order names
+that the contract lacks, writes each line through the same
+`insertScheduleLineWithBuckets()` (`lib/underwriting/schedule-line-writes.ts`,
+extracted from `addScheduleLine`) a hand-entered line uses, applies the
+ticked order facts through a typed whitelist, and logs one
+`underwriting.contract.schedule_read_from_agreement` audit event. What
+lands is an ordinary draft line, editable and removable under §11.4's
+rule; the action refuses a schedule that already schedules credits, the
+same rule.
+
+### 12.2 Decisions
+
+- **Transcribe, don't correct.** The prompt says so outright: a date that
+  doesn't fall on the weekday the order names, per-line counts that don't
+  add to the total, are kept as printed and noted — they surface as the
+  review warnings §2 already asks for, not as a model's silent repair.
+- **The contract's own entry wins.** An order fact is proposed only where
+  the contract has nothing yet (a blank field, a policy flag still false);
+  where both say something different, the difference is shown and the
+  staffer changes it on the Order step if the document is right.
+- **`separation_policy` stays `unspecified`.** The separation text is
+  carried verbatim, never interpreted, per §5.
+- **Copy is not read.** The order may print the credit's script; the model
+  is told to mention that in notes. Copy is the policy step's job.
+- **A missing length is assumed, and said so.** Most WUWF credits are :30;
+  a line the order prints no length for gets 30s with a warning, since the
+  parser requires one and a staffer can change it on the line.
+
+### 12.3 Eval
+
+`scripts/agreement-eval/` (`npm run eval:agreement`) runs the documents in
+its `fixtures/` folder through the live call and compares each proposal,
+line for line, to the corpus transcription in
+`fixtures/insertion-orders.ts` — rule, days, pool, program, time mode and
+times, cap, service level, dates, printed count — plus the order facts. The
+PDFs are the signed originals on WUWF's Drive, named per fixture in
+`fixtures/index.ts`, and are added by hand: none are committed with this
+pass, so the first run is the first real test of the reader, the same
+position the program-log importer's rebuild was in on 2026-09-22.
