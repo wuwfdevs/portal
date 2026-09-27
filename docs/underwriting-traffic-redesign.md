@@ -771,3 +771,20 @@ step links Edit and Remove per entered line and returns there
 "Remove line" menu item under the same rule. `removeDraftScheduleLine`
 now checks the rule server-side too: a delete RLS refuses matches zero
 rows with no error, which would otherwise have redirected as a success.
+
+The same day, the pool and program selects were made to agree with the
+guard. A line naming both is their *intersection* —
+`log_place_underwriting_credit()` and `log_list_placeable_rundown_breaks()`
+each check the program and the pool in turn — so "AM Drive" plus a
+program the pool never targets saved cleanly and could never place. The
+editor now offers only the programs the chosen pool's targets cover
+(`programsPermittedByPool()` in `lib/underwriting/pool-targets.ts`, pure;
+a target with no program, or a pool with no targets yet, leaves the list
+unrestricted), clears a program the newly chosen pool excludes, and the
+add and update actions refuse a non-overlapping pair
+(`requirePoolProgramOverlap`). A line still holds one pool and one
+program, deliberately: the pool *is* the multi-program mechanism (about
+85 of the archive's ~95 lines name a pool, none a list of programs), so
+the pool hint now points at `/underwriting/pools?new=1` for a bundle that
+doesn't exist yet rather than the line growing a multi-select that every
+guard would have to mirror.

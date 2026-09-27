@@ -12,6 +12,7 @@ import {
   type ScheduleLineFormValues,
 } from "@/lib/underwriting/schedule-line-form";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
+import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
 import { stationTodayISO } from "@/lib/log/timezone";
@@ -654,6 +655,32 @@ function scheduleLineValuesFromForm(formData: FormData): ScheduleLineFormValues 
   };
 }
 
+/**
+ * A line naming both a pool and a program is their intersection
+ * (log_place_underwriting_credit() checks each in turn), so a program the
+ * pool's targets never cover could be saved but never placed. The editor
+ * only offers the pool's programs; this is the same rule for a post that
+ * bypassed it.
+ */
+async function requirePoolProgramOverlap(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  poolId: string | null,
+  programId: string | null,
+  path: string,
+): Promise<void> {
+  if (!poolId || !programId) return;
+  const { data: targets, error } = await supabase
+    .from("uw_inventory_pool_targets")
+    .select("program_id")
+    .eq("pool_id", poolId);
+  failIfError(error, path, "Could not read the pool's targets");
+  if (!poolPermitsProgram(targets ?? [], programId))
+    failWith(
+      path,
+      "That pool never places into that program, so the line could never find a break. Pick a program the pool covers, or leave the program blank.",
+    );
+}
+
 export async function addScheduleLine(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
@@ -676,6 +703,12 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!revision || (revision.status !== "current" && revision.status !== "draft"))
     failWith(path, "Lines can only be added to the current revision or a draft.");
+  await requirePoolProgramOverlap(
+    supabase,
+    parsed.value.line.pool_id,
+    parsed.value.line.program_id,
+    path,
+  );
 
   const { entry_spec, ...lineFields } = parsed.value.line;
   const { data, error } = await supabase
@@ -774,6 +807,12 @@ export async function updateScheduleLine(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
   await requireRewritableLine(supabase, lineId, contractId, editPath);
+  await requirePoolProgramOverlap(
+    supabase,
+    parsed.value.line.pool_id,
+    parsed.value.line.program_id,
+    editPath,
+  );
 
   const { entry_spec, ...lineFields } = parsed.value.line;
   const { error } = await supabase

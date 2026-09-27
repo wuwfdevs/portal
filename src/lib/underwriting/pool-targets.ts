@@ -105,3 +105,26 @@ export function collectTargetRows(formData: FormData): ParsedPoolTargets {
     throw error;
   }
 }
+
+/**
+ * The programs a pool's targets can ever place into, for narrowing a
+ * schedule line's program pick (2026-09-27): a line naming both a pool and
+ * a program is the intersection, so a program the pool never covers can
+ * never find a break. Returns null when the pool is unrestricted — a target
+ * with no program means "any program in this window" — or when it has no
+ * targets yet (nothing to narrow by; the editor already flags an unmapped
+ * pool).
+ */
+export function programsPermittedByPool(targets: { program_id: string | null }[]): string[] | null {
+  if (targets.length === 0 || targets.some((target) => target.program_id === null)) return null;
+  return [...new Set(targets.map((target) => target.program_id as string))];
+}
+
+/** Whether a line may name `programId` alongside this pool — see programsPermittedByPool(). */
+export function poolPermitsProgram(
+  targets: { program_id: string | null }[],
+  programId: string,
+): boolean {
+  const permitted = programsPermittedByPool(targets);
+  return permitted === null || permitted.includes(programId);
+}
