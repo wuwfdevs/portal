@@ -741,3 +741,33 @@ Six shared primitives came out of the boards (`components/ui`):
 `ChoiceCards`, `DayPicker`, `Segmented` (native radios and checkboxes via
 `peer-checked`, so they work in a plain form and controlled alike),
 `Steps`, `ProgressBar`, `FilterChips`.
+
+### 11.4 Editing and removing a line (2026-09-27)
+
+First real use of the wizard found that a line, once added, could only be
+added to — not corrected. There was no edit action for a schedule line at
+all, and the Remove button on the schedule step was gated on the *revision*
+being a draft, while `createContract` makes a contract's first revision
+`current` at once (the *contract* is the draft). The delete policy
+(`20260925170000`) had the same gate, so on a fresh contract a mistyped
+line could be neither edited nor removed; the only path was "cancel from a
+date", which is the mechanism for a line with history behind it.
+
+The rule, stated once in `lib/underwriting/line-mutability.ts` (pure,
+tested) and mirrored by the widened delete policy
+(`20260927130000_underwriting_draft_contract_line_delete.sql`): a line
+nothing has scheduled from — on a draft contract, or under a draft
+revision, with no non-superseded placement — is corrected in place or
+removed outright, since there is no history to keep. A line under the
+current revision of an active contract is still cancelled from a date and
+the correction is a new line. Edit reuses the same editor
+(`/contracts/[id]/lines/[lineId]/edit`, docs/ui-patterns.md rule 3),
+prefilled by `formValuesFromScheduleLine()` — the inverse of the parser,
+round-tripped in its test for every entry kind — and posting to
+`updateScheduleLine`, which re-parses, updates the row, and replaces its
+demand buckets; the revision is never changed by an edit. The schedule
+step links Edit and Remove per entered line and returns there
+(`return_to=schedule`); the contract page's line card shows Edit and a
+"Remove line" menu item under the same rule. `removeDraftScheduleLine`
+now checks the rule server-side too: a delete RLS refuses matches zero
+rows with no error, which would otherwise have redirected as a success.

@@ -28,6 +28,11 @@ import {
  * runs, so what the aside shows is exactly what saving will store. Posts
  * as an ordinary <form action> with structured fields
  * (week_quantity:<monday>, explicit_date/explicit_quantity rows).
+ *
+ * Edit (2026-09-27) is the same component prefilled from a stored line
+ * (`initial`, built by formValuesFromScheduleLine()) posting to
+ * updateScheduleLine with `lineId` — docs/ui-patterns.md rule 3. Only a
+ * line nothing has scheduled from reaches it; see line-mutability.ts.
  */
 
 export interface EditorOption {
@@ -131,6 +136,9 @@ export function ScheduleLineEditor({
   returnTo,
   error,
   continueHref,
+  initial,
+  lineId,
+  cancelHref,
 }: {
   contractId: string;
   revisions: { id: string; label: string; status: string }[];
@@ -149,31 +157,54 @@ export function ScheduleLineEditor({
   error?: string | null;
   /** Shown as the form's last button when set (the wizard's "Continue"). */
   continueHref?: { href: string; label: string };
+  /** Editing: the stored line's values, from formValuesFromScheduleLine(). */
+  initial?: ScheduleLineFormValues;
+  /** Editing: the line being rewritten; posted as schedule_line_id. */
+  lineId?: string;
+  /** Editing: where "Cancel" goes. */
+  cancelHref?: string;
 }) {
-  const [kind, setKind] = useState<UwScheduleEntryKind>("fixed_days");
-  const [label, setLabel] = useState("");
-  const [labelEdited, setLabelEdited] = useState(false);
-  const [startDate, setStartDate] = useState(contractStart);
-  const [endDate, setEndDate] = useState(contractEnd ?? "");
-  const [days, setDays] = useState<number[]>([]);
-  const [countPerDay, setCountPerDay] = useState("1");
-  const [quantity, setQuantity] = useState("");
-  const [intervalWeeks, setIntervalWeeks] = useState("2");
-  const [poolId, setPoolId] = useState("");
-  const [programId, setProgramId] = useState("");
-  const [timeMode, setTimeMode] = useState<UwTimeMode>("any");
-  const [windowStart, setWindowStart] = useState("");
-  const [windowEnd, setWindowEnd] = useState("");
-  const [preferredTime, setPreferredTime] = useState("");
-  const [maxPerDay, setMaxPerDay] = useState("");
-  const [serviceLevel, setServiceLevel] = useState<UwServiceLevel>("guaranteed");
-  const [duration, setDuration] = useState("30");
-  const [customDuration, setCustomDuration] = useState("");
-  const [statedTotal, setStatedTotal] = useState("");
-  const [explicitRows, setExplicitRows] = useState<{ date: string; quantity: string }[]>([
-    { date: "", quantity: "" },
-  ]);
-  const [weekQty, setWeekQty] = useState<Record<string, string>>({});
+  const editing = lineId !== undefined;
+  const initialDuration = initial?.duration_seconds ?? "";
+  const initialDurationListed = DURATION_OPTIONS.includes(Number.parseInt(initialDuration, 10));
+  const [kind, setKind] = useState<UwScheduleEntryKind>(
+    (initial?.entry_kind as UwScheduleEntryKind | undefined) ?? "fixed_days",
+  );
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [labelEdited, setLabelEdited] = useState((initial?.label ?? "") !== "");
+  const [startDate, setStartDate] = useState(initial?.start_date ?? contractStart);
+  const [endDate, setEndDate] = useState(initial?.end_date ?? contractEnd ?? "");
+  const [days, setDays] = useState<number[]>(initial?.days_of_week ?? []);
+  const [countPerDay, setCountPerDay] = useState(initial?.count_per_day || "1");
+  const [quantity, setQuantity] = useState(initial?.quantity ?? "");
+  const [intervalWeeks, setIntervalWeeks] = useState(initial?.interval_weeks || "2");
+  const [poolId, setPoolId] = useState(initial?.pool_id ?? "");
+  const [programId, setProgramId] = useState(initial?.program_id ?? "");
+  const [timeMode, setTimeMode] = useState<UwTimeMode>(
+    (initial?.time_mode as UwTimeMode | undefined) ?? "any",
+  );
+  const [windowStart, setWindowStart] = useState(initial?.window_start ?? "");
+  const [windowEnd, setWindowEnd] = useState(initial?.window_end ?? "");
+  const [preferredTime, setPreferredTime] = useState(initial?.preferred_time ?? "");
+  const [maxPerDay, setMaxPerDay] = useState(initial?.max_per_day ?? "");
+  const [serviceLevel, setServiceLevel] = useState<UwServiceLevel>(
+    (initial?.service_level as UwServiceLevel | undefined) ?? "guaranteed",
+  );
+  const [duration, setDuration] = useState(
+    initial ? (initialDurationListed ? initialDuration : "other") : "30",
+  );
+  const [customDuration, setCustomDuration] = useState(
+    initial && !initialDurationListed ? initialDuration : "",
+  );
+  const [statedTotal, setStatedTotal] = useState(initial?.stated_total ?? "");
+  const [explicitRows, setExplicitRows] = useState<{ date: string; quantity: string }[]>(
+    initial && initial.explicit_dates.length > 0
+      ? initial.explicit_dates
+      : [{ date: "", quantity: "" }],
+  );
+  const [weekQty, setWeekQty] = useState<Record<string, string>>(() =>
+    Object.fromEntries((initial?.week_grid ?? []).map((week) => [week.week_start, week.quantity])),
+  );
   const [fill, setFill] = useState("1");
 
   const weeks = useMemo(
@@ -281,17 +312,21 @@ export function ScheduleLineEditor({
         className="flex min-w-0 flex-1 flex-col gap-6 rounded border border-line p-5 sm:p-6"
       >
         <input type="hidden" name="contract_id" value={contractId} />
+        {lineId && <input type="hidden" name="schedule_line_id" value={lineId} />}
         {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <div>
-          <h3 className="font-serif text-lg font-bold text-ink-900">Add a line from the order</h3>
+          <h3 className="font-serif text-lg font-bold text-ink-900">
+            {editing ? "Edit this line" : "Add a line from the order"}
+          </h3>
           <p className="mt-1 text-[13px] text-ink-500">
-            One line per instruction the order prints. Only the fields that instruction needs
-            appear.
+            {editing
+              ? "Nothing has scheduled from this line yet, so it can be corrected in place. Its demand is recompiled when you save."
+              : "One line per instruction the order prints. Only the fields that instruction needs appear."}
           </p>
         </div>
         {error && <Alert>{error}</Alert>}
 
-        {revisions.length > 1 && (
+        {!editing && revisions.length > 1 && (
           <div>
             <Label htmlFor="line_revision">Revision</Label>
             <Select id="line_revision" name="revision_id" defaultValue={defaultRevisionId}>
@@ -303,7 +338,7 @@ export function ScheduleLineEditor({
             </Select>
           </div>
         )}
-        {revisions.length === 1 && (
+        {!editing && revisions.length === 1 && (
           <input type="hidden" name="revision_id" value={revisions[0]!.id} />
         )}
 
@@ -786,7 +821,7 @@ export function ScheduleLineEditor({
             </div>
             <div>
               <Label htmlFor="flight_id">Flight</Label>
-              <Select id="flight_id" name="flight_id" defaultValue="">
+              <Select id="flight_id" name="flight_id" defaultValue={initial?.flight_id ?? ""}>
                 <option value="">Whole contract</option>
                 {flights.map((flight) => (
                   <option key={flight.id} value={flight.id}>
@@ -815,6 +850,7 @@ export function ScheduleLineEditor({
               <Input
                 id="source_text"
                 name="source_text"
+                defaultValue={initial?.source_text ?? ""}
                 placeholder="08/11/25 Sa-Su 6A-7P $44 6 $264 … 162 Weekend spots"
               />
               <FieldHint>Kept verbatim beside the line. Never interpreted as a rule.</FieldHint>
@@ -824,23 +860,45 @@ export function ScheduleLineEditor({
               <Input
                 id="makegood_policy_text"
                 name="makegood_policy_text"
+                defaultValue={initial?.makegood_policy_text ?? ""}
                 placeholder="Rescheduled within the program originally sponsored"
               />
             </div>
             <div>
               <Label htmlFor="line_notes">Notes</Label>
-              <Textarea id="line_notes" name="notes" rows={1} />
+              <Textarea
+                id="line_notes"
+                name="notes"
+                rows={1}
+                defaultValue={initial?.notes ?? ""}
+              />
             </div>
           </div>
         </details>
 
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
-          <Button type="submit" name="then" value="done">
-            Add line
-          </Button>
-          <Button type="submit" name="then" value="another" variant="ghost">
-            Add and start another
-          </Button>
+          {editing ? (
+            <>
+              <Button type="submit">Save line</Button>
+              {cancelHref && (
+                <a
+                  href={cancelHref}
+                  className="inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold text-ink-700 hover:bg-panel-50"
+                >
+                  Cancel
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <Button type="submit" name="then" value="done">
+                Add line
+              </Button>
+              <Button type="submit" name="then" value="another" variant="ghost">
+                Add and start another
+              </Button>
+            </>
+          )}
           <span className="flex-1" />
           {continueHref && (
             <a
