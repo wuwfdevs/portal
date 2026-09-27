@@ -5,9 +5,16 @@
 // separation policy has been decided when the order stated one; every
 // bucket ending within the look-ahead window that still has a fresh
 // shortfall has at least one candidate break to fill it with; and a
-// position-specific line's traffic key exists on at least one break.
+// the line's pool has targets, and one of them reaches the line's program,
+// days and time (pool-targets.ts's poolReachability — 2026-09-27).
+
+import type { PoolReachability } from "./pool-targets";
 
 export type ScheduleLineConflictReason =
+  /** The line names a pool nobody has mapped to Log yet — nothing can place through it. */
+  | "pool_unmapped"
+  /** The pool's targets exist and none serves the line's program, days or time; the save-time refusal catches a new line, this catches a pool edited afterwards. */
+  | "pool_unreachable"
   | "no_approved_copy"
   | "separation_policy_undecided"
   | "no_inventory_for_open_demand"
@@ -30,15 +37,25 @@ export interface ScheduleLineConflictCheckInput {
   candidateBreaks?: { airDate: string; remainingSeconds: number; openToAutomation: boolean }[];
   /** The shortest approved copy linked to the line's contract, or null when none. */
   shortestApprovedCopySeconds?: number | null;
+  /** Whether the line's pool reaches it (poolReachability); omit for a line with no pool. */
+  poolReachability?: PoolReachability;
 }
 
 export function computeScheduleLineConflicts(
   input: ScheduleLineConflictCheckInput,
 ): ScheduleLineConflictReason[] {
   const reasons: ScheduleLineConflictReason[] = [];
+  if (input.poolReachability?.kind === "no_targets") reasons.push("pool_unmapped");
+  if (input.poolReachability?.kind === "unreachable") reasons.push("pool_unreachable");
   if (!input.hasApprovedLinkedCopy) reasons.push("no_approved_copy");
   if (input.separationUndecided) reasons.push("separation_policy_undecided");
+  // A pool that can't reach the line is *why* there is no inventory; name
+  // the cause, not the symptom too.
+  const poolExplainsInventory = reasons.some(
+    (reason) => reason === "pool_unmapped" || reason === "pool_unreachable",
+  );
   if (
+    !poolExplainsInventory &&
     input.bucketsShortSoon.some(
       (bucket) =>
         bucket.freshShortfall > 0 &&
@@ -72,6 +89,9 @@ export function computeScheduleLineConflicts(
 }
 
 export const CONFLICT_LABEL: Record<ScheduleLineConflictReason, string> = {
+  pool_unmapped: "The line's pool has no targets yet — map it on the Pools screen",
+  pool_unreachable:
+    "None of the pool's targets reaches the line's program, days or time — add a target, or change the pool on the line",
   no_approved_copy: "No approved copy linked",
   separation_policy_undecided:
     "The order states a separation rule nobody has turned into a policy yet",
