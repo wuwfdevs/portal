@@ -1333,6 +1333,13 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Pagination — one approach for every list that grows (2026-09-28).** Read
+`docs/ui-patterns.md` "Pagination" before adding or changing a list page; this is a
+pointer. `?page=N`, filtered and sorted in the query with `{ count: "exact" }` plus
+`.range()` (`src/lib/pagination.ts`, pure, tested), chip counts from head-count queries,
+and `components/ui/pagination.tsx` under the list. The Resources procedures list is the
+reference; the doc's rollout list names the lists still to move, `log/library` first.
+
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
 `docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`

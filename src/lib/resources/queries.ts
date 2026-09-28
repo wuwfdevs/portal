@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { pageRange } from "@/lib/pagination";
 import { anyWordQuery, articleHref } from "./articles";
 import { embedSearchQuery } from "./embeddings";
 
@@ -57,18 +58,44 @@ async function toolsById(): Promise<Map<string, ToolRef>> {
   return new Map((tools ?? []).map((tool) => [tool.id, tool]));
 }
 
-/** Every procedure the viewer can read, by title. */
-export async function listProcedures(): Promise<ArticleRow[]> {
+/**
+ * One page of the procedures the viewer can read, by title, optionally in one
+ * area. Filtered and paged in the query, never in JS (docs/ui-patterns.md,
+ * "Pagination").
+ */
+export async function listProcedures(options: {
+  area: string | null;
+  page: number;
+  pageSize?: number;
+}): Promise<{ rows: ArticleRow[]; total: number }> {
   const supabase = await createClient();
-  const rows = unwrapRead(
-    await supabase
-      .from("rc_articles")
-      .select(ARTICLE_COLUMNS)
-      .eq("kind", "procedure")
-      .order("title"),
-    "procedures",
-  );
-  return rows ?? [];
+  const { from, to } = pageRange(options.page, options.pageSize);
+  let query = supabase
+    .from("rc_articles")
+    .select(ARTICLE_COLUMNS, { count: "exact" })
+    .eq("kind", "procedure");
+  if (options.area) query = query.eq("area", options.area);
+  const result = await query.order("title").order("id").range(from, to);
+  // Past the end, PostgREST answers 416 (PGRST103) rather than an empty page;
+  // report no rows and let the screen redirect to the last page.
+  if (result.error?.code === "PGRST103") {
+    return { rows: [], total: await countProcedures(options.area) };
+  }
+  const rows = unwrapRead(result, "procedures");
+  return { rows: rows ?? [], total: result.count ?? 0 };
+}
+
+/** How many procedures the viewer can read, in total or in one area. */
+export async function countProcedures(area: string | null): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("rc_articles")
+    .select("id", { count: "exact", head: true })
+    .eq("kind", "procedure");
+  if (area) query = query.eq("area", area);
+  const result = await query;
+  unwrapRead(result, "procedure count");
+  return result.count ?? 0;
 }
 
 /** One card per tool that has at least one guide the viewer can read. */

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  countByArea,
   formatAudience,
   formatReleaseDate,
   formatUpdatedDate,
@@ -41,15 +40,6 @@ describe("groupByReleaseDate", () => {
     ]);
     expect(groups.map((group) => group.date)).toEqual(["2026-09-27", "2026-08-06"]);
     expect(groups[1]?.notes.map((note) => note.id)).toEqual(["a", "c"]);
-  });
-});
-
-describe("countByArea", () => {
-  it("counts each area and the total", () => {
-    const counts = countByArea([{ area: "News" }, { area: "News" }, { area: "On air" }]);
-    expect(counts.all).toBe(3);
-    expect(counts.byArea.get("News")).toBe(2);
-    expect(counts.byArea.get("Engineering")).toBeUndefined();
   });
 });
 

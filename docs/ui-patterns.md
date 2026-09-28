@@ -70,6 +70,7 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 | `InlineCreateCard` | The `?new=1` inline create form for a small record                        |
 | `DetailSummary`    | Read-only field list with an Edit link, for a detail page's aside         |
 | `SearchableSelect` | Search-to-select for a form field whose options grow with the data        |
+| `Pagination`       | "26–50 of 132" and page links under a list that grows without bound       |
 
 ### Pickers (2026-09-27)
 
@@ -140,3 +141,66 @@ create form or a duplicate of an edit page.
 Not on the old layout, and not touched: `log/library` filters with two selects and a Filter
 button rather than a search box and chips. It is a candidate for `ListToolbar` when next
 worked on, not a sidebar to remove.
+
+## Pagination (2026-09-28)
+
+No list in the portal was paginated. Every list page selected every row and filtered in
+JS, which has two costs beyond a long page. The cost grows with the table. And PostgREST
+caps a select at `max_rows` (1000, `supabase/config.toml`) with no error, so past that point
+a list silently drops rows. The Log content library is about 900 items. The audit log
+hides the problem another way: it is capped at 100 rows with no way to see older ones.
+
+### The rule
+
+A list whose rows grow with use — records people create, not configuration — is
+paginated by page number, with the lib and component below. The Resources procedures list
+(`/resources`) is the reference.
+
+1. **URL:** `?page=N`, alongside the list's other parameters (`q`, filters). Page 1 is the
+   bare URL. A filter or search link always drops `page`, back to page 1.
+2. **Query:** filters, search, and sorting happen in the query, never in JS after the
+   fetch. The same select asks for `{ count: "exact" }` and applies `pageRange(page)` with
+   `.range(from, to)`, sorted by the list's order plus `id` as a tiebreaker so rows never
+   repeat or skip across pages. Past the end, PostgREST answers 416 (`PGRST103`), not an
+   empty page; the query treats that as no rows (`listProcedures` in
+   `lib/resources/queries.ts`).
+3. **Chip counts** come from their own `{ count: "exact", head: true }` queries, one per
+   chip, run in parallel. Never count the rows of the page you fetched. If a list needs
+   many counts, write a grouped count function instead.
+4. **Screen:** `parsePage(searchParams.page)`, then `pageInfo(page, total)`. If
+   `isPastLastPage(info)` (a bookmark after rows were deleted), redirect to the last page.
+   Render `<Pagination info path params noun>` under the list, where `params` are the
+   list's other query parameters. It is plain links, so no client JavaScript is needed.
+5. **Page size** is `DEFAULT_PAGE_SIZE` (25). Don't add a page-size picker.
+6. **Page numbers, not cursors.** These lists sort by name or date. People want a count
+   and a way back to page 3, and none of them is large enough for `OFFSET` to cost
+   anything. A feed that is only ever read newest-first, and could reach tens of thousands
+   of rows, is the case where a cursor would be worth it. None exists yet.
+
+Search results that come from a ranked RPC (`rc_search_articles`, `tw_search`) keep their
+fixed cap: relevance falls off quickly, so a second page of results is not useful. Small
+configuration lists (tools, pillars, rubric criteria, clocks, programs, pools) are not
+paginated.
+
+### Rollout
+
+Done: Resources procedures (2026-09-28).
+
+To do. Each is its own change, because each has to move its filters and counts into the
+query first. Roughly in order of urgency:
+
+- `log/library`: close to the 1000-row cap. `listContentItemsWithComponents` fetches every
+  `log_content_components` row on purpose (see its docstring), so fetch the components for
+  one page's items instead.
+- `admin/audit`: currently truncated at 100 rows.
+- `underwriting/exceptions`, `underwriting/affidavits`, `underwriting/makegoods`: these
+  grow with every airing. Exceptions filters in JS.
+- `sourcework` projects, sources, and excerpts tabs.
+- `underwriting/contracts`, `copy`, `underwriters`: these filter and count in JS.
+  Contracts' "needs attention" filter depends on rollups, so it needs a view or function
+  before it can be paged.
+- `editorial` pitches: the "stale" view filters in JS. `editorial/meetings`.
+- `resources/whats-new`: grouped by day, with the tool filter in JS.
+- `roadmap`: sorts by votes in JS, so paging needs the sort done in SQL.
+- `academic-partnerships/all`, `remote-interview`, `audience-listening` (the list, and one
+  query's submissions).

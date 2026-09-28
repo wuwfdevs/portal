@@ -1,20 +1,23 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { FieldHint, Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ToolIcon } from "@/components/tool-icon";
 import {
   PROCEDURE_AREAS,
-  countByArea,
   formatAudience,
   formatReleaseDate,
   formatUpdatedDate,
 } from "@/lib/resources/articles";
 import { requireResourcesAccess } from "@/lib/resources/access";
+import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import {
   articleHref,
+  countProcedures,
   listProcedures,
   listReleaseNotes,
   listToolGuideSummaries,
@@ -27,9 +30,9 @@ const KIND_LABELS = { procedure: "Procedure", guide: "Guide", release_note: "Rel
 export default async function ResourcesHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; area?: string; deleted?: string }>;
+  searchParams: Promise<{ q?: string; area?: string; page?: string; deleted?: string }>;
 }) {
-  const [{ q, area, deleted }, { isEditor }] = await Promise.all([
+  const [{ q, area, page, deleted }, { isEditor }] = await Promise.all([
     searchParams,
     requireResourcesAccess(),
   ]);
@@ -74,7 +77,7 @@ export default async function ResourcesHomePage({
         </FieldHint>
       </form>
 
-      {query ? <SearchResults query={query} /> : <Sections area={area} />}
+      {query ? <SearchResults query={query} /> : <Sections area={area} page={parsePage(page)} />}
     </>
   );
 }
@@ -127,36 +130,37 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
   );
 }
 
-async function Sections({ area }: { area: string | undefined }) {
-  const [procedures, toolGuides, latestNotes] = await Promise.all([
-    listProcedures(),
+async function Sections({ area, page }: { area: string | undefined; page: number }) {
+  const activeArea = PROCEDURE_AREAS.find((value) => value === area) ?? null;
+  const [procedures, allCount, areaCounts, toolGuides, latestNotes] = await Promise.all([
+    listProcedures({ area: activeArea, page }),
+    countProcedures(null),
+    Promise.all(PROCEDURE_AREAS.map((value) => countProcedures(value))),
     listToolGuideSummaries(),
     listReleaseNotes({ limit: 3 }),
   ]);
 
-  const activeArea = PROCEDURE_AREAS.find((value) => value === area) ?? null;
-  const counts = countByArea(procedures);
-  const shown = activeArea
-    ? procedures.filter((procedure) => procedure.area === activeArea)
-    : procedures;
-  const areaHref = (value: string | null) =>
-    value ? `/resources?${new URLSearchParams({ area: value }).toString()}` : "/resources";
+  const listParams = { area: activeArea };
+  const info = pageInfo(page, procedures.total);
+  if (isPastLastPage(info)) redirect(pageHref("/resources", listParams, info.pageCount));
+  const shown = procedures.rows;
+  const areaHref = (value: string | null) => pageHref("/resources", { area: value }, 1);
 
   return (
     <div className="flex flex-col gap-10">
       <section>
         <h2 className="mb-3 font-serif text-[15px] font-bold text-ink-900">
           Station procedures
-          <span className="ml-2 text-xs font-normal text-ink-400">{procedures.length}</span>
+          <span className="ml-2 text-xs font-normal text-ink-400">{allCount}</span>
         </h2>
         <FilterChips
           label="Area"
           className="mb-4"
           chips={[
-            { label: "All", count: counts.all, href: areaHref(null), active: !activeArea },
-            ...PROCEDURE_AREAS.map((value) => ({
+            { label: "All", count: allCount, href: areaHref(null), active: !activeArea },
+            ...PROCEDURE_AREAS.map((value, index) => ({
               label: value,
-              count: counts.byArea.get(value) ?? 0,
+              count: areaCounts[index],
               href: areaHref(value),
               active: activeArea === value,
             })),
@@ -209,6 +213,7 @@ async function Sections({ area }: { area: string | undefined }) {
             </Table>
           </TableFrame>
         )}
+        <Pagination info={info} path="/resources" params={listParams} noun="procedures" />
       </section>
 
       <section>

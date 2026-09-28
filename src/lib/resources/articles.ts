@@ -113,19 +113,6 @@ export function groupByReleaseDate<T extends { released_on: string | null }>(
   return groups.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-/** Count per area plus the total, for the home page's "Area" chips. */
-export function countByArea(procedures: readonly { area: string | null }[]): {
-  all: number;
-  byArea: Map<string, number>;
-} {
-  const byArea = new Map<string, number>();
-  for (const procedure of procedures) {
-    if (!procedure.area) continue;
-    byArea.set(procedure.area, (byArea.get(procedure.area) ?? 0) + 1);
-  }
-  return { all: procedures.length, byArea };
-}
-
 /** The URL an article lives at. */
 export function articleHref(
   article: { kind: RcKind; slug: string },
