@@ -1380,15 +1380,19 @@ export interface Database {
           updated_by: string | null;
           /** Generated; never written. */
           search_vector: unknown;
+          /** Generated md5 of title/summary/body text; never written. */
+          content_hash: string;
         };
         Insert: Partial<
-          Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector">
+          Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector" | "content_hash">
         > & {
           slug: string;
           kind: RcKind;
           title: string;
         };
-        Update: Partial<Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector">>;
+        Update: Partial<
+          Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector" | "content_hash">
+        >;
         Relationships: [];
       };
       // Insert-only: written by triggers on rc_articles, never updated.
@@ -1412,6 +1416,21 @@ export interface Database {
           source: RcSource;
         };
         Update: Partial<Database["public"]["Tables"]["rc_article_versions"]["Row"]>;
+        Relationships: [];
+      };
+      // Semantic search (20260928180000_resources_semantic_search.sql).
+      rc_article_embeddings: {
+        Row: {
+          article_id: string;
+          /** pgvector, sent and read as its text literal. */
+          embedding: string;
+          content_hash: string;
+          embedded_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["rc_article_embeddings"]["Row"], "embedded_at"> & {
+          embedded_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rc_article_embeddings"]["Row"]>;
         Relationships: [];
       };
       // Screenshots for figure nodes (20260928160000_resources_media.sql).
@@ -3125,8 +3144,25 @@ export interface Database {
        */
       /** security invoker — rc_articles RLS scopes what it ranks. */
       rc_search_articles: {
-        Args: { p_query: string; p_limit?: number };
+        Args: {
+          p_query: string;
+          p_limit?: number;
+          p_fallback_query?: string | null;
+          /** A pgvector literal; null runs the keyword half alone. */
+          p_embedding?: string | null;
+        };
         Returns: { id: string; rank: number }[];
+      };
+      /** security invoker — an editor's session sees every article. */
+      rc_articles_needing_embedding: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string;
+          title: string;
+          summary: string | null;
+          body_text: string;
+          content_hash: string;
+        }[];
       };
       ei_create_inquiry: {
         Args: { p_pillar_id: string };

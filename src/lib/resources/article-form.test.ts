@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { slugify, validateArticleForm, type ArticleFormInput } from "./article-form";
+import { anyWordQuery, embeddingInputForArticle, shapeResourceSearchResults } from "./articles";
 import {
   pngSize,
   screenshotObjectPath,
@@ -135,5 +136,62 @@ describe("pngSize", () => {
     view.setUint32(20, 800);
     expect(pngSize(bytes)).toEqual({ width: 1280, height: 800 });
     expect(pngSize(new Uint8Array(24))).toBeNull();
+  });
+});
+
+describe("shapeResourceSearchResults", () => {
+  const hit = (kind: "procedure" | "guide" | "release_note", slug: string, tool?: string) => ({
+    article: { kind, slug, title: slug, summary: null },
+    tool: tool ? { key: tool, name: tool.toUpperCase() } : null,
+  });
+  const hits = [
+    hit("guide", "read-a-clock", "log"),
+    hit("procedure", "eas-test"),
+    hit("release_note", "clock-diagram", "log"),
+    hit("guide", "add-a-source", "transcription"),
+  ];
+
+  it("keeps rank order, links each result, and names its tool", () => {
+    expect(shapeResourceSearchResults(hits, { limit: 10 }).map((result) => result.url)).toEqual([
+      "/resources/tools/log/read-a-clock",
+      "/resources/procedures/eas-test",
+      "/resources/whats-new#clock-diagram",
+      "/resources/tools/transcription/add-a-source",
+    ]);
+    expect(shapeResourceSearchResults(hits, { limit: 1 })[0]).toMatchObject({ tool: "LOG" });
+  });
+
+  it("narrows by kind and tool, then caps", () => {
+    expect(shapeResourceSearchResults(hits, { kind: "guide", limit: 10 })).toHaveLength(2);
+    expect(
+      shapeResourceSearchResults(hits, { toolKey: "log", limit: 10 }).map((result) => result.kind),
+    ).toEqual(["guide", "release_note"]);
+    expect(shapeResourceSearchResults(hits, { limit: 2 })).toHaveLength(2);
+  });
+});
+
+describe("anyWordQuery", () => {
+  it("widens a question to any of its words", () => {
+    expect(anyWordQuery("how do I add a source")).toBe("how or do or I or add or a or source");
+    expect(anyWordQuery('"exact phrase" -excluded (group)')).toBe(
+      "exact or phrase or excluded or group",
+    );
+    expect(anyWordQuery("clock or diagram")).toBe("clock or diagram");
+  });
+
+  it("has nothing to widen for one word", () => {
+    expect(anyWordQuery("clock")).toBeNull();
+    expect(anyWordQuery("  ")).toBeNull();
+  });
+});
+
+describe("embeddingInputForArticle", () => {
+  it("embeds the title, summary, and body text, skipping what's empty", () => {
+    expect(
+      embeddingInputForArticle({ title: "Read a clock", summary: null, body_text: " The ring. " }),
+    ).toBe("Read a clock\n\nThe ring.");
+    expect(
+      embeddingInputForArticle({ title: "T", summary: "S", body_text: "x".repeat(9000) }),
+    ).toHaveLength(8000);
   });
 });

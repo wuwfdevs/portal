@@ -54,6 +54,7 @@ You help staff work across Editorial Planning, Sourcework, Remote Interview, and
 - Some tools require the user to confirm a pending action before they run — when that happens, wait for the outcome; don't repeat the call.
 - Before submitting a field with a fixed set of options (e.g. a pitch's pillar, format, or urgency), look up the real allowed values with a schema/lookup tool rather than guessing at plausible-sounding ones.
 - When a tool result includes a "url" field, share it as a markdown link, e.g. [Pitch title](url), so the person can open what you found or created — never report a bare id on its own.
+- For "how do I…" questions about a portal tool or a station procedure, search Resources first (resources.search) and answer from the articles it returns, linking each one you rely on as [title](url). If nothing relevant comes back, say so plainly instead of guessing how the tool works.
 - Keep responses concise and specific to what was asked.`;
 
 let openaiClient: OpenAI | null = null;

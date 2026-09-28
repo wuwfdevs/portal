@@ -2,12 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { assertResourcesEditor } from "@/lib/resources/access";
 import { validateArticleForm, type ArticleFormInput } from "@/lib/resources/article-form";
 import { RESOURCES_MEDIA_BUCKET } from "@/lib/resources/screenshot-rules";
+import { embedPendingArticles } from "@/lib/resources/embeddings";
 import { figureMediaIds, parseRichText, type RichTextDoc } from "@/lib/rich-text";
 
 // Create, edit, and delete for procedures and guides. Every write is
@@ -127,6 +129,9 @@ export async function createArticle(formData: FormData): Promise<void> {
     targetId: data.id,
     metadata: { kind, slug: fields.slug },
   });
+  // Semantic search picks the new text up after the response: best-effort,
+  // never fatal (lib/resources/embeddings.ts).
+  after(() => embedPendingArticles(supabase, 10));
   revalidatePath("/resources", "layout");
   redirect(`${detailPath(kind, fields.slug, fields.toolKey)}?saved=created`);
 }
@@ -205,6 +210,7 @@ export async function updateArticle(formData: FormData): Promise<void> {
     targetId: id,
     metadata: { kind, slug: existing.slug },
   });
+  after(() => embedPendingArticles(supabase, 10));
   revalidatePath("/resources", "layout");
   redirect(`${detailPath(kind, existing.slug, currentToolKey)}?saved=updated`);
 }

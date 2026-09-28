@@ -141,6 +141,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     toolKey: "academic-partnerships",
     paths: ["/academic-partnerships/:id"],
   },
+  {
+    key: "academic-partnerships.settings",
+    name: "Settings",
+    toolKey: "academic-partnerships",
+    paths: ["/academic-partnerships/settings"],
+  },
   { key: "log.today", name: "Today", toolKey: "log", paths: ["/log"] },
   { key: "log.rundown", name: "Rundown", toolKey: "log", paths: ["/log/rundowns/:id"] },
   {
