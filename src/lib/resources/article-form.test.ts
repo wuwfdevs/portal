@@ -65,7 +65,15 @@ describe("validateArticleForm", () => {
     expect(validateArticleForm(input({ audience: [] }), TOOLS)).toMatchObject({
       field: "audience",
     });
-    expect(validateArticleForm(input({ area: "Sports" }), TOOLS)).toMatchObject({ field: "area" });
+    expect(validateArticleForm(input({ area: "  " }), TOOLS)).toMatchObject({ field: "area" });
+  });
+
+  it("accepts any non-empty area — it's free text, not a fixed list", () => {
+    const result = validateArticleForm(input({ area: "Membership & Development" }), TOOLS);
+    expect(result.ok && result.fields.area).toBe("Membership & Development");
+    expect(validateArticleForm(input({ area: "x".repeat(61) }), TOOLS)).toMatchObject({
+      field: "area",
+    });
   });
 
   it("keeps audiences in a fixed order and ignores unknown ones", () => {

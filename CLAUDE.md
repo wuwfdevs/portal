@@ -3290,6 +3290,45 @@ the code" rule under "Rules for making changes", the two `private.rc_release_*` 
 calls, the migration test that checks their bodies, and guides for the tools that had
 none.
 
+**Resources: home page reordered, and procedures split onto their own list page
+(2026-09-28).** Two related fixes, no migration. First, the home page's three sections
+now read Tool guides, What's new, Station procedures (was procedures first) — a direct
+ordering request. Second, the full procedures table (with its area `FilterChips` and
+`Pagination`) moved off the home page to a new `/resources/procedures`
+(`resources/procedures/page.tsx`); the home page's own "Station procedures" section is
+now a short preview (a count, area chips, the `RECENT_PROCEDURES_LIMIT` (5) most
+recently updated procedures, and an "All procedures" link) — the same
+preview-plus-link-to-a-full-list shape the "What's new" section already used, and the
+right one now that the procedures table was the single heaviest thing on the home page.
+
+The area chips uncovered a real bug reported directly: clicking most of them "didn't
+seem to link to anywhere." Root cause — `PROCEDURE_AREAS`, a hardcoded five-value list
+(`"On air"`, `"News"`, `"Engineering"`, `"Emergency"`, `"Development"`), was used both to
+build the Area filter chips and, via `validateArticleForm()`, to constrain what a
+procedure's `area` could be saved as. But every real procedure already in production
+(24 rows, checked directly against the database) carries an area outside that list
+entirely (`"Digital & Audience"`, `"Engineering & Broadcast"`, `"Events & RadioLive"`,
+`"Membership & Development"`, `"Underwriting"`, `"Using the portal"`) — since the
+validation has rejected anything outside `PROCEDURE_AREAS` since this form was built,
+those rows can only have been written directly against the database, never through the
+app. The practical effect: nearly every Area chip filtered to a real, non-empty area the
+list had never offered, so it always showed "No procedures in ... yet." — indistinguishable
+from a dead link — and opening any of those 24 procedures' edit page reset the Area field
+to blank, since no `<option>` matched its real value.
+
+Fixed by treating `area` as the free text it already is at the database level, everywhere
+that touches it. `PROCEDURE_AREAS` is gone. `listProcedureAreaCounts()`
+(`lib/resources/queries.ts`) derives the Area chips from the real distinct areas among
+readable procedures, the same way the What's new screen's own Tool filter is derived from
+its notes rather than a fixed list — every chip now goes somewhere, and a newly-introduced
+area is reachable immediately, with no code change. The create/edit form's Area field is
+now a plain text `Input` with a `<datalist>` of the areas already in use
+(`existingAreas`, passed in by `procedures/new/page.tsx` and
+`procedures/[slug]/edit/page.tsx`) instead of a closed `<select>` — an editor can reuse
+an existing area or type a new one, and `validateArticleForm()` only requires it be
+non-empty (`AREA_MAX` = 60 characters), matching how every other free-text field here is
+validated.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),

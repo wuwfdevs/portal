@@ -154,7 +154,7 @@ hides the problem another way: it is capped at 100 rows with no way to see older
 
 A list whose rows grow with use — records people create, not configuration — is
 paginated by page number, with the lib and component below. The Resources procedures list
-(`/resources`) is the reference.
+(`/resources/procedures`) is the reference.
 
 1. **URL:** `?page=N`, alongside the list's other parameters (`q`, filters). Page 1 is the
    bare URL. A filter or search link always drops `page`, back to page 1.

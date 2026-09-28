@@ -38,19 +38,6 @@ export function guideLinksInBody(body: unknown): { href: string; label: string }
   return [...found].map(([href, label]) => ({ href, label: label.trim() }));
 }
 
-/**
- * The areas a procedure is filed under, in the order the home page's chips
- * show them. rc_articles.area is free text in SQL so a new area needs no
- * migration; this list is what the screens (and, from slice 2, the editor's
- * select) offer.
- */
-export const PROCEDURE_AREAS = [
-  "On air",
-  "News",
-  "Engineering",
-  "Emergency",
-  "Development",
-] as const;
 
 const AUDIENCE_LABELS: Record<RcAudience, string> = {
   staff: "Staff",

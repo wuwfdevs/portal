@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import type { RcAudience } from "@/lib/database.types";
-import { PROCEDURE_AREAS } from "@/lib/resources/articles";
 import {
+  AREA_MAX,
   AUDIENCES,
   SLUG_MAX,
   SUMMARY_MAX,
@@ -61,6 +61,7 @@ export function ArticleForm({
   tool,
   defaults,
   previewUrls,
+  existingAreas = [],
   error,
   field,
   cancelHref,
@@ -69,6 +70,8 @@ export function ArticleForm({
   tool?: ToolRef;
   defaults?: ArticleFormDefaults;
   previewUrls?: Record<string, string>;
+  /** Areas already in use on other procedures — offered as datalist suggestions, not a fixed list. */
+  existingAreas?: string[];
   error?: string;
   field?: string;
   cancelHref: string;
@@ -141,17 +144,21 @@ export function ArticleForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="area">Area</Label>
-            <Select id="area" name="area" required defaultValue={defaults?.area ?? ""}>
-              <option value="" disabled>
-                Choose an area
-              </option>
-              {PROCEDURE_AREAS.map((area) => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
+            <Input
+              id="area"
+              name="area"
+              required
+              list="area-options"
+              maxLength={AREA_MAX}
+              placeholder="Engineering & Broadcast"
+              defaultValue={defaults?.area ?? ""}
+            />
+            <datalist id="area-options">
+              {existingAreas.map((area) => (
+                <option key={area} value={area} />
               ))}
-            </Select>
-            {fieldError("area") && <FieldError>{fieldError("area")}</FieldError>}
+            </datalist>
+            {hint("area", "A department or category. Reuse one already in use where it fits.")}
           </div>
           <div>
             <Label htmlFor="owner_role">Owner</Label>

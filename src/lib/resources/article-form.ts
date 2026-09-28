@@ -3,7 +3,6 @@
 // hands the fields here. Colocated test.
 
 import type { RcAudience } from "@/lib/database.types";
-import { PROCEDURE_AREAS } from "./articles";
 import { SCREENS } from "./screens";
 
 export const AUDIENCES: readonly RcAudience[] = ["staff", "students", "partners"];
@@ -11,6 +10,7 @@ export const TITLE_MAX = 160;
 export const SUMMARY_MAX = 240;
 export const SLUG_MAX = 80;
 export const VERSION_NOTE_MAX = 200;
+export const AREA_MAX = 60;
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -108,8 +108,8 @@ export function validateArticleForm(
 
   if (input.kind === "procedure") {
     const area = input.area.trim();
-    if (!(PROCEDURE_AREAS as readonly string[]).includes(area))
-      return fail("area", "Choose an area.");
+    if (area === "") return fail("area", "Give it an area.");
+    if (area.length > AREA_MAX) return fail("area", `Keep the area under ${AREA_MAX} characters.`);
     const ownerRole = input.ownerRole.trim();
     if (ownerRole.length > 80) return fail("owner_role", "Keep the owner under 80 characters.");
     return {

@@ -174,10 +174,16 @@ listing the Resources guides for the screen you're on.
 
 All under `src/app/(portal)/resources/`, laid out per `docs/ui-patterns.md`.
 
-- `/resources` — search (`?q=`, ranked results replace the sections), Station procedures
-  (Area `FilterChips`, `?area=`, a `TableFrame` table whose rows open the procedure), Tool
-  guides (one card per tool with at least one readable guide), and the latest three
-  release notes.
+- `/resources` — search (`?q=`, ranked results replace the sections), in order: Tool
+  guides (one card per tool with at least one readable guide), the latest three release
+  notes, and a short Station procedures preview (a count, Area chips linking into the
+  full list, and the most recently updated procedures) with an "All procedures" link.
+  (Reordered and split from the home page's own full procedures table 2026-09-28 — see
+  CLAUDE.md's dated note.)
+- `/resources/procedures` — the full procedures list: Area `FilterChips` (`?area=`,
+  derived from the areas actually in use — `listProcedureAreaCounts()` — not a fixed
+  list), a `TableFrame` table whose rows open the procedure, and `Pagination` (`?page=`,
+  `docs/ui-patterns.md`'s pagination reference implementation).
 - `/resources/procedures/[slug]` — article plus an aside: `DetailSummary`, "Tools this
   uses" (the guide links found in the body — `guideLinksInBody()`), and History behind
   `?history=1`.
