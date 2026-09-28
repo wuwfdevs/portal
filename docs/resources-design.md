@@ -1,6 +1,7 @@
 # Resources: design
 
-**Status (2026-09-28):** slice 1 (Foundation) has landed. Slices 2–5 are planned, below.
+**Status (2026-09-28):** slices 1 (Foundation) and 2 (Editing and screenshots) have landed.
+Slices 3–5 are planned, below.
 
 Resources is a top-level area at `/resources` for three kinds of content:
 
@@ -38,7 +39,7 @@ every page and reports `isEditor` for rendering editor-only controls.
 
 - **`rc_articles`** — one table, discriminated by `kind` (`procedure | guide |
 release_note`). `slug` is the identity migrations upsert on; never match a seeded row by
-  id. `body` is ProseMirror JSON validated by `lib/roadmap/rich-text.ts`, never HTML.
+  id. `body` is ProseMirror JSON validated by `lib/rich-text.ts`, never HTML.
   Check constraints hold each kind's shape (a procedure has an area and no tool; a guide
   has a tool; a release note has a date and may be portal-wide). `sort_order` orders a
   tool's guides. `search_vector` is a generated column over title, summary, and the body's
@@ -64,6 +65,77 @@ procedures:** the handoff's procedures were placeholders, and placeholders must 
 production. `supabase/seed.sql` carries three sample procedures, clearly labeled, for
 local and preview only.
 
+## Editing (slice 2)
+
+Editors (and administrators) create and edit procedures and guides; readers never see
+the controls, and RLS on `rc_articles` is the boundary either way. Per
+`docs/ui-patterns.md`, create and edit share one form, `resources/article-form.tsx`:
+
+- `/resources/procedures/new`, `/resources/procedures/[slug]/edit`.
+- `/resources/guides/new` asks for the tool first (`?tool=`), because a guide's screens
+  depend on it; `/resources/tools/[toolKey]/[slug]/edit`. The screens are a checkbox list
+  from `lib/resources/screens.ts`, which tags each screen with its tool, and
+  `validateArticleForm()` (`lib/resources/article-form.ts`, pure, tested) refuses a screen
+  from another tool.
+- **The slug is fixed once a page exists.** Release migrations match guides on slug, and
+  links to a procedure shouldn't break on an edit. It is editable only on create, derived
+  from the title when left blank.
+- A field's error renders under that field (`?error=&field=`); anything else renders at
+  the top of the form. A save lands on the page with `?saved=created|updated`, shown as a
+  badge beside the heading.
+- **Saving is an editor's version.** The action sets `source = 'editor'`,
+  `updated_by`, the "What changed" note as `version_note`, and clears `needs_review` —
+  saving is how an editor reconciles a guide a release flagged. The triggers do the rest:
+  a title or body change bumps `version`, snapshots it, and marks the guide
+  `edited_since_release`.
+- **History** lists every version; each opens in place (`?version=N`) with a note saying
+  which version is on screen. There is no restore button — an editor copies what they
+  need into an edit, which records a new version.
+- **Delete** is on the edit page, behind a confirm step (`?confirm=delete`). It removes
+  the article's own uploaded screenshots from Storage first (their rows cascade, the
+  objects don't), then the row, its history, and its release-note links. Audited as
+  `rc.article.deleted`; create and edit as `rc.article.created` / `rc.article.updated`.
+
+## Screenshots (slice 2)
+
+Resources is the first body in the portal with images; Roadmap still has none.
+
+- **One opt-in node.** `lib/rich-text.ts` (moved from `lib/roadmap/`, Roadmap re-imports
+  it) admits `figure` only when called with `{ allowFigures: true }`, and only among
+  blocks (the document, a list item, a quote) — never inline. Attrs: `mediaId` (a UUID),
+  `alt` (required, non-empty), optional `caption`. Anything else on the node is dropped.
+- **A figure stores an id, never a URL.** `rc_media` (`20260928160000_resources_media.sql`)
+  holds the object path, size, and alt text. `lib/resources/media.ts`'s `resolveFigures()`
+  reads the rows and signs URLs for the private `resources-media` bucket as the viewer, so
+  Storage's own policy decides; `components/ui/rich-text.tsx` renders the image with its
+  width and height, or the alt text in a dashed placeholder when there's no image yet, the
+  object is missing, or signing failed. `RichText` renders no figures unless the caller
+  passes `figures`, so a Roadmap body can't show one however it was stored.
+- **Two kinds of media row.** An editor's upload has `article_id` and follows that
+  article's visibility. A captured shot has `(screen_key, name)`, no article, and is
+  readable by any Resources reader; the guides that embed it are what's scoped.
+- **Editor uploads** go browser → Storage at `<article_id>/<media_id>.<ext>`
+  (`resources/article-body-field.tsx`), then an `rc_media` row, then the node — never
+  through a Server Action. "Add screenshot" appears only when editing an existing article
+  (a new one has no id to file under). PNG or WebP, 2 MB, 2400px wide
+  (`lib/resources/screenshot-rules.ts`, pure, tested; the bucket enforces type and size
+  too). Alt text is required before the upload starts. Removing a figure from a body
+  leaves its row and object; deleting the article removes them.
+- **Captured shots** come from `scripts/resources-screenshots/`
+  (`npm run screenshots:resources`, run by Vitest like the evals): it signs in to preview
+  as a seeded user without an inbox (the secret key mints the magic-link token), visits
+  each route in `shots.ts` at 1280×800, captures the element marked
+  `data-help-shot="<name>"`, and upserts the row by `(screen_key, name)`, keeping its id,
+  so every guide using it refreshes with no edit. It refuses to capture from production;
+  given production's URL and secret key it also publishes the same images there. A
+  migration declares a new shot's row with a fixed id so a guide can reference it before
+  the first capture. `playwright-core` (pinned, dev only) was added for this; the
+  handoff asked for captured rather than hand-made screenshots.
+- The first shot is Sourcework's source grid (`source-card-grid.tsx`). Declaring it
+  showed the slice 1 Sourcework guides were already stale — they described a pill row
+  and "+ Reference another source" the page no longer has — so the same migration
+  rewrote both guides for the card grid and "+ Add source".
+
 ## Screens (slice 1, read-only)
 
 All under `src/app/(portal)/resources/`, laid out per `docs/ui-patterns.md`.
@@ -87,11 +159,7 @@ appears on the dashboard as an ordinary registry card.
 
 ## Later slices
 
-2. **Editing and screenshots** — editor create/edit (`/resources/procedures/new`,
-   `/[slug]/edit`, one shared form), the `figure` node behind `parseRichText({ allowFigures:
-true })` (move the whitelist to `src/lib/rich-text.ts` then, with Roadmap re-importing
-   it), `rc_media` + the private `resources-media` bucket, and the Playwright capture
-   script. The editor's "+ New procedure" link and `DetailSummary` Edit link arrive here.
+2. ~~Editing and screenshots~~ — landed; see above.
 3. **In-tool Help panel** — the header button, `RightPanelProvider` shared with the
    assistant, `screenKeyForPath()` in `lib/resources/screens.ts`, and
    `/api/resources/help`.

@@ -404,7 +404,7 @@ roadmap_curator` admits curators only — "member" here is every active staff me
 
 Rich text (post and comment bodies) is this repository's first: Tiptap
 (`@tiptap/react`/`starter-kit`/`pm`) writing **ProseMirror JSON into `jsonb`, never
-HTML**. There is no sanitizer because there is no markup — `src/lib/roadmap/rich-text.ts`
+HTML**. There is no sanitizer because there is no markup — `src/lib/rich-text.ts` (moved out of `lib/roadmap/` when Resources became its second user)
 holds the node/mark whitelist and validates on the way in, and
 `src/components/ui/rich-text.tsx` walks the document into React elements on the way out.
 Nothing in this codebase calls `dangerouslySetInnerHTML`; keep it that way. The editor
@@ -3253,12 +3253,22 @@ insert-only and holding every version including the current one, and
 (`lib/resources/access.ts`, `private.is_resources_editor`). Reading is scoped by
 audience — derived from `profiles.platform_role` by `private.resources_audience_for` —
 and, for an article about a tool, by `private.can_open_tool`, the SQL twin of
-`canOpenTool`. Bodies are ProseMirror JSON through the Roadmap whitelist, never HTML.
+`canOpenTool`. Bodies are ProseMirror JSON through the shared whitelist, never HTML.
 The migration seeds real release notes and guides but **no procedures** — the
 handoff's were placeholders; `supabase/seed.sql` has labeled samples for local and
-preview only. Slice 1 is read-only in the app; editing and screenshots, the in-tool
-Help panel, the assistant capability, and the "resources stay in step with the code"
-rule are slices 2–5, built in that order, one PR each.
+preview only. **Slice 2 (editing and screenshots) has landed too**: editors create
+and edit procedures and guides (`/resources/procedures/new`, `/resources/guides/new`,
+`…/edit`, one shared `article-form.tsx`; the slug is fixed once a page exists, since
+release migrations match on it), read any past version (`?version=N`), and delete
+from the edit page. The whitelist moved to `src/lib/rich-text.ts` and gained one
+opt-in node, `figure`, admitted only with `{ allowFigures: true }` — Roadmap never
+passes it. A figure stores an `rc_media` id, never a URL; `lib/resources/media.ts`
+signs URLs from the private `resources-media` bucket
+(`20260928160000_resources_media.sql`) and a missing image renders its alt text.
+Editors upload browser → Storage (`article-body-field.tsx`); captured shots come
+from `scripts/resources-screenshots/` (`npm run screenshots:resources`, preview
+only as a source). The in-tool Help panel, the assistant capability, and the
+"resources stay in step with the code" rule are slices 3–5.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
@@ -3415,9 +3425,9 @@ src/lib/audience-listening/  Audience Listening's data access + pure logic (publ
                            Supabase client
 src/lib/roadmap/           Roadmap's access gate + role (access.ts, roles.ts), data reads
                            (queries.ts), capabilities.ts, plus pure, tested modules — the
-                           status machine and validation (posts.ts) and the rich-text
-                           whitelist (rich-text.ts), which is the security boundary for
-                           every body stored by this tool
+                           status machine and validation (posts.ts). The rich-text
+                           whitelist it introduced now lives at src/lib/rich-text.ts, shared
+                           with Resources — the security boundary for every stored body
 src/lib/academic-partnerships/  Academic Partnerships' access gate + role (access.ts,
                            roles.ts), staff data reads (queries.ts), the domain activity
                            log (activity.ts), the public route's read (public.ts) and

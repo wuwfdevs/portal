@@ -4,7 +4,7 @@
 
 import type { RcAudience } from "@/lib/database.types";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
-import { parseRichText, type RichTextNode } from "@/lib/roadmap/rich-text";
+import { parseRichText, type RichTextNode } from "@/lib/rich-text";
 
 /**
  * The tool guides a body links to, in order of first appearance, deduplicated

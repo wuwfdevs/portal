@@ -7,23 +7,40 @@ import { RichText } from "@/components/ui/rich-text";
 import { cn } from "@/lib/cn";
 import { requireResourcesAccess } from "@/lib/resources/access";
 import { formatReleaseDate, formatUpdatedDate } from "@/lib/resources/articles";
-import { getGuide } from "@/lib/resources/queries";
+import { resolveFigures } from "@/lib/resources/media";
+import { getArticleVersion, getGuide } from "@/lib/resources/queries";
 import { primaryScreenName } from "@/lib/resources/screens";
 import { HistoryCard } from "../../../history-card";
 
+const SAVED_LABELS: Record<string, string> = { created: "Created", updated: "Saved" };
+
 export default async function GuidePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ toolKey: string; slug: string }>;
+  searchParams: Promise<{ version?: string; saved?: string }>;
 }) {
-  const [{ toolKey, slug }, { isEditor }] = await Promise.all([params, requireResourcesAccess()]);
+  const [{ toolKey, slug }, { version, saved }, { isEditor }] = await Promise.all([
+    params,
+    searchParams,
+    requireResourcesAccess(),
+  ]);
   const detail = await getGuide(toolKey, slug);
   if (!detail) notFound();
 
   const { guide, tool, siblings, versions, releaseNote } = detail;
   const latest = versions[0] ?? null;
+  const requested = Number(version);
+  const past =
+    Number.isInteger(requested) && requested > 0 && requested !== guide.version
+      ? await getArticleVersion(guide.id, requested)
+      : null;
+  const shown = past ?? guide;
+  const figures = await resolveFigures([shown.body]);
   const screen = primaryScreenName(guide.screen_keys);
   const updated = formatUpdatedDate(guide.updated_at);
+  const basePath = `/resources/tools/${tool.key}/${guide.slug}`;
 
   return (
     <>
@@ -32,7 +49,12 @@ export default async function GuidePage({
       </Link>
       <div className="flex flex-wrap items-start gap-8">
         <article className="min-w-0 max-w-[720px] flex-[1_1_520px]">
-          <h1 className="font-serif text-2xl font-bold leading-snug text-ink-900">{guide.title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-serif text-2xl font-bold leading-snug text-ink-900">
+              {shown.title}
+            </h1>
+            {saved && SAVED_LABELS[saved] && <Badge variant="success">{SAVED_LABELS[saved]}</Badge>}
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
             <Badge variant="accent">Guide</Badge>
             <span>{tool.name}</span>
@@ -46,7 +68,15 @@ export default async function GuidePage({
             <span>Updated {updated}</span>
           </div>
 
-          {latest?.source === "release" && (
+          {past && (
+            <Alert variant="note" className="mt-4">
+              You&apos;re reading version {past.version}, from {formatUpdatedDate(past.created_at)}.{" "}
+              <Link href={basePath} className="font-semibold text-brand-link">
+                Read the current version
+              </Link>
+            </Alert>
+          )}
+          {!past && latest?.source === "release" && (
             <Alert variant="info" className="mt-4">
               <strong className="font-bold">
                 Updated with the{" "}
@@ -71,12 +101,16 @@ export default async function GuidePage({
           )}
           {isEditor && guide.needs_review && (
             <Alert variant="note" className="mt-3">
-              A release changed this screen after your last edit. Review this guide.
+              A release changed this screen after your last edit.{" "}
+              <Link href={`${basePath}/edit`} className="font-semibold text-brand-link">
+                Review this guide
+              </Link>
             </Alert>
           )}
 
           <RichText
-            body={guide.body}
+            body={shown.body}
+            figures={figures}
             className="mt-5 text-sm text-ink-700"
             fallback={<p className="mt-5 text-sm text-ink-500">This guide has no text yet.</p>}
           />
@@ -111,9 +145,18 @@ export default async function GuidePage({
                 );
               })}
             </ul>
+            {isEditor && (
+              <Link
+                href={`/resources/guides/new?tool=${encodeURIComponent(tool.key)}`}
+                className="mx-5 mt-2 block border-t border-line pt-2 text-xs font-semibold text-brand-link"
+              >
+                + New {tool.name} guide
+              </Link>
+            )}
           </nav>
           <DetailSummary
             title="Details"
+            editHref={isEditor ? `${basePath}/edit` : undefined}
             items={[
               { label: "Tool", value: tool.name },
               { label: "Screen", value: screen },
@@ -124,7 +167,11 @@ export default async function GuidePage({
               },
             ]}
           />
-          <HistoryCard versions={versions} />
+          <HistoryCard
+            versions={versions}
+            hrefFor={(target) => (target === null ? basePath : `${basePath}?version=${target}`)}
+            viewing={past?.version ?? guide.version}
+          />
         </aside>
       </div>
     </>

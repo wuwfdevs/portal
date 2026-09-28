@@ -1320,7 +1320,7 @@ export interface Database {
         Row: {
           id: string;
           title: string;
-          /** ProseMirror JSON — see lib/roadmap/rich-text.ts for the whitelist. */
+          /** ProseMirror JSON — see lib/rich-text.ts for the whitelist. */
           body: unknown;
           body_text: string;
           kind: RdPostKind;
@@ -1361,7 +1361,7 @@ export interface Database {
           kind: RcKind;
           title: string;
           summary: string | null;
-          /** ProseMirror JSON — see lib/roadmap/rich-text.ts for the whitelist. */
+          /** ProseMirror JSON — see lib/rich-text.ts for the whitelist. */
           body: unknown;
           audience: RcAudience[];
           area: string | null;
@@ -1412,6 +1412,29 @@ export interface Database {
           source: RcSource;
         };
         Update: Partial<Database["public"]["Tables"]["rc_article_versions"]["Row"]>;
+        Relationships: [];
+      };
+      // Screenshots for figure nodes (20260928160000_resources_media.sql).
+      rc_media: {
+        Row: {
+          id: string;
+          article_id: string | null;
+          object_path: string;
+          width: number | null;
+          height: number | null;
+          alt: string;
+          source: RcSource;
+          screen_key: string | null;
+          name: string | null;
+          captured_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rc_media"]["Row"]> & {
+          object_path: string;
+          alt: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rc_media"]["Row"]>;
         Relationships: [];
       };
       rc_release_note_guides: {

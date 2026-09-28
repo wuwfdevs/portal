@@ -285,3 +285,39 @@ export async function searchArticles(query: string): Promise<SearchHit[]> {
     return [{ article, tool: article.tool_id ? (tools.get(article.tool_id) ?? null) : null }];
   });
 }
+
+/**
+ * The tools a guide can be written for: every enabled, real registry row
+ * except Resources itself. Proposed rows are ideas, not tools.
+ */
+export async function listGuideableTools(): Promise<ToolRef[]> {
+  const supabase = await createClient();
+  const tools = unwrapRead(
+    await supabase
+      .from("tools")
+      .select("id, key, name")
+      .eq("enabled", true)
+      .neq("status", "proposed")
+      .neq("key", "resources")
+      .order("name"),
+    "tools",
+  );
+  return tools ?? [];
+}
+
+/** One past (or the current) version of an article. */
+export async function getArticleVersion(
+  articleId: string,
+  version: number,
+): Promise<RcArticleVersion | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase
+      .from("rc_article_versions")
+      .select("*")
+      .eq("article_id", articleId)
+      .eq("version", version)
+      .maybeSingle(),
+    "article version",
+  );
+}

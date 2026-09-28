@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { FieldHint, Input } from "@/components/ui/input";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ToolIcon } from "@/components/tool-icon";
 import {
@@ -11,6 +12,7 @@ import {
   formatReleaseDate,
   formatUpdatedDate,
 } from "@/lib/resources/articles";
+import { requireResourcesAccess } from "@/lib/resources/access";
 import {
   articleHref,
   listProcedures,
@@ -25,18 +27,37 @@ const KIND_LABELS = { procedure: "Procedure", guide: "Guide", release_note: "Rel
 export default async function ResourcesHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; area?: string }>;
+  searchParams: Promise<{ q?: string; area?: string; deleted?: string }>;
 }) {
-  const { q, area } = await searchParams;
+  const [{ q, area, deleted }, { isEditor }] = await Promise.all([
+    searchParams,
+    requireResourcesAccess(),
+  ]);
   const query = q?.trim() ?? "";
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-bold text-ink-900">Resources</h1>
-        <p className="mt-1 text-xs text-ink-400">
-          Station procedures, a guide to every tool in the portal, and notes on what changed.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="font-serif text-2xl font-bold text-ink-900">Resources</h1>
+            {deleted === "1" && <Badge variant="success">Deleted</Badge>}
+          </div>
+          <p className="mt-1 text-xs text-ink-400">
+            Station procedures, a guide to every tool in the portal, and notes on what changed.
+          </p>
+        </div>
+        {isEditor && (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/resources/guides/new"
+              className="text-sm font-semibold text-brand-link hover:underline"
+            >
+              + New guide
+            </Link>
+            <PrimaryLink href="/resources/procedures/new">+ New procedure</PrimaryLink>
+          </div>
+        )}
       </div>
 
       <form method="get" className="mb-8 max-w-xl">

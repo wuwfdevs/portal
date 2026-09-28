@@ -370,7 +370,7 @@ Storing JSON rather than HTML is the load-bearing choice:
   it. A sanitizer is a dependency whose correctness you have to trust; a whitelist
   renderer is code you can read in one sitting and unit-test.
 - **The whitelist is explicit and lives in one file.**
-  `lib/roadmap/rich-text.ts` — pure, no React, no Supabase, colocated test — holds
+  `lib/rich-text.ts` (moved from `lib/roadmap/` in 2026-09 when Resources reused it) — pure, no React, no Supabase, colocated test — holds
   `parseRichText()` (drops unknown node types and marks, clamps headings to levels
   2–3, and accepts a link `href` only if it starts with `/`, `http://`, or
   `https://`, the same reasoning as the link parser in
