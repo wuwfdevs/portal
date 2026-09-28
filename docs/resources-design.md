@@ -1,8 +1,8 @@
 # Resources: design
 
 **Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots), 3 (the
-in-tool Help panel) and 4 (the assistant capability, with semantic search) have landed.
-Slice 5 is planned, below.
+in-tool Help panel), 4 (the assistant capability, with semantic search) and 5 (the
+release rule and the guide backfill) have landed. The design is complete.
 
 Resources is a top-level area at `/resources` for three kinds of content:
 
@@ -218,10 +218,39 @@ whenever an editor opens `/resources` — which is how articles a release migrat
 get embedded. `OPENAI_API_KEY` is optional, as for Sourcework: without it no embeddings
 are written and search is keyword-only; an embedding failure is never an error.
 
-## Later slices
+## Keeping Resources in step with the code (slice 5)
 
-2. ~~Editing and screenshots~~ — landed; see above.
-3. ~~In-tool Help panel~~ — landed; see above.
-4. ~~Assistant capability~~ — landed; see above.
-5. **The CLAUDE.md rule** — every user-visible change ships a release note and guide
-   update in its migration; backfill guides for each tool.
+CLAUDE.md's "Resources stay in step with the code" rule makes guides and release notes part
+of shipping a change, not a follow-up. A user-visible change ships a migration calling two
+helpers from `20260928200000_resources_release_helpers.sql`:
+
+- `private.rc_release_note(p_slug, p_tool_key, p_released_on, p_title, p_body,
+p_guide_slugs)`: upserts the note on slug and links the guides it changed. It raises if
+  the slug belongs to another kind of article or a linked guide doesn't exist.
+- `private.rc_release_guide(p_slug, p_tool_key, p_title, p_summary, p_body, p_screen_keys,
+p_sort_order, p_version_note)`: inserts a guide, or updates it as a new release version.
+  If an editor has changed the guide since the last release (`edited_since_release`), it
+  leaves the body alone and sets `needs_review`, so the editor's words win and the guide
+  page asks an editor to reconcile.
+
+Both helpers are in `private` with execute revoked from every API role, so only a migration
+calls them. Calls use named arguments and `$body$`-quoted JSON, and
+`lib/resources/release-content.test.ts` relies on that shape. It reads every call in
+`supabase/migrations` and fails on:
+
+- a body the rich-text whitelist would change (content the page would silently drop);
+- an empty body;
+- a screen key that isn't in `screens.ts` or belongs to another tool;
+- a release note linking a guide that doesn't exist.
+
+SQL can't run the whitelist, so this is the check.
+
+The backfill (`20260928210000_resources_guide_backfill.sql`) gave every enabled tool that
+had none a guide and a release note, through the helpers:
+
+- Editorial Planning
+- Audience Listening
+- Academic Partnerships
+
+Remote Interview and Editorial Inquiry are disabled in the registry, so they get guides when
+they're turned on. Resources itself isn't a guideable tool.

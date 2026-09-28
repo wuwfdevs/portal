@@ -3285,7 +3285,10 @@ route handler. **Slice 4 (the assistant capability) has landed**: `resources.sea
 (`lib/resources/capabilities.ts`), which the assistant is told to use first for "how do
 I…" questions. Search is hybrid keyword + semantic like `tw_search`, with embeddings in
 `rc_article_embeddings` (written only by editor sessions, via `after()`) and the same
-optional-`OPENAI_API_KEY` rule. The "resources stay in step with the code" rule is slice 5.
+optional-`OPENAI_API_KEY` rule. **Slice 5 has landed**: the "Resources stay in step with
+the code" rule under "Rules for making changes", the two `private.rc_release_*` helpers it
+calls, the migration test that checks their bodies, and guides for the tools that had
+none.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
@@ -3571,6 +3574,26 @@ make explicitly, not by default.
 
 ## Rules for making changes
 
+- **Resources stay in step with the code.** Any change a user would notice ships a
+  migration that writes its Resources content through
+  `private.rc_release_note()` and `private.rc_release_guide()`
+  (`20260928200000_resources_release_helpers.sql`). That means one release note (tool,
+  `released_on`, sentence-case title, a one-paragraph body), plus an updated or new guide
+  for each screen it changes, linked through `p_guide_slugs`. Use named arguments, with
+  `$body$`-quoted ProseMirror JSON as the last one. `release-content.test.ts` finds every call by that shape
+  and fails on a body the rich-text whitelist would alter, on a screen key missing from
+  `lib/resources/screens.ts`, and on a link to a guide that doesn't exist. Slugs are the
+  identity; never match on id. A guide an editor has changed since the last release is not
+  overwritten: the helper flags it `needs_review` and the release note still ships.
+  - Where a step points at something on screen, add `data-help-shot="<name>"` to the
+    element and the shot to `scripts/resources-screenshots/shots.ts`, and reference its
+    `rc_media` row in a `figure`.
+  - If the change alters a screen that existing shots cover, list those shots in the PR
+    description so they're re-captured once the migration is on preview.
+  - A new route that has a guide needs its pattern in `screens.ts`, or Help won't find it.
+  - Tone is the station's: factual, calm, sentence case, no exclamation points.
+  - The migration goes through `APPLIED.md` like any other. Internal-only changes
+    (refactors, fixes nobody sees, docs) don't need one.
 - Inspect the relevant existing file(s) before editing; match existing patterns rather
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename
