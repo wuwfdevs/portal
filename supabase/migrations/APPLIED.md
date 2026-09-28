@@ -151,9 +151,12 @@ repo and a project's history, not the version number.
 | `20260928140000_resources.sql`                                        | 2026-09-28 | 2026-09-28 |
 | `20260928160000_resources_media.sql`                                  | 2026-09-28 | 2026-09-28 |
 | `20260928180000_resources_portal_basics.sql`                          | 2026-09-28 | 2026-09-28 |
+| `20260928180000_resources_semantic_search.sql`                        | 2026-09-28 | 2026-09-28 |
 | `20260928190000_resources_sourcework_guides.sql`                      | 2026-09-28 | 2026-09-28 |
 | `20260928200000_resources_audience_listening_guides.sql`              | 2026-09-28 | 2026-09-28 |
+| `20260928200000_resources_release_helpers.sql`                        | 2026-09-28 | 2026-09-28 |
 | `20260928210000_resources_audience_listening_merge_duplicate.sql`     | 2026-09-28 | 2026-09-28 |
+| `20260928210000_resources_guide_backfill.sql`                         | 2026-09-28 | 2026-09-28 |
 | `20260928220000_resources_log_guides.sql`                             | 2026-09-28 | 2026-09-28 |
 | `20260928230000_resources_underwriting_guides.sql`                    | 2026-09-28 | 2026-09-28 |
 | `20260928240000_resources_backfill_screenshots.sql`                   | 2026-09-28 | 2026-09-28 |

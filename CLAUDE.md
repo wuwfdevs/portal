@@ -1333,6 +1333,13 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Pagination — one approach for every list that grows (2026-09-28).** Read
+`docs/ui-patterns.md` "Pagination" before adding or changing a list page; this is a
+pointer. `?page=N`, filtered and sorted in the query with `{ count: "exact" }` plus
+`.range()` (`src/lib/pagination.ts`, pure, tested), chip counts from head-count queries,
+and `components/ui/pagination.tsx` under the list. The Resources procedures list is the
+reference; the doc's rollout list names the lists still to move, `log/library` first.
+
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
 `docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`
@@ -3274,8 +3281,14 @@ the URL; add a route pattern there when a screen gains a route). The assistant a
 share the right edge through `components/right-panel.tsx`'s `RightPanelProvider` — only
 one is open at a time; use it rather than a local `open` state for anything else that
 docks there. The panel reads through a Server Action (`resources/help-actions.ts`), not a
-route handler. The assistant capability and the "resources stay in step with the code"
-rule are slices 4–5.
+route handler. **Slice 4 (the assistant capability) has landed**: `resources.search`
+(`lib/resources/capabilities.ts`), which the assistant is told to use first for "how do
+I…" questions. Search is hybrid keyword + semantic like `tw_search`, with embeddings in
+`rc_article_embeddings` (written only by editor sessions, via `after()`) and the same
+optional-`OPENAI_API_KEY` rule. **Slice 5 has landed**: the "Resources stay in step with
+the code" rule under "Rules for making changes", the two `private.rc_release_*` helpers it
+calls, the migration test that checks their bodies, and guides for the tools that had
+none.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
@@ -3561,6 +3574,26 @@ make explicitly, not by default.
 
 ## Rules for making changes
 
+- **Resources stay in step with the code.** Any change a user would notice ships a
+  migration that writes its Resources content through
+  `private.rc_release_note()` and `private.rc_release_guide()`
+  (`20260928200000_resources_release_helpers.sql`). That means one release note (tool,
+  `released_on`, sentence-case title, a one-paragraph body), plus an updated or new guide
+  for each screen it changes, linked through `p_guide_slugs`. Use named arguments, with
+  `$body$`-quoted ProseMirror JSON as the last one. `release-content.test.ts` finds every call by that shape
+  and fails on a body the rich-text whitelist would alter, on a screen key missing from
+  `lib/resources/screens.ts`, and on a link to a guide that doesn't exist. Slugs are the
+  identity; never match on id. A guide an editor has changed since the last release is not
+  overwritten: the helper flags it `needs_review` and the release note still ships.
+  - Where a step points at something on screen, add `data-help-shot="<name>"` to the
+    element and the shot to `scripts/resources-screenshots/shots.ts`, and reference its
+    `rc_media` row in a `figure`.
+  - If the change alters a screen that existing shots cover, list those shots in the PR
+    description so they're re-captured once the migration is on preview.
+  - A new route that has a guide needs its pattern in `screens.ts`, or Help won't find it.
+  - Tone is the station's: factual, calm, sentence case, no exclamation points.
+  - The migration goes through `APPLIED.md` like any other. Internal-only changes
+    (refactors, fixes nobody sees, docs) don't need one.
 - Inspect the relevant existing file(s) before editing; match existing patterns rather
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename

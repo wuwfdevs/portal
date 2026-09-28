@@ -1,7 +1,8 @@
 # Resources: design
 
-**Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots) and 3 (the
-in-tool Help panel) have landed. Slices 4–5 are planned, below.
+**Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots), 3 (the
+in-tool Help panel), 4 (the assistant capability, with semantic search) and 5 (the
+release rule and the guide backfill) have landed. The design is complete.
 
 Resources is a top-level area at `/resources` for three kinds of content:
 
@@ -190,10 +191,66 @@ All under `src/app/(portal)/resources/`, laid out per `docs/ui-patterns.md`.
 The portal nav has a Resources tab between Dashboard and Administration. Resources also
 appears on the dashboard as an ordinary registry card.
 
-## Later slices
+## Assistant and search (slice 4)
 
-2. ~~Editing and screenshots~~ — landed; see above.
-3. ~~In-tool Help panel~~ — landed; see above.
-4. **Assistant capability** — `resources.search` over `rc_search_articles()`.
-5. **The CLAUDE.md rule** — every user-visible change ships a release note and guide
-   update in its migration; backfill guides for each tool.
+The in-portal assistant reaches Resources through one capability, `resources.search`
+(`lib/resources/capabilities.ts`): a query, optionally narrowed by kind or tool key,
+returning at most eight titles, summaries and links (`shapeResourceSearchResults()`,
+pure). It is read-only, so its confirmation is `none`, and it runs as the caller — RLS
+decides what comes back, as everywhere else. The assistant's instructions tell it to
+search Resources first for "how do I…" questions and to say so plainly when nothing
+relevant comes back rather than guess how a tool works.
+
+Search is hybrid, the same shape as Sourcework's `tw_search`: `rc_search_articles()`
+(`20260928180000_resources_semantic_search.sql`, `security invoker`) fuses keyword and
+semantic ranks by reciprocal rank fusion (k = 60). Keyword ranking uses every word of
+the query first; only if that finds nothing does it fall back to any of the words
+(`anyWordQuery()`, pure), since an assistant's query is usually a whole question. Semantic
+ranking uses `rc_article_embeddings` — a separate table, not a column on `rc_articles`,
+because writing an embedding onto the article would fire its version and `updated_at`
+triggers. Each embedding records the `content_hash` (a generated column over title,
+summary and body text) it was made from, so a stale row is one whose hash no longer
+matches (`rc_articles_needing_embedding()`).
+
+Only an editor's session can write embeddings, so a reader can't skew ranking. They are
+written after the response (`after()`), best-effort, when an editor saves an article and
+whenever an editor opens `/resources` — which is how articles a release migration inserts
+get embedded. `OPENAI_API_KEY` is optional, as for Sourcework: without it no embeddings
+are written and search is keyword-only; an embedding failure is never an error.
+
+## Keeping Resources in step with the code (slice 5)
+
+CLAUDE.md's "Resources stay in step with the code" rule makes guides and release notes part
+of shipping a change, not a follow-up. A user-visible change ships a migration calling two
+helpers from `20260928200000_resources_release_helpers.sql`:
+
+- `private.rc_release_note(p_slug, p_tool_key, p_released_on, p_title, p_body,
+p_guide_slugs)`: upserts the note on slug and links the guides it changed. It raises if
+  the slug belongs to another kind of article or a linked guide doesn't exist.
+- `private.rc_release_guide(p_slug, p_tool_key, p_title, p_summary, p_body, p_screen_keys,
+p_sort_order, p_version_note)`: inserts a guide, or updates it as a new release version.
+  If an editor has changed the guide since the last release (`edited_since_release`), it
+  leaves the body alone and sets `needs_review`, so the editor's words win and the guide
+  page asks an editor to reconcile.
+
+Both helpers are in `private` with execute revoked from every API role, so only a migration
+calls them. Calls use named arguments and `$body$`-quoted JSON, and
+`lib/resources/release-content.test.ts` relies on that shape. It reads every call in
+`supabase/migrations` and fails on:
+
+- a body the rich-text whitelist would change (content the page would silently drop);
+- an empty body;
+- a screen key that isn't in `screens.ts` or belongs to another tool;
+- a release note linking a guide that doesn't exist.
+
+SQL can't run the whitelist, so this is the check.
+
+The backfill (`20260928210000_resources_guide_backfill.sql`) gave every enabled tool that
+had none a guide and a release note, through the helpers:
+
+- Editorial Planning
+- Audience Listening
+- Academic Partnerships
+
+Remote Interview and Editorial Inquiry are disabled in the registry, so they get guides when
+they're turned on. Resources itself isn't a guideable tool.

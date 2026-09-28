@@ -24,6 +24,12 @@ describe("helpContextForPath", () => {
     expect(helpContextForPath("/sourcework/sources/abc")?.screenKey).toBe("sourcework.source");
     expect(helpContextForPath("/sourcework", "?tab=sources")?.screenKey).toBe("sourcework.sources");
     expect(helpContextForPath("/sourcework", "?tab=clips")?.screenKey).toBe("sourcework.projects");
+    expect(helpContextForPath("/academic-partnerships/settings")?.screenKey).toBe(
+      "academic-partnerships.settings",
+    );
+    expect(helpContextForPath("/academic-partnerships/abc")?.screenKey).toBe(
+      "academic-partnerships.submission",
+    );
   });
 
   it("tells Editorial Inquiry apart from Editorial Planning", () => {

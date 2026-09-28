@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import { articleHref } from "./queries";
+import { articleHref, rankedArticleIds } from "./queries";
 import { helpContextForPath, screenName } from "./screens";
 
 // What the in-tool Help panel shows for one URL. Every read goes through the
@@ -126,11 +126,7 @@ async function searchToolGuides(
   query: string,
 ): Promise<HelpLink[]> {
   const supabase = await createClient();
-  const ranked = unwrapRead(
-    await supabase.rpc("rc_search_articles", { p_query: query, p_limit: 50 }),
-    "help search",
-  );
-  const ids = (ranked ?? []).map((hit) => hit.id);
+  const ids = await rankedArticleIds(query, 50);
   if (ids.length === 0) return [];
   const rows =
     unwrapRead(
