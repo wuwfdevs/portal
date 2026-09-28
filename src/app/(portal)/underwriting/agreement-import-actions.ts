@@ -129,6 +129,8 @@ export async function createContractFromAgreement(formData: FormData): Promise<v
     ...facts.value,
     id: contractId,
     agreement_document_path: documentPath,
+    // Not something the reading looks for — kept from the form if typed.
+    account_rep: field(formData, "account_rep") || null,
   });
   if (!created.ok) failWith(NEW_CONTRACT_PATH, created.error);
 

@@ -215,6 +215,7 @@ export async function createContract(formData: FormData): Promise<void> {
     makegood_requires_agency_approval: formData.get("makegood_requires_agency_approval") === "on",
     separation_source_text: optionalField(formData, "separation_source_text"),
     notes: optionalField(formData, "notes"),
+    account_rep: optionalField(formData, "account_rep"),
   });
   if (!created.ok) failWith(NEW_CONTRACT_PATH, created.error);
 
@@ -416,6 +417,7 @@ export async function updateContractOrder(formData: FormData): Promise<void> {
       sponsorship_total:
         sponsorshipTotal !== null && Number.isFinite(sponsorshipTotal) ? sponsorshipTotal : null,
       sponsorship_category: optionalField(formData, "sponsorship_category"),
+      account_rep: optionalField(formData, "account_rep"),
       notes: optionalField(formData, "notes"),
     })
     .eq("id", id);

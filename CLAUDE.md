@@ -1290,6 +1290,17 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: affidavits are a signed PDF (2026-09-28).** Read
+`docs/underwriting-design.md` §6, "Affidavits are a signed PDF", before
+touching affidavits; this is a pointer. `@react-pdf/renderer` (added for
+this; in `serverExternalPackages`) renders `lib/underwriting/affidavit-
+pdf.tsx` from `affidavits.ts`'s pure `buildAffidavitDocument`, which the
+affidavit page previews too — change the model, not the two renderings.
+Certifying stores the PDF in `underwriting-documents` with its SHA-256 and
+freezes the row (`20260928120000`, applied to both projects); a correction
+is a new affidavit. Only aired credits are listed, times in Central, no
+dollar amounts, and no email — reps send it themselves.
+
 **List pages, create, edit, and right columns — one rule for the whole portal
 (2026-09-27).** Read `docs/ui-patterns.md` before adding a list page, a
 create or edit form, or a right column; this note is a pointer. The old

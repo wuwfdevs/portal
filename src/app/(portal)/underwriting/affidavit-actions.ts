@@ -6,10 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
-import { findAffidavitEvidence } from "@/lib/underwriting/queries";
-import { buildReportIdentifier, newAffidavitHref } from "@/lib/underwriting/affidavits";
+import { createHash } from "node:crypto";
+import { findAffidavitEvidence, getAffidavitDetail } from "@/lib/underwriting/queries";
+import {
+  buildReportIdentifier,
+  certifiedAffidavitObjectPath,
+  newAffidavitHref,
+} from "@/lib/underwriting/affidavits";
+import { renderAffidavitPdf } from "@/lib/underwriting/affidavit-pdf";
+import { affidavitPdfProps } from "@/lib/underwriting/affidavit-pdf-props";
 
 const LIST_PATH = "/underwriting/affidavits";
+const DOCUMENTS_BUCKET = "underwriting-documents";
 
 function affidavitPath(id: string): string {
   return `${LIST_PATH}/${id}`;
@@ -102,48 +110,76 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
 }
 
 /**
- * One of docs/underwriting-design.md §6's four privileged actions —
- * uw_guard_affidavit_certification() (the migration's before-update
- * trigger) is what actually stops a non-manager, not this action, so the
- * boundary holds no matter how this table is ever written.
+ * One of docs/underwriting-design.md §6's four privileged actions. Renders
+ * the client-facing PDF with the manager's name, title and date on the
+ * signature line, stores it in underwriting-documents, then marks the row
+ * certified with the document's path and SHA-256 in the same update — so a
+ * certified affidavit always has the exact file the client receives.
+ * uw_guard_affidavit_certification() is the real boundary: it refuses a
+ * non-manager, and freezes the row once certified. The isManager check here
+ * only avoids storing a file for an update that would be refused.
  */
 export async function certifyAffidavit(formData: FormData): Promise<void> {
-  const { profile } = await assertUnderwritingAccess();
+  const { profile, isManager } = await assertUnderwritingAccess();
   const id = field(formData, "affidavit_id");
-  const certificationText = field(formData, "certification_text");
+  const title = field(formData, "certifying_staff_title");
   const path = affidavitPath(id);
 
-  if (certificationText === "") failWith(path, "Enter certification language before certifying.");
+  if (!isManager) failWith(path, "Only an underwriting manager can certify an affidavit.");
+  if (title === "") failWith(path, "Enter your title — it prints on the signature line.");
+
+  const affidavit = await getAffidavitDetail(id);
+  if (!affidavit) failWith(LIST_PATH, "That affidavit no longer exists.");
+  if (affidavit.status === "certified") failWith(path, "This affidavit is already certified.");
+
+  const certifiedAt = new Date().toISOString();
+  const pdf = await renderAffidavitPdf(
+    affidavitPdfProps(affidavit, {
+      certified: true,
+      certifierName: profile.display_name,
+      certifierTitle: title,
+      certifiedAt,
+    }),
+  );
+  const sha256 = createHash("sha256").update(pdf).digest("hex");
+  const objectPath = certifiedAffidavitObjectPath(id);
 
   const supabase = await createClient();
+  const { error: uploadError } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(objectPath, pdf, { contentType: "application/pdf", upsert: true });
+  if (uploadError) {
+    console.error("Could not store the certified affidavit", uploadError);
+    failWith(path, `Could not store the certified document: ${uploadError.message}`);
+  }
 
-  const { data: existing } = await supabase
-    .from("uw_affidavits")
-    .select("status")
-    .eq("id", id)
-    .maybeSingle();
-  const isNewCertification = existing?.status !== "certified";
-
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("uw_affidavits")
     .update({
       status: "certified",
       certifying_staff_id: profile.id,
-      certification_text: certificationText,
+      certifying_staff_title: title,
+      certification_text: affidavit.document.certificationSentence,
+      certified_at: certifiedAt,
+      certified_document_path: objectPath,
+      certified_document_sha256: sha256,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "draft")
+    .select("id");
   failIfError(error, path, "Could not certify this affidavit — only an underwriting manager can");
+  if (!updated || updated.length === 0) failWith(path, "This affidavit is already certified.");
 
-  if (isNewCertification) {
-    await logAuditEvent({
-      actorId: profile.id,
-      action: "underwriting.affidavit.certified",
-      targetType: "uw_affidavit",
-      targetId: id,
-    });
-  }
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "underwriting.affidavit.certified",
+    targetType: "uw_affidavit",
+    targetId: id,
+    metadata: { document_sha256: sha256, announcements: affidavit.document.airedCount },
+  });
 
   revalidatePath(path);
   revalidatePath(LIST_PATH);
+  revalidatePath(`/underwriting/contracts/${affidavit.contract_id}`);
   redirect(path);
 }

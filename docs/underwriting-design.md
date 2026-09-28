@@ -513,12 +513,35 @@ break today, a rules engine choosing it later. `lib/underwriting/
 auto-fill-plan.ts` is the rules engine's pure planning half; `lib/
 underwriting/auto-fill.ts` is what actually calls the RPC.
 
-### Affidavits are a certified document, not a generated PDF
+### Affidavits are a signed PDF (revised 2026-09-28)
 
-This repo has no PDF-generation dependency anywhere. Milestone 1's affidavit
-is a structured on-screen record (`/underwriting/affidavits/[id]`) styled
-for browser print-to-PDF, backed by `uw_affidavit_line_items`' real evidence
-trail.
+Milestone 1 shipped a browser-print record; that was replaced once WUWF's
+own affidavit template (one spreadsheet tab per client) was checked against
+it. The affidavit is now a PDF rendered on the server with
+`@react-pdf/renderer` (`lib/underwriting/affidavit-pdf.tsx`) from one
+document model (`lib/underwriting/affidavits.ts`'s
+`buildAffidavitDocument`, pure and tested) that the affidavit page also
+previews. It keeps the template's shape — station letterhead, the client's
+address block (an agency "c/o" line is the first line of the underwriter's
+mailing address), the station's account rep (`uw_contracts.account_rep`),
+the certification sentence with the count — and changes three things
+deliberately: it lists only credits that aired, at the actual time in
+Central, naming the program and message rather than "On air spot"; it
+leads with ordered-against-aired per schedule line (counting only schedule
+periods wholly inside the affidavit's dates, so a week still running isn't
+read as a shortfall); and a makegood airing says which date it replaces.
+Dollar amounts stay off it (billing remains excluded).
+
+Certifying (manager only) prints the manager's name, title and date on the
+signature line, stores that PDF in `underwriting-documents` with its
+SHA-256, and freezes the row (`20260928120000`: the guard trigger now
+refuses any change to a certified affidavit, and a check constraint keeps
+certified rows paired with their document). The download route
+(`/api/underwriting/affidavits/[id]/pdf`) serves the stored file for a
+certified affidavit and a watermarked draft otherwise. The affidavit list
+leads with contracts due their next monthly affidavit (`nextAffidavitPeriod`
+plus a check that something aired), required ones first. Sending it to the
+client stays with the account rep — no transactional email, by decision.
 
 ### Audit events
 
@@ -548,7 +571,6 @@ curation).
 
 ### What's deliberately not in the architecture
 
-- **No PDF generation.**
 - **No direct automation-system export or as-run reconciliation.**
 - **No billing, invoicing, receivables, or commissions.** Permanent
   exclusion, not a milestone deferral.
@@ -577,11 +599,10 @@ browser-printable certified affidavits with a durable evidence link.
 
 **Still deferred, matching the strategy doc's build order:**
 
-1. **True PDF/document generation for affidavits.**
-2. **Automation-system export and as-run reconciliation.**
-3. **Scheduled proof-of-performance delivery** — no notification/scheduling
+1. **Automation-system export and as-run reconciliation.**
+2. **Scheduled proof-of-performance delivery** — no notification/scheduling
    layer exists in this repo yet to build it on.
-4. **A real competitive-adjacency rules engine**, if the advisory turns out
+3. **A real competitive-adjacency rules engine**, if the advisory turns out
    to be insufficient in practice.
 
 **Open questions specific to this tool:**

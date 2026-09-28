@@ -241,6 +241,7 @@ export default async function ContractDetailPage({
             {contract.sponsorship_total != null
               ? ` · $${contract.sponsorship_total.toLocaleString()}`
               : ""}
+            {contract.account_rep ? ` · Rep: ${contract.account_rep}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
