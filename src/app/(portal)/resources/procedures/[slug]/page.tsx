@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { RichText } from "@/components/ui/rich-text";
 import { requireResourcesAccess } from "@/lib/resources/access";
-import { formatAudience, formatUpdatedDate, guideLinksInBody } from "@/lib/resources/articles";
+import { formatUpdatedDate, guideLinksInBody } from "@/lib/resources/articles";
 import { resolveFigures } from "@/lib/resources/media";
 import { getArticleVersion, getProcedure, listVersions } from "@/lib/resources/queries";
 import { HistoryCard } from "../../history-card";
@@ -92,7 +92,6 @@ export default async function ProcedurePage({
             items={[
               { label: "Area", value: procedure.area },
               { label: "Owner", value: procedure.owner_role },
-              { label: "Visible to", value: formatAudience(procedure.audience) },
               {
                 label: "Version",
                 value: (

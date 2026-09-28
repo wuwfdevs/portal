@@ -1,8 +1,7 @@
-// Pure display logic for Resources: the procedure areas, audience labels,
-// date formatting, and grouping release notes by the day they shipped. No
-// Supabase, no React — colocated test.
+// Pure display logic for Resources: date formatting and grouping release
+// notes by the day they shipped. No Supabase, no React — colocated test.
 
-import type { RcAudience, RcKind } from "@/lib/database.types";
+import type { RcKind } from "@/lib/database.types";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { parseRichText, type RichTextNode } from "@/lib/rich-text";
 
@@ -36,34 +35,6 @@ export function guideLinksInBody(body: unknown): { href: string; label: string }
   };
   walk(doc.content);
   return [...found].map(([href, label]) => ({ href, label: label.trim() }));
-}
-
-/**
- * The areas a procedure is filed under, in the order the home page's chips
- * show them. rc_articles.area is free text in SQL so a new area needs no
- * migration; this list is what the screens (and, from slice 2, the editor's
- * select) offer.
- */
-export const PROCEDURE_AREAS = [
-  "On air",
-  "News",
-  "Engineering",
-  "Emergency",
-  "Development",
-] as const;
-
-const AUDIENCE_LABELS: Record<RcAudience, string> = {
-  staff: "Staff",
-  students: "Students",
-  partners: "Partners",
-};
-const AUDIENCE_ORDER: RcAudience[] = ["staff", "students", "partners"];
-
-/** "Staff, Students" — in a fixed order, whatever order the array was stored in. */
-export function formatAudience(audience: readonly RcAudience[]): string {
-  return AUDIENCE_ORDER.filter((value) => audience.includes(value))
-    .map((value) => AUDIENCE_LABELS[value])
-    .join(", ");
 }
 
 /**

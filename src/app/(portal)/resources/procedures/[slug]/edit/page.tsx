@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireResourcesEditor } from "@/lib/resources/access";
 import { resolveFigures } from "@/lib/resources/media";
-import { getProcedure } from "@/lib/resources/queries";
+import { getProcedure, listProcedureAreaCounts } from "@/lib/resources/queries";
 import { ArticleForm } from "../../../article-form";
 import { DeleteZone } from "../../../delete-zone";
 
@@ -18,7 +18,10 @@ export default async function EditProcedurePage({
   const procedure = await getProcedure(slug);
   if (!procedure) notFound();
 
-  const figures = await resolveFigures([procedure.body]);
+  const [figures, areaCounts] = await Promise.all([
+    resolveFigures([procedure.body]),
+    listProcedureAreaCounts(),
+  ]);
   const detailPath = `/resources/procedures/${procedure.slug}`;
   const editPath = `${detailPath}/edit`;
 
@@ -32,6 +35,7 @@ export default async function EditProcedurePage({
         kind="procedure"
         defaults={procedure}
         previewUrls={Object.fromEntries([...figures].map(([id, image]) => [id, image.url]))}
+        existingAreas={areaCounts.map((entry) => entry.area)}
         error={error}
         field={field}
         cancelHref={detailPath}

@@ -18,7 +18,6 @@ function input(overrides: Partial<ArticleFormInput> = {}): ArticleFormInput {
     title: "Overnight automation handoff",
     slug: "",
     summary: "",
-    audience: ["staff"],
     versionNote: "",
     area: "On air",
     ownerRole: "Operations",
@@ -46,7 +45,6 @@ describe("validateArticleForm", () => {
         title: "Overnight automation handoff",
         slug: "overnight-automation-handoff",
         summary: null,
-        audience: ["staff"],
         versionNote: null,
         area: "On air",
         ownerRole: "Operations",
@@ -62,15 +60,15 @@ describe("validateArticleForm", () => {
     expect(validateArticleForm(input({ slug: "Not A Slug" }), TOOLS)).toMatchObject({
       field: "slug",
     });
-    expect(validateArticleForm(input({ audience: [] }), TOOLS)).toMatchObject({
-      field: "audience",
-    });
-    expect(validateArticleForm(input({ area: "Sports" }), TOOLS)).toMatchObject({ field: "area" });
+    expect(validateArticleForm(input({ area: "  " }), TOOLS)).toMatchObject({ field: "area" });
   });
 
-  it("keeps audiences in a fixed order and ignores unknown ones", () => {
-    const result = validateArticleForm(input({ audience: ["partners", "x", "staff"] }), TOOLS);
-    expect(result.ok && result.fields.audience).toEqual(["staff", "partners"]);
+  it("accepts any non-empty area — it's free text, not a fixed list", () => {
+    const result = validateArticleForm(input({ area: "Membership & Development" }), TOOLS);
+    expect(result.ok && result.fields.area).toBe("Membership & Development");
+    expect(validateArticleForm(input({ area: "x".repeat(61) }), TOOLS)).toMatchObject({
+      field: "area",
+    });
   });
 
   it("requires a known tool for a guide, and screens from that tool only", () => {

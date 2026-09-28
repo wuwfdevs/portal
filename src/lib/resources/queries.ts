@@ -21,7 +21,7 @@ export type RcArticleVersion = Database["public"]["Tables"]["rc_article_versions
 type ArticleRow = Omit<RcArticle, "search_vector" | "content_hash">;
 
 const ARTICLE_COLUMNS =
-  "id, slug, kind, title, summary, body, audience, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
+  "id, slug, kind, title, summary, body, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
 
 export interface ToolRef {
   id: string;
@@ -96,6 +96,50 @@ export async function countProcedures(area: string | null): Promise<number> {
   const result = await query;
   unwrapRead(result, "procedure count");
   return result.count ?? 0;
+}
+
+export interface ProcedureAreaCount {
+  area: string;
+  count: number;
+}
+
+/**
+ * The areas actually in use among the procedures the viewer can read, with
+ * counts — derived from the data itself (the same way the What's new
+ * screen's Tool filter is derived from its notes), not a fixed list. `area`
+ * is free text on `rc_articles` on purpose, so editors are free to introduce
+ * a new one without a code change; a hardcoded chip/option list would drift
+ * out of step with what's actually been used, and silently leave some
+ * procedures unreachable through any filter.
+ */
+export async function listProcedureAreaCounts(): Promise<ProcedureAreaCount[]> {
+  const supabase = await createClient();
+  const result = await supabase.from("rc_articles").select("area").eq("kind", "procedure");
+  const rows = unwrapRead(result, "procedure areas") ?? [];
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.area) continue;
+    counts.set(row.area, (counts.get(row.area) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([area, count]) => ({ area, count }))
+    .sort((a, b) => a.area.localeCompare(b.area));
+}
+
+/** Procedures, most recently updated first — the home page's preview list. */
+export async function listRecentProcedures(limit: number): Promise<ArticleRow[]> {
+  const supabase = await createClient();
+  const rows = unwrapRead(
+    await supabase
+      .from("rc_articles")
+      .select(ARTICLE_COLUMNS)
+      .eq("kind", "procedure")
+      .order("updated_at", { ascending: false })
+      .order("id")
+      .limit(limit),
+    "recent procedures",
+  );
+  return rows ?? [];
 }
 
 /** One card per tool that has at least one guide the viewer can read. */

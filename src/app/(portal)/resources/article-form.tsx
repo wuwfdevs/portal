@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint, Input, Label, Select } from "@/components/ui/input";
-import type { RcAudience } from "@/lib/database.types";
-import { PROCEDURE_AREAS } from "@/lib/resources/articles";
+import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import {
-  AUDIENCES,
+  AREA_MAX,
   SLUG_MAX,
   SUMMARY_MAX,
   TITLE_MAX,
@@ -16,12 +14,6 @@ import type { ToolRef } from "@/lib/resources/queries";
 import { ArticleBodyField } from "./article-body-field";
 import { createArticle, updateArticle } from "./actions";
 
-const AUDIENCE_LABELS: Record<RcAudience, string> = {
-  staff: "Staff",
-  students: "Students",
-  partners: "Partners",
-};
-
 /** Fields that show their own error; any other error renders at the top of the form. */
 const FIELDS_WITH_OWN_ERROR = new Set([
   "title",
@@ -31,7 +23,6 @@ const FIELDS_WITH_OWN_ERROR = new Set([
   "owner_role",
   "screen_keys",
   "sort_order",
-  "audience",
   "version_note",
 ]);
 
@@ -41,7 +32,6 @@ export interface ArticleFormDefaults {
   title: string;
   summary: string | null;
   body: unknown;
-  audience: RcAudience[];
   area: string | null;
   owner_role: string | null;
   screen_keys: string[];
@@ -61,6 +51,7 @@ export function ArticleForm({
   tool,
   defaults,
   previewUrls,
+  existingAreas = [],
   error,
   field,
   cancelHref,
@@ -69,12 +60,13 @@ export function ArticleForm({
   tool?: ToolRef;
   defaults?: ArticleFormDefaults;
   previewUrls?: Record<string, string>;
+  /** Areas already in use on other procedures — offered as datalist suggestions, not a fixed list. */
+  existingAreas?: string[];
   error?: string;
   field?: string;
   cancelHref: string;
 }) {
   const editing = defaults !== undefined;
-  const audience = defaults?.audience ?? (kind === "guide" ? AUDIENCES : ["staff"]);
   const screens = tool ? screensForTool(tool.key) : [];
   const fieldError = (name: string) => (error && field === name ? error : null);
   const hint = (name: string, text: React.ReactNode) => {
@@ -141,17 +133,21 @@ export function ArticleForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="area">Area</Label>
-            <Select id="area" name="area" required defaultValue={defaults?.area ?? ""}>
-              <option value="" disabled>
-                Choose an area
-              </option>
-              {PROCEDURE_AREAS.map((area) => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
+            <Input
+              id="area"
+              name="area"
+              required
+              list="area-options"
+              maxLength={AREA_MAX}
+              placeholder="Engineering & Broadcast"
+              defaultValue={defaults?.area ?? ""}
+            />
+            <datalist id="area-options">
+              {existingAreas.map((area) => (
+                <option key={area} value={area} />
               ))}
-            </Select>
-            {fieldError("area") && <FieldError>{fieldError("area")}</FieldError>}
+            </datalist>
+            {hint("area", "A department or category. Reuse one already in use where it fits.")}
           </div>
           <div>
             <Label htmlFor="owner_role">Owner</Label>
@@ -206,30 +202,6 @@ export function ArticleForm({
           </div>
         </div>
       )}
-
-      <fieldset>
-        <legend className="mb-1.5 text-sm font-semibold text-ink-700">Visible to</legend>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {AUDIENCES.map((value) => (
-            <label key={value} className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="audience"
-                value={value}
-                defaultChecked={audience.includes(value)}
-                className="h-4 w-4"
-              />
-              {AUDIENCE_LABELS[value]}
-            </label>
-          ))}
-        </div>
-        {hint(
-          "audience",
-          kind === "guide"
-            ? `Only people who can open ${tool?.name ?? "the tool"} see a guide, whatever is checked here.`
-            : "Who can read this procedure.",
-        )}
-      </fieldset>
 
       <div>
         <p className="mb-1.5 text-sm font-semibold text-ink-700">Text</p>

@@ -1,24 +1,16 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { FieldHint, Input } from "@/components/ui/input";
-import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
-import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ToolIcon } from "@/components/tool-icon";
-import {
-  PROCEDURE_AREAS,
-  formatAudience,
-  formatReleaseDate,
-  formatUpdatedDate,
-} from "@/lib/resources/articles";
+import { formatReleaseDate, formatUpdatedDate } from "@/lib/resources/articles";
 import { requireResourcesAccess } from "@/lib/resources/access";
-import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import {
   articleHref,
   countProcedures,
-  listProcedures,
+  listProcedureAreaCounts,
+  listRecentProcedures,
   listReleaseNotes,
   listToolGuideSummaries,
   searchArticles,
@@ -26,16 +18,14 @@ import {
 } from "@/lib/resources/queries";
 
 const KIND_LABELS = { procedure: "Procedure", guide: "Guide", release_note: "Release note" };
+const RECENT_PROCEDURES_LIMIT = 5;
 
 export default async function ResourcesHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; area?: string; page?: string; deleted?: string }>;
+  searchParams: Promise<{ q?: string; deleted?: string }>;
 }) {
-  const [{ q, area, page, deleted }, { isEditor }] = await Promise.all([
-    searchParams,
-    requireResourcesAccess(),
-  ]);
+  const [{ q, deleted }, { isEditor }] = await Promise.all([searchParams, requireResourcesAccess()]);
   const query = q?.trim() ?? "";
 
   return (
@@ -77,7 +67,7 @@ export default async function ResourcesHomePage({
         </FieldHint>
       </form>
 
-      {query ? <SearchResults query={query} /> : <Sections area={area} page={parsePage(page)} />}
+      {query ? <SearchResults query={query} /> : <Sections />}
     </>
   );
 }
@@ -130,92 +120,17 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
   );
 }
 
-async function Sections({ area, page }: { area: string | undefined; page: number }) {
-  const activeArea = PROCEDURE_AREAS.find((value) => value === area) ?? null;
-  const [procedures, allCount, areaCounts, toolGuides, latestNotes] = await Promise.all([
-    listProcedures({ area: activeArea, page }),
+async function Sections() {
+  const [allCount, areaCounts, recentProcedures, toolGuides, latestNotes] = await Promise.all([
     countProcedures(null),
-    Promise.all(PROCEDURE_AREAS.map((value) => countProcedures(value))),
+    listProcedureAreaCounts(),
+    listRecentProcedures(RECENT_PROCEDURES_LIMIT),
     listToolGuideSummaries(),
     listReleaseNotes({ limit: 3 }),
   ]);
 
-  const listParams = { area: activeArea };
-  const info = pageInfo(page, procedures.total);
-  if (isPastLastPage(info)) redirect(pageHref("/resources", listParams, info.pageCount));
-  const shown = procedures.rows;
-  const areaHref = (value: string | null) => pageHref("/resources", { area: value }, 1);
-
   return (
     <div className="flex flex-col gap-10">
-      <section>
-        <h2 className="mb-3 font-serif text-[15px] font-bold text-ink-900">
-          Station procedures
-          <span className="ml-2 text-xs font-normal text-ink-400">{allCount}</span>
-        </h2>
-        <FilterChips
-          label="Area"
-          className="mb-4"
-          chips={[
-            { label: "All", count: allCount, href: areaHref(null), active: !activeArea },
-            ...PROCEDURE_AREAS.map((value, index) => ({
-              label: value,
-              count: areaCounts[index],
-              href: areaHref(value),
-              active: activeArea === value,
-            })),
-          ]}
-        />
-        {shown.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            {activeArea ? `No procedures in ${activeArea} yet.` : "No procedures yet."}
-          </div>
-        ) : (
-          <TableFrame>
-            <Table>
-              <thead>
-                <HeaderRow>
-                  <Th>Procedure</Th>
-                  <Th>Area</Th>
-                  <Th>Visible to</Th>
-                  <Th>Owner</Th>
-                  <Th>Updated</Th>
-                </HeaderRow>
-              </thead>
-              <tbody>
-                {shown.map((procedure) => (
-                  // The title link stretches over the row, so the whole row opens it.
-                  <Row key={procedure.id} className="relative">
-                    <Cell>
-                      <Link
-                        href={articleHref(procedure, null)}
-                        className="font-semibold text-brand-link after:absolute after:inset-0 hover:underline"
-                      >
-                        {procedure.title}
-                      </Link>
-                      {procedure.summary && (
-                        <p className="mt-0.5 text-xs text-ink-400">{procedure.summary}</p>
-                      )}
-                    </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">{procedure.area}</Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {formatAudience(procedure.audience)}
-                    </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {procedure.owner_role ?? "—"}
-                    </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {formatUpdatedDate(procedure.updated_at, true)}
-                    </Cell>
-                  </Row>
-                ))}
-              </tbody>
-            </Table>
-          </TableFrame>
-        )}
-        <Pagination info={info} path="/resources" params={listParams} noun="procedures" />
-      </section>
-
       <section>
         <h2 className="font-serif text-[15px] font-bold text-ink-900">Tool guides</h2>
         <p className="mb-4 mt-1 text-[13px] text-ink-500">
@@ -277,6 +192,53 @@ async function Sections({ area, page }: { area: string | undefined; page: number
                   className="min-w-0 text-sm font-semibold text-ink-900 hover:text-brand-link"
                 >
                   {note.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-baseline gap-3">
+          <h2 className="font-serif text-[15px] font-bold text-ink-900">
+            Station procedures
+            <span className="ml-2 text-xs font-normal text-ink-400">{allCount}</span>
+          </h2>
+          <Link href="/resources/procedures" className="text-xs font-semibold text-brand-link">
+            All procedures
+          </Link>
+        </div>
+        {areaCounts.length > 0 && (
+          <FilterChips
+            label="Area"
+            className="mb-4"
+            chips={areaCounts.map((entry) => ({
+              label: entry.area,
+              count: entry.count,
+              href: `/resources/procedures?area=${encodeURIComponent(entry.area)}`,
+              active: false,
+            }))}
+          />
+        )}
+        {recentProcedures.length === 0 ? (
+          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+            No procedures yet.
+          </div>
+        ) : (
+          <ul className="max-w-[760px] rounded border border-line">
+            {recentProcedures.map((procedure) => (
+              <li key={procedure.id} className="border-b border-line px-4 py-3 last:border-b-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-400">
+                  <span>{procedure.area}</span>
+                  <span>·</span>
+                  <span>Updated {formatUpdatedDate(procedure.updated_at, true)}</span>
+                </div>
+                <Link
+                  href={articleHref(procedure, null)}
+                  className="mt-0.5 block text-sm font-semibold text-brand-link hover:underline"
+                >
+                  {procedure.title}
                 </Link>
               </li>
             ))}
