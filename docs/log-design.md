@@ -864,19 +864,100 @@ real library content (its own MCP-facing contract says "use
 applies to weather), so the branch sits in the thin Server Action layer
 rather than widening that capability's schema.
 
-### Host live-view resilience — flagged, not built, in this pass
+### Host live-view resilience (built 2026-09-28)
 
 §22 of the source spec requires the current rundown to survive a temporary
-connectivity loss without becoming unreadable, and requires unsent host
-actions to be preserved and synchronized when connectivity returns. **This
-was not implemented in the 2026-08-07/08 redesign pass** — the live view
-still assumes a live connection to record `markAired`/`markMissed`/
-`moveRundownItem`. This is the top unresolved operational gap coming out of
-this redesign; see §7. The originally-designed shape (queue actions locally
-in IndexedDB with a client-generated id, retry with backoff, replay on
-reconnect — the same write-then-sync-then-acknowledge pattern Remote
-Interview's local capture uses for audio chunks) is still the intended
-approach; it simply hasn't been built yet.
+connectivity loss without becoming unreadable, and unsent host actions to be
+preserved and synchronized when connectivity returns. Flagged in the
+2026-08-07/08 redesign as the top operational gap; built 2026-09-28.
+
+**What keeps working with no connection.** Everything a host does *to the
+as-aired record* mid-broadcast: marking an underwriting credit aired or
+missed, and moving any item (drag or "Move to…"), credits included. Each is
+one entry in an offline queue:
+
+1. The tap writes the action to this browser's IndexedDB
+   (`lib/log/broadcast-queue-store.ts`) and shows it on screen at once —
+   the card reads "Recorded as aired … Saved on this device — sending…", the
+   item appears in its new break.
+2. `broadcast-sync.tsx`'s provider sends queued actions one at a time, in
+   order, through a single non-redirecting Server Action,
+   `syncBroadcastAction` (`broadcast-actions.ts`).
+3. An action leaves the queue only when the server answers. "Done" and
+   "refused" both remove it (a refusal — the item was deleted meanwhile, the
+   break no longer takes it — is shown in the status bar as "Not
+   recorded…", never dropped silently); "no session" keeps everything and
+   asks the host to sign in again in a new tab; a network failure keeps it
+   and retries with backoff (1s doubling to 30s), and immediately on the
+   browser's `online` event or on returning to the tab.
+
+A queued action carries a client-generated UUID and the device's time of the
+tap. For an outcome, the UUID becomes the `log_broadcast_events` row's
+primary key, so a send whose response was lost and is sent again collides
+with itself and counts as success; `recorded_at` is the tap's time, clamped
+to "not in the future, not more than 12 hours back"
+(`lib/log/broadcast-queue.ts`'s `clampOccurredAt`), so an aired mark made
+offline at 6:06 and delivered at 6:20 still says 6:06. A relocation states
+where the item ends up, so replaying it is harmless (a credit's
+`same_break` answer on a replay is treated as success). The screen draws
+the server's data with every unacknowledged action — and every acknowledged
+one the page hasn't re-rendered yet — applied on top
+(`applyPendingRelocations`, `pendingOutcomeByItem`), so nothing flickers
+back between the ack and the refresh, and a reload shows the queue as it
+was.
+
+**What waits for the connection.** Filling a break, a live read, editing
+for this airing, removing, the library actions, starting the broadcast,
+syncing breaks, and both attestations and Submit — each needs the server's
+answer (a new item's id, a validation) before it means anything. They're
+disabled while disconnected (`RequiresConnection`, a disabled `<fieldset>`,
+or the hook directly), with a line saying why. Attest and Submit also wait
+while anything is still queued, since both read the as-aired record.
+
+**The screen stays readable.** Three Next.js behaviours made the old screen
+fail badly offline, and each is handled deliberately:
+
+- A `<form action={serverAction}>` whose request fails throws into the
+  route's error boundary, replacing the rundown with "Log couldn't load." No
+  queued action uses a form, and every form that remains is disabled while
+  disconnected.
+- A `router.refresh()` that fails — or gets any non-200, a gateway timeout
+  included — falls back to a full browser navigation, which offline is the
+  browser's own "no internet" page. `LogPoller` now refreshes only when the
+  browser is online, the queue is connected and empty, and `pingLog` (a
+  Server Action that touches nothing) answers within 8 seconds. The queue
+  refreshes the page itself once it drains.
+- A Server Action id from an older deploy is refused outright. When the
+  queue hits that it reloads the page once (at most every five minutes) —
+  nothing is lost, the queue is in IndexedDB — or asks the host to.
+
+A service worker (`public/log-offline-sw.js`, registered by the rundown
+screen, production builds only) covers a reload during an outage. It keeps a
+copy of each rundown page it loads (and the page asks it to refresh that
+copy at most every five minutes as the page re-renders), plus the hashed
+build assets a rundown page uses, and serves them only when the network
+fails. It touches no other request — Server Actions, RSC refreshes, and every
+other page go straight to the network. A redirect to sign-in drops the kept
+copy. The status bar says the rundown is shown "as of" when that copy was
+rendered.
+
+"Connected" means the browser reports online *and* the last contact with the
+server worked; a send that takes over 10 seconds, a failed send, or a failed
+probe marks it disconnected until a probe (every 15s) or a send succeeds —
+this is what catches Wi-Fi that's up with nothing behind it.
+
+**Limits.** If the browser can't open IndexedDB (some private windows), the
+queue falls back to memory and the bar says not to reload. The kept page is
+only as current as its last copy; items another person added since don't
+appear until the connection returns (one host per rundown is the operating
+rule, so this should be rare). Navigating away to another screen while
+offline shows the browser's offline page; coming back to the rundown shows
+the kept copy. Server Actions run one at a time in Next.js, so a request
+that hangs holds the queue until the browser gives up on it. Verified in
+Chromium against a harness with a fake server (offline taps, reload offline,
+drain on reconnect, a lost response not duplicated, a refusal shown, a
+reload served from the kept copy with the server down) — not yet against a
+live Supabase session.
 
 ### Fit with portal conventions
 
@@ -891,18 +972,20 @@ with no Supabase import.
 
 Capabilities registered for the MCP/agent layer:
 `log.rundown.buildItem` (add a content item, live read, or weather item to a
-break), `log.rundownItem.recordOutcome` (the aired/move/missed action,
-confirmation `required`), and `log.content.search` (mirroring
+break), `log.rundownItem.recordOutcome` (aired or missed, confirmation
+`required`; optional `eventId`/`occurredAt` are what the offline queue sets), and `log.content.search` (mirroring
 `sourcework.project.search`).
 
 ### What's deliberately not in the architecture
 
-- **No offline resilience for the live view** — see above; the top unresolved gap.
+- **No offline resilience beyond the live rundown screen.** Other Log
+  screens (library, clocks, import) assume a connection; see "Host live-view
+  resilience" above for what the rundown screen does.
 - **No automation-system integration.** `confirmation_source = 'automation'`
   exists in the schema for when that integration is built, but nothing
   populates it yet.
 - **No video.** Out of scope for this entire product area.
-- **No second concurrent host editing the same rundown.**
+- **No second concurrent host editing the same rundown** — by design: one host works a rundown at a time (confirmed 2026-09-28).
 - **No notification layer**, same as every tool in this portal. A stale
   NPR/weather flag or an unresolved exception is visible when the relevant
   screen is open, not pushed.
@@ -929,22 +1012,22 @@ two rounds of usability corrections; see §6's "One screen, not two."
 
 **Genuinely unresolved, in priority order:**
 
-1. **Offline/connectivity resilience for the live rundown view** (§6) — not
-   built in this pass. This is the single highest-priority remaining gap: a
-   real connectivity drop during a live broadcast currently risks losing an
-   unsent mid-broadcast action, exactly what §22 warns against.
-2. **Local opportunities for the other twelve seeded network clocks.** Only
-   Morning Edition has real, confirmed local-substitution windows as of this
-   redesign; every other clock has an accurate network structure but no
-   overlay, so a rundown generated from it has no host-fillable breaks at
-   all until a producer (or a future migration, once WUWF confirms the real
-   windows) adds them.
-3. **FCC community-issue taxonomy as a real reference**, once FCC Reporting
+1. **Verifying every clock's slots and local opportunities.** As of
+   2026-09-28, production has local opportunities marked on 24 of its 26
+   clock templates (added through the clock screen since this section was
+   first written, not by migration); WUWF is checking each clock's slots
+   and opportunities against the real diagrams. Offline resilience for the
+   live rundown view, formerly item 1 here, was built 2026-09-28 — see §6,
+   "Host live-view resilience."
+2. **FCC community-issue taxonomy as a real reference**, once FCC Reporting
    ships.
-4. **Automation-system confirmation**, pending an answer to which system and
+3. **Automation-system confirmation**, pending an answer to which system and
    what format.
-5. **Multi-editor rundown concurrency**, if a real second-host scenario
-   turns out to need it.
+
+Multi-editor rundown concurrency, formerly on this list, is closed: WUWF
+confirmed (2026-09-28) that only one host ever works a rundown at a time.
+Nothing enforces that; the offline queue's last-write-wins replay assumes
+it.
 
 **Open questions specific to this tool:**
 

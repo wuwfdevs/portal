@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
+import { ForbiddenError } from "@/lib/auth/authz";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { recordRundownItemOutcome } from "@/lib/log/capabilities";
@@ -13,14 +15,18 @@ import {
   listBroadcastEventsForItems,
   type RundownItemDetail,
 } from "@/lib/log/queries";
+import { relocateCredit, relocateItem } from "@/lib/log/rundown-relocation";
+import type { BroadcastSyncResponse, QueuedBroadcastAction } from "@/lib/log/broadcast-queue";
 import type { LogMissReason } from "@/lib/database.types";
 
-// Workflow G's mid-broadcast actions (docs/log-design.md): markAired and
-// markMissed. There used to be a third, moveRundownItem — it's gone
-// (2026-08-09). Relocating an item is now a plain rundown edit (drag-and-
-// drop, or its "Move to…" select fallback), not a broadcast outcome; see
-// rundown-actions.ts's relocateRundownItem and lib/log/mid-broadcast.ts's
-// file header for why.
+// Workflow G's mid-broadcast actions (docs/log-design.md). Aired, missed,
+// and relocating an item all go through syncBroadcastAction below, the
+// write path of the live screen's offline queue (2026-09-28) — the old
+// redirecting markAired/markMissed form actions are gone, since a <form>
+// submit that can't reach the server throws the whole screen into the error
+// boundary. A relocation is a plain rundown edit, not a broadcast outcome;
+// see lib/log/rundown-relocation.ts and lib/log/mid-broadcast.ts's file
+// header.
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -32,8 +38,8 @@ function rundownPath(rundownId: string): string {
 
 /**
  * Freezes a reference version of the rundown — docs/log-design.md Workflow
- * H. Not a lock for anything except underwriting: markAired/markMissed
- * below check nothing about status, so "documented management corrections"
+ * H. Not a lock for anything except underwriting: recording aired/missed
+ * (syncBroadcastAction) checks nothing about status, so "documented management corrections"
  * (§15.3) after submission keep working exactly as before, and every other
  * unresolved item is a review-list entry, not a block (see submission.ts).
  * Underwriting credits are the one deliberate exception — a real,
@@ -87,25 +93,7 @@ export async function startBroadcast(formData: FormData): Promise<void> {
   redirect(rundownPath(rundownId));
 }
 
-/** Thin adapter over log.rundownItem.recordOutcome — the console button click is itself the confirmation, same convention as sendAnswerToSourcework's. */
-export async function markAired(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const rundownId = field(formData, "rundown_id");
-  const itemId = field(formData, "item_id");
-  const path = rundownPath(rundownId);
-
-  const result = await invokeCapability(
-    recordRundownItemOutcome,
-    { outcome: "aired", itemId },
-    { confirmed: true },
-  );
-  if (!result.ok) failWith(path, result.message);
-
-  revalidatePath(path);
-  redirect(path);
-}
-
-const MISS_REASONS: LogMissReason[] = [
+const MISS_REASONS: [LogMissReason, ...LogMissReason[]] = [
   "network_timing",
   "breaking_news",
   "segment_overrun",
@@ -115,24 +103,120 @@ const MISS_REASONS: LogMissReason[] = [
   "other",
 ];
 
-/** Thin adapter over log.rundownItem.recordOutcome. */
-export async function markMissed(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const rundownId = field(formData, "rundown_id");
-  const itemId = field(formData, "item_id");
-  const path = rundownPath(rundownId);
-  const reason = field(formData, "reason") as LogMissReason;
-  if (!MISS_REASONS.includes(reason)) failWith(path, "Choose a reason.");
+// The queue's payload arrives from the browser (and, after a reload, from
+// IndexedDB), so it is parsed like any other untrusted input.
+const queuedBase = {
+  id: z.string().uuid(),
+  rundownId: z.string().uuid(),
+  itemId: z.string().uuid(),
+  occurredAt: z.string(),
+};
+const queuedActionSchema = z.discriminatedUnion("kind", [
+  z.object({ ...queuedBase, kind: z.literal("outcome_aired") }),
+  z.object({
+    ...queuedBase,
+    kind: z.literal("outcome_missed"),
+    reason: z.enum(MISS_REASONS),
+    notes: z.string().trim().max(2000).nullable(),
+  }),
+  z.object({
+    ...queuedBase,
+    kind: z.literal("relocate_item"),
+    destinationBreakId: z.string().uuid(),
+    orderedItemIds: z.array(z.string().uuid()).min(1).max(200),
+  }),
+  z.object({
+    ...queuedBase,
+    kind: z.literal("relocate_credit"),
+    destinationBreakId: z.string().uuid(),
+  }),
+]);
 
-  const result = await invokeCapability(
-    recordRundownItemOutcome,
-    { outcome: "missed", itemId, reason, notes: field(formData, "notes") || undefined },
-    { confirmed: true },
-  );
-  if (!result.ok) failWith(path, result.message);
+/**
+ * The one write path for the live rundown screen's offline queue
+ * (lib/log/broadcast-queue.ts): aired, missed, and the two relocations.
+ * Called from the queue's drain loop, never from a <form>, and never
+ * redirects — the queue needs a plain answer: done, refused (drop it and
+ * tell the host), or no session (keep it and ask them to sign in). A
+ * network failure never gets here; the queue sees the rejected promise and
+ * retries.
+ *
+ * No revalidatePath: the screen refreshes once when the queue empties,
+ * rather than re-rendering after every queued action.
+ */
+export async function syncBroadcastAction(
+  rawAction: QueuedBroadcastAction,
+): Promise<BroadcastSyncResponse> {
+  const parsed = queuedActionSchema.safeParse(rawAction);
+  if (!parsed.success)
+    return { status: "rejected", message: "That action wasn't in a form the server understands." };
+  const action = parsed.data;
 
-  revalidatePath(path);
-  redirect(path);
+  try {
+    await assertLogAccess();
+  } catch (error) {
+    // Anything but a refusal (a database timeout, say) is rethrown, so the
+    // queue sees a failed send and retries it like a network drop.
+    if (!(error instanceof ForbiddenError)) throw error;
+    return {
+      status: "unauthenticated",
+      message:
+        "Your sign-in has expired (or your Log access changed). Sign in again to send what's waiting.",
+    };
+  }
+
+  switch (action.kind) {
+    case "outcome_aired":
+    case "outcome_missed": {
+      // The host's tap on the card is the confirmation, same convention as
+      // sendAnswerToSourcework's.
+      const result = await invokeCapability(
+        recordRundownItemOutcome,
+        action.kind === "outcome_aired"
+          ? {
+              outcome: "aired",
+              itemId: action.itemId,
+              eventId: action.id,
+              occurredAt: action.occurredAt,
+            }
+          : {
+              outcome: "missed",
+              itemId: action.itemId,
+              reason: action.reason,
+              notes: action.notes ?? undefined,
+              eventId: action.id,
+              occurredAt: action.occurredAt,
+            },
+        { confirmed: true },
+      );
+      return result.ok ? { status: "ok" } : { status: "rejected", message: result.message };
+    }
+    case "relocate_item": {
+      const result = await relocateItem(
+        action.itemId,
+        action.destinationBreakId,
+        action.orderedItemIds,
+      );
+      return result.error ? { status: "rejected", message: result.error } : { status: "ok" };
+    }
+    case "relocate_credit": {
+      const result = await relocateCredit(action.itemId, action.destinationBreakId);
+      // same_break on a replay means the first send already moved it.
+      if (result.error && result.code !== "same_break")
+        return { status: "rejected", message: result.error };
+      return { status: "ok" };
+    }
+  }
+}
+
+/**
+ * A reachability probe for the live screen: answers without touching the
+ * database or the session. Unauthenticated on purpose — it reveals nothing
+ * and writes nothing. See log-poller.tsx for why a probe has to come before
+ * router.refresh().
+ */
+export async function pingLog(): Promise<true> {
+  return true;
 }
 
 /**

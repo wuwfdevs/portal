@@ -3,9 +3,9 @@
 // names as "the three operations useful to drive from the in-portal agent
 // without a live view in front of you": buildItem and recordOutcome are
 // the write logic that used to live inline in rundown-actions.ts's
-// fillRundownItem and broadcast-actions.ts's markAired/markMissed/
-// moveRundownItem (same authorization, same writes) — those are now thin
-// adapters over these, same pattern Phase A/B already established.
+// fillRundownItem and broadcast-actions.ts's old markAired/markMissed
+// (same authorization, same writes) — the callers are now thin adapters
+// over these, same pattern Phase A/B already established.
 // log.content.search mirrors sourcework.project.search.
 //
 // Domain redesign (2026-08-08): a "slot" is now a break that can hold zero
@@ -15,7 +15,7 @@
 //
 // recordOutcome no longer has a "moved" branch (removed 2026-08-09): moving
 // ordinary content around a rundown is now a plain edit — see
-// rundown-actions.ts's relocateRundownItem and lib/log/mid-broadcast.ts —
+// lib/log/rundown-relocation.ts and lib/log/mid-broadcast.ts —
 // not a broadcast outcome worth its own log_broadcast_events row. This
 // capability now covers aired/missed only.
 
@@ -24,6 +24,7 @@ import { z } from "zod";
 import { defineCapability } from "@/lib/capabilities/define";
 import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertLogAccess } from "./access";
+import { clampOccurredAt } from "./broadcast-queue";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "./content-library";
 import { getContentItemDetail, getRundownBreak, listContentItems, listItemsForBreak, type LogContentItemRow } from "./queries";
 import type { LogMissReason } from "@/lib/database.types";
@@ -42,6 +43,18 @@ const MISS_REASONS: [LogMissReason, ...LogMissReason[]] = [
   "unavailable_copy",
   "other",
 ];
+
+/**
+ * Optional on both outcomes; set by the live rundown screen's offline queue
+ * (lib/log/broadcast-queue.ts). `eventId` becomes the log_broadcast_events
+ * row's id, which is what makes a replayed send safe; `occurredAt` is when
+ * the host tapped, clamped by clampOccurredAt so it can't be set in the
+ * future or far in the past.
+ */
+const OUTCOME_REPLAY_FIELDS = {
+  eventId: z.string().uuid().optional(),
+  occurredAt: z.string().optional(),
+};
 
 // --- log.rundown.buildItem --------------------------------------------------
 
@@ -102,8 +115,9 @@ export type RecordRundownOutcomeResult =
   | { ok: false; message: string };
 
 /**
- * One capability over the two remaining mid-broadcast outcomes
- * (broadcast-actions.ts's markAired/markMissed) rather than two, since
+ * One capability over the two remaining mid-broadcast outcomes (the live
+ * screen's aired/missed buttons reach it through the offline queue's
+ * syncBroadcastAction in broadcast-actions.ts) rather than two, since
  * they're one decision ("what happened to this item") with a discriminated
  * shape — matching how an MCP/agent caller would naturally think about
  * "record what happened." Confirmation-required: this is the as-aired
@@ -115,18 +129,27 @@ export const recordRundownItemOutcome = defineCapability({
   id: "log.rundownItem.recordOutcome",
   summary: "Record what happened to a rundown item — aired as scheduled, or missed (with a brief reason).",
   input: z.discriminatedUnion("outcome", [
-    z.object({ outcome: z.literal("aired"), itemId: z.string() }),
+    z.object({ outcome: z.literal("aired"), itemId: z.string(), ...OUTCOME_REPLAY_FIELDS }),
     z.object({
       outcome: z.literal("missed"),
       itemId: z.string(),
       reason: z.enum(MISS_REASONS),
       notes: z.string().trim().optional(),
+      ...OUTCOME_REPLAY_FIELDS,
     }),
   ]),
   requires: { tool: "log" },
   confirmation: "required",
   async handler({ supabase }: CapabilityContext, input): Promise<RecordRundownOutcomeResult> {
     const { profile } = await assertLogAccess();
+    const replay = {
+      ...(input.eventId ? { id: input.eventId } : {}),
+      recorded_at: clampOccurredAt(input.occurredAt, Date.now()),
+    };
+    // A replayed send (its first attempt landed, its response was lost)
+    // collides with its own primary key — the event is already recorded.
+    const alreadyRecorded = (code: string | undefined) =>
+      input.eventId !== undefined && code === "23505";
 
     if (input.outcome === "aired") {
       const { error } = await supabase.from("log_broadcast_events").insert({
@@ -134,8 +157,11 @@ export const recordRundownItemOutcome = defineCapability({
         outcome: "aired_as_scheduled",
         confirmation_source: "host",
         recorded_by: profile.id,
+        ...replay,
       });
-      if (error) return { ok: false, message: `Could not record this item as aired: ${error.message}` };
+      if (error && !alreadyRecorded(error.code)) {
+        return { ok: false, message: `Could not record this item as aired: ${error.message}` };
+      }
       return { ok: true, outcome: "aired" };
     }
 
@@ -147,8 +173,11 @@ export const recordRundownItemOutcome = defineCapability({
         notes: input.notes || null,
         confirmation_source: "host",
         recorded_by: profile.id,
+        ...replay,
       });
-      if (error) return { ok: false, message: `Could not record this item as missed: ${error.message}` };
+      if (error && !alreadyRecorded(error.code)) {
+        return { ok: false, message: `Could not record this item as missed: ${error.message}` };
+      }
       return { ok: true, outcome: "missed" };
     }
 
