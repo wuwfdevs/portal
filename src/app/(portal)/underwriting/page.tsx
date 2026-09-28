@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { cn } from "@/lib/cn";
+import type { ReactNode } from "react";
+import type { UwContractStatus } from "@/lib/database.types";
 import { autoFillAllAction } from "./auto-fill-actions";
 import {
   buildScheduleLineDemandViews,
@@ -15,16 +20,25 @@ import {
   listScheduleLinesWithActiveContracts,
   type ScheduleLineDemandView,
 } from "@/lib/underwriting/queries";
-import { listProgramOptions } from "@/lib/underwriting/placement";
+import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
 import { computeScheduleLineConflicts, CONFLICT_LABEL } from "@/lib/underwriting/conflicts";
 import { poolReachability } from "@/lib/underwriting/pool-targets";
-import { addDays } from "@/lib/underwriting/demand";
+import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { stationTodayISO } from "@/lib/log/timezone";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
 const LOOK_AHEAD_DAYS = 14;
+/** Open exceptions listed inline; the rest are one link away. */
+const EXCEPTIONS_SHOWN = 5;
+
+const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
+  draft: "neutral",
+  active: "success",
+  expired: "muted",
+  terminated: "danger",
+};
 
 /**
  * "The two queues that actually need daily attention: schedule lines that
@@ -191,179 +205,335 @@ export default async function UnderwritingDashboardPage({
     },
     { label: "Capacity conflicts", count: capacityConflicts, href: "#conflicts", tone: "danger" },
   ];
+  const allClear = attention.every((item) => item.count === 0) && conflicts.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
       {notice && <Alert variant="info">{notice}</Alert>}
 
-      <section aria-labelledby="attention" className="rounded border border-line">
-        <h2
-          id="attention"
-          className="border-b border-line px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink-400"
-        >
-          Needs attention
-        </h2>
-        <ul className="grid grid-cols-2 gap-px bg-line sm:grid-cols-5">
-          {attention.map((item) => (
-            <li key={item.label} className="bg-white">
-              <Link href={item.href} className="block px-4 py-3 hover:bg-panel-50">
-                <div
-                  className={
-                    item.count > 0 && item.tone !== "neutral"
+      <section aria-labelledby="attention">
+        <SectionHeading id="attention">Needs attention</SectionHeading>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {attention.map((item) => {
+            const flagged = item.count > 0 && item.tone !== "neutral";
+            return (
+              <li key={item.label} className="last:col-span-2 sm:last:col-span-1">
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex h-full flex-col gap-1 rounded border border-l-4 bg-white px-4 py-3 transition-colors hover:bg-panel-50",
+                    flagged
                       ? item.tone === "danger"
-                        ? "text-2xl font-bold text-danger"
-                        : "text-2xl font-bold text-warning-fg"
-                      : "text-2xl font-bold text-ink-900"
-                  }
+                        ? "border-danger/30 border-l-danger"
+                        : "border-line border-l-warning-fg"
+                      : "border-line border-l-line",
+                  )}
                 >
-                  {item.count}
-                </div>
-                <div className="text-xs text-ink-500">{item.label}</div>
-              </Link>
-            </li>
-          ))}
+                  <span
+                    className={cn(
+                      "text-2xl font-bold tabular-nums",
+                      flagged
+                        ? item.tone === "danger"
+                          ? "text-danger"
+                          : "text-warning-fg"
+                        : item.count === 0
+                          ? "text-ink-400"
+                          : "text-ink-900",
+                    )}
+                  >
+                    {item.count}
+                  </span>
+                  <span className="text-xs leading-snug text-ink-500">{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
+        {allClear && (
+          <p className="mt-2 text-xs text-ink-500">
+            Nothing needs attention — every open period is scheduled and nothing is blocked.
+          </p>
+        )}
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-line p-4">
-        <div>
-          <div className="text-sm font-semibold text-ink-900">Auto-fill scheduling</div>
-          <p className="text-xs text-ink-500">
-            Fills every open demand bucket of every active contract to what the order calls for —
-            makegoods first — spreading credits across eligible days and generating the Log rundowns
-            it needs. Never the same underwriter twice in a break, never next to the same industry,
-            and never past a bucket&apos;s quantity or the order&apos;s own per-day cap: the
-            database checks the same limits the planner does.
-          </p>
-        </div>
-        <form action={autoFillAllAction}>
-          <Button type="submit">Auto-fill everything</Button>
-        </form>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <section id="conflicts" aria-labelledby="conflicts-heading" className="scroll-mt-4">
+            <SectionHeading
+              id="conflicts-heading"
+              count={conflicts.length}
+              countVariant="danger"
+              hint={`Active schedule lines that can't be placed, looking ${LOOK_AHEAD_DAYS} days ahead`}
+            >
+              Pre-broadcast conflicts
+            </SectionHeading>
+            {conflicts.length === 0 ? (
+              <EmptyState>No active schedule line is currently blocked from placement.</EmptyState>
+            ) : (
+              <TableFrame>
+                <Table>
+                  <thead>
+                    <HeaderRow>
+                      <Th>Underwriter · line</Th>
+                      <Th>What&apos;s blocking it</Th>
+                      <Th className="sr-only">Open</Th>
+                    </HeaderRow>
+                  </thead>
+                  <tbody>
+                    {conflicts.map(({ view, contract, reasons }) => (
+                      <Row key={view.scheduleLine.id}>
+                        <Cell className="min-w-[12rem]">
+                          <div className="font-semibold text-ink-900">
+                            {contract.underwriter.name}
+                          </div>
+                          <div className="text-xs text-ink-500">
+                            {view.scheduleLine.label || view.description}
+                          </div>
+                        </Cell>
+                        <Cell>
+                          <ul className="flex flex-col gap-1 text-xs text-ink-700">
+                            {reasons.map((reason) => (
+                              <li key={reason} className="flex gap-2">
+                                <span
+                                  aria-hidden
+                                  className={cn(
+                                    "mt-1.5 size-1.5 shrink-0 rounded-full",
+                                    reason === "capacity_conflict" ? "bg-danger" : "bg-warning-fg",
+                                  )}
+                                />
+                                {CONFLICT_LABEL[reason]}
+                              </li>
+                            ))}
+                          </ul>
+                        </Cell>
+                        <Cell className="whitespace-nowrap text-right">
+                          <Link
+                            href={`/underwriting/contracts/${contract.id}`}
+                            className="text-xs font-semibold text-brand-link"
+                          >
+                            Open contract →
+                          </Link>
+                        </Cell>
+                      </Row>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableFrame>
+            )}
+          </section>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <div className="rounded border border-line p-4">
-          <div className="text-2xl font-bold text-ink-900">{activeContracts}</div>
-          <div className="text-xs text-ink-400">Active contracts</div>
+          <section aria-labelledby="exceptions-heading">
+            <SectionHeading
+              id="exceptions-heading"
+              count={unresolvedExceptions.length}
+              countVariant="warning"
+              hint="Credits a host recorded as missed or moved, awaiting resolution"
+              viewAll={
+                unresolvedExceptions.length > EXCEPTIONS_SHOWN
+                  ? {
+                      href: "/underwriting/exceptions",
+                      label: `See all ${unresolvedExceptions.length}`,
+                    }
+                  : undefined
+              }
+            >
+              Open exceptions
+            </SectionHeading>
+            {unresolvedExceptions.length === 0 ? (
+              <EmptyState>Nothing awaiting resolution.</EmptyState>
+            ) : (
+              <TableFrame>
+                <Table>
+                  <thead>
+                    <HeaderRow>
+                      <Th>Underwriter · line</Th>
+                      <Th>Scheduled</Th>
+                      <Th>Outcome</Th>
+                    </HeaderRow>
+                  </thead>
+                  <tbody>
+                    {unresolvedExceptions.slice(0, EXCEPTIONS_SHOWN).map((exception) => (
+                      <Row key={exception.id}>
+                        <Cell className="min-w-[12rem]">
+                          <Link
+                            href={`/underwriting/exceptions/${exception.id}`}
+                            className="font-semibold text-brand-link"
+                          >
+                            {exception.contract.underwriter.name}
+                          </Link>
+                          <div className="text-xs text-ink-500">
+                            {exception.scheduleLine.label ||
+                              describeScheduleLine(exception.scheduleLine)}
+                          </div>
+                        </Cell>
+                        <Cell className="whitespace-nowrap text-ink-500">
+                          {formatPlacementTime(exception.original_scheduled_at)}
+                        </Cell>
+                        <Cell>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="warning">
+                              {exception.host_action.replace(/_/g, " ")}
+                            </Badge>
+                            {exception.makegood_approval === "pending" && (
+                              <Badge variant="neutral">agency approval pending</Badge>
+                            )}
+                          </div>
+                        </Cell>
+                      </Row>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableFrame>
+            )}
+          </section>
         </div>
-        <div className="rounded border border-line p-4">
-          <div className="text-2xl font-bold text-ink-900">{draftContracts}</div>
-          <div className="text-xs text-ink-400">Draft contracts</div>
-        </div>
-        <div className="rounded border border-line p-4">
-          <div className="text-2xl font-bold text-ink-900">{unplacedUnits}</div>
-          <div className="text-xs text-ink-400">Open units still unscheduled</div>
-        </div>
-        <div className="rounded border border-line p-4">
-          <div className="text-2xl font-bold text-ink-900">{copyApproved}</div>
-          <div className="text-xs text-ink-400">Approved copy</div>
-        </div>
-        <div className="rounded border border-line p-4">
-          <div className="text-2xl font-bold text-ink-900">{copyPendingApproval}</div>
-          <div className="text-xs text-ink-400">Copy awaiting approval</div>
-        </div>
-      </div>
 
-      <div id="conflicts">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-400">
-            Pre-broadcast conflicts
-          </h2>
-          {conflicts.length > 0 && <Badge variant="danger">{conflicts.length}</Badge>}
-        </div>
-        {conflicts.length === 0 ? (
-          <p className="text-sm text-ink-500">
-            No active schedule line is currently blocked from placement.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {conflicts.map(({ view, contract, reasons }) => (
-              <li
-                key={view.scheduleLine.id}
-                className="rounded border border-danger/30 bg-danger/[0.04] p-3 text-sm"
+        <aside className="flex flex-col gap-6">
+          <Card className="flex flex-col gap-3 p-4">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900">Auto-fill scheduling</h2>
+              <p className="mt-1 text-xs leading-relaxed text-ink-500">
+                Fills every active contract&apos;s open periods, makegoods first, generating the Log
+                rundowns it needs.
+              </p>
+            </div>
+            <form action={autoFillAllAction}>
+              <Button type="submit" className="w-full">
+                Auto-fill everything
+              </Button>
+            </form>
+            <details className="text-xs text-ink-500">
+              <summary className="cursor-pointer font-semibold text-brand-link">
+                What it will and won&apos;t do
+              </summary>
+              <p className="mt-2 leading-relaxed">
+                Spreads credits across eligible days. Never the same underwriter twice in a break,
+                never next to the same industry, and never past a period&apos;s quantity or the
+                order&apos;s own per-day cap — the database checks the same limits the planner does.
+                Live and submitted rundowns are left alone.
+              </p>
+            </details>
+          </Card>
+
+          <section aria-labelledby="glance-heading">
+            <SectionHeading id="glance-heading">At a glance</SectionHeading>
+            <Card>
+              <ul className="divide-y divide-line text-sm">
+                {[
+                  {
+                    label: "Active contracts",
+                    value: activeContracts,
+                    href: "/underwriting/contracts?status=active",
+                  },
+                  {
+                    label: "Draft contracts",
+                    value: draftContracts,
+                    href: "/underwriting/contracts?status=draft",
+                  },
+                  {
+                    label: "Approved copy",
+                    value: copyApproved,
+                    href: "/underwriting/copy?status=approved",
+                  },
+                  {
+                    label: "Copy awaiting approval",
+                    value: copyPendingApproval,
+                    href: "/underwriting/copy?status=draft",
+                  },
+                ].map((stat) => (
+                  <li key={stat.label}>
+                    <Link
+                      href={stat.href}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-panel-50"
+                    >
+                      <span className="text-ink-500">{stat.label}</span>
+                      <span className="font-bold tabular-nums text-ink-900">{stat.value}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </section>
+
+          {contracts.length > 0 && (
+            <section aria-labelledby="recent-heading">
+              <SectionHeading
+                id="recent-heading"
+                viewAll={{ href: "/underwriting/contracts", label: "All contracts" }}
               >
-                <Link
-                  href={`/underwriting/contracts/${contract.id}`}
-                  className="font-semibold text-brand-link"
-                >
-                  {contract.underwriter.name} — {view.scheduleLine.label || view.description}
-                </Link>
-                <ul className="mt-1 list-disc pl-5 text-xs text-ink-700">
-                  {reasons.map((reason) => (
-                    <li key={reason}>{CONFLICT_LABEL[reason]}</li>
+                Recently added
+              </SectionHeading>
+              <Card>
+                <ul className="divide-y divide-line">
+                  {contracts.slice(0, 5).map((contract) => (
+                    <li key={contract.id}>
+                      <Link
+                        href={`/underwriting/contracts/${contract.id}`}
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-panel-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-brand-link">
+                            {contract.underwriter.name}
+                          </span>
+                          <span className="block truncate text-xs text-ink-400">
+                            {contract.contract_identifier}
+                          </span>
+                        </span>
+                        <Badge variant={CONTRACT_STATUS_VARIANT[contract.status]}>
+                          {contract.status}
+                        </Badge>
+                      </Link>
+                    </li>
                   ))}
                 </ul>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-400">
-            Open exceptions
-          </h2>
-          {unresolvedExceptions.length > 0 && (
-            <Badge variant="warning">{unresolvedExceptions.length}</Badge>
+              </Card>
+            </section>
           )}
-        </div>
-        {unresolvedExceptions.length === 0 ? (
-          <p className="text-sm text-ink-500">Nothing awaiting resolution.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {unresolvedExceptions.slice(0, 5).map((exception) => (
-              <li key={exception.id} className="flex items-center gap-2.5 text-sm">
-                <Link
-                  href={`/underwriting/exceptions/${exception.id}`}
-                  className="font-semibold text-brand-link"
-                >
-                  {exception.contract.underwriter.name}
-                </Link>
-                <span className="text-ink-400">{exception.scheduleLine.label}</span>
-                <Badge variant="warning">{exception.host_action.replace(/_/g, " ")}</Badge>
-                {exception.makegood_approval === "pending" && (
-                  <Badge variant="neutral">agency approval pending</Badge>
-                )}
-              </li>
-            ))}
-            {unresolvedExceptions.length > 5 && (
-              <li>
-                <Link
-                  href="/underwriting/exceptions"
-                  className="text-xs font-semibold text-brand-link"
-                >
-                  See all {unresolvedExceptions.length} →
-                </Link>
-              </li>
-            )}
-          </ul>
-        )}
+        </aside>
       </div>
+    </div>
+  );
+}
 
-      {contracts.length > 0 && (
-        <div>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
-            Recently added contracts
+function SectionHeading({
+  id,
+  children,
+  count,
+  countVariant = "neutral",
+  hint,
+  viewAll,
+}: {
+  id: string;
+  children: ReactNode;
+  count?: number;
+  countVariant?: BadgeVariant;
+  hint?: string;
+  viewAll?: { href: string; label: string };
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 id={id} className="text-xs font-bold uppercase tracking-wide text-ink-400">
+            {children}
           </h2>
-          <ul className="flex flex-col gap-2">
-            {contracts.slice(0, 5).map((contract) => (
-              <li key={contract.id} className="flex items-center gap-2.5 text-sm">
-                <Link
-                  href={`/underwriting/contracts/${contract.id}`}
-                  className="font-semibold text-brand-link"
-                >
-                  {contract.underwriter.name}
-                </Link>
-                <span className="text-ink-400">{contract.contract_identifier}</span>
-                <Badge variant={contract.status === "active" ? "success" : "neutral"}>
-                  {contract.status}
-                </Badge>
-              </li>
-            ))}
-          </ul>
+          {count != null && count > 0 && <Badge variant={countVariant}>{count}</Badge>}
         </div>
+        {hint && <p className="mt-0.5 text-xs text-ink-400">{hint}</p>}
+      </div>
+      {viewAll && (
+        <Link href={viewAll.href} className="text-xs font-semibold text-brand-link">
+          {viewAll.label} →
+        </Link>
       )}
+    </div>
+  );
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded border border-dashed border-line px-4 py-5 text-sm text-ink-500">
+      {children}
     </div>
   );
 }

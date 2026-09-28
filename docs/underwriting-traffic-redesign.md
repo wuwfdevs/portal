@@ -619,6 +619,14 @@ still unscheduled, and capacity conflicts, each linking to where it is
 worked. The rest of the page (auto-fill, counts, conflicts, exceptions) is
 unchanged.
 
+Layout pass (2026-09-28): the strip is the page's only row of figures
+(zero counts muted, flagged ones carry a coloured edge); the duplicate
+counts row became an "At a glance" list in a right column beside the
+auto-fill card and recently added contracts, each figure linking to its
+filtered list. Conflicts and open exceptions are tables — the conflict
+table names each line's blockers and links to the contract — and the
+auto-fill explanation folds into a disclosure. No data or query changed.
+
 A contract records `created_by`; its first revision records
 `activated_by`/`activated_at` (set to the creator at creation, since the
 first revision is created current); a draft revision's activation records
