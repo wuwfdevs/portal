@@ -22,9 +22,28 @@ describe("toolInputSchema", () => {
     expect(parsed).toEqual({ pitchId: "abc", confirmed: true });
   });
 
-  it("throws for a required-confirmation capability whose input isn't an object schema", () => {
+  it("adds an optional confirmed field to every branch of a discriminated-union schema", () => {
+    const input = z.discriminatedUnion("outcome", [
+      z.object({ outcome: z.literal("aired"), itemId: z.string() }),
+      z.object({ outcome: z.literal("missed"), itemId: z.string(), reason: z.string() }),
+    ]);
+    const schema = toolInputSchema({ input, confirmation: "required" });
+
+    expect(schema.safeParse({ outcome: "aired", itemId: "abc" }).success).toBe(true);
+    expect(
+      schema.safeParse({ outcome: "aired", itemId: "abc", confirmed: true }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ outcome: "missed", itemId: "abc", reason: "host_error", confirmed: true })
+        .success,
+    ).toBe(true);
+    // The discriminant is still enforced — an unknown outcome still fails.
+    expect(schema.safeParse({ outcome: "other", itemId: "abc" }).success).toBe(false);
+  });
+
+  it("throws for a required-confirmation capability whose input isn't an object or discriminated-union schema", () => {
     expect(() => toolInputSchema({ input: z.string(), confirmation: "required" })).toThrow(
-      /object input schema/,
+      /object or discriminated-union input schema/,
     );
   });
 });
