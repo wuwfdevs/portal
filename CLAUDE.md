@@ -1322,6 +1322,22 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Underwriting & Traffic: the schedule tab's line rows, and placing a
+credit as its own page (2026-09-28).** Read
+`docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`
+"Row details and row actions" before touching the contract page's line
+card, its "⋮" menu, or manual placement; this is a pointer. A line is a
+summary row that expands (`?details=<lineId>`, URL state, never
+`useState`) into one table of periods and placements
+(`lib/underwriting/line-details.ts`, pure, tested) — the old "Demand by
+period" and "Placements" menu panels are gone, and so is the "Place a
+credit" panel: placing is `/contracts/[id]/lines/[lineId]/place`,
+mirroring the edit page, narrowed to a period by `?week=<bucketId>`. The
+"⋮" (`line-menu.tsx`) keeps auto-fill for the line, Edit, and the two
+destructive actions with a confirm step; a failed cancel, remove or clear
+renders inside the line's card (`?line=<id>`). `ActionMenu` items can now
+be links, form submits (`formId`), or greyed with a reason.
+
 **Underwriting & Traffic: copy on the contract, and copy rotation
 (2026-09-27).** Read `docs/underwriting-traffic-redesign.md` §13 before
 touching the copy step, the Copy tab, the planner's copy pass, or anything

@@ -947,11 +947,13 @@ export async function cancelScheduleLine(formData: FormData): Promise<void> {
   const contractId = field(formData, "contract_id");
   const lineId = field(formData, "schedule_line_id");
   const path = contractPath(contractId);
+  // A failure renders inside the line's own card (`?line=`), not at the top of the page.
+  const failPath = `${path}?line=${lineId}`;
   const from = optionalField(formData, "cancelled_from") ?? stationTodayISO();
-  if (!isValidDateISO(from)) failWith(path, "Give the date the cancellation takes effect.");
+  if (!isValidDateISO(from)) failWith(failPath, "Give the date the cancellation takes effect.");
 
   const message = await cancelScheduleLineFrom(lineId, from, profile.id);
-  if (message) failWith(path, message);
+  if (message) failWith(failPath, message);
   await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
@@ -965,16 +967,18 @@ export async function removeDraftScheduleLine(formData: FormData): Promise<void>
   const contractId = field(formData, "contract_id");
   const lineId = field(formData, "schedule_line_id");
   const path = returnPath(formData, contractId);
+  // From the contract page a failure renders inside the line's card; the schedule step has no per-line card.
+  const failPath = path === contractPath(contractId) ? `${path}?line=${lineId}` : path;
 
   const supabase = await createClient();
-  await requireRewritableLine(supabase, lineId, contractId, path);
+  await requireRewritableLine(supabase, lineId, contractId, failPath);
   const { error: bucketError } = await supabase
     .from("uw_demand_buckets")
     .delete()
     .eq("schedule_line_id", lineId);
-  failIfError(bucketError, path, "Could not remove the line's demand");
+  failIfError(bucketError, failPath, "Could not remove the line's demand");
   const { error } = await supabase.from("uw_contract_schedule_lines").delete().eq("id", lineId);
-  failIfError(error, path, "Could not remove the schedule line");
+  failIfError(error, failPath, "Could not remove the schedule line");
 
   revalidatePath(path);
   redirect(path);

@@ -86,6 +86,24 @@ contract is shown disabled), and the program on a pool target. Pools, industries
 time rules and a contract's own handful of linked copy stay native selects. It is the rundown
 builder's insertion-point combobox lifted into a primitive, so the two behave the same.
 
+### Row details and row actions (2026-09-28)
+
+A list row's less-frequent actions go in an `ActionMenu` ("⋮"); what people look for
+does not. Two rules came out of the contract page's schedule lines
+(`docs/underwriting-traffic-redesign.md` §11.7):
+
+- **A read-only view is never a menu item.** If a row has detail worth showing (a line's
+  periods and placements), the row expands to it, opened by a query string
+  (`?details=<id>`) the way an inline card opens with `?new=1` — never client state. The
+  normal-path action lives in that detail or as a visible button, not in the menu.
+- **The menu holds what is rare or destructive**, each destructive item opening a confirm
+  step below the row rather than acting on the click. `ActionMenu` items can be a link
+  (`href`), a submit for a form declared elsewhere on the page (`formId`), or greyed with
+  a reason (`disabled` + `hint`); `dividerBefore` separates the destructive group.
+- **A row's failed action renders in that row.** The action bounces to the page with
+  `?line=<id>&error=…` (or the equivalent) and the page hands the message to the row that
+  raised it, not to a page-top alert.
+
 ### Rollout
 
 Done (2026-09-27, in two passes):

@@ -41,13 +41,19 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
   const breakId = field(formData, "break_id");
   const overrideReason = field(formData, "override_reason");
   const path = contractPath(contractId);
+  // The placement page (docs/underwriting-traffic-redesign.md §11.7): a
+  // failure lands back on it, with the week filter it had; success lands
+  // on the contract page with this line's periods open.
+  const week = field(formData, "week");
+  const failPath = `${path}/lines/${scheduleLineId}/place${week ? `?week=${encodeURIComponent(week)}` : ""}`;
+  const donePath = `${path}?details=${scheduleLineId}#line-${scheduleLineId}`;
 
-  if (breakId === "") failWith(path, "Choose an open break to place into.");
+  if (breakId === "") failWith(failPath, "Choose an open break to place into.");
   const copyId =
     (await resolveCopyForBreak(scheduleLineId, breakId, field(formData, "copy_id") || null)) ?? "";
   if (copyId === "")
     failWith(
-      path,
+      failPath,
       "No linked message is approved, in date, and short enough for that break — choose one, or approve a message on the Copy tab.",
     );
 
@@ -57,7 +63,7 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
     copyId,
     overrideReason: overrideReason || undefined,
   });
-  if (!result.ok) failWith(path, result.message);
+  if (!result.ok) failWith(failPath, result.message);
   await rebalanceContractRotation(contractId, profile.id);
 
   // log_place_underwriting_credit() only actually honors override_reason
@@ -82,19 +88,33 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath(path);
-  redirect(path);
+  redirect(donePath);
 }
 
+/**
+ * Clears a scheduled credit. From a line's period table
+ * (`schedule_line_id` set) it returns to that line with its periods still
+ * open, and a failure renders inside that line's card; from the
+ * Placements tab (`return_to=placements`) it returns there.
+ */
 export async function clearCreditAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
   const placementId = field(formData, "placement_id");
+  const lineId = field(formData, "schedule_line_id");
   const path = contractPath(contractId);
+  const returnPath =
+    field(formData, "return_to") === "placements"
+      ? `${path}?tab=placements`
+      : lineId
+        ? `${path}?details=${lineId}#line-${lineId}`
+        : path;
+  const failPath = lineId ? `${path}?details=${lineId}&line=${lineId}` : returnPath;
 
   const result = await clearCredit(placementId);
-  if (!result.ok) failWith(path, result.message);
+  if (!result.ok) failWith(failPath, result.message);
   await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
-  redirect(path);
+  redirect(returnPath);
 }

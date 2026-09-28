@@ -867,6 +867,73 @@ shows up, the predicate is where the program's hours would be intersected
 in. The live editor aside was left alone too — the save-time refusal stops
 the mistake, and the aside can follow if the refusal proves annoying.
 
+### 11.7 The schedule tab's line rows and the placement page (2026-09-28)
+
+A review of the contract page's Schedule tab, after a report that the
+"⋮" menu and the forms it revealed felt cluttered, found the clutter had
+one cause: the menu held three kinds of thing as if they were one. "Place
+a credit" was the normal path; "Demand by period" and "Placements" were
+read-only views, not actions, so a line's placements could not be seen
+without a menu round trip; "Cancel from a date" was destructive and sat
+one click below them with no confirm step. Each item opened a
+dashed-border panel inside the row — the same treatment as the "No
+schedule lines yet" empty state, so the primary form read as a
+placeholder — whose open/closed state was React state while the Copy tab
+beside it opened its cards with `?new=1` / `?edit=<id>`. A failed
+placement bounced to the contract URL with `?error=`, rendered above the
+tabs, far from the panel that raised it. And "Clear" existed only inside
+the per-line Placements panel; the Placements tab listing the same rows
+had no action.
+
+The rebuild (boards reviewed before building) splits the menu by kind:
+
+- **The row is a summary.** A chevron, the line's name, one rule sentence
+  with its dates folded in (`formatDateRange`), the delivery bar reading
+  "9 aired · 4 scheduled · 13 needed" with the status badge, and the "⋮".
+  "Guaranteed" is unbadged as the default; only Bonus, a flight, and
+  "cancelled from" are badges. The order's own text, the makegood policy
+  and "N spots on the order" moved into the expanded details' header;
+  "compiles to N" is gone from the row since `stated_total_mismatch`
+  already warns when the two disagree. The revision heading renders only
+  when more than one revision is on the tab.
+- **Demand and placements are one table, keyed by period**
+  (`lib/underwriting/line-details.ts`, pure, tested: `buildPeriodRows`,
+  `foldPeriodRows`). The chevron opens it with `?details=<lineId>` — URL
+  state, like the Copy tab's cards, never `useState`. Each period shows
+  its owed count and, per unit, the placement (when, program and break,
+  message, outcome, Clear) or the open unit it still needs, with a Place
+  button that opens the placement page narrowed to that period. Settled
+  history and untouched future fold to one line each ("Show 9 earlier
+  periods, all aired"), expanded by `&periods=all`. The Placements tab
+  gained the same Clear.
+- **Placing a credit is its own page**,
+  `/contracts/[id]/lines/[lineId]/place`, mirroring `/lines/[lineId]/edit`
+  (docs/ui-patterns.md rule 2: prerequisites — copy, eligible breaks).
+  Open breaks are radio rows grouped under the period each would satisfy
+  (`?week=<bucketId>` narrows to one), with a filter box once the list is
+  long; the message section is the rotation's pick folded to one line, or
+  a specific message, with the override reason shown only when the chosen
+  message isn't approved or is out of date. The competitive-adjacency
+  advisory is one quiet line. `placeCreditAction` fails back to this page
+  (the error renders inside the form) and succeeds to the contract page
+  with the line's periods open. The six paragraphs of hint the old panel
+  carried are gone; nothing in the guard changed.
+- **The "⋮" keeps what is rare or destructive** (`line-menu.tsx`): auto-fill
+  for this one line (a menu item submitting a hidden form through the
+  button's `form` attribute — `ActionMenu` gained `formId`, `href`,
+  `disabled`/`hint` and `dividerBefore` items), Edit (a link when
+  `line-mutability.ts` allows it, greyed with the reason otherwise), then
+  Cancel from a date and Remove line, each opening a confirm step below the
+  row (the cancel date defaults to today, not the line's start). The
+  contract-wide Auto-fill is the tab's one primary button. A failure in
+  cancel, remove or clear renders inside the line's own card (`?line=<id>`
+  names it), not at the top of the page.
+
+The contract page no longer calls `log_list_placeable_rundown_breaks()`
+once per line on every render — that read moved to the placement page,
+where it is needed. `line-actions.tsx` (the panel-per-item menu) remains
+for the Copy tab's message cards only.
+
 ## 12. Creating a contract from its signed agreement (2026-09-27)
 
 The order step can now start from the signed agreement or insertion order

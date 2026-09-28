@@ -11,10 +11,11 @@ export interface LinePanel {
 }
 
 /**
- * A schedule line card's "⋮" menu: each item opens one panel below the
- * card (the manual placement form, the demand-by-period table, the
- * placements list, cancel-from-a-date) — server-rendered forms passed in
- * as ReactNodes, so this component only holds which one is open.
+ * A "⋮" menu whose items each open one panel below the card — server-
+ * rendered forms passed in as ReactNodes, so this component only holds
+ * which one is open. Used by the Copy tab's message cards (copy-panel.tsx);
+ * the schedule line card moved off it in 2026-09-28's pass (line-menu.tsx,
+ * docs/underwriting-traffic-redesign.md §11.7).
  */
 export function LineActions({ label, panels }: { label: string; panels: LinePanel[] }) {
   const [open, setOpen] = useState<string | null>(null);

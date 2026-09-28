@@ -1,12 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 export interface ActionMenuItem {
   label: string;
-  onClick: () => void;
+  /** Runs on click; omit for a link (`href`) or a form submit (`formId`). */
+  onClick?: () => void;
+  /** Renders the item as a link. */
+  href?: string;
+  /** Submits the form with this id on click, so a menu can fire a server action declared elsewhere on the page. */
+  formId?: string;
   /** Styles the item as destructive/rare — doesn't add a confirm step itself, callers still own that. */
   variant?: "default" | "danger";
+  /** Shown but not actionable, with `hint` saying why. */
+  disabled?: boolean;
+  hint?: string;
+  /** A rule above this item — the boundary between ordinary and destructive items. */
+  dividerBefore?: boolean;
 }
 
 /**
@@ -16,7 +27,13 @@ export interface ActionMenuItem {
  * callers own anything an item needs beyond that (a confirm step, a status
  * message) since this is just the disclosure, not the actions' behavior.
  */
-export function ActionMenu({ label = "Actions", items }: { label?: string; items: ActionMenuItem[] }) {
+export function ActionMenu({
+  label = "Actions",
+  items,
+}: {
+  label?: string;
+  items: ActionMenuItem[];
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +55,15 @@ export function ActionMenu({ label = "Actions", items }: { label?: string; items
 
   if (items.length === 0) return null;
 
+  const itemClasses = (item: ActionMenuItem) =>
+    `block w-full px-3 py-1.5 text-left text-sm ${
+      item.disabled
+        ? "cursor-default text-ink-400"
+        : item.variant === "danger"
+          ? "text-danger hover:bg-panel-50"
+          : "text-ink-700 hover:bg-panel-50"
+    }`;
+
   return (
     <div ref={containerRef} className="relative inline-block">
       <button
@@ -57,22 +83,68 @@ export function ActionMenu({ label = "Actions", items }: { label?: string; items
           role="menu"
           className="absolute right-0 z-10 mt-1 min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
         >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                item.onClick();
-              }}
-              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-panel-50 ${
-                item.variant === "danger" ? "text-danger" : "text-ink-700"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+          {items.map((item) => {
+            const body = (
+              <>
+                <span className="block">{item.label}</span>
+                {item.hint && (
+                  <span className="block whitespace-nowrap text-xs text-ink-400">{item.hint}</span>
+                )}
+              </>
+            );
+            const divider = item.dividerBefore ? (
+              <div role="separator" className="my-1 border-t border-line" />
+            ) : null;
+            if (item.disabled) {
+              return (
+                <div key={item.label}>
+                  {divider}
+                  <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
+                    {body}
+                  </div>
+                </div>
+              );
+            }
+            if (item.href) {
+              return (
+                <div key={item.label}>
+                  {divider}
+                  <Link
+                    role="menuitem"
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={itemClasses(item)}
+                  >
+                    {body}
+                  </Link>
+                </div>
+              );
+            }
+            return (
+              <div key={item.label}>
+                {divider}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    // Submit before closing: closing unmounts this button, and
+                    // a detached submitter has no form owner, so a plain
+                    // type="submit" with the `form` attribute would submit
+                    // nothing once the menu re-rendered.
+                    if (item.formId) {
+                      const form = document.getElementById(item.formId);
+                      if (form instanceof HTMLFormElement) form.requestSubmit();
+                    }
+                    setOpen(false);
+                    item.onClick?.();
+                  }}
+                  className={itemClasses(item)}
+                >
+                  {body}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
