@@ -33,6 +33,7 @@ import {
   type UnplaceableUnit,
 } from "./inventory-selection";
 import { nextInRotation } from "./rotation";
+import { describePoolReachability, poolReachability } from "./pool-targets";
 import { rebalanceContractRotation } from "./rotation-rebalance";
 
 /**
@@ -243,6 +244,20 @@ export async function autoFillScheduleLine(
   ]);
   if (!listed.ok) {
     return { ...EMPTY_RESULT, errors: [listed.message] };
+  }
+  // A pool nobody has mapped, or one whose targets never reach this line's
+  // days or time, is why every break is missing — say that, not "no
+  // eligible break exists yet" (the notice one such run produced, 2026-09-27).
+  const pool = scheduleLine.pool_id
+    ? pools.find((candidate) => candidate.id === scheduleLine.pool_id)
+    : undefined;
+  if (pool) {
+    const skippedReason = describePoolReachability(
+      poolReachability(pool.targets, scheduleLine),
+      pool.name,
+      scheduleLine,
+    );
+    if (skippedReason) return { ...EMPTY_RESULT, skippedReason };
   }
   const demand = await buildSelectionDemand(
     scheduleLine,

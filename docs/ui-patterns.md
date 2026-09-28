@@ -90,7 +90,7 @@ builder's insertion-point combobox lifted into a primitive, so the two behave th
 
 A list row's less-frequent actions go in an `ActionMenu` ("⋮"); what people look for
 does not. Two rules came out of the contract page's schedule lines
-(`docs/underwriting-traffic-redesign.md` §11.6):
+(`docs/underwriting-traffic-redesign.md` §11.7):
 
 - **A read-only view is never a menu item.** If a row has detail worth showing (a line's
   periods and placements), the row expands to it, opened by a query string

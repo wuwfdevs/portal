@@ -14,7 +14,11 @@ import {
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
 import { insertScheduleLineWithBuckets } from "@/lib/underwriting/schedule-line-writes";
 import { createDraftContractWithRevision } from "@/lib/underwriting/contract-writes";
-import { poolPermitsProgram } from "@/lib/underwriting/pool-targets";
+import {
+  describePoolReachability,
+  poolReachability,
+  type LineReachLike,
+} from "@/lib/underwriting/pool-targets";
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
 import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
@@ -721,23 +725,31 @@ function scheduleLineValuesFromForm(formData: FormData): ScheduleLineFormValues 
  * only offers the pool's programs; this is the same rule for a post that
  * bypassed it.
  */
-async function requirePoolProgramOverlap(
+/**
+ * A line naming a pool must be one the pool can serve: its program (the
+ * intersection rule, 2026-09-27), and — since the same day's Carpool
+ * incident, docs/underwriting-traffic-redesign.md §11.6 — at least one of
+ * its days and its time. A pool with no targets yet is unfinished rather
+ * than wrong and is not refused here; the dashboard and auto-fill say so.
+ */
+async function requirePoolReachesLine(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  poolId: string | null,
-  programId: string | null,
+  line: LineReachLike & { pool_id: string | null },
   path: string,
 ): Promise<void> {
-  if (!poolId || !programId) return;
-  const { data: targets, error } = await supabase
-    .from("uw_inventory_pool_targets")
-    .select("program_id")
-    .eq("pool_id", poolId);
+  if (!line.pool_id) return;
+  const [{ data: targets, error }, { data: pool, error: poolError }] = await Promise.all([
+    supabase
+      .from("uw_inventory_pool_targets")
+      .select("program_id, window_start, window_end, days_of_week")
+      .eq("pool_id", line.pool_id),
+    supabase.from("uw_inventory_pools").select("name").eq("id", line.pool_id).maybeSingle(),
+  ]);
   failIfError(error, path, "Could not read the pool's targets");
-  if (!poolPermitsProgram(targets ?? [], programId))
-    failWith(
-      path,
-      "That pool never places into that program, so the line could never find a break. Pick a program the pool covers, or leave the program blank.",
-    );
+  failIfError(poolError, path, "Could not read the pool");
+  const reach = poolReachability(targets ?? [], line);
+  if (reach.kind !== "unreachable") return;
+  failWith(path, describePoolReachability(reach, pool?.name ?? "chosen", line)!);
 }
 
 export async function addScheduleLine(formData: FormData): Promise<void> {
@@ -762,12 +774,7 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!revision || (revision.status !== "current" && revision.status !== "draft"))
     failWith(path, "Lines can only be added to the current revision or a draft.");
-  await requirePoolProgramOverlap(
-    supabase,
-    parsed.value.line.pool_id,
-    parsed.value.line.program_id,
-    path,
-  );
+  await requirePoolReachesLine(supabase, parsed.value.line, path);
 
   const inserted = await insertScheduleLineWithBuckets(
     supabase,
@@ -847,12 +854,7 @@ export async function updateScheduleLine(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
   await requireRewritableLine(supabase, lineId, contractId, editPath);
-  await requirePoolProgramOverlap(
-    supabase,
-    parsed.value.line.pool_id,
-    parsed.value.line.program_id,
-    editPath,
-  );
+  await requirePoolReachesLine(supabase, parsed.value.line, editPath);
 
   const { entry_spec, ...lineFields } = parsed.value.line;
   const { error } = await supabase

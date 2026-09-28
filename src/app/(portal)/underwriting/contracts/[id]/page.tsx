@@ -56,7 +56,7 @@ function revisionName(revision: UwContractRevisionRow, index: number): string {
 
 /**
  * The contract page (docs/underwriting-traffic-redesign.md §11, from the
- * reviewed mockup; §11.6 for the schedule tab's current shape): what needs
+ * reviewed mockup; §11.7 for the schedule tab's current shape): what needs
  * doing first, then the contract's parts as sub-tabs, with the facts and
  * the status beside them. A draft leads with a readiness checklist; lines
  * are entered on the schedule step and appear here as summary rows that

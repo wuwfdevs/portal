@@ -24,7 +24,7 @@ import { BreakPicker, type BreakPickerGroup } from "./break-picker";
 import { MessageChoice, type MessageOption } from "./message-choice";
 
 /**
- * Place a credit by hand (docs/underwriting-traffic-redesign.md §11.6) —
+ * Place a credit by hand (docs/underwriting-traffic-redesign.md §11.7) —
  * its own page, mirroring `/lines/[lineId]/edit`, instead of a panel
  * folded into the contract page's line card. Open breaks are listed under
  * the period each would satisfy; `?week=<bucketId>` (from a period's

@@ -819,7 +819,55 @@ on a line card and a makegood, and a pool target's program — leaving the
 fixed-option selects (pools, industries, statuses, time rules, a contract's
 own linked copy) native.
 
-### 11.6 The schedule tab's line rows and the placement page (2026-09-28)
+### 11.6 A pool that can't reach the line (2026-09-27)
+
+Found on the first real auto-fill of the Autumn Beck Blackledge lines: the
+notice read "84 units still unplaced — no eligible break exists yet", which
+was true and said nothing about why. The Carpool pool had been seeded as a
+placeholder with no targets, so `uw_pool_matches()` matched no break on any
+program, and `programsForLine()` derived nothing to provision from. Once a
+Morning Edition 6–9 am target was added, the three morning lines filled at
+7:49 and 8:06 — and the Tuesday 4:48 pm line seated all 21 credits at
+8:59 am, because a `preferred` time only ranks and the pool reached nothing
+closer. Nothing flagged either state.
+
+Both are the same class of contradiction as a program the pool never
+targets (§11.4's intersection rule), so they get the same treatment.
+`poolReachability()` in `lib/underwriting/pool-targets.ts` (pure, tested)
+asks whether any of the pool's targets serves the line — its program when
+it names one, at least one of its days, and its time rule — and reports
+three states, which the rest of the tool reads differently:
+
+- **No targets** is unfinished, not wrong. Lines are entered from the order
+  during setup, often before the pool is mapped (the seeded placeholders
+  exist for exactly that), so a save is never refused for it. The dashboard
+  names it (`pool_unmapped`) and auto-fill skips the line with the reason
+  spelled out, instead of the old inventory message.
+- **Unreachable** means targets exist and none reaches the line. For
+  `exact` and `window` the guard would refuse every placement anyway; for
+  `preferred` nothing would, and the credit lands quietly in the wrong
+  daypart, which is the worse outcome. `addScheduleLine` and
+  `updateScheduleLine` refuse it (`requirePoolReachesLine`, replacing the
+  program-only `requirePoolProgramOverlap`), the dashboard names it
+  (`pool_unreachable`, catching a pool edited after the line was saved),
+  and auto-fill skips the line with the same sentence. An `exact` time
+  reaches a window if the guard's ±3-minute band touches it.
+- **Reachable** changes nothing.
+
+`describePoolReachability()` builds the one sentence all three surfaces
+show, so the wording can't drift. When the pool is the cause, the
+dashboard drops the "no eligible break" symptom rather than listing both.
+
+Deliberately not built: judging a windowless target against its program's
+own air hours. A target with no window is taken to reach any time, because
+the program's schedule lives in Log and an underwriting session can't read
+it without a new security-definer boundary. The mistake this pass fixes was
+an empty pool, not a windowless target on the wrong program; if that one
+shows up, the predicate is where the program's hours would be intersected
+in. The live editor aside was left alone too — the save-time refusal stops
+the mistake, and the aside can follow if the refusal proves annoying.
+
+### 11.7 The schedule tab's line rows and the placement page (2026-09-28)
 
 A review of the contract page's Schedule tab, after a report that the
 "⋮" menu and the forms it revealed felt cluttered, found the clutter had

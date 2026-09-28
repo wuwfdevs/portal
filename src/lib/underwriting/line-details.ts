@@ -4,7 +4,7 @@ import { describeBucketPeriod } from "./demand";
 
 /**
  * The contract page's per-line details table (docs/underwriting-traffic-
- * redesign.md §11.6): demand and placements as one table keyed by period,
+ * redesign.md §11.7): demand and placements as one table keyed by period,
  * rather than a "Demand by period" view and a "Placements" view that told
  * the same story from two ends. A filled period shows its placements; an
  * open one reads "nothing scheduled" with a Place action; a period whose

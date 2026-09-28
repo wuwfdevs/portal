@@ -41,7 +41,7 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
   const breakId = field(formData, "break_id");
   const overrideReason = field(formData, "override_reason");
   const path = contractPath(contractId);
-  // The placement page (docs/underwriting-traffic-redesign.md §11.6): a
+  // The placement page (docs/underwriting-traffic-redesign.md §11.7): a
   // failure lands back on it, with the week filter it had; success lands
   // on the contract page with this line's periods open.
   const week = field(formData, "week");

@@ -1324,7 +1324,7 @@ record.
 
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
-`docs/underwriting-traffic-redesign.md` §11.6 and `docs/ui-patterns.md`
+`docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`
 "Row details and row actions" before touching the contract page's line
 card, its "⋮" menu, or manual placement; this is a pointer. A line is a
 summary row that expands (`?details=<lineId>`, URL state, never

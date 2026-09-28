@@ -53,7 +53,7 @@ function Chevron({ open }: { open: boolean }) {
 
 /**
  * One schedule line on the contract page (docs/underwriting-traffic-
- * redesign.md §11.6): a summary row — chevron, name, one rule sentence,
+ * redesign.md §11.7): a summary row — chevron, name, one rule sentence,
  * delivery bar, "⋮" — and, when `expanded`, the line's periods as one
  * table of demand and placements. Expanded state lives in the URL
  * (`?details=<lineId>`, like the Copy tab's `?edit=<id>`), never in

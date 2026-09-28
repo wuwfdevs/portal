@@ -7,7 +7,7 @@ import { FieldHint, Input, Label } from "@/components/ui/input";
 import { cancelScheduleLine, removeDraftScheduleLine } from "../../contract-actions";
 
 /**
- * A schedule line's "⋮" menu (docs/underwriting-traffic-redesign.md §11.6):
+ * A schedule line's "⋮" menu (docs/underwriting-traffic-redesign.md §11.7):
  * only what is rare or destructive. Auto-fill for this one line submits the
  * hidden form the card renders (`autoFillFormId`, via the button's `form`
  * attribute); Edit is a link when the line can still be rewritten and a
