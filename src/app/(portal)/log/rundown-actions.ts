@@ -26,7 +26,6 @@ import { placeAssignedContent } from "@/lib/log/opportunity-assignment-placement
 import {
   getClockTemplateDetail,
   getContentItemDetail,
-  getRundownBreak,
   getRundownDetail,
   getRundownForProgramOnDate,
   getRundownItem,
@@ -34,7 +33,6 @@ import {
   listLocalOpportunitiesForVersion,
   toRundownOpportunity,
 } from "@/lib/log/queries";
-import { isValidMoveDestination, type RelocatableItemKind } from "@/lib/log/mid-broadcast";
 import type { LogContentType } from "@/lib/database.types";
 
 function field(formData: FormData, name: string): string {
@@ -102,7 +100,7 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
  * Renumbers a break's items into exactly the given order (1..N) — shared by
- * relocateRundownItem (a drag) and placeNewItemAtPosition below (a fresh
+ * lib/log/rundown-relocation.ts's relocateItem (a drag) and placeNewItemAtPosition below (a fresh
  * insert), since both are "this break's items should now read in this
  * order" once whatever changed has changed. Position is just a sort key;
  * nothing depends on it staying contiguous outside this one write.
@@ -127,7 +125,7 @@ async function renumberBreakItems(
  * insert new content between two existing items, not just append it.
  * Renumbering the whole break rather than fractional positions — this
  * repo's position columns are plain integers, and a drag reorder already
- * renumbers the same way (see relocateRundownItem), so this reuses that
+ * renumbers the same way (see lib/log/rundown-relocation.ts), so this reuses that
  * approach rather than introducing a second one.
  */
 async function placeNewItemAtPosition(
@@ -698,135 +696,7 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/**
- * Called directly from the rundown breaks board's drag handler and its
- * keyboard/touch-accessible "Move to…" select — not a <form action>, for the
- * same reason academic-partnerships/actions.ts's setSubmissionStage isn't:
- * the board is already a client component (dnd-kit requires it) and a full
- * page navigation on every drop would defeat the point. Returns rather than
- * redirects so the client can update optimistically and roll back on error.
- *
- * Handles both a same-break reorder and a cross-break move with one write:
- * orderedItemIds is the destination break's complete item order after the
- * drop (including the moved item), renumbered 1..N. The source break's
- * other items are left exactly where they are — position doesn't need to
- * stay contiguous, only correctly ordered.
- *
- * "Moved" is now a plain rundown edit, not a broadcast outcome — see
- * lib/log/mid-broadcast.ts's file header. Nothing is written to
- * log_broadcast_events, and nothing is left behind at the old spot.
- * Underwriting credits are excluded here specifically — see
- * relocateUnderwritingCredit below, which the board calls instead for that
- * item kind. Credits need a security-definer boundary (they write into
- * uw_scheduled_placements, which this tool has no ordinary RLS access to at
- * all), not a bare update like this one.
- */
-export async function relocateRundownItem(
-  itemId: string,
-  destinationBreakId: string,
-  orderedItemIds: string[],
-): Promise<{ error?: string }> {
-  await assertLogAccess();
-
-  const item = await getRundownItem(itemId);
-  if (!item) return { error: "That item no longer exists." };
-  if (item.item_kind === "underwriting_credit") {
-    return { error: "Underwriting credits move through relocateUnderwritingCredit, not this action." };
-  }
-
-  const destinationBreak = await getRundownBreak(destinationBreakId);
-  if (!destinationBreak) return { error: "That break no longer exists." };
-
-  if (item.break_id !== destinationBreakId) {
-    let kind: RelocatableItemKind = "live_read";
-    let contentType: string | null = null;
-    if (item.item_kind === "content" && item.content_item_id) {
-      kind = "content";
-      const contentItem = await getContentItemDetail(item.content_item_id);
-      contentType = contentItem?.content_type ?? null;
-    } else if (item.item_kind === "weather") {
-      kind = "weather";
-    }
-
-    // nowISO is null here (not the "already in the past" gate) — that check
-    // is a client-side UX hint only, same reasoning duration-fit warnings
-    // use elsewhere in Log: the schema and this write don't need to enforce
-    // it to stay correct. Content-type eligibility does — there's no
-    // capacity cap to check anymore (see CLAUDE.md's dated note).
-    const eligible = isValidMoveDestination(
-      {
-        id: destinationBreak.id,
-        scheduled_at: destinationBreak.scheduled_at,
-        permitted_content_types: destinationBreak.permitted_content_types,
-      },
-      item.break_id,
-      kind,
-      contentType as LogContentType | null,
-      null,
-    );
-    if (!eligible) return { error: "That break can't hold this item." };
-  }
-
-  const supabase = await createClient();
-  const results = await Promise.all(
-    orderedItemIds.map((id, index) =>
-      supabase
-        .from("log_rundown_items")
-        .update({ break_id: destinationBreakId, position: index + 1 })
-        .eq("id", id),
-    ),
-  );
-  const failed = results.find((result) => result.error);
-  if (failed?.error) return { error: "Could not move this item." };
-
-  return {};
-}
-
-const RELOCATE_CREDIT_ERRORS: Record<string, string> = {
-  unauthenticated: "Your session has expired — sign in again.",
-  forbidden: "You don't have access to Log.",
-  not_a_credit: "That item isn't an underwriting credit.",
-  already_aired: "This credit already aired — it can't be moved.",
-  unknown_placement: "Couldn't find this credit's scheduled placement.",
-  unknown_break: "That break no longer exists.",
-  same_break: "That's already where this credit is.",
-  different_rundown: "A credit can only move within the same rundown.",
-  break_not_eligible: "That break doesn't permit an underwriting credit.",
-  break_occupied: "That break is already occupied and doesn't allow more than one item.",
-  too_long: "This credit is longer than that break's remaining time allows.",
-};
-
-/**
- * Relocates an already-placed underwriting credit to a different open break
- * in the *same* rundown — the credit counterpart to relocateRundownItem
- * above, called by the same breaks board for item_kind = 'underwriting_credit'.
- * Unlike ordinary content, this can't be a bare update: it goes through
- * log_relocate_underwriting_credit(), a security-definer function gated by
- * has_log_access (not has_underwriting_access — see that migration's
- * header for why the narrower operation gets the lighter gate), since this
- * tool has no ordinary RLS access to uw_scheduled_placements at all.
- *
- * Works whether the credit hasn't aired yet or was already marked missed —
- * a host recovering from a miss mid-broadcast uses this exact same path,
- * not a separate "schedule a makegood" step (see the missed-credit callout
- * in page.tsx). It only fails once the credit has actually aired.
- */
-export async function relocateUnderwritingCredit(
-  itemId: string,
-  destinationBreakId: string,
-): Promise<{ error?: string }> {
-  await assertLogAccess();
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("log_relocate_underwriting_credit", {
-    p_item_id: itemId,
-    p_destination_break_id: destinationBreakId,
-  });
-  if (error) return { error: "Could not move this credit." };
-  if (!data || "error" in data) {
-    const code = (data as { error?: string } | null)?.error;
-    return { error: (code && RELOCATE_CREDIT_ERRORS[code]) || "Could not move this credit." };
-  }
-
-  return {};
-}
+// Relocating an item (drag-and-drop, or "Move to…") moved to
+// lib/log/rundown-relocation.ts, reached through broadcast-actions.ts's
+// syncBroadcastAction: it is one of the live screen's offline-queued
+// actions now, not an action the board calls directly.

@@ -11,7 +11,8 @@ import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components
 // before. This wraps the break list and the weather/NPR/status panel with:
 //
 // - A sticky top bar with a "jump to now" control
-//   that works regardless of which panel is currently showing.
+//   that works regardless of which panel is currently showing, and the
+//   offline queue's connection bar under it.
 // - On mobile (below lg), a Rundown/Context tab switch instead of stacking
 //   both panels — a phone doesn't have room to show both without one
 //   crowding out the other, and checking weather/NPR is a "glance and
@@ -33,11 +34,14 @@ type Tab = "rundown" | "context";
 export function RundownLiveLayout({
   programName,
   hasCurrentBreak,
+  connectionStatus,
   mainContent,
   sidebarContent,
 }: {
   programName: string;
   hasCurrentBreak: boolean;
+  /** The offline queue's status bar (broadcast-sync.tsx) — a full-width row in the sticky bar, so it's visible at any scroll position. */
+  connectionStatus: ReactNode;
   mainContent: ReactNode;
   sidebarContent: ReactNode;
 }) {
@@ -91,6 +95,7 @@ export function RundownLiveLayout({
               </button>
             </div>
           </div>
+          {connectionStatus}
         </div>
 
         <TextScaleZoom>

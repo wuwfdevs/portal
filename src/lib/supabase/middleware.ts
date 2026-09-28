@@ -27,6 +27,10 @@ const PUBLIC_PATHS = [
   // /join and /listen, there is no session here to establish, not even an
   // anonymous one (see docs/academic-partnerships-design.md §3).
   "/partner",
+  // Log's service worker script (public/log-offline-sw.js). The browser
+  // refuses a worker script that answers with a redirect, so a signed-out
+  // update check must get the file, not /login; it holds no data.
+  "/log-offline-sw.js",
 ];
 
 function isPublicPath(pathname: string): boolean {

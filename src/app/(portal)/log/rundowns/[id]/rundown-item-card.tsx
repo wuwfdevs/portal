@@ -15,6 +15,7 @@ import {
   MoveIcon,
   RemoveIcon,
 } from "./item-card-icons";
+import { useBroadcastSync } from "../../broadcast-sync";
 
 // Replaces what used to be a "Remove" text link + a nested <details>
 // "Adjust for this airing" form, then (briefly) two separate corner icons
@@ -105,6 +106,11 @@ export function RundownItemCard({
   moveDestinations: MoveDestinationOption[] | null;
   onMoveTo: ((destinationBreakId: string) => void) | null;
 }) {
+  // Edit, remove, and the library actions are <form action> submits that
+  // need the server's answer; with no connection they'd throw the screen
+  // into its error boundary, so they wait. "Move to…" is queued and stays.
+  const { connected } = useBroadcastSync();
+  const offlineTitle = connected ? undefined : "Waits for the connection";
   const [editing, setEditing] = useState(false);
   const [menuView, setMenuView] = useState<"main" | "move" | "save">("main");
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -163,7 +169,9 @@ export function RundownItemCard({
               <button
                 type="submit"
                 form={formId}
-                className="rounded p-1 text-brand-link hover:bg-brand-surface"
+                disabled={!connected}
+                title={offlineTitle}
+                className="rounded p-1 text-brand-link hover:bg-brand-surface disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Save changes"
               >
                 <CheckIcon className="h-3.5 w-3.5" />
@@ -204,11 +212,13 @@ export function RundownItemCard({
                         {editable && (
                           <button
                             type="button"
+                            disabled={!connected}
+                            title={offlineTitle}
                             onClick={() => {
                               setEditing(true);
                               closeMenu();
                             }}
-                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <EditIcon className="h-3.5 w-3.5" /> Edit for this airing
                           </button>
@@ -225,8 +235,10 @@ export function RundownItemCard({
                         {saveToLibraryAction && (
                           <button
                             type="button"
+                            disabled={!connected}
+                            title={offlineTitle}
                             onClick={() => setMenuView("save")}
-                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <LibraryIcon className="h-3.5 w-3.5" /> Save to library…
                           </button>
@@ -237,7 +249,9 @@ export function RundownItemCard({
                             <input type="hidden" name="item_id" value={itemId} />
                             <button
                               type="submit"
-                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50"
+                              disabled={!connected}
+                              title={offlineTitle}
+                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-ink-700 hover:bg-panel-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <LibraryIcon className="h-3.5 w-3.5" /> Apply edit to library item
                             </button>
@@ -249,7 +263,9 @@ export function RundownItemCard({
                             <input type="hidden" name="item_id" value={itemId} />
                             <button
                               type="submit"
-                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-danger hover:bg-danger/10"
+                              disabled={!connected}
+                              title={offlineTitle}
+                              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <RemoveIcon className="h-3.5 w-3.5" /> Remove
                             </button>
@@ -284,7 +300,12 @@ export function RundownItemCard({
                               </option>
                             ))}
                           </Select>
-                          <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            disabled={!connected}
+                            className="px-2.5 py-1.5 text-xs"
+                          >
                             Save to library
                           </Button>
                         </form>

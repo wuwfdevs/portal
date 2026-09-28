@@ -1737,16 +1737,38 @@ migration still had to backfill a placeholder `uw_underwriters` row for it
 before requiring `underwriter_id not null`, rather than assuming the table
 was empty.
 
-**Known gap, explicitly not built in this pass**: the Log host console has
-no offline/connectivity resilience. §22 of the source spec (queue unsent
-mid-broadcast actions locally, survive a connectivity drop without losing
-data) was flagged as a requirement in the original Log design doc and still
-isn't implemented — the console assumes a live connection to record
-`markAired`/`markMissed`/`moveRundownItem`. This is the single highest-
-priority item left in `docs/log-design.md` §7's open-issues list; the
-intended shape (IndexedDB queue, client-generated ids, retry with backoff,
-replay on reconnect — the same pattern Remote Interview's local capture
-uses for audio chunks) is designed but not built.
+**Log: the live rundown screen works through a connectivity drop
+(2026-09-28), closing what was the known gap here.** Read
+`docs/log-design.md` §6, "Host live-view resilience," before touching the
+rundown screen's aired/missed/move actions, `LogPoller`, or anything that
+calls a Server Action from that screen; this is a pointer. Aired, missed,
+and both relocations go through one offline queue: written to IndexedDB
+(`lib/log/broadcast-queue-store.ts`), shown at once, sent in order by
+`broadcast-sync.tsx`'s provider through one non-redirecting action,
+`syncBroadcastAction` (`broadcast-actions.ts`), and removed only on ack.
+Replays are safe — an outcome's client-generated id becomes its
+`log_broadcast_events.id` (a duplicate is success), and a relocation states
+where an item ends up (`lib/log/broadcast-queue.ts`, pure and tested;
+relocation itself moved to `lib/log/rundown-relocation.ts`). Everything
+else on the screen (fill, edit, remove, attest, submit) is disabled while
+disconnected (`RequiresConnection`, a disabled `<fieldset>`), attest and
+submit also while anything is unsent. Three Next.js behaviours drove the
+shape and are easy to reintroduce: a `<form action>` whose request fails
+throws the whole screen into `error.tsx`; a failed or non-200
+`router.refresh()` falls back to a full browser navigation, offline the
+browser's "no internet" page — so `LogPoller` now skips a refresh when
+offline, when the queue is busy, or when `pingLog` doesn't answer; and a
+Server Action id from an older deploy is refused, so the queue reloads the
+page once (the queue survives in IndexedDB). A service worker
+(`public/log-offline-sw.js`, production only, in the middleware's
+`PUBLIC_PATHS`) keeps a copy of the rundown page and its build assets and
+serves it only when the network fails, so a reload during an outage still
+shows the rundown, labelled with when it was rendered. The capability
+`log.rundownItem.recordOutcome` gained optional `eventId`/`occurredAt` (a
+tap's device time, clamped). No migration. Verified in Chromium against a
+harness with a fake server, not against Supabase — this sandbox's egress
+blocks `supabase.co` — so its first real outage is its first end-to-end
+run.
 
 **Log: rundown-breaks duplication and ordering fixes (2026-08-07), both
 found from a user report against the deployed app right after the domain

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
 import {
   CONTENT_TYPE_LABEL,
   componentScriptText,
@@ -65,15 +64,11 @@ import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
   attestUnderwritingCredits,
-  markAired,
-  markMissed,
   startBroadcast,
   submitRundown,
 } from "../../broadcast-actions";
 import {
   applyOverridesToLibraryItem,
-  relocateRundownItem,
-  relocateUnderwritingCredit,
   removeRundownItem,
   saveLiveReadToLibrary,
   syncRundownBreaks,
@@ -82,8 +77,18 @@ import {
 import type { NprLookaheadItem } from "./live-read-form";
 import type { InsertConfig } from "./insertion-point";
 import { RundownLiveLayout } from "./rundown-live-layout";
-import { RundownBreaksBoard, type BreakBoardBreak, type BreakBoardItem } from "./rundown-breaks-board";
-import type { LogContentType, LogMissReason, LogRundownStatus } from "@/lib/database.types";
+import { CreditOutcomePanel } from "./credit-outcome-panel";
+import {
+  BroadcastSyncProvider,
+  BroadcastSyncStatus,
+  RequiresConnection,
+} from "../../broadcast-sync";
+import {
+  RundownBreaksBoard,
+  type BreakBoardBreak,
+  type BreakBoardItem,
+} from "./rundown-breaks-board";
+import type { LogContentType, LogRundownStatus } from "@/lib/database.types";
 
 /** Fallback refresh cadence for this screen, live or not — see log-poller.tsx. */
 const RUNDOWN_POLL_INTERVAL_MS = 5 * 60_000;
@@ -108,16 +113,6 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
   generated: "accent",
   in_progress: "warning",
   submitted: "success",
-};
-
-const MISS_REASON_LABEL: Record<LogMissReason, string> = {
-  network_timing: "Network timing",
-  breaking_news: "Breaking news",
-  segment_overrun: "Segment overrun",
-  technical_problem: "Technical problem",
-  host_error: "Host error",
-  unavailable_copy: "Unavailable copy",
-  other: "Other",
 };
 
 function itemDuration(item: RundownItemDetail): number {
@@ -261,7 +256,7 @@ export default async function RundownDetailPage({
   }
   // Distinct from "confirmed" (eventCountByItem > 0, which is also true for
   // a missed item): an underwriting credit that's only ever been marked
-  // missed can still be relocated (see relocateUnderwritingCredit) — only
+  // missed can still be relocated (see lib/log/rundown-relocation.ts) — only
   // an actual aired_as_scheduled event locks it. Ordinary content doesn't
   // need this distinction; nothing downstream reacts to its outcome the
   // way the credit/exception pipeline does.
@@ -477,81 +472,19 @@ export default async function RundownDetailPage({
   // nothing more shows here — that's genuinely done. Once it's marked
   // missed, the fix is the same drag/"Move to…" affordance the card's own
   // corner menu already offers (draggable is true for it below, since
-  // relocateUnderwritingCredit works on a missed-but-not-aired credit) —
+  // relocating works on a missed-but-not-aired credit) —
   // this panel just explains that's the default response, rather than
   // asking the host to separately go create a makegood in Underwriting &
   // Traffic. See CLAUDE.md's 2026-08-09 note: only a credit still missed
   // and unmoved when the broadcast wraps escalates to that tool at all.
   const renderMidBroadcastActions = (item: RundownItemDetail, breakScheduledAt: string) => {
     if (!live || item.item_kind !== "underwriting_credit" || airedItemIds.has(item.id)) return null;
-
-    const missed = (eventCountByItem.get(item.id) ?? 0) > 0;
-
-    if (missed) {
-      return (
-        <div className="mt-2 rounded border-2 border-danger bg-danger/5 p-3">
-          <p className="text-sm font-semibold text-ink-900">
-            Missed at {formatStationClockTime(breakScheduledAt)}.
-          </p>
-          <p className="mt-1 text-xs text-ink-700">
-            Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule it into another
-            open break in this broadcast — that&apos;s the default fix, and destinations are offered closest to the
-            original time first. Underwriting &amp; Traffic only needs to schedule a makegood if it&apos;s still
-            unresolved when this broadcast wraps up.
-          </p>
-        </div>
-      );
-    }
-
     return (
-      <div className="mt-2 rounded border-2 border-brand-primary bg-brand-surface/30 p-3">
-        <p className="mb-2 text-sm font-semibold text-ink-900">
-          Did this air at {formatStationClockTime(breakScheduledAt)}?
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <form action={markAired}>
-            <input type="hidden" name="rundown_id" value={rundown.id} />
-            <input type="hidden" name="item_id" value={item.id} />
-            <Button type="submit">Yes, aired</Button>
-          </form>
-          <details className="inline-block">
-            <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
-              No — flag it
-            </summary>
-            <form
-              action={markMissed}
-              className="mt-2 flex flex-col gap-2 rounded border border-line bg-white p-3"
-            >
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <input type="hidden" name="item_id" value={item.id} />
-              <Select name="reason" required defaultValue="">
-                <option value="" disabled>
-                  Reason…
-                </option>
-                {Object.entries(MISS_REASON_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <input
-                type="text"
-                name="notes"
-                placeholder="Brief note (optional)"
-                className="rounded border border-line px-3 py-2 text-sm"
-              />
-              <Button type="submit" variant="secondary">
-                Record missed
-              </Button>
-            </form>
-          </details>
-        </div>
-        <p className="mt-2 text-xs text-ink-700">
-          If you flag it missed, you can move it to another open break in this same broadcast right from this
-          card — Underwriting &amp; Traffic only gets involved if it&apos;s still unresolved once this broadcast
-          wraps up.
-        </p>
-      </div>
+      <CreditOutcomePanel
+        itemId={item.id}
+        breakTimeLabel={formatStationClockTime(breakScheduledAt)}
+        serverMissed={(eventCountByItem.get(item.id) ?? 0) > 0}
+      />
     );
   };
 
@@ -982,12 +915,14 @@ export default async function RundownDetailPage({
               {missingBreakCount === 1 ? "it isn't" : "they aren't"} showing below.
             </>
           )}{" "}
-          <form action={syncRundownBreaks} className="mt-2 inline-block">
-            <input type="hidden" name="rundown_id" value={rundown.id} />
-            <Button type="submit" className="px-2.5 py-1.5 text-xs">
-              Sync {missingBreakCount === 1 ? "it" : "them"} in now
-            </Button>
-          </form>
+          <RequiresConnection>
+            <form action={syncRundownBreaks} className="mt-2 inline-block">
+              <input type="hidden" name="rundown_id" value={rundown.id} />
+              <Button type="submit" className="px-2.5 py-1.5 text-xs">
+                Sync {missingBreakCount === 1 ? "it" : "them"} in now
+              </Button>
+            </form>
+          </RequiresConnection>
         </Alert>
       )}
 
@@ -998,13 +933,7 @@ export default async function RundownDetailPage({
           clock template screen.
         </div>
       ) : (
-        <RundownBreaksBoard
-          breaks={breakBoardBreaks}
-          live={live}
-          nowISO={now}
-          relocateItem={relocateRundownItem}
-          relocateCredit={relocateUnderwritingCredit}
-        />
+        <RundownBreaksBoard breaks={breakBoardBreaks} live={live} nowISO={now} />
       )}
     </>
   );
@@ -1236,10 +1165,12 @@ export default async function RundownDetailPage({
               the live countdown, aired/missed/move, and today&apos;s weather above. NPR is already shown
               for planning look-aheads.
             </p>
-            <form action={startBroadcast}>
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <Button type="submit">Start broadcast</Button>
-            </form>
+            <RequiresConnection>
+              <form action={startBroadcast}>
+                <input type="hidden" name="rundown_id" value={rundown.id} />
+                <Button type="submit">Start broadcast</Button>
+              </form>
+            </RequiresConnection>
           </>
         ) : (
           <>
@@ -1271,12 +1202,14 @@ export default async function RundownDetailPage({
                       haven&apos;t been confirmed one way or the other. Attesting marks all of them
                       aired as scheduled — never anything already recorded as aired or missed.
                     </p>
-                    <form action={attestUnderwritingCredits}>
-                      <input type="hidden" name="rundown_id" value={rundown.id} />
-                      <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
-                        Attest {unconfirmedUnderwritingCount} aired as scheduled
-                      </Button>
-                    </form>
+                    <RequiresConnection requireSynced>
+                      <form action={attestUnderwritingCredits}>
+                        <input type="hidden" name="rundown_id" value={rundown.id} />
+                        <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                          Attest {unconfirmedUnderwritingCount} aired as scheduled
+                        </Button>
+                      </form>
+                    </RequiresConnection>
                   </>
                 )}
                 {hasOpenExceptions && (
@@ -1299,25 +1232,29 @@ export default async function RundownDetailPage({
                   haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t need
                   this. Marking them helps keep a complete record.
                 </p>
-                <form action={attestOrdinaryContentAired}>
-                  <input type="hidden" name="rundown_id" value={rundown.id} />
-                  <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
-                    Mark {unconfirmedOrdinaryCount} aired as scheduled
-                  </Button>
-                </form>
+                <RequiresConnection requireSynced>
+                  <form action={attestOrdinaryContentAired}>
+                    <input type="hidden" name="rundown_id" value={rundown.id} />
+                    <Button type="submit" variant="secondary" className="px-2.5 py-1.5 text-xs">
+                      Mark {unconfirmedOrdinaryCount} aired as scheduled
+                    </Button>
+                  </form>
+                </RequiresConnection>
               </div>
             )}
 
-            <form action={submitRundown}>
-              <input type="hidden" name="rundown_id" value={rundown.id} />
-              <Button
-                type="submit"
-                variant={rundown.status === "submitted" ? "secondary" : "primary"}
-                disabled={hasOpenExceptions}
-              >
-                {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
-              </Button>
-            </form>
+            <RequiresConnection requireSynced>
+              <form action={submitRundown}>
+                <input type="hidden" name="rundown_id" value={rundown.id} />
+                <Button
+                  type="submit"
+                  variant={rundown.status === "submitted" ? "secondary" : "primary"}
+                  disabled={hasOpenExceptions}
+                >
+                  {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
+                </Button>
+              </form>
+            </RequiresConnection>
             {rundown.status === "submitted" && rundown.submitted_at && (
               <p className="mt-2 text-xs text-ink-400">
                 Submitted {formatStationTimestamp(rundown.submitted_at)}. Corrections still work
@@ -1330,9 +1267,17 @@ export default async function RundownDetailPage({
     </>
   );
 
+  // What the connection bar names a queued action by ("Acme — Copy 2 —
+  // aired"), keyed by rundown item id.
+  const itemLabels = Object.fromEntries(
+    breakBoardBreaks.flatMap((brk) => brk.items.map((item) => [item.id, item.label])),
+  );
+
   return (
     <>
-      {/* Mounted whether or not the rundown is live: the NPR lookahead read
+      {/* The offline queue (broadcast-sync.tsx) wraps the whole screen: the
+          poller asks it before refreshing, and every control reads its
+          connection state. Mounted whether or not the rundown is live: the NPR lookahead read
           (getNprEpisodeForProgramOnDate, above) runs on every render
           regardless of broadcast status, so a producer building/reviewing a
           rundown before air needs a re-render too or a stale NPR cache never
@@ -1341,16 +1286,21 @@ export default async function RundownDetailPage({
           why); once live, the poller additionally wakes at the exact
           instants the current break or the rejoin countdown's target can
           change, so both move at the boundary rather than on a tick. */}
-      <LogPoller
-        intervalMs={RUNDOWN_POLL_INTERVAL_MS}
-        refreshAtISO={live ? liveRefreshInstants(rundown.breaks, rundown.shift_end_at) : undefined}
-      />
-      <RundownLiveLayout
-        programName={rundown.programName}
-        hasCurrentBreak={currentBreakId !== null}
-        mainContent={mainContent}
-        sidebarContent={sidebarContent}
-      />
+      <BroadcastSyncProvider rundownId={rundown.id} renderedAt={now} itemLabels={itemLabels}>
+        <LogPoller
+          intervalMs={RUNDOWN_POLL_INTERVAL_MS}
+          refreshAtISO={
+            live ? liveRefreshInstants(rundown.breaks, rundown.shift_end_at) : undefined
+          }
+        />
+        <RundownLiveLayout
+          programName={rundown.programName}
+          hasCurrentBreak={currentBreakId !== null}
+          connectionStatus={<BroadcastSyncStatus />}
+          mainContent={mainContent}
+          sidebarContent={sidebarContent}
+        />
+      </BroadcastSyncProvider>
     </>
   );
 }

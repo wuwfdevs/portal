@@ -1,14 +1,14 @@
 // Pure logic for relocating a rundown item — dragging it to a different spot
 // within a break, or into a different break entirely. This used to be a
 // mid-broadcast-only "Move" outcome, recorded in log_broadcast_events
-// alongside aired/missed; it no longer is (see rundown-actions.ts's
-// relocateRundownItem) — moving ordinary content around the rundown is now
+// alongside aired/missed; it no longer is (see lib/log/rundown-relocation.ts's
+// relocateItem) — moving ordinary content around the rundown is now
 // just an edit, the same as dragging a block in any block editor, not a
 // broadcast event worth a historical record.
 //
 // Underwriting credits are a separate, narrower case (see
 // isValidCreditRelocationDestination/sortByProximityToOriginal below and
-// rundown-actions.ts's relocateUnderwritingCredit): a host can move an
+// lib/log/rundown-relocation.ts's relocateCredit): a host can move an
 // already-placed credit — before its break's time passes, or after,
 // recovering from a "missed" mark — but only within the same rundown, and
 // the write goes through a security-definer boundary function rather than

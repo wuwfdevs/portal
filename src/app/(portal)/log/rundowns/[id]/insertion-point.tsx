@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
 import { fillRundownItem } from "../../rundown-actions";
 import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
+import { useBroadcastSync } from "../../broadcast-sync";
 
 export interface InsertConfig {
   rundownId: string;
@@ -73,9 +74,14 @@ export function InsertionPoint({
   // result before the first one landed created duplicates. This blocks
   // every result and both mode tabs the moment one is picked.
   const [submitting, setSubmitting] = useState(false);
+  // Adding is a <form action> that needs the server's answer (the new item's
+  // id, its place in the break); with no connection it would throw the
+  // screen into its error boundary, so it waits — unlike aired/missed/move,
+  // which the offline queue holds (broadcast-sync.tsx).
+  const { connected } = useBroadcastSync();
 
   function pick(contentItemId: string) {
-    if (submitting) return;
+    if (submitting || !connected) return;
     setSubmitting(true);
     setPendingContentItemId(contentItemId);
     requestAnimationFrame(() => formRef.current?.requestSubmit());
@@ -91,8 +97,10 @@ export function InsertionPoint({
         <button
           type="button"
           onClick={() => setOpen(true)}
+          disabled={!connected}
+          title={connected ? undefined : "Adding waits for the connection"}
           aria-label="Insert content here"
-          className="group flex w-full items-center gap-2 rounded py-1 text-ink-400 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface focus:ring-offset-1"
+          className="group flex w-full items-center gap-2 rounded py-1 text-ink-400 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <span className="h-px flex-1 bg-line transition-colors group-hover:bg-brand-primary" />
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-xs leading-none">
@@ -166,105 +174,110 @@ export function InsertionPoint({
         </button>
       </div>
 
-      {mode === "search" ? (
-        <>
-          <form ref={formRef} action={fillRundownItem}>
-            <input type="hidden" name="rundown_id" value={config.rundownId} />
-            <input type="hidden" name="break_id" value={config.breakId} />
-            <input type="hidden" name="before_item_id" value={beforeItemId ?? ""} />
-            <input type="hidden" name="content_item_id" value={pendingContentItemId} />
-          </form>
-          {submitting ? (
-            <p className="px-2 py-1.5 text-sm text-ink-500">Adding…</p>
-          ) : (
-            <>
-              <Input
-                autoFocus
-                placeholder="Search content…"
-                value={query}
-                onChange={(event) => handleQueryChange(event.target.value)}
-                onKeyDown={handleQueryKeyDown}
-                role="combobox"
-                aria-expanded
-                aria-controls={`insertion-point-results-${config.breakId}`}
-                aria-activedescendant={
-                  highlightedIndex >= 0 ? `insertion-point-result-${resultIds[highlightedIndex]}` : undefined
-                }
-                className="mb-2"
-              />
-              <ul
-                id={`insertion-point-results-${config.breakId}`}
-                role="listbox"
-                className="flex max-h-48 flex-col gap-0.5 overflow-y-auto"
-              >
-                {showsWeather && (
-                  <li>
-                    <button
-                      ref={(el) => {
-                        resultRefs.current[0] = el;
-                      }}
-                      id={`insertion-point-result-${WEATHER_ITEM_SENTINEL}`}
-                      role="option"
-                      aria-selected={highlightedIndex === 0}
-                      type="button"
-                      onClick={() => pick(WEATHER_ITEM_SENTINEL)}
-                      onMouseEnter={() => setHighlightedIndex(0)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
-                        highlightedIndex === 0 ? "bg-white" : "hover:bg-white",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate">Today&apos;s weather</span>
-                      <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
-                        {formatDurationLabel(config.weatherDurationSeconds)}
-                      </span>
-                    </button>
-                  </li>
-                )}
-                {filtered.map((candidate, filteredIndex) => {
-                  const resultIndex = showsWeather ? filteredIndex + 1 : filteredIndex;
-                  return (
-                    <li key={candidate.id}>
+      {!connected && <p className="mb-2 text-xs text-ink-500">Adding waits for the connection.</p>}
+      <fieldset disabled={!connected} className="contents">
+        {mode === "search" ? (
+          <>
+            <form ref={formRef} action={fillRundownItem}>
+              <input type="hidden" name="rundown_id" value={config.rundownId} />
+              <input type="hidden" name="break_id" value={config.breakId} />
+              <input type="hidden" name="before_item_id" value={beforeItemId ?? ""} />
+              <input type="hidden" name="content_item_id" value={pendingContentItemId} />
+            </form>
+            {submitting ? (
+              <p className="px-2 py-1.5 text-sm text-ink-500">Adding…</p>
+            ) : (
+              <>
+                <Input
+                  autoFocus
+                  placeholder="Search content…"
+                  value={query}
+                  onChange={(event) => handleQueryChange(event.target.value)}
+                  onKeyDown={handleQueryKeyDown}
+                  role="combobox"
+                  aria-expanded
+                  aria-controls={`insertion-point-results-${config.breakId}`}
+                  aria-activedescendant={
+                    highlightedIndex >= 0
+                      ? `insertion-point-result-${resultIds[highlightedIndex]}`
+                      : undefined
+                  }
+                  className="mb-2"
+                />
+                <ul
+                  id={`insertion-point-results-${config.breakId}`}
+                  role="listbox"
+                  className="flex max-h-48 flex-col gap-0.5 overflow-y-auto"
+                >
+                  {showsWeather && (
+                    <li>
                       <button
                         ref={(el) => {
-                          resultRefs.current[resultIndex] = el;
+                          resultRefs.current[0] = el;
                         }}
-                        id={`insertion-point-result-${candidate.id}`}
+                        id={`insertion-point-result-${WEATHER_ITEM_SENTINEL}`}
                         role="option"
-                        aria-selected={highlightedIndex === resultIndex}
+                        aria-selected={highlightedIndex === 0}
                         type="button"
-                        onClick={() => pick(candidate.id)}
-                        onMouseEnter={() => setHighlightedIndex(resultIndex)}
+                        onClick={() => pick(WEATHER_ITEM_SENTINEL)}
+                        onMouseEnter={() => setHighlightedIndex(0)}
                         className={cn(
                           "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
-                          highlightedIndex === resultIndex ? "bg-white" : "hover:bg-white",
+                          highlightedIndex === 0 ? "bg-white" : "hover:bg-white",
                         )}
                       >
-                        <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
-                        {candidate.durationSeconds !== null && (
-                          <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
-                            {formatDurationLabel(candidate.durationSeconds)}
-                          </span>
-                        )}
+                        <span className="min-w-0 flex-1 truncate">Today&apos;s weather</span>
+                        <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
+                          {formatDurationLabel(config.weatherDurationSeconds)}
+                        </span>
                       </button>
                     </li>
-                  );
-                })}
-                {filtered.length === 0 && !showsWeather && (
-                  <li className="px-2 py-1.5 text-xs text-ink-400">No matching content.</li>
-                )}
-              </ul>
-            </>
-          )}
-        </>
-      ) : (
-        <LiveReadForm
-          rundownId={config.rundownId}
-          breakId={config.breakId}
-          beforeItemId={beforeItemId}
-          nprItems={config.nprItems}
-        />
-      )}
+                  )}
+                  {filtered.map((candidate, filteredIndex) => {
+                    const resultIndex = showsWeather ? filteredIndex + 1 : filteredIndex;
+                    return (
+                      <li key={candidate.id}>
+                        <button
+                          ref={(el) => {
+                            resultRefs.current[resultIndex] = el;
+                          }}
+                          id={`insertion-point-result-${candidate.id}`}
+                          role="option"
+                          aria-selected={highlightedIndex === resultIndex}
+                          type="button"
+                          onClick={() => pick(candidate.id)}
+                          onMouseEnter={() => setHighlightedIndex(resultIndex)}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink-900",
+                            highlightedIndex === resultIndex ? "bg-white" : "hover:bg-white",
+                          )}
+                        >
+                          <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+                          {candidate.durationSeconds !== null && (
+                            <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
+                              {formatDurationLabel(candidate.durationSeconds)}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {filtered.length === 0 && !showsWeather && (
+                    <li className="px-2 py-1.5 text-xs text-ink-400">No matching content.</li>
+                  )}
+                </ul>
+              </>
+            )}
+          </>
+        ) : (
+          <LiveReadForm
+            rundownId={config.rundownId}
+            breakId={config.breakId}
+            beforeItemId={beforeItemId}
+            nprItems={config.nprItems}
+          />
+        )}
+      </fieldset>
     </li>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import {
   closestCenter,
   DndContext,
@@ -20,6 +20,8 @@ import {
   sortByProximityToOriginal,
   type RelocatableItemKind,
 } from "@/lib/log/mid-broadcast";
+import { applyPendingRelocations, pendingOutcomeByItem } from "@/lib/log/broadcast-queue";
+import { useBroadcastSync } from "../../broadcast-sync";
 import { InsertionPoint, type InsertConfig } from "./insertion-point";
 import { RundownItemCard, type RundownItemCardBaseProps } from "./rundown-item-card";
 import type { LogContentType } from "@/lib/database.types";
@@ -70,56 +72,38 @@ export function RundownBreaksBoard({
   breaks: initialBreaks,
   live,
   nowISO,
-  relocateItem,
-  relocateCredit,
 }: {
   breaks: BreakBoardBreak[];
   live: boolean;
   nowISO: string;
-  relocateItem: (
-    itemId: string,
-    destinationBreakId: string,
-    orderedItemIds: string[],
-  ) => Promise<{ error?: string }>;
-  /** Underwriting credits move through a different write than ordinary content — see lib/log/mid-broadcast.ts. */
-  relocateCredit: (itemId: string, destinationBreakId: string) => Promise<{ error?: string }>;
 }) {
+  const { enqueue, overlay } = useBroadcastSync();
   const itemsById = useMemo(() => {
     const map = new Map<string, BreakBoardItem>();
     for (const brk of initialBreaks) for (const item of brk.items) map.set(item.id, item);
     return map;
   }, [initialBreaks]);
 
-  // `order` is local, optimistic state (a drag or "Move to…" updates it
-  // before the server confirms), but the server is the source of truth for
-  // *which* items exist. Removing or filling an item runs a Server Action
-  // that revalidates and re-renders this page with new `breaks` — without
-  // remounting this component — so the state has to re-seed when the
-  // server's membership changes, or it keeps listing an id the server no
-  // longer sends: the break then looks non-empty, its only item renders
-  // nothing, and neither insertion point ever renders, leaving no way to
-  // add anything to that break until a full reload. Re-seeding is keyed on
-  // a membership signature rather than the `breaks` reference so a poll
-  // refresh that changes nothing doesn't clobber an in-flight optimistic
-  // move; an actual change (delete, fill, confirmed relocation) always wins.
+  // The order shown is the server's with every queued relocation applied on
+  // top (lib/log/broadcast-queue.ts's applyPendingRelocations) — no local
+  // copy to keep in step. A move shows the moment it's queued, stays through
+  // a dropped connection or a reload (the queue is in IndexedDB), and
+  // disappears only when the server refuses it; once acknowledged, it stays
+  // in the overlay until the next server render includes it. This replaced
+  // an optimistic useState copy that had to re-seed itself whenever the
+  // server's membership changed and rolled back on error — and that, like
+  // every Server Action the board called directly, threw the page into the
+  // error boundary when the network was down.
   const serverOrder = useMemo(
     () => Object.fromEntries(initialBreaks.map((brk) => [brk.id, brk.items.map((item) => item.id)])),
     [initialBreaks],
   );
-  const serverSignature = useMemo(
-    () => initialBreaks.map((brk) => `${brk.id}:${brk.items.map((item) => item.id).join(",")}`).join("|"),
-    [initialBreaks],
+  const order = useMemo(
+    () => applyPendingRelocations(serverOrder, overlay),
+    [serverOrder, overlay],
   );
-  const [order, setOrder] = useState<Record<string, string[]>>(serverOrder);
-  const [seededSignature, setSeededSignature] = useState(serverSignature);
-  if (seededSignature !== serverSignature) {
-    // React's documented "adjust state when a prop changes" pattern —
-    // setting state during render re-runs this component immediately with
-    // the fresh values, before anything stale is committed.
-    setSeededSignature(serverSignature);
-    setOrder(serverOrder);
-  }
-  const [, startTransition] = useTransition();
+  // A credit marked aired (even one still waiting to send) no longer moves.
+  const airedOutcomes = useMemo(() => pendingOutcomeByItem(overlay), [overlay]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -174,7 +158,6 @@ export function RundownBreaksBoard({
   }
 
   function moveItem(itemId: string, destinationBreakId: string, beforeItemId: string | null) {
-    const previous = order;
     const sourceBreakId = containerOf(itemId);
     if (!sourceBreakId) return;
     if (sourceBreakId === destinationBreakId && beforeItemId === itemId) return;
@@ -195,14 +178,17 @@ export function RundownBreaksBoard({
     const insertAt = beforeItemId ? target.indexOf(beforeItemId) : target.length;
     target.splice(insertAt === -1 ? target.length : insertAt, 0, itemId);
     next[destinationBreakId] = target;
-    setOrder(next);
 
-    startTransition(async () => {
-      const result = isCredit
-        ? await relocateCredit(itemId, destinationBreakId)
-        : await relocateItem(itemId, destinationBreakId, next[destinationBreakId]!);
-      if (result.error) setOrder(previous);
-    });
+    enqueue(
+      isCredit
+        ? { kind: "relocate_credit", itemId, destinationBreakId }
+        : {
+            kind: "relocate_item",
+            itemId,
+            destinationBreakId,
+            orderedItemIds: next[destinationBreakId]!,
+          },
+    );
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -217,7 +203,7 @@ export function RundownBreaksBoard({
     if (!sourceBreakId || !destinationBreakId) return;
 
     // Underwriting credits have no reorderable position within a break —
-    // relocateUnderwritingCredit only moves a credit to a *different* break
+    // relocateCredit (lib/log/rundown-relocation.ts) only moves a credit to a *different* break
     // and rejects a same-break destination outright (RELOCATE_CREDIT_ERRORS'
     // "same_break") — so dropping one back into its own break, the most
     // common gesture when a break holds several items, must no-op instead of
@@ -288,8 +274,13 @@ export function RundownBreaksBoard({
                   {itemIds.length > 0 && (
                     <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
                       {itemIds.map((itemId, index) => {
-                        const item = itemsById.get(itemId);
-                        if (!item) return null;
+                        const serverItem = itemsById.get(itemId);
+                        if (!serverItem) return null;
+                        const item =
+                          serverItem.kind === "underwriting_credit" &&
+                          airedOutcomes.get(itemId) === "aired"
+                            ? { ...serverItem, draggable: false }
+                            : serverItem;
                         return (
                           <Fragment key={itemId}>
                             {insertConfig && <InsertionPoint config={insertConfig} beforeItemId={itemId} />}
