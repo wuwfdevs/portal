@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import {
   buildScheduleLineDemandViews,
   getContractDetail,
+  listAffidavitsForContract,
   listInventoryPools,
   type ScheduleLineDemandView,
   type UwContractRevisionRow,
@@ -16,6 +17,8 @@ import { previewRevisionActivation } from "@/lib/underwriting/revisions";
 import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { computeReadiness, countReady } from "@/lib/underwriting/readiness";
+import { defaultAffidavitPeriod, newAffidavitHref } from "@/lib/underwriting/affidavits";
+import { stationTodayISO } from "@/lib/log/timezone";
 import {
   activateRevisionAction,
   cancelDraftRevision,
@@ -31,13 +34,18 @@ import { ContractDocumentUpload } from "../../contract-document-upload";
 import { ContractCopyPanel, type CopyPanelParams } from "./copy-panel";
 import { DeleteContractControl } from "./delete-contract-control";
 import { FULFILLMENT_VARIANT, LineCard } from "./line-card";
-import type { UwContractStatus, UwRevisionStatus } from "@/lib/database.types";
+import type { UwAffidavitStatus, UwContractStatus, UwRevisionStatus } from "@/lib/database.types";
 
 const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   draft: "neutral",
   active: "success",
   expired: "muted",
   terminated: "danger",
+};
+
+const AFFIDAVIT_STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
+  draft: "neutral",
+  certified: "success",
 };
 
 const REVISION_STATUS_VARIANT: Record<UwRevisionStatus, BadgeVariant> = {
@@ -91,10 +99,11 @@ export default async function ContractDetailPage({
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
-  const [programs, pools, activation] = await Promise.all([
+  const [programs, pools, activation, affidavits] = await Promise.all([
     listProgramOptions(),
     listInventoryPools(),
     contract.draftRevision ? previewRevisionActivation(contract.draftRevision.id) : null,
+    listAffidavitsForContract(contract.id),
   ]);
   const programNameById = new Map(programs.map((program) => [program.id, program.name]));
   const poolNameById = new Map(pools.map((pool) => [pool.id, pool.name]));
@@ -134,6 +143,10 @@ export default async function ContractDetailPage({
     Boolean(contract.separation_source_text) && contract.separation_policy === "unspecified";
   const isDraft = contract.status === "draft";
   const base = `/underwriting/contracts/${contract.id}`;
+  const affidavitPrefill = {
+    contractId: contract.id,
+    ...defaultAffidavitPeriod(contract.effective_from, contract.effective_to, stationTodayISO()),
+  };
 
   const readiness = isDraft
     ? computeReadiness({
@@ -911,6 +924,48 @@ export default async function ContractDetailPage({
               ))}
             </dl>
           </div>
+
+          {!isDraft && (
+            <div className="rounded border border-line px-5 py-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                  Affidavits
+                </span>
+                <Link
+                  href={newAffidavitHref(affidavitPrefill)}
+                  className="text-xs font-semibold text-brand-link"
+                >
+                  Generate
+                </Link>
+              </div>
+              {affidavits.length === 0 ? (
+                <p className="text-[13px] leading-relaxed text-ink-700">
+                  {contract.affidavit_required
+                    ? "The order requires affidavits, and none has been generated yet."
+                    : "None generated. The order doesn't require one, but you can still generate one."}
+                </p>
+              ) : (
+                <ul className="text-[13px]">
+                  {affidavits.map((affidavit) => (
+                    <li
+                      key={affidavit.id}
+                      className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0"
+                    >
+                      <Link
+                        href={`/underwriting/affidavits/${affidavit.id}`}
+                        className="font-semibold text-brand-link"
+                      >
+                        {affidavit.campaign_period_start} – {affidavit.campaign_period_end}
+                      </Link>
+                      <Badge variant={AFFIDAVIT_STATUS_VARIANT[affidavit.status]}>
+                        {affidavit.status}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="rounded border border-line px-5 py-4">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">

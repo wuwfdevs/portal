@@ -7,10 +7,9 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { findAffidavitEvidence } from "@/lib/underwriting/queries";
-import { buildReportIdentifier } from "@/lib/underwriting/affidavits";
+import { buildReportIdentifier, newAffidavitHref } from "@/lib/underwriting/affidavits";
 
 const LIST_PATH = "/underwriting/affidavits";
-const NEW_PATH = "/underwriting/affidavits/new";
 
 function affidavitPath(id: string): string {
   return `${LIST_PATH}/${id}`;
@@ -34,12 +33,15 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
   const contractId = field(formData, "contract_id");
   const periodStart = field(formData, "campaign_period_start");
   const periodEnd = field(formData, "campaign_period_end");
+  // A failure returns to the form with what was entered, so an error never
+  // costs the contract picked (or prefilled from the contract page).
+  const newPath = newAffidavitHref({ contractId, start: periodStart, end: periodEnd });
 
   if (contractId === "" || periodStart === "" || periodEnd === "") {
-    failWith(NEW_PATH, "Choose a contract and a campaign period.");
+    failWith(newPath, "Choose a contract and a campaign period.");
   }
   if (periodEnd < periodStart) {
-    failWith(NEW_PATH, "The campaign period's end date can't be before its start date.");
+    failWith(newPath, "The campaign period's end date can't be before its start date.");
   }
 
   const supabase = await createClient();
@@ -48,7 +50,7 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
     .select("contract_identifier")
     .eq("id", contractId)
     .maybeSingle();
-  if (!contract) failWith(NEW_PATH, "That contract no longer exists.");
+  if (!contract) failWith(newPath, "That contract no longer exists.");
 
   const evidence = await findAffidavitEvidence(contractId, periodStart, periodEnd);
 
@@ -58,7 +60,12 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
     .eq("contract_id", contractId)
     .eq("campaign_period_start", periodStart)
     .eq("campaign_period_end", periodEnd);
-  const reportIdentifier = buildReportIdentifier(contract.contract_identifier, periodStart, periodEnd, count ?? 0);
+  const reportIdentifier = buildReportIdentifier(
+    contract.contract_identifier,
+    periodStart,
+    periodEnd,
+    count ?? 0,
+  );
 
   const { data: affidavit, error } = await supabase
     .from("uw_affidavits")
@@ -71,8 +78,8 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, NEW_PATH, "Could not generate the affidavit");
-  if (!affidavit) failWith(NEW_PATH, "Could not generate the affidavit.");
+  failIfError(error, newPath, "Could not generate the affidavit");
+  if (!affidavit) failWith(newPath, "Could not generate the affidavit.");
 
   if (evidence.length > 0) {
     const { error: lineItemsError } = await supabase.from("uw_affidavit_line_items").insert(
@@ -82,10 +89,15 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
         scheduled_placement_id: item.placement.id,
       })),
     );
-    failIfError(lineItemsError, NEW_PATH, "Generated the affidavit, but could not attach its evidence");
+    failIfError(
+      lineItemsError,
+      newPath,
+      "Generated the affidavit, but could not attach its evidence",
+    );
   }
 
   revalidatePath(LIST_PATH);
+  revalidatePath(`/underwriting/contracts/${contractId}`);
   redirect(affidavitPath(affidavit.id));
 }
 
@@ -105,7 +117,11 @@ export async function certifyAffidavit(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
 
-  const { data: existing } = await supabase.from("uw_affidavits").select("status").eq("id", id).maybeSingle();
+  const { data: existing } = await supabase
+    .from("uw_affidavits")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
   const isNewCertification = existing?.status !== "certified";
 
   const { error } = await supabase

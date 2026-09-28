@@ -1361,6 +1361,21 @@ export async function listAffidavits(): Promise<AffidavitListItem[]> {
   });
 }
 
+/** One contract's affidavits, newest first — the contract page's Affidavits panel. */
+export async function listAffidavitsForContract(contractId: string): Promise<UwAffidavitRow[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("uw_affidavits")
+        .select("*")
+        .eq("contract_id", contractId)
+        .order("generated_at", { ascending: false }),
+      "this contract's affidavits",
+    ) ?? []
+  );
+}
+
 export interface AffidavitLineItemDetail {
   lineItem: UwAffidavitLineItemRow;
   broadcastEvent: LogBroadcastEventRow;
