@@ -189,6 +189,18 @@ export function formatPlacementTime(isoTimestamp: string): string {
   }).format(new Date(isoTimestamp));
 }
 
+/** "Mon, Sep 28, 7:49 AM" — the same instant with its weekday, for the contract page's period table and the placement page's break list. */
+export function formatPlacementDateTime(isoTimestamp: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(isoTimestamp));
+}
+
 /** `automated` makes the guard refuse a placement in a frozen rundown or a past break; a staffer's own clear (the contract page, a revision, a cancellation) leaves it false. */
 export async function clearCredit(
   placementId: string,

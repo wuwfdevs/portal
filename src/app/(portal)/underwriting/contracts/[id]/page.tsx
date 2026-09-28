@@ -9,8 +9,6 @@ import {
   buildScheduleLineDemandViews,
   getContractDetail,
   listInventoryPools,
-  listNearbyPlacementsForAdjacency,
-  listScheduleLinePlacementContexts,
   type ScheduleLineDemandView,
   type UwContractRevisionRow,
 } from "@/lib/underwriting/queries";
@@ -18,7 +16,6 @@ import { previewRevisionActivation } from "@/lib/underwriting/revisions";
 import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { computeReadiness, countReady } from "@/lib/underwriting/readiness";
-import { suggestNextCopyForLines } from "@/lib/underwriting/rotation-rebalance";
 import {
   activateRevisionAction,
   cancelDraftRevision,
@@ -29,6 +26,7 @@ import {
   updateContractPolicy,
 } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
+import { clearCreditAction } from "../../placement-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
 import { ContractCopyPanel, type CopyPanelParams } from "./copy-panel";
 import { DeleteContractControl } from "./delete-contract-control";
@@ -58,34 +56,44 @@ function revisionName(revision: UwContractRevisionRow, index: number): string {
 
 /**
  * The contract page (docs/underwriting-traffic-redesign.md §11, from the
- * reviewed mockup): what needs doing first, then the contract's parts as
- * sub-tabs, with the facts and the status beside them. A draft leads with
- * a readiness checklist; lines are entered on the schedule step and
- * appear here as cards with a delivery bar and a "⋮" menu.
+ * reviewed mockup; §11.6 for the schedule tab's current shape): what needs
+ * doing first, then the contract's parts as sub-tabs, with the facts and
+ * the status beside them. A draft leads with a readiness checklist; lines
+ * are entered on the schedule step and appear here as summary rows that
+ * expand (`?details=<lineId>`) into a table of periods and placements.
+ * `?line=<lineId>` says which card a failed action's `error` belongs in.
  */
 export default async function ContractDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; notice?: string; tab?: string } & CopyPanelParams>;
+  searchParams: Promise<
+    {
+      error?: string;
+      notice?: string;
+      tab?: string;
+      details?: string;
+      periods?: string;
+      line?: string;
+    } & CopyPanelParams
+  >;
 }) {
   const { id } = await params;
   const query = await searchParams;
   const { error, notice, tab: rawTab } = query;
+  const expandedLineId = query.details ?? null;
+  const showAllPeriods = query.periods === "all";
+  const errorLineId = query.line ?? null;
   const tab: Tab = (TABS as readonly string[]).includes(rawTab ?? "")
     ? (rawTab as Tab)
     : "schedule";
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
-  const currentLines = contract.scheduleLines.filter(
-    (line) => line.revision_id === contract.currentRevision?.id,
-  );
-  const [programs, pools, lineContexts, activation] = await Promise.all([
+  const [programs, pools, activation] = await Promise.all([
     listProgramOptions(),
     listInventoryPools(),
-    listScheduleLinePlacementContexts(currentLines),
     contract.draftRevision ? previewRevisionActivation(contract.draftRevision.id) : null,
   ]);
   const programNameById = new Map(programs.map((program) => [program.id, program.name]));
@@ -103,29 +111,6 @@ export default async function ContractDetailPage({
     list.push(view);
     viewsByRevision.set(view.scheduleLine.revision_id, list);
   }
-  const placeableByLine = new Map(
-    lineContexts.map((context) => [context.scheduleLine.id, context.placeable]),
-  );
-  const flightByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link.flight_id]));
-  // The message each line's "Place a credit" form defaults to — the
-  // rotation's next pick (docs/underwriting-traffic-redesign.md §13).
-  const suggestedCopyByLine =
-    contract.status === "active"
-      ? await suggestNextCopyForLines(contract.id, currentLines)
-      : new Map<string, string | null>();
-
-  const adjacencyByLine = new Map<
-    string,
-    Awaited<ReturnType<typeof listNearbyPlacementsForAdjacency>>
-  >();
-  for (const line of currentLines) {
-    if (!line.program_id) continue;
-    adjacencyByLine.set(
-      line.id,
-      await listNearbyPlacementsForAdjacency(line.program_id, contract.id),
-    );
-  }
-
   const currentViews = (
     contract.currentRevision ? (viewsByRevision.get(contract.currentRevision.id) ?? []) : []
   ).filter((view) => view.scheduleLine.status === "active");
@@ -198,6 +183,20 @@ export default async function ContractDetailPage({
   const olderRevisions = contract.revisions.filter(
     (revision) => revision.status === "superseded" || revision.status === "cancelled",
   );
+  const olderRevisionsWithLines = olderRevisions.filter(
+    (revision) => (viewsByRevision.get(revision.id) ?? []).length > 0,
+  );
+  // One revision needs no heading over the only list on the tab.
+  const showRevisionHeadings =
+    revisionsForSchedule.length > 1 || olderRevisionsWithLines.length > 0;
+  const lineCardProps = (view: ScheduleLineDemandView) => ({
+    view,
+    contract,
+    flightNameById,
+    expanded: expandedLineId === view.scheduleLine.id,
+    showAllPeriods: expandedLineId === view.scheduleLine.id && showAllPeriods,
+    error: errorLineId === view.scheduleLine.id ? (error ?? null) : null,
+  });
 
   return (
     <div>
@@ -248,7 +247,7 @@ export default async function ContractDetailPage({
         </div>
       </div>
 
-      {error && tab !== "copy" && <Alert className="mb-4">{error}</Alert>}
+      {error && tab !== "copy" && !errorLineId && <Alert className="mb-4">{error}</Alert>}
       {notice && (
         <Alert variant="info" className="mb-4">
           {notice}
@@ -338,6 +337,26 @@ export default async function ContractDetailPage({
 
           {tab === "schedule" && (
             <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Link
+                  href={`${base}/schedule`}
+                  className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                >
+                  Add a line
+                </Link>
+                {contract.currentRevision && currentViews.length > 0 && (
+                  <form action={autoFillContractAction}>
+                    <input type="hidden" name="contract_id" value={contract.id} />
+                    <Button
+                      type="submit"
+                      className="px-3 py-2 text-[13px]"
+                      disabled={contract.status !== "active"}
+                    >
+                      Auto-fill this contract
+                    </Button>
+                  </form>
+                )}
+              </div>
               {revisionsForSchedule.map((revision) => {
                 const revisionViews = viewsByRevision.get(revision.id) ?? [];
                 const isCurrent = revision.status === "current";
@@ -345,35 +364,14 @@ export default async function ContractDetailPage({
                 const index = contract.revisions.findIndex((r) => r.id === revision.id);
                 return (
                   <section key={revision.id} className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    {showRevisionHeadings && (
                       <h3 className="text-[15px] font-bold text-ink-900">
                         {revisionName(revision, index)}{" "}
                         <span className="font-normal text-ink-500">
                           · {revision.status} revision · effective {revision.effective_from}
                         </span>
                       </h3>
-                      <div className="flex flex-wrap gap-2">
-                        <Link
-                          href={`${base}/schedule`}
-                          className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                        >
-                          Add a line
-                        </Link>
-                        {isCurrent && currentViews.length > 0 && (
-                          <form action={autoFillContractAction}>
-                            <input type="hidden" name="contract_id" value={contract.id} />
-                            <Button
-                              type="submit"
-                              variant="secondary"
-                              className="px-3 py-2 text-[13px]"
-                              disabled={contract.status !== "active"}
-                            >
-                              Auto-fill this contract
-                            </Button>
-                          </form>
-                        )}
-                      </div>
-                    </div>
+                    )}
                     {revisionViews.length === 0 ? (
                       <p className="rounded border border-dashed border-line px-5 py-4 text-sm text-ink-500">
                         No schedule lines yet — enter the order&apos;s schedule on the schedule
@@ -384,15 +382,9 @@ export default async function ContractDetailPage({
                         {revisionViews.map((view) => (
                           <LineCard
                             key={view.scheduleLine.id}
-                            view={view}
-                            contract={contract}
+                            {...lineCardProps(view)}
                             isCurrent={isCurrent}
                             isDraft={isDraftRevision}
-                            flightNameById={flightNameById}
-                            flightByCopy={flightByCopy}
-                            placeable={placeableByLine.get(view.scheduleLine.id) ?? null}
-                            nearby={adjacencyByLine.get(view.scheduleLine.id) ?? []}
-                            suggestedCopyId={suggestedCopyByLine.get(view.scheduleLine.id) ?? null}
                           />
                         ))}
                       </ul>
@@ -405,20 +397,13 @@ export default async function ContractDetailPage({
                   This contract has no revision to schedule from.
                 </p>
               )}
-              <p className="text-xs text-ink-500">
-                Each line&apos;s menu holds Place a credit, Demand by period, Placements, and Cancel
-                from a date. The bar shows aired and scheduled credits against the compiled demand.
-              </p>
-              {olderRevisions.some(
-                (revision) => (viewsByRevision.get(revision.id) ?? []).length > 0,
-              ) && (
+              {olderRevisionsWithLines.length > 0 && (
                 <details className="rounded border border-line">
                   <summary className="cursor-pointer px-5 py-3 text-[13px] font-semibold text-brand-link">
                     Earlier revisions&apos; lines
                   </summary>
-                  {olderRevisions.map((revision) => {
+                  {olderRevisionsWithLines.map((revision) => {
                     const revisionViews = viewsByRevision.get(revision.id) ?? [];
-                    if (revisionViews.length === 0) return null;
                     const index = contract.revisions.findIndex((r) => r.id === revision.id);
                     return (
                       <div key={revision.id} className="border-t border-line">
@@ -432,15 +417,9 @@ export default async function ContractDetailPage({
                           {revisionViews.map((view) => (
                             <LineCard
                               key={view.scheduleLine.id}
-                              view={view}
-                              contract={contract}
+                              {...lineCardProps(view)}
                               isCurrent={false}
                               isDraft={false}
-                              flightNameById={flightNameById}
-                              flightByCopy={flightByCopy}
-                              placeable={null}
-                              nearby={[]}
-                              suggestedCopyId={null}
                             />
                           ))}
                         </ul>
@@ -452,9 +431,7 @@ export default async function ContractDetailPage({
             </div>
           )}
 
-          {tab === "copy" && (
-            <ContractCopyPanel contract={contract} surface="tab" params={query} />
-          )}
+          {tab === "copy" && <ContractCopyPanel contract={contract} surface="tab" params={query} />}
 
           {tab === "flights" && (
             <section className="rounded border border-line">
@@ -570,6 +547,18 @@ export default async function ContractDetailPage({
                             ? "aired"
                             : "not aired"}
                       </Badge>
+                      {placement.outcome === "pending" &&
+                        view.scheduleLine.status === "active" &&
+                        contract.status === "active" && (
+                          <form action={clearCreditAction}>
+                            <input type="hidden" name="contract_id" value={contract.id} />
+                            <input type="hidden" name="placement_id" value={placement.id} />
+                            <input type="hidden" name="return_to" value="placements" />
+                            <Button type="submit" variant="ghost" className="py-0.5 text-xs">
+                              Clear
+                            </Button>
+                          </form>
+                        )}
                     </li>
                   ))}
                 </ul>
