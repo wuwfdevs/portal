@@ -148,6 +148,7 @@ repo and a project's history, not the version number.
 | `20260927150000_underwriting_draft_contract_delete.sql`               | 2026-09-27 | 2026-09-27 |
 | `20260927160000_underwriting_copy_rotation.sql`                       | 2026-09-27 | 2026-09-27 |
 | `20260928120000_underwriting_affidavit_documents.sql`                 | 2026-09-28 | 2026-09-28 |
+| `20260928140000_resources.sql`                                        | 2026-09-28 | 2026-09-28 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

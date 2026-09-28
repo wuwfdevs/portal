@@ -59,6 +59,20 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 7.5v4M12 11.5L5 16.5M12 11.5l7 5" />
     </>
   ),
+  underwriting: (
+    <>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <line x1="8" y1="8" x2="16" y2="8" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <line x1="8" y1="16" x2="12" y2="16" />
+    </>
+  ),
+  resources: (
+    <>
+      <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z" />
+      <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z" />
+    </>
+  ),
 };
 
 const DEFAULT_ICON = (

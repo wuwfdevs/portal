@@ -19,6 +19,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
   const pathname = usePathname();
   const isAdmin = profile.platform_role === "administrator";
   const isOnAdmin = pathname.startsWith("/admin");
+  const isOnResources = pathname.startsWith("/resources");
 
   return (
     <header className="flex h-16 items-center gap-4 border-b border-line px-4 sm:gap-7 sm:px-7">
@@ -36,8 +37,11 @@ export function PortalNav({ profile }: { profile: Profile }) {
         </span>
       </Link>
       <nav className="flex h-full min-w-0 items-center gap-4 sm:ml-2 sm:gap-[22px]">
-        <NavLink href="/dashboard" active={!isOnAdmin}>
+        <NavLink href="/dashboard" active={!isOnAdmin && !isOnResources}>
           Dashboard
+        </NavLink>
+        <NavLink href="/resources" active={isOnResources}>
+          Resources
         </NavLink>
         {isAdmin && (
           <NavLink href="/admin/users" active={isOnAdmin}>

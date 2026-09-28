@@ -3242,6 +3242,24 @@ in `turn.ts`, not just the prompt, after a real turn wrote `already_known`
 onto a root and poisoned its later prompts (that row was cleaned up in
 production directly). No migration.
 
+**Resources: slice 1 (Foundation) has landed (2026-09-28).** Read
+`docs/resources-design.md` before touching any of it; this is a pointer. A top-level
+area at `/resources` (its own nav tab) holding station procedures, tool guides, and
+release notes in one table, `rc_articles`, discriminated by `kind` and upserted on
+`slug` — never on id (`20260928140000_resources.sql`, with `rc_article_versions`,
+insert-only and holding every version including the current one, and
+`rc_release_note_guides`). Access is Roadmap's shape: `approved_staff`, with a
+`tool_role = 'editor'` grant (or administrator) as the elevation
+(`lib/resources/access.ts`, `private.is_resources_editor`). Reading is scoped by
+audience — derived from `profiles.platform_role` by `private.resources_audience_for` —
+and, for an article about a tool, by `private.can_open_tool`, the SQL twin of
+`canOpenTool`. Bodies are ProseMirror JSON through the Roadmap whitelist, never HTML.
+The migration seeds real release notes and guides but **no procedures** — the
+handoff's were placeholders; `supabase/seed.sql` has labeled samples for local and
+preview only. Slice 1 is read-only in the app; editing and screenshots, the in-tool
+Help panel, the assistant capability, and the "resources stay in step with the code"
+rule are slices 2–5, built in that order, one PR each.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
@@ -3350,6 +3368,10 @@ src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas
                             route segment, gated by requireToolAccess("editorial-inquiry"),
                             with its own full-bleed layout.tsx (no page padding — the canvas
                             needs the space, unlike every other tool)
+src/app/(portal)/resources/  Resources (procedures, tool guides, what's new) — its own route
+                            segment and nav tab, gated by requireResourcesAccess() from
+                            lib/resources/access.ts; open to every active user
+                            (tools.default_access = 'approved_staff')
 src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
                             outside both (portal) and (auth), since a guest has no
                             profile — see docs/remote-interview-design.md, "Fit with

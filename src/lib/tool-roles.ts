@@ -8,6 +8,7 @@ import { ROLE_OPTIONS as EDITORIAL_ROLE_OPTIONS } from "@/lib/editorial/roles";
 import { ROLE_OPTIONS as ROADMAP_ROLE_OPTIONS } from "@/lib/roadmap/roles";
 import { ROLE_OPTIONS as LOG_ROLE_OPTIONS } from "@/lib/log/roles";
 import { ROLE_OPTIONS as UNDERWRITING_ROLE_OPTIONS } from "@/lib/underwriting/roles";
+import { ROLE_OPTIONS as RESOURCES_ROLE_OPTIONS } from "@/lib/resources/roles";
 
 export interface RoleOption {
   value: string;
@@ -22,6 +23,8 @@ const ROLE_CATALOG: Record<string, RoleOption[]> = {
   roadmap: ROADMAP_ROLE_OPTIONS,
   log: LOG_ROLE_OPTIONS,
   underwriting: UNDERWRITING_ROLE_OPTIONS,
+  // Open to every active user like Roadmap; a grant only ever means "editor".
+  resources: RESOURCES_ROLE_OPTIONS,
 };
 
 /** The role options for a tool (by `tools.key`), or null if it has none. */
