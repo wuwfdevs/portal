@@ -285,7 +285,11 @@ export default async function ContractDetailPage({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-6">
           {readiness && (
-            <section aria-labelledby="ready" className="rounded border border-line">
+            <section
+              aria-labelledby="ready"
+              className="rounded border border-line"
+              data-help-shot="ready-to-activate"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
                 <h3 id="ready" className="text-[15px] font-bold text-ink-900">
                   Ready to activate? {countReady(readiness).done} of {countReady(readiness).total}{" "}

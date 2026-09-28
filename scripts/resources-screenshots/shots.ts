@@ -40,4 +40,46 @@ export const SHOTS: ShotDefinition[] = [
       return `/sourcework/${projectId}`;
     },
   },
+  {
+    screenKey: "audience-listening.query",
+    name: "share-cards",
+    alt: "A query's Share tab, with the Public link and Grove embed code cards and their Copy buttons.",
+    async path(admin) {
+      const { data, error } = await admin
+        .from("al_queries")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(`Could not find a query: ${error.message}`);
+      const queryId = data?.[0]?.id;
+      if (!queryId) throw new Error("No Audience Listening query in this database to capture.");
+      return `/audience-listening/${queryId}?tab=share`;
+    },
+  },
+  {
+    screenKey: "log.library",
+    name: "library-list",
+    alt: "The content library list, with its content-type/status filters and Import from DAD / + New content item buttons above it.",
+    async path() {
+      return "/log/library";
+    },
+  },
+  {
+    screenKey: "underwriting.contract",
+    name: "ready-to-activate",
+    alt: "A draft contract's \"Ready to activate?\" checklist, showing which of the order, agreement, schedule, copy, and policy steps are complete.",
+    // A draft contract, since the checklist only renders for one.
+    async path(admin) {
+      const { data, error } = await admin
+        .from("uw_contracts")
+        .select("id")
+        .eq("status", "draft")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(`Could not find a contract: ${error.message}`);
+      const contractId = data?.[0]?.id;
+      if (!contractId) throw new Error("No draft Underwriting contract in this database to capture.");
+      return `/underwriting/contracts/${contractId}`;
+    },
+  },
 ];
