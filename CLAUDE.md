@@ -3329,6 +3329,18 @@ an existing area or type a new one, and `validateArticleForm()` only requires it
 non-empty (`AREA_MAX` = 60 characters), matching how every other free-text field here is
 validated.
 
+**Resources: home page redesigned, with pinned procedures (2026-09-28).** The home
+page (`resources/page.tsx`) leads with a search band whose "Search in" radios scope
+results by kind (`articles.ts`'s `SEARCH_SCOPES`/`hitsInScope`, filtered after
+ranking); tool guide cards list their guide titles; procedures are area cards
+(`groupProceduresByArea`, pure, tested); What's new is a right column. Its procedures
+section opens with "When something breaks on air", the procedures an editor pinned
+from a procedure's own page (`setProcedurePinned`). Pins live in their own table,
+`rc_pinned_procedures` (`20260928270000_resources_pinned_procedures.sql`), not a
+column on `rc_articles`, because an `rc_articles` update runs the versioning triggers
+and moves `updated_at` — a pin isn't an edit. Select follows the parent row; insert
+and delete are editor-only; a trigger refuses anything but a procedure.
+
 **Resources: the audience/platform-role visibility split is gone
 (2026-09-28).** `rc_articles.audience` (`staff`/`students`/`partners`, derived from
 `profiles.platform_role` by `private.resources_audience_for()`) never had a real effect:

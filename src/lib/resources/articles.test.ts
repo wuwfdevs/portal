@@ -3,7 +3,10 @@ import {
   formatReleaseDate,
   formatUpdatedDate,
   groupByReleaseDate,
+  groupProceduresByArea,
   guideLinksInBody,
+  hitsInScope,
+  parseSearchScope,
 } from "./articles";
 import { primaryScreenName, screenName } from "./screens";
 
@@ -75,5 +78,49 @@ describe("screen names", () => {
     expect(screenName("nope")).toBeNull();
     expect(primaryScreenName(["nope", "log.clock"])).toBe("Clock template");
     expect(primaryScreenName([])).toBeNull();
+  });
+});
+
+describe("groupProceduresByArea", () => {
+  const procedures = [
+    { title: "A", area: "Underwriting" },
+    { title: "B", area: "Membership & Development" },
+    { title: "C", area: "Membership & Development" },
+    { title: "D", area: null },
+    { title: "E", area: "Membership & Development" },
+    { title: "F", area: "Events & RadioLive" },
+  ];
+
+  it("orders areas by size, then name, and previews in input order", () => {
+    const groups = groupProceduresByArea(procedures, 2);
+    expect(groups.map((group) => [group.area, group.count])).toEqual([
+      ["Membership & Development", 3],
+      ["Events & RadioLive", 1],
+      ["Underwriting", 1],
+    ]);
+    expect(groups[0]!.preview.map((p) => p.title)).toEqual(["B", "C"]);
+  });
+
+  it("leaves out procedures with no area", () => {
+    const total = groupProceduresByArea(procedures, 5).reduce((sum, g) => sum + g.count, 0);
+    expect(total).toBe(5);
+  });
+});
+
+describe("search scope", () => {
+  it("falls back to all for an unknown value", () => {
+    expect(parseSearchScope("guide")).toBe("guide");
+    expect(parseSearchScope("bogus")).toBe("all");
+    expect(parseSearchScope(undefined)).toBe("all");
+  });
+
+  it("keeps ranked order within a scope", () => {
+    const hits = [
+      { id: 1, article: { kind: "guide" as const } },
+      { id: 2, article: { kind: "procedure" as const } },
+      { id: 3, article: { kind: "guide" as const } },
+    ];
+    expect(hitsInScope(hits, "guide").map((hit) => hit.id)).toEqual([1, 3]);
+    expect(hitsInScope(hits, "all")).toHaveLength(3);
   });
 });
