@@ -30,7 +30,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
   const helpOpen = rightPanel.open === "help";
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-line px-4 sm:gap-7 sm:px-7">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-line bg-white px-4 sm:gap-7 sm:px-7">
       <Link href="/dashboard" className="flex shrink-0 items-center gap-3.5">
         <Image
           src="/wuwf-logo.png"
