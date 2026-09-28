@@ -27,6 +27,7 @@ import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { stationTodayISO } from "@/lib/log/timezone";
+import { matchesExceptionFilter } from "@/lib/underwriting/exception-filters";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
 const LOOK_AHEAD_DAYS = 14;
@@ -158,10 +159,11 @@ export default async function UnderwritingDashboardPage({
       view.buckets.filter((b) => b.periodEnd >= todayISO).reduce((s, b) => s + b.freshShortfall, 0),
     0,
   );
-  const makegoodsPendingApproval = views.reduce(
-    (sum, view) => sum + view.openItems.makegoodsPendingApproval,
-    0,
-  );
+  // Counted per exception, the same rule as the Exceptions list's
+  // "Agency approval pending" filter the tile links to.
+  const makegoodsPendingApproval = openExceptions.filter((exception) =>
+    matchesExceptionFilter(exception, "agency_pending"),
+  ).length;
   const makegoodsAwaitingSlot = views.reduce(
     (sum, view) => sum + view.openItems.awaitingSlot.length,
     0,
@@ -182,13 +184,13 @@ export default async function UnderwritingDashboardPage({
     {
       label: "Open exceptions",
       count: unresolvedExceptions.length,
-      href: "/underwriting/exceptions",
+      href: "/underwriting/exceptions?status=open",
       tone: "warning",
     },
     {
       label: "Makegoods pending agency approval",
       count: makegoodsPendingApproval,
-      href: "/underwriting/exceptions",
+      href: "/underwriting/exceptions?status=agency_pending",
       tone: "warning",
     },
     {
