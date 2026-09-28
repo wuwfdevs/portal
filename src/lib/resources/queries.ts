@@ -2,6 +2,10 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { anyWordQuery, articleHref } from "./articles";
+import { embedSearchQuery } from "./embeddings";
+
+export { articleHref };
 
 /**
  * Data access for Resources. Every read goes through the RLS-scoped server
@@ -13,7 +17,7 @@ import type { Database } from "@/lib/database.types";
 export type RcArticle = Database["public"]["Tables"]["rc_articles"]["Row"];
 export type RcArticleVersion = Database["public"]["Tables"]["rc_article_versions"]["Row"];
 
-type ArticleRow = Omit<RcArticle, "search_vector">;
+type ArticleRow = Omit<RcArticle, "search_vector" | "content_hash">;
 
 const ARTICLE_COLUMNS =
   "id, slug, kind, title, summary, body, audience, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
@@ -45,21 +49,6 @@ export interface ToolGuideSummary {
 export interface SearchHit {
   article: ArticleRow;
   tool: ToolRef | null;
-}
-
-/** The URL an article lives at. */
-export function articleHref(
-  article: Pick<ArticleRow, "kind" | "slug">,
-  tool: Pick<ToolRef, "key"> | null,
-): string {
-  switch (article.kind) {
-    case "procedure":
-      return `/resources/procedures/${article.slug}`;
-    case "guide":
-      return tool ? `/resources/tools/${tool.key}/${article.slug}` : "/resources";
-    case "release_note":
-      return `/resources/whats-new#${article.slug}`;
-  }
 }
 
 async function toolsById(): Promise<Map<string, ToolRef>> {
@@ -266,11 +255,7 @@ export async function getGuide(toolKey: string, slug: string): Promise<GuideDeta
 /** Ranked full-text search over everything the viewer can read. */
 export async function searchArticles(query: string): Promise<SearchHit[]> {
   const supabase = await createClient();
-  const ranked = unwrapRead(
-    await supabase.rpc("rc_search_articles", { p_query: query, p_limit: 30 }),
-    "search",
-  );
-  const ids = (ranked ?? []).map((hit) => hit.id);
+  const ids = await rankedArticleIds(query, 30);
   if (ids.length === 0) return [];
 
   const [rowsResult, tools] = await Promise.all([
@@ -320,4 +305,23 @@ export async function getArticleVersion(
       .maybeSingle(),
     "article version",
   );
+}
+
+/**
+ * Article ids ranked by rc_search_articles (RLS-scoped): keyword — every
+ * word first, any of the words (anyWordQuery) only if that finds nothing —
+ * fused with semantic ranking when an embedding key is configured.
+ */
+export async function rankedArticleIds(query: string, limit: number): Promise<string[]> {
+  const supabase = await createClient();
+  const ranked = unwrapRead(
+    await supabase.rpc("rc_search_articles", {
+      p_query: query,
+      p_limit: limit,
+      p_fallback_query: anyWordQuery(query),
+      p_embedding: await embedSearchQuery(query),
+    }),
+    "search",
+  );
+  return (ranked ?? []).map((hit) => hit.id);
 }

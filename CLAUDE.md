@@ -3274,8 +3274,11 @@ the URL; add a route pattern there when a screen gains a route). The assistant a
 share the right edge through `components/right-panel.tsx`'s `RightPanelProvider` — only
 one is open at a time; use it rather than a local `open` state for anything else that
 docks there. The panel reads through a Server Action (`resources/help-actions.ts`), not a
-route handler. The assistant capability and the "resources stay in step with the code"
-rule are slices 4–5.
+route handler. **Slice 4 (the assistant capability) has landed**: `resources.search`
+(`lib/resources/capabilities.ts`), which the assistant is told to use first for "how do
+I…" questions. Search is hybrid keyword + semantic like `tw_search`, with embeddings in
+`rc_article_embeddings` (written only by editor sessions, via `after()`) and the same
+optional-`OPENAI_API_KEY` rule. The "resources stay in step with the code" rule is slice 5.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

@@ -2,7 +2,7 @@
 // date formatting, and grouping release notes by the day they shipped. No
 // Supabase, no React — colocated test.
 
-import type { RcAudience } from "@/lib/database.types";
+import type { RcAudience, RcKind } from "@/lib/database.types";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { parseRichText, type RichTextNode } from "@/lib/rich-text";
 
@@ -124,4 +124,91 @@ export function countByArea(procedures: readonly { area: string | null }[]): {
     byArea.set(procedure.area, (byArea.get(procedure.area) ?? 0) + 1);
   }
   return { all: procedures.length, byArea };
+}
+
+/** The URL an article lives at. */
+export function articleHref(
+  article: { kind: RcKind; slug: string },
+  tool: { key: string } | null,
+): string {
+  switch (article.kind) {
+    case "procedure":
+      return `/resources/procedures/${article.slug}`;
+    case "guide":
+      return tool ? `/resources/tools/${tool.key}/${article.slug}` : "/resources";
+    case "release_note":
+      return `/resources/whats-new#${article.slug}`;
+  }
+}
+
+export interface ResourceSearchResult {
+  title: string;
+  summary: string | null;
+  kind: RcKind;
+  /** The tool a guide or release note is about; null for a procedure or a portal-wide note. */
+  tool: string | null;
+  url: string;
+}
+
+/**
+ * Ranked search hits as the assistant sees them (the `resources.search`
+ * capability): narrowed to a kind and/or tool when asked, capped, and each
+ * carrying the URL the assistant links. Pure — the hits arrive already
+ * scoped by RLS to what the caller can read.
+ */
+export function shapeResourceSearchResults(
+  hits: readonly {
+    article: { kind: RcKind; slug: string; title: string; summary: string | null };
+    tool: { key: string; name: string } | null;
+  }[],
+  filter: { kind?: RcKind; toolKey?: string; limit: number },
+): ResourceSearchResult[] {
+  return hits
+    .filter((hit) => !filter.kind || hit.article.kind === filter.kind)
+    .filter((hit) => !filter.toolKey || hit.tool?.key === filter.toolKey)
+    .slice(0, filter.limit)
+    .map((hit) => ({
+      title: hit.article.title,
+      summary: hit.article.summary,
+      kind: hit.article.kind,
+      tool: hit.tool?.name ?? null,
+      url: articleHref(hit.article, hit.tool),
+    }));
+}
+
+/**
+ * The fallback search when every word of a query can't be found in one
+ * article: the same words, any of them (websearch_to_tsquery's `or`).
+ * Someone typing a whole question — "how do I use the same interview in two
+ * projects" — rarely has every word in one guide, and the assistant passes
+ * whole questions too. Ranking still puts the article matching the most
+ * words first. Null when there's nothing to widen (one word or none).
+ */
+export function anyWordQuery(query: string): string | null {
+  const words = query
+    .replace(/["()]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.replace(/^-+/, ""))
+    .filter((word) => word !== "" && !/^(or|and)$/i.test(word));
+  return words.length >= 2 ? words.join(" or ") : null;
+}
+
+/** Characters of an article embedded — far more than any guide, well within the model's limit. */
+const EMBEDDING_INPUT_MAX = 8000;
+
+/**
+ * The text an article's embedding describes: exactly what rc_articles.
+ * content_hash covers (title, summary, body text), so a changed hash always
+ * means a changed input.
+ */
+export function embeddingInputForArticle(article: {
+  title: string;
+  summary: string | null;
+  body_text: string;
+}): string {
+  return [article.title, article.summary ?? "", article.body_text]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, EMBEDDING_INPUT_MAX);
 }

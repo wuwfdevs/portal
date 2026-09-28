@@ -1,7 +1,8 @@
 # Resources: design
 
-**Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots) and 3 (the
-in-tool Help panel) have landed. Slices 4–5 are planned, below.
+**Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots), 3 (the
+in-tool Help panel) and 4 (the assistant capability, with semantic search) have landed.
+Slice 5 is planned, below.
 
 Resources is a top-level area at `/resources` for three kinds of content:
 
@@ -190,10 +191,37 @@ All under `src/app/(portal)/resources/`, laid out per `docs/ui-patterns.md`.
 The portal nav has a Resources tab between Dashboard and Administration. Resources also
 appears on the dashboard as an ordinary registry card.
 
+## Assistant and search (slice 4)
+
+The in-portal assistant reaches Resources through one capability, `resources.search`
+(`lib/resources/capabilities.ts`): a query, optionally narrowed by kind or tool key,
+returning at most eight titles, summaries and links (`shapeResourceSearchResults()`,
+pure). It is read-only, so its confirmation is `none`, and it runs as the caller — RLS
+decides what comes back, as everywhere else. The assistant's instructions tell it to
+search Resources first for "how do I…" questions and to say so plainly when nothing
+relevant comes back rather than guess how a tool works.
+
+Search is hybrid, the same shape as Sourcework's `tw_search`: `rc_search_articles()`
+(`20260928180000_resources_semantic_search.sql`, `security invoker`) fuses keyword and
+semantic ranks by reciprocal rank fusion (k = 60). Keyword ranking uses every word of
+the query first; only if that finds nothing does it fall back to any of the words
+(`anyWordQuery()`, pure), since an assistant's query is usually a whole question. Semantic
+ranking uses `rc_article_embeddings` — a separate table, not a column on `rc_articles`,
+because writing an embedding onto the article would fire its version and `updated_at`
+triggers. Each embedding records the `content_hash` (a generated column over title,
+summary and body text) it was made from, so a stale row is one whose hash no longer
+matches (`rc_articles_needing_embedding()`).
+
+Only an editor's session can write embeddings, so a reader can't skew ranking. They are
+written after the response (`after()`), best-effort, when an editor saves an article and
+whenever an editor opens `/resources` — which is how articles a release migration inserts
+get embedded. `OPENAI_API_KEY` is optional, as for Sourcework: without it no embeddings
+are written and search is keyword-only; an embedding failure is never an error.
+
 ## Later slices
 
 2. ~~Editing and screenshots~~ — landed; see above.
 3. ~~In-tool Help panel~~ — landed; see above.
-4. **Assistant capability** — `resources.search` over `rc_search_articles()`.
+4. ~~Assistant capability~~ — landed; see above.
 5. **The CLAUDE.md rule** — every user-visible change ships a release note and guide
    update in its migration; backfill guides for each tool.
