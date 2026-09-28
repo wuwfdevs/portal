@@ -27,6 +27,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@mistralai/mistralai": "^2.5.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@react-pdf/renderer": "4.9.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "@tiptap/pm": "^3.29.2",

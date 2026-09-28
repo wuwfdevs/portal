@@ -100,6 +100,11 @@ export default async function ContractOrderPage({
           />
         </div>
         <div>
+          <Label htmlFor="account_rep">Account rep</Label>
+          <Input id="account_rep" name="account_rep" defaultValue={contract.account_rep ?? ""} />
+          <FieldHint>The station&apos;s salesperson on this order. Printed on its affidavits.</FieldHint>
+        </div>
+        <div>
           <Label htmlFor="notes">Notes</Label>
           <Textarea id="notes" name="notes" rows={3} defaultValue={contract.notes ?? ""} />
         </div>

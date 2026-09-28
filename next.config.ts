@@ -6,7 +6,18 @@ const nextConfig: NextConfig = {
   // dependency tracer only reliably includes that binary in the deployment
   // bundle (Vercel) when the package is marked external rather than bundled.
   // Used by lib/transcription/export.ts for clip WAV export.
-  serverExternalPackages: ["ffmpeg-static"],
+  // @react-pdf/renderer (affidavit PDFs) is loaded as plain Node modules
+  // too: its layout engine loads a WebAssembly build and fonts at runtime,
+  // which is how it's run and tested outside Next.
+  serverExternalPackages: ["ffmpeg-static", "@react-pdf/renderer"],
+  // The affidavit PDF (lib/underwriting/affidavit-pdf.tsx) reads the logo
+  // from public/ with fs at render time; public/ isn't in a serverless
+  // function's bundle unless traced in. The PDF falls back to a text
+  // letterhead if it's missing.
+  outputFileTracingIncludes: {
+    "/api/underwriting/affidavits/*": ["./public/wuwf-logo.png"],
+    "/underwriting/affidavits/*": ["./public/wuwf-logo.png"],
+  },
   experimental: {
     serverActions: {
       // Two Server Actions take a document as their form's payload — the

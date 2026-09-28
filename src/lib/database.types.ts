@@ -2076,6 +2076,8 @@ export interface Database {
           separation_source_text: string | null;
           separation_policy: UwSeparationPolicy;
           separation_minutes: number | null;
+          /** The station's salesperson on the order, printed on the affidavit (20260928120000). */
+          account_rep: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2399,6 +2401,12 @@ export interface Database {
           certification_text: string | null;
           report_identifier: string;
           status: UwAffidavitStatus;
+          /** 20260928120000 — set on certification; the signature line prints it. */
+          certified_at: string | null;
+          certifying_staff_title: string | null;
+          /** The PDF as certified, in the underwriting-documents bucket, and its hex SHA-256. */
+          certified_document_path: string | null;
+          certified_document_sha256: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["uw_affidavits"]["Row"]> & {
           contract_id: string;

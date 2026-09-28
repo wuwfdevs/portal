@@ -18,7 +18,11 @@ export type CreateDraftContractResult =
 export async function createDraftContractWithRevision(
   supabase: ServerSupabase,
   createdBy: string,
-  facts: DraftContractFacts & { id?: string; agreement_document_path?: string | null },
+  facts: DraftContractFacts & {
+    id?: string;
+    agreement_document_path?: string | null;
+    account_rep?: string | null;
+  },
 ): Promise<CreateDraftContractResult> {
   const { data, error } = await supabase
     .from("uw_contracts")
@@ -36,6 +40,7 @@ export async function createDraftContractWithRevision(
       makegood_requires_agency_approval: facts.makegood_requires_agency_approval,
       separation_source_text: facts.separation_source_text,
       notes: facts.notes,
+      account_rep: facts.account_rep ?? null,
       agreement_document_path: facts.agreement_document_path ?? null,
       created_by: createdBy,
     })

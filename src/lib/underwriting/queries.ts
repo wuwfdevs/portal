@@ -18,6 +18,12 @@ import {
   type ReviewWarning,
 } from "./demand";
 import { eligibleDatesInBucket, minutesFromTimeString } from "./eligibility";
+import {
+  buildAffidavitDocument,
+  isAiredOutcome,
+  nextAffidavitPeriod,
+  type AffidavitDocument,
+} from "./affidavits";
 import type { SelectionDemand } from "./inventory-selection";
 import type { Database } from "@/lib/database.types";
 
@@ -1388,6 +1394,8 @@ export interface AffidavitDetail extends UwAffidavitRow {
   contract: ContractWithUnderwriter;
   lineItems: AffidavitLineItemDetail[];
   certifyingStaffName: string | null;
+  /** What the client-facing PDF prints — lib/underwriting/affidavits.ts's buildAffidavitDocument. */
+  document: AffidavitDocument;
 }
 
 export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | null> {
@@ -1401,31 +1409,60 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
   const contract = (await listContracts()).find((c) => c.id === affidavit.contract_id);
   if (!contract) return null;
 
-  const certifyingStaffNames = await displayNames([affidavit.certifying_staff_id]);
+  const [certifyingStaffNames, lineItemsResult, scheduleLinesResult] = await Promise.all([
+    displayNames([affidavit.certifying_staff_id]),
+    supabase.from("uw_affidavit_line_items").select("*").eq("affidavit_id", id),
+    supabase
+      .from("uw_contract_schedule_lines")
+      .select("id, label, service_level, duration_seconds, created_at")
+      .eq("contract_id", contract.id)
+      .order("created_at", { ascending: true }),
+  ]);
   const certifyingStaffName = affidavit.certifying_staff_id
     ? (certifyingStaffNames.get(affidavit.certifying_staff_id) ?? null)
     : null;
+  const lineItemRows = unwrapRead(lineItemsResult, "this affidavit's line items") ?? [];
+  const scheduleLines = unwrapRead(scheduleLinesResult, "this contract's schedule lines") ?? [];
 
-  const lineItemRows =
-    unwrapRead(
-      await supabase.from("uw_affidavit_line_items").select("*").eq("affidavit_id", id),
-      "this affidavit's line items",
-    ) ?? [];
-  if (lineItemRows.length === 0)
-    return { ...affidavit, contract, lineItems: [], certifyingStaffName };
+  const buckets =
+    scheduleLines.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("uw_demand_buckets")
+            .select("*")
+            .in(
+              "schedule_line_id",
+              scheduleLines.map((line) => line.id),
+            )
+            .lte("period_start", affidavit.campaign_period_end)
+            .gte("period_end", affidavit.campaign_period_start),
+          "this contract's schedule periods",
+        ) ?? []);
 
   const broadcastEventIds = lineItemRows.map((row) => row.log_broadcast_event_id);
   const placementIds = [...new Set(lineItemRows.map((row) => row.scheduled_placement_id))];
 
-  const [broadcastEventsResult, placementsResult, exceptionsResult] = await Promise.all([
-    supabase.from("log_broadcast_events").select("*").in("id", broadcastEventIds),
-    supabase.from("uw_scheduled_placements").select("*").in("id", placementIds),
-    supabase.from("uw_exceptions").select("*").in("log_broadcast_event_id", broadcastEventIds),
-  ]);
-  const broadcastEvents =
-    unwrapRead(broadcastEventsResult, "this affidavit's broadcast events") ?? [];
-  const placements = unwrapRead(placementsResult, "this affidavit's placements") ?? [];
-  const exceptions = unwrapRead(exceptionsResult, "this affidavit's exceptions") ?? [];
+  const [broadcastEventsResult, placementsResult, exceptionsResult] =
+    lineItemRows.length === 0
+      ? [null, null, null]
+      : await Promise.all([
+          supabase.from("log_broadcast_events").select("*").in("id", broadcastEventIds),
+          supabase.from("uw_scheduled_placements").select("*").in("id", placementIds),
+          supabase
+            .from("uw_exceptions")
+            .select("*")
+            .in("log_broadcast_event_id", broadcastEventIds),
+        ]);
+  const broadcastEvents = broadcastEventsResult
+    ? (unwrapRead(broadcastEventsResult, "this affidavit's broadcast events") ?? [])
+    : [];
+  const placements = placementsResult
+    ? (unwrapRead(placementsResult, "this affidavit's placements") ?? [])
+    : [];
+  const exceptions = exceptionsResult
+    ? (unwrapRead(exceptionsResult, "this affidavit's exceptions") ?? [])
+    : [];
   const broadcastEventById = new Map(broadcastEvents.map((event) => [event.id, event]));
   const placementById = new Map(placements.map((placement) => [placement.id, placement]));
   const exceptionByBroadcastEventId = new Map(
@@ -1447,11 +1484,210 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
   });
   lineItems.sort(
     (a, b) =>
-      new Date(a.broadcastEvent.recorded_at).getTime() -
-      new Date(b.broadcastEvent.recorded_at).getTime(),
+      new Date(a.broadcastEvent.actual_started_at ?? a.placement.scheduled_at).getTime() -
+      new Date(b.broadcastEvent.actual_started_at ?? b.placement.scheduled_at).getTime(),
   );
 
-  return { ...affidavit, contract, lineItems, certifyingStaffName };
+  // The message each airing ran, and — for a makegood — when the credit it
+  // replaces was scheduled (makegood -> its exception's original time).
+  const copyIds = [...new Set(placements.map((placement) => placement.copy_id))];
+  const makegoodIds = [
+    ...new Set(
+      placements.flatMap((placement) => (placement.makegood_id ? [placement.makegood_id] : [])),
+    ),
+  ];
+  const [copyResult, makegoodsResult] = await Promise.all([
+    copyIds.length === 0
+      ? null
+      : supabase.from("uw_copy").select("id, label, duration_seconds").in("id", copyIds),
+    makegoodIds.length === 0
+      ? null
+      : supabase.from("uw_makegoods").select("id, exception_id").in("id", makegoodIds),
+  ]);
+  const copies = copyResult ? (unwrapRead(copyResult, "these credits' copy") ?? []) : [];
+  const makegoods = makegoodsResult
+    ? (unwrapRead(makegoodsResult, "these credits' makegoods") ?? [])
+    : [];
+  const makegoodExceptions =
+    makegoods.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("uw_exceptions")
+            .select("id, original_scheduled_at")
+            .in(
+              "id",
+              makegoods.map((makegood) => makegood.exception_id),
+            ),
+          "the credits these makegoods replace",
+        ) ?? []);
+  const copyById = new Map(copies.map((copy) => [copy.id, copy]));
+  const originalAtByException = new Map(
+    makegoodExceptions.map((exception) => [exception.id, exception.original_scheduled_at]),
+  );
+  const originalAtByMakegood = new Map(
+    makegoods.map((makegood) => [
+      makegood.id,
+      originalAtByException.get(makegood.exception_id) ?? null,
+    ]),
+  );
+  // The length printed is the one ordered, not the host's stopwatch reading.
+  const lineDurationById = new Map(scheduleLines.map((line) => [line.id, line.duration_seconds]));
+
+  const document = buildAffidavitDocument({
+    periodStart: affidavit.campaign_period_start,
+    periodEnd: affidavit.campaign_period_end,
+    underwriterName: contract.underwriter.name,
+    mailingAddress: contract.underwriter.mailing_address,
+    scheduleLines: scheduleLines.map((line) => ({
+      id: line.id,
+      label: line.label,
+      serviceLevel: line.service_level,
+    })),
+    buckets: buckets.map((bucket) => ({
+      id: bucket.id,
+      scheduleLineId: bucket.schedule_line_id,
+      periodStart: bucket.period_start,
+      periodEnd: bucket.period_end,
+      quantityRequired: bucket.quantity_required,
+      status: bucket.status,
+    })),
+    airings: lineItems.map(({ broadcastEvent, placement }) => {
+      const copy = copyById.get(placement.copy_id);
+      return {
+        broadcastEventId: broadcastEvent.id,
+        outcome: broadcastEvent.outcome,
+        airedAt: broadcastEvent.actual_started_at ?? placement.scheduled_at,
+        programName: placement.program_name,
+        copyLabel: copy?.label ?? null,
+        durationSeconds:
+          lineDurationById.get(placement.schedule_line_id) ?? copy?.duration_seconds ?? null,
+        scheduleLineId: placement.schedule_line_id,
+        demandBucketId: placement.demand_bucket_id,
+        makegoodForScheduledAt: placement.makegood_id
+          ? (originalAtByMakegood.get(placement.makegood_id) ?? null)
+          : null,
+      };
+    }),
+  });
+
+  return { ...affidavit, contract, lineItems, certifyingStaffName, document };
+}
+
+export interface AffidavitDue {
+  contract: ContractWithUnderwriter;
+  periodStart: string;
+  periodEnd: string;
+  airedCount: number;
+}
+
+/**
+ * Contracts owed their next monthly affidavit (lib/underwriting/affidavits.ts's
+ * nextAffidavitPeriod) that have something aired in that period — the
+ * affidavit list's "Due" section. Contracts whose agreement requires
+ * affidavits come first.
+ */
+export async function listAffidavitsDue(): Promise<AffidavitDue[]> {
+  const supabase = await createClient();
+  const today = stationTodayISO();
+  const [contracts, affidavitsResult] = await Promise.all([
+    listContracts(),
+    supabase.from("uw_affidavits").select("contract_id, campaign_period_end"),
+  ]);
+  const affidavits = unwrapRead(affidavitsResult, "the affidavits") ?? [];
+  const coveredThrough = new Map<string, string>();
+  for (const affidavit of affidavits) {
+    const current = coveredThrough.get(affidavit.contract_id);
+    if (!current || affidavit.campaign_period_end > current)
+      coveredThrough.set(affidavit.contract_id, affidavit.campaign_period_end);
+  }
+
+  const candidates = contracts.flatMap((contract) => {
+    const period = nextAffidavitPeriod({
+      status: contract.status,
+      effectiveFrom: contract.effective_from,
+      effectiveTo: contract.effective_to,
+      coveredThrough: coveredThrough.get(contract.id) ?? null,
+      today,
+    });
+    return period ? [{ contract, period }] : [];
+  });
+  if (candidates.length === 0) return [];
+
+  const lines =
+    unwrapRead(
+      await supabase
+        .from("uw_contract_schedule_lines")
+        .select("id, contract_id")
+        .in(
+          "contract_id",
+          candidates.map((candidate) => candidate.contract.id),
+        ),
+      "the contracts' schedule lines",
+    ) ?? [];
+  if (lines.length === 0) return [];
+  const contractByLine = new Map(lines.map((line) => [line.id, line.contract_id]));
+
+  const earliest = candidates.map((c) => c.period.start).sort()[0] as string;
+  const latest = candidates
+    .map((c) => c.period.end)
+    .sort()
+    .at(-1) as string;
+  const placements =
+    unwrapRead(
+      await supabase
+        .from("uw_scheduled_placements")
+        .select("id, schedule_line_id, placement_date, log_rundown_item_id")
+        .in(
+          "schedule_line_id",
+          lines.map((line) => line.id),
+        )
+        .gte("placement_date", earliest)
+        .lte("placement_date", latest)
+        .not("log_rundown_item_id", "is", null),
+      "the contracts' placements",
+    ) ?? [];
+  if (placements.length === 0) return [];
+
+  const events =
+    unwrapRead(
+      await supabase
+        .from("log_broadcast_events")
+        .select("rundown_item_id, outcome")
+        .in(
+          "rundown_item_id",
+          placements.map((placement) => placement.log_rundown_item_id as string),
+        ),
+      "the contracts' broadcast events",
+    ) ?? [];
+  const airedItems = new Set(
+    events.filter((event) => isAiredOutcome(event.outcome)).map((event) => event.rundown_item_id),
+  );
+
+  const periodByContract = new Map(candidates.map((c) => [c.contract.id, c.period]));
+  const airedByContract = new Map<string, number>();
+  for (const placement of placements) {
+    if (!airedItems.has(placement.log_rundown_item_id as string)) continue;
+    const contractId = contractByLine.get(placement.schedule_line_id);
+    const period = contractId ? periodByContract.get(contractId) : undefined;
+    if (!contractId || !period) continue;
+    if (placement.placement_date < period.start || placement.placement_date > period.end) continue;
+    airedByContract.set(contractId, (airedByContract.get(contractId) ?? 0) + 1);
+  }
+
+  return candidates
+    .flatMap(({ contract, period }) => {
+      const airedCount = airedByContract.get(contract.id) ?? 0;
+      return airedCount > 0
+        ? [{ contract, periodStart: period.start, periodEnd: period.end, airedCount }]
+        : [];
+    })
+    .sort(
+      (a, b) =>
+        Number(b.contract.affidavit_required) - Number(a.contract.affidavit_required) ||
+        a.periodStart.localeCompare(b.periodStart) ||
+        a.contract.underwriter.name.localeCompare(b.contract.underwriter.name),
+    );
 }
 
 // Copy on a contract (docs/underwriting-traffic-redesign.md §13) -----------------

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listAffidavits } from "@/lib/underwriting/queries";
+import { listAffidavits, listAffidavitsDue } from "@/lib/underwriting/queries";
+import { formatCalendarDate, newAffidavitHref } from "@/lib/underwriting/affidavits";
 import type { UwAffidavitStatus } from "@/lib/database.types";
 
 const STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
@@ -10,9 +11,14 @@ const STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
   certified: "success",
 };
 
-/** Workflow G (docs/underwriting-design.md §3G, §4) — every generated affidavit, newest first. */
+/**
+ * Workflow G (docs/underwriting-design.md §3G, §4) — contracts due their
+ * next monthly affidavit (lib/underwriting/affidavits.ts's
+ * nextAffidavitPeriod, only where something aired), then every generated
+ * affidavit, newest first.
+ */
 export default async function AffidavitsPage() {
-  const affidavits = await listAffidavits();
+  const [affidavits, due] = await Promise.all([listAffidavits(), listAffidavitsDue()]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -21,6 +27,68 @@ export default async function AffidavitsPage() {
           <Button type="button">Generate an affidavit</Button>
         </Link>
       </div>
+
+      {due.length > 0 && (
+        <section className="rounded border border-line">
+          <div className="border-b border-line px-5 py-3.5">
+            <div className="text-sm font-bold text-ink-900">Due</div>
+            <p className="text-xs text-ink-500">
+              Aired credits not yet covered by an affidavit, through the end of last month or the
+              contract&apos;s end. Contracts whose agreement requires affidavits come first.
+            </p>
+          </div>
+          <TableFrame className="rounded-none border-0">
+            <Table>
+              <thead>
+                <HeaderRow>
+                  <Th>Underwriter</Th>
+                  <Th>Order</Th>
+                  <Th>Period</Th>
+                  <Th className="text-right">Aired</Th>
+                  <Th>
+                    <span className="sr-only">Generate</span>
+                  </Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {due.map((item) => (
+                  <Row key={item.contract.id}>
+                    <Cell className="font-semibold text-ink-900">
+                      {item.contract.underwriter.name}
+                      {item.contract.affidavit_required && (
+                        <Badge variant="warning" className="ml-2">
+                          required
+                        </Badge>
+                      )}
+                    </Cell>
+                    <Cell className="text-ink-500">
+                      <Link href={`/underwriting/contracts/${item.contract.id}`} className="text-brand-link">
+                        {item.contract.contract_identifier}
+                      </Link>
+                    </Cell>
+                    <Cell className="whitespace-nowrap text-ink-500">
+                      {formatCalendarDate(item.periodStart)} – {formatCalendarDate(item.periodEnd)}
+                    </Cell>
+                    <Cell className="text-right text-ink-700">{item.airedCount}</Cell>
+                    <Cell className="text-right">
+                      <Link
+                        href={newAffidavitHref({
+                          contractId: item.contract.id,
+                          start: item.periodStart,
+                          end: item.periodEnd,
+                        })}
+                        className="text-sm font-bold text-brand-link"
+                      >
+                        Generate
+                      </Link>
+                    </Cell>
+                  </Row>
+                ))}
+              </tbody>
+            </Table>
+          </TableFrame>
+        </section>
+      )}
 
       {affidavits.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
