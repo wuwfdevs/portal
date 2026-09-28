@@ -12,7 +12,7 @@ import {
   parseRichText,
   richTextToPlainText,
   type RichTextDoc,
-} from "@/lib/roadmap/rich-text";
+} from "@/lib/rich-text";
 import { validatePostInput, validateStatusChange } from "@/lib/roadmap/posts";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 

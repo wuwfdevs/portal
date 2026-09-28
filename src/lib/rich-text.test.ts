@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  figureMediaIds,
   isEmptyRichText,
   parseRichText,
   plainTextToRichTextDoc,
@@ -187,5 +188,59 @@ describe("plainTextToRichTextDoc", () => {
     // parseRichText() pass, exactly like a client-supplied document.
     const built = plainTextToRichTextDoc("hello");
     expect(parseRichText(built)).toEqual(built);
+  });
+});
+
+describe("figure", () => {
+  const MEDIA_ID = "0b6c3a52-6f6e-4a4b-9d2a-3c1f0e9d8a71";
+  const figure = (attrs: Record<string, unknown>) => ({ type: "figure", attrs });
+  const para = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
+
+  it("is dropped unless the caller opts in", () => {
+    const body = doc(figure({ mediaId: MEDIA_ID, alt: "The pill row" }), para("After"));
+    expect(parseRichText(body)?.content.map((node) => node.type)).toEqual(["paragraph"]);
+    expect(parseRichText(body, { allowFigures: true })?.content[0]).toEqual({
+      type: "figure",
+      attrs: { mediaId: MEDIA_ID, alt: "The pill row" },
+    });
+  });
+
+  it("requires a media id and alt text, and keeps only the known attributes", () => {
+    const parsed = parseRichText(
+      doc(
+        figure({ mediaId: MEDIA_ID, alt: "   " }),
+        figure({ mediaId: "https://evil.example/x.png", alt: "x" }),
+        figure({ mediaId: MEDIA_ID.toUpperCase(), alt: " Shot ", caption: " Below ", src: "x" }),
+      ),
+      { allowFigures: true },
+    );
+    expect(parsed?.content).toEqual([
+      { type: "figure", attrs: { mediaId: MEDIA_ID, alt: "Shot", caption: "Below" } },
+    ]);
+  });
+
+  it("is allowed among blocks, including in a list item, but never inline", () => {
+    const parsed = parseRichText(
+      doc(
+        {
+          type: "orderedList",
+          content: [
+            { type: "listItem", content: [para("Step"), figure({ mediaId: MEDIA_ID, alt: "a" })] },
+          ],
+        },
+        { type: "paragraph", content: [figure({ mediaId: MEDIA_ID, alt: "b" })] },
+      ),
+      { allowFigures: true },
+    );
+    expect(parsed).not.toBeNull();
+    expect(figureMediaIds(parsed!)).toEqual([MEDIA_ID]);
+    expect(JSON.stringify(parsed)).not.toContain('"alt":"b"');
+  });
+
+  it("projects to its caption, or its alt text, in plain text", () => {
+    const parsed = parseRichText(doc(figure({ mediaId: MEDIA_ID, alt: "Alt only" })), {
+      allowFigures: true,
+    });
+    expect(richTextToPlainText(parsed!)).toBe("Alt only");
   });
 });

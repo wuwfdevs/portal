@@ -145,82 +145,85 @@ export function SourceCardGrid({
           </div>
           {projectHeader}
 
-          <ScopedSearchPanel
-            placeholder="Search this project's transcripts, documents, and excerpts…"
-            onSearch={(query) => searchProjectAction(projectId, query)}
-            actions={
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsAdding(true)}
-                className="shrink-0 px-3 py-1.5 text-xs"
-              >
-                + Add source
-              </Button>
-            }
-          >
-            <nav className="mb-4 flex gap-1 border-b border-line">
-              <BrowseTabButton
-                label="Sources"
-                active={browseTab === "sources"}
-                onClick={() => setBrowseTab("sources")}
-              />
-              <BrowseTabButton
-                label={`Excerpts${excerpts ? ` (${excerpts.length})` : ""}`}
-                active={browseTab === "excerpts"}
-                onClick={handleShowExcerpts}
-              />
-            </nav>
+          {/* Captured for the Resources guide by scripts/resources-screenshots/. */}
+          <div data-help-shot="source-grid">
+            <ScopedSearchPanel
+              placeholder="Search this project's transcripts, documents, and excerpts…"
+              onSearch={(query) => searchProjectAction(projectId, query)}
+              actions={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsAdding(true)}
+                  className="shrink-0 px-3 py-1.5 text-xs"
+                >
+                  + Add source
+                </Button>
+              }
+            >
+              <nav className="mb-4 flex gap-1 border-b border-line">
+                <BrowseTabButton
+                  label="Sources"
+                  active={browseTab === "sources"}
+                  onClick={() => setBrowseTab("sources")}
+                />
+                <BrowseTabButton
+                  label={`Excerpts${excerpts ? ` (${excerpts.length})` : ""}`}
+                  active={browseTab === "excerpts"}
+                  onClick={handleShowExcerpts}
+                />
+              </nav>
 
-            {browseTab === "sources" ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {sources.map((s) => {
-                  const isActive = s.sourceId === activeSourceId;
-                  const badge = statusBadge(s.status, s.source.kind);
-                  return (
-                    <Link
-                      key={s.sourceId}
-                      href={`/sourcework/${projectId}?source=${s.sourceId}`}
-                      scroll={false}
-                      className={`flex flex-col gap-2 rounded border p-4 ${
-                        isActive
-                          ? "border-brand-primary bg-brand-surface"
-                          : "border-line bg-white hover:border-brand-primary"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                          {KIND_LABEL[s.source.kind]}
-                        </span>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </div>
-                      <p className="font-semibold text-ink-900">{s.source.title}</p>
-                      <p className="text-xs text-ink-500">
-                        {new Date(
-                          s.source.interview_date ?? s.source.created_at,
-                        ).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                        {s.source.kind === "document"
-                          ? s.source.page_count
-                            ? ` · ${s.source.page_count} page${s.source.page_count === 1 ? "" : "s"}`
-                            : ""
-                          : s.source.original_duration_ms
-                            ? ` · ${formatDuration(s.source.original_duration_ms)}`
-                            : ""}
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : isLoadingExcerpts || excerpts === null ? (
-              <p className="text-sm text-ink-500">Loading excerpts…</p>
-            ) : (
-              <ClipLibrary clips={excerpts} showProjectMeta={false} showFilter={false} />
-            )}
-          </ScopedSearchPanel>
+              {browseTab === "sources" ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {sources.map((s) => {
+                    const isActive = s.sourceId === activeSourceId;
+                    const badge = statusBadge(s.status, s.source.kind);
+                    return (
+                      <Link
+                        key={s.sourceId}
+                        href={`/sourcework/${projectId}?source=${s.sourceId}`}
+                        scroll={false}
+                        className={`flex flex-col gap-2 rounded border p-4 ${
+                          isActive
+                            ? "border-brand-primary bg-brand-surface"
+                            : "border-line bg-white hover:border-brand-primary"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                            {KIND_LABEL[s.source.kind]}
+                          </span>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </div>
+                        <p className="font-semibold text-ink-900">{s.source.title}</p>
+                        <p className="text-xs text-ink-500">
+                          {new Date(
+                            s.source.interview_date ?? s.source.created_at,
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                          {s.source.kind === "document"
+                            ? s.source.page_count
+                              ? ` · ${s.source.page_count} page${s.source.page_count === 1 ? "" : "s"}`
+                              : ""
+                            : s.source.original_duration_ms
+                              ? ` · ${formatDuration(s.source.original_duration_ms)}`
+                              : ""}
+                        </p>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : isLoadingExcerpts || excerpts === null ? (
+                <p className="text-sm text-ink-500">Loading excerpts…</p>
+              ) : (
+                <ClipLibrary clips={excerpts} showProjectMeta={false} showFilter={false} />
+              )}
+            </ScopedSearchPanel>
+          </div>
         </>
       ) : (
         <>

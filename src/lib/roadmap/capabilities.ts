@@ -26,7 +26,7 @@ import {
   parseRichText,
   plainTextToRichTextDoc,
   richTextToPlainText,
-} from "./rich-text";
+} from "@/lib/rich-text";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 
 const POST_KIND = z.enum(["feature", "improvement", "bug", "new_tool"]);

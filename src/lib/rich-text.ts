@@ -1,5 +1,6 @@
-// The Roadmap tool's rich-text whitelist — the security boundary for every
-// post and comment body, and the only file that knows what a body may contain.
+// The portal's rich-text whitelist — the security boundary for every stored
+// body (Roadmap posts and comments, Resources articles), and the only file
+// that knows what a body may contain.
 //
 // Bodies are stored as the Tiptap editor's own ProseMirror JSON, never as
 // HTML. That is the load-bearing choice: nothing in this codebase calls
@@ -11,6 +12,12 @@
 // Validated twice, on purpose: actions run parseRichText() on the way in and
 // store the normalized document, and the renderer ignores unknown types on the
 // way out. Neither pass trusts the other. See docs/roadmap-design.md §6.
+//
+// One node is opt-in: `figure`, a screenshot, allowed only when a caller
+// passes { allowFigures: true } (Resources does; Roadmap does not, so a
+// Roadmap body can never carry one). A figure stores a media row's id, never
+// a URL — the renderer looks the row up and signs a URL for it, so a body
+// cannot point anywhere outside the resources-media bucket.
 //
 // Pure — no React, no Supabase, colocated test.
 
@@ -27,10 +34,30 @@ export type RichTextNode =
   | { type: "horizontalRule" }
   | { type: "heading"; attrs: { level: 2 | 3 }; content: RichTextNode[] }
   | { type: "orderedList"; attrs: { start: number }; content: RichTextNode[] }
+  | { type: "figure"; attrs: RichTextFigureAttrs }
   | {
       type: "paragraph" | "blockquote" | "bulletList" | "listItem" | "codeBlock";
       content: RichTextNode[];
     };
+
+export interface RichTextFigureAttrs {
+  mediaId: string;
+  /** Required and non-empty: a screenshot without alt text is dropped. */
+  alt: string;
+  caption?: string;
+}
+
+export interface RichTextParseOptions {
+  /** Admit `figure` nodes. Off by default, so existing callers are unchanged. */
+  allowFigures?: boolean;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FIGURE_ALT_MAX = 300;
+const FIGURE_CAPTION_MAX = 300;
+
+/** Containers whose children are blocks, so a figure may sit among them. */
+const BLOCK_PARENTS: ReadonlySet<string> = new Set(["doc", "blockquote", "listItem"]);
 
 export interface RichTextDoc {
   type: "doc";
@@ -102,19 +129,50 @@ function parseMarks(value: unknown): RichTextMark[] {
   return marks;
 }
 
-function parseContent(value: unknown, inCodeBlock: boolean): RichTextNode[] {
+interface ParseContext {
+  inCodeBlock: boolean;
+  /** The parent's node type — decides whether a figure is allowed here. */
+  parent: string;
+  allowFigures: boolean;
+}
+
+function parseContent(value: unknown, context: ParseContext): RichTextNode[] {
   if (!Array.isArray(value)) return [];
   const nodes: RichTextNode[] = [];
   for (const child of value) {
-    const node = parseNode(child, inCodeBlock);
+    const node = parseNode(child, context);
     if (node) nodes.push(node);
   }
   return nodes;
 }
 
-function parseNode(value: unknown, inCodeBlock: boolean): RichTextNode | null {
+function parseFigure(value: Record<string, unknown>): RichTextNode | null {
+  const attrs = isRecord(value.attrs) ? value.attrs : {};
+  const mediaId = typeof attrs.mediaId === "string" ? attrs.mediaId.trim() : "";
+  const alt = typeof attrs.alt === "string" ? attrs.alt.trim().slice(0, FIGURE_ALT_MAX) : "";
+  if (!UUID_PATTERN.test(mediaId) || alt === "") return null;
+  const caption =
+    typeof attrs.caption === "string" ? attrs.caption.trim().slice(0, FIGURE_CAPTION_MAX) : "";
+  return {
+    type: "figure",
+    attrs: { mediaId: mediaId.toLowerCase(), alt, ...(caption ? { caption } : {}) },
+  };
+}
+
+function parseNode(value: unknown, context: ParseContext): RichTextNode | null {
   if (!isRecord(value)) return null;
   const type = value.type;
+  const inCodeBlock = context.inCodeBlock;
+  const child = (parent: string, code = inCodeBlock): ParseContext => ({
+    ...context,
+    parent,
+    inCodeBlock: code,
+  });
+
+  if (type === "figure") {
+    if (!context.allowFigures || inCodeBlock || !BLOCK_PARENTS.has(context.parent)) return null;
+    return parseFigure(value);
+  }
 
   if (type === "text") {
     if (typeof value.text !== "string" || value.text === "") return null;
@@ -132,7 +190,7 @@ function parseNode(value: unknown, inCodeBlock: boolean): RichTextNode | null {
     // so anything else is clamped into range rather than dropped.
     const rawLevel = isRecord(value.attrs) ? value.attrs.level : null;
     const level = rawLevel === 2 ? 2 : 3;
-    const content = parseContent(value.content, false);
+    const content = parseContent(value.content, child("heading", false));
     return content.length === 0 ? null : { type: "heading", attrs: { level }, content };
   }
 
@@ -140,13 +198,16 @@ function parseNode(value: unknown, inCodeBlock: boolean): RichTextNode | null {
     const rawStart = isRecord(value.attrs) ? value.attrs.start : null;
     const start =
       typeof rawStart === "number" && Number.isInteger(rawStart) && rawStart > 0 ? rawStart : 1;
-    const content = parseContent(value.content, false);
+    const content = parseContent(value.content, child("orderedList", false));
     return content.length === 0 ? null : { type: "orderedList", attrs: { start }, content };
   }
 
   if (typeof type === "string" && (CONTAINER_TYPES as readonly string[]).includes(type)) {
     const containerType = type as ContainerType;
-    const content = parseContent(value.content, inCodeBlock || containerType === "codeBlock");
+    const content = parseContent(
+      value.content,
+      child(containerType, inCodeBlock || containerType === "codeBlock"),
+    );
     if (content.length === 0 && DROP_WHEN_EMPTY.has(containerType)) return null;
     return { type: containerType, content };
   }
@@ -160,7 +221,10 @@ function parseNode(value: unknown, inCodeBlock: boolean): RichTextNode | null {
  * all — a caller should treat that as "the editor sent nothing usable", not as
  * an empty body.
  */
-export function parseRichText(value: unknown): RichTextDoc | null {
+export function parseRichText(
+  value: unknown,
+  options: RichTextParseOptions = {},
+): RichTextDoc | null {
   let candidate = value;
   if (typeof candidate === "string") {
     try {
@@ -170,7 +234,14 @@ export function parseRichText(value: unknown): RichTextDoc | null {
     }
   }
   if (!isRecord(candidate) || candidate.type !== "doc") return null;
-  return { type: "doc", content: parseContent(candidate.content, false) };
+  return {
+    type: "doc",
+    content: parseContent(candidate.content, {
+      inCodeBlock: false,
+      parent: "doc",
+      allowFigures: options.allowFigures === true,
+    }),
+  };
 }
 
 /**
@@ -191,6 +262,11 @@ export function richTextToPlainText(doc: RichTextDoc): string {
     }
     if (node.type === "horizontalRule") {
       lines.push("");
+      return;
+    }
+    if (node.type === "figure") {
+      lines.push("");
+      appendInline(node.attrs.caption ?? node.attrs.alt);
       return;
     }
     if (node.type === "listItem" || node.type === "paragraph" || node.type === "heading") {
@@ -215,6 +291,19 @@ export function richTextToPlainText(doc: RichTextDoc): string {
     .filter((line, index, all) => line !== "" || (index > 0 && all[index - 1] !== ""))
     .join("\n")
     .trim();
+}
+
+/** Every figure's media id, in document order, deduplicated. */
+export function figureMediaIds(doc: RichTextDoc): string[] {
+  const ids = new Set<string>();
+  const walk = (nodes: RichTextNode[]) => {
+    for (const node of nodes) {
+      if (node.type === "figure") ids.add(node.attrs.mediaId);
+      else if ("content" in node) walk(node.content);
+    }
+  };
+  walk(doc.content);
+  return [...ids];
 }
 
 /** Whether the document carries no words — an empty editor, or only structure. */

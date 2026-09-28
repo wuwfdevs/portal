@@ -1,0 +1,323 @@
+import "server-only";
+import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
+import type { Database } from "@/lib/database.types";
+
+/**
+ * Data access for Resources. Every read goes through the RLS-scoped server
+ * client, so rc_articles' select policy (audience plus tool access) decides
+ * what comes back — these functions add shape, not authorization. Reads are
+ * unwrapped rather than defaulted to `[]`, per CLAUDE.md.
+ */
+
+export type RcArticle = Database["public"]["Tables"]["rc_articles"]["Row"];
+export type RcArticleVersion = Database["public"]["Tables"]["rc_article_versions"]["Row"];
+
+type ArticleRow = Omit<RcArticle, "search_vector">;
+
+const ARTICLE_COLUMNS =
+  "id, slug, kind, title, summary, body, audience, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
+
+export interface ToolRef {
+  id: string;
+  key: string;
+  name: string;
+}
+
+export interface GuideLink {
+  slug: string;
+  title: string;
+  toolKey: string;
+}
+
+export interface ReleaseNote extends ArticleRow {
+  tool: ToolRef | null;
+  guides: GuideLink[];
+}
+
+export interface ToolGuideSummary {
+  tool: ToolRef;
+  count: number;
+  lastUpdated: string;
+  firstSlug: string;
+}
+
+export interface SearchHit {
+  article: ArticleRow;
+  tool: ToolRef | null;
+}
+
+/** The URL an article lives at. */
+export function articleHref(
+  article: Pick<ArticleRow, "kind" | "slug">,
+  tool: Pick<ToolRef, "key"> | null,
+): string {
+  switch (article.kind) {
+    case "procedure":
+      return `/resources/procedures/${article.slug}`;
+    case "guide":
+      return tool ? `/resources/tools/${tool.key}/${article.slug}` : "/resources";
+    case "release_note":
+      return `/resources/whats-new#${article.slug}`;
+  }
+}
+
+async function toolsById(): Promise<Map<string, ToolRef>> {
+  const supabase = await createClient();
+  const tools = unwrapRead(await supabase.from("tools").select("id, key, name"), "tools");
+  return new Map((tools ?? []).map((tool) => [tool.id, tool]));
+}
+
+/** Every procedure the viewer can read, by title. */
+export async function listProcedures(): Promise<ArticleRow[]> {
+  const supabase = await createClient();
+  const rows = unwrapRead(
+    await supabase
+      .from("rc_articles")
+      .select(ARTICLE_COLUMNS)
+      .eq("kind", "procedure")
+      .order("title"),
+    "procedures",
+  );
+  return rows ?? [];
+}
+
+/** One card per tool that has at least one guide the viewer can read. */
+export async function listToolGuideSummaries(): Promise<ToolGuideSummary[]> {
+  const supabase = await createClient();
+  const [guides, tools] = await Promise.all([
+    supabase
+      .from("rc_articles")
+      .select("slug, tool_id, sort_order, title, updated_at")
+      .eq("kind", "guide")
+      .order("sort_order")
+      .order("title"),
+    toolsById(),
+  ]);
+  const rows = unwrapRead(guides, "tool guides") ?? [];
+
+  const byTool = new Map<string, ToolGuideSummary>();
+  for (const guide of rows) {
+    const tool = guide.tool_id ? tools.get(guide.tool_id) : undefined;
+    if (!tool) continue;
+    const summary = byTool.get(tool.id);
+    if (!summary) {
+      byTool.set(tool.id, { tool, count: 1, lastUpdated: guide.updated_at, firstSlug: guide.slug });
+    } else {
+      summary.count += 1;
+      if (guide.updated_at > summary.lastUpdated) summary.lastUpdated = guide.updated_at;
+    }
+  }
+  return [...byTool.values()].sort((a, b) => a.tool.name.localeCompare(b.tool.name));
+}
+
+/** Release notes, newest first, each with its tool and the guides it changed. */
+export async function listReleaseNotes(options: { limit?: number } = {}): Promise<ReleaseNote[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("rc_articles")
+    .select(ARTICLE_COLUMNS)
+    .eq("kind", "release_note")
+    .order("released_on", { ascending: false })
+    .order("title");
+  if (options.limit) query = query.limit(options.limit);
+
+  const [notesResult, tools] = await Promise.all([query, toolsById()]);
+  const notes = unwrapRead(notesResult, "release notes") ?? [];
+  if (notes.length === 0) return [];
+
+  const links =
+    unwrapRead(
+      await supabase
+        .from("rc_release_note_guides")
+        .select("release_note_id, guide_id")
+        .in(
+          "release_note_id",
+          notes.map((note) => note.id),
+        ),
+      "release note guides",
+    ) ?? [];
+
+  // A guide the viewer can't read (a tool they can't open) is filtered out
+  // here by RLS, so its link simply doesn't render.
+  const guideIds = [...new Set(links.map((link) => link.guide_id))];
+  const guides =
+    guideIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("rc_articles").select("id, slug, title, tool_id").in("id", guideIds),
+          "linked guides",
+        ) ?? []);
+  const guideById = new Map(guides.map((guide) => [guide.id, guide]));
+
+  return notes.map((note) => ({
+    ...note,
+    tool: note.tool_id ? (tools.get(note.tool_id) ?? null) : null,
+    guides: links
+      .filter((link) => link.release_note_id === note.id)
+      .flatMap((link) => {
+        const guide = guideById.get(link.guide_id);
+        const tool = guide?.tool_id ? tools.get(guide.tool_id) : undefined;
+        return guide && tool ? [{ slug: guide.slug, title: guide.title, toolKey: tool.key }] : [];
+      }),
+  }));
+}
+
+export async function getProcedure(slug: string): Promise<ArticleRow | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase
+      .from("rc_articles")
+      .select(ARTICLE_COLUMNS)
+      .eq("kind", "procedure")
+      .eq("slug", slug)
+      .maybeSingle(),
+    "procedure",
+  );
+}
+
+/** Every version of an article, newest first. */
+export async function listVersions(articleId: string): Promise<RcArticleVersion[]> {
+  const supabase = await createClient();
+  const rows = unwrapRead(
+    await supabase
+      .from("rc_article_versions")
+      .select("*")
+      .eq("article_id", articleId)
+      .order("version", { ascending: false }),
+    "article history",
+  );
+  return rows ?? [];
+}
+
+export interface GuideDetail {
+  guide: ArticleRow;
+  tool: ToolRef;
+  siblings: { slug: string; title: string }[];
+  versions: RcArticleVersion[];
+  /** The newest release note that changed this guide, if any. */
+  releaseNote: { slug: string; title: string; released_on: string | null } | null;
+}
+
+/** A tool's guides, in their list order — for redirecting /resources/tools/[key]. */
+export async function listGuidesForTool(
+  toolKey: string,
+): Promise<{ tool: ToolRef; guides: { slug: string; title: string }[] } | null> {
+  const supabase = await createClient();
+  const tool = unwrapRead(
+    await supabase.from("tools").select("id, key, name").eq("key", toolKey).maybeSingle(),
+    "tool",
+  );
+  if (!tool) return null;
+  const guides = unwrapRead(
+    await supabase
+      .from("rc_articles")
+      .select("slug, title")
+      .eq("kind", "guide")
+      .eq("tool_id", tool.id)
+      .order("sort_order")
+      .order("title"),
+    "tool guides",
+  );
+  return { tool, guides: guides ?? [] };
+}
+
+export async function getGuide(toolKey: string, slug: string): Promise<GuideDetail | null> {
+  const listing = await listGuidesForTool(toolKey);
+  if (!listing) return null;
+
+  const supabase = await createClient();
+  const guide = unwrapRead(
+    await supabase
+      .from("rc_articles")
+      .select(ARTICLE_COLUMNS)
+      .eq("kind", "guide")
+      .eq("tool_id", listing.tool.id)
+      .eq("slug", slug)
+      .maybeSingle(),
+    "guide",
+  );
+  if (!guide) return null;
+
+  const [versions, linksResult] = await Promise.all([
+    listVersions(guide.id),
+    supabase.from("rc_release_note_guides").select("release_note_id").eq("guide_id", guide.id),
+  ]);
+  const noteIds = (unwrapRead(linksResult, "guide release notes") ?? []).map(
+    (link) => link.release_note_id,
+  );
+  const releaseNote =
+    noteIds.length === 0
+      ? null
+      : unwrapRead(
+          await supabase
+            .from("rc_articles")
+            .select("slug, title, released_on")
+            .in("id", noteIds)
+            .order("released_on", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          "guide release note",
+        );
+
+  return { guide, tool: listing.tool, siblings: listing.guides, versions, releaseNote };
+}
+
+/** Ranked full-text search over everything the viewer can read. */
+export async function searchArticles(query: string): Promise<SearchHit[]> {
+  const supabase = await createClient();
+  const ranked = unwrapRead(
+    await supabase.rpc("rc_search_articles", { p_query: query, p_limit: 30 }),
+    "search",
+  );
+  const ids = (ranked ?? []).map((hit) => hit.id);
+  if (ids.length === 0) return [];
+
+  const [rowsResult, tools] = await Promise.all([
+    supabase.from("rc_articles").select(ARTICLE_COLUMNS).in("id", ids),
+    toolsById(),
+  ]);
+  const rows = unwrapRead(rowsResult, "search results") ?? [];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => {
+    const article = byId.get(id);
+    if (!article) return [];
+    return [{ article, tool: article.tool_id ? (tools.get(article.tool_id) ?? null) : null }];
+  });
+}
+
+/**
+ * The tools a guide can be written for: every enabled, real registry row
+ * except Resources itself. Proposed rows are ideas, not tools.
+ */
+export async function listGuideableTools(): Promise<ToolRef[]> {
+  const supabase = await createClient();
+  const tools = unwrapRead(
+    await supabase
+      .from("tools")
+      .select("id, key, name")
+      .eq("enabled", true)
+      .neq("status", "proposed")
+      .neq("key", "resources")
+      .order("name"),
+    "tools",
+  );
+  return tools ?? [];
+}
+
+/** One past (or the current) version of an article. */
+export async function getArticleVersion(
+  articleId: string,
+  version: number,
+): Promise<RcArticleVersion | null> {
+  const supabase = await createClient();
+  return unwrapRead(
+    await supabase
+      .from("rc_article_versions")
+      .select("*")
+      .eq("article_id", articleId)
+      .eq("version", version)
+      .maybeSingle(),
+    "article version",
+  );
+}

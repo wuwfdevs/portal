@@ -4,7 +4,7 @@
 
 import type { BadgeVariant } from "@/components/ui/badge";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
-import { RICH_TEXT_MAX_CHARACTERS } from "./rich-text";
+import { RICH_TEXT_MAX_CHARACTERS } from "@/lib/rich-text";
 
 export const POST_STATUS_BADGE: Record<RdPostStatus, { label: string; variant: BadgeVariant }> = {
   open: { label: "Open", variant: "muted" },

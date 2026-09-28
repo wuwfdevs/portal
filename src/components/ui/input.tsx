@@ -1,10 +1,10 @@
 import { cn } from "@/lib/cn";
 import type {
+  ComponentProps,
   InputHTMLAttributes,
   LabelHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
-  TextareaHTMLAttributes,
 } from "react";
 
 /**
@@ -45,7 +45,10 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
   return <select className={cn(controlClasses, className)} {...props} />;
 }
 
-export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+// ComponentProps rather than TextareaHTMLAttributes so a caller can pass a
+// `ref` (React 19 forwards it as an ordinary prop) — the assistant widget
+// focuses its compose box when Help hands it a draft.
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return <textarea className={cn(controlClasses, "leading-relaxed", className)} {...props} />;
 }
 

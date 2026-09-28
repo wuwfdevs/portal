@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/input";
+import { useRightPanel } from "@/components/right-panel";
 
 // The in-portal agent's chat surface (Phase D, docs/agent-capabilities-design.md
 // §7) — a persistent bubble that toggles a panel, available on every portal
@@ -105,7 +106,11 @@ function renderRichText(text: string): ReactNode[] {
 
 export function AgentChatWidget() {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // Shared with the Help panel (components/right-panel.tsx): only one of the
+  // two is open at a time.
+  const rightPanel = useRightPanel();
+  const open = rightPanel.open === "assistant";
+  const anyPanelOpen = rightPanel.open !== null;
   const [history, setHistory] = useState<ChatItem[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
@@ -118,6 +123,24 @@ export function AgentChatWidget() {
   // item) takes over rendering it.
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composeRef = useRef<HTMLTextAreaElement>(null);
+  // Help's "Ask the assistant about {Tool}" arrives as a draft to finish and
+  // send, never sent on the user's behalf. Applied during render (React's
+  // "adjust state when a prop changes" pattern), once per request id; the
+  // effect below only moves focus.
+  const { assistantDraft } = rightPanel;
+  const [appliedDraftId, setAppliedDraftId] = useState(0);
+  if (assistantDraft && assistantDraft.id !== appliedDraftId) {
+    setAppliedDraftId(assistantDraft.id);
+    setDraft(assistantDraft.text);
+  }
+  useEffect(() => {
+    if (appliedDraftId === 0) return;
+    const box = composeRef.current;
+    if (!box) return;
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  }, [appliedDraftId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -223,15 +246,15 @@ export function AgentChatWidget() {
       {!hideBubble && (
         <button
           type="button"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => rightPanel.toggle("assistant")}
           aria-label={open ? "Close assistant" : "Open assistant"}
           className={cn(
             "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right] duration-200 hover:scale-105 hover:bg-[#2278B8]",
             // Only shifts aside on large screens, to stay beside the push
             // panel (see the <aside> below) — below lg the panel is a
             // full-screen sheet with nothing to dodge, so the bubble stays
-            // put.
-            open && "lg:right-[calc(24rem+1.5rem)]",
+            // put. Either right panel (this one or Help) is 24rem wide.
+            anyPanelOpen && "lg:right-[calc(24rem+1.5rem)]",
           )}
         >
           {open ? (
@@ -295,7 +318,7 @@ export function AgentChatWidget() {
                   harm having it on desktop too. */}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={rightPanel.close}
                 aria-label="Close assistant"
                 className="text-ink-400 hover:text-ink-700"
               >
@@ -371,6 +394,7 @@ export function AgentChatWidget() {
 
           <form onSubmit={handleSubmit} className="shrink-0 border-t border-line px-4 py-3">
             <Textarea
+              ref={composeRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}

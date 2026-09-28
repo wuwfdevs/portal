@@ -552,6 +552,10 @@ export type RdPostStatus =
   | "in_progress"
   | "shipped"
   | "declined";
+// Resources (20260928140000_resources.sql)
+export type RcKind = "procedure" | "guide" | "release_note";
+export type RcAudience = "staff" | "students" | "partners";
+export type RcSource = "editor" | "release";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -1316,7 +1320,7 @@ export interface Database {
         Row: {
           id: string;
           title: string;
-          /** ProseMirror JSON — see lib/roadmap/rich-text.ts for the whitelist. */
+          /** ProseMirror JSON — see lib/rich-text.ts for the whitelist. */
           body: unknown;
           body_text: string;
           kind: RdPostKind;
@@ -1348,6 +1352,98 @@ export interface Database {
           user_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["rd_votes"]["Row"]>;
+        Relationships: [];
+      };
+      rc_articles: {
+        Row: {
+          id: string;
+          slug: string;
+          kind: RcKind;
+          title: string;
+          summary: string | null;
+          /** ProseMirror JSON — see lib/rich-text.ts for the whitelist. */
+          body: unknown;
+          audience: RcAudience[];
+          area: string | null;
+          owner_role: string | null;
+          tool_id: string | null;
+          screen_keys: string[];
+          released_on: string | null;
+          sort_order: number;
+          source: RcSource;
+          version_note: string | null;
+          needs_review: boolean;
+          edited_since_release: boolean;
+          version: number;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+          /** Generated; never written. */
+          search_vector: unknown;
+        };
+        Insert: Partial<
+          Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector">
+        > & {
+          slug: string;
+          kind: RcKind;
+          title: string;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["rc_articles"]["Row"], "search_vector">>;
+        Relationships: [];
+      };
+      // Insert-only: written by triggers on rc_articles, never updated.
+      rc_article_versions: {
+        Row: {
+          id: string;
+          article_id: string;
+          version: number;
+          title: string;
+          body: unknown;
+          source: RcSource;
+          note: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rc_article_versions"]["Row"]> & {
+          article_id: string;
+          version: number;
+          title: string;
+          body: unknown;
+          source: RcSource;
+        };
+        Update: Partial<Database["public"]["Tables"]["rc_article_versions"]["Row"]>;
+        Relationships: [];
+      };
+      // Screenshots for figure nodes (20260928160000_resources_media.sql).
+      rc_media: {
+        Row: {
+          id: string;
+          article_id: string | null;
+          object_path: string;
+          width: number | null;
+          height: number | null;
+          alt: string;
+          source: RcSource;
+          screen_key: string | null;
+          name: string | null;
+          captured_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rc_media"]["Row"]> & {
+          object_path: string;
+          alt: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rc_media"]["Row"]>;
+        Relationships: [];
+      };
+      rc_release_note_guides: {
+        Row: {
+          release_note_id: string;
+          guide_id: string;
+        };
+        Insert: Database["public"]["Tables"]["rc_release_note_guides"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["rc_release_note_guides"]["Row"]>;
         Relationships: [];
       };
       rd_comments: {
@@ -3027,6 +3123,11 @@ export interface Database {
        * caller lacks access, the pillar isn't active, or it has no guiding
        * question set yet.
        */
+      /** security invoker — rc_articles RLS scopes what it ranks. */
+      rc_search_articles: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: { id: string; rank: number }[];
+      };
       ei_create_inquiry: {
         Args: { p_pillar_id: string };
         Returns: Database["public"]["Tables"]["ei_inquiries"]["Row"];
@@ -3055,6 +3156,9 @@ export interface Database {
       al_transcription_state: AlTranscriptionState;
       rd_post_kind: RdPostKind;
       rd_post_status: RdPostStatus;
+      rc_kind: RcKind;
+      rc_audience: RcAudience;
+      rc_source: RcSource;
       ap_partnership_type: ApPartnershipType;
       ap_stage: ApStage;
       ap_disposition: ApDisposition;
