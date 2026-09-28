@@ -8,7 +8,16 @@ import "server-only";
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Document, Image, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import {
+  Document,
+  Font,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+  renderToBuffer,
+} from "@react-pdf/renderer";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { STATION_LETTERHEAD, type AffidavitDocument } from "./affidavits";
 
@@ -25,94 +34,155 @@ export interface AffidavitPdfProps {
 }
 
 const INK = "#0F1419";
+const BODY = "#2B2F36";
 const MUTED = "#5A6068";
 const FAINT = "#8A9099";
-const RULE = "#D5D9DE";
+const RULE = "#E2E5E9";
 const BAND = "#F5F7F9";
 const BRAND = "#185F95";
+const BRAND_BRIGHT = "#3090D0";
+// The green of the logo's "88.1".
+const ACCENT = "#8DC63F";
+
+const MARGIN_X = 54;
+
+// react-pdf hyphenates by default, which splits a sponsor's name mid-word
+// ("Black-ledge"). Wrap on whole words only.
+Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 48,
-    paddingBottom: 64,
-    paddingHorizontal: 54,
+    paddingTop: 44,
+    paddingBottom: 60,
+    paddingHorizontal: MARGIN_X,
     fontFamily: "Helvetica",
-    fontSize: 9.5,
-    color: INK,
-    lineHeight: 1.35,
+    fontSize: 9,
+    color: BODY,
+    // No lineHeight here: set on the page, it hides the absolutely positioned
+    // fixed footer (confirmed in @react-pdf/renderer 4.9). Blocks that need
+    // extra leading set their own.
   },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  logo: { width: 96, height: 40.5, marginBottom: 6 },
-  stationName: { fontFamily: "Helvetica-Bold", fontSize: 11 },
-  stationLine: { color: MUTED },
+  band: { position: "absolute", top: 0, left: 0, right: 0, height: 6, flexDirection: "row" },
+  bandMain: { flex: 1, backgroundColor: BRAND_BRIGHT },
+  bandAccent: { width: 90, backgroundColor: ACCENT },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  logo: { width: 112, height: 47.3, marginBottom: 8 },
+  stationLine: { color: MUTED, fontSize: 8.5 },
   titleBlock: { alignItems: "flex-end" },
-  title: { fontFamily: "Helvetica-Bold", fontSize: 18, color: BRAND, marginBottom: 8 },
-  meta: { color: MUTED },
-  rule: { borderBottomWidth: 1, borderBottomColor: RULE, marginVertical: 16 },
-  columns: { flexDirection: "row", gap: 24 },
-  column: { flex: 1 },
-  label: {
+  eyebrow: {
     fontFamily: "Helvetica-Bold",
     fontSize: 7.5,
     color: FAINT,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  recipientName: { fontFamily: "Helvetica-Bold", fontSize: 11 },
-  detailRow: { flexDirection: "row", marginBottom: 2 },
+  title: { fontFamily: "Helvetica-Bold", fontSize: 20, color: BRAND },
+  headerRule: { flexDirection: "row", marginTop: 14, marginBottom: 18 },
+  headerRuleMain: { flex: 1, height: 1.5, backgroundColor: BRAND },
+  columns: { flexDirection: "row", gap: 18 },
+  card: { flex: 1, backgroundColor: BAND, borderRadius: 3, padding: 12 },
+  cardLine: { marginBottom: 1.5 },
+  label: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    color: FAINT,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 5,
+  },
+  recipientName: { fontFamily: "Helvetica-Bold", fontSize: 11, color: INK, marginBottom: 1 },
+  stationName: { fontFamily: "Helvetica-Bold", color: INK, fontSize: 9.5 },
+  detailRow: { flexDirection: "row", marginBottom: 3 },
   detailKey: { width: 84, color: MUTED },
-  detailValue: { flex: 1 },
-  section: { marginTop: 20 },
-  sectionTitle: { fontFamily: "Helvetica-Bold", fontSize: 11, marginBottom: 6 },
-  tableHead: {
-    flexDirection: "row",
-    backgroundColor: BAND,
-    borderBottomWidth: 1,
-    borderBottomColor: RULE,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-  },
-  th: { fontFamily: "Helvetica-Bold", fontSize: 8, color: MUTED },
-  tr: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: RULE,
-    paddingVertical: 4.5,
-    paddingHorizontal: 6,
-  },
-  note: { color: BRAND, fontSize: 8.5 },
-  footnote: { color: MUTED, fontSize: 8.5, marginTop: 6 },
-  empty: { color: MUTED, paddingVertical: 8, paddingHorizontal: 6 },
-  certification: { marginTop: 28 },
-  sentence: { fontSize: 10.5, marginBottom: 26 },
-  signatureRow: { flexDirection: "row", gap: 32 },
-  signatureField: { flex: 1 },
-  signatureValue: { minHeight: 16, fontSize: 11 },
-  signatureName: { fontFamily: "Helvetica-Oblique", fontSize: 12 },
-  signatureLine: { borderTopWidth: 1, borderTopColor: INK, marginTop: 2, paddingTop: 3 },
-  signatureCaption: { fontSize: 7.5, color: MUTED },
-  electronic: { marginTop: 8, fontSize: 8, color: MUTED },
-  thanks: { marginTop: 28, textAlign: "center", color: MUTED, fontFamily: "Helvetica-Oblique" },
-  footer: {
-    position: "absolute",
-    bottom: 28,
-    left: 54,
-    right: 54,
+  detailValue: { flex: 1, color: INK },
+  section: { marginTop: 22 },
+  sectionHead: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 6,
+  },
+  sectionTitle: { fontFamily: "Helvetica-Bold", fontSize: 11.5, color: INK },
+  sectionAside: { fontSize: 8, color: MUTED },
+  tableHead: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: INK,
+    paddingBottom: 4,
+    paddingHorizontal: 6,
+  },
+  th: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    color: MUTED,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  tr: { flexDirection: "row", paddingVertical: 4, paddingHorizontal: 6 },
+  trStripe: { backgroundColor: BAND },
+  total: {
+    flexDirection: "row",
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: RULE,
+    fontFamily: "Helvetica-Bold",
+    color: INK,
+  },
+  strong: { fontFamily: "Helvetica-Bold", color: INK },
+  makegood: { fontSize: 7.5, color: BRAND, marginTop: 1 },
+  footnote: { color: MUTED, fontSize: 8, marginTop: 6 },
+  empty: { color: MUTED, paddingVertical: 8, paddingHorizontal: 6 },
+  certification: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: RULE,
+    borderLeftWidth: 3,
+    borderLeftColor: BRAND,
+    borderRadius: 3,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  sentence: { fontSize: 10.5, color: INK, lineHeight: 1.45, marginBottom: 22 },
+  signatureRow: { flexDirection: "row", gap: 24 },
+  signatureField: { flex: 1 },
+  signatureValue: { height: 24, justifyContent: "flex-end", color: INK },
+  signatureName: { fontFamily: "Times-Italic", fontSize: 15, color: INK },
+  signatureLine: { borderTopWidth: 0.75, borderTopColor: INK, marginTop: 4, paddingTop: 3 },
+  signatureCaption: { fontSize: 7, color: FAINT, textTransform: "uppercase", letterSpacing: 0.6 },
+  electronic: { marginTop: 10, fontSize: 7.5, color: MUTED },
+  thanks: {
+    marginTop: 20,
+    textAlign: "center",
+    color: BRAND,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9.5,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 26,
+    left: MARGIN_X,
+    right: MARGIN_X,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 0.5,
+    borderTopColor: RULE,
+    paddingTop: 6,
     fontSize: 7.5,
-    color: FAINT,
+    color: MUTED,
   },
   watermark: {
     position: "absolute",
-    top: 330,
+    top: 340,
     left: 0,
     right: 0,
     textAlign: "center",
     fontFamily: "Helvetica-Bold",
-    fontSize: 64,
-    color: "#E7EBEF",
+    fontSize: 72,
+    letterSpacing: 8,
+    color: "#D5DCE3",
+    opacity: 0.45,
     transform: "rotate(-30deg)",
   },
 });
@@ -148,13 +218,14 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
   const { document: doc } = props;
   const showLength = doc.rows.some((row) => row.length !== null);
   const col = {
-    date: { width: "20%" },
-    time: { width: "13%" },
-    program: { width: showLength ? "23%" : "25%" },
-    message: { width: showLength ? "16%" : "17%" },
-    length: { width: "7%" },
-    note: { width: showLength ? "21%" : "25%" },
-  } as const;
+    date: { width: showLength ? "23%" : "25%" },
+    time: { width: "15%" },
+    program: { width: showLength ? "30%" : "32%" },
+    message: { width: showLength ? "22%" : "28%" },
+    length: { width: "8%", textAlign: "right" as const },
+  };
+  const orderedTotal = doc.summary.reduce((sum, row) => sum + row.ordered, 0);
+  const airedTotal = doc.summary.reduce((sum, row) => sum + row.aired, 0);
 
   return (
     <Document
@@ -163,100 +234,133 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
       subject={`${doc.recipientLines[0] ?? ""} — ${doc.periodLabel}`}
     >
       <Page size="LETTER" style={styles.page}>
-        {!props.certified && (
-          <Text style={styles.watermark} fixed>
-            DRAFT
+        <View style={styles.band} fixed>
+          <View style={styles.bandMain} />
+          <View style={styles.bandAccent} />
+        </View>
+        <View style={styles.footer} fixed>
+          <Text>
+            {STATION_LETTERHEAD.name} · Performance affidavit · Report {props.reportIdentifier}
           </Text>
-        )}
+          <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
 
         <View style={styles.header}>
           <View>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image, not an HTML img; it has no alt prop. */}
             {logo ? <Image src={logo} style={styles.logo} /> : null}
             <Text style={styles.stationName}>{STATION_LETTERHEAD.name}</Text>
-            {STATION_LETTERHEAD.addressLines.map((line) => (
-              <Text key={line} style={styles.stationLine}>
-                {line}
-              </Text>
-            ))}
+            <Text style={styles.stationLine}>{STATION_LETTERHEAD.addressLines.join(" · ")}</Text>
           </View>
           <View style={styles.titleBlock}>
+            <Text style={styles.eyebrow}>
+              {props.certified ? "Certified" : "Draft — not yet certified"}
+            </Text>
             <Text style={styles.title}>Performance Affidavit</Text>
-            <Text style={styles.meta}>Issued {formatIssued(props.issuedAt)}</Text>
-            <Text style={styles.meta}>Report {props.reportIdentifier}</Text>
-            {!props.certified && <Text style={styles.meta}>Draft — not yet certified</Text>}
           </View>
         </View>
-
-        <View style={styles.rule} />
+        <View style={styles.headerRule}>
+          <View style={styles.headerRuleMain} />
+        </View>
 
         <View style={styles.columns}>
-          <View style={styles.column}>
+          <View style={styles.card}>
             <Text style={styles.label}>Prepared for</Text>
             {doc.recipientLines.map((line, index) => (
-              <Text key={`${index}-${line}`} style={index === 0 ? styles.recipientName : undefined}>
+              <Text
+                key={`${index}-${line}`}
+                style={index === 0 ? styles.recipientName : styles.cardLine}
+              >
                 {line}
               </Text>
             ))}
           </View>
-          <View style={styles.column}>
+          <View style={[styles.card, { flex: 1.35 }]}>
             <Text style={styles.label}>Order</Text>
             <Detail label="Order number" value={props.contractIdentifier} />
             <Detail label="Period" value={doc.periodLabel} />
-            {props.accountRep ? <Detail label="Account rep" value={props.accountRep} /> : null}
             {doc.lengthLabel ? <Detail label="Announcements" value={doc.lengthLabel} /> : null}
+            {props.accountRep ? <Detail label="Account rep" value={props.accountRep} /> : null}
+            <Detail label="Issued" value={formatIssued(props.issuedAt)} />
           </View>
         </View>
 
         {doc.summary.length > 0 && (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>Delivery</Text>
-            <View style={styles.tableHead}>
-              <Text style={[styles.th, { width: "64%" }]}>Schedule</Text>
-              <Text style={[styles.th, { width: "18%", textAlign: "right" }]}>Ordered</Text>
-              <Text style={[styles.th, { width: "18%", textAlign: "right" }]}>Aired</Text>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>Delivery</Text>
+              <Text style={styles.sectionAside}>Announcements ordered and aired, by schedule</Text>
             </View>
-            {doc.summary.map((row) => (
-              <View key={row.scheduleLineId} style={styles.tr}>
-                <Text style={{ width: "64%" }}>
+            <View style={styles.tableHead}>
+              <Text style={[styles.th, { width: "70%" }]}>Schedule</Text>
+              <Text style={[styles.th, { width: "15%", textAlign: "right" }]}>Ordered</Text>
+              <Text style={[styles.th, { width: "15%", textAlign: "right" }]}>Aired</Text>
+            </View>
+            {doc.summary.map((row, index) => (
+              <View
+                key={row.scheduleLineId}
+                style={index % 2 === 1 ? [styles.tr, styles.trStripe] : styles.tr}
+              >
+                <Text style={{ width: "70%" }}>
                   {row.label}
                   {row.bonus ? " (bonus)" : ""}
                 </Text>
-                <Text style={{ width: "18%", textAlign: "right" }}>{row.ordered}</Text>
-                <Text style={{ width: "18%", textAlign: "right" }}>{row.aired}</Text>
+                <Text style={{ width: "15%", textAlign: "right" }}>{row.ordered}</Text>
+                <Text style={[styles.strong, { width: "15%", textAlign: "right" }]}>
+                  {row.aired}
+                </Text>
               </View>
             ))}
+            {doc.summary.length > 1 && (
+              <View style={styles.total}>
+                <Text style={{ width: "70%" }}>Total</Text>
+                <Text style={{ width: "15%", textAlign: "right" }}>{orderedTotal}</Text>
+                <Text style={{ width: "15%", textAlign: "right" }}>{airedTotal}</Text>
+              </View>
+            )}
             {doc.outsideSummaryCount > 0 && (
               <Text style={styles.footnote}>
                 {doc.outsideSummaryCount === 1
-                  ? "1 further announcement below counts toward a schedule period that extends beyond these dates."
-                  : `${doc.outsideSummaryCount} further announcements below count toward schedule periods that extend beyond these dates.`}
+                  ? "1 further announcement in the log below counts toward a schedule period that extends beyond these dates."
+                  : `${doc.outsideSummaryCount} further announcements in the log below count toward schedule periods that extend beyond these dates.`}
               </Text>
             )}
           </View>
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Broadcast log</Text>
-          <View style={styles.tableHead}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>Broadcast log</Text>
+            <Text style={styles.sectionAside}>
+              {doc.airedCount === 1 ? "1 announcement" : `${doc.airedCount} announcements`} ·
+              Central time
+            </Text>
+          </View>
+          {/* fixed inside this section: repeats at the top of each page the log continues onto. */}
+          <View style={styles.tableHead} fixed>
             <Text style={[styles.th, col.date]}>Date</Text>
             <Text style={[styles.th, col.time]}>Time</Text>
             <Text style={[styles.th, col.program]}>Program</Text>
             <Text style={[styles.th, col.message]}>Message</Text>
             {showLength ? <Text style={[styles.th, col.length]}>Length</Text> : null}
-            <Text style={[styles.th, col.note]}>Note</Text>
           </View>
           {doc.rows.length === 0 ? (
             <Text style={styles.empty}>No announcements aired in this period.</Text>
           ) : (
-            doc.rows.map((row) => (
-              <View key={row.broadcastEventId} style={styles.tr} wrap={false}>
+            doc.rows.map((row, index) => (
+              <View
+                key={row.broadcastEventId}
+                style={index % 2 === 1 ? [styles.tr, styles.trStripe] : styles.tr}
+                wrap={false}
+              >
                 <Text style={col.date}>{row.date}</Text>
                 <Text style={col.time}>{row.time}</Text>
                 <Text style={col.program}>{row.program}</Text>
-                <Text style={col.message}>{row.message ?? "—"}</Text>
+                <View style={col.message}>
+                  <Text>{row.message ?? "—"}</Text>
+                  {row.note ? <Text style={styles.makegood}>{row.note}</Text> : null}
+                </View>
                 {showLength ? <Text style={col.length}>{row.length ?? ""}</Text> : null}
-                <Text style={[col.note, styles.note]}>{row.note ?? ""}</Text>
               </View>
             ))
           )}
@@ -295,21 +399,21 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
           </View>
           {props.certified && (
             <Text style={styles.electronic}>
-              {`Certified electronically in ${STATION_LETTERHEAD.name}’s traffic system`}
+              {`Signed electronically in ${STATION_LETTERHEAD.name}’s traffic system`}
               {props.certifierName ? ` by ${props.certifierName}` : ""}.
             </Text>
           )}
-          <Text style={styles.thanks}>
-            Thank you for your support of {STATION_LETTERHEAD.name}.
-          </Text>
         </View>
 
-        <View style={styles.footer} fixed>
-          <Text>
-            {STATION_LETTERHEAD.name} · Performance affidavit {props.reportIdentifier}
+        <Text style={styles.thanks} wrap={false}>
+          Thank you for supporting public radio on {STATION_LETTERHEAD.name}.
+        </Text>
+        {/* Last, so it draws over the cards rather than behind them. */}
+        {!props.certified && (
+          <Text style={styles.watermark} fixed>
+            DRAFT
           </Text>
-          <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
-        </View>
+        )}
       </Page>
     </Document>
   );
