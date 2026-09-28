@@ -3267,8 +3267,15 @@ signs URLs from the private `resources-media` bucket
 (`20260928160000_resources_media.sql`) and a missing image renders its alt text.
 Editors upload browser → Storage (`article-body-field.tsx`); captured shots come
 from `scripts/resources-screenshots/` (`npm run screenshots:resources`, preview
-only as a source). The in-tool Help panel, the assistant capability, and the
-"resources stay in step with the code" rule are slices 3–5.
+only as a source). **Slice 3 (the in-tool Help panel) has landed**: a Help button in the header on tool
+pages opens a right-hand panel of the guides for the current screen
+(`components/help-panel.tsx`, `lib/resources/screens.ts`'s `helpContextForPath()` maps
+the URL; add a route pattern there when a screen gains a route). The assistant and Help
+share the right edge through `components/right-panel.tsx`'s `RightPanelProvider` — only
+one is open at a time; use it rather than a local `open` state for anything else that
+docks there. The panel reads through a Server Action (`resources/help-actions.ts`), not a
+route handler. The assistant capability and the "resources stay in step with the code"
+rule are slices 4–5.
 
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of

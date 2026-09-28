@@ -1,7 +1,7 @@
 # Resources: design
 
-**Status (2026-09-28):** slices 1 (Foundation) and 2 (Editing and screenshots) have landed.
-Slices 3–5 are planned, below.
+**Status (2026-09-28):** slices 1 (Foundation), 2 (Editing and screenshots) and 3 (the
+in-tool Help panel) have landed. Slices 4–5 are planned, below.
 
 Resources is a top-level area at `/resources` for three kinds of content:
 
@@ -136,6 +136,39 @@ Resources is the first body in the portal with images; Roadmap still has none.
   and "+ Reference another source" the page no longer has — so the same migration
   rewrote both guides for the card grid and "+ Add source".
 
+## Help panel (slice 3)
+
+A **Help** button in the portal header, on tool pages only, opens a right-hand panel
+listing the Resources guides for the screen you're on.
+
+- **Which screen.** `lib/resources/screens.ts`'s `helpContextForPath(pathname, search)`
+  (pure, tested) maps a URL to a tool and screen. Each screen in `SCREENS` lists its route
+  patterns (`/sourcework/:id`, and `?tab=sources` for the Source Library, which shares
+  `/sourcework`'s path); a literal segment beats a parameter, so `/sourcework/new` is the
+  projects screen, not a project. A tool page no screen covers (Underwriting's dashboard,
+  Log's weather) still gets Help, listing all the tool's guides. The dashboard,
+  Administration, and Resources itself get no button — a test asserts every listed route
+  maps back to its own screen, so a new pattern can't silently shadow another.
+- **One right panel at a time.** The assistant and Help share the right edge.
+  `components/right-panel.tsx`'s `RightPanelProvider` (mounted in `(portal)/layout.tsx`)
+  holds which one is open; opening either closes the other, and the assistant's bubble
+  steps aside whenever either is open. `HelpPanel` (`components/help-panel.tsx`) copies
+  the assistant's `<aside>` classes: a full-screen sheet below `lg`, a 24rem push-aside
+  column at `lg` and up.
+- **Content.** "For this screen" is the tool's guides whose `screen_keys` include the
+  current screen; "Changed recently" is the tool's last two release notes; the search box
+  searches the tool's guides (`rc_search_articles`, narrowed to the tool). The footer's
+  "Ask the assistant about {Tool}" opens the assistant with "About {Tool}: " in its
+  compose box — a draft to finish, never sent for the user — and "All {Tool} guides" goes
+  to the tool's first guide. With nothing for the screen: "No guide for this screen yet."
+- **Loaded by a Server Action, not a route handler.** The handoff suggested
+  `/api/resources/help`; `resources/help-actions.ts`'s `loadHelp()` is a non-redirecting
+  action returning data instead, per CLAUDE.md's "reach for a Server Action first" and the
+  shape Sourcework's workspace search already uses. `lib/resources/help.ts` does the reads
+  through the RLS-scoped client, so the panel shows exactly what `/resources` would.
+- `Textarea` (`components/ui/input.tsx`) now accepts a `ref`, so the assistant can focus
+  its compose box when Help hands it a draft.
+
 ## Screens (slice 1, read-only)
 
 All under `src/app/(portal)/resources/`, laid out per `docs/ui-patterns.md`.
@@ -160,9 +193,7 @@ appears on the dashboard as an ordinary registry card.
 ## Later slices
 
 2. ~~Editing and screenshots~~ — landed; see above.
-3. **In-tool Help panel** — the header button, `RightPanelProvider` shared with the
-   assistant, `screenKeyForPath()` in `lib/resources/screens.ts`, and
-   `/api/resources/help`.
+3. ~~In-tool Help panel~~ — landed; see above.
 4. **Assistant capability** — `resources.search` over `rc_search_articles()`.
 5. **The CLAUDE.md rule** — every user-visible change ships a release note and guide
    update in its migration; backfill guides for each tool.

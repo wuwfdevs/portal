@@ -57,6 +57,12 @@ export async function requireResourcesEditor(): Promise<ResourcesContext> {
   return context;
 }
 
+/** Server-action gate for reads (the Help panel); throws instead of redirecting. */
+export async function assertResourcesAccess(): Promise<ResourcesContext> {
+  const { profile, tool } = await assertToolAccess(RESOURCES_TOOL_KEY);
+  return contextFor(profile, tool, await lookupRole(profile, tool));
+}
+
 /**
  * Server-action gate for writes. Throws rather than redirecting; the RLS
  * policies on rc_articles/rc_media and the storage bucket are the boundary,
