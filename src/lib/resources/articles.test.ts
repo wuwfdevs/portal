@@ -1,19 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatAudience,
   formatReleaseDate,
   formatUpdatedDate,
   groupByReleaseDate,
   guideLinksInBody,
 } from "./articles";
 import { primaryScreenName, screenName } from "./screens";
-
-describe("formatAudience", () => {
-  it("lists audiences in a fixed order", () => {
-    expect(formatAudience(["partners", "staff"])).toBe("Staff, Partners");
-    expect(formatAudience(["students", "partners", "staff"])).toBe("Staff, Students, Partners");
-  });
-});
 
 describe("formatReleaseDate", () => {
   it("formats a calendar date without shifting the day", () => {

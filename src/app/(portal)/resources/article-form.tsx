@@ -2,10 +2,8 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
-import type { RcAudience } from "@/lib/database.types";
 import {
   AREA_MAX,
-  AUDIENCES,
   SLUG_MAX,
   SUMMARY_MAX,
   TITLE_MAX,
@@ -16,12 +14,6 @@ import type { ToolRef } from "@/lib/resources/queries";
 import { ArticleBodyField } from "./article-body-field";
 import { createArticle, updateArticle } from "./actions";
 
-const AUDIENCE_LABELS: Record<RcAudience, string> = {
-  staff: "Staff",
-  students: "Students",
-  partners: "Partners",
-};
-
 /** Fields that show their own error; any other error renders at the top of the form. */
 const FIELDS_WITH_OWN_ERROR = new Set([
   "title",
@@ -31,7 +23,6 @@ const FIELDS_WITH_OWN_ERROR = new Set([
   "owner_role",
   "screen_keys",
   "sort_order",
-  "audience",
   "version_note",
 ]);
 
@@ -41,7 +32,6 @@ export interface ArticleFormDefaults {
   title: string;
   summary: string | null;
   body: unknown;
-  audience: RcAudience[];
   area: string | null;
   owner_role: string | null;
   screen_keys: string[];
@@ -77,7 +67,6 @@ export function ArticleForm({
   cancelHref: string;
 }) {
   const editing = defaults !== undefined;
-  const audience = defaults?.audience ?? (kind === "guide" ? AUDIENCES : ["staff"]);
   const screens = tool ? screensForTool(tool.key) : [];
   const fieldError = (name: string) => (error && field === name ? error : null);
   const hint = (name: string, text: React.ReactNode) => {
@@ -213,30 +202,6 @@ export function ArticleForm({
           </div>
         </div>
       )}
-
-      <fieldset>
-        <legend className="mb-1.5 text-sm font-semibold text-ink-700">Visible to</legend>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {AUDIENCES.map((value) => (
-            <label key={value} className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="audience"
-                value={value}
-                defaultChecked={audience.includes(value)}
-                className="h-4 w-4"
-              />
-              {AUDIENCE_LABELS[value]}
-            </label>
-          ))}
-        </div>
-        {hint(
-          "audience",
-          kind === "guide"
-            ? `Only people who can open ${tool?.name ?? "the tool"} see a guide, whatever is checked here.`
-            : "Who can read this procedure.",
-        )}
-      </fieldset>
 
       <div>
         <p className="mb-1.5 text-sm font-semibold text-ink-700">Text</p>

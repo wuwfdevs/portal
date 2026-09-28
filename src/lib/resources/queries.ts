@@ -21,7 +21,7 @@ export type RcArticleVersion = Database["public"]["Tables"]["rc_article_versions
 type ArticleRow = Omit<RcArticle, "search_vector" | "content_hash">;
 
 const ARTICLE_COLUMNS =
-  "id, slug, kind, title, summary, body, audience, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
+  "id, slug, kind, title, summary, body, area, owner_role, tool_id, screen_keys, released_on, sort_order, source, version_note, needs_review, edited_since_release, version, created_at, updated_at, updated_by";
 
 export interface ToolRef {
   id: string;

@@ -554,7 +554,6 @@ export type RdPostStatus =
   | "declined";
 // Resources (20260928140000_resources.sql)
 export type RcKind = "procedure" | "guide" | "release_note";
-export type RcAudience = "staff" | "students" | "partners";
 export type RcSource = "editor" | "release";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
@@ -1363,7 +1362,6 @@ export interface Database {
           summary: string | null;
           /** ProseMirror JSON — see lib/rich-text.ts for the whitelist. */
           body: unknown;
-          audience: RcAudience[];
           area: string | null;
           owner_role: string | null;
           tool_id: string | null;
@@ -3193,7 +3191,6 @@ export interface Database {
       rd_post_kind: RdPostKind;
       rd_post_status: RdPostStatus;
       rc_kind: RcKind;
-      rc_audience: RcAudience;
       rc_source: RcSource;
       ap_partnership_type: ApPartnershipType;
       ap_stage: ApStage;

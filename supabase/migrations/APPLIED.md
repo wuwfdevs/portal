@@ -161,6 +161,7 @@ repo and a project's history, not the version number.
 | `20260928230000_resources_underwriting_guides.sql`                    | 2026-09-28 | 2026-09-28 |
 | `20260928240000_resources_backfill_screenshots.sql`                   | 2026-09-28 | 2026-09-28 |
 | `20260928250000_resources_al_screenshot_fix.sql`                      | 2026-09-28 | 2026-09-28 |
+| `20260928260000_resources_audience_removal.sql`                       | 2026-09-28 | 2026-09-28 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

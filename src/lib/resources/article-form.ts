@@ -2,10 +2,8 @@
 // Supabase — so the rules are tested directly; actions.ts reads the form and
 // hands the fields here. Colocated test.
 
-import type { RcAudience } from "@/lib/database.types";
 import { SCREENS } from "./screens";
 
-export const AUDIENCES: readonly RcAudience[] = ["staff", "students", "partners"];
 export const TITLE_MAX = 160;
 export const SUMMARY_MAX = 240;
 export const SLUG_MAX = 80;
@@ -33,7 +31,6 @@ export interface ArticleFormInput {
   /** Empty means "derive it from the title". Ignored on edit. */
   slug: string;
   summary: string;
-  audience: string[];
   versionNote: string;
   // procedure
   area: string;
@@ -48,7 +45,6 @@ export interface ArticleFields {
   title: string;
   slug: string;
   summary: string | null;
-  audience: RcAudience[];
   versionNote: string | null;
   area: string | null;
   ownerRole: string | null;
@@ -90,9 +86,6 @@ export function validateArticleForm(
     return fail("summary", `Keep the summary under ${SUMMARY_MAX} characters.`);
   }
 
-  const audience = AUDIENCES.filter((value) => input.audience.includes(value));
-  if (audience.length === 0) return fail("audience", "Choose at least one audience.");
-
   const versionNote = input.versionNote.trim();
   if (versionNote.length > VERSION_NOTE_MAX) {
     return fail("version_note", `Keep the note under ${VERSION_NOTE_MAX} characters.`);
@@ -102,7 +95,6 @@ export function validateArticleForm(
     title,
     slug,
     summary: summary || null,
-    audience,
     versionNote: versionNote || null,
   };
 

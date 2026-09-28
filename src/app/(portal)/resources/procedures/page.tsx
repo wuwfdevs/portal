@@ -4,7 +4,7 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { formatAudience, formatUpdatedDate } from "@/lib/resources/articles";
+import { formatUpdatedDate } from "@/lib/resources/articles";
 import { requireResourcesAccess } from "@/lib/resources/access";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import {
@@ -82,7 +82,6 @@ export default async function ProceduresListPage({
               <HeaderRow>
                 <Th>Procedure</Th>
                 <Th>Area</Th>
-                <Th>Visible to</Th>
                 <Th>Owner</Th>
                 <Th>Updated</Th>
               </HeaderRow>
@@ -103,9 +102,6 @@ export default async function ProceduresListPage({
                     )}
                   </Cell>
                   <Cell className="whitespace-nowrap text-ink-500">{procedure.area}</Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
-                    {formatAudience(procedure.audience)}
-                  </Cell>
                   <Cell className="whitespace-nowrap text-ink-500">
                     {procedure.owner_role ?? "—"}
                   </Cell>

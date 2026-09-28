@@ -24,17 +24,21 @@ Roadmap's shape exactly (`docs/roadmap-design.md` §6). The registry row `resour
 - `private.has_resources_access(uid)` — the ticket in (enabled row, active profile, open
   access or a grant).
 - `private.is_resources_editor(uid)` — access plus an administrator or an `editor` grant.
-- `private.resources_audience_for(uid)` — the reader's audience, from the platform role the
-  profile already carries: `student` → students, `faculty_partner` → partners, everyone
-  else → staff. No profile change was needed.
 - `private.can_open_tool(uid, tool_id)` — the SQL twin of `canOpenTool` in
   `lib/auth/authz.ts`. A guide or release note about a tool is visible only to people who
   can open that tool.
 
 `rc_articles` select: an editor sees everything (they maintain it); anyone else sees an
-article when it is addressed to their audience and, if it names a tool, they can open that
-tool. Writes are editor-only. `lib/resources/access.ts`'s `requireResourcesAccess()` gates
-every page and reports `isEditor` for rendering editor-only controls.
+article if it names no tool, or if it does and they can open that tool. Writes are
+editor-only. `lib/resources/access.ts`'s `requireResourcesAccess()` gates every page and
+reports `isEditor` for rendering editor-only controls.
+
+**No per-article audience restriction (2026-09-28).** `rc_articles.audience` (a
+`staff`/`students`/`partners` split derived from `profiles.platform_role`) was removed —
+see CLAUDE.md's dated note for why: no real content was ever addressed to anything but
+all three, no student or faculty_partner profile has ever existed in this portal, and an
+editor already bypassed the check. Restricting a procedure to a role or function is
+deferred to a real model, not this one.
 
 ## Data model (`20260928140000_resources.sql`)
 

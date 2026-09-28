@@ -3329,6 +3329,26 @@ an existing area or type a new one, and `validateArticleForm()` only requires it
 non-empty (`AREA_MAX` = 60 characters), matching how every other free-text field here is
 validated.
 
+**Resources: the audience/platform-role visibility split is gone
+(2026-09-28).** `rc_articles.audience` (`staff`/`students`/`partners`, derived from
+`profiles.platform_role` by `private.resources_audience_for()`) never had a real effect:
+`private.rc_release_guide()`/`rc_release_note()` default `p_audience` to
+`{staff,students,partners}` and no migration has ever passed anything else, so every
+article a real release ever wrote was already visible to all three; no `student` or
+`faculty_partner` profile has ever existed in this portal (checked directly against
+production — one profile total, the administrator); and an editor or administrator
+already bypasses the audience check entirely. Only the three local/preview-only samples
+in `supabase/seed.sql` ever used a narrower combination. `20260928260000_resources_
+audience_removal.sql` drops the column, the `rc_audience` enum, `resources_audience_
+for()`, and the `p_audience` parameter from both release helpers (a drop-and-recreate,
+since the parameter list changes — `create or replace` can't do that), and simplifies
+`rc_articles_select`'s RLS policy to drop the audience clause: every active profile with
+Resources access now reads every article it's otherwise allowed to see. The create/edit
+form's "Visible to" checkboxes are gone with it. Restricting a procedure to a role or
+function — the actual next want — is deferred to a real model built for that, not a
+revival of this one; `area` (now free text, itself only just corrected above) is the
+closest existing candidate but isn't wired to access at all yet.
+
 **Capability layer and MCP server (Phases A–C landed; D–E not started — see
 `docs/agent-capabilities-design.md`):** important write paths are being pulled out of
 Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
