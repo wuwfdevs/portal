@@ -1,24 +1,36 @@
 import type { Metadata } from "next";
-import { Source_Sans_3, Source_Serif_4, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+// Self-hosted rather than next/font/google: Turbopack's Google Fonts fetch
+// has repeatedly failed production builds (a live dependency on Google's
+// font CDN at build time). These are the same three families/weights,
+// downloaded once — see CLAUDE.md.
+const sourceSans = localFont({
+  src: [
+    { path: "./fonts/source-sans-3-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/source-sans-3-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/source-sans-3-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-source-sans",
   display: "swap",
 });
 
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+const sourceSerif = localFont({
+  src: [
+    { path: "./fonts/source-serif-4-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/source-serif-4-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/source-serif-4-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-source-serif",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const jetbrainsMono = localFont({
+  src: [
+    { path: "./fonts/jetbrains-mono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jetbrains-mono-500.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-jetbrains-mono",
   display: "swap",
 });

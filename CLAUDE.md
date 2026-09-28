@@ -3556,6 +3556,19 @@ migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
 beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
 migration.
 
+**Fonts are self-hosted, not fetched from Google at build time (2026-09-28).**
+Production deploys had repeatedly failed in Turbopack (`Module not found:
+Can't resolve '@vercel/turbopack-next/internal/font/google/font'`) because
+`next/font/google` resolves each font over the network during the build —
+five of the prior six failed deployments, across four different branches,
+carried this exact signature. `src/app/layout.tsx` now uses `next/font/local`
+against `.woff2` files committed under `src/app/fonts/` (Source Sans 3
+400/600/700, Source Serif 4 400/600/700, JetBrains Mono 400/500 — the same
+families/weights/variable names as before, all open-license and
+redistributable), so the build has no live dependency on Google's font CDN.
+If a font family or weight is ever added, download it once into
+`src/app/fonts/` rather than reaching for `next/font/google` again.
+
 ## Common commands
 
 `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test` ·
