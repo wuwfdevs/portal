@@ -84,6 +84,60 @@ export function groupByReleaseDate<T extends { released_on: string | null }>(
   return groups.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
+export interface ProcedureAreaGroup<T> {
+  area: string;
+  count: number;
+  /** The first `previewLimit` procedures in the area, in input order. */
+  preview: T[];
+}
+
+/**
+ * Procedures grouped by area for the home page's area cards: largest area
+ * first, then by name. `area` is free text, so the groups come from the data,
+ * never a fixed list; a procedure with no area is left out, as it is from the
+ * area chips.
+ */
+export function groupProceduresByArea<T extends { area: string | null }>(
+  procedures: readonly T[],
+  previewLimit: number,
+): ProcedureAreaGroup<T>[] {
+  const byArea = new Map<string, ProcedureAreaGroup<T>>();
+  for (const procedure of procedures) {
+    if (!procedure.area) continue;
+    let group = byArea.get(procedure.area);
+    if (!group) {
+      group = { area: procedure.area, count: 0, preview: [] };
+      byArea.set(procedure.area, group);
+    }
+    group.count += 1;
+    if (group.preview.length < previewLimit) group.preview.push(procedure);
+  }
+  return [...byArea.values()].sort((a, b) => b.count - a.count || a.area.localeCompare(b.area));
+}
+
+/** What the home page's search can be limited to. */
+export const SEARCH_SCOPES = [
+  { value: "all", label: "All" },
+  { value: "procedure", label: "Procedures" },
+  { value: "guide", label: "Tool guides" },
+  { value: "release_note", label: "What's new" },
+] as const;
+
+export type SearchScope = (typeof SEARCH_SCOPES)[number]["value"];
+
+/** A `?in=` value from the URL, or "all" for anything unrecognized. */
+export function parseSearchScope(value: string | undefined): SearchScope {
+  return SEARCH_SCOPES.some((scope) => scope.value === value) ? (value as SearchScope) : "all";
+}
+
+/** Keeps the hits in scope, in their ranked order. */
+export function hitsInScope<T extends { article: { kind: RcKind } }>(
+  hits: readonly T[],
+  scope: SearchScope,
+): T[] {
+  return scope === "all" ? [...hits] : hits.filter((hit) => hit.article.kind === scope);
+}
+
 /** The URL an article lives at. */
 export function articleHref(
   article: { kind: RcKind; slug: string },

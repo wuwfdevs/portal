@@ -262,3 +262,46 @@ export async function deleteArticle(formData: FormData): Promise<void> {
   revalidatePath("/resources", "layout");
   redirect("/resources?deleted=1");
 }
+
+/**
+ * Pin or unpin a procedure on the home page's "When something breaks on air"
+ * block. Editor-only, and RLS on rc_pinned_procedures says the same. A pin is
+ * its own row, not an edit to the procedure, so it makes no new version.
+ */
+export async function setProcedurePinned(formData: FormData): Promise<void> {
+  const { profile } = await assertResourcesEditor();
+  const id = field(formData, "id");
+  const pinned = field(formData, "pinned") === "1";
+  // Only ever back to a page under /resources.
+  const requested = field(formData, "return_to");
+  const returnPath = requested.startsWith("/resources") ? requested : "/resources";
+  const supabase = await createClient();
+
+  const { data: existing, error: readError } = await supabase
+    .from("rc_articles")
+    .select("id, kind, slug")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) throw new Error(`Could not load the procedure: ${readError.message}`);
+  if (!existing || existing.kind !== "procedure") failWith(returnPath, "That isn't a procedure.");
+
+  if (pinned) {
+    const { error } = await supabase
+      .from("rc_pinned_procedures")
+      .upsert({ article_id: id }, { onConflict: "article_id", ignoreDuplicates: true });
+    failIfError(error, returnPath, "Could not pin");
+  } else {
+    const { error } = await supabase.from("rc_pinned_procedures").delete().eq("article_id", id);
+    failIfError(error, returnPath, "Could not unpin");
+  }
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: pinned ? "rc.procedure.pinned" : "rc.procedure.unpinned",
+    targetType: "rc_article",
+    targetId: id,
+    metadata: { slug: existing.slug },
+  });
+  revalidatePath("/resources", "layout");
+  redirect(returnPath);
+}

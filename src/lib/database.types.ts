@@ -1463,6 +1463,18 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["rc_release_note_guides"]["Row"]>;
         Relationships: [];
       };
+      rc_pinned_procedures: {
+        Row: {
+          article_id: string;
+          pinned_at: string;
+          pinned_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["rc_pinned_procedures"]["Row"]> & {
+          article_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rc_pinned_procedures"]["Row"]>;
+        Relationships: [];
+      };
       rd_comments: {
         Row: {
           id: string;

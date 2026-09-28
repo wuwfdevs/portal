@@ -2,12 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { RichText } from "@/components/ui/rich-text";
 import { requireResourcesAccess } from "@/lib/resources/access";
 import { formatUpdatedDate, guideLinksInBody } from "@/lib/resources/articles";
 import { resolveFigures } from "@/lib/resources/media";
-import { getArticleVersion, getProcedure, listVersions } from "@/lib/resources/queries";
+import {
+  getArticleVersion,
+  getProcedure,
+  isProcedurePinned,
+  listVersions,
+} from "@/lib/resources/queries";
+import { setProcedurePinned } from "../../actions";
 import { HistoryCard } from "../../history-card";
 
 const SAVED_LABELS: Record<string, string> = { created: "Created", updated: "Saved" };
@@ -17,9 +24,9 @@ export default async function ProcedurePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ history?: string; version?: string; saved?: string }>;
+  searchParams: Promise<{ history?: string; version?: string; saved?: string; error?: string }>;
 }) {
-  const [{ slug }, { history, version, saved }, { isEditor }] = await Promise.all([
+  const [{ slug }, { history, version, saved, error }, { isEditor }] = await Promise.all([
     params,
     searchParams,
     requireResourcesAccess(),
@@ -33,9 +40,10 @@ export default async function ProcedurePage({
       ? await getArticleVersion(procedure.id, requested)
       : null;
   const showHistory = history === "1" || past !== null;
-  const [versions, figures] = await Promise.all([
+  const [versions, figures, pinned] = await Promise.all([
     showHistory ? listVersions(procedure.id) : Promise.resolve([]),
     resolveFigures([past?.body ?? procedure.body]),
+    isEditor ? isProcedurePinned(procedure.id) : Promise.resolve(false),
   ]);
   const shown = past ?? procedure;
   const guides = guideLinksInBody(shown.body);
@@ -69,6 +77,11 @@ export default async function ProcedurePage({
             <span>·</span>
             <span>Updated {updated}</span>
           </div>
+          {error && (
+            <Alert variant="danger" className="mt-4">
+              {error}
+            </Alert>
+          )}
           {past && (
             <Alert variant="note" className="mt-4">
               You&apos;re reading version {past.version}, from {formatUpdatedDate(past.created_at)}.{" "}
@@ -109,6 +122,27 @@ export default async function ProcedurePage({
               { label: "Updated", value: updated },
             ]}
           />
+          {isEditor && (
+            <form
+              action={setProcedurePinned}
+              className="flex flex-col gap-2 rounded border border-line bg-white p-5"
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+                Resources home
+              </p>
+              <p className="text-[13px] text-ink-700">
+                {pinned
+                  ? "Pinned under \u201cWhen something breaks on air\u201d."
+                  : "Pin this procedure under \u201cWhen something breaks on air\u201d on the Resources home page."}
+              </p>
+              <input type="hidden" name="id" value={procedure.id} />
+              <input type="hidden" name="pinned" value={pinned ? "0" : "1"} />
+              <input type="hidden" name="return_to" value={basePath} />
+              <Button type="submit" variant="secondary" className="self-start">
+                {pinned ? "Unpin" : "Pin to home page"}
+              </Button>
+            </form>
+          )}
           {guides.length > 0 && (
             <div className="rounded border border-line bg-white p-5">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-400">

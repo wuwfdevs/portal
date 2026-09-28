@@ -45,6 +45,8 @@ export interface ToolGuideSummary {
   count: number;
   lastUpdated: string;
   firstSlug: string;
+  /** Every guide for the tool, in list order. */
+  guides: { slug: string; title: string }[];
 }
 
 export interface SearchHit {
@@ -126,20 +128,76 @@ export async function listProcedureAreaCounts(): Promise<ProcedureAreaCount[]> {
     .sort((a, b) => a.area.localeCompare(b.area));
 }
 
-/** Procedures, most recently updated first — the home page's preview list. */
-export async function listRecentProcedures(limit: number): Promise<ArticleRow[]> {
+export interface ProcedureLink {
+  id: string;
+  slug: string;
+  title: string;
+  area: string | null;
+}
+
+/**
+ * Every procedure the viewer can read, by title, as links — the home page
+ * groups these into area cards. Unpaged on purpose: the home page needs every
+ * area's count and first few titles, and the full list is a few dozen rows.
+ */
+export async function listProcedureLinks(): Promise<ProcedureLink[]> {
   const supabase = await createClient();
   const rows = unwrapRead(
     await supabase
       .from("rc_articles")
-      .select(ARTICLE_COLUMNS)
+      .select("id, slug, title, area")
       .eq("kind", "procedure")
-      .order("updated_at", { ascending: false })
-      .order("id")
-      .limit(limit),
-    "recent procedures",
+      .order("title")
+      .order("id"),
+    "procedures",
   );
   return rows ?? [];
+}
+
+/**
+ * The procedures pinned to the home page's "When something breaks on air"
+ * block, in the order they were pinned. A pin on a procedure the viewer can't
+ * read is filtered out by RLS on both tables.
+ */
+export async function listPinnedProcedures(): Promise<ProcedureLink[]> {
+  const supabase = await createClient();
+  const pins =
+    unwrapRead(
+      await supabase
+        .from("rc_pinned_procedures")
+        .select("article_id")
+        .order("pinned_at")
+        .order("article_id"),
+      "pinned procedures",
+    ) ?? [];
+  if (pins.length === 0) return [];
+  const rows =
+    unwrapRead(
+      await supabase
+        .from("rc_articles")
+        .select("id, slug, title, area")
+        .eq("kind", "procedure")
+        .in(
+          "id",
+          pins.map((pin) => pin.article_id),
+        ),
+      "pinned procedure titles",
+    ) ?? [];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return pins.flatMap((pin) => byId.get(pin.article_id) ?? []);
+}
+
+export async function isProcedurePinned(articleId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const pin = unwrapRead(
+    await supabase
+      .from("rc_pinned_procedures")
+      .select("article_id")
+      .eq("article_id", articleId)
+      .maybeSingle(),
+    "procedure pin",
+  );
+  return pin !== null;
 }
 
 /** One card per tool that has at least one guide the viewer can read. */
@@ -162,9 +220,16 @@ export async function listToolGuideSummaries(): Promise<ToolGuideSummary[]> {
     if (!tool) continue;
     const summary = byTool.get(tool.id);
     if (!summary) {
-      byTool.set(tool.id, { tool, count: 1, lastUpdated: guide.updated_at, firstSlug: guide.slug });
+      byTool.set(tool.id, {
+        tool,
+        count: 1,
+        lastUpdated: guide.updated_at,
+        firstSlug: guide.slug,
+        guides: [{ slug: guide.slug, title: guide.title }],
+      });
     } else {
       summary.count += 1;
+      summary.guides.push({ slug: guide.slug, title: guide.title });
       if (guide.updated_at > summary.lastUpdated) summary.lastUpdated = guide.updated_at;
     }
   }
