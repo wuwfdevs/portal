@@ -21,30 +21,47 @@ export function PortalNav({ profile }: { profile: Profile }) {
   const isOnAdmin = pathname.startsWith("/admin");
 
   return (
-    <header className="flex h-16 items-center gap-7 border-b border-line px-7">
-      <Link href="/dashboard" className="flex items-center gap-3.5">
-        <Image src="/wuwf-logo.png" alt="WUWF" height={26} width={62} className="h-[26px] w-auto" />
+    <header className="flex h-16 items-center gap-4 border-b border-line px-4 sm:gap-7 sm:px-7">
+      <Link href="/dashboard" className="flex shrink-0 items-center gap-3.5">
+        <Image
+          src="/wuwf-logo.png"
+          alt="WUWF"
+          height={26}
+          width={62}
+          className="h-[26px] w-auto max-w-none"
+        />
         <span className="hidden h-[22px] w-px bg-line sm:block" />
-        <span className="hidden text-[13px] font-bold tracking-wide text-ink-700 sm:inline">TOOLS</span>
+        <span className="hidden text-[13px] font-bold tracking-wide text-ink-700 sm:inline">
+          TOOLS
+        </span>
       </Link>
-      <nav className="ml-2 flex h-full items-center gap-[22px]">
+      <nav className="flex h-full min-w-0 items-center gap-4 sm:ml-2 sm:gap-[22px]">
         <NavLink href="/dashboard" active={!isOnAdmin}>
           Dashboard
         </NavLink>
         {isAdmin && (
           <NavLink href="/admin/users" active={isOnAdmin}>
-            Administration
+            <span className="sm:hidden">Admin</span>
+            <span className="hidden sm:inline">Administration</span>
           </NavLink>
         )}
       </nav>
-      <div className="flex-1" />
-      <details className="group relative">
+      <details className="group relative ml-auto shrink-0">
         <summary className="flex cursor-pointer list-none items-center gap-2 rounded px-2 py-1.5 [&::-webkit-details-marker]:hidden">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-surface text-xs font-bold text-brand-link">
             {initialsFor(profile.display_name)}
           </span>
-          <span className="text-[13px] font-semibold text-ink-700">{profile.display_name}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6068" strokeWidth="2">
+          <span className="hidden text-[13px] font-semibold text-ink-700 sm:inline">
+            {profile.display_name}
+          </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#5A6068"
+            strokeWidth="2"
+          >
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </summary>
@@ -64,7 +81,15 @@ export function PortalNav({ profile }: { profile: Profile }) {
   );
 }
 
-function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+function NavLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
