@@ -165,7 +165,9 @@ repo and a project's history, not the version number.
 | `20260928270000_resources_pinned_procedures.sql`                      | 2026-09-28 | 2026-09-28 |
 | `20260929120000_resources_remove_captured_shots.sql`                  | 2026-09-29 | 2026-09-29 |
 | `20260929130000_resources_media_capture_columns_drop.sql`             | 2026-09-29 | 2026-09-29 |
+| `20260929140000_resources_log_programs_and_clocks.sql`                | 2026-09-29 | 2026-09-29 |
 | `20260929150000_resources_log_import_on_today.sql`                    | 2026-09-29 | 2026-09-29 |
+| `20260929160000_resources_log_sources_tab.sql`                        | 2026-09-29 | 2026-09-29 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

@@ -175,6 +175,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/log/programs/:id/schedule/new", "/log/programs/:id/schedule/:entryId/edit"],
   },
   {
+    key: "log.sources",
+    name: "Sources",
+    toolKey: "log",
+    paths: ["/log/sources", "/log/sources/npr", "/log/sources/weather"],
+  },
+  {
     key: "underwriting.contracts",
     name: "Contracts",
     toolKey: "underwriting",
