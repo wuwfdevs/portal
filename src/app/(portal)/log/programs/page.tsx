@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
@@ -19,8 +20,19 @@ import {
   STATUS_LABEL,
   type ProgramScheduleStatus,
 } from "@/lib/log/program-status";
-import { formatAirTime } from "@/lib/log/schedule";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import {
+  airTimeToMinutes,
+  describeEntryDays,
+  formatTimeRange,
+  formatWeekRange,
+  isValidDateISO,
+  layoutDayBlocks,
+  visibleHourRange,
+  weekDates,
+  weekStartISO,
+} from "@/lib/log/week-layout";
 import {
   listClockSummaries,
   listClockTemplates,
@@ -28,8 +40,42 @@ import {
   listScheduleEntries,
 } from "@/lib/log/queries";
 import { createProgram } from "../program-actions";
+import { WeekGrid, type WeekDay } from "./week-grid";
 
 const PROGRAMS_PATH = "/log/programs";
+
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** "Week | List", real links — the active side is filled navy. */
+function ViewToggle({ active }: { active: "week" | "list" }) {
+  const base =
+    "inline-flex h-9 items-center px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900";
+  return (
+    <nav aria-label="View" className="inline-flex overflow-hidden rounded border border-[#C9CED4]">
+      <Link
+        href={`${PROGRAMS_PATH}?view=week`}
+        aria-current={active === "week" ? "page" : undefined}
+        className={cn(
+          base,
+          active === "week" ? "bg-[#0F2235] text-white" : "bg-white text-ink-900 hover:bg-panel-50",
+        )}
+      >
+        Week
+      </Link>
+      <Link
+        href={PROGRAMS_PATH}
+        aria-current={active === "list" ? "page" : undefined}
+        className={cn(
+          base,
+          "border-l border-[#C9CED4]",
+          active === "list" ? "bg-[#0F2235] text-white" : "bg-white text-ink-900 hover:bg-panel-50",
+        )}
+      >
+        List
+      </Link>
+    </nav>
+  );
+}
 
 const STATUS_PARAM: Record<string, ProgramScheduleStatus> = {
   ready: "on_real_clock",
@@ -63,10 +109,25 @@ export default async function ProgramsPage({
     status?: string;
     page?: string;
     unusedClocks?: string;
+    view?: string;
+    week?: string;
   }>;
 }) {
-  const { q, new: newParam, error, status, page: pageParam, unusedClocks } = await searchParams;
+  const {
+    q,
+    new: newParam,
+    error,
+    status,
+    page: pageParam,
+    unusedClocks,
+    view,
+    week,
+  } = await searchParams;
   const { isProducer } = await requireLogAccess();
+
+  if (view === "week") {
+    return <WeekView isProducer={isProducer} week={week} error={error} />;
+  }
   const creating = isProducer && newParam === "1";
   const query = (q ?? "").trim().toLowerCase();
   const statusFilter = status ? (STATUS_PARAM[status] ?? null) : null;
@@ -141,20 +202,24 @@ export default async function ProgramsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <ListToolbar
-        search={{
-          placeholder: "Search programs",
-          label: "Search programs",
-          defaultValue: q,
-          hidden: status ? { status } : undefined,
-        }}
-        chips={chips}
-        chipsLabel="Filter by status"
-      >
-        {isProducer && !creating && (
-          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>+ New program</PrimaryLink>
-        )}
-      </ListToolbar>
+      <div className="flex flex-wrap items-center gap-3">
+        <ViewToggle active="list" />
+        <ListToolbar
+          className="min-w-0 flex-1"
+          search={{
+            placeholder: "Search programs",
+            label: "Search programs",
+            defaultValue: q,
+            hidden: status ? { status } : undefined,
+          }}
+          chips={chips}
+          chipsLabel="Filter by status"
+        >
+          {isProducer && !creating && (
+            <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>+ New program</PrimaryLink>
+          )}
+        </ListToolbar>
+      </div>
 
       {error && !creating && <Alert>{error}</Alert>}
 
@@ -341,6 +406,120 @@ export default async function ProgramsPage({
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The week grid: one Monday–Sunday week, built from the same schedule entries
+ * the list reads. `?week=` is any date (normalised to that week's Monday);
+ * missing or invalid means the current week in station time.
+ */
+async function WeekView({
+  isProducer,
+  week,
+  error,
+}: {
+  isProducer: boolean;
+  week: string | undefined;
+  error: string | undefined;
+}) {
+  const today = stationTodayISO();
+  const monday = weekStartISO(isValidDateISO(week) ? week : today);
+  const dates = weekDates(monday);
+  const entries = await listScheduleEntries();
+
+  const dayEntries = dates.map((dateISO) =>
+    entries
+      .filter((entry) => isScheduleEntryActiveOn(entry, dateISO))
+      .map((entry) => ({
+        entry,
+        dateISO,
+        id: `${entry.id}:${dateISO}`,
+        startMinutes: airTimeToMinutes(entry.air_time),
+        durationMinutes: entry.duration_minutes,
+      })),
+  );
+  const { startHour, endHour } = visibleHourRange(dayEntries.flat());
+
+  const days: WeekDay[] = dates.map((dateISO, index) => {
+    const items = dayEntries[index] ?? [];
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const blocks = layoutDayBlocks(items, startHour, endHour).flatMap((positioned) => {
+      const item = byId.get(positioned.id);
+      if (!item) return [];
+      const { entry } = item;
+      return [
+        {
+          key: item.id,
+          entryId: entry.id,
+          programId: entry.program_id,
+          programName: entry.programName,
+          timeText: formatTimeRange(entry.air_time, entry.duration_minutes),
+          daysText: describeEntryDays(entry),
+          clockName: entry.clockTemplateName,
+          isPlaceholder: isPlaceholderClockName(entry.clockTemplateName),
+          topMinutes: positioned.topMinutes,
+          heightMinutes: positioned.heightMinutes,
+          lane: positioned.lane,
+          laneCount: positioned.laneCount,
+        },
+      ];
+    });
+    return { dateISO, name: DAY_NAMES[index] ?? "", num: Number(dateISO.slice(8)), blocks };
+  });
+
+  const weekHref = (dateISO: string) => `${PROGRAMS_PATH}?view=week&week=${dateISO}`;
+  const navLink =
+    "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <ViewToggle active="week" />
+        <h2 className="text-[15px] font-semibold text-ink-900">{formatWeekRange(monday)}</h2>
+        <Link href={weekHref(shiftDateISO(monday, -7))} className={navLink}>
+          <span aria-hidden="true">← </span>Prev
+          <span className="sr-only"> week</span>
+        </Link>
+        <Link href={weekHref(shiftDateISO(monday, 7))} className={navLink}>
+          Next<span className="sr-only"> week</span>
+          <span aria-hidden="true"> →</span>
+        </Link>
+        <Link href={`${PROGRAMS_PATH}?view=week`} className={navLink}>
+          Today
+        </Link>
+        <span className="flex-1" />
+        <span className="text-[13px] text-ink-700">
+          <span
+            aria-hidden="true"
+            className="mr-1.5 inline-block size-3 border border-brand-primary/60 bg-brand-surface align-[-1px]"
+          />
+          Real clock
+        </span>
+        <span className="text-[13px] text-ink-700">
+          <span
+            aria-hidden="true"
+            className="mr-1.5 inline-block size-3 border border-dashed border-warning-border bg-warning-bg align-[-1px]"
+          />
+          Needs a clock
+        </span>
+        {isProducer && <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>+ New program</PrimaryLink>}
+      </div>
+
+      {error && <Alert>{error}</Alert>}
+
+      <WeekGrid
+        days={days}
+        startHour={startHour}
+        endHour={endHour}
+        canEdit={isProducer}
+        todayISO={today}
+      />
+
+      <p className="text-[13px] text-ink-500">
+        Select a block to edit when it airs or open its program. Times are Central.
+      </p>
     </div>
   );
 }

@@ -23,6 +23,19 @@ function templatePath(id: string): string {
   return `${LIST_PATH}/${id}`;
 }
 
+/**
+ * Where an action returns to: the clock's page, keeping the version / hour /
+ * slot the producer was looking at when the form posts a `return_query` (built
+ * by the clock viewer and its server-rendered forms). Anything that isn't a
+ * plain query string of ids is ignored.
+ */
+function returnPath(formData: FormData, templateId: string): string {
+  const query = String(formData.get("return_query") ?? "").trim();
+  return /^[A-Za-z0-9_=&.-]{1,400}$/.test(query)
+    ? `${templatePath(templateId)}?${query}`
+    : templatePath(templateId);
+}
+
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
@@ -81,7 +94,7 @@ const VARIANTS: LogClockVersionVariant[] = [
 export async function createClockVersion(formData: FormData): Promise<void> {
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
   const variant = field(formData, "variant") as LogClockVersionVariant;
   if (!VARIANTS.includes(variant)) failWith(path, "That is not a recognized clock variant.");
   const effectiveFrom = field(formData, "effective_from");
@@ -112,7 +125,7 @@ export async function addClockSlot(formData: FormData): Promise<void> {
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const versionId = field(formData, "clock_version_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
 
   const position = Number.parseInt(field(formData, "position"), 10);
   const durationSeconds = Number.parseInt(field(formData, "duration_seconds"), 10);
@@ -182,7 +195,7 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
   const templateId = field(formData, "clock_template_id");
   const versionId = field(formData, "clock_version_id");
   const slotId = field(formData, "slot_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
   if (slotId === "") failWith(path, "Choose which network slot this opportunity marks eligible.");
 
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
@@ -219,7 +232,7 @@ export async function updateLocalOpportunity(formData: FormData): Promise<void> 
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
 
   const requirement = field(formData, "requirement") as LogOpportunityRequirement;
   if (!REQUIREMENTS.includes(requirement)) failWith(path, "That is not a recognized requirement.");
@@ -244,7 +257,7 @@ export async function deactivateLocalOpportunity(formData: FormData): Promise<vo
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -280,7 +293,7 @@ export async function assignOpportunityContent(formData: FormData): Promise<void
   const { profile } = await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
   if (opportunityId === "") failWith(path, "Choose which opportunity to pin content to.");
 
   const contentItemId = field(formData, "content_item_id");
@@ -312,7 +325,7 @@ export async function deactivateOpportunityAssignment(formData: FormData): Promi
   await assertLogProducer();
   const templateId = field(formData, "clock_template_id");
   const assignmentId = field(formData, "assignment_id");
-  const path = templatePath(templateId);
+  const path = returnPath(formData, templateId);
 
   const supabase = await createClient();
   const { error } = await supabase

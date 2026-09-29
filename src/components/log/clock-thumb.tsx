@@ -1,9 +1,5 @@
-import {
-  buildClockFaceSegments,
-  categorizeSlot,
-  CATEGORY_COLOR,
-  slotRenderWindow,
-} from "@/lib/log/clock-face";
+import { describeRingSegment, slotRenderWindow } from "@/lib/log/clock-face";
+import { SLOT_VISUAL_COLORS, slotVisualKind } from "@/lib/log/clock-view";
 import type { LogClockSlotRow } from "@/lib/log/queries";
 
 const CENTER = 50;
@@ -29,18 +25,29 @@ export function ClockThumb({
   size?: number;
   label: string;
 }) {
+  // Same four-colour palette as the clock page's diagram (SLOT_VISUAL_COLORS);
+  // a floating slot draws as an ordinary segment across its window.
   const segments = placeholder
     ? []
-    : buildClockFaceSegments(
-        slots,
-        3600,
-        categorizeSlot,
-        slotRenderWindow,
-        CENTER,
-        CENTER,
-        R_OUTER,
-        R_INNER,
-      );
+    : slots.flatMap((slot) => {
+        const window = slotRenderWindow(slot);
+        const pathD = describeRingSegment(
+          CENTER,
+          CENTER,
+          R_OUTER,
+          R_INNER,
+          (window.start / 3600) * 360,
+          (window.duration / 3600) * 360,
+        );
+        return pathD
+          ? [
+              {
+                pathD,
+                kind: slot.timing_mode === "float" ? ("segment" as const) : slotVisualKind(slot),
+              },
+            ]
+          : [];
+      });
   const middle = (R_OUTER + R_INNER) / 2;
 
   return (
@@ -67,7 +74,7 @@ export function ClockThumb({
           <path
             key={index}
             d={segment.pathD}
-            fill={CATEGORY_COLOR[segment.category].fill}
+            fill={SLOT_VISUAL_COLORS[segment.kind].fill}
             stroke="#FFFFFF"
             strokeWidth={1}
           />
