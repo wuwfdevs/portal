@@ -1,11 +1,5 @@
 import { cn } from "@/lib/cn";
-import type {
-  ComponentProps,
-  InputHTMLAttributes,
-  LabelHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-} from "react";
+import type { ComponentProps, LabelHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 
 /**
  * One control style for every text input, select, and textarea in the portal.
@@ -37,7 +31,9 @@ export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElem
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+// ComponentProps so a caller can pass a `ref` (React 19 forwards it as an
+// ordinary prop) — ListSearch follows the URL into its box through one.
+export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(controlClasses, className)} {...props} />;
 }
 

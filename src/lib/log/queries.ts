@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { pageRange } from "@/lib/pagination";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
 import type { Database } from "@/lib/database.types";
@@ -377,6 +378,86 @@ export async function listContentItemsWithComponents(
   }
 
   return items.map((item) => ({ ...item, components: componentsByItem.get(item.id) ?? [] }));
+}
+
+export interface ContentLibraryPageFilters extends ContentLibraryFilters {
+  /** Free-text search over title, DAD cart number, and script. */
+  search?: string;
+}
+
+/**
+ * PostgREST `or` filter for a content-library search. Commas and parentheses
+ * are the `or` syntax's own delimiters and `%`/`_` are ILIKE wildcards, so
+ * they are stripped from the term rather than escaped.
+ */
+function contentSearchFilter(search: string | undefined): string | null {
+  const term = (search ?? "").replace(/[%_,()"\\]/g, " ").trim();
+  if (!term) return null;
+  return `title.ilike.%${term}%,dad_cart_number.ilike.%${term}%,script.ilike.%${term}%`;
+}
+
+/**
+ * One page of the content library browse screen (docs/ui-patterns.md,
+ * "Pagination"): filtered, searched, and sorted in the query — newest first,
+ * id as the tiebreaker — with the total from the same select. Components are
+ * fetched for this page's items only; a page is at most DEFAULT_PAGE_SIZE ids,
+ * so the `.in()` list stays short (unlike listContentItemsWithComponents,
+ * whose unpaginated list is why that function fetches every component).
+ */
+export async function listContentLibraryPage(
+  filters: ContentLibraryPageFilters & { page: number; pageSize?: number },
+): Promise<{ rows: ContentItemDetail[]; total: number }> {
+  const supabase = await createClient();
+  const { from, to } = pageRange(filters.page, filters.pageSize);
+  let query = supabase.from("log_content_items").select("*", { count: "exact" });
+  if (filters.contentType) query = query.eq("content_type", filters.contentType);
+  if (filters.approvalStatus) query = query.eq("approval_status", filters.approvalStatus);
+  const searchFilter = contentSearchFilter(filters.search);
+  if (searchFilter) query = query.or(searchFilter);
+  const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
+  // Past the end, PostgREST answers 416 (PGRST103) rather than an empty page;
+  // report no rows and let the screen redirect to the last page.
+  if (result.error?.code === "PGRST103") {
+    return { rows: [], total: await countContentItems(filters) };
+  }
+  const items = unwrapRead(result, "the content library") ?? [];
+  const total = result.count ?? 0;
+  if (items.length === 0) return { rows: [], total };
+
+  const components =
+    unwrapRead(
+      await supabase
+        .from("log_content_components")
+        .select("*")
+        .in(
+          "content_item_id",
+          items.map((item) => item.id),
+        ),
+      "these content items' components",
+    ) ?? [];
+  const componentsByItem = new Map<string, LogContentComponentRow[]>();
+  for (const component of components) {
+    const existing = componentsByItem.get(component.content_item_id);
+    if (existing) existing.push(component);
+    else componentsByItem.set(component.content_item_id, [component]);
+  }
+  return {
+    rows: items.map((item) => ({ ...item, components: componentsByItem.get(item.id) ?? [] })),
+    total,
+  };
+}
+
+/** How many content items match — the content library's filter-chip counts. */
+export async function countContentItems(filters: ContentLibraryPageFilters): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase.from("log_content_items").select("id", { count: "exact", head: true });
+  if (filters.contentType) query = query.eq("content_type", filters.contentType);
+  if (filters.approvalStatus) query = query.eq("approval_status", filters.approvalStatus);
+  const searchFilter = contentSearchFilter(filters.search);
+  if (searchFilter) query = query.or(searchFilter);
+  const result = await query;
+  unwrapRead(result, "the content library count");
+  return result.count ?? 0;
 }
 
 /** One content item plus its components, in sequence order. */

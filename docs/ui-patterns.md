@@ -22,7 +22,7 @@ The problems it had:
 
 1. **List pages** use the Contracts layout: a `ListToolbar` (search, optional `FilterChips`,
    spacer, secondary links, primary `PrimaryLink` "+ New X") above a full-width `TableFrame`
-   table or card list. Search and filters are plain query-string forms and links.
+   table or card list. Filters are plain query-string links; search is `ListSearch` (see "Search").
 2. **Create** depends on the size of the record:
    - **Dedicated page** (`/x/new`) when the record has about five or more fields or has
      prerequisites. Underwriters is the reference.
@@ -141,9 +141,29 @@ resolution form is the triage action), `log/library/[id]` (approval status),
 `academic-partnerships/[id]` (owner, stage, disposition, delete — all actions). None held a
 create form or a duplicate of an edit page.
 
-Not on the old layout, and not touched: `log/library` filters with two selects and a Filter
-button rather than a search box and chips. It is a candidate for `ListToolbar` when next
-worked on, not a sidebar to remove.
+`log/library` moved onto `ListToolbar` with search and pagination on 2026-09-29.
+
+## Search (2026-09-29)
+
+Every `ListToolbar` search box is `ListSearch` (`components/ui/list-search.tsx`). It used to
+be a GET form that only searched on Enter, and clearing the box did nothing until Enter was
+pressed again — the browser's own clear button (×) included. Now:
+
+1. **It searches as you type**, 300 ms after the last keystroke
+   (`LIST_SEARCH_DEBOUNCE_MS`). Enter searches at once.
+2. **Clearing the box resets the list immediately**, whether the text is deleted or the ×
+   is used.
+3. **The URL stays the source of truth** (`?q=`). Each search is a `router.replace`, not a
+   push, so typing doesn't add one Back entry per keystroke; the box follows the URL when
+   it changes some other way (Back, a link without `q`). A new search drops `page` and
+   keeps the list's filters (`hidden`) — `listSearchHref()` in `lib/list-search.ts`, pure
+   and tested.
+4. It is still a plain GET form underneath, so it works before hydration.
+
+Search-as-you-type is right here because each of these searches is one cheap
+query over a list of hundreds to low thousands of rows. A search that is expensive or
+calls a model (Resources' hybrid search, Sourcework's `tw_search`) is a different case and
+keeps Enter-to-search.
 
 ## Pagination (2026-09-28)
 
@@ -187,14 +207,13 @@ paginated.
 
 ### Rollout
 
-Done: Resources procedures (2026-09-28).
+Done: Resources procedures (2026-09-28), `log/library` (2026-09-29 — search over title,
+DAD cart and script, status chips with counts, type chips, components fetched for one
+page's items; `listContentLibraryPage` in `lib/log/queries.ts`).
 
 To do. Each is its own change, because each has to move its filters and counts into the
 query first. Roughly in order of urgency:
 
-- `log/library`: close to the 1000-row cap. `listContentItemsWithComponents` fetches every
-  `log_content_components` row on purpose (see its docstring), so fetch the components for
-  one page's items instead.
 - `admin/audit`: currently truncated at 100 rows.
 - `underwriting/exceptions`, `underwriting/affidavits`, `underwriting/makegoods`: these
   grow with every airing. Exceptions filters in JS.

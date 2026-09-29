@@ -1,118 +1,189 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { Pagination } from "@/components/ui/pagination";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { computeTotalDurationSeconds, CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
-import { listContentItemsWithComponents } from "@/lib/log/queries";
+import { countContentItems, listContentLibraryPage } from "@/lib/log/queries";
+import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import type { LogApprovalStatus, LogContentType } from "@/lib/database.types";
 
+const PATH = "/log/library";
 const CONTENT_TYPES = Object.keys(CONTENT_TYPE_LABEL) as LogContentType[];
+const APPROVAL_STATUSES = ["approved", "draft", "retired"] as const;
+const APPROVAL_STATUS_LABEL: Record<LogApprovalStatus, string> = {
+  approved: "Approved",
+  draft: "Draft",
+  retired: "Retired",
+};
 const APPROVAL_STATUS_VARIANT: Record<LogApprovalStatus, BadgeVariant> = {
   draft: "neutral",
   approved: "success",
   retired: "muted",
 };
 
+/**
+ * The content library (docs/ui-patterns.md): search, approval-status chips
+ * with counts, content-type chips, and a paginated table. Everything is
+ * filtered in the query — the library is close to PostgREST's 1000-row cap,
+ * past which an unpaginated select silently drops rows.
+ */
 export default async function ContentLibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ content_type?: string; approval_status?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    content_type?: string;
+    approval_status?: string;
+    page?: string;
+  }>;
 }) {
-  const { content_type: contentTypeParam, approval_status: approvalStatusParam } =
-    await searchParams;
+  const {
+    q,
+    content_type: contentTypeParam,
+    approval_status: approvalStatusParam,
+    page,
+  } = await searchParams;
+  const search = q?.trim() || undefined;
   const contentType = CONTENT_TYPES.includes(contentTypeParam as LogContentType)
     ? (contentTypeParam as LogContentType)
     : undefined;
-  const approvalStatus = (["draft", "approved", "retired"] as const).includes(
-    approvalStatusParam as LogApprovalStatus,
+  const approvalStatus = (APPROVAL_STATUSES as readonly string[]).includes(
+    approvalStatusParam ?? "",
   )
     ? (approvalStatusParam as LogApprovalStatus)
     : undefined;
+  const pageNum = parsePage(page);
 
-  const items = await listContentItemsWithComponents({ contentType, approvalStatus });
+  // Status counts respect the search and the type filter, so each chip says
+  // how many rows it would show.
+  const [{ rows, total }, allCount, ...statusCounts] = await Promise.all([
+    listContentLibraryPage({ search, contentType, approvalStatus, page: pageNum }),
+    countContentItems({ search, contentType }),
+    ...APPROVAL_STATUSES.map((status) =>
+      countContentItems({ search, contentType, approvalStatus: status }),
+    ),
+  ]);
+
+  const listParams = { q: search, content_type: contentType, approval_status: approvalStatus };
+  const info = pageInfo(pageNum, total);
+  if (isPastLastPage(info)) redirect(pageHref(PATH, listParams, info.pageCount));
+  const hrefWith = (changes: Partial<typeof listParams>) =>
+    pageHref(PATH, { ...listParams, ...changes }, 1);
+
+  const filtered = Boolean(search || contentType || approvalStatus);
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <form className="flex flex-wrap items-end gap-3" method="get">
-          <div>
-            <Select name="content_type" defaultValue={contentType ?? ""} className="w-56">
-              <option value="">All content types</option>
-              {CONTENT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {CONTENT_TYPE_LABEL[type]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Select name="approval_status" defaultValue={approvalStatus ?? ""} className="w-40">
-              <option value="">Any status</option>
-              <option value="draft">Draft</option>
-              <option value="approved">Approved</option>
-              <option value="retired">Retired</option>
-            </Select>
-          </div>
-          <Button type="submit" variant="secondary" className="shrink-0">
-            Filter
-          </Button>
-        </form>
-        <div className="flex shrink-0 gap-2">
-          <Link href="/log/library/import">
-            <Button type="button" variant="secondary">
-              Import from DAD
-            </Button>
-          </Link>
-          <Link href="/log/library/new">
-            <Button type="button">+ New content item</Button>
-          </Link>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4">
+      <ListToolbar
+        search={{
+          placeholder: "Search title, cart, or script",
+          label: "Search the content library",
+          defaultValue: search,
+          hidden: {
+            ...(contentType ? { content_type: contentType } : {}),
+            ...(approvalStatus ? { approval_status: approvalStatus } : {}),
+          },
+        }}
+        chipsLabel="Filter by status"
+        chips={[
+          {
+            label: "All",
+            count: allCount,
+            href: hrefWith({ approval_status: undefined }),
+            active: !approvalStatus,
+          },
+          ...APPROVAL_STATUSES.map((status, index) => ({
+            label: APPROVAL_STATUS_LABEL[status],
+            count: statusCounts[index],
+            href: hrefWith({ approval_status: status }),
+            active: approvalStatus === status,
+          })),
+        ]}
+      >
+        <Link
+          href="/log/library/import"
+          className="px-1 text-sm font-bold text-brand-link hover:underline"
+        >
+          Import from DAD
+        </Link>
+        <PrimaryLink href="/log/library/new">+ New content item</PrimaryLink>
+      </ListToolbar>
 
-      {items.length === 0 ? (
+      <FilterChips
+        label="Filter by content type"
+        chips={[
+          {
+            label: "All types",
+            href: hrefWith({ content_type: undefined }),
+            active: !contentType,
+          },
+          ...CONTENT_TYPES.map((type) => ({
+            label: CONTENT_TYPE_LABEL[type],
+            href: hrefWith({ content_type: type }),
+            active: contentType === type,
+          })),
+        ]}
+      />
+
+      {rows.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No content items match these filters.
+          {filtered ? (
+            <>
+              No content items match.{" "}
+              <Link href={PATH} className="font-semibold text-brand-link hover:underline">
+                Clear search and filters
+              </Link>
+            </>
+          ) : (
+            "The content library is empty."
+          )}
         </div>
       ) : (
-        <TableFrame>
-          <Table>
-            <thead>
-              <HeaderRow>
-                <Th>Title</Th>
-                <Th>Type</Th>
-                <Th>Status</Th>
-                <Th>Expected duration</Th>
-                <Th>Effective from</Th>
-              </HeaderRow>
-            </thead>
-            <tbody>
-              {items.map((item) => {
-                const totalDurationSeconds = computeTotalDurationSeconds(
-                  item.components,
-                  item.expected_duration_seconds,
-                );
-                return (
-                  <Row key={item.id}>
-                    <Cell className="font-semibold text-ink-900">
-                      <Link href={`/log/library/${item.id}`} className="text-brand-link">
-                        {item.title}
-                      </Link>
-                    </Cell>
-                    <Cell>{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
-                    <Cell>
-                      <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
-                        {item.approval_status}
-                      </Badge>
-                    </Cell>
-                    <Cell>{totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}</Cell>
-                    <Cell className="text-ink-500">{item.effective_from}</Cell>
-                  </Row>
-                );
-              })}
-            </tbody>
-          </Table>
-        </TableFrame>
+        <div>
+          <TableFrame>
+            <Table>
+              <thead>
+                <HeaderRow>
+                  <Th>Title</Th>
+                  <Th>Type</Th>
+                  <Th>Status</Th>
+                  <Th>Expected duration</Th>
+                  <Th>Effective from</Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {rows.map((item) => {
+                  const totalDurationSeconds = computeTotalDurationSeconds(
+                    item.components,
+                    item.expected_duration_seconds,
+                  );
+                  return (
+                    <Row key={item.id}>
+                      <Cell className="font-semibold text-ink-900">
+                        <Link href={`${PATH}/${item.id}`} className="text-brand-link">
+                          {item.title}
+                        </Link>
+                      </Cell>
+                      <Cell>{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
+                      <Cell>
+                        <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
+                          {item.approval_status}
+                        </Badge>
+                      </Cell>
+                      <Cell>{totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}</Cell>
+                      <Cell className="text-ink-500">{item.effective_from}</Cell>
+                    </Row>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableFrame>
+          <Pagination info={info} path={PATH} params={listParams} noun="content items" />
+        </div>
       )}
     </div>
   );
