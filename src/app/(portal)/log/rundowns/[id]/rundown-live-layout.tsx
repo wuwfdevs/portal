@@ -59,7 +59,7 @@ export function RundownLiveLayout({
   return (
     <TextScaleProvider>
       <div className="flex flex-col gap-4">
-        <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="sticky top-16 z-30 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
           <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
           {hasCurrentBreak && (
             <button
@@ -110,7 +110,7 @@ export function RundownLiveLayout({
             </div>
             <div
               className={cn(
-                "w-full shrink-0 flex-col gap-4 lg:sticky lg:top-16 lg:order-2 lg:flex lg:w-80 lg:self-start",
+                "w-full shrink-0 flex-col gap-4 lg:sticky lg:top-28 lg:order-2 lg:flex lg:w-80 lg:self-start",
                 tab === "context" ? "flex" : "hidden",
               )}
             >

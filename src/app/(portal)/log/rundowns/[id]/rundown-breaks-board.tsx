@@ -321,6 +321,7 @@ function BreakDropZone({
       ref={setNodeRef}
       id={brk.isCurrent ? "current-break" : undefined}
       className={cn(
+        "scroll-mt-32",
         brk.isCurrent ? "rounded border-2 border-brand-primary" : "rounded border border-line",
         isOver && "bg-brand-surface/30",
       )}
