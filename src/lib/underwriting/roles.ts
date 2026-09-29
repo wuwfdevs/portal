@@ -19,11 +19,13 @@ export const ROLE_OPTIONS: { value: UnderwritingRole; label: string; description
   {
     value: "member",
     label: "Member",
-    description: "Contracts, copy, placement, and exception triage up to but not including a waive/certify decision",
+    description:
+      "Contracts, copy, placement, and exception triage up to but not including a waive/certify decision",
   },
   {
     value: "manager",
     label: "Manager",
-    description: "Additionally waives obligations, certifies affidavits, and overrides expired/unapproved copy into a placement",
+    description:
+      "Additionally waives obligations, certifies affidavits, and overrides expired/unapproved copy into a placement",
   },
 ];

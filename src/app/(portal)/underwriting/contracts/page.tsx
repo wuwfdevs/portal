@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -39,6 +40,7 @@ export default async function ContractsPage({
     ? (status as Filter)
     : "all";
   const query = (q ?? "").trim().toLowerCase();
+  const { isAdministrator } = await requireUnderwritingAccess();
 
   const [contracts, exceptions, categories] = await Promise.all([
     listContracts(),
@@ -116,6 +118,14 @@ export default async function ContractsPage({
           },
         ]}
       >
+        {isAdministrator && (
+          <Link
+            href="/underwriting/migration"
+            className="px-1 text-sm font-bold text-brand-link hover:underline"
+          >
+            Migrate legacy agreements
+          </Link>
+        )}
         <PrimaryLink href="/underwriting/contracts/new">+ New contract</PrimaryLink>
       </ListToolbar>
 

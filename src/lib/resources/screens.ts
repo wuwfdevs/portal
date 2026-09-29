@@ -201,6 +201,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     ],
   },
   {
+    key: "underwriting.migration",
+    name: "Migrate legacy agreements",
+    toolKey: "underwriting",
+    paths: ["/underwriting/migration"],
+  },
+  {
     key: "underwriting.copy",
     name: "Copy library",
     toolKey: "underwriting",

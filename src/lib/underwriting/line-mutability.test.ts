@@ -27,7 +27,11 @@ describe("canRewriteScheduleLine", () => {
 
   it("refuses any line a placement already references", () => {
     expect(
-      canRewriteScheduleLine({ contractStatus: "draft", revisionStatus: "draft", placementCount: 1 }),
+      canRewriteScheduleLine({
+        contractStatus: "draft",
+        revisionStatus: "draft",
+        placementCount: 1,
+      }),
     ).toBe(false);
   });
 });
