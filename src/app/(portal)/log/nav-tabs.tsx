@@ -10,7 +10,6 @@ const TABS = [
   { href: "/log/library", label: "Library" },
   { href: "/log/npr", label: "NPR" },
   { href: "/log/weather", label: "Weather" },
-  { href: "/log/import", label: "Import" },
 ] as const;
 
 export function NavTabs() {
@@ -20,7 +19,12 @@ export function NavTabs() {
     <TabNav
       tabs={TABS.map((tab) => ({
         ...tab,
-        active: tab.href === "/log" ? pathname === tab.href : pathname.startsWith(tab.href),
+        // Today owns the program-log import: it is started from there and
+        // returns there, so it has no tab of its own.
+        active:
+          tab.href === "/log"
+            ? pathname === tab.href || pathname.startsWith("/log/import")
+            : pathname.startsWith(tab.href),
       }))}
     />
   );

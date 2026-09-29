@@ -158,6 +158,7 @@ export function LineCard({
 
         <div className="w-full sm:w-60 sm:shrink-0">
           <ProgressBar
+            label="Spots delivered on this line"
             done={summary.delivered}
             pending={summary.scheduled}
             total={summary.expected}

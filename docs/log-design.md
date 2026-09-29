@@ -1310,3 +1310,15 @@ cut from the real 2026-08-21 export; the 2026-08-24 export surfaced a
 cart-less credit printing its script inside the avail marker's own cell;
 the 2026-08-28 rebuild moved interpretation to the model behind the
 verification layer described in item 1.
+
+**Revision (2026-09-29): the import starts from Today.** The Import tab is gone;
+Today's header carries "Import program log" (and a notice above the table when a
+program has no rundown for the day), linking to `/log/import?date=<day>`. The
+screen shows the three stages as `Steps` (upload, review, confirm) with a busy
+panel while the PDF is read and while the plan is written — both single calls, so
+neither has a percentage. The review warns when the log's date differs from the day
+the host started from, since rundowns are created for the log's date. A clean import
+navigates to `/log?date=<log date>` with a success notice; one with a skipped
+rundown stays on the import page so the per-rundown reasons are readable. An
+existing rundown for a program and date is still skipped, never overwritten.
+

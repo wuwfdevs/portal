@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
 import {
@@ -18,10 +19,15 @@ import { createProject, completeProjectUpload, failProjectUpload } from "../acti
 
 type Stage = "idle" | "creating" | "uploading" | "finishing";
 
-const STAGE_LABEL: Record<Exclude<Stage, "idle">, string> = {
-  creating: "Creating project…",
-  uploading: "Uploading — this can take a few minutes for a long recording…",
-  finishing: "Finishing up…",
+const STAGE_TITLE: Record<Exclude<Stage, "idle">, string> = {
+  creating: "Creating the project",
+  uploading: "Uploading the file",
+  finishing: "Finishing up",
+};
+
+// The upload is a single request, so there is no honest percentage to show.
+const STAGE_HINT: Partial<Record<Stage, string>> = {
+  uploading: "This can take a few minutes for a long recording",
 };
 
 /** Reads a local file's duration client-side, without a server round trip. */
@@ -163,7 +169,9 @@ export function NewProjectForm() {
             setTitleIsSuggested(event.target.value.trim() === "");
           }}
         />
-        <FieldHint>Taken from the file name — change it to whatever you&rsquo;ll look for later.</FieldHint>
+        <FieldHint>
+          Taken from the file name — change it to whatever you&rsquo;ll look for later.
+        </FieldHint>
       </div>
       <div>
         <Label htmlFor="description">Notes (optional)</Label>
@@ -182,7 +190,13 @@ export function NewProjectForm() {
       </div>
 
       {error && <FieldError>{error}</FieldError>}
-      {isPending && <p className="text-xs text-ink-500">{STAGE_LABEL[stage]}</p>}
+      {stage !== "idle" && (
+        <BusyPanel
+          title={STAGE_TITLE[stage]}
+          hint={STAGE_HINT[stage]}
+          note="Keep this page open until it finishes."
+        />
+      )}
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Working…" : "Upload and create project"}

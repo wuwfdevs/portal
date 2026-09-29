@@ -228,6 +228,7 @@ export default async function PlaceCreditPage({
               This line
             </div>
             <ProgressBar
+              label="Spots delivered on this line"
               done={summary.delivered}
               pending={summary.scheduled}
               total={summary.expected}

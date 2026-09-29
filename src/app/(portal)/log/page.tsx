@@ -19,15 +19,17 @@ const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
+const COUNT_PARAM = /^\d{1,4}$/;
+
 const NAV_LINK_CLASSES =
   "inline-flex shrink-0 items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
 
 export default async function LogTodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; error?: string }>;
+  searchParams: Promise<{ date?: string; error?: string; imported?: string; unresolved?: string }>;
 }) {
-  const { date: dateParam, error } = await searchParams;
+  const { date: dateParam, error, imported, unresolved } = await searchParams;
   const today = stationTodayISO();
   const selectedDate = dateParam && DATE_ONLY.test(dateParam) ? dateParam : today;
   const [programs, scheduleEntries] = await Promise.all([listPrograms(), listScheduleEntries()]);
@@ -53,6 +55,12 @@ export default async function LogTodayPage({
       </div>
     );
   }
+
+  const missingRundowns = activeOnDate.filter((entry) => !rundownByProgram.has(entry.program_id));
+  const importHref = `/log/import?date=${selectedDate}`;
+  // Set by the program-log import when it lands back here (import-client.tsx).
+  const importedCount = imported && COUNT_PARAM.test(imported) ? Number(imported) : null;
+  const unresolvedCount = unresolved && COUNT_PARAM.test(unresolved) ? Number(unresolved) : 0;
 
   return (
     <div>
@@ -88,9 +96,61 @@ export default async function LogTodayPage({
               Go
             </Button>
           </form>
+          <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
+          <Link
+            href={importHref}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded border border-brand-primary px-3 py-2 text-xs font-bold text-brand-link hover:bg-brand-surface/40"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Import program log
+          </Link>
         </div>
       </div>
       {error && <Alert className="mb-4">{error}</Alert>}
+      {importedCount !== null && (
+        <Alert variant="success" className="mb-4">
+          <strong>
+            Imported {importedCount} {importedCount === 1 ? "rundown" : "rundowns"} for{" "}
+            {formatStationDateLong(selectedDate)}.
+          </strong>
+          {unresolvedCount > 0 &&
+            ` ${unresolvedCount} ${unresolvedCount === 1 ? "row" : "rows"} in the log could not be placed and ${unresolvedCount === 1 ? "was" : "were"} not imported.`}{" "}
+          Open a rundown to review it.
+        </Alert>
+      )}
+      {missingRundowns.length > 0 && (
+        <Alert
+          variant="note"
+          className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1"
+        >
+          <span>
+            <strong className="text-ink-900">
+              {missingRundowns.length}{" "}
+              {missingRundowns.length === 1 ? "program has" : "programs have"} no rundown for{" "}
+              {selectedDate === today ? "today" : "this day"}.
+            </strong>{" "}
+            Generate each one from its clock, or import the traffic system&apos;s log to build them
+            all at once.
+          </span>
+          <Link href={importHref} className="shrink-0 font-bold text-brand-link">
+            Import the log →
+          </Link>
+        </Alert>
+      )}
       {activeOnDate.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           No program is scheduled for {selectedDate === today ? "today" : "this date"}.

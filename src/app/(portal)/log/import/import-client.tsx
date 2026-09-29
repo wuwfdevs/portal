@@ -19,11 +19,15 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { controlClasses } from "@/components/ui/input";
+import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
+import { formatStationDateLong } from "@/lib/log/timezone";
 import type {
   BreakPlan,
   CopyPlan,
@@ -47,6 +51,14 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`): s
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
+function formatFileSize(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];
+
 function itemKindLabel(item: ItemPlan): string {
   if (item.kind === "credit") return "credit";
   if (item.kind === "content") return "library";
@@ -57,21 +69,24 @@ const SECTION_HEADING =
   "border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold tracking-wide text-ink-500 uppercase";
 const DETAILS_SUMMARY = "cursor-pointer text-xs text-ink-500 select-none hover:text-ink-700";
 
-export function ImportClient() {
+export function ImportClient({ fromDate }: { fromDate: string | null }) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<{ name: string; size: number } | null>(null);
   const [plan, setPlan] = useState<ProgramLogPlan | null>(null);
   const [result, setResult] = useState<ExecuteImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const upload = () => {
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) {
+    const chosen = fileInputRef.current?.files?.[0];
+    if (!chosen) {
       setError("Choose a program-log export (.pdf) first.");
       return;
     }
     const formData = new FormData();
-    formData.set("file", file);
+    formData.set("file", chosen);
+    setFile({ name: chosen.name, size: chosen.size });
     startTransition(async () => {
       setError(null);
       setResult(null);
@@ -87,6 +102,16 @@ export function ImportClient() {
       setError(null);
       const response = await executeProgramLogImport(JSON.stringify(plan));
       if (response.ok) {
+        const created = response.rundowns.filter((rundown) => rundown.skippedReason === null);
+        // A clean import lands back on Today at the log's own date, which is
+        // where the rundowns now show. One with a skipped rundown stays here:
+        // the per-rundown reasons are what the host needs to read next.
+        if (created.length === response.rundowns.length && created.length > 0) {
+          router.push(
+            `/log?date=${plan.airDate}&imported=${created.length}&unresolved=${plan.unresolved.length}`,
+          );
+          return;
+        }
         setResult(response);
         setPlan(null);
       } else {
@@ -95,14 +120,35 @@ export function ImportClient() {
     });
   };
 
+  // Upload while the file is being read, Review once there is a plan,
+  // Confirm while it is being written; every step done after a result.
+  const reading = pending && !plan;
+  const writing = pending && plan !== null;
+  const currentStep = result?.ok ? IMPORT_STEPS.length : plan ? (writing ? 2 : 1) : 0;
+
   return (
     <div className="flex flex-col gap-5">
+      <Steps
+        label="Import steps"
+        steps={IMPORT_STEPS}
+        current={currentStep}
+        busy={pending}
+        busyNote={reading ? "reading the file" : writing ? "creating rundowns" : undefined}
+      />
+
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {result?.ok && <ImportOutcome result={result} />}
+      {result?.ok && <ImportOutcome result={result} fromDate={fromDate} />}
 
+      {/* Kept mounted (only hidden) while the file is read, so a failed read
+          leaves the chosen file in the input. */}
       {!plan && (
-        <div className="flex flex-col items-start gap-3 rounded border border-line p-4">
+        <div
+          className={cn(
+            "flex flex-col items-start gap-3 rounded border border-line p-4",
+            reading && "hidden",
+          )}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -116,9 +162,36 @@ export function ImportClient() {
         </div>
       )}
 
+      {reading && (
+        <>
+          {file && (
+            <div className="flex items-center gap-3 rounded border border-line bg-panel-50 px-4 py-3 text-sm">
+              <span className="min-w-0 flex-1 truncate font-semibold text-ink-900">
+                {file.name}
+              </span>
+              <span className="shrink-0 text-xs text-ink-500">{formatFileSize(file.size)}</span>
+            </div>
+          )}
+          <BusyPanel
+            title="Reading the log"
+            hint="This can take a minute"
+            note="Nothing is written yet. Keep this page open while it works."
+          />
+        </>
+      )}
+
+      {writing && (
+        <BusyPanel
+          title="Importing rundowns"
+          hint="This can take a moment"
+          note="The import runs as one step. Keep this page open until it finishes."
+        />
+      )}
+
       {plan && (
         <PlanPreview
           plan={plan}
+          fromDate={fromDate}
           pending={pending}
           onConfirm={confirm}
           onReset={() => {
@@ -131,7 +204,13 @@ export function ImportClient() {
   );
 }
 
-function ImportOutcome({ result }: { result: Extract<ExecuteImportResult, { ok: true }> }) {
+function ImportOutcome({
+  result,
+  fromDate,
+}: {
+  result: Extract<ExecuteImportResult, { ok: true }>;
+  fromDate: string | null;
+}) {
   const created = result.rundowns.filter((rundown) => rundown.skippedReason === null).length;
   return (
     <div className="rounded border border-line bg-panel-50 p-4">
@@ -167,17 +246,27 @@ function ImportOutcome({ result }: { result: Extract<ExecuteImportResult, { ok: 
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-sm">
+        <Link
+          href={fromDate ? `/log?date=${fromDate}` : "/log"}
+          className="font-semibold text-brand-link"
+        >
+          Back to Today →
+        </Link>
+      </p>
     </div>
   );
 }
 
 function PlanPreview({
   plan,
+  fromDate,
   pending,
   onConfirm,
   onReset,
 }: {
   plan: ProgramLogPlan;
+  fromDate: string | null;
   pending: boolean;
   onConfirm: () => void;
   onReset: () => void;
@@ -199,10 +288,24 @@ function PlanPreview({
 
   return (
     <>
+      {plan.airDate && fromDate && plan.airDate !== fromDate && (
+        <Alert variant="warning">
+          <strong className="text-sm">
+            This log is dated {formatStationDateLong(plan.airDate)}.
+          </strong>{" "}
+          You started from {formatStationDateLong(fromDate)}. Confirming creates rundowns for{" "}
+          {formatStationDateLong(plan.airDate)}, and you will land on that day.
+        </Alert>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-sm font-bold text-ink-900">{plan.airDate || "Unknown date"}</h2>
+        <h2 className="text-sm font-bold text-ink-900">
+          {plan.airDate ? formatStationDateLong(plan.airDate) : "Unknown date"}
+        </h2>
         <Button type="button" onClick={onConfirm} disabled={pending || creatable.length === 0}>
-          {pending ? "Importing…" : `Import ${plural(creatable.length, "rundown")}`}
+          {pending
+            ? "Importing…"
+            : `Import ${plural(creatable.length, "rundown")}${plan.airDate ? ` for ${plan.airDate}` : ""}`}
         </Button>
         <Button type="button" variant="secondary" onClick={onReset} disabled={pending}>
           Start over
