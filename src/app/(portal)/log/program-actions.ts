@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertLogProducer } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { parseNprMapping } from "@/lib/log/program-npr";
+import { stationTodayISO } from "@/lib/log/timezone";
 import type { LogProgramKind, LogScheduleEntryType } from "@/lib/database.types";
 
 const LIST_PATH = "/log/programs";
@@ -179,28 +181,66 @@ export async function chooseProgramForClock(formData: FormData): Promise<void> {
   redirect(`${programPath(programId)}/schedule/new?clock=${encodeURIComponent(clockId)}`);
 }
 
-/** Posted from /log/programs/[id]/edit. The NPR mapping columns are set by migration and are not editable here. */
+/**
+ * Posted from the program page's in-place Details edit (`?edit=1`). Changing
+ * the NPR collection clears the program's saved NPR episodes from today on, so
+ * the next read fetches the new collection instead of showing the old one's
+ * stories until they go stale; earlier dates keep the episodes they aired with.
+ */
 export async function updateProgram(formData: FormData): Promise<void> {
   await assertLogProducer();
   const id = field(formData, "id");
-  const editPath = `${programPath(id)}/edit`;
+  const editPath = `${programPath(id)}?edit=1`;
   const name = field(formData, "name");
   if (name === "") failWith(editPath, "Give the program a name.");
   const kind = field(formData, "kind") as LogProgramKind;
   if (!PROGRAM_KINDS.includes(kind)) failWith(editPath, "That is not a recognized program kind.");
+  const npr = parseNprMapping(
+    field(formData, "npr_collection_id"),
+    field(formData, "npr_feed_start_hour_et"),
+  );
+  if (!npr.ok) failWith(editPath, npr.error);
 
   const supabase = await createClient();
+  const { data: before, error: readError } = await supabase
+    .from("log_programs")
+    .select("npr_collection_id")
+    .eq("id", id)
+    .maybeSingle();
+  failIfError(readError, editPath, "Could not read the program");
+  if (!before) failWith(editPath, "Could not find that program.");
+
   const { data, error } = await supabase
     .from("log_programs")
-    .update({ name, kind, description: optionalField(formData, "description") })
+    .update({
+      name,
+      kind,
+      description: optionalField(formData, "description"),
+      npr_collection_id: npr.collectionId,
+      npr_feed_start_hour_et: npr.feedStartHourEt,
+    })
     .eq("id", id)
     .select("id");
   failIfError(error, editPath, "Could not save the program");
   // RLS turns an update it forbids into zero matched rows, not an error.
   if (!data || data.length === 0) failWith(editPath, "Could not save the program.");
 
+  if (before.npr_collection_id !== npr.collectionId) {
+    const { error: clearError } = await supabase
+      .from("log_npr_episodes")
+      .delete()
+      .eq("program_id", id)
+      .gte("show_date", stationTodayISO());
+    failIfError(
+      clearError,
+      programPath(id),
+      "The program was saved, but its old NPR stories could not be cleared",
+    );
+  }
+
   revalidatePath(LIST_PATH);
   revalidatePath(programPath(id));
   revalidatePath("/log");
+  revalidatePath("/log/sources/npr");
   redirect(`${programPath(id)}?saved=program`);
 }

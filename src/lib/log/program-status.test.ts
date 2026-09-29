@@ -3,9 +3,9 @@ import {
   describeDaysOfWeek,
   formatLengthLong,
   formatTimeRange,
-  buildWeekStrip,
   deriveProgramStatus,
   formatDateShort,
+  formatEntryDates,
   formatDaysOfWeek,
   formatDurationMinutes,
   isPlaceholderClockName,
@@ -111,35 +111,17 @@ describe("nextAiringDate", () => {
   });
 });
 
-describe("buildWeekStrip", () => {
-  it("runs Monday to Sunday and places air times on their days", () => {
-    const week = buildWeekStrip(
-      [
-        {
-          entry_type: "recurring",
-          days_of_week: [6, 0],
-          start_date: "2026-01-03",
-          end_date: null,
-          air_time: "07:00:00",
-        },
-      ],
-      "2026-09-29",
+describe("formatEntryDates", () => {
+  it("names a single day with its weekday", () => {
+    expect(formatEntryDates({ start_date: "2026-10-03", end_date: "2026-10-03" })).toBe(
+      "Sat, Oct 3",
     );
-    expect(week.map((day) => day.dateISO)).toEqual([
-      "2026-09-28",
-      "2026-09-29",
-      "2026-09-30",
-      "2026-10-01",
-      "2026-10-02",
-      "2026-10-03",
-      "2026-10-04",
-    ]);
-    expect(week.map((day) => day.airTimes.length)).toEqual([0, 0, 0, 0, 0, 1, 1]);
   });
-  it("treats a Sunday as the end of its week", () => {
-    const week = buildWeekStrip([], "2026-10-04");
-    expect(week[0]?.dateISO).toBe("2026-09-28");
-    expect(week[6]?.dateISO).toBe("2026-10-04");
+  it("names a range and an open-ended start", () => {
+    expect(formatEntryDates({ start_date: "2026-10-03", end_date: "2026-10-05" })).toBe(
+      "Oct 3 – Oct 5",
+    );
+    expect(formatEntryDates({ start_date: "2026-10-03", end_date: null })).toBe("From Oct 3");
   });
 });
 

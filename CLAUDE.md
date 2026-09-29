@@ -3030,7 +3030,7 @@ for a placeholder clock, and — producers — Change clock / Edit entry
 (`schedule/[entryId]/edit`, sharing `schedule-entry-form.tsx` with the create
 page; `updateScheduleEntry` leaves `effective_from` alone and already-generated
 rundowns keep the clock they were built from), and Edit program
-(`updateProgram`; the NPR columns stay migration-only). The clock page gained a
+(`updateProgram`). The clock page gained a
 "Used by" panel (`listScheduleEntriesForClock`), a Versions panel, and
 "Schedule a program with this clock" (`clocks/[id]/schedule`, a program picker
 that hands off to the program's own schedule form). Clocks are created from a
@@ -3073,6 +3073,23 @@ now return to the page with the version/hour/slot preserved through a validated
 `return_query` field (`returnPath()`). `/log/clocks` still redirects to
 `/log/programs`; the standalone Clocks list, `ClockFace` and its two-ring
 component are gone. No schema change.
+
+**Log: the program page, simplified (2026-09-29, third pass).** One edit per
+thing: each schedule entry's **Edit** (which also changes the clock — the
+separate "Change clock" and the header's "Edit schedule" are gone), and
+**Edit** on the Details panel, which now edits the program in place
+(`?edit=1`; `/log/programs/[id]/edit` only redirects there). The "This week"
+strip is gone (it duplicated the entry cards; its "See the full week" link
+moved to the "When it airs" heading, and `buildWeekStrip` went with it); a
+one-time change or holiday shows its dates (`formatEntryDates`) instead of
+seven lit days. **Producers can now edit `npr_collection_id` and
+`npr_feed_start_hour_et`** in that Details edit (`lib/log/program-npr.ts`,
+pure and tested — a blank collection clears the feed hour too), and
+`updateProgram` deletes the program's `log_npr_episodes` from today on when
+the collection changes, so the old collection's stories aren't served until
+they go stale; earlier dates keep theirs. Everyone sees "NPR rundown:
+Connected / Not connected"; producers also see the raw values and a warning
+when another program shares the collection. No schema change.
 
 **Log: NPR and weather live under one Sources tab (2026-09-29).** The NPR and
 Weather tabs are replaced by **Sources** (`/log/sources`): an overview with one
