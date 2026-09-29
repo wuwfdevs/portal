@@ -12,9 +12,12 @@ import type {
   LogSlotTimingMode,
 } from "@/lib/database.types";
 
+// There is no clocks list any more — Programs is the one entry point (see
+// nav-tabs.tsx). A clock is created from a program's page or the Unused clocks
+// view, on /log/clocks/new; `LIST_PATH` stays only as the path family and the
+// place a revalidation of the old list would have gone.
 const LIST_PATH = "/log/clocks";
-/** The list with the inline "New clock template" card open — where a create failure lands. */
-const NEW_TEMPLATE_PATH = `${LIST_PATH}?new=1`;
+const NEW_TEMPLATE_PATH = `${LIST_PATH}/new`;
 
 function templatePath(id: string): string {
   return `${LIST_PATH}/${id}`;
@@ -31,8 +34,15 @@ function optionalField(formData: FormData, name: string): string | null {
 
 export async function createClockTemplate(formData: FormData): Promise<void> {
   const { profile } = await assertLogProducer();
+  // The program whose page sent the producer here, if any — carried through so
+  // a failure returns to the same form and success lands on the new clock with
+  // a way back to that program.
+  const fromProgram = field(formData, "from_program");
+  const newPath = fromProgram
+    ? `${NEW_TEMPLATE_PATH}?from=${encodeURIComponent(fromProgram)}`
+    : NEW_TEMPLATE_PATH;
   const name = field(formData, "name");
-  if (name === "") failWith(NEW_TEMPLATE_PATH, "Give the clock template a name.");
+  if (name === "") failWith(newPath, "Give the clock template a name.");
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -44,11 +54,15 @@ export async function createClockTemplate(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(error, NEW_TEMPLATE_PATH, "Could not create the clock template");
-  if (!data) failWith(NEW_TEMPLATE_PATH, "Could not create the clock template.");
+  failIfError(error, newPath, "Could not create the clock template");
+  if (!data) failWith(newPath, "Could not create the clock template.");
 
-  revalidatePath(LIST_PATH);
-  redirect(templatePath(data.id));
+  revalidatePath("/log/programs");
+  redirect(
+    fromProgram
+      ? `${templatePath(data.id)}?from=${encodeURIComponent(fromProgram)}`
+      : templatePath(data.id),
+  );
 }
 
 const VARIANTS: LogClockVersionVariant[] = [

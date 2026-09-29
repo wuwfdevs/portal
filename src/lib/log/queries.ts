@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
 import type { Database } from "@/lib/database.types";
 
@@ -206,6 +207,103 @@ export async function listScheduleEntriesForProgram(programId: string): Promise<
       "this program's schedule",
     ) ?? []
   );
+}
+
+/** A clock template's current version and that version's slots — what a program row's thumbnail and version label need. */
+export interface ClockSummary {
+  templateId: string;
+  versionCount: number;
+  current: LogClockVersionRow | null;
+  slots: LogClockSlotRow[];
+}
+
+/**
+ * One summary per clock template, for the Programs screens: the version in
+ * effect on `asOfDate` (falling back to the newest one, so a clock whose
+ * first version starts later still draws), and its network slots. Versions
+ * are read whole — there are a handful per clock — and only the chosen
+ * versions' slots are fetched, so the `.in()` list stays as short as the
+ * number of clocks, not the number of slots.
+ */
+export async function listClockSummaries(asOfDate: string): Promise<Map<string, ClockSummary>> {
+  const supabase = await createClient();
+  const versions =
+    unwrapRead(
+      await supabase
+        .from("log_clock_versions")
+        .select("*")
+        .order("effective_from", { ascending: false }),
+      "the clock versions",
+    ) ?? [];
+
+  const byTemplate = new Map<string, LogClockVersionRow[]>();
+  for (const version of versions) {
+    const existing = byTemplate.get(version.clock_template_id);
+    if (existing) existing.push(version);
+    else byTemplate.set(version.clock_template_id, [version]);
+  }
+
+  const chosen = new Map<string, LogClockVersionRow | null>();
+  for (const [templateId, templateVersions] of byTemplate) {
+    chosen.set(
+      templateId,
+      resolveCurrentVersion(templateVersions, asOfDate) ?? templateVersions[0] ?? null,
+    );
+  }
+
+  const chosenIds = [...chosen.values()].flatMap((version) => (version ? [version.id] : []));
+  const slots =
+    chosenIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("log_clock_slots")
+            .select("*")
+            .in("clock_version_id", chosenIds)
+            .order("position"),
+          "the clock slots",
+        ) ?? []);
+  const slotsByVersion = new Map<string, LogClockSlotRow[]>();
+  for (const slot of slots) {
+    const existing = slotsByVersion.get(slot.clock_version_id);
+    if (existing) existing.push(slot);
+    else slotsByVersion.set(slot.clock_version_id, [slot]);
+  }
+
+  const summaries = new Map<string, ClockSummary>();
+  for (const [templateId, templateVersions] of byTemplate) {
+    const current = chosen.get(templateId) ?? null;
+    summaries.set(templateId, {
+      templateId,
+      versionCount: templateVersions.length,
+      current,
+      slots: current ? (slotsByVersion.get(current.id) ?? []) : [],
+    });
+  }
+  return summaries;
+}
+
+/** Every schedule entry that airs on one clock, with its program's name — the clock page's "Used by". */
+export async function listScheduleEntriesForClock(
+  clockTemplateId: string,
+): Promise<Array<LogScheduleRow & { programName: string }>> {
+  const supabase = await createClient();
+  const [entries, programs] = await Promise.all([
+    unwrapRead(
+      await supabase
+        .from("log_schedule")
+        .select("*")
+        .eq("clock_template_id", clockTemplateId)
+        .order("start_date", { ascending: false }),
+      "this clock's schedule entries",
+    ) ?? [],
+    listPrograms(),
+  ]);
+  const nameById = new Map(programs.map((program) => [program.id, program.name]));
+  return entries.map((entry) => ({
+    ...entry,
+    programName: nameById.get(entry.program_id) ?? "Unknown program",
+  }));
 }
 
 export interface ContentLibraryFilters {

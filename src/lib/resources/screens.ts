@@ -159,19 +159,19 @@ export const SCREENS: readonly ScreenDefinition[] = [
     key: "log.clock",
     name: "Clock template",
     toolKey: "log",
-    paths: ["/log/clocks", "/log/clocks/:id"],
+    paths: ["/log/clocks/:id", "/log/clocks/new", "/log/clocks/:id/schedule"],
   },
   {
     key: "log.program",
     name: "Program",
     toolKey: "log",
-    paths: ["/log/programs", "/log/programs/:id"],
+    paths: ["/log/programs", "/log/programs/:id", "/log/programs/:id/edit"],
   },
   {
     key: "log.program.schedule",
     name: "Schedule a program",
     toolKey: "log",
-    paths: ["/log/programs/:id/schedule/new"],
+    paths: ["/log/programs/:id/schedule/new", "/log/programs/:id/schedule/:entryId/edit"],
   },
   {
     key: "underwriting.contracts",
