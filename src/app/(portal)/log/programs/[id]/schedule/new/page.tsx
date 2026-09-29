@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLogProducer } from "@/lib/log/access";
-import { getProgram, listClockTemplates } from "@/lib/log/queries";
+import { getProgram, listClockTemplates, listScheduleEntries } from "@/lib/log/queries";
+import { stationTodayISO } from "@/lib/log/timezone";
+import { toOverlapOther } from "../to-overlap-other";
 import { createScheduleEntry } from "../../../../program-actions";
-import { ScheduleEntryForm } from "../schedule-entry-form";
+import { ScheduleEditor } from "../schedule-editor";
 
 /**
  * Scheduling a program is a dedicated page under the program
@@ -20,7 +22,11 @@ export default async function NewScheduleEntryPage({
   const { id } = await params;
   const { error, clock } = await searchParams;
   await requireLogProducer();
-  const [program, templates] = await Promise.all([getProgram(id), listClockTemplates()]);
+  const [program, templates, allEntries] = await Promise.all([
+    getProgram(id),
+    listClockTemplates(),
+    listScheduleEntries(),
+  ]);
   if (!program) notFound();
   const programPath = `/log/programs/${program.id}`;
 
@@ -30,7 +36,7 @@ export default async function NewScheduleEntryPage({
         ← Back to {program.name}
       </Link>
       <h2 className="mt-2 mb-5 font-serif text-xl font-bold text-ink-900">
-        Schedule {program.name}
+        Add a time for {program.name}
       </h2>
       {templates.length === 0 ? (
         <p className="text-sm text-ink-500">
@@ -44,10 +50,12 @@ export default async function NewScheduleEntryPage({
           first — a schedule entry needs one.
         </p>
       ) : (
-        <ScheduleEntryForm
+        <ScheduleEditor
           action={createScheduleEntry}
           programId={program.id}
-          templates={templates}
+          templates={templates.map((template) => ({ id: template.id, name: template.name }))}
+          others={allEntries.map(toOverlapOther)}
+          todayISO={stationTodayISO()}
           defaultClockId={templates.some((template) => template.id === clock) ? clock : undefined}
           submitLabel="Add to schedule"
           cancelHref={programPath}

@@ -3036,6 +3036,44 @@ rundowns keep the clock they were built from), and Edit program
 that hands off to the program's own schedule form). Clocks are created from a
 program's page at `clocks/new?from=<programId>`. No schema change.
 
+**Log: the week view, the schedule editor, and the clock page's timeline and ring
+(2026-09-29, second pass, from reviewed Design boards).** Read
+`lib/log/clock-view.ts` before touching the clock diagram; this is a pointer.
+*Programs* gained a **Week | List** toggle (`?view=week&week=`; the list stays the
+default): a Monday–Sunday grid built from `listScheduleEntries()`
+(`lib/log/week-layout.ts`, pure and tested — concurrent programs share a day in
+lanes, a block running past midnight is clipped, not wrapped), each block a button
+whose popover offers Edit schedule / Open program (`programs/week-grid.tsx`).
+*Editing a schedule* is now the obvious action on a program's page (an Edit button
+on every "When it airs" card, plus "Edit schedule" when there is exactly one live
+entry) and opens `schedule/schedule-editor.tsx`, shared by the new and edit pages:
+day buttons, start, length, dates, clock, and a live preview with the next airing
+and an **advisory** overlap check (`lib/log/schedule-overlap.ts`, pure and tested;
+it warns, never blocks). *The clock page* is `components/log/clock-viewer.tsx`
+(client) over the pure model in `lib/log/clock-view.ts`: one hour drawn as a
+**Timeline** (a Network lane over a WUWF-local lane) or a **Ring**, the same
+hover/focus-to-read, click-to-select behaviour in both (labels are not printed on
+the shapes), the slot list, and a side panel; view, hour and slot are mirrored into
+`?view=&hour=&slot=` with `history.replaceState`. The palette is deliberately small
+— four neutrals for the network (`SLOT_VISUAL_COLORS`, also used by `ClockThumb`)
+and one accent blue for anything local (dashed = optional, solid = required); the old
+eight-colour double ring is gone. A **multi-hour shift** gets an hour stepper
+(`shiftInfoFromEntries()` takes the longest live schedule entry on the clock): the
+network structure repeats each hour but a pin's `hour_index` scopes it, so the
+panel and the count badge on a local slot follow the chosen hour. A **floating
+break** is a shaded window (`FloatWindow`): a dashed edge can move, a solid edge is
+fixed, the darker area is always part of the break. **Schema limit, not yet
+addressed:** `log_clock_slots` stores a start window plus one fixed duration, so
+today both edges move together; the model already allows "the end stays put while the
+start floats" (an interview segment running long), but expressing it needs
+earliest/latest end on a slot and a corrections migration for the existing floating
+clocks, each checked against its source PDF. Slot forms (Edit eligibility, Pin
+content, Mark eligible) still post the existing `clock-actions.ts` actions; they
+now return to the page with the version/hour/slot preserved through a validated
+`return_query` field (`returnPath()`). `/log/clocks` still redirects to
+`/log/programs`; the standalone Clocks list, `ClockFace` and its two-ring
+component are gone. No schema change.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

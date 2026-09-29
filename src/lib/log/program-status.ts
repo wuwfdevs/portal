@@ -4,7 +4,12 @@
 // program, whether it is on a real clock, still on the shared placeholder, or
 // not scheduled at all.
 
-import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "@/lib/log/schedule";
+import {
+  computeEndTime,
+  formatAirTime,
+  isScheduleEntryActiveOn,
+  type ScheduleEntryLike,
+} from "@/lib/log/schedule";
 import { shiftDateISO } from "@/lib/log/timezone";
 
 /**
@@ -141,3 +146,34 @@ export const CLOCK_VARIANT_LABEL: Record<string, string> = {
   holiday: "Holiday",
   special_event: "Special event",
 };
+
+const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** "Every Saturday", "Mon–Fri", "Mon, Wed, Fri", "Every day"; an empty list means every day. */
+export function describeDaysOfWeek(days: number[]): string {
+  const unique = [...new Set(days)];
+  if (unique.length === 1) return `Every ${DAY_FULL[unique[0]!] ?? ""}`;
+  return formatDaysOfWeek(days);
+}
+
+/** 120 → "2 hours", 60 → "1 hour", 90 → "90 minutes", 1 → "1 minute". */
+export function formatLengthLong(minutes: number): string {
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+}
+
+/**
+ * "7:00 – 9:00 AM" for an air time ("HH:MM" or "HH:MM:SS") and a length; the
+ * period is written once when both ends share it ("11:00 AM – 1:00 PM" when
+ * they don't). A zero length is just the start time.
+ */
+export function formatTimeRange(airTime: string, durationMinutes: number): string {
+  const start = formatAirTime(airTime);
+  if (!(durationMinutes > 0)) return start;
+  const end = computeEndTime(airTime, durationMinutes);
+  const [startClock, startPeriod] = start.split(" ");
+  return startPeriod === end.split(" ")[1] ? `${startClock} – ${end}` : `${start} – ${end}`;
+}

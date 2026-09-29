@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeDaysOfWeek,
+  formatLengthLong,
+  formatTimeRange,
   buildWeekStrip,
   deriveProgramStatus,
   formatDateShort,
@@ -144,5 +147,37 @@ describe("formatDateShort", () => {
   it("formats a calendar date without shifting it", () => {
     expect(formatDateShort("2026-09-08")).toBe("Sep 8, 2026");
     expect(formatDateShort("2026-10-03", true)).toBe("Sat, Oct 3");
+  });
+});
+
+describe("describeDaysOfWeek", () => {
+  it("names a single day, and falls back to the compact form", () => {
+    expect(describeDaysOfWeek([6])).toBe("Every Saturday");
+    expect(describeDaysOfWeek([])).toBe("Every day");
+    expect(describeDaysOfWeek([1, 3, 5])).toBe("Mon, Wed, Fri");
+    expect(describeDaysOfWeek([1, 2, 3, 4, 5])).toBe("Mon–Fri");
+  });
+});
+
+describe("formatLengthLong", () => {
+  it("uses hours when whole, minutes otherwise", () => {
+    expect(formatLengthLong(120)).toBe("2 hours");
+    expect(formatLengthLong(60)).toBe("1 hour");
+    expect(formatLengthLong(90)).toBe("90 minutes");
+    expect(formatLengthLong(1)).toBe("1 minute");
+  });
+});
+
+describe("formatTimeRange", () => {
+  it("writes the period once when both ends share it", () => {
+    expect(formatTimeRange("07:00:00", 120)).toBe("7:00 – 9:00 AM");
+    expect(formatTimeRange("13:00", 120)).toBe("1:00 – 3:00 PM");
+  });
+  it("keeps both periods across noon and midnight", () => {
+    expect(formatTimeRange("11:00", 120)).toBe("11:00 AM – 1:00 PM");
+    expect(formatTimeRange("23:00", 120)).toBe("11:00 PM – 1:00 AM");
+  });
+  it("is just the start for a zero length", () => {
+    expect(formatTimeRange("07:00", 0)).toBe("7:00 AM");
   });
 });
