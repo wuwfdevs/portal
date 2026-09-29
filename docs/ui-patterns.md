@@ -71,6 +71,9 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 | `DetailSummary`    | Read-only field list with an Edit link, for a detail page's aside         |
 | `SearchableSelect` | Search-to-select for a form field whose options grow with the data        |
 | `Pagination`       | "26–50 of 132" and page links under a list that grows without bound       |
+| `ProgressBar`      | A thin bar: done plus pending of a total, or indeterminate for busy work  |
+| `Steps`            | Numbered steps for a flow; the current step can be busy                   |
+| `BusyPanel`        | Title, time hint and a sliding bar for a long server step                 |
 
 ### Pickers (2026-09-27)
 
@@ -204,3 +207,27 @@ query first. Roughly in order of urgency:
 - `roadmap`: sorts by votes in JS, so paging needs the sort done in SQL.
 - `academic-partnerships/all`, `remote-interview`, `audience-listening` (the list, and one
   query's submissions).
+
+## Progress, steps, and busy states (2026-09-29)
+
+Three primitives, used together. Pick by what is true about the wait:
+
+- **Under a second or two**: nothing but the pending `Button` (`useFormStatus`).
+- **A flow with named stages** (contract setup; the program-log and library imports):
+  `Steps`. Across screens each step has an `href`; within one screen `current` is derived
+  from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
+  Give the list a `label` when "Steps" is too generic ("Import steps").
+- **A long server step with no honest percentage** (a model reading a PDF, a single-request
+  upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
+  take a minute") and a note saying what has and hasn't happened. Mark the current step
+  `busy` with a `busyNote` of a few words. Never fake a percentage.
+- **A measured quantity** (spots delivered against an order): `ProgressBar` with `done`,
+  `pending` and `total`. Give it a `label` (its accessible name) — callers show their own
+  visible text beside it — and let `valueText` default ("12 of 26, plus 6 pending") unless the
+  screen's own wording is better.
+
+Motion stops under `prefers-reduced-motion`: the bar's segment and the step's ring sit still, so
+the words carry the meaning. A busy region that hides its input (the import's upload form) keeps
+it mounted and only toggles `hidden`, so a failed run leaves the chosen file in place.
+`Alert` has `warning` (asks for a decision — a date that doesn't match) and `success` (confirms
+a finished action on the screen it lands on) beside the older variants.

@@ -7,8 +7,10 @@
 import { useRef, useState, useTransition } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { controlClasses } from "@/components/ui/input";
+import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { DadLibraryPlan } from "@/lib/log/dad-library-plan";
@@ -17,6 +19,8 @@ import {
   parseDadLibraryUpload,
   type ExecuteDadLibraryImportResult,
 } from "../import-actions";
+
+const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];
 
 const TREATMENT_LABEL: Record<string, string> = {
   direct: "imported",
@@ -69,11 +73,27 @@ export function ImportClient() {
   const newItems = plan?.directItems.filter((item) => item.existingItemId === null).length ?? 0;
   const updatedItems = plan?.directItems.filter((item) => item.existingItemId !== null).length ?? 0;
   const unmatchedPromoItems = plan?.directItems.filter((item) => item.unmatchedProgramPromo) ?? [];
-  const newPromos = plan?.synthesizedPromos.filter((promo) => promo.existingItemId === null).length ?? 0;
-  const updatedPromos = plan?.synthesizedPromos.filter((promo) => promo.existingItemId !== null).length ?? 0;
+  const newPromos =
+    plan?.synthesizedPromos.filter((promo) => promo.existingItemId === null).length ?? 0;
+  const updatedPromos =
+    plan?.synthesizedPromos.filter((promo) => promo.existingItemId !== null).length ?? 0;
+
+  // Upload while the export is read, Review once there is a plan, Confirm
+  // while it is written; every step done after a result.
+  const reading = pending && !plan;
+  const writing = pending && plan !== null;
+  const currentStep = result?.ok ? IMPORT_STEPS.length : plan ? (writing ? 2 : 1) : 0;
 
   return (
     <div className="flex flex-col gap-5">
+      <Steps
+        label="Import steps"
+        steps={IMPORT_STEPS}
+        current={currentStep}
+        busy={pending}
+        busyNote={reading ? "reading the export" : writing ? "creating items" : undefined}
+      />
+
       {error && <Alert variant="danger">{error}</Alert>}
 
       {result?.ok && (
@@ -94,8 +114,15 @@ export function ImportClient() {
         </div>
       )}
 
+      {/* Kept mounted (only hidden) while the export is read, so a failed read
+          leaves the chosen files in the inputs. */}
       {!plan && (
-        <div className="flex flex-col items-start gap-3 rounded border border-line p-4">
+        <div
+          className={cn(
+            "flex flex-col items-start gap-3 rounded border border-line p-4",
+            reading && "hidden",
+          )}
+        >
           <label className="flex flex-col gap-1 text-sm">
             Standard Library export (required)
             <input
@@ -118,6 +145,22 @@ export function ImportClient() {
             {pending ? "Reading…" : "Preview import"}
           </Button>
         </div>
+      )}
+
+      {reading && (
+        <BusyPanel
+          title="Reading the export"
+          hint="This can take a moment"
+          note="Nothing is written yet. Keep this page open while it works."
+        />
+      )}
+
+      {writing && (
+        <BusyPanel
+          title="Importing the library"
+          hint="This can take a moment"
+          note="The import runs as one step. Keep this page open until it finishes."
+        />
       )}
 
       {plan && (
@@ -193,7 +236,9 @@ export function ImportClient() {
                 </li>
               ))}
               {plan.synthesizedPromos.length === 0 && (
-                <li className="px-4 py-2.5 text-sm text-ink-500">No program promos matched a Log program.</li>
+                <li className="px-4 py-2.5 text-sm text-ink-500">
+                  No program promos matched a Log program.
+                </li>
               )}
             </ul>
           </section>
@@ -204,7 +249,8 @@ export function ImportClient() {
                 Generic/daily/weekly cuts with no matching program ({unmatchedPromoItems.length})
               </h3>
               <p className="border-b border-line px-4 py-2 text-xs text-ink-500">
-                Imported individually as station promos rather than collapsed into a canonical promo.
+                Imported individually as station promos rather than collapsed into a canonical
+                promo.
               </p>
               <ul className="divide-y divide-line">
                 {unmatchedPromoItems.map((item) => (

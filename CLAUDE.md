@@ -1333,6 +1333,17 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Progress, steps, and busy states — and the program-log import moves onto Today
+(2026-09-29).** Read `docs/ui-patterns.md` "Progress, steps, and busy states" before
+showing progress anywhere; this is a pointer. `ProgressBar` gained an accessible
+name, a screen-reader value that includes the pending share, sizes, and an
+indeterminate mode; `Steps` gained a `label` and a busy marker; `BusyPanel` is the
+title + time hint + sliding bar for a long server step with no honest percentage
+(both Log imports and Sourcework's upload use it). The Log import is started from
+the Today screen (`/log/import?date=`), warns when the log's date differs from the
+day the host came from, and returns to Today on a clean import; the Import tab is
+removed. `20260929150000` (applied to both projects) is Resources content only.
+
 **Pagination — one approach for every list that grows (2026-09-28).** Read
 `docs/ui-patterns.md` "Pagination" before adding or changing a list page; this is a
 pointer. `?page=N`, filtered and sorted in the query with `{ count: "exact" }` plus

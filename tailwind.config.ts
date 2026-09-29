@@ -60,6 +60,9 @@ const config: Config = {
       animation: {
         "al-pulse": "al-pulse 1.1s ease-in-out infinite",
         "al-indeterminate": "al-indeterminate 1.1s ease-in-out infinite",
+        // The shared busy bar (components/ui/progress-bar.tsx); same motion
+        // as Audience Listening's, slower because it can run for a minute.
+        indeterminate: "al-indeterminate 1.4s ease-in-out infinite",
       },
     },
   },

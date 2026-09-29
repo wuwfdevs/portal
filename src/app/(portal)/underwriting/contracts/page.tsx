@@ -173,6 +173,7 @@ export default async function ContractsPage({
                       ) : rollup && rollup.expected > 0 ? (
                         <div className="flex items-center gap-3">
                           <ProgressBar
+                            label="Spots delivered"
                             done={rollup.delivered}
                             pending={rollup.scheduled}
                             total={rollup.expected}

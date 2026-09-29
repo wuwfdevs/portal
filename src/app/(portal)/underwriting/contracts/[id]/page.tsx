@@ -874,6 +874,7 @@ export default async function ContractDetailPage({
                 Delivery
               </div>
               <ProgressBar
+                label="Spots delivered on this contract"
                 done={deliveredTotal}
                 pending={scheduledTotal}
                 total={expectedTotal}
