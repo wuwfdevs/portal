@@ -41,11 +41,7 @@ export default async function LogTodayPage({
   if (programs.length === 0) {
     return (
       <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No programs yet. Set up a{" "}
-        <Link href="/log/clocks" className="font-semibold text-brand-link">
-          clock
-        </Link>{" "}
-        and{" "}
+        No programs yet. Add and{" "}
         <Link href="/log/programs" className="font-semibold text-brand-link">
           schedule a program
         </Link>{" "}

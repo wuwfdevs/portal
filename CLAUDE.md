@@ -2999,6 +2999,32 @@ badge names the network slot the unabsorbed overrun runs into
 The migration deleted every rundown dated before 2026-09-24 (decided, not
 migrated) and merged or dropped the rest's breaks onto slot occurrences.
 
+**Log: Programs is the one entry point; clocks have no tab (2026-09-29).**
+Nobody starts from a clock — every workflow (scheduling, changing a clock, a
+rundown, a network revision) starts from the program that airs on it — so the
+Clocks tab and list are gone. `/log/clocks` redirects to `/log/programs`; a
+clock's own page (`/log/clocks/[id]`) stays, reached from a program
+(`?from=<programId>` makes its back link read "← Weekend Edition") and keeps
+the Programs tab lit (`nav-tabs.tsx`). The records stay separate — a clock can
+serve several programs and a program several clocks (the shared placeholder
+"Unspecified (awaiting network clock)" serves ~32) — only the navigation
+merged. The Programs list is a table (air time, days, clock thumbnail + link,
+status chip; `lib/log/program-status.ts`, pure and tested, derives
+On a real clock / Needs a clock / Not scheduled from the schedule and matches
+the placeholder **by name**, `PLACEHOLDER_CLOCK_NAME`) with status filter
+chips, `?page=` pagination, and an "Unused clocks" view under it. The program
+page shows each entry's clock face (`components/log/clock-thumb.tsx`, network
+slots only), version in effect, next airing and a This-week strip, a callout
+for a placeholder clock, and — producers — Change clock / Edit entry
+(`schedule/[entryId]/edit`, sharing `schedule-entry-form.tsx` with the create
+page; `updateScheduleEntry` leaves `effective_from` alone and already-generated
+rundowns keep the clock they were built from), and Edit program
+(`updateProgram`; the NPR columns stay migration-only). The clock page gained a
+"Used by" panel (`listScheduleEntriesForClock`), a Versions panel, and
+"Schedule a program with this clock" (`clocks/[id]/schedule`, a program picker
+that hands off to the program's own schedule form). Clocks are created from a
+program's page at `clocks/new?from=<programId>`. No schema change.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
