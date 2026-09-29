@@ -1,0 +1,24 @@
+-- Resources content for the tidied clock page in Log (CLAUDE.md, "Resources
+-- stay in step with the code"): the "Airs on this clock" band and the
+-- "Schedule a program with this clock" page are gone, and hovering the slot
+-- list only highlights the diagram. Content only — no schema.
+
+select private.rc_release_guide(
+  p_slug => 'log-read-a-clock',
+  p_tool_key => 'log',
+  p_title => 'Read a clock',
+  p_summary => 'The timeline and ring diagrams, hours of a longer shift, floating breaks, and versions.',
+  p_screen_keys => array['log.clock'],
+  p_sort_order => 10,
+  p_version_note => 'Updated for the clock page without the programs band',
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Open a clock from the program that airs on it: on the program's page, select "},{"type":"text","text":"Open clock","marks":[{"type":"bold"}]},{"type":"text","text":". The link at the top left of the clock's page goes back to that program."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Timeline and Ring"}]},{"type":"paragraph","content":[{"type":"text","text":"The diagram shows one hour of the clock. Switch between "},{"type":"text","text":"Timeline","marks":[{"type":"bold"}]},{"type":"text","text":" and "},{"type":"text","text":"Ring","marks":[{"type":"bold"}]},{"type":"text","text":" at the top right of the diagram; both behave the same way."}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"The network's structure comes first: segments, newscasts (dark), and promos and credits. WUWF's local opportunities are marked in blue: a dashed outline for optional, solid for required."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Hover over or tab to a slot to read its name, times, and length. Select a slot to fix it in the side panel and the slot list."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"The Slots list lists every slot. Hovering over a row highlights that slot in the diagram; selecting a row shows it in the side panel."}]}]}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Shifts longer than an hour"}]},{"type":"paragraph","content":[{"type":"text","text":"When a program airs for more than an hour, the clock repeats every hour. Use the arrows beside "},{"type":"text","text":"Hour 1 of 2","marks":[{"type":"bold"}]},{"type":"text","text":" to step through the hours. The network structure is the same in each hour, but pinned content can differ, and a small number on a local slot shows how many items are pinned for the hour you're looking at."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Floating breaks"}]},{"type":"paragraph","content":[{"type":"text","text":"A break whose position isn't fixed appears as a shaded window. A dashed edge can move and a solid edge is fixed; the darker area is always part of the break. Select it to see when it can start and end and how long it can run."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Versions"}]},{"type":"paragraph","content":[{"type":"text","text":"Choose a version from the "},{"type":"text","text":"Version","marks":[{"type":"bold"}]},{"type":"text","text":" menu. A version can't be edited once it exists — a correction is a new version, started with "},{"type":"text","text":"+ New version","marks":[{"type":"bold"}]},{"type":"text","text":"."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Changing what WUWF can fill (producers)"}]},{"type":"paragraph","content":[{"type":"text","text":"Select a slot, then use the buttons in its panel: "},{"type":"text","text":"Edit eligibility","marks":[{"type":"bold"}]},{"type":"text","text":" and "},{"type":"text","text":"Pin content","marks":[{"type":"bold"}]},{"type":"text","text":" on a local slot, or "},{"type":"text","text":"Mark eligible for local content","marks":[{"type":"bold"}]},{"type":"text","text":" on a network-only one. "},{"type":"text","text":"Remove","marks":[{"type":"bold"}]},{"type":"text","text":" takes a slot out of local eligibility."}]}]}$body$
+);
+
+select private.rc_release_note(
+  p_slug => 'release-2026-09-29-log-clock-page-tidied',
+  p_tool_key => 'log',
+  p_released_on => '2026-09-29',
+  p_title => 'A tidier clock page',
+  p_guide_slugs => array['log-read-a-clock'],
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"A clock's page no longer has the band listing the programs that air on it; the link at the top left goes back to the program you came from. Hovering over the slot list now highlights the slot in the diagram without changing the side panel, which fixes the Ring view flickering as you moved down the list."}]}]}$body$
+);

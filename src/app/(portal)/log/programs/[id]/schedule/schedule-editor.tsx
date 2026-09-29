@@ -66,7 +66,7 @@ export function ScheduleEditor({
   entryId?: string;
   entry?: ScheduleEditorEntry;
   templates: Array<{ id: string; name: string }>;
-  /** Preselected clock for a new entry ("Schedule a program with this clock"). */
+  /** Preselected clock for a new entry (`?clock=` on the new-entry page). */
   defaultClockId?: string;
   /** Every schedule entry, for the overlap check (the entry being edited is skipped by id). */
   others: OverlapOther[];

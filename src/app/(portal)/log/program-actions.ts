@@ -171,16 +171,6 @@ export async function updateScheduleEntry(formData: FormData): Promise<void> {
   redirect(`${programPath(programId)}?saved=entry`);
 }
 
-/** Posted from /log/clocks/[id]/schedule: hands the chosen program to its own schedule form, with the clock preselected. */
-export async function chooseProgramForClock(formData: FormData): Promise<void> {
-  await assertLogProducer();
-  const clockId = field(formData, "clock_template_id");
-  const clockSchedulePath = `/log/clocks/${clockId}/schedule`;
-  const programId = field(formData, "program_id");
-  if (programId === "") failWith(clockSchedulePath, "Choose a program from the list.");
-  redirect(`${programPath(programId)}/schedule/new?clock=${encodeURIComponent(clockId)}`);
-}
-
 /**
  * Posted from the program page's in-place Details edit (`?edit=1`). Changing
  * the NPR collection clears the program's saved NPR episodes from today on, so

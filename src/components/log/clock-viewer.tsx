@@ -130,6 +130,11 @@ export function ClockViewer(props: ClockViewerProps) {
   const [view, setView] = useState<ClockViewMode>(initial.view);
   const [hour, setHour] = useState<number>(clampHour(initial.hour, shift.hours));
   const [hoverId, setHoverId] = useState<string | null>(null);
+  // Hovering a row in the slot list highlights that slot but never swaps the
+  // panel: in the Ring view the panel sits above the list, so a panel that
+  // changed height on hover moved the list under the cursor, which hovered a
+  // different row, and the two fed each other in a loop.
+  const [listHoverId, setListHoverId] = useState<string | null>(null);
 
   const viewSlots = useMemo(
     () => buildClockViewSlots({ slots, opportunities, pins, hourIndex: hour }),
@@ -143,6 +148,8 @@ export function ClockViewer(props: ClockViewerProps) {
 
   const activeId = hoverId ?? selectedId;
   const active = viewSlots.find((slot) => slot.id === activeId) ?? null;
+  const highlightId = hoverId ?? listHoverId ?? selectedId;
+  const highlighted = viewSlots.find((slot) => slot.id === highlightId) ?? null;
   const selected = viewSlots.find((slot) => slot.id === selectedId) ?? null;
   const previewing = hoverId !== null && hoverId !== selectedId;
 
@@ -187,6 +194,14 @@ export function ClockViewer(props: ClockViewerProps) {
     onLeave: () => setHoverId(null),
     onSelect: (id: string) => () => setSelectedId(id),
   };
+  const listHover = {
+    onEnter: (id: string) => () => setListHoverId(id),
+    onLeave: () => setListHoverId(null),
+    onSelect: (id: string) => () => {
+      setListHoverId(null);
+      setSelectedId(id);
+    },
+  };
 
   if (viewSlots.length === 0) {
     return (
@@ -220,10 +235,10 @@ export function ClockViewer(props: ClockViewerProps) {
   const list = (
     <SlotList
       slots={viewSlots}
-      activeId={activeId}
-      onEnter={hover.onEnter}
-      onLeave={hover.onLeave}
-      onSelect={hover.onSelect}
+      activeId={highlightId}
+      onEnter={listHover.onEnter}
+      onLeave={listHover.onLeave}
+      onSelect={listHover.onSelect}
     />
   );
   const legend = <Legend hasFloat={hasFloat} hasPins={hasPins} />;
@@ -267,9 +282,9 @@ export function ClockViewer(props: ClockViewerProps) {
         {view === "timeline" ? (
           <Timeline
             slots={viewSlots}
-            activeId={activeId}
-            active={active}
-            previewing={previewing}
+            activeId={highlightId}
+            active={highlighted}
+            previewing={highlightId !== selectedId}
             shift={shift}
             hour={hour}
             onEnter={hover.onEnter}
@@ -282,8 +297,8 @@ export function ClockViewer(props: ClockViewerProps) {
             <div className="flex w-full max-w-[520px] flex-col items-center gap-3 lg:w-[520px] lg:shrink-0">
               <Ring
                 slots={viewSlots}
-                activeId={activeId}
-                active={active}
+                activeId={highlightId}
+                active={highlighted}
                 onEnter={hover.onEnter}
                 onLeave={hover.onLeave}
                 onSelect={hover.onSelect}
