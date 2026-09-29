@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { slugify, validateArticleForm, type ArticleFormInput } from "./article-form";
 import { anyWordQuery, embeddingInputForArticle, shapeResourceSearchResults } from "./articles";
-import {
-  pngSize,
-  screenshotObjectPath,
-  shotObjectPath,
-  validateScreenshot,
-  SCREENSHOT_MAX_BYTES,
-} from "./screenshot-rules";
+import { screenshotObjectPath, validateScreenshot, SCREENSHOT_MAX_BYTES } from "./screenshot-rules";
 import { screensForTool } from "./screens";
 
 const TOOLS = new Set(["transcription", "log"]);
@@ -119,21 +113,6 @@ describe("screenshot rules", () => {
 
   it("builds object paths", () => {
     expect(screenshotObjectPath("a", "m", "image/webp")).toBe("a/m.webp");
-    expect(shotObjectPath("sourcework.project", "source-pill-row")).toBe(
-      "shots/sourcework.project/source-pill-row.png",
-    );
-  });
-});
-
-describe("pngSize", () => {
-  it("reads the IHDR dimensions, and refuses anything that isn't a PNG", () => {
-    const bytes = new Uint8Array(24);
-    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    const view = new DataView(bytes.buffer);
-    view.setUint32(16, 1280);
-    view.setUint32(20, 800);
-    expect(pngSize(bytes)).toEqual({ width: 1280, height: 800 });
-    expect(pngSize(new Uint8Array(24))).toBeNull();
   });
 });
 

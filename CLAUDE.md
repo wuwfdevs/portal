@@ -3272,9 +3272,12 @@ opt-in node, `figure`, admitted only with `{ allowFigures: true }` — Roadmap n
 passes it. A figure stores an `rc_media` id, never a URL; `lib/resources/media.ts`
 signs URLs from the private `resources-media` bucket
 (`20260928160000_resources_media.sql`) and a missing image renders its alt text.
-Editors upload browser → Storage (`article-body-field.tsx`); captured shots come
-from `scripts/resources-screenshots/` (`npm run screenshots:resources`, preview
-only as a source). **Slice 3 (the in-tool Help panel) has landed**: a Help button in the header on tool
+Editors upload browser → Storage (`article-body-field.tsx`). Automatically captured
+screenshots were dropped (2026-09-29): the capture script needed preview's and
+production's keys at once, which no deployment has, so it never ran and its guides only
+ever showed placeholders — `20260929120000_resources_remove_captured_shots.sql` removed
+those figures and rows. Don't reintroduce captured shots without a way to run them on
+the deployment's own settings. **Slice 3 (the in-tool Help panel) has landed**: a Help button in the header on tool
 pages opens a right-hand panel of the guides for the current screen
 (`components/help-panel.tsx`, `lib/resources/screens.ts`'s `helpContextForPath()` maps
 the URL; add a route pattern there when a screen gains a route). The assistant and Help
@@ -3669,11 +3672,6 @@ make explicitly, not by default.
   `lib/resources/screens.ts`, and on a link to a guide that doesn't exist. Slugs are the
   identity; never match on id. A guide an editor has changed since the last release is not
   overwritten: the helper flags it `needs_review` and the release note still ships.
-  - Where a step points at something on screen, add `data-help-shot="<name>"` to the
-    element and the shot to `scripts/resources-screenshots/shots.ts`, and reference its
-    `rc_media` row in a `figure`.
-  - If the change alters a screen that existing shots cover, list those shots in the PR
-    description so they're re-captured once the migration is on preview.
   - A new route that has a guide needs its pattern in `screens.ts`, or Help won't find it.
   - Tone is the station's: factual, calm, sentence case, no exclamation points.
   - The migration goes through `APPLIED.md` like any other. Internal-only changes

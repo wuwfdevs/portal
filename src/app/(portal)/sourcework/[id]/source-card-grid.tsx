@@ -145,8 +145,7 @@ export function SourceCardGrid({
           </div>
           {projectHeader}
 
-          {/* Captured for the Resources guide by scripts/resources-screenshots/. */}
-          <div data-help-shot="source-grid">
+          <div>
             <ScopedSearchPanel
               placeholder="Search this project's transcripts, documents, and excerpts…"
               onSearch={(query) => searchProjectAction(projectId, query)}
