@@ -45,6 +45,17 @@ describe("helpContextForPath", () => {
     expect(helpContextForPath("/log/weather")).toEqual({ toolKey: "log", screenKey: null });
   });
 
+  it("finds the Sources screen for the overview and each source's page", () => {
+    expect(helpContextForPath("/log/sources")).toEqual({
+      toolKey: "log",
+      screenKey: "log.sources",
+    });
+    expect(helpContextForPath("/log/sources/npr")).toEqual({
+      toolKey: "log",
+      screenKey: "log.sources",
+    });
+  });
+
   it("is null outside any tool", () => {
     expect(helpContextForPath("/dashboard")).toBeNull();
     expect(helpContextForPath("/admin/users")).toBeNull();

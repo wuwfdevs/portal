@@ -2,13 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import { TabNav } from "@/components/ui/tab-nav";
+import { isDataSourcesPath } from "@/lib/log/data-sources";
 
 const TABS = [
   { href: "/log", label: "Today" },
   { href: "/log/programs", label: "Programs" },
   { href: "/log/library", label: "Library" },
-  { href: "/log/npr", label: "NPR" },
-  { href: "/log/weather", label: "Weather" },
+  { href: "/log/sources", label: "Sources" },
 ] as const;
 
 // Clocks have no tab of their own: nobody starts from a clock, so a clock's
@@ -20,6 +20,8 @@ function isTabActive(href: string, pathname: string): boolean {
   if (href === "/log/programs") {
     return pathname.startsWith("/log/programs") || pathname.startsWith("/log/clocks");
   }
+  // NPR and weather live under Sources; their old top-level paths redirect there.
+  if (href === "/log/sources") return isDataSourcesPath(pathname);
   return pathname.startsWith(href);
 }
 

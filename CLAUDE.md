@@ -3074,6 +3074,22 @@ now return to the page with the version/hour/slot preserved through a validated
 `/log/programs`; the standalone Clocks list, `ClockFace` and its two-ring
 component are gone. No schema change.
 
+**Log: NPR and weather live under one Sources tab (2026-09-29).** The NPR and
+Weather tabs are replaced by **Sources** (`/log/sources`): an overview with one
+card per outside feed (state, last updated, what's saved, a link), and each
+feed's existing page moved beneath it (`/log/sources/npr`,
+`/log/sources/weather`, each with a "← Sources" link). `/log/npr` and
+`/log/weather` redirect. `lib/log/data-sources.ts` (pure, tested) is the list of
+sources and the one state rule (`fresh`/`stale`/`never_fetched`/
+`not_configured`); `lib/log/data-source-status.ts` loads each card's status.
+Deliberately only that: each source keeps its own fetching, cache tables, and
+page — NPR is cached per program and show date, weather as one current reading,
+and no shared cache shape fits both. The NPR card reports the most recently
+retrieved episode and never refreshes (there is no single NPR feed to refresh);
+the weather card goes through weather's ordinary lazy-refresh read. A new source
+is an entry in `DATA_SOURCES`, a loader, and a page under `/log/sources/`. No
+schema change.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays
