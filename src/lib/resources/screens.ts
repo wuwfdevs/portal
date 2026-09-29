@@ -160,7 +160,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
     key: "log.clock",
     name: "Clock template",
     toolKey: "log",
-    paths: ["/log/clocks/:id", "/log/clocks/new", "/log/clocks/:id/schedule"],
+    paths: ["/log/clocks/:id", "/log/clocks/new"],
   },
   {
     key: "log.program",

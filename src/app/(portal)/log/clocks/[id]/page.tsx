@@ -17,13 +17,7 @@ import {
 } from "@/lib/log/queries";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import { clampHour, shiftInfoFromEntries } from "@/lib/log/clock-view";
-import {
-  formatDateShort,
-  formatDaysOfWeek,
-  formatDurationMinutes,
-  isPlaceholderClockName,
-} from "@/lib/log/program-status";
-import { formatAirTime } from "@/lib/log/schedule";
+import { formatDateShort } from "@/lib/log/program-status";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { stationTodayISO } from "@/lib/log/timezone";
 import {
@@ -89,8 +83,6 @@ export default async function ClockTemplateDetailPage({
   const liveEntries = usedByEntries
     .filter((entry) => entry.end_date === null || entry.end_date >= today)
     .sort((a, b) => a.air_time.localeCompare(b.air_time));
-  const usedByPrograms = new Set(usedByEntries.map((entry) => entry.program_id)).size;
-  const placeholder = isPlaceholderClockName(template.name);
 
   const currentVersion = resolveCurrentVersion(template.versions, today);
   const version =
@@ -188,8 +180,6 @@ export default async function ClockTemplateDetailPage({
 
   const labelForType = (value: string) =>
     PERMITTED_CONTENT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
-  const singleLive = liveEntries.length === 1 ? liveEntries[0]! : null;
-  const primary = liveEntries[0] ?? usedByEntries[0] ?? null;
   const versionLabel = (candidate: (typeof template.versions)[number]) =>
     `${formatDateShort(candidate.effective_from)}${
       candidate.id === currentVersion?.id
@@ -238,102 +228,6 @@ export default async function ClockTemplateDetailPage({
       </div>
 
       {query.error && <Alert>{query.error}</Alert>}
-
-      <section
-        aria-label="Programs on this clock"
-        className="rounded border border-[#BBD6EB] bg-[#EAF3FA] px-4 py-3"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="text-xs font-bold uppercase tracking-wide text-brand-link">
-            {placeholder ? "Shared placeholder" : "Airs on this clock"}
-          </span>
-          {primary ? (
-            placeholder ? (
-              <span className="text-[15px] text-ink-900">
-                Used by {usedByPrograms} {usedByPrograms === 1 ? "program" : "programs"} still
-                waiting for a network clock
-              </span>
-            ) : (
-              <>
-                <Link
-                  href={`/log/programs/${primary.program_id}`}
-                  className="text-base font-bold text-brand-link hover:underline"
-                >
-                  {primary.programName}
-                </Link>
-                <span className="text-[15px] text-ink-900">
-                  {primary.entry_type === "recurring"
-                    ? formatDaysOfWeek(primary.days_of_week)
-                    : primary.entry_type === "override"
-                      ? "Override"
-                      : "Holiday"}{" "}
-                  · {formatAirTime(primary.air_time)} ·{" "}
-                  {formatDurationMinutes(primary.duration_minutes)} · from{" "}
-                  {formatDateShort(primary.start_date)}
-                </span>
-                {usedByEntries.length > 1 && (
-                  <span className="text-sm text-ink-500">
-                    and {usedByEntries.length - 1} more{" "}
-                    {usedByEntries.length === 2 ? "entry" : "entries"}
-                  </span>
-                )}
-              </>
-            )
-          ) : (
-            <span className="text-[15px] text-ink-700">No program is scheduled on this clock.</span>
-          )}
-          <span className="flex-1" />
-          {isProducer && singleLive && !placeholder && (
-            <Link
-              href={`/log/programs/${singleLive.program_id}/schedule/${singleLive.id}/edit`}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              Edit schedule
-            </Link>
-          )}
-          {primary && !placeholder && (
-            <Link
-              href={`/log/programs/${primary.program_id}`}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              Open program →
-            </Link>
-          )}
-          {isProducer && (
-            <Link
-              href={`${basePath}/schedule`}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              Schedule a program with this clock
-            </Link>
-          )}
-        </div>
-        {usedByEntries.length > 1 && (
-          <details className="mt-2 text-sm">
-            <summary className="cursor-pointer font-semibold text-brand-link">
-              All {usedByPrograms} {usedByPrograms === 1 ? "program" : "programs"}
-            </summary>
-            <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-              {usedByEntries.map((entry) => (
-                <li key={entry.id} className="flex flex-wrap items-baseline gap-x-2">
-                  <Link
-                    href={`/log/programs/${entry.program_id}`}
-                    className="font-semibold text-brand-link hover:underline"
-                  >
-                    {entry.programName}
-                  </Link>
-                  <span className="text-ink-700">
-                    {entry.entry_type === "recurring"
-                      ? formatDaysOfWeek(entry.days_of_week)
-                      : "Override"}{" "}
-                    · {formatAirTime(entry.air_time)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-      </section>
 
       {template.versions.length === 0 && (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
