@@ -40,7 +40,7 @@ export function ShareTab({
   });
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6" data-help-shot="share-cards">
+    <div className="flex max-w-3xl flex-col gap-6">
       {isDraft && (
         <Alert variant="note">
           This query is still a draft, so neither of these works yet — the page reads as though it

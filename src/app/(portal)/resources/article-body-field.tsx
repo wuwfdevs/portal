@@ -49,7 +49,6 @@ export function ArticleBodyField({
       width: meta.width,
       height: meta.height,
       alt: meta.alt,
-      source: "editor",
     });
     if (rowError) {
       // Don't leave an object nothing points at.

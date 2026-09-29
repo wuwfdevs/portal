@@ -1435,20 +1435,19 @@ export interface Database {
       rc_media: {
         Row: {
           id: string;
-          article_id: string | null;
+          article_id: string;
           object_path: string;
-          width: number | null;
-          height: number | null;
+          width: number;
+          height: number;
           alt: string;
-          source: RcSource;
-          screen_key: string | null;
-          name: string | null;
-          captured_at: string | null;
           created_by: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["rc_media"]["Row"]> & {
+          article_id: string;
           object_path: string;
+          width: number;
+          height: number;
           alt: string;
         };
         Update: Partial<Database["public"]["Tables"]["rc_media"]["Row"]>;

@@ -229,7 +229,7 @@ export async function deleteArticle(formData: FormData): Promise<void> {
   if (!existing || existing.kind === "release_note") redirect("/resources");
 
   // The article's own uploads go with it: the rows cascade, the objects
-  // don't, so they're removed first. Shared captured shots are untouched.
+  // don't, so they're removed first.
   const { data: media, error: mediaError } = await supabase
     .from("rc_media")
     .select("object_path")

@@ -19,7 +19,8 @@ export default async function ContentLibraryPage({
 }: {
   searchParams: Promise<{ content_type?: string; approval_status?: string }>;
 }) {
-  const { content_type: contentTypeParam, approval_status: approvalStatusParam } = await searchParams;
+  const { content_type: contentTypeParam, approval_status: approvalStatusParam } =
+    await searchParams;
   const contentType = CONTENT_TYPES.includes(contentTypeParam as LogContentType)
     ? (contentTypeParam as LogContentType)
     : undefined;
@@ -32,7 +33,7 @@ export default async function ContentLibraryPage({
   const items = await listContentItemsWithComponents({ contentType, approvalStatus });
 
   return (
-    <div data-help-shot="library-list">
+    <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <form className="flex flex-wrap items-end gap-3" method="get">
           <div>

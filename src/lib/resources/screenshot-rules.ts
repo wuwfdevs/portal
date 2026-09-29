@@ -38,20 +38,3 @@ export function screenshotObjectPath(articleId: string, mediaId: string, type: s
   const extension = isScreenshotType(type) ? EXTENSIONS[type] : "png";
   return `${articleId}/${mediaId}.${extension}`;
 }
-
-/** A captured shot's object path, shared by every guide that shows it. */
-export function shotObjectPath(screenKey: string, name: string): string {
-  return `shots/${screenKey}/${name}.png`;
-}
-
-/**
- * A PNG's width and height from its IHDR chunk, or null if the bytes aren't
- * a PNG. The capture script records these on rc_media so a figure renders
- * with explicit dimensions and doesn't shift the page as it loads.
- */
-export function pngSize(bytes: Uint8Array): { width: number; height: number } | null {
-  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 24 || signature.some((value, index) => bytes[index] !== value)) return null;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return { width: view.getUint32(16), height: view.getUint32(20) };
-}

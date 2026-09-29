@@ -65,8 +65,8 @@ function Nodes({ nodes, figures }: { nodes: RichTextNode[]; figures: Figures }) 
 
 /**
  * A screenshot. The body carries only a media id; `figures` maps it to a
- * signed URL the page resolved. No entry — a missing row, an object not yet
- * captured, a URL that couldn't be signed — renders the alt text in a dashed
+ * signed URL the page resolved. No entry — a missing row or object, a URL
+ * that couldn't be signed — renders the alt text in a dashed
  * placeholder, never a broken image.
  */
 function Figure({

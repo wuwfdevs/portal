@@ -1,10 +1,7 @@
 // Runs the on-demand model evals — the program-log importer against real
 // exports (`npm run eval:program-log`, scripts/program-log-eval/README.md)
 // and the agreement reader against the insertion-order corpus
-// (`npm run eval:agreement`, scripts/agreement-eval/README.md) — and the
-// Resources screenshot capture (`npm run screenshots:resources`,
-// scripts/resources-screenshots/README.md), which borrows this runner for its
-// TypeScript and `@/` imports rather than adding one of its own. Kept
+// (`npm run eval:agreement`, scripts/agreement-eval/README.md). Kept
 // out of `npm test` on purpose: it needs OPENAI_API_KEY and a Supabase
 // secret key, takes minutes, and costs money. The `server-only` alias is
 // what lets a plain Node process import this repo's `"server-only"`
@@ -17,7 +14,7 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["scripts/*-eval/**/*.eval.ts", "scripts/resources-screenshots/**/*.capture.ts"],
+    include: ["scripts/*-eval/**/*.eval.ts"],
     testTimeout: 15 * 60 * 1000,
     hookTimeout: 5 * 60 * 1000,
     fileParallelism: false,
