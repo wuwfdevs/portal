@@ -1,8 +1,8 @@
 import "server-only";
 // The one write path for a new schedule line: the row, then its compiled
 // demand buckets. Shared by the schedule editor's addScheduleLine and the
-// agreement import's applyAgreementProposal (docs/underwriting-traffic-
-// redesign.md §12), so a line read from a document is stored exactly the
+// agreement import (agreement-import-service.ts, docs/underwriting-
+// traffic-redesign.md §12), so a line read from a document is stored exactly the
 // way a hand-entered one is — same parser upstream, same insert here.
 
 import type { createClient } from "@/lib/supabase/server";

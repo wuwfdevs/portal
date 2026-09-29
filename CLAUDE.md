@@ -1351,6 +1351,21 @@ pointer. `?page=N`, filtered and sorted in the query with `{ count: "exact" }` p
 and `components/ui/pagination.tsx` under the list. The Resources procedures list is the
 reference; the doc's rollout list names the lists still to move, `log/library` first.
 
+**Underwriting & Traffic: bulk migration of legacy agreements
+(2026-09-29).** Read `docs/underwriting-traffic-redesign.md` §14 before
+touching the agreement import or `/underwriting/migration`; this is a
+pointer. §12's import is now one service,
+`lib/underwriting/agreement-import-service.ts`'s `importAgreementAsDraft()`
+— the order step's "Create from the agreement" and the migration both call
+it; don't grow a second importer. The migration (administrators with
+Underwriting access) loads a CSV manifest into
+`uw_agreement_migration_items` (keyed on `source_key`), whose facts become
+the merge's typed side (`lib/underwriting/agreement-migration.ts`, pure,
+tested), and imports one entry per request from the client. Reruns are
+safe: `uw_contracts.import_source_key` is unique
+(`20260929200000_underwriting_agreement_migration.sql`), an imported entry
+never runs again, and deleting its draft frees the key.
+
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
 `docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`
@@ -3039,17 +3054,17 @@ program's page at `clocks/new?from=<programId>`. No schema change.
 **Log: the week view, the schedule editor, and the clock page's timeline and ring
 (2026-09-29, second pass, from reviewed Design boards).** Read
 `lib/log/clock-view.ts` before touching the clock diagram; this is a pointer.
-*Programs* gained a **Week | List** toggle (`?view=week&week=`; the list stays the
+_Programs_ gained a **Week | List** toggle (`?view=week&week=`; the list stays the
 default): a Monday–Sunday grid built from `listScheduleEntries()`
 (`lib/log/week-layout.ts`, pure and tested — concurrent programs share a day in
 lanes, a block running past midnight is clipped, not wrapped), each block a button
 whose popover offers Edit schedule / Open program (`programs/week-grid.tsx`).
-*Editing a schedule* is now the obvious action on a program's page (an Edit button
+_Editing a schedule_ is now the obvious action on a program's page (an Edit button
 on every "When it airs" card, plus "Edit schedule" when there is exactly one live
 entry) and opens `schedule/schedule-editor.tsx`, shared by the new and edit pages:
 day buttons, start, length, dates, clock, and a live preview with the next airing
 and an **advisory** overlap check (`lib/log/schedule-overlap.ts`, pure and tested;
-it warns, never blocks). *The clock page* is `components/log/clock-viewer.tsx`
+it warns, never blocks). _The clock page_ is `components/log/clock-viewer.tsx`
 (client) over the pure model in `lib/log/clock-view.ts`: one hour drawn as a
 **Timeline** (a Network lane over a WUWF-local lane) or a **Ring**, the same
 hover/focus-to-read, click-to-select behaviour in both (labels are not printed on

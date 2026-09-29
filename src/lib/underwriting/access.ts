@@ -51,3 +51,20 @@ export async function assertUnderwritingAccess(): Promise<UnderwritingContext> {
   const { profile, tool } = await assertToolAccess(UNDERWRITING_TOOL_KEY);
   return contextFor(profile, tool, await lookupRole(profile, tool));
 }
+
+/**
+ * The legacy-agreement migration (docs/underwriting-traffic-redesign.md §14)
+ * is an administrator's tool: Underwriting access (the RLS on uw_* needs
+ * it) and the administrator platform role. The table's own policies say the
+ * same; this is the courtesy check in front of them.
+ */
+export async function requireAgreementMigrationAccess(): Promise<UnderwritingContext | null> {
+  const context = await requireUnderwritingAccess();
+  return context.isAdministrator ? context : null;
+}
+
+export async function assertAgreementMigrationAccess(): Promise<UnderwritingContext> {
+  const context = await assertUnderwritingAccess();
+  if (!context.isAdministrator) throw new Error("Only an administrator can migrate agreements.");
+  return context;
+}

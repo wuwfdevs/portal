@@ -13,7 +13,11 @@ import type { DraftContractFacts } from "./agreement-import";
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
 export type CreateDraftContractResult =
-  { ok: true; id: string; revisionId: string } | { ok: false; error: string };
+  | { ok: true; id: string; revisionId: string }
+  | { ok: false; error: string; duplicateImportKey?: boolean };
+
+/** Postgres unique_violation. */
+const UNIQUE_VIOLATION = "23505";
 
 export async function createDraftContractWithRevision(
   supabase: ServerSupabase,
@@ -22,6 +26,8 @@ export async function createDraftContractWithRevision(
     id?: string;
     agreement_document_path?: string | null;
     account_rep?: string | null;
+    /** The legacy-agreement migration's key (§14); unique, so a rerun can't create a second contract. */
+    import_source_key?: string | null;
   },
 ): Promise<CreateDraftContractResult> {
   const { data, error } = await supabase
@@ -42,13 +48,24 @@ export async function createDraftContractWithRevision(
       notes: facts.notes,
       account_rep: facts.account_rep ?? null,
       agreement_document_path: facts.agreement_document_path ?? null,
+      import_source_key: facts.import_source_key ?? null,
       created_by: createdBy,
     })
     .select("id")
     .single();
   if (error) {
-    console.error("Could not create the contract", error);
-    return { ok: false, error: `Could not create the contract: ${error.message}` };
+    const duplicateImportKey =
+      error.code === UNIQUE_VIOLATION &&
+      Boolean(facts.import_source_key) &&
+      error.message.includes("import_source_key");
+    if (!duplicateImportKey) console.error("Could not create the contract", error);
+    return {
+      ok: false,
+      error: duplicateImportKey
+        ? "A contract has already been imported under this key."
+        : `Could not create the contract: ${error.message}`,
+      duplicateImportKey,
+    };
   }
   if (!data) return { ok: false, error: "Could not create the contract." };
 

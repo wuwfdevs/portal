@@ -488,6 +488,9 @@ export type LogMissReason =
 // supabase/migrations/20260807200000_underwriting_foundation.sql.
 export type UwContractStatus = "draft" | "active" | "expired" | "terminated";
 export type UwCopyApprovalStatus = "draft" | "approved" | "expired" | "retired";
+// Legacy-agreement migration (20260929200000) — see docs/underwriting-
+// traffic-redesign.md §14.
+export type UwAgreementMigrationStatus = "pending" | "processing" | "imported" | "failed";
 // Domain redesign (2026-08-08) — see supabase/migrations/
 // 20260808200000_underwriting_redesign.sql and CLAUDE.md's "Underwriting
 // domain redesign" note, grounded in the real WUWF Autumn Beck Blackledge
@@ -2133,6 +2136,50 @@ export interface Database {
       // New (2026-08-08) — a durable underwriter/sponsor entity, replacing
       // free-text underwriter_name on the contract. See supabase/migrations/
       // 20260808200000_underwriting_redesign.sql.
+      /**
+       * Legacy-agreement migration (20260929200000, docs/underwriting-
+       * traffic-redesign.md §14): one manifest entry — its authoritative
+       * facts, its run status, and the draft contract it produced.
+       */
+      uw_agreement_migration_items: {
+        Row: {
+          id: string;
+          source_key: string;
+          batch_label: string;
+          manifest_row: number | null;
+          underwriter_name: string;
+          contract_identifier: string | null;
+          effective_from: string | null;
+          effective_to: string | null;
+          sponsorship_total: number | null;
+          contract_type: string | null;
+          source_file: string;
+          drive_file_id: string | null;
+          documentation_status: string | null;
+          notes: string | null;
+          status: UwAgreementMigrationStatus;
+          attempts: number;
+          started_at: string | null;
+          finished_at: string | null;
+          contract_id: string | null;
+          document_sha256: string | null;
+          last_error: string | null;
+          /** lib/underwriting/agreement-migration.ts's MigrationItemResult. */
+          result: unknown;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["uw_agreement_migration_items"]["Row"]> & {
+          source_key: string;
+          batch_label: string;
+          underwriter_name: string;
+          source_file: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["uw_agreement_migration_items"]["Row"]>;
+        Relationships: [];
+      };
       uw_underwriters: {
         Row: {
           id: string;
@@ -2202,6 +2249,8 @@ export interface Database {
           separation_minutes: number | null;
           /** The station's salesperson on the order, printed on the affidavit (20260928120000). */
           account_rep: string | null;
+          /** The legacy-agreement migration entry this draft was imported from — unique, null otherwise (20260929200000). */
+          import_source_key: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;

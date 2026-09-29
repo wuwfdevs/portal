@@ -1123,3 +1123,90 @@ Not built, deliberately: weights, fixed day assignments, per-line rotation
 settings, a stored rotation position, lazy assignment at rundown read time,
 a "duplicate into this contract" action. A message for a period or an event
 is effective dates or a flight.
+
+## 14. Migrating legacy agreements in bulk (2026-09-29)
+
+WUWF has 45–50 active or already-booked agreements in legacy records. A
+separate process builds a manifest of them from the Business Drive —
+underwriter, order number, run dates, sponsorship total, a contract type
+(local/direct, trade, FPM/FPBS), the source document, notes, and sometimes
+a documentation flag such as "incomplete signature". This is an
+administrator's tool for running those through §12's import, not a second
+importer.
+
+### 14.1 Shape
+
+- **One import path.** Everything `createContractFromAgreement` did — read
+  the document, `mergeOrderFacts()`, store the document, create the draft
+  and its revision, save each compiling line, keep the reading, audit — is
+  now `lib/underwriting/agreement-import-service.ts`'s
+  `importAgreementAsDraft()`, which returns a result instead of
+  redirecting. The order step's action is a thin wrapper over it; the
+  migration calls it once per entry. Same model call, same schema, same
+  parser and compiler, same `agreement_reading`, same schedule-step review.
+- **The manifest is the typed side of the merge.**
+  `lib/underwriting/agreement-migration.ts` (pure, tested) parses the CSV
+  and turns an entry into the order step's own `TypedOrderFields`, so the
+  manifest wins over the reading exactly the way a staffer's typing does.
+  The contract type, documentation status, source file, key and notes go
+  into the contract's notes verbatim — recorded, never interpreted (no new
+  contract columns for them; an FPM agency-approval requirement still
+  comes from the document's reading, as in §12). The underwriter must be
+  on file under the same name (case and spacing aside, no fuzzy match); an
+  unmatched name fails that entry before any model call, and the fix is to
+  add the underwriter or correct the spelling.
+- **Where the document disagrees.** After a successful import,
+  `manifestDiscrepancies()` lists every place the reading differs from the
+  manifest (sponsor, order number, dates, total) and every read line
+  running outside the manifest's dates. The manifest's value is the one
+  saved; the list is for a person to decide which source is wrong before
+  activating. It sits with the entry's other warnings (the merge's, and
+  each line that couldn't be saved).
+- **Records.** `uw_agreement_migration_items`
+  (`20260929200000_underwriting_agreement_migration.sql`) holds one row per
+  entry, unique on `source_key`: the manifest's facts, status (`pending` /
+  `processing` / `imported` / `failed`), attempts, the contract it made,
+  the document's SHA-256, the last error, and the result. RLS admits
+  administrators with Underwriting access; no delete. It is the
+  migration's record, not a job queue.
+- **The screen.** `/underwriting/migration`, linked from the Contracts list
+  for administrators only: load a manifest (CSV file or pasted), choose
+  every document at once, import. The client matches each runnable entry to
+  a chosen file by basename and calls `importMigrationItem` once per entry,
+  in sequence — one model call per request, with the page's
+  `maxDuration = 300`, since there is still no job queue. A progress bar,
+  a per-entry log, and "Stop after this one"; then a table of every entry
+  with its status, a link to its draft's schedule step, lines saved of
+  lines read, and the warnings to review.
+
+### 14.2 Idempotency
+
+- The key is the manifest's `source_key`, else `drive:<Drive file id>`,
+  else `file:<basename>` (`manifestSourceKey()`), so the same spreadsheet
+  keys the same way every time. Two rows sharing a key are both refused.
+- Reloading a manifest inserts new keys and updates the facts of entries
+  that have no contract yet; an imported entry is left as it is.
+- An entry with its contract never runs again. Running claims the entry
+  with a conditional update (`pending`/`failed`, an imported entry whose
+  draft was deleted, or `processing` stale past 15 minutes), so two tabs
+  can't import one entry at once.
+- **`uw_contracts.import_source_key`** is unique. The service writes the
+  entry's key on the contract it creates, so a second contract under one
+  key fails at the insert however runs interleave; a run cut off after
+  creating its contract is found by the key on the next attempt and linked
+  rather than duplicated. Deleting the draft (§11.5) frees the key — that
+  is how an entry is redone.
+- Each import is audited as `underwriting.contract.created_from_agreement`
+  with `source: "legacy_migration"`, the entry's id, key, batch and the
+  document's hash; a manifest load as
+  `underwriting.migration.manifest_submitted`; a failed import as
+  `underwriting.migration.item_failed`.
+
+### 14.3 Not built
+
+No Drive integration (the administrator downloads the documents and
+chooses them); no automatic activation; no creating underwriters from the
+manifest; no interpretation of the contract type or the documentation
+flag; no re-reading an imported entry in place (delete the draft and run
+it again). None of the reader's behaviour changed, so §12.3's eval still
+measures it.
