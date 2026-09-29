@@ -113,12 +113,11 @@ Resources is the first body in the portal with images; Roadmap still has none.
   holds the object path, size, and alt text. `lib/resources/media.ts`'s `resolveFigures()`
   reads the rows and signs URLs for the private `resources-media` bucket as the viewer, so
   Storage's own policy decides; `components/ui/rich-text.tsx` renders the image with its
-  width and height, or the alt text in a dashed placeholder when there's no image yet, the
-  object is missing, or signing failed. `RichText` renders no figures unless the caller
+  width and height, or the alt text in a dashed placeholder when the row or object is
+  missing or signing failed. `RichText` renders no figures unless the caller
   passes `figures`, so a Roadmap body can't show one however it was stored.
-- **Media rows.** An editor's upload has `article_id` and follows that article's
-  visibility. (`screen_key`/`name` and rows with no article were for captured shots,
-  now dropped — see below.)
+- **Media rows.** Every row is an editor's upload into one article (`article_id`, width
+  and height all required) and follows that article's visibility.
 - **Editor uploads** go browser → Storage at `<article_id>/<media_id>.<ext>`
   (`resources/article-body-field.tsx`), then an `rc_media` row, then the node — never
   through a Server Action. "Add screenshot" appears only when editing an existing article
@@ -132,7 +131,10 @@ Resources is the first body in the portal with images; Roadmap still has none.
   — no deployment has them — so it never ran, and the four guides that referenced a shot
   only ever showed its alt text. `20260929120000_resources_remove_captured_shots.sql`
   removed those figures and their placeholder rows; the script, its `data-help-shot`
-  markers, and `playwright-core` were removed with it. Editor uploads are unaffected.
+  markers, and `playwright-core` were removed with it, and
+  `20260929130000_resources_media_capture_columns_drop.sql` dropped the columns only a
+  shot used (`screen_key`, `name`, `captured_at`, `source`). Editor uploads are
+  unaffected.
 
 ## Help panel (slice 3)
 

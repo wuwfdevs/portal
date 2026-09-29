@@ -10,9 +10,9 @@ const SIGNED_URL_SECONDS = 60 * 60;
 
 /**
  * The images a set of bodies' figures point at, keyed by media id, with a
- * signed URL for each object the caller can read. A figure whose row is
- * missing, whose object has not been captured or uploaded yet, or whose
- * object the caller can't sign simply has no entry, and the renderer shows
+ * signed URL for each object the caller can read. A figure whose row or
+ * object is missing, or whose object the caller can't sign, simply has no
+ * entry, and the renderer shows
  * its alt text in a placeholder instead of a broken image.
  */
 export async function resolveFigures(bodies: unknown[]): Promise<Map<string, FigureImage>> {
@@ -33,13 +33,12 @@ export async function resolveFigures(bodies: unknown[]): Promise<Map<string, Fig
       await supabase.from("rc_media").select("id, object_path, width, height").in("id", ids),
       "screenshots",
     ) ?? [];
-  const ready = rows.filter((row) => row.width && row.height);
-  if (ready.length === 0) return figures;
+  if (rows.length === 0) return figures;
 
   const { data: signed, error } = await supabase.storage
     .from(RESOURCES_MEDIA_BUCKET)
     .createSignedUrls(
-      ready.map((row) => row.object_path),
+      rows.map((row) => row.object_path),
       SIGNED_URL_SECONDS,
     );
   if (error) {
@@ -54,9 +53,9 @@ export async function resolveFigures(bodies: unknown[]): Promise<Map<string, Fig
       entry.signedUrl && entry.path ? [[entry.path, entry.signedUrl] as const] : [],
     ),
   );
-  for (const row of ready) {
+  for (const row of rows) {
     const url = urlByPath.get(row.object_path);
-    if (url && row.width && row.height) {
+    if (url) {
       figures.set(row.id, { url, width: row.width, height: row.height });
     }
   }
