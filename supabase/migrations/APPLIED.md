@@ -169,6 +169,7 @@ repo and a project's history, not the version number.
 | `20260929150000_resources_log_import_on_today.sql`                    | 2026-09-29 | 2026-09-29 |
 | `20260929160000_resources_log_sources_tab.sql`                        | 2026-09-29 | 2026-09-29 |
 | `20260929170000_resources_log_library_search.sql`                     | 2026-09-29 | 2026-09-29 |
+| `20260929180000_resources_log_program_page.sql`                       | 2026-09-29 | 2026-09-29 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

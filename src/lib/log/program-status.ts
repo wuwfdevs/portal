@@ -91,36 +91,6 @@ export function nextAiringDate(
   return null;
 }
 
-export interface WeekDay {
-  dateISO: string;
-  /** Index into Sun..Sat. */
-  dayOfWeek: number;
-  /** Air times ("HH:MM:SS"), earliest first, of every entry airing that day. */
-  airTimes: string[];
-}
-
-/** Monday through Sunday of the week containing `todayISO`, each with the air times of the entries that air that day. */
-export function buildWeekStrip(
-  entries: Array<ScheduleEntryLike & { air_time: string }>,
-  todayISO: string,
-): WeekDay[] {
-  const todayDow = new Date(`${todayISO}T12:00:00Z`).getUTCDay();
-  const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
-  const monday = shiftDateISO(todayISO, mondayOffset);
-  return Array.from({ length: 7 }, (_, index) => {
-    const dateISO = shiftDateISO(monday, index);
-    const airTimes = entries
-      .filter((entry) => isScheduleEntryActiveOn(entry, dateISO))
-      .map((entry) => entry.air_time)
-      .sort();
-    return {
-      dateISO,
-      dayOfWeek: new Date(`${dateISO}T12:00:00Z`).getUTCDay(),
-      airTimes,
-    };
-  });
-}
-
 /** A calendar date (YYYY-MM-DD) as "Sep 8, 2026", or "Sat, Oct 3" with `weekday` (no year, for something coming up). */
 export function formatDateShort(dateISO: string, weekday = false): string {
   const date = new Date(`${dateISO}T12:00:00Z`);
@@ -137,6 +107,25 @@ export function formatDateShort(dateISO: string, weekday = false): string {
         month: "short",
         day: "numeric",
       }).format(date);
+}
+
+/**
+ * The dates a one-time change or holiday entry covers, for the place a recurring
+ * entry shows its days: "Sat, Oct 3", "Oct 3 – Oct 5", or "From Oct 3" when it
+ * has no end date.
+ */
+export function formatEntryDates(entry: { start_date: string; end_date: string | null }): string {
+  if (entry.end_date === null) return `From ${formatMonthDay(entry.start_date)}`;
+  if (entry.end_date === entry.start_date) return formatDateShort(entry.start_date, true);
+  return `${formatMonthDay(entry.start_date)} – ${formatMonthDay(entry.end_date)}`;
+}
+
+function formatMonthDay(dateISO: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${dateISO}T12:00:00Z`));
 }
 
 export const CLOCK_VARIANT_LABEL: Record<string, string> = {
