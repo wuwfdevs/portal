@@ -2147,7 +2147,8 @@ export interface Database {
           source_key: string;
           batch_label: string;
           manifest_row: number | null;
-          underwriter_name: string;
+          /** Null only for a documents-only entry (source_key "sha256:…", 20260929210000). */
+          underwriter_name: string | null;
           contract_identifier: string | null;
           effective_from: string | null;
           effective_to: string | null;
@@ -2174,7 +2175,6 @@ export interface Database {
         Insert: Partial<Database["public"]["Tables"]["uw_agreement_migration_items"]["Row"]> & {
           source_key: string;
           batch_label: string;
-          underwriter_name: string;
           source_file: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_agreement_migration_items"]["Row"]>;

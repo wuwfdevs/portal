@@ -3,6 +3,9 @@ import type { AgreementModelLine, AgreementModelOutput } from "./agreement-impor
 import {
   canRunMigrationItem,
   canUpdateMigrationItemFacts,
+  documentOnlyHash,
+  documentOnlySourceKey,
+  typedFieldsForDocumentOnly,
   documentBasename,
   manifestDiscrepancies,
   manifestSourceKey,
@@ -276,5 +279,33 @@ describe("manifestDiscrepancies", () => {
       '"Line 1" starts 2026-03-30, before the manifest\'s 2026-04-01.',
       '"Line 1" ends 2026-10-05, after the manifest\'s 2026-09-29.',
     ]);
+  });
+});
+
+describe("documents-only entries", () => {
+  const hash = "a".repeat(64);
+
+  it("keys by the file's hash and reads it back", () => {
+    expect(documentOnlySourceKey(hash.toUpperCase())).toBe(`sha256:${hash}`);
+    expect(documentOnlyHash(`sha256:${hash}`)).toBe(hash);
+    expect(documentOnlyHash("sha256:not-a-hash")).toBeNull();
+    expect(documentOnlyHash("drive:abc")).toBeNull();
+  });
+
+  it("types nothing, so the reading supplies every fact", () => {
+    const typed = typedFieldsForDocumentOnly(
+      { sourceKey: `sha256:${hash}`, sourceFile: "stray.pdf" },
+      "Stragglers",
+    );
+    expect(typed).toMatchObject({
+      underwriter_id: "",
+      contract_identifier: "",
+      effective_from: "",
+      effective_to: "",
+      sponsorship_total: "",
+    });
+    expect(typed.notes).toBe(
+      `Migrated from legacy records (batch "Stragglers", key sha256:${hash}).\nSource document: stray.pdf.\nNo manifest entry: every fact was read from the document.`,
+    );
   });
 });

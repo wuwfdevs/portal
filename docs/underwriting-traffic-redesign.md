@@ -1202,7 +1202,28 @@ importer.
   `underwriting.migration.manifest_submitted`; a failed import as
   `underwriting.migration.item_failed`.
 
-### 14.3 Not built
+### 14.3 Documents with no manifest entry
+
+A fallback for an agreement the manifest missed, under a disclosure on the
+same screen: choose documents and each becomes its own entry, keyed
+`sha256:<hash of the file>` (the browser hashes; `registerDocumentOnly
+Entries` inserts the entries, returning an existing one for a file already
+chosen), with no underwriter name
+(`20260929210000_underwriting_agreement_migration_documents_only.sql`
+makes `underwriter_name` nullable only for such a key). It is imported
+with nothing typed (`typedFieldsForDocumentOnly()`), so the reading supplies
+every fact — "Create from the agreement", once per file — and
+`mergeOrderFacts()` still refuses a sponsor not on file. No discrepancy list,
+since there is no manifest to disagree with. The import checks the chosen
+file's hash against the key, and every import (manifest or documents-only)
+now refuses a document another entry already imported
+(`document_sha256`, indexed), so the same PDF can't become two contracts
+by coming in both ways. A re-scan is a different file with a different
+hash; that is what the review step is for. The manifest stays the
+preferred route: it decides which agreements are in scope and carries the
+facts a legacy PDF gets wrong.
+
+### 14.4 Not built
 
 No Drive integration (the administrator downloads the documents and
 chooses them); no automatic activation; no creating underwriters from the

@@ -35,6 +35,10 @@ import {
 import {
   canRunMigrationItem,
   canUpdateMigrationItemFacts,
+  documentOnlyHash,
+  documentOnlySourceKey,
+  isSha256Hex,
+  typedFieldsForDocumentOnly,
   manifestDiscrepancies,
   manifestRowFromItem,
   migrationItemFactsFromRow,
@@ -154,6 +158,89 @@ export async function submitMigrationManifest(formData: FormData): Promise<void>
   );
 }
 
+/**
+ * Documents-only entries (§14.3): one per chosen file, keyed by its hash,
+ * which the browser computes so the files themselves travel only with each
+ * entry's own import. An existing key is returned as it is — choosing the
+ * same file again finds its entry rather than making another.
+ */
+export async function registerDocumentOnlyEntries(input: {
+  batchLabel: string;
+  documents: { filename: string; sha256: string }[];
+}): Promise<
+  | {
+      ok: true;
+      entries: { sha256: string; id: string; runnable: boolean; contractId: string | null }[];
+    }
+  | { ok: false; error: string }
+> {
+  let context;
+  try {
+    context = await assertAgreementMigrationAccess();
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+  const batchLabel = input.batchLabel.trim();
+  if (batchLabel === "") return { ok: false, error: "Name the batch first." };
+  if (batchLabel.length > BATCH_LABEL_MAX)
+    return { ok: false, error: `A batch name can be at most ${BATCH_LABEL_MAX} characters.` };
+  if (input.documents.length === 0) return { ok: false, error: "Choose at least one document." };
+  if (
+    input.documents.some((document) => !isSha256Hex(document.sha256) || !document.filename.trim())
+  )
+    return { ok: false, error: "A document couldn't be identified; choose the files again." };
+
+  const supabase = await createClient();
+  const { data: existing, error: readError } = await supabase
+    .from("uw_agreement_migration_items")
+    .select("id, source_key, status, contract_id, started_at");
+  if (readError) return { ok: false, error: `Could not read the migration: ${readError.message}` };
+  const byKey = new Map((existing ?? []).map((item) => [item.source_key, item]));
+
+  const fresh = [
+    ...new Map(
+      input.documents
+        .filter((document) => !byKey.has(documentOnlySourceKey(document.sha256)))
+        .map((document) => [document.sha256, document]),
+    ).values(),
+  ];
+  if (fresh.length > 0) {
+    const { data: inserted, error } = await supabase
+      .from("uw_agreement_migration_items")
+      .insert(
+        fresh.map((document) => ({
+          source_key: documentOnlySourceKey(document.sha256),
+          batch_label: batchLabel,
+          source_file: document.filename.trim(),
+          created_by: context.profile.id,
+          updated_by: context.profile.id,
+        })),
+      )
+      .select("id, source_key, status, contract_id, started_at");
+    if (error) return { ok: false, error: `Could not add the documents: ${error.message}` };
+    for (const item of inserted ?? []) byKey.set(item.source_key, item);
+    await logAuditEvent({
+      actorId: context.profile.id,
+      action: "underwriting.migration.documents_added",
+      targetType: "uw_agreement_migration_batch",
+      metadata: { batch_label: batchLabel, added: fresh.length },
+    });
+  }
+
+  const entries = [];
+  for (const document of input.documents) {
+    const item = byKey.get(documentOnlySourceKey(document.sha256));
+    if (!item) return { ok: false, error: `Could not add ${document.filename}.` };
+    entries.push({
+      sha256: document.sha256,
+      id: item.id,
+      runnable: canRunMigrationItem(item),
+      contractId: item.contract_id,
+    });
+  }
+  return { ok: true, entries };
+}
+
 export type MigrationRunResult =
   | { ok: true; status: "imported" | "already_imported"; contractId: string; warnings: number }
   | { ok: false; status: "failed" | "busy"; error: string };
@@ -232,20 +319,47 @@ export async function importMigrationItem(formData: FormData): Promise<Migration
     return { ok: false, status: "failed", error: message };
   };
 
-  // Checked before claiming, so a missing underwriter or a bad file never
-  // costs a model call.
-  const underwriters = await listUnderwriters();
-  const underwriter = resolveManifestUnderwriter(
-    item.underwriter_name,
-    underwriters.map((entry) => ({ id: entry.id, name: entry.name })),
-  );
-  if (!underwriter)
-    return fail(
-      `"${item.underwriter_name}" isn't an underwriter on file. Add them under Underwriters (or correct the manifest's spelling), then run this entry again.`,
+  // Checked before claiming, so a missing underwriter, a bad file, or a
+  // document already imported never costs a model call. A documents-only
+  // entry (§14.3) has no underwriter to check: the reading supplies it.
+  let underwriterId: string | null = null;
+  if (item.underwriter_name !== null) {
+    const underwriters = await listUnderwriters();
+    const underwriter = resolveManifestUnderwriter(
+      item.underwriter_name,
+      underwriters.map((entry) => ({ id: entry.id, name: entry.name })),
     );
+    if (!underwriter)
+      return fail(
+        `"${item.underwriter_name}" isn't an underwriter on file. Add them under Underwriters (or correct the manifest's spelling), then run this entry again.`,
+      );
+    underwriterId = underwriter.id;
+  }
 
   const upload = await agreementDocumentFromFile(formData.get("document"));
   if (!upload.ok) return fail(upload.error);
+  const documentSha256 = sha256Hex(upload.document.bytes);
+
+  const keyedHash = documentOnlyHash(item.source_key);
+  if (keyedHash !== null && keyedHash !== documentSha256)
+    return fail("That isn't the document this entry was made from — choose the same file again.");
+
+  // One document, one contract, whichever entry it came in under: a
+  // manifest row and a documents-only entry for the same PDF must not both
+  // import it.
+  const { data: sameDocument, error: sameDocumentError } = await supabase
+    .from("uw_agreement_migration_items")
+    .select("source_key")
+    .eq("document_sha256", documentSha256)
+    .eq("status", "imported")
+    .not("contract_id", "is", null)
+    .neq("id", item.id)
+    .limit(1);
+  if (sameDocumentError) return { ok: false, status: "failed", error: sameDocumentError.message };
+  if (sameDocument && sameDocument.length > 0)
+    return fail(
+      `This document was already imported as entry ${sameDocument[0]!.source_key}. Delete that draft first if this entry should own it.`,
+    );
 
   // Claim the entry: a conditional update, so two runs can't both proceed.
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000).toISOString();
@@ -257,7 +371,7 @@ export async function importMigrationItem(formData: FormData): Promise<Migration
       started_at: new Date().toISOString(),
       finished_at: null,
       last_error: null,
-      document_sha256: sha256Hex(upload.document.bytes),
+      document_sha256: documentSha256,
       updated_by: profile.id,
     })
     .eq("id", item.id)
@@ -269,12 +383,21 @@ export async function importMigrationItem(formData: FormData): Promise<Migration
   if (!claimed || claimed.length === 0)
     return { ok: false, status: "busy", error: "This entry is being imported by another run." };
 
-  const entry = manifestRowFromItem(item);
+  const entry =
+    item.underwriter_name !== null
+      ? manifestRowFromItem({ ...item, underwriter_name: item.underwriter_name })
+      : null;
   let imported;
   try {
     imported = await importAgreementAsDraft(supabase, profile.id, {
       document: upload.document,
-      typed: typedFieldsFromManifest(entry, underwriter.id, item.batch_label),
+      typed:
+        entry && underwriterId
+          ? typedFieldsFromManifest(entry, underwriterId, item.batch_label)
+          : typedFieldsForDocumentOnly(
+              { sourceKey: item.source_key, sourceFile: item.source_file },
+              item.batch_label,
+            ),
       importSourceKey: item.source_key,
       auditMetadata: {
         source: "legacy_migration",
@@ -309,7 +432,10 @@ export async function importMigrationItem(formData: FormData): Promise<Migration
     lines_saved: imported.linesSaved,
     flights_created: imported.flightsCreated,
     unresolved: imported.unresolved,
-    warnings: [...imported.warnings, ...manifestDiscrepancies(entry, imported.output)],
+    warnings: [
+      ...imported.warnings,
+      ...(entry ? manifestDiscrepancies(entry, imported.output) : []),
+    ],
   };
   const { error: recordError } = await supabase
     .from("uw_agreement_migration_items")

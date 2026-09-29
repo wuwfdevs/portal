@@ -9,13 +9,14 @@ import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/tab
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { requireAgreementMigrationAccess } from "@/lib/underwriting/access";
+import { listUnderwriters } from "@/lib/underwriting/queries";
 import {
   canRunMigrationItem,
   parseMigrationItemResult,
 } from "@/lib/underwriting/agreement-migration";
 import type { UwAgreementMigrationStatus } from "@/lib/database.types";
 import { submitMigrationManifest } from "./actions";
-import { RunImports } from "./run-imports";
+import { DocumentsOnly, RunImports } from "./run-imports";
 
 // Each entry's import is a model call, run as a Server Action from this
 // page; raised here, never in actions.ts (CLAUDE.md's Sourcework Phase 3b
@@ -45,7 +46,7 @@ export default async function AgreementMigrationPage({
   const { batch, error, notice } = await searchParams;
 
   const supabase = await createClient();
-  const [items, contracts] = await Promise.all([
+  const [items, contracts, underwriters] = await Promise.all([
     supabase
       .from("uw_agreement_migration_items")
       .select("*")
@@ -54,11 +55,18 @@ export default async function AgreementMigrationPage({
       .then((result) => unwrapRead(result, "the migration entries") ?? []),
     supabase
       .from("uw_contracts")
-      .select("id, status, contract_identifier")
+      .select("id, status, contract_identifier, underwriter_id")
       .not("import_source_key", "is", null)
       .then((result) => unwrapRead(result, "the imported contracts") ?? []),
+    listUnderwriters(),
   ]);
-  const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
+  const underwriterNameById = new Map(underwriters.map((entry) => [entry.id, entry.name]));
+  const contractById = new Map(
+    contracts.map((contract) => [
+      contract.id,
+      { ...contract, underwriterName: underwriterNameById.get(contract.underwriter_id) ?? null },
+    ]),
+  );
 
   const batches = [...new Set(items.map((item) => item.batch_label))];
   const activeBatch = batch && batches.includes(batch) ? batch : null;
@@ -123,6 +131,20 @@ export default async function AgreementMigrationPage({
         </form>
       </section>
 
+      <details className="max-w-3xl rounded border border-line px-5 py-4">
+        <summary className="cursor-pointer text-sm font-bold text-ink-900">
+          Or import documents with no manifest entry
+        </summary>
+        <p className="mt-2 text-sm text-ink-700">
+          For an agreement the manifest missed. Each document becomes its own entry and is read with
+          nothing typed, so the sponsor, dates, and totals all come from the document — check them
+          on review. Prefer adding the agreement to the manifest when you can.
+        </p>
+        <div className="mt-3">
+          <DocumentsOnly defaultBatchLabel={activeBatch ?? ""} />
+        </div>
+      </details>
+
       {items.length > 0 && (
         <>
           <section className="flex max-w-3xl flex-col gap-3">
@@ -156,7 +178,6 @@ export default async function AgreementMigrationPage({
                 id: item.id,
                 sourceKey: item.source_key,
                 sourceFile: item.source_file,
-                underwriterName: item.underwriter_name,
               }))}
             />
           </section>
@@ -184,26 +205,36 @@ export default async function AgreementMigrationPage({
                     return (
                       <Row key={item.id} className="align-top">
                         <Cell>
-                          <div className="font-bold text-ink-900">{item.underwriter_name}</div>
+                          <div className="font-bold text-ink-900">
+                            {item.underwriter_name ??
+                              contract?.underwriterName ??
+                              "From the document"}
+                          </div>
                           <div className="mt-0.5 text-xs text-ink-500">
                             {item.source_key}
                             {item.manifest_row !== null ? ` · row ${item.manifest_row}` : ""}
                           </div>
                           <div className="mt-0.5 text-xs text-ink-500">{item.source_file}</div>
                         </Cell>
-                        <Cell className="text-xs text-ink-700">
-                          <div>{item.contract_identifier ?? "No order number"}</div>
-                          <div>
-                            {item.effective_from ?? "?"} – {item.effective_to ?? "?"}
-                          </div>
-                          {item.sponsorship_total !== null && (
-                            <div>${Number(item.sponsorship_total).toFixed(2)}</div>
-                          )}
-                          {item.contract_type && <div>{item.contract_type}</div>}
-                          {item.documentation_status && (
-                            <div className="text-warning-fg">{item.documentation_status}</div>
-                          )}
-                        </Cell>
+                        {item.underwriter_name === null ? (
+                          <Cell className="text-xs text-ink-500">
+                            Documents only — every fact from the reading
+                          </Cell>
+                        ) : (
+                          <Cell className="text-xs text-ink-700">
+                            <div>{item.contract_identifier ?? "No order number"}</div>
+                            <div>
+                              {item.effective_from ?? "?"} – {item.effective_to ?? "?"}
+                            </div>
+                            {item.sponsorship_total !== null && (
+                              <div>${Number(item.sponsorship_total).toFixed(2)}</div>
+                            )}
+                            {item.contract_type && <div>{item.contract_type}</div>}
+                            {item.documentation_status && (
+                              <div className="text-warning-fg">{item.documentation_status}</div>
+                            )}
+                          </Cell>
+                        )}
                         <Cell>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                           {item.attempts > 1 && (

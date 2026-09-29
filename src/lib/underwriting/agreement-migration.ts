@@ -545,7 +545,7 @@ export function migrationItemFactsFromRow(row: MigrationManifestRow, batchLabel:
   };
 }
 
-/** A stored entry back in the manifest's shape, for typedFieldsFromManifest and manifestDiscrepancies. */
+/** A stored manifest entry back in the manifest's shape, for typedFieldsFromManifest and manifestDiscrepancies. Not for a documents-only entry, which has no underwriter. */
 export function manifestRowFromItem(item: {
   source_key: string;
   manifest_row: number | null;
@@ -573,5 +573,54 @@ export function manifestRowFromItem(item: {
     driveFileId: item.drive_file_id,
     documentationStatus: item.documentation_status,
     notes: item.notes,
+  };
+}
+
+// ---- Documents-only entries (§14.3) -------------------------------------
+
+/**
+ * A fallback for an agreement the manifest doesn't list: the document is
+ * the entry, keyed by the hash of its bytes, and the reading supplies every
+ * fact — "Create from the agreement", once per file. Re-choosing the same
+ * file keys the same way; a re-scan is a different file and a different
+ * entry, which is why an import also refuses any document another entry
+ * already imported.
+ */
+export const DOCUMENT_ONLY_KEY_PREFIX = "sha256:";
+
+export function isSha256Hex(value: string): boolean {
+  return /^[0-9a-f]{64}$/.test(value);
+}
+
+export function documentOnlySourceKey(sha256: string): string {
+  return `${DOCUMENT_ONLY_KEY_PREFIX}${sha256.toLowerCase()}`;
+}
+
+/** The hash a documents-only key names, or null for a manifest entry's key. */
+export function documentOnlyHash(sourceKey: string): string | null {
+  if (!sourceKey.startsWith(DOCUMENT_ONLY_KEY_PREFIX)) return null;
+  const hash = sourceKey.slice(DOCUMENT_ONLY_KEY_PREFIX.length);
+  return isSha256Hex(hash) ? hash : null;
+}
+
+/** Nothing typed: the reading fills every field, and the notes record where the draft came from. */
+export function typedFieldsForDocumentOnly(
+  entry: { sourceKey: string; sourceFile: string },
+  batchLabel: string,
+): TypedOrderFields {
+  return {
+    underwriter_id: "",
+    contract_identifier: "",
+    effective_from: "",
+    effective_to: "",
+    sponsorship_total: "",
+    sponsorship_category: "",
+    notes: [
+      migrationNotes(
+        { ...entry, contractType: null, documentationStatus: null, notes: null },
+        batchLabel,
+      ),
+      "No manifest entry: every fact was read from the document.",
+    ].join("\n"),
   };
 }

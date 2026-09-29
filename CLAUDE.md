@@ -1364,7 +1364,9 @@ the merge's typed side (`lib/underwriting/agreement-migration.ts`, pure,
 tested), and imports one entry per request from the client. Reruns are
 safe: `uw_contracts.import_source_key` is unique
 (`20260929200000_underwriting_agreement_migration.sql`), an imported entry
-never runs again, and deleting its draft frees the key.
+never runs again, and deleting its draft frees the key. Documents the
+manifest missed can be imported alone (§14.3), keyed by their hash; no
+document is ever imported under two entries.
 
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
