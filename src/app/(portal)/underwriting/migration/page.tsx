@@ -1,291 +1,198 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FilterChips } from "@/components/ui/filter-chips";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { formatStationTimestamp } from "@/lib/log/timezone";
 import { requireAgreementMigrationAccess } from "@/lib/underwriting/access";
-import { listUnderwriters } from "@/lib/underwriting/queries";
 import {
-  canRunMigrationItem,
-  parseMigrationItemResult,
+  emptyCategoryCounts,
+  summarizeMigrationBatches,
+  type MigrationBatchSummary,
+  type MigrationItemCategory,
 } from "@/lib/underwriting/agreement-migration";
-import type { UwAgreementMigrationStatus } from "@/lib/database.types";
-import { submitMigrationManifest } from "./actions";
-import { DocumentsOnly, RunImports } from "./run-imports";
+import { BatchProgress } from "./batch-progress";
+import { batchDocumentsPath, batchPath, NEW_BATCH_PATH } from "./paths";
 
-// Each entry's import is a model call, run as a Server Action from this
-// page; raised here, never in actions.ts (CLAUDE.md's Sourcework Phase 3b
-// note), the same budget the order step's "Create from the agreement" has.
-export const maxDuration = 300;
+const SECONDARY_LINK =
+  "inline-flex h-9 items-center whitespace-nowrap rounded border border-brand-link px-3 text-sm font-bold text-brand-link hover:bg-brand-surface";
 
-const STATUS_BADGE: Record<UwAgreementMigrationStatus, { label: string; variant: BadgeVariant }> = {
-  pending: { label: "Not run", variant: "neutral" },
-  processing: { label: "Importing", variant: "accent" },
-  imported: { label: "Imported", variant: "success" },
-  failed: { label: "Failed", variant: "danger" },
-};
+const TILES: { category: MigrationItemCategory; title: string; hint: string; tone: string }[] = [
+  {
+    category: "needs_look",
+    title: "Needs a look",
+    hint: "Drafts where the document and manifest disagree, or a line wasn’t saved",
+    tone: "text-warning-fg",
+  },
+  {
+    category: "ready",
+    title: "Ready to activate",
+    hint: "Drafts with nothing flagged",
+    tone: "text-success-fg",
+  },
+  {
+    category: "failed",
+    title: "Failed",
+    hint: "Couldn’t be read; each can run again",
+    tone: "text-danger",
+  },
+  {
+    category: "not_run",
+    title: "Not run yet",
+    hint: "Waiting on their document",
+    tone: "text-ink-700",
+  },
+];
+
+/** What the batch most needs next, as a link — or "Done" once every entry has a draft with nothing flagged. */
+function NextStep({ batch }: { batch: MigrationBatchSummary }) {
+  const { counts } = batch;
+  if (counts.needs_look > 0)
+    return (
+      <Link href={batchPath(batch.label, { show: "needs_look" })} className={SECONDARY_LINK}>
+        Review {counts.needs_look}
+      </Link>
+    );
+  if (counts.failed > 0)
+    return (
+      <Link href={batchPath(batch.label, { show: "failed" })} className={SECONDARY_LINK}>
+        See {counts.failed} failed
+      </Link>
+    );
+  if (counts.not_run > 0)
+    return (
+      <Link href={batchDocumentsPath(batch.label)} className={SECONDARY_LINK}>
+        Add {counts.not_run} {counts.not_run === 1 ? "document" : "documents"}
+      </Link>
+    );
+  if (counts.importing > 0) return <Badge variant="accent">Importing</Badge>;
+  return <Badge variant="success">Done</Badge>;
+}
 
 /**
  * Migrating legacy agreements (docs/underwriting-traffic-redesign.md §14):
- * load a manifest, choose its documents, import each entry through the
- * order step's own agreement import, and review every draft it made. An
- * administrator's tool, reached from the Contracts list; not in the tabs.
+ * every batch at a glance, and a new one. An administrator's tool, reached
+ * from the Contracts list; not in the tabs.
  */
 export default async function AgreementMigrationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ batch?: string; error?: string; notice?: string }>;
+  searchParams: Promise<{ notice?: string }>;
 }) {
   const context = await requireAgreementMigrationAccess();
   if (!context) notFound();
-  const { batch, error, notice } = await searchParams;
+  const { notice } = await searchParams;
 
   const supabase = await createClient();
-  const [items, contracts, underwriters] = await Promise.all([
-    supabase
-      .from("uw_agreement_migration_items")
-      .select("*")
-      .order("batch_label")
-      .order("manifest_row")
-      .then((result) => unwrapRead(result, "the migration entries") ?? []),
-    supabase
-      .from("uw_contracts")
-      .select("id, status, contract_identifier, underwriter_id")
-      .not("import_source_key", "is", null)
-      .then((result) => unwrapRead(result, "the imported contracts") ?? []),
-    listUnderwriters(),
-  ]);
-  const underwriterNameById = new Map(underwriters.map((entry) => [entry.id, entry.name]));
-  const contractById = new Map(
-    contracts.map((contract) => [
-      contract.id,
-      { ...contract, underwriterName: underwriterNameById.get(contract.underwriter_id) ?? null },
-    ]),
-  );
+  const items = await supabase
+    .from("uw_agreement_migration_items")
+    .select("batch_label, underwriter_name, updated_at, status, contract_id, started_at, result")
+    .then((result) => unwrapRead(result, "the migration entries") ?? []);
 
-  const batches = [...new Set(items.map((item) => item.batch_label))];
-  const activeBatch = batch && batches.includes(batch) ? batch : null;
-  const shown = activeBatch ? items.filter((item) => item.batch_label === activeBatch) : items;
-  const count = (status: UwAgreementMigrationStatus) =>
-    shown.filter((item) => item.status === status).length;
-  const runnable = shown.filter((item) => canRunMigrationItem(item));
+  const batches = summarizeMigrationBatches(items);
+  const totals = emptyCategoryCounts();
+  for (const batch of batches)
+    for (const category of Object.keys(totals) as MigrationItemCategory[])
+      totals[category] += batch.counts[category];
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <Link href="/underwriting/contracts" className="text-sm font-bold text-brand-link">
-          ← Contracts
-        </Link>
-        <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy agreements</h2>
-        <p className="mt-1 max-w-3xl text-sm text-ink-700">
-          Each entry is read the same way “Create from the agreement” reads one: the manifest’s
-          facts win over the document, the schedule comes from the document, and the result is a
-          draft contract. Nothing schedules until someone reviews and activates it. Running a
-          manifest again never creates a second contract for an entry.
-        </p>
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <Link href="/underwriting/contracts" className="text-sm font-bold text-brand-link">
+            ← Contracts
+          </Link>
+          <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy agreements</h2>
+          <p className="mt-1 max-w-3xl text-sm text-ink-700">
+            Bring signed agreements from before the portal in as draft contracts. Nothing schedules
+            until someone reviews a draft and activates it.
+          </p>
+        </div>
+        <PrimaryLink href={NEW_BATCH_PATH}>+ New batch</PrimaryLink>
       </div>
 
-      {error && <Alert>{error}</Alert>}
       {notice && <Alert variant="success">{notice}</Alert>}
 
-      <section className="max-w-3xl rounded border border-line bg-panel-50 px-5 py-4">
-        <h3 className="text-sm font-bold text-ink-900">1. Load a manifest</h3>
-        <form action={submitMigrationManifest} className="mt-3 flex flex-col gap-4">
-          <div>
-            <Label htmlFor="batch_label">Batch name</Label>
-            <Input
-              id="batch_label"
-              name="batch_label"
-              required
-              maxLength={80}
-              defaultValue={activeBatch ?? ""}
-              placeholder="Business Drive, Sept 2026"
-            />
-          </div>
-          <div>
-            <Label htmlFor="manifest_file">Manifest (CSV)</Label>
-            <Input id="manifest_file" name="manifest_file" type="file" accept=".csv,text/csv" />
-            <FieldHint>
-              First row names the columns. Required: <code>underwriter</code> and{" "}
-              <code>source_file</code>. Optional: <code>source_key</code>,{" "}
-              <code>contract_identifier</code>, <code>effective_from</code>,{" "}
-              <code>effective_to</code>, <code>sponsorship_total</code>, <code>contract_type</code>,{" "}
-              <code>drive_file_id</code>, <code>documentation_status</code>, <code>notes</code>.
-              Each entry is keyed by <code>source_key</code>, else the Drive file id, else the file
-              name — keep it the same when you correct and reload the manifest. Underwriter names
-              must match one on file exactly.
-            </FieldHint>
-          </div>
-          <div>
-            <Label htmlFor="manifest_text">Or paste it</Label>
-            <Textarea id="manifest_text" name="manifest_text" rows={4} />
-          </div>
-          <div>
-            <Button type="submit">Load manifest</Button>
-          </div>
-        </form>
-      </section>
-
-      <details className="max-w-3xl rounded border border-line px-5 py-4">
-        <summary className="cursor-pointer text-sm font-bold text-ink-900">
-          Or import documents with no manifest entry
-        </summary>
-        <p className="mt-2 text-sm text-ink-700">
-          For an agreement the manifest missed. Each document becomes its own entry and is read with
-          nothing typed, so the sponsor, dates, and totals all come from the document — check them
-          on review. Prefer adding the agreement to the manifest when you can.
-        </p>
-        <div className="mt-3">
-          <DocumentsOnly defaultBatchLabel={activeBatch ?? ""} />
+      {batches.length === 0 ? (
+        <div className="max-w-3xl rounded border border-line bg-panel-50 px-5 py-6 text-sm text-ink-700">
+          <p className="font-bold text-ink-900">No batches yet.</p>
+          <p className="mt-1">
+            Start with a spreadsheet of the agreements (one row each) and the folder of signed
+            documents. Each becomes a draft contract for review.
+          </p>
         </div>
-      </details>
-
-      {items.length > 0 && (
+      ) : (
         <>
-          <section className="flex max-w-3xl flex-col gap-3">
-            <h3 className="text-sm font-bold text-ink-900">2. Import</h3>
-            {batches.length > 1 && (
-              <FilterChips
-                label="Batch"
-                chips={[
-                  {
-                    label: "All batches",
-                    href: "/underwriting/migration",
-                    active: activeBatch === null,
-                    count: items.length,
-                  },
-                  ...batches.map((label) => ({
-                    label,
-                    href: `/underwriting/migration?batch=${encodeURIComponent(label)}`,
-                    active: activeBatch === label,
-                    count: items.filter((item) => item.batch_label === label).length,
-                  })),
-                ]}
-              />
-            )}
-            <p className="text-sm text-ink-700">
-              {shown.length} entries: {count("imported")} imported, {count("failed")} failed,{" "}
-              {count("pending")} not run
-              {count("processing") > 0 ? `, ${count("processing")} importing` : ""}.
-            </p>
-            <RunImports
-              items={runnable.map((item) => ({
-                id: item.id,
-                sourceKey: item.source_key,
-                sourceFile: item.source_file,
-              }))}
-            />
+          <section
+            aria-label="Across every batch"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {TILES.map((tile) => (
+              <Link
+                key={tile.category}
+                href={batchPath("", { show: tile.category })}
+                className="flex flex-col gap-1 rounded border border-line px-4 py-3.5 hover:border-brand-primary"
+              >
+                <span className={`text-xs font-bold uppercase tracking-wide ${tile.tone}`}>
+                  {tile.title}
+                </span>
+                <span className="font-serif text-3xl font-bold text-ink-900">
+                  {totals[tile.category]}
+                </span>
+                <span className="text-[13px] text-ink-500">{tile.hint}</span>
+              </Link>
+            ))}
           </section>
 
           <section className="flex flex-col gap-3">
-            <h3 className="text-sm font-bold text-ink-900">3. Review</h3>
+            <h3 className="text-base font-bold text-ink-900">Batches</h3>
             <TableFrame>
               <Table>
                 <thead>
                   <HeaderRow>
-                    <Th>Entry</Th>
-                    <Th>Manifest</Th>
-                    <Th>Status</Th>
-                    <Th>Result</Th>
+                    <Th>Batch</Th>
+                    <Th>Entries</Th>
+                    <Th className="w-80">Progress</Th>
+                    <Th>Last activity</Th>
+                    <Th className="text-right">Next step</Th>
                   </HeaderRow>
                 </thead>
                 <tbody>
-                  {shown.map((item) => {
-                    const result = parseMigrationItemResult(item.result);
-                    const contract = item.contract_id ? contractById.get(item.contract_id) : null;
-                    const badge =
-                      item.status === "imported" && !item.contract_id
-                        ? { label: "Draft deleted", variant: "warning" as const }
-                        : STATUS_BADGE[item.status];
-                    return (
-                      <Row key={item.id} className="align-top">
-                        <Cell>
-                          <div className="font-bold text-ink-900">
-                            {item.underwriter_name ??
-                              contract?.underwriterName ??
-                              "From the document"}
-                          </div>
-                          <div className="mt-0.5 text-xs text-ink-500">
-                            {item.source_key}
-                            {item.manifest_row !== null ? ` · row ${item.manifest_row}` : ""}
-                          </div>
-                          <div className="mt-0.5 text-xs text-ink-500">{item.source_file}</div>
-                        </Cell>
-                        {item.underwriter_name === null ? (
-                          <Cell className="text-xs text-ink-500">
-                            Documents only — every fact from the reading
-                          </Cell>
-                        ) : (
-                          <Cell className="text-xs text-ink-700">
-                            <div>{item.contract_identifier ?? "No order number"}</div>
-                            <div>
-                              {item.effective_from ?? "?"} – {item.effective_to ?? "?"}
-                            </div>
-                            {item.sponsorship_total !== null && (
-                              <div>${Number(item.sponsorship_total).toFixed(2)}</div>
-                            )}
-                            {item.contract_type && <div>{item.contract_type}</div>}
-                            {item.documentation_status && (
-                              <div className="text-warning-fg">{item.documentation_status}</div>
-                            )}
-                          </Cell>
-                        )}
-                        <Cell>
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
-                          {item.attempts > 1 && (
-                            <div className="mt-1 text-xs text-ink-500">
-                              {item.attempts} attempts
-                            </div>
-                          )}
-                        </Cell>
-                        <Cell className="text-xs text-ink-700">
-                          {item.last_error && <p className="text-danger">{item.last_error}</p>}
-                          {contract && (
-                            <Link
-                              href={`/underwriting/contracts/${contract.id}/schedule`}
-                              className="font-bold text-brand-link"
-                            >
-                              {contract.contract_identifier} ({contract.status})
-                            </Link>
-                          )}
-                          {result && item.status === "imported" && (
-                            <>
-                              <p className="mt-0.5">
-                                {result.lines_saved} of {result.lines_read} lines saved
-                                {result.unresolved > 0
-                                  ? `, ${result.unresolved} instruction${result.unresolved === 1 ? "" : "s"} not expressed`
-                                  : ""}
-                                {result.flights_created > 0
-                                  ? `, ${result.flights_created} flight${result.flights_created === 1 ? "" : "s"}`
-                                  : ""}
-                                .
-                              </p>
-                              {result.warnings.length > 0 && (
-                                <details className="mt-1">
-                                  <summary className="cursor-pointer text-warning-fg">
-                                    {result.warnings.length} to review
-                                  </summary>
-                                  <ul className="mt-1 list-disc pl-4">
-                                    {result.warnings.map((warning, index) => (
-                                      <li key={index}>{warning}</li>
-                                    ))}
-                                  </ul>
-                                </details>
-                              )}
-                            </>
-                          )}
-                        </Cell>
-                      </Row>
-                    );
-                  })}
+                  {batches.map((batch) => (
+                    <Row key={batch.label}>
+                      <Cell>
+                        <Link
+                          href={batchPath(batch.label)}
+                          className="text-[15px] font-bold text-brand-link"
+                        >
+                          {batch.label}
+                        </Link>
+                        <div className="mt-0.5 text-xs text-ink-500">
+                          {batch.documentsOnly ? "Documents only" : "From a manifest"}
+                        </div>
+                      </Cell>
+                      <Cell>{batch.total}</Cell>
+                      <Cell>
+                        <BatchProgress counts={batch.counts} total={batch.total} />
+                      </Cell>
+                      <Cell className="whitespace-nowrap text-ink-500">
+                        {formatStationTimestamp(batch.lastActivity)}
+                      </Cell>
+                      <Cell className="text-right">
+                        <NextStep batch={batch} />
+                      </Cell>
+                    </Row>
+                  ))}
                 </tbody>
               </Table>
             </TableFrame>
+            <p className="max-w-3xl text-[13px] text-ink-500">
+              Running a batch again never makes a second contract: an entry that already has a draft
+              is skipped. Delete a draft to free its entry for another try.
+            </p>
           </section>
         </>
       )}

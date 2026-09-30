@@ -108,6 +108,9 @@ export type ImportAgreementResult =
       error: string;
       /** Set when the create failed because the key is already taken — the caller links the existing contract. */
       duplicateKey?: boolean;
+      /** Set when the reading hit the provider's rate limit — nothing was created; try again after `retryAfterMs`. */
+      rateLimited?: boolean;
+      retryAfterMs?: number | null;
     };
 
 export async function importAgreementAsDraft(
@@ -137,7 +140,14 @@ export async function importAgreementAsDraft(
       effectiveTo: typed.effective_to || null,
     },
   });
-  if (!read.ok) return { ok: false, stage: "read", error: read.error };
+  if (!read.ok)
+    return {
+      ok: false,
+      stage: "read",
+      error: read.error,
+      rateLimited: read.rateLimited,
+      retryAfterMs: read.retryAfterMs,
+    };
 
   const facts = mergeOrderFacts(
     typed,

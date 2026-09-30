@@ -1170,14 +1170,7 @@ importer.
   administrators with Underwriting access; no delete. It is the
   migration's record, not a job queue.
 - **The screen.** `/underwriting/migration`, linked from the Contracts list
-  for administrators only: load a manifest (CSV file or pasted), choose
-  every document at once, import. The client matches each runnable entry to
-  a chosen file by basename and calls `importMigrationItem` once per entry,
-  in sequence — one model call per request, with the page's
-  `maxDuration = 300`, since there is still no job queue. A progress bar,
-  a per-entry log, and "Stop after this one"; then a table of every entry
-  with its status, a link to its draft's schedule step, lines saved of
-  lines read, and the warnings to review.
+  for administrators only. Redesigned on 2026-09-30 — see §14.5.
 
 ### 14.2 Idempotency
 
@@ -1222,6 +1215,61 @@ by coming in both ways. A re-scan is a different file with a different
 hash; that is what the review step is for. The manifest stays the
 preferred route: it decides which agreements are in scope and carries the
 facts a legacy PDF gets wrong.
+
+### 14.5 The screens, and running entries at once (2026-09-30)
+
+The first screen put three jobs on one long page (load, match and run,
+review) and read one agreement after another, so a 40-entry batch took
+over an hour. Redesigned from reviewed Design boards:
+
+- **`/underwriting/migration`** lists batches (a batch is its
+  `batch_label`; there's no batch row), each with a bar split by where its
+  entries stand and the one next step it needs, under four totals across
+  every batch. `migrationItemCategory()` sorts an entry into ready, needs a
+  look (a draft whose import left a disagreement, a warning, or an unsaved
+  line), failed, importing, or not run; `summarizeMigrationBatches()`
+  counts them (both pure, tested).
+- **`/new`** is step 1: the batch name, "a spreadsheet" or "documents
+  only", and — for a manifest — every row checked in the browser with the
+  server's own parser before anything is written. A sponsor who isn't on
+  file is now refused at load (it used to fail at import), with
+  `suggestUnderwriterName()`'s nearest name offered as "Use it"; the choice
+  posts as `underwriter_overrides` and the action re-checks everything.
+- **`/batch/documents?b=`** is steps 2 and 3. Choose a folder; each entry
+  is matched to its file by name as before, and what didn't match cleanly
+  is listed with one fix each: take the close name, choose a file, say
+  which of two entries a shared file belongs to, or choose a copy under
+  10 MB. Files no entry names can be imported as documents-only entries
+  (§14.3), which is now a checkbox here rather than a separate form.
+- **Several at once.** Each entry is a `POST` to
+  `/api/underwriting/migration/items/[id]/import` (the per-entry work moved
+  from the Server Action to `lib/underwriting/migration-import.ts`). A
+  route handler, not a Server Action, because Next.js runs one page's
+  Server Actions strictly one after another — calling the old action in
+  parallel would still have queued. `lib/underwriting/migration-queue.ts`'s
+  `runQueue()` (pure, tested) runs `MIGRATION_CONCURRENCY` (3) at a time.
+  The shared OpenAI account has a token cap that real 429s have already
+  hit, and an agreement packet is a large input, so the reader now reports
+  a rate limit as such (`rateLimited`, with the provider's suggested wait
+  parsed by `lib/openai-retry.ts`); the queue puts that entry back first,
+  pauses new launches for the wait, and runs one fewer at a time for the
+  rest of the run. Nothing is created before the reading, so a retry is
+  safe. After three rate limits on one entry it's recorded as failed.
+- **`/batch?b=`** is step 4: filter chips (needs a look first), search,
+  and `?details=<id>` expanding a row into where the document and the
+  manifest disagree — now stored structured, as
+  `MigrationItemResult.differences` (`manifestDifferences()`), shown as
+  field / manifest / document; older results still show their sentences —
+  plus the count of instructions not saved, linking to the schedule step
+  that lists them. With no `b`, the same page shows every batch.
+
+Known gap: the "document already imported under another entry" check and
+the claim aren't one atomic step, so two tabs running two different
+entries with the same PDF at the same moment could both import it. Within
+one run it can't happen — one file goes to one entry — and it could
+already happen with the sequential runner across two tabs. A partial
+unique index on `document_sha256` for processing and imported rows would
+close it if it ever matters.
 
 ### 14.4 Not built
 

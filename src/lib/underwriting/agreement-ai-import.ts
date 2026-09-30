@@ -16,7 +16,8 @@ import "server-only";
 // §8, 2026-09-22).
 
 import OpenAI from "openai";
-import { humanizeOpenAIError } from "@/lib/openai-error";
+import { humanizeOpenAIError, isOpenAIRateLimit } from "@/lib/openai-error";
+import { parseRetryAfterMs } from "@/lib/openai-retry";
 import {
   buildAgreementOutputSchema,
   isAgreementModelOutput,
@@ -33,7 +34,14 @@ const MODEL = "gpt-5.6-terra";
 const MAX_OUTPUT_TOKENS = 16384;
 
 export type ReadAgreementResult =
-  { ok: true; output: AgreementModelOutput } | { ok: false; error: string };
+  | { ok: true; output: AgreementModelOutput }
+  | {
+      ok: false;
+      error: string;
+      /** The provider's rate limit, not the document: worth trying again after `retryAfterMs` (null when it gave no hint). */
+      rateLimited?: boolean;
+      retryAfterMs?: number | null;
+    };
 
 export interface AgreementDocument {
   bytes: Uint8Array;
@@ -162,6 +170,13 @@ export async function readAgreementWithAI(input: ReadAgreementInput): Promise<Re
     });
   } catch (error) {
     console.error("Agreement reading OpenAI call failed:", error);
+    if (isOpenAIRateLimit(error))
+      return {
+        ok: false,
+        error: humanizeOpenAIError(error).message,
+        rateLimited: true,
+        retryAfterMs: parseRetryAfterMs((error as Error).message),
+      };
     return { ok: false, error: humanizeOpenAIError(error).message };
   }
 
