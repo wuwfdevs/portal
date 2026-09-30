@@ -189,9 +189,8 @@ before. In a card, the label is real text rather than CSS `content`, so a screen
 reads it where the browser has dropped the table semantics. A `min-w-[…]` on a stacking
 table must be `md:min-w-[…]`. A cell's own `whitespace-nowrap` and padding are overridden
 in the card; a `truncate` belongs on an inner element with a `max-md:` alternative (the copy
-list's script clamps to two lines). A table without `stack` still scrolls inside its frame,
-which is right for data with no single title column (an affidavit's line items, the NPR
-story list).
+list's script clamps to two lines). A table without `stack` still scrolls inside its frame;
+that is the state of a table not yet converted, not a design choice.
 
 Programs' **Week** view follows the same thinking: below `md` the seven-column grid is
 replaced by a day-by-day agenda (`WeekAgenda`), since a 900px grid on a phone is only a
@@ -199,13 +198,13 @@ sideways scroll.
 
 ### Rollout
 
-Done: Log (Today, Programs, library), Underwriting (contracts, copy, underwriters,
+Done: Log (Today, Programs, library, the NPR story list), Underwriting (contracts, copy, underwriters,
 exceptions), Resources (procedures, What's new's filter), Academic Partnerships (all
 submissions), Audience Listening, Remote Interview.
 
 Not yet: Editorial settings (form, rubric, pillars — rows carry order and action controls,
 which need `stack="full"` thought through), `underwriting` dashboard, `underwriting/
-affidavits`, `underwriting/migration` and its batch view, `log/sources/npr`,
+affidavits`, `underwriting/migration` and its batch view,
 `audience-listening/[id]` submissions.
 
 ## Search (2026-09-29)
