@@ -153,7 +153,7 @@ export default async function LogTodayPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Time</Th>
@@ -167,13 +167,15 @@ export default async function LogTodayPage({
                 const rundown = rundownByProgram.get(entry.program_id);
                 return (
                   <Row key={entry.id}>
-                    <Cell className="whitespace-nowrap text-ink-700">
+                    <Cell label="Time" className="whitespace-nowrap text-ink-700">
                       {formatAirTime(entry.air_time)} –{" "}
                       {computeEndTime(entry.air_time, entry.duration_minutes)}
                     </Cell>
-                    <Cell className="font-semibold text-ink-900">{entry.programName}</Cell>
-                    <Cell>{entry.clockTemplateName}</Cell>
-                    <Cell>
+                    <Cell stack="title" className="font-semibold text-ink-900">
+                      {entry.programName}
+                    </Cell>
+                    <Cell label="Clock">{entry.clockTemplateName}</Cell>
+                    <Cell stack="aside">
                       {rundown ? (
                         <Link href={`/log/rundowns/${rundown.id}`}>
                           <Badge variant={STATUS_VARIANT[rundown.status]}>

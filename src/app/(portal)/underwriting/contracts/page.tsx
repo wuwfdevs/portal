@@ -127,7 +127,11 @@ export default async function ContractsPage({
             Migrate legacy agreements
           </Link>
         )}
-        <PrimaryLink href="/underwriting/contracts/new">+ New contract</PrimaryLink>
+        <PrimaryLink href="/underwriting/contracts/new">
+          <span>
+            + New<span className="max-sm:sr-only"> contract</span>
+          </span>
+        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (
@@ -136,7 +140,7 @@ export default async function ContractsPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Underwriter · order</Th>
@@ -157,7 +161,7 @@ export default async function ContractsPage({
                   rollup != null && rollup.expected > 0 && rollup.delivered >= rollup.expected;
                 return (
                   <Row key={contract.id}>
-                    <Cell>
+                    <Cell stack="title">
                       <Link
                         href={`/underwriting/contracts/${contract.id}`}
                         className="font-bold text-brand-link"
@@ -169,7 +173,7 @@ export default async function ContractsPage({
                         {industry ? ` · ${industry}` : ""}
                       </div>
                     </Cell>
-                    <Cell className="whitespace-nowrap">
+                    <Cell label="Runs" className="whitespace-nowrap">
                       <div className="text-ink-900">
                         {contract.effective_from}
                         {contract.effective_to ? ` – ${contract.effective_to}` : ""}
@@ -178,11 +182,11 @@ export default async function ContractsPage({
                         {rollup?.scheduleSummary ?? "No current revision"}
                       </div>
                     </Cell>
-                    <Cell>
+                    <Cell label="Delivery">
                       {contract.status === "draft" ? (
                         <span className="text-[13px] text-ink-500">Setup in progress</span>
                       ) : rollup && rollup.expected > 0 ? (
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <ProgressBar
                             label="Spots delivered"
                             done={rollup.delivered}
@@ -201,7 +205,7 @@ export default async function ContractsPage({
                         <span className="text-[13px] text-ink-500">No demand</span>
                       )}
                     </Cell>
-                    <Cell>
+                    <Cell label="Attention">
                       {openExceptions > 0 ? (
                         <Badge variant="warning">
                           {openExceptions} exception{openExceptions === 1 ? "" : "s"} open
@@ -212,7 +216,7 @@ export default async function ContractsPage({
                         <span className="text-[13px] text-ink-500">—</span>
                       )}
                     </Cell>
-                    <Cell>
+                    <Cell stack="aside">
                       <Badge variant={STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
                     </Cell>
                   </Row>

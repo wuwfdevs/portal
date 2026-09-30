@@ -68,7 +68,7 @@ export default async function RemoteInterviewListPage({
         </div>
       ) : (
         <TableFrame>
-          <Table className="min-w-[640px]">
+          <Table stack className="md:min-w-[640px]">
             <thead>
               <HeaderRow>
                 <Th>Title</Th>
@@ -82,7 +82,7 @@ export default async function RemoteInterviewListPage({
                 const badge = STATUS_BADGE[session.status];
                 return (
                   <Row key={session.id}>
-                    <Cell>
+                    <Cell stack="title">
                       <Link
                         href={`/remote-interview/${session.id}`}
                         className="font-semibold text-brand-link"
@@ -90,11 +90,13 @@ export default async function RemoteInterviewListPage({
                         {session.title}
                       </Link>
                     </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
+                    <Cell label="Date" className="whitespace-nowrap text-ink-500">
                       {formatSessionDate(session)}
                     </Cell>
-                    <Cell className="text-ink-500">{participantCounts[session.id] ?? 0}</Cell>
-                    <Cell>
+                    <Cell label="Participants" className="text-ink-500">
+                      {participantCounts[session.id] ?? 0}
+                    </Cell>
+                    <Cell stack="aside">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </Cell>
                   </Row>
