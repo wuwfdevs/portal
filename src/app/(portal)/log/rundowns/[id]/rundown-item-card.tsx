@@ -117,20 +117,29 @@ export function RundownItemCard({
   const formId = `override-form-${itemId}`;
   const canMove = moveDestinations !== null && moveDestinations.length > 0 && onMoveTo !== null;
   const hasMenu =
-    editable || removable || canMove || saveToLibraryAction !== null || applyToLibraryAction !== null;
+    editable ||
+    removable ||
+    canMove ||
+    saveToLibraryAction !== null ||
+    applyToLibraryAction !== null;
 
   function closeMenu() {
     if (detailsRef.current) detailsRef.current.open = false;
     setMenuView("main");
   }
 
+  const durationBadge =
+    durationSeconds !== null ? (
+      <span className="font-mono text-sm font-semibold text-ink-900">{durationSeconds}s</span>
+    ) : null;
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-start gap-1.5">
-          {dragHandle}
-          <div className="min-w-0 flex-1">
-            {editing ? (
+      {editing ? (
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+            {dragHandle}
+            <div className="min-w-0 flex-1">
               <form
                 id={formId}
                 action={updateItemOverridesAction}
@@ -157,41 +166,39 @@ export function RundownItemCard({
                   className="w-32"
                 />
               </form>
-            ) : (
-              readView
-            )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="submit"
+              form={formId}
+              disabled={!connected}
+              title={offlineTitle}
+              className="rounded p-1 text-brand-link hover:bg-brand-surface disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Save changes"
+            >
+              <CheckIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded p-1 text-ink-500 hover:bg-panel-100"
+              aria-label="Cancel editing"
+            >
+              <CloseIcon className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {editing ? (
-            <>
-              <button
-                type="submit"
-                form={formId}
-                disabled={!connected}
-                title={offlineTitle}
-                className="rounded p-1 text-brand-link hover:bg-brand-surface disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Save changes"
-              >
-                <CheckIcon className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="rounded p-1 text-ink-500 hover:bg-panel-100"
-                aria-label="Cancel editing"
-              >
-                <CloseIcon className="h-3.5 w-3.5" />
-              </button>
-            </>
-          ) : (
-            <>
-              {durationSeconds !== null && (
-                <span className="mr-1 font-mono text-sm font-semibold text-ink-900">
-                  {durationSeconds}s
-                </span>
-              )}
+      ) : (
+        // The drag handle and the duration/menu float in the title's line
+        // rather than standing as columns beside the whole card, so the
+        // script below wraps underneath them and gets the card's full
+        // width — on a phone those two columns used to take a third of it.
+        <div className="flow-root">
+          {dragHandle && <div className="float-left mr-1.5">{dragHandle}</div>}
+          {(durationBadge || hasMenu) && (
+            <div className="float-right ml-2 flex items-center gap-1">
+              {durationBadge}
               {hasMenu && (
                 <details
                   ref={detailsRef}
@@ -274,7 +281,11 @@ export function RundownItemCard({
                       </>
                     ) : menuView === "save" ? (
                       saveToLibraryAction && (
-                        <form action={saveToLibraryAction} onSubmit={closeMenu} className="flex flex-col gap-1">
+                        <form
+                          action={saveToLibraryAction}
+                          onSubmit={closeMenu}
+                          className="flex flex-col gap-1"
+                        >
                           <input type="hidden" name="rundown_id" value={rundownId} />
                           <input type="hidden" name="item_id" value={itemId} />
                           <button
@@ -284,7 +295,10 @@ export function RundownItemCard({
                           >
                             <BackIcon className="h-3 w-3" /> Back
                           </button>
-                          <label htmlFor={`save-type-${itemId}`} className="px-2 text-xs text-ink-500">
+                          <label
+                            htmlFor={`save-type-${itemId}`}
+                            className="px-2 text-xs text-ink-500"
+                          >
                             File it in the library as
                           </label>
                           <Select
@@ -344,10 +358,11 @@ export function RundownItemCard({
                   </div>
                 </details>
               )}
-            </>
+            </div>
           )}
+          {readView}
         </div>
-      </div>
+      )}
 
       {!editing && midBroadcastActions}
     </div>

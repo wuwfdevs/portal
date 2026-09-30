@@ -267,7 +267,7 @@ export function RundownBreaksBoard({
           return (
             <BreakDropZone key={brk.id} brk={brk}>
               {(itemIds.length > 0 || insertConfig) && (
-                <ul className="flex flex-col gap-3 px-5 py-4">
+                <ul className="flex flex-col gap-3 px-3 py-4 sm:px-5">
                   {insertConfig && itemIds.length === 0 && (
                     <InsertionPoint config={insertConfig} beforeItemId={null} />
                   )}
@@ -321,7 +321,7 @@ function BreakDropZone({
       ref={setNodeRef}
       id={brk.isCurrent ? "current-break" : undefined}
       className={cn(
-        "scroll-mt-32",
+        "scroll-mt-40 lg:scroll-mt-32",
         brk.isCurrent ? "rounded border-2 border-brand-primary" : "rounded border border-line",
         isOver && "bg-brand-surface/30",
       )}
