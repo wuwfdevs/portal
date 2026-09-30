@@ -169,12 +169,12 @@ export async function ContractCopyPanel({
                 placeholder="Type a label, a phrase from the script, or an underwriter"
                 options={context.linkablePrimary.map(toOption)}
                 groups={{
-                  primaryLabel: `${contract.underwriter.name} · ${context.linkablePrimary.length} on file`,
+                  primaryLabel: `${contract.underwriter.name} · ${context.linkablePrimary.length} valid for this contract's dates`,
                   secondaryOptions: context.linkableSecondary.map(toOption),
-                  secondaryLabel: "Other underwriters",
+                  secondaryLabel: "Other messages",
                   secondaryHint:
                     context.linkableSecondary.length > 0
-                      ? `${context.linkableSecondary.length} message${context.linkableSecondary.length === 1 ? " belongs" : "s belong"} to other underwriters. They appear once your search matches one — a shared umbrella campaign is the only reason to link one here.`
+                      ? `${context.linkableSecondary.length} other message${context.linkableSecondary.length === 1 ? "" : "s"} on file — other underwriters', or this one's expired or retired copy. They appear once your search matches one.`
                       : undefined,
                 }}
                 emptyMessage="No message on file matches — write a new one instead."

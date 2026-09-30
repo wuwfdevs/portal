@@ -1699,9 +1699,9 @@ export interface LinkableCopyOption {
 }
 
 export interface ContractCopyContext {
-  /** This underwriter's messages not yet linked here — attributed directly (uw_copy.underwriter_id) or through another of their contracts. */
+  /** This underwriter's messages valid for the contract period and not yet linked here — attributed directly (uw_copy.underwriter_id) or through another of their contracts. */
   linkablePrimary: LinkableCopyOption[];
-  /** Every other underwriter's message — offered only through search. */
+  /** Everything else (other underwriters, or out-of-period/retired copy) — offered only through search. */
   linkableSecondary: LinkableCopyOption[];
   /** For each message linked here, the other contracts it also serves. */
   otherContractsByCopy: Map<
@@ -1720,7 +1720,10 @@ export interface ContractCopyContext {
  * link table once — both are small.
  */
 export async function getContractCopyContext(
-  contract: Pick<ContractDetail, "id" | "underwriter_id" | "copy">,
+  contract: Pick<
+    ContractDetail,
+    "id" | "underwriter_id" | "copy" | "effective_from" | "effective_to"
+  >,
 ): Promise<ContractCopyContext> {
   const supabase = await createClient();
   const [copyRows, links, contracts, underwriters] = await Promise.all([
@@ -1753,6 +1756,13 @@ export async function getContractCopyContext(
     (linksByCopy.get(copy.id) ?? []).some(
       (contractId) => contractById.get(contractId)?.underwriter_id === contract.underwriter_id,
     );
+  // Valid for the contract period: not retired or expired, and its own effective window
+  // overlaps the contract's (an open end on either side overlaps everything).
+  const isValidForPeriod = (copy: UwCopyRow): boolean =>
+    copy.approval_status !== "retired" &&
+    copy.approval_status !== "expired" &&
+    (contract.effective_to == null || copy.effective_from <= contract.effective_to) &&
+    (copy.effective_to == null || copy.effective_to >= contract.effective_from);
   const toOption = (copy: UwCopyRow): LinkableCopyOption => ({
     copy,
     linkedTo: (linksByCopy.get(copy.id) ?? [])
@@ -1783,7 +1793,7 @@ export async function getContractCopyContext(
       }
     }
     if (linkedHere.has(copy.id)) continue;
-    (ours ? linkablePrimary : linkableSecondary).push(toOption(copy));
+    (ours && isValidForPeriod(copy) ? linkablePrimary : linkableSecondary).push(toOption(copy));
   }
 
   const otherContractsByCopy = new Map<
