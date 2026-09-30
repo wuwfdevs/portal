@@ -371,13 +371,113 @@ export function typedFieldsFromManifest(
   };
 }
 
-/** The chosen file whose name matches the entry's document (basename, case aside), or null. */
+const APOSTROPHE_VARIANTS = /[‘’‛′ʼ`´]/g;
+const DASH_VARIANTS = /[‐-―−﹘﹣－]/g;
+// Zero-width characters, bidi marks, BOM, soft hyphen, and C0/C1 controls.
+const INVISIBLE = /[\u0000-\u001F\u007F-\u009F­​-‏‪-‮⁠-⁤﻿]/g;
+
+/**
+ * The form a document name is compared in: basename only, Unicode NFKC (which
+ * also turns no-break and ideographic spaces into plain ones), curly/modifier
+ * apostrophes → ', dash variants → -, invisible characters removed, runs of
+ * whitespace collapsed, case folded. Nothing else is touched — punctuation,
+ * digits and word order all still have to agree, so two different agreements
+ * never share a name by accident.
+ */
+export function normalizeDocumentName(name: string): string {
+  return documentBasename(name.normalize("NFKC").replace(INVISIBLE, ""))
+    .replace(APOSTROPHE_VARIANTS, "'")
+    .replace(DASH_VARIANTS, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * The chosen file whose name matches the entry's document (see
+ * normalizeDocumentName), or null. When several chosen files normalise to the
+ * same name, only one whose basename also matches exactly (case aside) is
+ * taken; otherwise null — never a guess between two candidates.
+ */
 export function matchDocumentFile<T extends { name: string }>(
   sourceFile: string,
   files: T[],
 ): T | null {
-  const wanted = documentBasename(sourceFile).toLowerCase();
-  return files.find((file) => documentBasename(file.name).toLowerCase() === wanted) ?? null;
+  const wanted = normalizeDocumentName(sourceFile);
+  const hits = files.filter((file) => normalizeDocumentName(file.name) === wanted);
+  if (hits.length <= 1) return hits[0] ?? null;
+  const exactWanted = documentBasename(sourceFile).toLowerCase();
+  const exact = hits.filter((file) => documentBasename(file.name).toLowerCase() === exactWanted);
+  return exact.length === 1 ? exact[0]! : null;
+}
+
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] = Math.min(
+        previous[j]! + 1,
+        current[j - 1]! + 1,
+        previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length]!;
+}
+
+export interface DocumentMatchCandidate {
+  name: string;
+  normalized: string;
+  distance: number;
+}
+
+/** Why an entry matched no chosen file: what was expected and the nearest chosen names. For troubleshooting display only — never used to attach a file. */
+export function describeUnmatchedDocument(
+  sourceFile: string,
+  files: { name: string }[],
+  limit = 3,
+): { expected: string; expectedNormalized: string; candidates: DocumentMatchCandidate[] } {
+  const expectedNormalized = normalizeDocumentName(sourceFile);
+  const candidates = files
+    .map((file) => {
+      const normalized = normalizeDocumentName(file.name);
+      return {
+        name: file.name,
+        normalized,
+        distance: editDistance(expectedNormalized, normalized),
+      };
+    })
+    .filter(
+      (candidate) => candidate.distance <= Math.max(3, Math.ceil(expectedNormalized.length * 0.15)),
+    )
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, limit);
+  return { expected: documentBasename(sourceFile), expectedNormalized, candidates };
+}
+
+export type DocumentAssignment<T> =
+  | { status: "matched"; file: T }
+  | { status: "missing" }
+  /** Two entries name the same file (after normalising); neither runs, since one file can't be two agreements. */
+  | { status: "claimed"; file: T };
+
+/** Each entry's file, refusing any file that more than one entry would take. */
+export function assignDocumentFiles<T extends { name: string }>(
+  sourceFiles: string[],
+  files: T[],
+): DocumentAssignment<T>[] {
+  const matches = sourceFiles.map((sourceFile) => matchDocumentFile(sourceFile, files));
+  const uses = new Map<T, number>();
+  for (const file of matches) if (file) uses.set(file, (uses.get(file) ?? 0) + 1);
+  return matches.map((file) =>
+    file === null
+      ? { status: "missing" }
+      : uses.get(file)! > 1
+        ? { status: "claimed", file }
+        : { status: "matched", file },
+  );
 }
 
 // ---- Whether an entry may run -------------------------------------------
