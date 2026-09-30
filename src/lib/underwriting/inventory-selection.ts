@@ -37,7 +37,7 @@
 
 import type { LogRundownStatus, UwCopyApprovalStatus } from "@/lib/database.types";
 import { automationBlockFor } from "./freeze";
-import { walkRotation, type RotationCopy, type RotationSlot } from "./rotation";
+import { servesLine, walkRotation, type RotationCopy, type RotationSlot } from "./rotation";
 
 export interface CandidateBreak {
   breakId: string;
@@ -65,6 +65,8 @@ export interface CopyCandidate {
   effectiveTo: string | null;
   /** The flight this copy is linked to on the contract, or null for contract-wide copy. */
   flightId: string | null;
+  /** The schedule line this copy is dedicated to, or null (rotation.ts's servesLine()). */
+  lineId?: string | null;
   /** uw_copy.created_at — the rotation's cycle order. */
   createdAt: string;
 }
@@ -73,6 +75,8 @@ export interface CopyCandidate {
 export interface ExistingSequenceEntry {
   scheduledAt: string;
   copyId: string;
+  /** The placement's schedule line — which rotation cycle it advances (rotation.ts's rotationGroup()). */
+  lineId?: string | null;
 }
 
 export interface ExistingPlacement {
@@ -111,6 +115,8 @@ export interface SelectionDemand {
   /** The underwriter's industry (uw_industry_categories id) — same-industry adjacency is refused. */
   categoryId: string | null;
   lineFlightId: string | null;
+  /** The schedule line being filled — decides which copy serves it (rotation.ts's servesLine()). */
+  lineId?: string | null;
   /** From the contract's separation policy; null when none applies. */
   separationMinutes: number | null;
   todayISO: string;
@@ -153,12 +159,15 @@ export function copyEligible(
   copy: CopyCandidate,
   brk: Pick<CandidateBreak, "remainingSeconds" | "airDate">,
   lineFlightId: string | null,
+  lineId: string | null = null,
+  copies: CopyCandidate[] = [copy],
 ): boolean {
   if (copy.approvalStatus !== "approved") return false;
   if (copy.durationSeconds == null || copy.durationSeconds > brk.remainingSeconds) return false;
   if (copy.effectiveFrom > brk.airDate) return false;
   if (copy.effectiveTo != null && copy.effectiveTo < brk.airDate) return false;
   if (copy.flightId != null && copy.flightId !== lineFlightId) return false;
+  if (!servesLine(copy, lineId, copies)) return false;
   return true;
 }
 
@@ -170,6 +179,7 @@ export function toRotationCopy(copy: CopyCandidate): RotationCopy {
     effectiveFrom: copy.effectiveFrom,
     effectiveTo: copy.effectiveTo,
     flightId: copy.flightId,
+    lineId: copy.lineId,
     createdAt: copy.createdAt,
   };
 }
@@ -186,6 +196,7 @@ export function assignCopyByRotation(
   copies: CopyCandidate[],
   sequence: ExistingSequenceEntry[],
   lineFlightId: string | null,
+  lineId: string | null = null,
 ): { items: PlanItem[]; dropped: Omit<PlanItem, "copyId">[] } {
   const slots: RotationSlot[] = [
     ...sequence.map((entry, index) => ({
@@ -193,6 +204,7 @@ export function assignCopyByRotation(
       scheduledAt: entry.scheduledAt,
       airDate: entry.scheduledAt.slice(0, 10),
       lineFlightId: null,
+      lineId: entry.lineId ?? null,
       copyId: entry.copyId,
       fixed: true,
       roomSeconds: 0,
@@ -202,6 +214,7 @@ export function assignCopyByRotation(
       scheduledAt: item.scheduledAt,
       airDate: item.airDate,
       lineFlightId,
+      lineId,
       copyId: null,
       fixed: false,
       roomSeconds: item.roomSeconds,
@@ -325,7 +338,9 @@ export function planInventorySelection(
         why = "separation";
         continue;
       }
-      if (!copies.some((copy) => copyEligible(copy, brk, demand.lineFlightId))) {
+      if (
+        !copies.some((copy) => copyEligible(copy, brk, demand.lineFlightId, demand.lineId, copies))
+      ) {
         why = "no_eligible_copy";
         continue;
       }
@@ -424,6 +439,7 @@ export function planInventorySelection(
     copies,
     demand.contractSequence,
     demand.lineFlightId,
+    demand.lineId,
   );
   for (const unit of dropped) {
     unplaceable.push({

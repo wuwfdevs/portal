@@ -95,6 +95,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   copy_not_linked:
     "That copy isn't linked to this contract — link it from the contract page first.",
   copy_wrong_flight: "That copy belongs to a different flight than this schedule line.",
+  copy_wrong_line:
+    "That copy is dedicated to another line, or this line has messages of its own — check the contract's Copy tab.",
   copy_duration_unknown: "Set this copy's duration before placing it.",
   too_long: "This copy is longer than the break's remaining time allows.",
   copy_needs_override:
@@ -118,6 +120,15 @@ const ERROR_MESSAGES: Record<string, string> = {
     "That copy isn't approved, or is outside its effective dates for that air date.",
 };
 
+/**
+ * A database error from one of these writes: a raised guard code
+ * (uw_guard_placement_copy_line() raises copy_wrong_line) reads as its
+ * message, anything else as Postgres worded it.
+ */
+function rpcErrorMessage(error: { message: string }): string {
+  return ERROR_MESSAGES[error.message] ?? error.message;
+}
+
 function messageFor(code: string | undefined): string {
   if (!code) return "Something went wrong.";
   return ERROR_MESSAGES[code] ?? `Could not complete this action (${code}).`;
@@ -130,7 +141,7 @@ export async function listPlaceableRundownBreaks(
   const { data, error } = await supabase.rpc("log_list_placeable_rundown_breaks", {
     p_schedule_line_id: scheduleLineId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data)
     return { ok: false, message: messageFor((data as { error?: string })?.error) };
   return { ok: true, breaks: data.breaks };
@@ -164,7 +175,7 @@ export async function placeCredit(input: PlaceCreditInput): Promise<
     p_makegood_id: input.makegoodId ?? null,
     p_automated: input.automated ?? false,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data) {
     const code = (data as { error?: string })?.error;
     return { ok: false, message: messageFor(code), code };
@@ -211,7 +222,7 @@ export async function clearCredit(
     p_placement_id: placementId,
     p_automated: automated,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data)
     return { ok: false, message: messageFor((data as { error?: string })?.error) };
   return { ok: true };
@@ -241,7 +252,7 @@ export async function bumpCredit(
     p_placement_id: placementId,
     p_destination_break_id: destinationBreakId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data) {
     const code = (data as { error?: string })?.error;
     return { ok: false, message: messageFor(code), code };
@@ -273,7 +284,7 @@ export async function listCreditRooms(
   const { data, error } = await supabase.rpc("log_list_underwriting_credit_rooms", {
     p_contract_id: contractId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data)
     return { ok: false, message: messageFor((data as { error?: string })?.error) };
   return { ok: true, rooms: data.rooms };
@@ -294,7 +305,7 @@ export async function reassignCreditCopy(
     p_placement_id: placementId,
     p_copy_id: copyId,
   });
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: rpcErrorMessage(error) };
   if (!data || "error" in data) {
     const code = (data as { error?: string })?.error;
     return { ok: false, message: messageFor(code), code };

@@ -409,6 +409,16 @@ export interface SnapshotLink {
   contract_id: string;
   copy_id: string;
   flight_id: string | null;
+  schedule_line_id?: string | null;
+}
+
+/** A contract's schedule line on its current revision — what a message can be dedicated to. */
+export interface SnapshotLine {
+  id: string;
+  contract_id: string;
+  label: string;
+  /** The inventory pool's name ("Carpool"), when the line sells one. */
+  pool_name: string | null;
 }
 
 export interface LegacyCopySnapshot {
@@ -417,6 +427,8 @@ export interface LegacyCopySnapshot {
   contracts: SnapshotContract[];
   flights: SnapshotFlight[];
   links: SnapshotLink[];
+  /** Active lines of each contract's current revision; optional so an older caller plans without line scoping. */
+  lines?: SnapshotLine[];
 }
 
 // ---- Questions and answers ---------------------------------------------------
@@ -475,6 +487,9 @@ export interface PlannedLink {
   contractLabel: string;
   flightId: string | null;
   flightName: string | null;
+  /** The one line this message is dedicated to on the contract (§16), or null for every line. */
+  scheduleLineId: string | null;
+  scheduleLineLabel: string | null;
   /** Already linked: nothing to write. */
   exists: boolean;
 }
@@ -1195,6 +1210,10 @@ export function planLegacyCopyImport(
             contractLabel: contractLabel(contract),
             flightId: existingLink.flight_id,
             flightName: flights.find((entry) => entry.id === existingLink.flight_id)?.name ?? null,
+            scheduleLineId: existingLink.schedule_line_id ?? null,
+            scheduleLineLabel:
+              (snapshot.lines ?? []).find((line) => line.id === existingLink.schedule_line_id)
+                ?.label ?? null,
             exists: true,
           });
           continue;
@@ -1257,6 +1276,8 @@ export function planLegacyCopyImport(
           contractLabel: contractLabel(contract),
           flightId: flight?.id ?? null,
           flightName: flight?.name ?? null,
+          scheduleLineId: null,
+          scheduleLineLabel: null,
           exists: false,
         });
       }
@@ -1272,6 +1293,8 @@ export function planLegacyCopyImport(
       planned.status = "done";
     else planned.status = "ready";
   }
+
+  dedicateCarpoolCopy(copies, snapshot);
 
   // A script question's wording is written for one copy; restate it for the count it covers.
   for (const question of questions.values()) {
@@ -1341,6 +1364,66 @@ export function planLegacyCopyImport(
     ),
     counts,
   };
+}
+
+/** A copy name or a line that means WUWF's Carpool feature ("car pool", "Wed Carpool", "copy 1 - car pool"). */
+export function isCarpoolName(text: string | null | undefined): boolean {
+  return /\bcar\s*pool\b/i.test(text ?? "");
+}
+
+/**
+ * Dedicates Carpool copy to the contract's Carpool line (§16), the way the
+ * orders read: End of Line Cafe's "For Carpool: #1 … For Total Program:
+ * #2", First City's separate Carpool script. Only when it is safe to:
+ * the contract has exactly one Carpool line among several, and some other
+ * message — linked by this import or already — is left for the other
+ * lines. A sponsor whose only message is its Carpool copy, or whose
+ * contract is only the Carpool line, stays contract-wide, since
+ * dedicating it would leave nothing (or change nothing). Only new links
+ * are scoped; an existing link keeps whatever scope staff gave it.
+ */
+function dedicateCarpoolCopy(copies: PlannedCopy[], snapshot: LegacyCopySnapshot): void {
+  const lines = snapshot.lines ?? [];
+  if (lines.length === 0) return;
+  const linesByContract = new Map<string, SnapshotLine[]>();
+  for (const line of lines)
+    linesByContract.set(line.contract_id, [...(linesByContract.get(line.contract_id) ?? []), line]);
+
+  const linking = copies.filter((copy) => copy.status === "ready" || copy.status === "done");
+  for (const [contractId, contractLines] of linesByContract) {
+    if (contractLines.length < 2) continue;
+    const carpoolLines = contractLines.filter(
+      (line) => isCarpoolName(line.pool_name) || isCarpoolName(line.label),
+    );
+    if (carpoolLines.length !== 1) continue;
+    const carpoolLine = carpoolLines[0]!;
+
+    const onContract = linking.flatMap((copy) =>
+      copy.links.filter((link) => link.contractId === contractId).map((link) => ({ copy, link })),
+    );
+    const carpool = onContract.filter(
+      ({ copy, link }) => isCarpoolName(copy.label) && !link.exists && link.flightId === null,
+    );
+    const importedGeneral = onContract.some(({ copy }) => !isCarpoolName(copy.label));
+    const onFileGeneral = snapshot.links.some(
+      (link) =>
+        link.contract_id === contractId &&
+        !link.schedule_line_id &&
+        !onContract.some(
+          ({ copy }) => copy.copy.action === "reuse" && copy.copy.id === link.copy_id,
+        ) &&
+        !isCarpoolName(snapshot.copy.find((entry) => entry.id === link.copy_id)?.label),
+    );
+    if (carpool.length === 0 || !(importedGeneral || onFileGeneral)) continue;
+
+    for (const { copy, link } of carpool) {
+      link.scheduleLineId = carpoolLine.id;
+      link.scheduleLineLabel = carpoolLine.label;
+      copy.notes.push(
+        `Dedicated to the ${carpoolLine.label} line, as the order gives Carpool its own message; the contract's other messages serve its other lines.`,
+      );
+    }
+  }
 }
 
 /**

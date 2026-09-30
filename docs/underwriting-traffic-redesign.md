@@ -1419,8 +1419,9 @@ gained a link or whose linked copy was re-dated or reworded — the existing
 mechanism, a no-op for a draft contract. RadioTraffic's own rotation
 definitions (which carts rotate on which contract lines) aren't in the
 export, so copy RadioTraffic kept in separate rotations — a "car pool"
-message beside a general one — rotates together here; the portal has no
-line-scoped copy (flights are the only scoping).
+message beside a general one — used to rotate together here. §16 adds
+line-scoped copy; the import scopes a "car pool" message to the contract's
+one Carpool line when the contract also has general copy.
 
 ### 15.4 Known interaction
 
@@ -1435,4 +1436,56 @@ rotation, but the Log importer's key is the thing to fix if it recurs.
 No XLSX parsing; no AI anywhere in the path; no manufactured contracts;
 no automatic linking to a digital-only or other-product agreement; no
 change to a reused copy's label, approval or kind; no migration record
-table; no line-scoped copy to reproduce RadioTraffic's separate rotations.
+table. (Line-scoped copy, once listed here, is §16.)
+
+## 16. Copy dedicated to one line (2026-09-30)
+
+Some insertion orders give a message to one line, not to the contract.
+Checked against the originals in Drive: End of Line Cafe (2/10/2026–
+2/7/2027) reads "For Carpool: #1 … For Total Program: #2"; First City Art
+Center (9/21–11/14/2026) gives its Carpool spots their own script; Phil
+Hall's 2022–23 order rotated Copy 1–4 and kept a separate Carpool message
+(its 2026 order has no Carpool line). Rotating copy within a contract was
+already supported; tying a message to one line was not, so a Carpool
+message and a general one alternated on every line.
+
+### 16.1 Rule
+
+`uw_contract_copy.schedule_line_id` (nullable, mutually exclusive with
+`flight_id`; `20260930150000_underwriting_line_scoped_copy.sql`):
+
+- copy scoped to a line serves only that line;
+- a line with copy of its own takes only that copy;
+- every other line takes the contract's unscoped copy, as before.
+
+`rotation.ts`'s `servesLine()` is the TypeScript rule; `uw_copy_serves_line()`
+is the SQL twin — keep them in step. A `before insert or update` trigger on
+`uw_scheduled_placements` (`copy_wrong_line`) enforces it for every writer —
+manual placement, auto-fill, the capability, makegoods, bumping, and the
+rotation walk's reassign — so no RPC needed its own clause. A second trigger
+refuses a link scoped to another contract's line.
+
+### 16.2 Rotation
+
+The cycle is per group, not contract-wide: a line with dedicated copy
+cycles its own messages; every other line shares the general cycle
+(`rotationGroup()`, `previousInGroup()`). Without this, a dedicated message
+reset the general cycle every time it aired (found by the Phil Hall test).
+
+### 16.3 Where it's set
+
+The Copy tab's link card has "Use on" (every line without its own message,
+or one line), and a linked message's menu has "Use on one line only…"
+(`setCopyLine`, which clears a flight scope and rebalances). A line belongs
+to one revision: when a revision replaces it, the card shows "Line replaced
+— set it again". The RadioTraffic import (§15) scopes a new carpool-named
+message to the contract's single Carpool line when the contract has at
+least two current lines and general copy too; anything else stays unscoped.
+
+### 16.4 Live data
+
+Production, 2026-09-30: End of Line Cafe's contract (ident 20537, draft)
+now links "car pool" (cart 72) to its "Carpool Thursday @ 8:42" line and
+"Gen" (cart 73) unscoped, both dated 2/10/2025–2/7/2027 as RadioTraffic
+has them. First City Art Center has no contract in the portal yet; scope
+its Carpool script when one is created.

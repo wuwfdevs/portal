@@ -1,3 +1,4 @@
+import { servesLine } from "@/lib/underwriting/rotation";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -54,10 +55,13 @@ export default async function PlaceCreditPage({
     line.status === "active" &&
     line.revision_id === contract.currentRevision?.id;
 
-  const flightByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link.flight_id]));
+  const linkByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link]));
+  const lineScopes = contract.copyLinks.map((link) => ({ lineId: link.schedule_line_id }));
   const lineCopy = contract.copy.filter((item) => {
-    const scope = flightByCopy.get(item.id) ?? null;
-    return scope === null || scope === line.flight_id;
+    const link = linkByCopy.get(item.id);
+    const flight = link?.flight_id ?? null;
+    if (flight !== null && flight !== line.flight_id) return false;
+    return servesLine({ lineId: link?.schedule_line_id ?? null }, line.id, lineScopes);
   });
 
   const [pools, programs, placeable, nearby, suggestedCopyId] = await Promise.all([
@@ -65,7 +69,7 @@ export default async function PlaceCreditPage({
     listProgramOptions(),
     schedulable ? listPlaceableRundownBreaks(line.id) : null,
     line.program_id ? listNearbyPlacementsForAdjacency(line.program_id, contract.id) : [],
-    schedulable ? suggestNextCopyForLine(contract.id, line.flight_id) : null,
+    schedulable ? suggestNextCopyForLine(contract.id, line) : null,
   ]);
   const [view] = await buildScheduleLineDemandViews(contract, [line], contract.bucketsByLine, {
     poolNameById: new Map(pools.map((pool) => [pool.id, pool.name])),

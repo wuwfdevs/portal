@@ -10,7 +10,13 @@ import {
   listCopyLinkedToContracts,
   listPlacementsWithOutcomes,
 } from "./queries";
-import { nextInRotation, walkRotation, type RotationCopy, type RotationSlot } from "./rotation";
+import {
+  nextInRotation,
+  previousInGroup,
+  walkRotation,
+  type RotationCopy,
+  type RotationSlot,
+} from "./rotation";
 
 /**
  * Keeps a contract's copy rotation current (docs/underwriting-traffic-
@@ -63,15 +69,18 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
   if (!current) return null;
   if (!roomsResult.ok) throw new Error(roomsResult.message);
 
-  const copies: RotationCopy[] = (linked.get(contractId) ?? []).map(({ copy, flightId }) => ({
-    id: copy.id,
-    approvalStatus: copy.approval_status,
-    durationSeconds: copy.duration_seconds,
-    effectiveFrom: copy.effective_from,
-    effectiveTo: copy.effective_to,
-    flightId,
-    createdAt: copy.created_at,
-  }));
+  const copies: RotationCopy[] = (linked.get(contractId) ?? []).map(
+    ({ copy, flightId, scheduleLineId }) => ({
+      id: copy.id,
+      approvalStatus: copy.approval_status,
+      durationSeconds: copy.duration_seconds,
+      effectiveFrom: copy.effective_from,
+      effectiveTo: copy.effective_to,
+      flightId,
+      lineId: scheduleLineId,
+      createdAt: copy.created_at,
+    }),
+  );
 
   const lines =
     unwrapRead(
@@ -105,6 +114,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
         scheduledAt: placement.scheduled_at,
         airDate: placement.placement_date,
         lineFlightId: flightByLine.get(placement.schedule_line_id) ?? null,
+        lineId: placement.schedule_line_id,
         copyId: placement.copy_id,
         fixed,
         roomSeconds: room?.room_seconds ?? 0,
@@ -177,22 +187,28 @@ export async function rebalanceRotationForCopy(
  */
 export async function suggestNextCopyForLine(
   contractId: string,
-  lineFlightId: string | null,
+  line: { id: string; flight_id: string | null },
   candidate?: { scheduledAt: string; airDate: string; roomSeconds: number },
 ): Promise<string | null> {
   const context = await loadRotationContext(contractId);
   if (!context) return null;
-  const ordered = [...context.slots].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  const before = candidate
-    ? ordered.filter((slot) => slot.scheduledAt < candidate.scheduledAt)
-    : ordered;
-  const previous = before.length > 0 ? (before[before.length - 1]!.copyId ?? null) : null;
+  const previous = previousInGroup(context.slots, line.id, context.copies, candidate?.scheduledAt);
   const pick = nextInRotation(
     context.copies,
     previous,
     candidate
-      ? { airDate: candidate.airDate, lineFlightId, roomSeconds: candidate.roomSeconds }
-      : { airDate: "9999-12-31", lineFlightId, roomSeconds: Number.MAX_SAFE_INTEGER },
+      ? {
+          airDate: candidate.airDate,
+          lineFlightId: line.flight_id,
+          lineId: line.id,
+          roomSeconds: candidate.roomSeconds,
+        }
+      : {
+          airDate: "9999-12-31",
+          lineFlightId: line.flight_id,
+          lineId: line.id,
+          roomSeconds: Number.MAX_SAFE_INTEGER,
+        },
   );
   return pick?.id ?? null;
 }
@@ -216,7 +232,7 @@ export async function resolveCopyForBreak(
   const brk = listed.ok ? listed.breaks.find((b) => b.break_id === breakId) : undefined;
   return suggestNextCopyForLine(
     line.contract_id,
-    line.flight_id,
+    line,
     brk
       ? { scheduledAt: brk.scheduled_at, airDate: brk.air_date, roomSeconds: brk.remaining_seconds }
       : undefined,
@@ -236,12 +252,12 @@ export async function suggestNextCopyForLines(
   if (lines.length === 0) return result;
   const context = await loadRotationContext(contractId);
   if (!context) return result;
-  const ordered = [...context.slots].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-  const previous = ordered.length > 0 ? (ordered[ordered.length - 1]!.copyId ?? null) : null;
   for (const line of lines) {
+    const previous = previousInGroup(context.slots, line.id, context.copies);
     const pick = nextInRotation(context.copies, previous, {
       airDate: "9999-12-31",
       lineFlightId: line.flight_id,
+      lineId: line.id,
       roomSeconds: Number.MAX_SAFE_INTEGER,
     });
     result.set(line.id, pick?.id ?? null);

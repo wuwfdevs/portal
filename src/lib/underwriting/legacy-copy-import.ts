@@ -18,29 +18,50 @@ import {
 /** Everything the plan compares the export against, read in one pass. */
 export async function loadLegacyCopySnapshot(): Promise<LegacyCopySnapshot> {
   const supabase = await createClient();
-  const [underwriters, copy, contracts, flights, links] = await Promise.all([
-    supabase.from("uw_underwriters").select("id, name"),
-    supabase
-      .from("uw_copy")
-      .select(
-        "id, underwriter_id, label, cart_identifier, script, execution_kind, duration_seconds, effective_from, effective_to, approval_status, created_at",
-      ),
-    supabase
-      .from("uw_contracts")
-      .select(
-        "id, underwriter_id, contract_identifier, sponsorship_category, status, effective_from, effective_to",
-      ),
-    supabase
-      .from("uw_contract_flights")
-      .select("id, contract_id, name, start_date, end_date, status"),
-    supabase.from("uw_contract_copy").select("contract_id, copy_id, flight_id"),
-  ]);
+  const [underwriters, copy, contracts, flights, links, lines, pools, revisions] =
+    await Promise.all([
+      supabase.from("uw_underwriters").select("id, name"),
+      supabase
+        .from("uw_copy")
+        .select(
+          "id, underwriter_id, label, cart_identifier, script, execution_kind, duration_seconds, effective_from, effective_to, approval_status, created_at",
+        ),
+      supabase
+        .from("uw_contracts")
+        .select(
+          "id, underwriter_id, contract_identifier, sponsorship_category, status, effective_from, effective_to",
+        ),
+      supabase
+        .from("uw_contract_flights")
+        .select("id, contract_id, name, start_date, end_date, status"),
+      supabase.from("uw_contract_copy").select("contract_id, copy_id, flight_id, schedule_line_id"),
+      supabase
+        .from("uw_contract_schedule_lines")
+        .select("id, contract_id, revision_id, label, pool_id")
+        .eq("status", "active"),
+      supabase.from("uw_inventory_pools").select("id, name"),
+      supabase.from("uw_contract_revisions").select("id").eq("status", "current"),
+    ]);
+  const currentRevisions = new Set(
+    (unwrapRead(revisions, "the contracts' current revisions") ?? []).map((row) => row.id),
+  );
+  const poolName = new Map(
+    (unwrapRead(pools, "the inventory pools") ?? []).map((pool) => [pool.id, pool.name]),
+  );
   return {
     underwriters: unwrapRead(underwriters, "the underwriters") ?? [],
     copy: unwrapRead(copy, "the copy library") ?? [],
     contracts: unwrapRead(contracts, "the contracts") ?? [],
     flights: unwrapRead(flights, "the contract flights") ?? [],
     links: unwrapRead(links, "the contract copy links") ?? [],
+    lines: (unwrapRead(lines, "the contracts' schedule lines") ?? [])
+      .filter((line) => currentRevisions.has(line.revision_id))
+      .map((line) => ({
+        id: line.id,
+        contract_id: line.contract_id,
+        label: line.label || "Untitled line",
+        pool_name: line.pool_id ? (poolName.get(line.pool_id) ?? null) : null,
+      })),
   };
 }
 
@@ -199,12 +220,15 @@ export async function executeLegacyCopyImport(
 
     const newLinks = planned.links.filter((link) => !link.exists);
     for (const link of newLinks) {
-      const { error } = await supabase
-        .from("uw_contract_copy")
-        .upsert(
-          { contract_id: link.contractId, copy_id: copyId, flight_id: link.flightId },
-          { onConflict: "contract_id,copy_id", ignoreDuplicates: true },
-        );
+      const { error } = await supabase.from("uw_contract_copy").upsert(
+        {
+          contract_id: link.contractId,
+          copy_id: copyId,
+          flight_id: link.flightId,
+          schedule_line_id: link.scheduleLineId,
+        },
+        { onConflict: "contract_id,copy_id", ignoreDuplicates: true },
+      );
       if (error)
         return {
           ...base,
@@ -214,7 +238,7 @@ export async function executeLegacyCopyImport(
       touchedContracts.add(link.contractId);
       result.linked += 1;
       done.push(
-        `Linked to ${link.contractLabel}${link.flightName ? `, ${link.flightName} flight` : ""}`,
+        `Linked to ${link.contractLabel}${link.flightName ? `, ${link.flightName} flight` : ""}${link.scheduleLineLabel ? `, only on ${link.scheduleLineLabel}` : ""}`,
       );
     }
     if (planned.links.length === 0) {

@@ -817,6 +817,72 @@ describe("planLegacyCopyImport", () => {
   });
 });
 
+describe("Carpool copy dedicated to the Carpool line (§16)", () => {
+  const eol = { id: "uw-eol", name: "End of Line Cafe" };
+  const contractEol = contract({
+    id: "c-eol",
+    underwriter_id: "uw-eol",
+    contract_identifier: "20537",
+    effective_from: "2026-02-10",
+    effective_to: "2027-02-07",
+  });
+  const lines = [
+    {
+      id: "l-carpool",
+      contract_id: "c-eol",
+      label: "Carpool Thursday @ 8:42",
+      pool_name: "Carpool",
+    },
+    {
+      id: "l-tpr",
+      contract_id: "c-eol",
+      label: "Total Program Rotation",
+      pool_name: "Total Program Rotation",
+    },
+  ];
+  const base = () =>
+    snapshot({ underwriters: [...UNDERWRITERS, eol], contracts: [contractEol], lines });
+
+  it("End of Line: “car pool” only on the Carpool line, “Gen” for the rest — as the order reads", () => {
+    const plan = planLegacyCopyImport(rowsFor("End of Line Cafe"), base());
+    const byLabel = new Map(plan.copies.map((copy) => [copy.label, copy]));
+    expect(byLabel.get("car pool")!.links).toEqual([
+      expect.objectContaining({ contractId: "c-eol", scheduleLineId: "l-carpool" }),
+    ]);
+    expect(byLabel.get("Gen")!.links).toEqual([
+      expect.objectContaining({ contractId: "c-eol", scheduleLineId: null }),
+    ]);
+  });
+
+  it("leaves Carpool copy contract-wide when it's the sponsor's only message", () => {
+    const plan = planLegacyCopyImport(rowsFor("End of Line Cafe", "car pool"), base());
+    expect(plan.copies[0]!.links[0]!.scheduleLineId).toBeNull();
+  });
+
+  it("dedicates it when the general message is already linked on file", () => {
+    const [gen] = rowsFor("End of Line Cafe", "Gen");
+    const onFile = base();
+    onFile.copy = [
+      copyOnFile({ id: "copy-gen", underwriter_id: "uw-eol", label: "Gen", script: gen!.script }),
+    ];
+    onFile.links = [
+      { contract_id: "c-eol", copy_id: "copy-gen", flight_id: null, schedule_line_id: null },
+    ];
+    const plan = planLegacyCopyImport(rowsFor("End of Line Cafe", "car pool"), onFile);
+    expect(plan.copies[0]!.links[0]!.scheduleLineId).toBe("l-carpool");
+  });
+
+  it("leaves a contract that is only the Carpool line alone (Bailey's)", () => {
+    const only = base();
+    only.lines = [lines[0]!];
+    const plan = planLegacyCopyImport(rowsFor("End of Line Cafe"), only);
+    expect(plan.copies.flatMap((copy) => copy.links.map((link) => link.scheduleLineId))).toEqual([
+      null,
+      null,
+    ]);
+  });
+});
+
 describe("parseLegacyCopyAnswers", () => {
   it("keeps string answers and drops anything else", () => {
     expect(parseLegacyCopyAnswers('{"a":"new","b":3,"c":null}')).toEqual({ a: "new" });

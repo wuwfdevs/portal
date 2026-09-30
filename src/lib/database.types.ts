@@ -2459,11 +2459,18 @@ export interface Database {
           copy_id: string;
           /** Null: serves the whole contract. Set: only lines in this flight may place it. */
           flight_id: string | null;
+          /**
+           * Null: serves every line that has no dedicated copy. Set: the order gives this
+           * message to one line, and that line takes only its dedicated copy
+           * (20260930150000, uw_copy_serves_line()).
+           */
+          schedule_line_id: string | null;
         };
         Insert: {
           contract_id: string;
           copy_id: string;
           flight_id?: string | null;
+          schedule_line_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
         Relationships: [];

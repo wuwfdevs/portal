@@ -391,14 +391,16 @@ export async function getCopyDetail(id: string): Promise<CopyDetail | null> {
 /** Every uw_contract_copy link for the given contracts, with the copy rows, grouped by contract id. */
 export async function listCopyLinkedToContracts(
   contractIds: string[],
-): Promise<Map<string, { copy: UwCopyRow; flightId: string | null }[]>> {
+): Promise<
+  Map<string, { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null }[]>
+> {
   if (contractIds.length === 0) return new Map();
   const supabase = await createClient();
   const links =
     unwrapRead(
       await supabase
         .from("uw_contract_copy")
-        .select("contract_id, copy_id, flight_id")
+        .select("contract_id, copy_id, flight_id, schedule_line_id")
         .in("contract_id", contractIds),
       "linked copy",
     ) ?? [];
@@ -410,12 +412,15 @@ export async function listCopyLinkedToContracts(
         []);
   const copyById = new Map(copyRows.map((copy) => [copy.id, copy]));
 
-  const result = new Map<string, { copy: UwCopyRow; flightId: string | null }[]>();
+  const result = new Map<
+    string,
+    { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null }[]
+  >();
   for (const link of links) {
     const copy = copyById.get(link.copy_id);
     if (!copy) continue;
     const list = result.get(link.contract_id) ?? [];
-    list.push({ copy, flightId: link.flight_id });
+    list.push({ copy, flightId: link.flight_id, scheduleLineId: link.schedule_line_id });
     result.set(link.contract_id, list);
   }
   return result;
@@ -724,7 +729,11 @@ export async function buildSelectionDemand(
   const openItems = openItemsByLine.get(scheduleLine.id);
   const contractSequence = [...placementsByLine.values()]
     .flat()
-    .map((placement) => ({ scheduledAt: placement.scheduled_at, copyId: placement.copy_id }))
+    .map((placement) => ({
+      scheduledAt: placement.scheduled_at,
+      copyId: placement.copy_id,
+      lineId: placement.schedule_line_id,
+    }))
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   return {
@@ -759,6 +768,7 @@ export async function buildSelectionDemand(
     underwriterId: underwriter.id,
     categoryId: underwriter.category_id,
     lineFlightId: scheduleLine.flight_id,
+    lineId: scheduleLine.id,
     separationMinutes:
       contract.separation_policy === "min_minutes" ? contract.separation_minutes : null,
     todayISO,

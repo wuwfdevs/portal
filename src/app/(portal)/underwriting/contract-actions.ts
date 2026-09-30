@@ -993,11 +993,20 @@ export async function linkCopyToContract(formData: FormData): Promise<void> {
   const failPath = `${path}${path.includes("?") ? "&" : "?"}link=1`;
   if (copyId === "") failWith(failPath, "Choose a message to link.");
 
+  const flightId = optionalField(formData, "flight_id");
+  const scheduleLineId = optionalField(formData, "schedule_line_id");
+  if (flightId && scheduleLineId)
+    failWith(
+      failPath,
+      "Choose a flight or one line, not both — a line already belongs to its flight.",
+    );
+
   const supabase = await createClient();
   const { error } = await supabase.from("uw_contract_copy").insert({
     contract_id: contractId,
     copy_id: copyId,
-    flight_id: optionalField(formData, "flight_id"),
+    flight_id: flightId,
+    schedule_line_id: scheduleLineId,
   });
   if (error?.code === "23505")
     failWith(failPath, "That message is already linked to this contract.");
@@ -1022,6 +1031,36 @@ export async function setCopyFlight(formData: FormData): Promise<void> {
     .eq("contract_id", contractId)
     .eq("copy_id", copyId);
   failIfError(error, path, "Could not change that copy's flight");
+  await rebalanceContractRotation(contractId, profile.id);
+
+  revalidatePath(contractPath(contractId));
+  redirect(path);
+}
+
+/**
+ * Dedicates a linked message to one schedule line, or returns it to every
+ * line (docs/underwriting-traffic-redesign.md §16): the order gives this
+ * message to one line ("For Carpool: #1"), and that line then takes only
+ * its dedicated copy. The database refuses a line from another contract.
+ */
+export async function setCopyLine(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const copyId = field(formData, "copy_id");
+  const path = copyReturnPath(formData, contractId);
+  const scheduleLineId = optionalField(formData, "schedule_line_id");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("uw_contract_copy")
+    .update(
+      scheduleLineId
+        ? { schedule_line_id: scheduleLineId, flight_id: null }
+        : { schedule_line_id: null },
+    )
+    .eq("contract_id", contractId)
+    .eq("copy_id", copyId);
+  failIfError(error, path, "Could not change which line that copy serves");
   await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(contractPath(contractId));

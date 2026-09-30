@@ -642,7 +642,7 @@ function describeCopy(copy: PlannedCopy): string {
     );
   for (const link of copy.links)
     parts.push(
-      `${link.exists ? "Linked to" : "Links to"} ${link.contractLabel}${link.flightName ? `, ${link.flightName} flight` : ""}`,
+      `${link.exists ? "Linked to" : "Links to"} ${link.contractLabel}${link.flightName ? `, ${link.flightName} flight` : ""}${link.scheduleLineLabel ? `, only on ${link.scheduleLineLabel}` : ""}`,
     );
   if (copy.links.length === 0 && copy.unlinkedReason)
     parts.push(`Underwriter only: ${copy.unlinkedReason.toLowerCase()}`);
