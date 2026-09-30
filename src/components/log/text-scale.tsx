@@ -85,8 +85,9 @@ export function TextScaleControl() {
 
   return (
     <details className="relative">
-      <summary className="flex cursor-pointer list-none items-center gap-1 rounded border border-line px-2.5 py-1 text-xs font-bold text-ink-700 hover:bg-panel-50 [&::-webkit-details-marker]:hidden">
-        Text size: {TEXT_SCALES[scale].label}
+      <summary className="flex h-9 cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded border border-line px-2.5 text-xs font-bold text-ink-700 hover:bg-panel-50 lg:h-auto lg:py-1 [&::-webkit-details-marker]:hidden">
+        <span className="hidden sm:inline">Text size:</span>
+        <span className="sm:hidden">Text:</span> {TEXT_SCALES[scale].label}
       </summary>
       <div className="absolute right-0 z-20 mt-1 flex w-40 flex-col gap-1 rounded border border-line bg-white p-1 shadow-md">
         {(Object.keys(TEXT_SCALES) as TextScaleKey[]).map((key) => (
