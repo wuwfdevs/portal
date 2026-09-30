@@ -65,6 +65,6 @@ export async function requireAgreementMigrationAccess(): Promise<UnderwritingCon
 
 export async function assertAgreementMigrationAccess(): Promise<UnderwritingContext> {
   const context = await assertUnderwritingAccess();
-  if (!context.isAdministrator) throw new Error("Only an administrator can migrate agreements.");
+  if (!context.isAdministrator) throw new Error("Only an administrator can migrate legacy records.");
   return context;
 }

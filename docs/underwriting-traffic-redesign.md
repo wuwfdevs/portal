@@ -1337,3 +1337,102 @@ manifest; no interpretation of the contract type or the documentation
 flag; no re-reading an imported entry in place (delete the draft and run
 it again). None of the reader's behaviour changed, so §12.3's eval still
 measures it.
+
+## 15. Seeding active copy from RadioTraffic (2026-09-30)
+
+A one-time administrator's tool at `/underwriting/migration/copy` (the
+migration area's second tab; also linked from the copy library as "Import
+from RadioTraffic"). It takes RadioTraffic's "Active Copy by Underwriter"
+export, saved as CSV, and brings each message into `uw_copy`, linked to a
+contract through `uw_contract_copy` where that is safe. No schema change
+and no migration table: unlike §14 there is no expensive per-entry work to
+resume, so the real copy and link rows are the state, and a rerun
+recognises what it already wrote.
+
+### 15.1 Shape
+
+`lib/underwriting/legacy-copy.ts` (pure, tested against the real export in
+`fixtures/radiotraffic-active-copy.csv`) parses the file and plans every
+row against a snapshot of underwriters, copy, contracts, flights and links.
+The screen runs the planner in the browser, so answering a question re-plans
+at once; the import action (`migration/copy/actions.ts`, non-redirecting)
+recomputes the plan from the same file and answers against a fresh read and
+writes only its "ready" copies (`legacy-copy-import.ts`). Each message is
+its own small write, row then links, so one failure never blocks the rest.
+One `underwriting.copy.legacy_imported` audit event per import. CSV only:
+no spreadsheet dependency for a one-time seed; the parser skips title lines
+and finds columns by name.
+
+### 15.2 Matching
+
+- **What a row is.** "copy holder" placeholders and rows that aren't copy
+  (a label naming EAS, a script that is only a bracketed note) stay out.
+  RadioTraffic numbers every piece of copy with a "cart", live reads
+  included, and reuses numbers across messages (every Day Sponsor is 300;
+  WUWF's DAD cut 00244 is a Bailey's spot while RadioTraffic's cart 244 is
+  a DOH credit), so the cart is kept as RadioTraffic's reference and never
+  decides anything. The script decides: an instruction to play a recorded
+  spot ("Please play the #___ spot…") is `recorded` at the export's length;
+  anything read aloud is `live_read` at its read-time estimate (the same
+  duration rule as the copy form and the Log importer).
+- **Underwriter.** `underwriterKey()` ignores case, punctuation,
+  apostrophes, "&"/"and" and plurals; `UNDERWRITER_ALIASES` names the
+  spellings that differ outright (the FPM accounts, "Pensacola Pop
+  Comics"). WUWF Day Sponsor is created without asking
+  (`STATION_UNDERWRITERS`); any other unknown or ambiguous name is a
+  question — add, match to one on file, or leave out.
+- **Copy.** A message is identified by underwriter + `scriptKey()`
+  (typography and whitespace aside). Rows with the same script collapse
+  into one copy spanning their dates. Copy on file with the same script —
+  attributed directly or through one of the underwriter's contracts — is
+  reused: RadioTraffic's dates are written onto it and a missing cart is
+  added; nothing else changes. Copy on file with the same name and cart but
+  other words is a question, classified by `classifyScriptDifference()`:
+  a few characters apart (words the pre-2026-08-28 program-log import glued
+  together) recommends RadioTraffic's wording in place; a blank the portal
+  has filled in ("# 2") recommends keeping the portal's; a different
+  message (RadioTraffic's next-month copy under the same name) recommends
+  adding it as its own copy. Copy on file that some row repeats exactly is
+  never claimed as another row's "same slot". The portal's wording only
+  changes on an explicit answer.
+- **Contract.** Candidates are the underwriter's draft or active contracts
+  overlapping the copy's dates, never a digital-only one (an app or web
+  agreement, by its category). Copy naming a product (Learning Minute,
+  RadioLive, Book Club — in its name, its opening words, or a
+  recorded-spot tag) goes to the one agreement for that product, and is a
+  question when none is on file. Otherwise a flight the copy names picks
+  the contract (ECTC's cash agreement over its trade one), then exactly one
+  candidate links, none leaves the copy with its underwriter, and several
+  are one question for all of that underwriter's copy with the same
+  candidates, so a rotation is never split between contracts.
+- **Flight.** A copy name naming a flight by whole words ("Frozen" /
+  "Frozen: The Musical") with overlapping dates scopes the link to it;
+  several such flights, or copy dated inside one flight's window without
+  naming it, is a question; anything else is contract-wide.
+
+### 15.3 Rotation
+
+New copy is written in label order ("Copy 1" before "Copy 2"), since
+rotation cycles a contract's copy in creation order (§13.2). After the
+writes, `rebalanceContractRotation()` runs once for every contract that
+gained a link or whose linked copy was re-dated or reworded — the existing
+mechanism, a no-op for a draft contract. RadioTraffic's own rotation
+definitions (which carts rotate on which contract lines) aren't in the
+export, so copy RadioTraffic kept in separate rotations — a "car pool"
+message beside a general one — rotates together here; the portal has no
+line-scoped copy (flights are the only scoping).
+
+### 15.4 Known interaction
+
+The program-log import finds copy by underwriter + label + cart. Where
+RadioTraffic reuses a name and cart for a new month (DOH's "Copy 1 · 244"),
+a later program-log import can overwrite the older row's wording with the
+newer one; the end dates this import sets keep the older row out of
+rotation, but the Log importer's key is the thing to fix if it recurs.
+
+### 15.5 Not built
+
+No XLSX parsing; no AI anywhere in the path; no manufactured contracts;
+no automatic linking to a digital-only or other-product agreement; no
+change to a reused copy's label, approval or kind; no migration record
+table; no line-scoped copy to reproduce RadioTraffic's separate rotations.

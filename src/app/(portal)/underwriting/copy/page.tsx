@@ -4,6 +4,7 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy } from "@/lib/underwriting/queries";
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
 const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
@@ -28,6 +29,7 @@ export default async function CopyLibraryPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
+  const { isAdministrator } = await requireUnderwritingAccess();
   const { q, status } = await searchParams;
   const filter: Filter = (FILTERS as readonly string[]).includes(status ?? "")
     ? (status as Filter)
@@ -83,6 +85,14 @@ export default async function CopyLibraryPage({
           },
         ]}
       >
+        {isAdministrator && (
+          <Link
+            href="/underwriting/migration/copy"
+            className="px-1 text-sm font-bold text-brand-link hover:underline"
+          >
+            Import from RadioTraffic
+          </Link>
+        )}
         <PrimaryLink href="/underwriting/copy/new">+ New copy</PrimaryLink>
       </ListToolbar>
 

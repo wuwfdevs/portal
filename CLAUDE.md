@@ -1380,6 +1380,21 @@ either/or quantity across lines, and never add multi-pool lines. Order
 numbers are nullable and never composed; a window ending 00:00 is stored
 as 24:00.
 
+**Underwriting & Traffic: seeding active copy from RadioTraffic
+(2026-09-30).** Read `docs/underwriting-traffic-redesign.md` §15 before
+touching `/underwriting/migration/copy` or `lib/underwriting/legacy-copy*.ts`;
+this is a pointer. An administrator's one-time import of RadioTraffic's
+"Active Copy by Underwriter" CSV: the pure planner (`legacy-copy.ts`,
+tested against the real export in `fixtures/`) runs in the browser for the
+review and again in the non-redirecting action for the write, with no
+schema change and no migration table. A message is identified by
+underwriter + normalised script, never by its cart — RadioTraffic's cart
+numbers are its own copy references (reused across messages, and not DAD
+cut numbers), so `execution_kind` comes from the script. Copy on file is
+reused (dates from RadioTraffic, a missing cart added); its wording changes
+only on an explicit answer. Contracts link only when exactly one agreement
+fits, through the existing `rebalanceContractRotation()`.
+
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
 `docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`

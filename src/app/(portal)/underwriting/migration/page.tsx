@@ -15,6 +15,7 @@ import {
   type MigrationItemCategory,
 } from "@/lib/underwriting/agreement-migration";
 import { BatchProgress } from "./batch-progress";
+import { MigrationTabs } from "./migration-tabs";
 import { batchDocumentsPath, batchPath, NEW_BATCH_PATH } from "./paths";
 
 const SECONDARY_LINK =
@@ -105,7 +106,7 @@ export default async function AgreementMigrationPage({
           <Link href="/underwriting/contracts" className="text-sm font-bold text-brand-link">
             ← Contracts
           </Link>
-          <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy agreements</h2>
+          <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy records</h2>
           <p className="mt-1 max-w-3xl text-sm text-ink-700">
             Bring signed agreements from before the portal in as draft contracts. Nothing schedules
             until someone reviews a draft and activates it.
@@ -113,6 +114,8 @@ export default async function AgreementMigrationPage({
         </div>
         <PrimaryLink href={NEW_BATCH_PATH}>+ New batch</PrimaryLink>
       </div>
+
+      <MigrationTabs active="agreements" />
 
       {notice && <Alert variant="success">{notice}</Alert>}
 
