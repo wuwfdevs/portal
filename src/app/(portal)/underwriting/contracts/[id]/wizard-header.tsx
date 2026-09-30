@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Steps } from "@/components/ui/steps";
@@ -16,7 +17,7 @@ export function WizardHeader({
   contract: {
     id: string;
     underwriterName: string;
-    identifier: string;
+    identifier: string | null;
     effectiveFrom: string;
     effectiveTo: string | null;
     status: string;
@@ -46,7 +47,7 @@ export function WizardHeader({
               {contract.underwriterName}
             </h2>
             <span className="text-[13px] text-ink-500">
-              {contract.identifier} · {contract.effectiveFrom}
+              {orderNumberLabel(contract.identifier)} · {contract.effectiveFrom}
               {contract.effectiveTo ? ` – ${contract.effectiveTo}` : ""}
             </span>
             <Badge variant={contract.status === "active" ? "success" : "neutral"}>

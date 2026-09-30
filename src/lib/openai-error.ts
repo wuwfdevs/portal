@@ -17,7 +17,7 @@ import OpenAI from "openai";
  * `code: "rate_limit_exceeded"` — confirmed in the production Vercel logs
  * when the first version of this check silently missed exactly that shape.
  */
-function isRateLimit(error: unknown): boolean {
+export function isOpenAIRateLimit(error: unknown): boolean {
   if (error instanceof OpenAI.RateLimitError) return true;
   if (error instanceof OpenAI.APIError) {
     const nestedCode = (error.error as { code?: string } | undefined)?.code;
@@ -31,7 +31,7 @@ function isRateLimit(error: unknown): boolean {
 }
 
 export function humanizeOpenAIError(error: unknown): Error {
-  if (isRateLimit(error) && error instanceof Error) {
+  if (isOpenAIRateLimit(error) && error instanceof Error) {
     const retryHint = /try again in ([^.]+?)\.(?:\s|$)/i.exec(error.message)?.[1];
     return new Error(
       `The AI provider's usage limit was hit — it suggests trying again in ${retryHint ?? "a little while"}. ` +

@@ -95,7 +95,7 @@ export default async function NewContractPage({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="contract_identifier">Order or insertion order number</Label>
-              <Input id="contract_identifier" name="contract_identifier" required maxLength={120} />
+              <Input id="contract_identifier" name="contract_identifier" maxLength={120} />
             </div>
             <div>
               <Label htmlFor="sponsorship_total">Sponsorship total ($)</Label>

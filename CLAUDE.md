@@ -1366,7 +1366,19 @@ safe: `uw_contracts.import_source_key` is unique
 (`20260929200000_underwriting_agreement_migration.sql`), an imported entry
 never runs again, and deleting its draft frees the key. Documents the
 manifest missed can be imported alone (§14.3), keyed by their hash; no
-document is ever imported under two entries.
+document is ever imported under two entries. Redesigned 2026-09-30 (§14.5):
+batches list → `/new` → `/batch/documents` → `/batch`, and entries run
+three at a time through a **route handler**
+(`/api/underwriting/migration/items/[id]/import`, logic in
+`lib/underwriting/migration-import.ts`), not a Server Action — Next.js runs
+a page's Server Actions one at a time, so parallel calls to one would still
+queue. `migration-queue.ts` backs off on the OpenAI rate limit. The reader maps an order's wording onto pools
+(§14.6): an either/or daypart is one line in the pool covering every
+choice (Drive Time, Weekend Edition), no pool named is Total Program
+Rotation, "rotating" is two every-other-week lines — never split an
+either/or quantity across lines, and never add multi-pool lines. Order
+numbers are nullable and never composed; a window ending 00:00 is stored
+as 24:00.
 
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read

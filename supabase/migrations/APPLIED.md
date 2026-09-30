@@ -175,6 +175,9 @@ repo and a project's history, not the version number.
 | `20260929200100_resources_underwriting_agreement_migration.sql`       | 2026-09-29 | 2026-09-29 |
 | `20260929210000_underwriting_agreement_migration_documents_only.sql`  | 2026-09-29 | 2026-09-29 |
 | `20260929210100_resources_underwriting_migration_documents_only.sql`  | 2026-09-29 | 2026-09-29 |
+| `20260930120000_resources_underwriting_migration_redesign.sql`        | 2026-09-30 | 2026-09-30 |
+| `20260930130000_underwriting_optional_order_number.sql`               | 2026-09-30 | 2026-09-30 |
+| `20260930130100_resources_underwriting_agreement_reading.sql`         | 2026-09-30 | 2026-09-30 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

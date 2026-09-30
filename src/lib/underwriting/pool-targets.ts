@@ -7,6 +7,7 @@
  */
 
 import type { UwTimeMode } from "@/lib/database.types";
+import { normalizeWindowEnd } from "./schedule-line-form";
 
 export interface PoolTargetInput {
   program_id: string | null;
@@ -35,7 +36,7 @@ function optional(formData: FormData, name: string): string | null {
 export function parseTarget(formData: FormData, prefix: string): ParsedPoolTarget {
   const programId = optional(formData, `${prefix}program_id`);
   const windowStart = optional(formData, `${prefix}window_start`);
-  const windowEnd = optional(formData, `${prefix}window_end`);
+  const windowEnd = normalizeWindowEnd(optional(formData, `${prefix}window_end`));
   const notes = optional(formData, `${prefix}notes`);
   const days = [
     ...new Set(

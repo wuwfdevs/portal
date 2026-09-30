@@ -1695,7 +1695,7 @@ export async function listAffidavitsDue(): Promise<AffidavitDue[]> {
 export interface LinkableCopyOption {
   copy: UwCopyRow;
   /** Order numbers of the contracts this message is already linked to, newest first. */
-  linkedTo: { contractIdentifier: string; effectiveTo: string | null }[];
+  linkedTo: { contractIdentifier: string | null; effectiveTo: string | null }[];
 }
 
 export interface ContractCopyContext {
@@ -1706,7 +1706,7 @@ export interface ContractCopyContext {
   /** For each message linked here, the other contracts it also serves. */
   otherContractsByCopy: Map<
     string,
-    { id: string; contractIdentifier: string; underwriterName: string }[]
+    { id: string; contractIdentifier: string | null; underwriterName: string }[]
   >;
   /** This underwriter's messages on file, linked here or not. */
   onFile: { total: number; approved: number; lastContractIdentifier: string | null };
@@ -1798,7 +1798,7 @@ export async function getContractCopyContext(
 
   const otherContractsByCopy = new Map<
     string,
-    { id: string; contractIdentifier: string; underwriterName: string }[]
+    { id: string; contractIdentifier: string | null; underwriterName: string }[]
   >();
   for (const item of contract.copy) {
     otherContractsByCopy.set(

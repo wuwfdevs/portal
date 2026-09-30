@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -81,7 +82,7 @@ export default async function EditScheduleLinePage({
       </Link>
       <h2 className="mt-2 mb-1 font-serif text-xl font-bold text-ink-900">Edit schedule line</h2>
       <p className="mb-5 text-sm text-ink-500">
-        {contract.underwriter.name} · {contract.contract_identifier}
+        {contract.underwriter.name} · {orderNumberLabel(contract.contract_identifier)}
       </p>
       {rewritable ? (
         <ScheduleLineEditor

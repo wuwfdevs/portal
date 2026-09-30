@@ -42,9 +42,8 @@ export default async function ContractOrderPage({
             <Input
               id="contract_identifier"
               name="contract_identifier"
-              required
               maxLength={120}
-              defaultValue={contract.contract_identifier}
+              defaultValue={contract.contract_identifier ?? ""}
             />
           </div>
           <div>
@@ -102,7 +101,9 @@ export default async function ContractOrderPage({
         <div>
           <Label htmlFor="account_rep">Account rep</Label>
           <Input id="account_rep" name="account_rep" defaultValue={contract.account_rep ?? ""} />
-          <FieldHint>The station&apos;s salesperson on this order. Printed on its affidavits.</FieldHint>
+          <FieldHint>
+            The station&apos;s salesperson on this order. Printed on its affidavits.
+          </FieldHint>
         </div>
         <div>
           <Label htmlFor="notes">Notes</Label>

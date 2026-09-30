@@ -11,6 +11,12 @@ import {
   documentBasename,
   normalizeDocumentName,
   manifestDiscrepancies,
+  manifestDifferences,
+  migrationItemCategory,
+  parseMigrationItemResult,
+  suggestUnderwriterName,
+  parseUnderwriterOverrides,
+  summarizeMigrationBatches,
   manifestSourceKey,
   matchDocumentFile,
   migrationNotes,
@@ -405,6 +411,122 @@ describe("manifestDiscrepancies", () => {
       '"Line 1" ends 2026-10-05, after the manifest\'s 2026-09-29.',
     ]);
   });
+
+  it("gives each fact disagreement as a field, both values, and the sentence", () => {
+    expect(manifestDifferences({ ...entry, sponsorshipTotal: 2500 }, output([line({})]))).toEqual([
+      {
+        field: "effective_to",
+        label: "Ends",
+        manifest: "2026-09-29",
+        document: "2026-09-30",
+        message: "The document ends 2026-09-30; the manifest's 2026-09-29 was used.",
+      },
+      {
+        field: "sponsorship_total",
+        label: "Total",
+        manifest: "2500.00",
+        document: "2600.00",
+        message: "The document's total is 2600.00; the manifest's 2500.00 was used.",
+      },
+    ]);
+  });
+});
+
+describe("migrationItemCategory", () => {
+  const base = { status: "pending" as const, contract_id: null, started_at: null, result: null };
+  const now = new Date("2026-09-30T12:00:00Z");
+  const clean = { lines_read: 2, lines_saved: 2, flights_created: 0, unresolved: 0, warnings: [] };
+
+  it("sorts an imported draft by whether anything needs checking", () => {
+    expect(
+      migrationItemCategory({ ...base, status: "imported", contract_id: "c", result: clean }, now),
+    ).toBe("ready");
+    expect(
+      migrationItemCategory(
+        { ...base, status: "imported", contract_id: "c", result: { ...clean, unresolved: 1 } },
+        now,
+      ),
+    ).toBe("needs_look");
+    expect(
+      migrationItemCategory(
+        { ...base, status: "imported", contract_id: "c", result: { ...clean, warnings: ["x"] } },
+        now,
+      ),
+    ).toBe("needs_look");
+  });
+
+  it("treats a deleted draft and a dead run as not run", () => {
+    expect(migrationItemCategory({ ...base, status: "imported" }, now)).toBe("not_run");
+    expect(
+      migrationItemCategory(
+        { ...base, status: "processing", started_at: "2026-09-30T11:00:00Z" },
+        now,
+      ),
+    ).toBe("not_run");
+    expect(
+      migrationItemCategory(
+        { ...base, status: "processing", started_at: "2026-09-30T11:58:00Z" },
+        now,
+      ),
+    ).toBe("importing");
+    expect(migrationItemCategory({ ...base, status: "failed" }, now)).toBe("failed");
+  });
+
+  it("reads a stored result without differences as having none", () => {
+    expect(parseMigrationItemResult(clean)?.differences).toEqual([]);
+  });
+});
+
+describe("summarizeMigrationBatches", () => {
+  it("counts each batch and puts the most recently active first", () => {
+    const item = (
+      batch: string,
+      updated: string,
+      underwriter: string | null,
+      status: "pending" | "failed",
+    ) => ({
+      batch_label: batch,
+      underwriter_name: underwriter,
+      updated_at: updated,
+      status,
+      contract_id: null,
+      started_at: null,
+      result: null,
+    });
+    const batches = summarizeMigrationBatches([
+      item("Older", "2026-09-01T00:00:00Z", "A", "pending"),
+      item("Newer", "2026-09-20T00:00:00Z", null, "failed"),
+      item("Older", "2026-09-10T00:00:00Z", null, "failed"),
+    ]);
+    expect(batches.map((batch) => batch.label)).toEqual(["Newer", "Older"]);
+    expect(batches[1]).toMatchObject({
+      total: 2,
+      documentsOnly: false,
+      lastActivity: "2026-09-10T00:00:00Z",
+      counts: { not_run: 1, failed: 1, ready: 0, needs_look: 0, importing: 0 },
+    });
+    expect(batches[0]!.documentsOnly).toBe(true);
+  });
+});
+
+describe("suggestUnderwriterName", () => {
+  const names = ["Autumn Beck Blackledge", "OsteoStrong", "New South", "Juan's Flying Burrito"];
+
+  it("suggests the one name a longer or shorter spelling contains", () => {
+    expect(suggestUnderwriterName("Autumn Beck Blackledge Law", names)).toBe(
+      "Autumn Beck Blackledge",
+    );
+  });
+
+  it("suggests a near miss", () => {
+    expect(suggestUnderwriterName("Osteo Strong", names)).toBe("OsteoStrong");
+    expect(suggestUnderwriterName("Juans Flying Burrito", names)).toBe("Juan's Flying Burrito");
+  });
+
+  it("suggests nothing when nothing is close or two are", () => {
+    expect(suggestUnderwriterName("Pensacola Bay Brewery", names)).toBeNull();
+    expect(suggestUnderwriterName("New", ["New South", "New North"])).toBeNull();
+  });
 });
 
 describe("documents-only entries", () => {
@@ -432,5 +554,15 @@ describe("documents-only entries", () => {
     expect(typed.notes).toBe(
       `Migrated from legacy records (batch "Stragglers", key sha256:${hash}).\nSource document: stray.pdf.\nNo manifest entry: every fact was read from the document.`,
     );
+  });
+});
+
+describe("parseUnderwriterOverrides", () => {
+  it("reads row numbers and names, ignoring anything malformed", () => {
+    expect([...parseUnderwriterOverrides('{"7":"Autumn Beck Blackledge","x":"A","9":3}')]).toEqual([
+      [7, "Autumn Beck Blackledge"],
+    ]);
+    expect(parseUnderwriterOverrides("not json").size).toBe(0);
+    expect(parseUnderwriterOverrides("").size).toBe(0);
   });
 });

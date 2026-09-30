@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default async function NewAffidavitPage({
               placeholder="Type the underwriter or order number…"
               options={contracts.map((contract) => ({
                 id: contract.id,
-                label: `${contract.underwriter.name} — ${contract.contract_identifier}`,
+                label: `${contract.underwriter.name} — ${orderNumberLabel(contract.contract_identifier)}`,
                 hint: contract.status,
               }))}
             />

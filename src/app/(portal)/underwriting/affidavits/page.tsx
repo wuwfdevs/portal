@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,8 +63,11 @@ export default async function AffidavitsPage() {
                       )}
                     </Cell>
                     <Cell className="text-ink-500">
-                      <Link href={`/underwriting/contracts/${item.contract.id}`} className="text-brand-link">
-                        {item.contract.contract_identifier}
+                      <Link
+                        href={`/underwriting/contracts/${item.contract.id}`}
+                        className="text-brand-link"
+                      >
+                        {orderNumberLabel(item.contract.contract_identifier)}
                       </Link>
                     </Cell>
                     <Cell className="whitespace-nowrap text-ink-500">
@@ -110,7 +114,10 @@ export default async function AffidavitsPage() {
               {affidavits.map((affidavit) => (
                 <Row key={affidavit.id}>
                   <Cell className="font-semibold text-ink-900">
-                    <Link href={`/underwriting/affidavits/${affidavit.id}`} className="text-brand-link">
+                    <Link
+                      href={`/underwriting/affidavits/${affidavit.id}`}
+                      className="text-brand-link"
+                    >
                       {affidavit.report_identifier}
                     </Link>
                   </Cell>

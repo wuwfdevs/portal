@@ -1170,14 +1170,7 @@ importer.
   administrators with Underwriting access; no delete. It is the
   migration's record, not a job queue.
 - **The screen.** `/underwriting/migration`, linked from the Contracts list
-  for administrators only: load a manifest (CSV file or pasted), choose
-  every document at once, import. The client matches each runnable entry to
-  a chosen file by basename and calls `importMigrationItem` once per entry,
-  in sequence — one model call per request, with the page's
-  `maxDuration = 300`, since there is still no job queue. A progress bar,
-  a per-entry log, and "Stop after this one"; then a table of every entry
-  with its status, a link to its draft's schedule step, lines saved of
-  lines read, and the warnings to review.
+  for administrators only. Redesigned on 2026-09-30 — see §14.5.
 
 ### 14.2 Idempotency
 
@@ -1222,6 +1215,119 @@ by coming in both ways. A re-scan is a different file with a different
 hash; that is what the review step is for. The manifest stays the
 preferred route: it decides which agreements are in scope and carries the
 facts a legacy PDF gets wrong.
+
+### 14.5 The screens, and running entries at once (2026-09-30)
+
+The first screen put three jobs on one long page (load, match and run,
+review) and read one agreement after another, so a 40-entry batch took
+over an hour. Redesigned from reviewed Design boards:
+
+- **`/underwriting/migration`** lists batches (a batch is its
+  `batch_label`; there's no batch row), each with a bar split by where its
+  entries stand and the one next step it needs, under four totals across
+  every batch. `migrationItemCategory()` sorts an entry into ready, needs a
+  look (a draft whose import left a disagreement, a warning, or an unsaved
+  line), failed, importing, or not run; `summarizeMigrationBatches()`
+  counts them (both pure, tested).
+- **`/new`** is step 1: the batch name, "a spreadsheet" or "documents
+  only", and — for a manifest — every row checked in the browser with the
+  server's own parser before anything is written. A sponsor who isn't on
+  file is now refused at load (it used to fail at import), with
+  `suggestUnderwriterName()`'s nearest name offered as "Use it"; the choice
+  posts as `underwriter_overrides` and the action re-checks everything.
+- **`/batch/documents?b=`** is steps 2 and 3. Choose a folder; each entry
+  is matched to its file by name as before, and what didn't match cleanly
+  is listed with one fix each: take the close name, choose a file, say
+  which of two entries a shared file belongs to, or choose a copy under
+  10 MB. Files no entry names can be imported as documents-only entries
+  (§14.3), which is now a checkbox here rather than a separate form.
+- **Several at once.** Each entry is a `POST` to
+  `/api/underwriting/migration/items/[id]/import` (the per-entry work moved
+  from the Server Action to `lib/underwriting/migration-import.ts`). A
+  route handler, not a Server Action, because Next.js runs one page's
+  Server Actions strictly one after another — calling the old action in
+  parallel would still have queued. `lib/underwriting/migration-queue.ts`'s
+  `runQueue()` (pure, tested) runs `MIGRATION_CONCURRENCY` (3) at a time.
+  The shared OpenAI account has a token cap that real 429s have already
+  hit, and an agreement packet is a large input, so the reader now reports
+  a rate limit as such (`rateLimited`, with the provider's suggested wait
+  parsed by `lib/openai-retry.ts`); the queue puts that entry back first,
+  pauses new launches for the wait, and runs one fewer at a time for the
+  rest of the run. Nothing is created before the reading, so a retry is
+  safe. After three rate limits on one entry it's recorded as failed.
+- **`/batch?b=`** is step 4: filter chips (needs a look first), search,
+  and `?details=<id>` expanding a row into where the document and the
+  manifest disagree — now stored structured, as
+  `MigrationItemResult.differences` (`manifestDifferences()`), shown as
+  field / manifest / document; older results still show their sentences —
+  plus the count of instructions not saved, linking to the schedule step
+  that lists them. With no `b`, the same page shows every batch.
+
+Known gap: the "document already imported under another entry" check and
+the claim aren't one atomic step, so two tabs running two different
+entries with the same PDF at the same moment could both import it. Within
+one run it can't happen — one file goes to one entry — and it could
+already happen with the sequential runner across two tabs. A partial
+unique index on `document_sha256` for processing and imported rows would
+close it if it ever matters.
+
+### 14.6 Reading an order's wording onto pools and lines (2026-09-30)
+
+The first real migration (37 agreements) left 10 instructions unsaved. None
+was a reading error: the reader understood each one and the prompt told it
+to give up. It said "never invent a name… put the instruction in
+unresolved", and "give one or the other" of pool and program, so "2 Drive
+Time spots a week", "1 each week in either Sat. or Sun. Weekend Edition",
+"1 Rotating AM/PM Drive", a spot "between 5 a.m. and 9:58 p.m." with no
+pool, and a Learning Minute at "Wednesday 7:19 am" all went unresolved.
+
+**Pools, not multi-pool lines, and never a split.** A line is one quantity
+owed per period plus where it may run; fulfillment and makegoods are
+counted per line. An either/or instruction split across lines owes
+something the order never promised (1 AM + 1 PM, or ½ + ½), so "any of
+these places" belongs in a pool — the station's named, reusable set of
+targets, which Carpool already is. Two pools were added in production for
+exactly this: **Drive Time** (the AM and PM Drive windows, weekdays) and
+**Weekend Edition** (Weekend Edition Saturday and Sunday). A line with
+several pools was considered and rejected: it duplicates pools as one-off
+sets per contract and would have changed the placement guard. Lines are
+split only when the order splits its count.
+
+**The prompt now maps wording onto the list** (`agreement-ai-import.ts`): a
+general or either/or daypart is the listed pool covering every choice; no
+pool or program named is Total Program Rotation (the station's anywhere
+pool), with the time rule narrowing it; "rotating" is two every-other-week
+lines a week apart (the demand compiler already anchors every_n_weeks on
+the line's start, so no new field); a branded product (Learning Minute) is
+a kind of credit whose line keeps the order's day and exact time.
+"Unresolved" is kept for what isn't broadcast inventory — app and website
+ads, print, tickets — and instructions with no quantity.
+
+**Midnight.** "5:00a-12:00a" read as 05:00–00:00 and failed "the window must
+end after it starts". `normalizeWindowEnd()` (`schedule-line-form.ts`, also
+used for pool targets) stores an end of 00:00 as 24:00, which Postgres
+`time` accepts and every start-inclusive, end-exclusive comparison already
+handles; the editor shows it as 00:00.
+
+**Order numbers are never composed.** `mergeOrderFacts()` used to invent
+"<sponsor> <start date>" because `uw_contracts.contract_identifier` was not
+null. `20260930130000_underwriting_optional_order_number.sql` drops the
+constraint and cleared the six composed numbers (exactly those whose value
+was the sponsor, a space and the start date and whose reading printed
+none). Screens show "No order number" (`lib/underwriting/contract-label.ts`);
+readiness no longer asks for one; an affidavit's internal report id falls
+back to the contract id.
+
+**The drafts were repaired in place, not re-imported** — the sandbox has no
+route to the reader. The corrected readings are a fixture
+(`fixtures/radio-traffic-migration.ts`) whose tests check each compiles to
+the order's own count; the same readings were compiled with the app's
+parser and written to the seven drafts' current revisions (Boyles 104 + 52,
+International Paper 26 + 26, Innisfree 365, the two Learning Minutes 52
+each, FPL's line 42 180, FPREN 260), each draft's stored reading updated so
+the schedule step marks them saved, and the entries' results recomputed.
+Still open: Santa Rosa County Tourist Development Office (not on file) and
+Choral Society of Pensacola (never run).
 
 ### 14.4 Not built
 

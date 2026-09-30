@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "./contract-label";
 import "server-only";
 // The client-facing performance affidavit as a PDF (docs/underwriting-
 // design.md §6). Rendered on the server with @react-pdf/renderer — pure
@@ -24,7 +25,7 @@ import { STATION_LETTERHEAD, type AffidavitDocument } from "./affidavits";
 export interface AffidavitPdfProps {
   document: AffidavitDocument;
   reportIdentifier: string;
-  contractIdentifier: string;
+  contractIdentifier: string | null;
   accountRep: string | null;
   /** The date printed as "Issued" — the certification date, or today for a draft. */
   issuedAt: string;
@@ -277,7 +278,7 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
           </View>
           <View style={[styles.card, { flex: 1.35 }]}>
             <Text style={styles.label}>Order</Text>
-            <Detail label="Order number" value={props.contractIdentifier} />
+            <Detail label="Order number" value={orderNumberLabel(props.contractIdentifier)} />
             <Detail label="Period" value={doc.periodLabel} />
             {doc.lengthLabel ? <Detail label="Announcements" value={doc.lengthLabel} /> : null}
             {props.accountRep ? <Detail label="Account rep" value={props.accountRep} /> : null}

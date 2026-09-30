@@ -542,59 +542,105 @@ function sameName(a: string, b: string): boolean {
   return normalizedName(a) === normalizedName(b);
 }
 
+/** One fact the manifest and the document's reading give differently. The manifest's value is the one the draft used. */
+export interface ManifestDifference {
+  field:
+    "underwriter" | "contract_identifier" | "effective_from" | "effective_to" | "sponsorship_total";
+  /** What the review screen calls the field: "Sponsor", "Ends". */
+  label: string;
+  manifest: string;
+  document: string;
+  /** The same disagreement as one sentence, for a plain list. */
+  message: string;
+}
+
+type DiscrepancyEntry = Pick<
+  MigrationManifestRow,
+  "underwriterName" | "contractIdentifier" | "effectiveFrom" | "effectiveTo" | "sponsorshipTotal"
+>;
+
 /**
- * The manifest wins every one of these (mergeOrderFacts already applied it);
- * a disagreement is listed so a person checks whether the spreadsheet or
- * the reading is wrong before activating. Also flags read lines that run
- * outside the manifest's dates.
+ * Where the reading disagrees with the manifest on the order's own facts.
+ * The manifest wins every one (mergeOrderFacts already applied it); each is
+ * listed so a person checks whether the spreadsheet or the reading is wrong
+ * before activating.
  */
-export function manifestDiscrepancies(
-  entry: Pick<
-    MigrationManifestRow,
-    "underwriterName" | "contractIdentifier" | "effectiveFrom" | "effectiveTo" | "sponsorshipTotal"
-  >,
+export function manifestDifferences(
+  entry: DiscrepancyEntry,
   output: AgreementModelOutput,
-): string[] {
+): ManifestDifference[] {
   const order = output.order;
-  const warnings: string[] = [];
+  const differences: ManifestDifference[] = [];
 
   if (
     order.underwriter !== null &&
     order.underwriter !== "NEW" &&
     !sameName(order.underwriter, entry.underwriterName)
   )
-    warnings.push(
-      `The document reads as being for "${order.underwriter}"; the manifest says "${entry.underwriterName}".`,
-    );
+    differences.push({
+      field: "underwriter",
+      label: "Sponsor",
+      manifest: entry.underwriterName,
+      document: order.underwriter,
+      message: `The document reads as being for "${order.underwriter}"; the manifest says "${entry.underwriterName}".`,
+    });
   if (order.underwriter === "NEW" && order.new_underwriter_name)
-    warnings.push(
-      `The document names "${order.new_underwriter_name}", who isn't on file; the manifest's "${entry.underwriterName}" was used.`,
-    );
+    differences.push({
+      field: "underwriter",
+      label: "Sponsor",
+      manifest: entry.underwriterName,
+      document: `${order.new_underwriter_name} (not on file)`,
+      message: `The document names "${order.new_underwriter_name}", who isn't on file; the manifest's "${entry.underwriterName}" was used.`,
+    });
   if (
     entry.contractIdentifier &&
     order.contract_identifier &&
     entry.contractIdentifier.trim().toLowerCase() !== order.contract_identifier.trim().toLowerCase()
   )
-    warnings.push(
-      `The document's order number is "${order.contract_identifier}"; the manifest's "${entry.contractIdentifier}" was used.`,
-    );
+    differences.push({
+      field: "contract_identifier",
+      label: "Order number",
+      manifest: entry.contractIdentifier,
+      document: order.contract_identifier,
+      message: `The document's order number is "${order.contract_identifier}"; the manifest's "${entry.contractIdentifier}" was used.`,
+    });
   if (entry.effectiveFrom && order.effective_from && order.effective_from !== entry.effectiveFrom)
-    warnings.push(
-      `The document starts ${order.effective_from}; the manifest's ${entry.effectiveFrom} was used.`,
-    );
+    differences.push({
+      field: "effective_from",
+      label: "Starts",
+      manifest: entry.effectiveFrom,
+      document: order.effective_from,
+      message: `The document starts ${order.effective_from}; the manifest's ${entry.effectiveFrom} was used.`,
+    });
   if (entry.effectiveTo && order.effective_to && order.effective_to !== entry.effectiveTo)
-    warnings.push(
-      `The document ends ${order.effective_to}; the manifest's ${entry.effectiveTo} was used.`,
-    );
+    differences.push({
+      field: "effective_to",
+      label: "Ends",
+      manifest: entry.effectiveTo,
+      document: order.effective_to,
+      message: `The document ends ${order.effective_to}; the manifest's ${entry.effectiveTo} was used.`,
+    });
   if (
     entry.sponsorshipTotal !== null &&
     order.sponsorship_total !== null &&
     Math.abs(order.sponsorship_total - entry.sponsorshipTotal) >= 0.005
   )
-    warnings.push(
-      `The document's total is ${order.sponsorship_total.toFixed(2)}; the manifest's ${entry.sponsorshipTotal.toFixed(2)} was used.`,
-    );
+    differences.push({
+      field: "sponsorship_total",
+      label: "Total",
+      manifest: entry.sponsorshipTotal.toFixed(2),
+      document: order.sponsorship_total.toFixed(2),
+      message: `The document's total is ${order.sponsorship_total.toFixed(2)}; the manifest's ${entry.sponsorshipTotal.toFixed(2)} was used.`,
+    });
+  return differences;
+}
 
+/** Read lines that run outside the manifest's dates. */
+export function manifestLineWarnings(
+  entry: DiscrepancyEntry,
+  output: AgreementModelOutput,
+): string[] {
+  const warnings: string[] = [];
   output.lines.forEach((line, index) => {
     const label = line.label.trim() || `Line ${index + 1}`;
     if (
@@ -613,8 +659,18 @@ export function manifestDiscrepancies(
     )
       warnings.push(`"${label}" ends ${line.end_date}, after the manifest's ${entry.effectiveTo}.`);
   });
-
   return warnings;
+}
+
+/** Both of the above as sentences: the order's facts, then the lines. */
+export function manifestDiscrepancies(
+  entry: DiscrepancyEntry,
+  output: AgreementModelOutput,
+): string[] {
+  return [
+    ...manifestDifferences(entry, output).map((difference) => difference.message),
+    ...manifestLineWarnings(entry, output),
+  ];
 }
 
 // ---- What an entry's run leaves on its row ------------------------------
@@ -625,10 +681,24 @@ export interface MigrationItemResult {
   lines_saved: number;
   flights_created: number;
   unresolved: number;
-  /** The merge's and each unsaved line's warnings, then the manifest discrepancies. */
+  /**
+   * The merge's and each unsaved line's warnings, then the lines outside the
+   * manifest's dates. Entries imported before `differences` existed also
+   * carry their fact disagreements here, as sentences.
+   */
   warnings: string[];
+  /** Where the reading disagreed with the manifest on the order's facts. */
+  differences: ManifestDifference[];
   /** Set when the contract was found already imported under the key rather than created by this run. */
   recovered?: boolean;
+}
+
+function isManifestDifference(value: unknown): value is ManifestDifference {
+  if (value === null || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return ["field", "label", "manifest", "document", "message"].every(
+    (key) => typeof record[key] === "string",
+  );
 }
 
 /** Reads a stored result back, or null when absent or malformed. */
@@ -643,6 +713,9 @@ export function parseMigrationItemResult(raw: unknown): MigrationItemResult | nu
     unresolved: count("unresolved"),
     warnings: Array.isArray(value.warnings)
       ? value.warnings.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    differences: Array.isArray(value.differences)
+      ? value.differences.filter(isManifestDifference)
       : [],
     recovered: value.recovered === true,
   };
@@ -744,4 +817,142 @@ export function typedFieldsForDocumentOnly(
       "No manifest entry: every fact was read from the document.",
     ].join("\n"),
   };
+}
+
+// ---- Where each entry stands, and each batch -----------------------------
+
+/**
+ * What the migration screens sort an entry into. `needs_look` and `ready`
+ * both have a draft; `needs_look` is a draft whose import left something a
+ * person should check (a disagreement with the manifest, a warning, a line
+ * that couldn't be saved). A draft since deleted, and a run that died, are
+ * `not_run` again — both may run.
+ */
+export type MigrationItemCategory = "needs_look" | "ready" | "failed" | "not_run" | "importing";
+
+export interface MigrationItemCategoryInput extends MigrationItemState {
+  result: unknown;
+}
+
+/** How many things an imported entry's result asks a person to check. */
+export function migrationCheckCount(result: MigrationItemResult | null): number {
+  if (!result) return 0;
+  return result.differences.length + result.warnings.length + result.unresolved;
+}
+
+export function migrationItemCategory(
+  item: MigrationItemCategoryInput,
+  now: Date = new Date(),
+): MigrationItemCategory {
+  if (item.status === "imported" && item.contract_id !== null)
+    return migrationCheckCount(parseMigrationItemResult(item.result)) > 0 ? "needs_look" : "ready";
+  if (item.status === "failed") return "failed";
+  if (item.status === "processing" && !canRunMigrationItem(item, now)) return "importing";
+  return "not_run";
+}
+
+export interface MigrationBatchSummary {
+  label: string;
+  total: number;
+  counts: Record<MigrationItemCategory, number>;
+  /** Every entry came in without a manifest row (§14.3). */
+  documentsOnly: boolean;
+  /** The latest time anything in the batch changed. */
+  lastActivity: string;
+}
+
+export function emptyCategoryCounts(): Record<MigrationItemCategory, number> {
+  return { needs_look: 0, ready: 0, failed: 0, not_run: 0, importing: 0 };
+}
+
+/** One summary per batch label, most recently active first. */
+export function summarizeMigrationBatches(
+  items: (MigrationItemCategoryInput & {
+    batch_label: string;
+    underwriter_name: string | null;
+    updated_at: string;
+  })[],
+  now: Date = new Date(),
+): MigrationBatchSummary[] {
+  const byLabel = new Map<string, MigrationBatchSummary>();
+  for (const item of items) {
+    let summary = byLabel.get(item.batch_label);
+    if (!summary) {
+      summary = {
+        label: item.batch_label,
+        total: 0,
+        counts: emptyCategoryCounts(),
+        documentsOnly: true,
+        lastActivity: item.updated_at,
+      };
+      byLabel.set(item.batch_label, summary);
+    }
+    summary.total += 1;
+    summary.counts[migrationItemCategory(item, now)] += 1;
+    if (item.underwriter_name !== null) summary.documentsOnly = false;
+    if (item.updated_at > summary.lastActivity) summary.lastActivity = item.updated_at;
+  }
+  return [...byLabel.values()].sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+}
+
+// ---- A manifest's underwriter that isn't on file -------------------------
+
+/**
+ * The one underwriter on file a mistyped manifest name most likely means:
+ * one name containing the other ("Autumn Beck Blackledge Law" → "Autumn
+ * Beck Blackledge"), else the nearest by edit distance within a small
+ * margin. Null when nothing is close, or two are equally close — a
+ * suggestion a person accepts, never applied on its own.
+ */
+export function suggestUnderwriterName(name: string, underwriterNames: string[]): string | null {
+  const wanted = normalizedName(name);
+  if (wanted === "") return null;
+  const containing = underwriterNames.filter((candidate) => {
+    const other = normalizedName(candidate);
+    return other.length >= 4 && (wanted.includes(other) || other.includes(wanted));
+  });
+  if (containing.length === 1) return containing[0]!;
+  if (containing.length > 1) return null;
+
+  const margin = Math.max(2, Math.ceil(wanted.length * 0.2));
+  const scored = underwriterNames
+    .map((candidate) => ({ candidate, distance: editDistance(wanted, normalizedName(candidate)) }))
+    .filter((entry) => entry.distance <= margin)
+    .sort((a, b) => a.distance - b.distance);
+  if (scored.length === 0) return null;
+  if (scored.length > 1 && scored[1]!.distance === scored[0]!.distance) return null;
+  return scored[0]!.candidate;
+}
+
+/**
+ * The names the manifest preview's "Use it" chose, by manifest row number,
+ * as the form posts them (JSON). Anything malformed is ignored: the row then
+ * keeps the manifest's own name and is refused if that isn't on file.
+ */
+export function parseUnderwriterOverrides(json: string): Map<number, string> {
+  const overrides = new Map<number, string>();
+  if (json.trim() === "") return overrides;
+  let value: unknown;
+  try {
+    value = JSON.parse(json);
+  } catch {
+    return overrides;
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return overrides;
+  for (const [row, name] of Object.entries(value as Record<string, unknown>)) {
+    const number = Number(row);
+    if (Number.isInteger(number) && typeof name === "string" && name.trim() !== "")
+      overrides.set(number, name.trim());
+  }
+  return overrides;
+}
+
+/** The manifest's rows with the preview's chosen underwriter names applied. */
+export function applyUnderwriterOverrides(
+  rows: MigrationManifestRow[],
+  overrides: Map<number, string>,
+): MigrationManifestRow[] {
+  return rows.map((row) =>
+    overrides.has(row.row) ? { ...row, underwriterName: overrides.get(row.row)! } : row,
+  );
 }

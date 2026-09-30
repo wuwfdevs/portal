@@ -2227,7 +2227,7 @@ export interface Database {
         Row: {
           id: string;
           underwriter_id: string;
-          contract_identifier: string;
+          contract_identifier: string | null;
           agreement_document_path: string | null;
           /** The model's reading of the agreement this contract was created from (lib/underwriting/agreement-import.ts's AgreementReading), or null for a hand-entered contract. */
           agreement_reading: unknown;
@@ -2257,7 +2257,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]> & {
           underwriter_id: string;
-          contract_identifier: string;
+          contract_identifier?: string | null;
           effective_from: string;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contracts"]["Row"]>;

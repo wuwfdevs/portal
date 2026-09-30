@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -60,7 +61,7 @@ export default async function ExceptionDetailPage({
             href={`/underwriting/contracts/${exception.contract.id}`}
             className="font-semibold text-brand-link"
           >
-            {exception.contract.contract_identifier}
+            {orderNumberLabel(exception.contract.contract_identifier)}
           </Link>{" "}
           · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
         </p>

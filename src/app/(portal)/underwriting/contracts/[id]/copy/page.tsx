@@ -59,24 +59,21 @@ export default async function ContractCopyPage({
           </div>
         </div>
 
-        <aside
-          aria-label="About this step"
-          className="flex w-full shrink-0 flex-col gap-4 lg:w-80"
-        >
+        <aside aria-label="About this step" className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
           <div className="rounded border border-line bg-panel-50 px-5 py-4">
             <div className="text-[13px] font-bold text-ink-900">What this contract airs</div>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
-              A contract needs at least one approved message before anything places. Write it
-              here, or reuse one from the underwriter&apos;s previous orders — one message can
-              serve more than one contract, in rotation.
+              A contract needs at least one approved message before anything places. Write it here,
+              or reuse one from the underwriter&apos;s previous orders — one message can serve more
+              than one contract, in rotation.
             </p>
           </div>
           <div className="rounded border border-line bg-panel-50 px-5 py-4">
             <div className="text-[13px] font-bold text-ink-900">Approval is a one-click gate</div>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
               A new message starts as a draft unless you mark it approved. You can activate the
-              contract before every message is approved; nothing places until one is. Approve
-              here, or later from the contract page.
+              contract before every message is approved; nothing places until one is. Approve here,
+              or later from the contract page.
             </p>
           </div>
           {context.onFile.total > 0 && (
