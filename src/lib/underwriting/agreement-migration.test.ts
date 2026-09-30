@@ -236,6 +236,32 @@ describe("an entry against what's on file", () => {
       expect(matchDocumentFile("Bud and Alley's - 2-26.pdf", [a, b])).toBe(a);
     });
 
+    it("matches files whose apostrophes were replaced with underscores", () => {
+      const sanitized = REAL.map((name) => ({ name: name.replace(/'/g, "_") }));
+      for (const name of REAL) {
+        expect(matchDocumentFile(name, sanitized)?.name).toBe(name.replace(/'/g, "_"));
+        expect(matchDocumentFile(name.replace(/'/g, "’"), sanitized)?.name).toBe(
+          name.replace(/'/g, "_"),
+        );
+      }
+    });
+
+    it("does not treat underscore as a wildcard", () => {
+      const files = [{ name: "Bailey_s Produce - 4-26 thru 4-27.pdf" }];
+      expect(matchDocumentFile("Baileys Produce - 4-26 thru 4-27.pdf", files)).toBeNull();
+      expect(matchDocumentFile("Bailey's Produce - 4-26 thru 4-28.pdf", files)).toBeNull();
+      expect(matchDocumentFile("Bailey's  X Produce - 4-26 thru 4-27.pdf", files)).toBeNull();
+      expect(matchDocumentFile("Bailey_s Produce - 4-26 thru 4-27.pdf", files)).toBe(files[0]);
+    });
+
+    it("prefers an exact name over a sanitized one, and refuses ties", () => {
+      const exact = { name: "Bud and Alley's - 2-26.pdf" };
+      const sanitized = { name: "Bud and Alley_s - 2-26.pdf" };
+      expect(matchDocumentFile("Bud and Alley's - 2-26.pdf", [sanitized, exact])).toBe(exact);
+      const other = { name: 'Bud and Alley"s - 2-26.pdf' };
+      expect(matchDocumentFile("Bud and Alley's - 2-26.pdf", [sanitized, other])).toBeNull();
+    });
+
     it("never hands one file to two entries", () => {
       const file = { name: "Bud and Alley's - 2-26.pdf" };
       const result = assignDocumentFiles(
