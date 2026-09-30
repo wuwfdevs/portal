@@ -393,6 +393,19 @@ export function normalizeDocumentName(name: string): string {
     .toLowerCase();
 }
 
+/** Characters download and copy tools commonly swap for "_" when they save a file: ' " < > : * ? | */
+const FILESYSTEM_UNSAFE = /['"<>:*?|]/g;
+
+/**
+ * normalizeDocumentName() with the characters a filesystem may have replaced
+ * equated to "_". Only a fallback, and "_" is not a wildcard: it stands in for
+ * exactly one such character, so the lengths and every other character still
+ * have to agree.
+ */
+export function sanitizedDocumentKey(name: string): string {
+  return normalizeDocumentName(name).replace(FILESYSTEM_UNSAFE, "_");
+}
+
 /**
  * The chosen file whose name matches the entry's document (see
  * normalizeDocumentName), or null. When several chosen files normalise to the
@@ -405,10 +418,18 @@ export function matchDocumentFile<T extends { name: string }>(
 ): T | null {
   const wanted = normalizeDocumentName(sourceFile);
   const hits = files.filter((file) => normalizeDocumentName(file.name) === wanted);
-  if (hits.length <= 1) return hits[0] ?? null;
-  const exactWanted = documentBasename(sourceFile).toLowerCase();
-  const exact = hits.filter((file) => documentBasename(file.name).toLowerCase() === exactWanted);
-  return exact.length === 1 ? exact[0]! : null;
+  if (hits.length === 1) return hits[0]!;
+  if (hits.length > 1) {
+    const exactWanted = documentBasename(sourceFile).toLowerCase();
+    const exact = hits.filter((file) => documentBasename(file.name).toLowerCase() === exactWanted);
+    return exact.length === 1 ? exact[0]! : null;
+  }
+  // No name agrees. A download or copy tool may have replaced characters a
+  // filesystem dislikes (an apostrophe became "_"), so try once more with
+  // those characters equated — and accept only a single such file.
+  const sanitizedWanted = sanitizedDocumentKey(sourceFile);
+  const sanitizedHits = files.filter((file) => sanitizedDocumentKey(file.name) === sanitizedWanted);
+  return sanitizedHits.length === 1 ? sanitizedHits[0]! : null;
 }
 
 function editDistance(a: string, b: string): number {
