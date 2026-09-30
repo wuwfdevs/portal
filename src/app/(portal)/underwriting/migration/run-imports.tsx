@@ -13,7 +13,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { matchDocumentFile } from "@/lib/underwriting/agreement-migration";
+import {
+  assignDocumentFiles,
+  describeUnmatchedDocument,
+} from "@/lib/underwriting/agreement-migration";
 import {
   importMigrationItem,
   registerDocumentOnlyEntries,
@@ -159,12 +162,24 @@ export function RunImports({ items }: { items: RunnableItem[] }) {
   const run = useImportRun();
   const [files, setFiles] = useState<File[]>([]);
 
-  const matched = items.map((item) => ({ item, file: matchDocumentFile(item.sourceFile, files) }));
+  const assignments = assignDocumentFiles(
+    items.map((item) => item.sourceFile),
+    files,
+  );
+  const matched = items.map((item, index) => {
+    const assignment = assignments[index]!;
+    return {
+      item,
+      file: assignment.status === "matched" ? assignment.file : null,
+      claimed: assignment.status === "claimed",
+    };
+  });
   const ready = matched.filter(
-    (entry): entry is { item: RunnableItem; file: File } =>
+    (entry): entry is { item: RunnableItem; file: File; claimed: boolean } =>
       entry.file !== null && entry.file.size <= MAX_BYTES,
   );
-  const missing = matched.filter((entry) => entry.file === null);
+  const missing = matched.filter((entry) => entry.file === null && !entry.claimed);
+  const claimed = matched.filter((entry) => entry.claimed);
   const oversized = matched.filter((entry) => entry.file !== null && entry.file.size > MAX_BYTES);
 
   async function onStart() {
@@ -204,7 +219,38 @@ export function RunImports({ items }: { items: RunnableItem[] }) {
           </li>
           {missing.length > 0 && (
             <li className="text-danger">
-              No document chosen for: {missing.map((entry) => entry.item.sourceFile).join(", ")}
+              No document chosen for:
+              <ul className="ml-4 list-disc">
+                {missing.map((entry) => {
+                  const why = describeUnmatchedDocument(entry.item.sourceFile, files);
+                  return (
+                    <li key={entry.item.id}>
+                      <div>Expected: {why.expected}</div>
+                      {why.candidates.length > 0 ? (
+                        <div className="text-ink-700">
+                          Close to:
+                          {why.candidates.map((candidate) => (
+                            <div key={candidate.name} className="ml-2">
+                              {candidate.name}
+                              <div className="font-mono text-ink-500">
+                                compared: “{why.expectedNormalized}” vs “{candidate.normalized}”
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-ink-700">No chosen file is close to this name.</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          )}
+          {claimed.length > 0 && (
+            <li className="text-danger">
+              Skipped — the same file matches more than one entry, so none of them will run:{" "}
+              {claimed.map((entry) => entry.item.sourceFile).join(", ")}
             </li>
           )}
           {oversized.length > 0 && (

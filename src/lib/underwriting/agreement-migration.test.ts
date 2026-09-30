@@ -6,7 +6,10 @@ import {
   documentOnlyHash,
   documentOnlySourceKey,
   typedFieldsForDocumentOnly,
+  assignDocumentFiles,
+  describeUnmatchedDocument,
   documentBasename,
+  normalizeDocumentName,
   manifestDiscrepancies,
   manifestSourceKey,
   matchDocumentFile,
@@ -170,6 +173,102 @@ describe("an entry against what's on file", () => {
     const files = [{ name: "Other.pdf" }, { name: "IO.PDF" }];
     expect(matchDocumentFile("Business/2026/io.pdf", files)?.name).toBe("IO.PDF");
     expect(matchDocumentFile("missing.pdf", files)).toBeNull();
+  });
+
+  describe("filename normalisation", () => {
+    const REAL = [
+      "Bailey's Produce & Nursery - 4-26 thru 4-27.pdf",
+      "Bailey's Produce & Nursery - WUWF App Ads - 9-26 thru 12-26.pdf",
+      "Bud and Alley's - 2-26 thru 11-26.pdf",
+      "Juan's Flying Burrito - 12-25 thru 12-26.pdf",
+    ];
+
+    it("matches each real filename exactly", () => {
+      const files = REAL.map((name) => ({ name }));
+      for (const name of REAL) expect(matchDocumentFile(name, files)?.name).toBe(name);
+    });
+
+    it("matches when either side uses curly apostrophes", () => {
+      for (const name of REAL) {
+        const curly = name.replace(/'/g, "\u2019");
+        expect(matchDocumentFile(name, [{ name: curly }])?.name).toBe(curly);
+        expect(matchDocumentFile(curly, [{ name }])?.name).toBe(name);
+      }
+    });
+
+    it("tolerates other apostrophes, dashes, spaces, NFD, invisibles, BOM and paths", () => {
+      const target = "Bud and Alley's - 2-26 thru 11-26.pdf";
+      const variants = [
+        "Bud and Alley\u2018s - 2-26 thru 11-26.pdf",
+        "Bud and Alley\u02BCs - 2-26 thru 11-26.pdf",
+        "Bud and Alley`s - 2-26 thru 11-26.pdf",
+        "Bud and Alley's \u2013 2-26 thru 11-26.pdf",
+        "Bud and Alley's \u2014 2\u201026 thru 11-26.pdf",
+        "Bud\u00A0and  Alley's - 2-26 thru 11-26.pdf",
+        "  Bud and Alley's - 2-26 thru 11-26.pdf ",
+        "\uFEFFBud and Alley's - 2-26 thru 11-26.pdf",
+        "Bud and Alley\u200B's - 2-26 thru 11-26.pdf",
+        "BUD AND ALLEY'S - 2-26 THRU 11-26.PDF",
+        "Migration/Bud and Alley\u2019s - 2-26 thru 11-26.pdf",
+        "C:\\Drive\\Bud and Alley's - 2-26 thru 11-26.pdf",
+      ];
+      for (const name of variants)
+        expect(matchDocumentFile(target, [{ name }])?.name, JSON.stringify(name)).toBe(name);
+      expect(normalizeDocumentName("Caf\u0065\u0301.pdf")).toBe(
+        normalizeDocumentName("Caf\u00E9.pdf"),
+      );
+    });
+
+    it("does not match different agreements", () => {
+      const files = REAL.map((name) => ({ name }));
+      expect(
+        matchDocumentFile("Bailey's Produce & Nursery - 4-26 thru 4-28.pdf", files),
+      ).toBeNull();
+      expect(matchDocumentFile("Baileys Produce & Nursery - 4-26 thru 4-27.pdf", files)).toBeNull();
+      expect(matchDocumentFile("Juan's Flying Burrito - 12-25 thru 12-26.png", files)).toBeNull();
+    });
+
+    it("refuses to choose between files that normalise to one name", () => {
+      const a = { name: "Bud and Alley's - 2-26.pdf" };
+      const b = { name: "Bud and Alley\u2019s - 2-26.pdf" };
+      expect(matchDocumentFile("Bud and Alley\u2018s - 2-26.pdf", [a, b])).toBeNull();
+      // An exact basename match still wins.
+      expect(matchDocumentFile("Bud and Alley's - 2-26.pdf", [a, b])).toBe(a);
+    });
+
+    it("never hands one file to two entries", () => {
+      const file = { name: "Bud and Alley's - 2-26.pdf" };
+      const result = assignDocumentFiles(
+        ["Bud and Alley's - 2-26.pdf", "Bud and Alley\u2019s - 2-26.pdf", "other.pdf"],
+        [file],
+      );
+      expect(result.map((entry) => entry.status)).toEqual(["claimed", "claimed", "missing"]);
+      expect(assignDocumentFiles(["Bud and Alley's - 2-26.pdf"], [file])[0]!.status).toBe(
+        "matched",
+      );
+    });
+
+    it("lists close names for an unmatched entry, with the compared values", () => {
+      const why = describeUnmatchedDocument("Juan's Flying Burrito - 12-25 thru 12-27.pdf", [
+        { name: "Juan's Flying Burrito - 12-25 thru 12-26.pdf" },
+        { name: "Totally different.pdf" },
+      ]);
+      expect(why.expected).toBe("Juan's Flying Burrito - 12-25 thru 12-27.pdf");
+      expect(why.candidates.map((c) => c.name)).toEqual([
+        "Juan's Flying Burrito - 12-25 thru 12-26.pdf",
+      ]);
+      expect(why.candidates[0]!.normalized).toBe("juan's flying burrito - 12-25 thru 12-26.pdf");
+    });
+
+    it("leaves idempotency keys alone", () => {
+      expect(
+        manifestSourceKey({
+          sourceKey: null,
+          driveFileId: null,
+          sourceFile: "Bud and Alley\u2019s.pdf",
+        }),
+      ).toBe("file:bud and alley\u2019s.pdf");
+    });
   });
 });
 
