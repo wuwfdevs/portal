@@ -546,13 +546,13 @@ export default async function RundownDetailPage({
     const { windowLabel, atOffset, landing, boundaryTitle, spanningTitle } = details;
     if (!landing) {
       return (
-        <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
+        <div className="border-b border-line bg-panel-50 px-3 pb-3 text-xs text-ink-500 sm:px-5">
           Floating break — the network places it anywhere in {windowLabel}.
         </div>
       );
     }
     return (
-      <div className="border-b border-line bg-panel-50 px-5 pb-3 text-xs text-ink-500">
+      <div className="border-b border-line bg-panel-50 px-3 pb-3 text-xs text-ink-500 sm:px-5">
         Floating break (window {windowLabel}) — {" "}
         {landing.basis === "story_boundary" ? (
           <>
@@ -812,7 +812,7 @@ export default async function RundownDetailPage({
       headerNode: (
         <>
           <div
-            className={`flex flex-wrap items-center gap-2.5 bg-panel-50 px-5 py-3 ${floatHint ? "" : "border-b border-line"}`}
+            className={`flex flex-wrap items-center gap-2.5 bg-panel-50 px-3 py-3 sm:px-5 ${floatHint ? "" : "border-b border-line"}`}
           >
             {isCurrent && <Badge variant="warning">Live now</Badge>}
             <span className="font-mono text-base font-bold text-ink-900 tabular-nums">
@@ -820,7 +820,7 @@ export default async function RundownDetailPage({
             </span>
             <span className="text-base font-semibold text-ink-900">{brk.label}</span>
             <Badge variant={brk.requirement === "required" ? "warning" : "neutral"}>{brk.requirement}</Badge>
-            <span className="ml-auto text-sm text-ink-500">
+            <span className="basis-full text-sm text-ink-500 sm:ml-auto sm:basis-auto">
               Rejoin network by {formatStationClockTime(brk.network_rejoin_at)} · {brk.available_duration_seconds}s
               available
             </span>
@@ -829,7 +829,7 @@ export default async function RundownDetailPage({
         </>
       ),
       statusNode: (
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-3">
+        <div className="flex flex-wrap items-center gap-2 px-3 pt-3 sm:px-5">
           {statusBadge}
           {status === "carrying_network" && (
             <span className="text-xs text-ink-400">

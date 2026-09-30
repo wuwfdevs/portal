@@ -26,7 +26,10 @@ export default async function ProceduresListPage({
 }: {
   searchParams: Promise<{ area?: string; page?: string }>;
 }) {
-  const [{ area, page }, { isEditor }] = await Promise.all([searchParams, requireResourcesAccess()]);
+  const [{ area, page }, { isEditor }] = await Promise.all([
+    searchParams,
+    requireResourcesAccess(),
+  ]);
   const activeArea = area?.trim() || null;
   const pageNum = parsePage(page);
 
@@ -68,7 +71,13 @@ export default async function ProceduresListPage({
         chipsLabel="Area"
         className="mb-4"
       >
-        {isEditor && <PrimaryLink href="/resources/procedures/new">+ New procedure</PrimaryLink>}
+        {isEditor && (
+          <PrimaryLink href="/resources/procedures/new">
+            <span>
+              + New<span className="max-sm:sr-only"> procedure</span>
+            </span>
+          </PrimaryLink>
+        )}
       </ListToolbar>
 
       {rows.length === 0 ? (
@@ -77,7 +86,7 @@ export default async function ProceduresListPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Procedure</Th>
@@ -90,7 +99,7 @@ export default async function ProceduresListPage({
               {rows.map((procedure) => (
                 // The title link stretches over the row, so the whole row opens it.
                 <Row key={procedure.id} className="relative">
-                  <Cell>
+                  <Cell stack="title">
                     <Link
                       href={articleHref(procedure, null)}
                       className="font-semibold text-brand-link after:absolute after:inset-0 hover:underline"
@@ -101,11 +110,13 @@ export default async function ProceduresListPage({
                       <p className="mt-0.5 text-xs text-ink-400">{procedure.summary}</p>
                     )}
                   </Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">{procedure.area}</Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
+                  <Cell label="Area" className="whitespace-nowrap text-ink-500">
+                    {procedure.area}
+                  </Cell>
+                  <Cell label="Owner" className="whitespace-nowrap text-ink-500">
                     {procedure.owner_role ?? "—"}
                   </Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
+                  <Cell label="Updated" className="whitespace-nowrap text-ink-500">
                     {formatUpdatedDate(procedure.updated_at, true)}
                   </Cell>
                 </Row>

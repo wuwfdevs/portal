@@ -1333,6 +1333,15 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Filters and tables on a phone — one approach for every list (2026-09-30).** Read
+`docs/ui-patterns.md` "Filters" and "Tables on narrow screens" before adding a list page or
+a filter; this is a pointer. `ListToolbar` takes filter groups (`filters`); one short group
+shows inline from `sm` up, anything else — and every filter on a phone — sits behind one
+Filter button (`components/ui/filter-menu.tsx`, the rule in `lib/filter-groups.ts`). A list
+table is `<Table stack>`: below `md` each row becomes a card, with each `Cell` marked
+`stack="title"`/`"aside"`/`"full"`/`"hide"` or given a `label`, so no column scrolls out of
+view. Programs' week grid becomes a day-by-day agenda below `md`.
+
 **Progress, steps, and busy states — and the program-log import moves onto Today
 (2026-09-29).** Read `docs/ui-patterns.md` "Progress, steps, and busy states" before
 showing progress anywhere; this is a pointer. `ProgressBar` gained an accessible

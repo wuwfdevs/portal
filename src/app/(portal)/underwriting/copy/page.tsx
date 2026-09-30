@@ -93,7 +93,11 @@ export default async function CopyLibraryPage({
             Import from RadioTraffic
           </Link>
         )}
-        <PrimaryLink href="/underwriting/copy/new">+ New copy</PrimaryLink>
+        <PrimaryLink href="/underwriting/copy/new">
+          <span>
+            + New<span className="max-sm:sr-only"> copy</span>
+          </span>
+        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (
@@ -104,7 +108,7 @@ export default async function CopyLibraryPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Label</Th>
@@ -117,7 +121,7 @@ export default async function CopyLibraryPage({
             <tbody>
               {shown.map((item) => (
                 <Row key={item.id}>
-                  <Cell>
+                  <Cell stack="title">
                     <Link
                       href={`/underwriting/copy/${item.id}`}
                       className="font-bold text-brand-link"
@@ -125,14 +129,18 @@ export default async function CopyLibraryPage({
                       {item.label}
                     </Link>
                   </Cell>
-                  <Cell className="max-w-xs truncate text-ink-500">{item.script ?? "—"}</Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
+                  <Cell stack="full" className="text-ink-500">
+                    <div className="max-w-xs truncate max-md:line-clamp-2 max-md:max-w-none max-md:whitespace-normal">
+                      {item.script ?? "—"}
+                    </div>
+                  </Cell>
+                  <Cell label="Duration" className="whitespace-nowrap text-ink-500">
                     {item.duration_seconds ? `${item.duration_seconds}s` : "—"}
                   </Cell>
-                  <Cell className="text-ink-500">
+                  <Cell label="Execution" className="text-ink-500">
                     {item.execution_kind === "recorded" ? "Recorded" : "Live read"}
                   </Cell>
-                  <Cell>
+                  <Cell stack="aside">
                     <Badge variant={APPROVAL_VARIANT[item.approval_status]}>
                       {item.approval_status}
                     </Badge>

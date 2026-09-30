@@ -53,8 +53,9 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 ### Behavior notes
 
 - **Pending state** comes free: `Button` disables and shows a spinner through `useFormStatus`.
-- **Mobile**: search is `w-full sm:w-80`, toolbar items wrap, form grids collapse to one
-  column below `sm`. Every control keeps `MOBILE_SAFE_TEXT_SIZE` by being an
+- **Mobile**: search is `w-full sm:w-80` on its own first row, filters collapse behind one
+  button, tables stack into cards (`<Table stack>`), form grids collapse to one column
+  below `sm`. Every control keeps `MOBILE_SAFE_TEXT_SIZE` by being an
   `Input`/`Select`/`Textarea`.
 - **Keyboard focus**: `autoFocus` on the first field of an opened inline card or a dedicated
   form.
@@ -63,17 +64,18 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 
 ### Shared components (`src/components/ui/`)
 
-| Component          | Purpose                                                                   |
-| ------------------ | ------------------------------------------------------------------------- |
-| `ListToolbar`      | The toolbar every list page opens with; search + chips + spacer + actions |
-| `PrimaryLink`      | A primary-styled `<Link>` — the "+ New X" action                          |
-| `InlineCreateCard` | The `?new=1` inline create form for a small record                        |
-| `DetailSummary`    | Read-only field list with an Edit link, for a detail page's aside         |
-| `SearchableSelect` | Search-to-select for a form field whose options grow with the data        |
-| `Pagination`       | "26–50 of 132" and page links under a list that grows without bound       |
-| `ProgressBar`      | A thin bar: done plus pending of a total, or indeterminate for busy work  |
-| `Steps`            | Numbered steps for a flow; the current step can be busy                   |
-| `BusyPanel`        | Title, time hint and a sliding bar for a long server step                 |
+| Component          | Purpose                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| `ListToolbar`      | The toolbar every list page opens with; search + filters + spacer + actions |
+| `FilterMenu`       | A list's filters behind one Filter button (see "Filters")                   |
+| `PrimaryLink`      | A primary-styled `<Link>` — the "+ New X" action                            |
+| `InlineCreateCard` | The `?new=1` inline create form for a small record                          |
+| `DetailSummary`    | Read-only field list with an Edit link, for a detail page's aside           |
+| `SearchableSelect` | Search-to-select for a form field whose options grow with the data          |
+| `Pagination`       | "26–50 of 132" and page links under a list that grows without bound         |
+| `ProgressBar`      | A thin bar: done plus pending of a total, or indeterminate for busy work    |
+| `Steps`            | Numbered steps for a flow; the current step can be busy                     |
+| `BusyPanel`        | Title, time hint and a sliding bar for a long server step                   |
 
 ### Pickers (2026-09-27)
 
@@ -142,6 +144,68 @@ resolution form is the triage action), `log/library/[id]` (approval status),
 create form or a duplicate of an edit page.
 
 `log/library` moved onto `ListToolbar` with search and pagination on 2026-09-29.
+
+## Filters (2026-09-30)
+
+A list's filters are groups of query-string link chips — one group per dimension (status,
+type, area) — passed to `ListToolbar` as `filters` (or `chips` for a single group). A
+group's first chip is its reset ("All", "All types"). Where they show is one rule, in
+`lib/filter-groups.ts` (pure, tested), so no page decides it for itself:
+
+- **One short group** (`INLINE_FILTER_CHIP_LIMIT`, 5 chips or fewer) shows inline from `sm`
+  up. Programs' status is the example.
+- **More than one group, a long group, or any filter on a phone** sits behind one Filter
+  button (`FilterMenu`), whose panel lists each group under its name. The button names
+  what's applied ("Filter: Needs a clock") and turns blue, so a collapsed filter is never
+  invisible. The content library (status + type) and What's new (one chip per tool) are
+  the examples.
+
+Don't put a second `FilterChips` row under the toolbar; add a group instead. The panel is
+a `<details>` of plain links, so it works without JavaScript; with it, it closes on an
+outside click, Escape, or picking a chip. On a phone the panel spans the toolbar.
+
+`ListToolbar` also takes `leading`, for a control that belongs before the search (Programs'
+Week | List switch). On a phone the search box takes the first row to itself and
+everything else wraps beneath it. A "+ New X" action shortens to "+ New" on a phone,
+keeping the full name for screen readers:
+`<span>+ New<span className="max-sm:sr-only"> program</span></span>`.
+
+## Tables on narrow screens (2026-09-30)
+
+A table that scrolls sideways on a phone hides whatever column is off-screen, and that is
+often the status. A list table is `<Table stack>` instead: below `md` each row becomes a
+card, laid out by `.table-stack` in `globals.css`. Each `Cell` says what it becomes:
+
+| `Cell` prop     | In the card                                                    |
+| --------------- | -------------------------------------------------------------- |
+| `stack="title"` | The heading, top left: the row's name or link                  |
+| `stack="aside"` | Top right, beside the title: the status badge                  |
+| `label="Airs"`  | A labelled line ("AIRS 8:00 PM · 1 h")                         |
+| `stack="full"`  | Its own full-width line, no label: an excerpt, a row's actions |
+| `stack="hide"`  | Left out: something the title or another field already says    |
+
+At table widths the label is `display: none`, and the column header names the cell as
+before. In a card, the label is real text rather than CSS `content`, so a screen reader
+reads it where the browser has dropped the table semantics. A `min-w-[…]` on a stacking
+table must be `md:min-w-[…]`. A cell's own `whitespace-nowrap` and padding are overridden
+in the card; a `truncate` belongs on an inner element with a `max-md:` alternative (the copy
+list's script clamps to two lines). A table without `stack` still scrolls inside its frame;
+that is the state of a table not yet converted, not a design choice.
+
+Programs' **Week** view follows the same thinking: below `md` the seven-column grid is
+replaced by a day-by-day agenda (`WeekAgenda`), since a 900px grid on a phone is only a
+sideways scroll.
+
+### Rollout
+
+Done: Log (Today, Programs, library, the NPR story list), Underwriting (contracts, copy, underwriters,
+exceptions), Resources (procedures, What's new's filter), Academic Partnerships (all
+submissions), Audience Listening, Remote Interview.
+
+Not yet: Editorial settings (form, rubric, pillars — rows carry order and action controls,
+which need `stack="full"` thought through), `underwriting` dashboard, `underwriting/
+affidavits`, `underwriting/migration` and its batch view,
+`audience-listening/[id]` submissions.
 
 ## Search (2026-09-29)
 

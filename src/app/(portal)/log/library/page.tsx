@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { FilterChips } from "@/components/ui/filter-chips";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
@@ -88,20 +87,39 @@ export default async function ContentLibraryPage({
             ...(approvalStatus ? { approval_status: approvalStatus } : {}),
           },
         }}
-        chipsLabel="Filter by status"
-        chips={[
+        filters={[
           {
-            label: "All",
-            count: allCount,
-            href: hrefWith({ approval_status: undefined }),
-            active: !approvalStatus,
+            label: "Status",
+            chips: [
+              {
+                label: "All",
+                count: allCount,
+                href: hrefWith({ approval_status: undefined }),
+                active: !approvalStatus,
+              },
+              ...APPROVAL_STATUSES.map((status, index) => ({
+                label: APPROVAL_STATUS_LABEL[status],
+                count: statusCounts[index],
+                href: hrefWith({ approval_status: status }),
+                active: approvalStatus === status,
+              })),
+            ],
           },
-          ...APPROVAL_STATUSES.map((status, index) => ({
-            label: APPROVAL_STATUS_LABEL[status],
-            count: statusCounts[index],
-            href: hrefWith({ approval_status: status }),
-            active: approvalStatus === status,
-          })),
+          {
+            label: "Type",
+            chips: [
+              {
+                label: "All types",
+                href: hrefWith({ content_type: undefined }),
+                active: !contentType,
+              },
+              ...CONTENT_TYPES.map((type) => ({
+                label: CONTENT_TYPE_LABEL[type],
+                href: hrefWith({ content_type: type }),
+                active: contentType === type,
+              })),
+            ],
+          },
         ]}
       >
         <Link
@@ -110,24 +128,12 @@ export default async function ContentLibraryPage({
         >
           Import from DAD
         </Link>
-        <PrimaryLink href="/log/library/new">+ New content item</PrimaryLink>
+        <PrimaryLink href="/log/library/new">
+          <span>
+            + New<span className="max-sm:sr-only"> content item</span>
+          </span>
+        </PrimaryLink>
       </ListToolbar>
-
-      <FilterChips
-        label="Filter by content type"
-        chips={[
-          {
-            label: "All types",
-            href: hrefWith({ content_type: undefined }),
-            active: !contentType,
-          },
-          ...CONTENT_TYPES.map((type) => ({
-            label: CONTENT_TYPE_LABEL[type],
-            href: hrefWith({ content_type: type }),
-            active: contentType === type,
-          })),
-        ]}
-      />
 
       {rows.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
@@ -145,7 +151,7 @@ export default async function ContentLibraryPage({
       ) : (
         <div>
           <TableFrame>
-            <Table>
+            <Table stack>
               <thead>
                 <HeaderRow>
                   <Th>Title</Th>
@@ -163,19 +169,23 @@ export default async function ContentLibraryPage({
                   );
                   return (
                     <Row key={item.id}>
-                      <Cell className="font-semibold text-ink-900">
+                      <Cell stack="title" className="font-semibold text-ink-900">
                         <Link href={`${PATH}/${item.id}`} className="text-brand-link">
                           {item.title}
                         </Link>
                       </Cell>
-                      <Cell>{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
-                      <Cell>
+                      <Cell label="Type">{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
+                      <Cell stack="aside">
                         <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
                           {item.approval_status}
                         </Badge>
                       </Cell>
-                      <Cell>{totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}</Cell>
-                      <Cell className="text-ink-500">{item.effective_from}</Cell>
+                      <Cell label="Duration">
+                        {totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}
+                      </Cell>
+                      <Cell label="Effective" className="text-ink-500">
+                        {item.effective_from}
+                      </Cell>
                     </Row>
                   );
                 })}

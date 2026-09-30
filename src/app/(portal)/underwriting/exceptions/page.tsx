@@ -88,7 +88,7 @@ export default async function ExceptionsPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Underwriter</Th>
@@ -101,7 +101,7 @@ export default async function ExceptionsPage({
             <tbody>
               {shown.map((exception) => (
                 <Row key={exception.id}>
-                  <Cell className="font-semibold text-ink-900">
+                  <Cell stack="title" className="font-semibold text-ink-900">
                     <Link
                       href={`/underwriting/exceptions/${exception.id}`}
                       className="text-brand-link"
@@ -109,18 +109,18 @@ export default async function ExceptionsPage({
                       {exception.contract.underwriter.name}
                     </Link>
                   </Cell>
-                  <Cell className="text-ink-500">
+                  <Cell label="Line" className="text-ink-500">
                     {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
                   </Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
+                  <Cell label="Scheduled" className="whitespace-nowrap text-ink-500">
                     {formatPlacementTime(exception.original_scheduled_at)}
                   </Cell>
-                  <Cell className="text-ink-700">
+                  <Cell label="Outcome" className="text-ink-700">
                     {exception.host_action.replace(/_/g, " ")}
                     {exception.host_reason ? ` (${exception.host_reason.replace(/_/g, " ")})` : ""}
                   </Cell>
-                  <Cell>
-                    <div className="flex flex-wrap gap-1.5">
+                  <Cell stack="aside">
+                    <div className="flex flex-wrap justify-end gap-1.5 md:justify-start">
                       <Badge variant={STATUS_VARIANT[exception.resolution_status]}>
                         {exception.resolution_status}
                       </Badge>

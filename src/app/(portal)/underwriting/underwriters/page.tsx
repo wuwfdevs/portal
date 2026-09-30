@@ -98,7 +98,11 @@ export default async function UnderwritersPage({
         >
           Industries
         </Link>
-        <PrimaryLink href="/underwriting/underwriters/new">+ New underwriter</PrimaryLink>
+        <PrimaryLink href="/underwriting/underwriters/new">
+          <span>
+            + New<span className="max-sm:sr-only"> underwriter</span>
+          </span>
+        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (
@@ -107,7 +111,7 @@ export default async function UnderwritersPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Name</Th>
@@ -119,7 +123,7 @@ export default async function UnderwritersPage({
             <tbody>
               {shown.map((underwriter) => (
                 <Row key={underwriter.id}>
-                  <Cell>
+                  <Cell stack="title">
                     <Link
                       href={`/underwriting/underwriters/${underwriter.id}`}
                       className="font-bold text-brand-link"
@@ -127,18 +131,18 @@ export default async function UnderwritersPage({
                       {underwriter.name}
                     </Link>
                   </Cell>
-                  <Cell className="text-ink-500">
+                  <Cell label="Industry" className="text-ink-500">
                     {underwriter.category_id
                       ? (categoryNameById.get(underwriter.category_id) ?? "—")
                       : "—"}
                   </Cell>
-                  <Cell className="text-ink-500">
+                  <Cell label="Contact" className="break-words text-ink-500">
                     {underwriter.contact_name ?? (underwriter.email ? "" : "—")}
                     {underwriter.email
                       ? `${underwriter.contact_name ? " · " : ""}${underwriter.email}`
                       : ""}
                   </Cell>
-                  <Cell className="whitespace-nowrap text-ink-700">
+                  <Cell label="Contracts" className="whitespace-nowrap text-ink-700">
                     {describeContracts(counts.get(underwriter.id))}
                   </Cell>
                 </Row>

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Segmented } from "@/components/ui/segmented";
 import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components/log/text-scale";
 
 // The persistent nav a host needs reachable at any scroll position, on any
@@ -31,6 +32,11 @@ import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components
 
 type Tab = "rundown" | "context";
 
+const TAB_OPTIONS: { value: Tab; label: string }[] = [
+  { value: "rundown", label: "Rundown" },
+  { value: "context", label: "Context" },
+];
+
 export function RundownLiveLayout({
   programName,
   hasCurrentBreak,
@@ -59,41 +65,33 @@ export function RundownLiveLayout({
   return (
     <TextScaleProvider>
       <div className="flex flex-col gap-4">
-        <div className="sticky top-16 z-30 -mx-4 flex flex-wrap items-center gap-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-          <h1 className="truncate font-serif text-xl font-bold text-ink-900">{programName}</h1>
-          {hasCurrentBreak && (
-            <button
-              type="button"
-              onClick={jumpToNow}
-              className="text-xs font-semibold text-brand-link"
-            >
-              Jump to now →
-            </button>
-          )}
-          <div className="ml-auto flex items-center gap-2">
+        <div className="sticky top-16 z-30 -mx-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          {/* Title row and controls row. On a phone the controls take a full
+              row of their own, spread edge to edge so both rows start at the
+              same left edge; from lg up they sit at the end of the title row. */}
+          <div className="flex min-w-0 flex-1 basis-full items-baseline gap-3 lg:basis-auto">
+            <h1 className="min-w-0 truncate font-serif text-xl font-bold text-ink-900">
+              {programName}
+            </h1>
+            {hasCurrentBreak && (
+              <button
+                type="button"
+                onClick={jumpToNow}
+                className="shrink-0 whitespace-nowrap text-xs font-semibold text-brand-link"
+              >
+                Jump to now →
+              </button>
+            )}
+          </div>
+          <div className="flex w-full items-center justify-between gap-2 lg:w-auto">
+            <Segmented
+              name="rundown-live-tab"
+              options={TAB_OPTIONS}
+              value={tab}
+              onChange={setTab}
+              className="lg:hidden"
+            />
             <TextScaleControl />
-            <div className="flex gap-1 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setTab("rundown")}
-                className={cn(
-                  "rounded px-2.5 py-1 text-xs font-bold",
-                  tab === "rundown" ? "bg-brand-surface text-brand-link" : "text-ink-500",
-                )}
-              >
-                Rundown
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("context")}
-                className={cn(
-                  "rounded px-2.5 py-1 text-xs font-bold",
-                  tab === "context" ? "bg-brand-surface text-brand-link" : "text-ink-500",
-                )}
-              >
-                Context
-              </button>
-            </div>
           </div>
           {connectionStatus}
         </div>

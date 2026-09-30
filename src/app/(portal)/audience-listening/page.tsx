@@ -50,7 +50,7 @@ export default async function AudienceListeningPage({
         </div>
       ) : (
         <TableFrame>
-          <Table className="min-w-[820px]">
+          <Table stack className="md:min-w-[820px]">
             <thead>
               <HeaderRow>
                 <Th>Query</Th>
@@ -68,7 +68,7 @@ export default async function AudienceListeningPage({
                   const badge = QUERY_STATUS_BADGE[query.status];
                   return (
                     <Row key={query.id}>
-                      <Cell>
+                      <Cell stack="title">
                         <Link
                           href={`/audience-listening/${query.id}`}
                           className="font-semibold text-brand-link"
@@ -79,20 +79,26 @@ export default async function AudienceListeningPage({
                           {query.public_title}
                         </p>
                       </Cell>
-                      <Cell>
+                      <Cell stack="aside">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </Cell>
-                      <Cell className="text-right text-ink-500">{questionCount}</Cell>
-                      <Cell className="text-right text-ink-500">{submissionCount}</Cell>
-                      <Cell className="text-right">
+                      <Cell label="Questions" className="text-right text-ink-500">
+                        {questionCount}
+                      </Cell>
+                      <Cell label="Submissions" className="text-right text-ink-500">
+                        {submissionCount}
+                      </Cell>
+                      <Cell label="Unreviewed" className="text-right">
                         {unreviewedCount > 0 ? (
                           <span className="font-semibold text-ink-900">{unreviewedCount}</span>
                         ) : (
                           <span className="text-ink-400">—</span>
                         )}
                       </Cell>
-                      <Cell className="whitespace-nowrap text-ink-500">{ownerName ?? "—"}</Cell>
-                      <Cell className="whitespace-nowrap text-ink-500">
+                      <Cell label="Owner" className="whitespace-nowrap text-ink-500">
+                        {ownerName ?? "—"}
+                      </Cell>
+                      <Cell label="Updated" className="whitespace-nowrap text-ink-500">
                         {formatDate(query.updated_at)}
                       </Cell>
                     </Row>
