@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import type { FilterChip } from "@/lib/filter-groups";
 
-export interface FilterChip {
-  label: string;
-  href: string;
-  active: boolean;
-  count?: number;
-}
+export type { FilterChip };
 
 /** A row of link chips for a list's filter, one pressed at a time — a query-string filter, so it works with no client JavaScript. */
 export function FilterChips({

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { FilterChips } from "@/components/ui/filter-chips";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { RichText } from "@/components/ui/rich-text";
 import { formatReleaseDate, groupByReleaseDate } from "@/lib/resources/articles";
 import { listReleaseNotes } from "@/lib/resources/queries";
@@ -31,8 +31,8 @@ export default async function WhatsNewPage({
         Every change to the portal that you&apos;d notice, in the order it shipped.
       </p>
 
-      <FilterChips
-        label="Tool"
+      <ListToolbar
+        chipsLabel="Tool"
         className="mb-6 mt-5"
         chips={[
           { label: "All", href: "/resources/whats-new", active: !activeTool },

@@ -202,24 +202,25 @@ export default async function ProgramsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <ViewToggle active="list" />
-        <ListToolbar
-          className="min-w-0 flex-1"
-          search={{
-            placeholder: "Search programs",
-            label: "Search programs",
-            defaultValue: q,
-            hidden: status ? { status } : undefined,
-          }}
-          chips={chips}
-          chipsLabel="Filter by status"
-        >
-          {isProducer && !creating && (
-            <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>+ New program</PrimaryLink>
-          )}
-        </ListToolbar>
-      </div>
+      <ListToolbar
+        leading={<ViewToggle active="list" />}
+        search={{
+          placeholder: "Search programs",
+          label: "Search programs",
+          defaultValue: q,
+          hidden: status ? { status } : undefined,
+        }}
+        chips={chips}
+        chipsLabel="Status"
+      >
+        {isProducer && !creating && (
+          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
+            <span>
+              + New<span className="max-sm:sr-only"> program</span>
+            </span>
+          </PrimaryLink>
+        )}
+      </ListToolbar>
 
       {error && !creating && <Alert>{error}</Alert>}
 
@@ -264,7 +265,7 @@ export default async function ProgramsPage({
         </div>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Program</Th>
@@ -286,7 +287,7 @@ export default async function ProgramsPage({
                   : 0;
                 return (
                   <Row key={program.id}>
-                    <Cell>
+                    <Cell stack="title">
                       <Link
                         href={`${PROGRAMS_PATH}/${program.id}`}
                         className="font-bold text-brand-link hover:underline"
@@ -299,12 +300,12 @@ export default async function ProgramsPage({
                         </Badge>
                       )}
                     </Cell>
-                    <Cell className="whitespace-nowrap">
+                    <Cell label="Airs" className="whitespace-nowrap">
                       {primary
                         ? `${formatAirTime(primary.air_time)} · ${formatDurationMinutes(primary.duration_minutes)}`
                         : "—"}
                     </Cell>
-                    <Cell className="whitespace-nowrap">
+                    <Cell label="Days" className="whitespace-nowrap">
                       {primary
                         ? primary.entry_type === "recurring"
                           ? formatDaysOfWeek(primary.days_of_week)
@@ -313,7 +314,7 @@ export default async function ProgramsPage({
                             : "Holiday"
                         : "—"}
                     </Cell>
-                    <Cell>
+                    <Cell label="Clock">
                       {primary ? (
                         <div className="flex items-center gap-3">
                           <ClockThumb
@@ -355,7 +356,7 @@ export default async function ProgramsPage({
                         <span className="text-xs text-ink-400">Schedule it to choose a clock</span>
                       )}
                     </Cell>
-                    <Cell>
+                    <Cell stack="aside">
                       <Badge variant={STATUS_VARIANT[rowStatus]}>{STATUS_LABEL[rowStatus]}</Badge>
                     </Cell>
                   </Row>
@@ -475,9 +476,11 @@ async function WeekView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <ViewToggle active="week" />
-        <h2 className="text-[15px] font-semibold text-ink-900">{formatWeekRange(monday)}</h2>
+        <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+          {formatWeekRange(monday)}
+        </h2>
         <Link href={weekHref(shiftDateISO(monday, -7))} className={navLink}>
           <span aria-hidden="true">← </span>Prev
           <span className="sr-only"> week</span>
@@ -490,36 +493,123 @@ async function WeekView({
           Today
         </Link>
         <span className="flex-1" />
-        <span className="text-[13px] text-ink-700">
+        <span className="text-[13px] text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className="mr-1.5 inline-block size-3 border border-brand-primary/60 bg-brand-surface align-[-1px]"
           />
           Real clock
         </span>
-        <span className="text-[13px] text-ink-700">
+        <span className="text-[13px] text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className="mr-1.5 inline-block size-3 border border-dashed border-warning-border bg-warning-bg align-[-1px]"
           />
           Needs a clock
         </span>
-        {isProducer && <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>+ New program</PrimaryLink>}
+        {isProducer && (
+          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
+            <span>
+              + New<span className="max-sm:sr-only"> program</span>
+            </span>
+          </PrimaryLink>
+        )}
       </div>
 
       {error && <Alert>{error}</Alert>}
 
-      <WeekGrid
-        days={days}
-        startHour={startHour}
-        endHour={endHour}
-        canEdit={isProducer}
-        todayISO={today}
-      />
+      <div className="max-md:hidden">
+        <WeekGrid
+          days={days}
+          startHour={startHour}
+          endHour={endHour}
+          canEdit={isProducer}
+          todayISO={today}
+        />
+      </div>
+      <WeekAgenda days={days} canEdit={isProducer} todayISO={today} />
 
       <p className="text-[13px] text-ink-500">
-        Select a block to edit when it airs or open its program. Times are Central.
+        <span className="max-md:hidden">
+          Select a block to edit when it airs or open its program.{" "}
+        </span>
+        Times are Central.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The same week as a day-by-day list, for screens too narrow for seven
+ * columns (below `md`), where the grid would only scroll sideways. Each
+ * airing links to its program; producers also get Edit, the grid's
+ * "Edit schedule". A program still on the placeholder clock says so in the
+ * warning colour, as its dashed block does in the grid.
+ */
+function WeekAgenda({
+  days,
+  canEdit,
+  todayISO,
+}: {
+  days: WeekDay[];
+  canEdit: boolean;
+  todayISO: string;
+}) {
+  return (
+    <div className="flex flex-col gap-4 md:hidden">
+      {days.map((day) => {
+        const blocks = [...day.blocks].sort((a, b) => a.topMinutes - b.topMinutes);
+        const isToday = day.dateISO === todayISO;
+        return (
+          <section key={day.dateISO} aria-label={`${day.name} ${day.num}`}>
+            <h3 className="mb-1.5 flex items-baseline gap-2 text-xs font-bold uppercase tracking-wider text-ink-500">
+              {day.name} {day.num}
+              {isToday && (
+                <span className="normal-case tracking-normal text-brand-link">Today</span>
+              )}
+            </h3>
+            {blocks.length === 0 ? (
+              <p className="rounded border border-dashed border-line px-3 py-2 text-sm text-ink-500">
+                Nothing scheduled.
+              </p>
+            ) : (
+              <ul className="divide-y divide-line rounded border border-line">
+                {blocks.map((block) => (
+                  <li key={block.key} className="flex items-start gap-3 px-3 py-2.5">
+                    <span className="w-[7.5rem] shrink-0 text-sm tabular-nums text-ink-700">
+                      {block.timeText}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                      <Link
+                        href={`${PROGRAMS_PATH}/${block.programId}`}
+                        className="font-bold text-brand-link hover:underline"
+                      >
+                        {block.programName}
+                      </Link>
+                      <span
+                        className={cn(
+                          "mt-0.5 text-xs",
+                          block.isPlaceholder ? "font-semibold text-warning-fg" : "text-ink-500",
+                        )}
+                      >
+                        {block.isPlaceholder ? "Needs a clock" : block.clockName}
+                      </span>
+                    </div>
+                    {canEdit && (
+                      <Link
+                        href={`${PROGRAMS_PATH}/${block.programId}/schedule/${block.entryId}/edit`}
+                        className="shrink-0 text-sm font-semibold text-brand-link hover:underline"
+                      >
+                        Edit<span className="sr-only"> {block.programName} schedule</span>
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

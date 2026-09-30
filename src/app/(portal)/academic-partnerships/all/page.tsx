@@ -9,8 +9,17 @@ import {
   listToolMembers,
   type SubmissionFilters,
 } from "@/lib/academic-partnerships/queries";
-import { DISPOSITION_BADGE, DISPOSITION_LABEL, DISPOSITIONS, STAGE_LABEL, STAGES } from "@/lib/academic-partnerships/pipeline";
-import { PARTNERSHIP_TYPE_LABEL, PARTNERSHIP_TYPES } from "@/lib/academic-partnerships/partnership-types";
+import {
+  DISPOSITION_BADGE,
+  DISPOSITION_LABEL,
+  DISPOSITIONS,
+  STAGE_LABEL,
+  STAGES,
+} from "@/lib/academic-partnerships/pipeline";
+import {
+  PARTNERSHIP_TYPE_LABEL,
+  PARTNERSHIP_TYPES,
+} from "@/lib/academic-partnerships/partnership-types";
 import type { ApDisposition, ApPartnershipType, ApStage } from "@/lib/database.types";
 
 interface SearchParams {
@@ -55,7 +64,12 @@ export default async function AllSubmissionsPage({
   ]);
 
   const hasFilters = Boolean(
-    params.stage || params.disposition || params.owner || params.department || params.type || params.q,
+    params.stage ||
+    params.disposition ||
+    params.owner ||
+    params.department ||
+    params.type ||
+    params.q,
   );
 
   return (
@@ -81,7 +95,11 @@ export default async function AllSubmissionsPage({
           </Select>
         </FilterField>
         <FilterField label="Disposition">
-          <Select name="disposition" defaultValue={params.disposition ?? "any"} className="w-auto min-w-[9rem]">
+          <Select
+            name="disposition"
+            defaultValue={params.disposition ?? "any"}
+            className="w-auto min-w-[9rem]"
+          >
             <option value="any">Any</option>
             <option value="none">Active (none)</option>
             {DISPOSITIONS.map((value) => (
@@ -102,7 +120,11 @@ export default async function AllSubmissionsPage({
           </Select>
         </FilterField>
         <FilterField label="Department">
-          <Select name="department" defaultValue={params.department ?? ""} className="w-auto min-w-[9rem]">
+          <Select
+            name="department"
+            defaultValue={params.department ?? ""}
+            className="w-auto min-w-[9rem]"
+          >
             <option value="">All</option>
             {departments.map((department) => (
               <option key={department} value={department}>
@@ -125,7 +147,10 @@ export default async function AllSubmissionsPage({
           Apply
         </Button>
         {hasFilters && (
-          <Link href="/academic-partnerships/all" className="pb-2.5 text-xs font-semibold text-brand-link">
+          <Link
+            href="/academic-partnerships/all"
+            className="pb-2.5 text-xs font-semibold text-brand-link"
+          >
             Clear
           </Link>
         )}
@@ -137,7 +162,7 @@ export default async function AllSubmissionsPage({
         </p>
       ) : (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
                 <Th>Faculty</Th>
@@ -151,7 +176,7 @@ export default async function AllSubmissionsPage({
             <tbody>
               {submissions.map((submission) => (
                 <Row key={submission.id}>
-                  <Cell>
+                  <Cell stack="title">
                     <Link
                       href={`/academic-partnerships/${submission.id}`}
                       className="font-semibold text-brand-link"
@@ -159,11 +184,13 @@ export default async function AllSubmissionsPage({
                       {submission.faculty_name}
                     </Link>
                   </Cell>
-                  <Cell>{submission.department}</Cell>
-                  <Cell>
-                    {submission.partnership_types.map((type) => PARTNERSHIP_TYPE_LABEL[type]).join(", ")}
+                  <Cell label="Department">{submission.department}</Cell>
+                  <Cell label="Type">
+                    {submission.partnership_types
+                      .map((type) => PARTNERSHIP_TYPE_LABEL[type])
+                      .join(", ")}
                   </Cell>
-                  <Cell>
+                  <Cell stack="aside">
                     {submission.disposition ? (
                       <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
                         {DISPOSITION_LABEL[submission.disposition]}
@@ -172,8 +199,10 @@ export default async function AllSubmissionsPage({
                       STAGE_LABEL[submission.stage]
                     )}
                   </Cell>
-                  <Cell>{submission.ownerName ?? "Unassigned"}</Cell>
-                  <Cell>{new Date(submission.created_at).toLocaleDateString("en-US")}</Cell>
+                  <Cell label="Owner">{submission.ownerName ?? "Unassigned"}</Cell>
+                  <Cell label="Submitted">
+                    {new Date(submission.created_at).toLocaleDateString("en-US")}
+                  </Cell>
                 </Row>
               ))}
             </tbody>
