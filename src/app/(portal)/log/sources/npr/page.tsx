@@ -222,7 +222,7 @@ export default async function NprPage({
           ) : (
             <>
               <TableFrame>
-                <Table>
+                <Table stack>
                   <thead>
                     <HeaderRow>
                       <Th>#</Th>
@@ -234,17 +234,25 @@ export default async function NprPage({
                   <tbody>
                     {result.items.map((item) => (
                       <Row key={item.id}>
-                        <Cell className="text-ink-500">{item.position}</Cell>
-                        <Cell className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums">
+                        <Cell stack="hide" className="text-ink-500">
+                          {item.position}
+                        </Cell>
+                        <Cell
+                          stack="aside"
+                          className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums"
+                        >
                           {estimateLabelByNprItemId.get(item.npr_item_id) ?? "—"}
                         </Cell>
-                        <Cell>
+                        <Cell stack="title">
                           <div className="font-semibold text-ink-900">{item.title}</div>
                           {item.teaser && (
                             <div className="mt-0.5 text-xs text-ink-500">{item.teaser}</div>
                           )}
                         </Cell>
-                        <Cell className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums">
+                        <Cell
+                          label="Length"
+                          className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums"
+                        >
                           {item.duration_seconds !== null
                             ? formatLength(item.duration_seconds)
                             : "—"}
