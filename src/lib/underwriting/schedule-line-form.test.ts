@@ -382,3 +382,20 @@ describe("formValuesFromScheduleLine", () => {
     });
   });
 });
+
+describe("a window ending at midnight", () => {
+  it("reads an end of 00:00 (an order's 12:00a) as the end of the day", () => {
+    const result = parseScheduleLineForm(
+      values({ time_mode: "window", window_start: "05:00", window_end: "00:00" }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.line.window_end).toBe("24:00");
+  });
+
+  it("still refuses a window that ends before it starts", () => {
+    const result = parseScheduleLineForm(
+      values({ time_mode: "window", window_start: "10:00", window_end: "09:00" }),
+    );
+    expect(result.ok).toBe(false);
+  });
+});

@@ -5,6 +5,8 @@
 // a warning (unapproved copy, a stated total that disagrees) is a fact to
 // see, not a gate.
 
+import { orderNumberLabel } from "./contract-label";
+
 export type ReadinessState = "ok" | "warn" | "missing";
 
 export interface ReadinessItem {
@@ -15,7 +17,8 @@ export interface ReadinessItem {
 }
 
 export interface ReadinessInput {
-  contractIdentifier: string;
+  /** Null when the order prints none — not a gap to fill. */
+  contractIdentifier: string | null;
   effectiveFrom: string;
   effectiveTo: string | null;
   sponsorshipTotal: number | null;
@@ -37,13 +40,13 @@ export interface ReadinessInput {
 export function computeReadiness(input: ReadinessInput): ReadinessItem[] {
   const items: ReadinessItem[] = [];
 
-  const orderOk = input.contractIdentifier.trim() !== "" && input.effectiveFrom !== "";
+  const orderOk = input.effectiveFrom !== "";
   items.push({
     key: "order",
     state: orderOk ? "ok" : "missing",
     title: "Order details",
     detail: orderOk
-      ? `${input.contractIdentifier} · ${input.effectiveFrom}${input.effectiveTo ? ` – ${input.effectiveTo}` : " (open-ended)"}${input.sponsorshipTotal != null ? ` · $${input.sponsorshipTotal.toLocaleString()}` : ""}`
+      ? `${orderNumberLabel(input.contractIdentifier)} · ${input.effectiveFrom}${input.effectiveTo ? ` – ${input.effectiveTo}` : " (open-ended)"}${input.sponsorshipTotal != null ? ` · $${input.sponsorshipTotal.toLocaleString()}` : ""}`
       : "Underwriter, order number and run dates.",
   });
 

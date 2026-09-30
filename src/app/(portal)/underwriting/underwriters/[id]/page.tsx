@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -74,7 +75,7 @@ export default async function UnderwriterDetailPage({
                       href={`/underwriting/contracts/${contract.id}`}
                       className="font-semibold text-brand-link"
                     >
-                      {contract.contract_identifier}
+                      {orderNumberLabel(contract.contract_identifier)}
                     </Link>
                     <div className="mt-0.5 text-xs text-ink-500">
                       {contract.effective_from}

@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
@@ -65,7 +66,7 @@ export default async function ContractsPage({
     (contract) =>
       query === "" ||
       contract.underwriter.name.toLowerCase().includes(query) ||
-      contract.contract_identifier.toLowerCase().includes(query),
+      (contract.contract_identifier ?? "").toLowerCase().includes(query),
   );
   const counts = {
     all: matching.length,
@@ -164,7 +165,7 @@ export default async function ContractsPage({
                         {contract.underwriter.name}
                       </Link>
                       <div className="mt-0.5 text-xs text-ink-500">
-                        {contract.contract_identifier}
+                        {orderNumberLabel(contract.contract_identifier)}
                         {industry ? ` · ${industry}` : ""}
                       </div>
                     </Cell>

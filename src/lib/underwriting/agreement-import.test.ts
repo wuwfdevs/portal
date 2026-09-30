@@ -13,6 +13,7 @@ import {
   type ProposalContext,
   type TypedOrderFields,
 } from "./agreement-import";
+import { RADIO_TRAFFIC_MIGRATION_CORRECTIONS } from "./fixtures/radio-traffic-migration";
 
 const POOLS = [
   { id: "pool-am", name: "AM Drive" },
@@ -236,13 +237,10 @@ describe("mergeOrderFacts", () => {
     if (!result.ok) expect(result.error).toContain("start date");
   });
 
-  it("gives a missing order number a placeholder and says so", () => {
+  it("leaves a missing order number blank — never makes one up", () => {
     const result = mergeOrderFacts(typed(), order({ contract_identifier: null }), UNDERWRITERS);
-    expect(result).toMatchObject({
-      ok: true,
-      value: { contract_identifier: "Autumn Beck Blackledge 2026-08-03" },
-    });
-    if (result.ok) expect(result.warnings[0]).toContain("prints no order number");
+    expect(result).toMatchObject({ ok: true, value: { contract_identifier: null } });
+    if (result.ok) expect(result.warnings.join(" ")).not.toContain("order number");
   });
 
   it("only ever sets a policy flag to true from the document", () => {
@@ -453,5 +451,74 @@ describe("parseAgreementReading", () => {
     expect(parseAgreementReading({ ...reading, version: 2 })).toBeNull();
     expect(parseAgreementReading(null)).toBeNull();
     expect(parseAgreementReading([])).toBeNull();
+  });
+});
+
+describe("the first real migration's unsaved instructions, read under the pool rules", () => {
+  const pools = [
+    "Drive Time",
+    "Weekend Edition",
+    "Weekday AM Drive",
+    "Weekday PM Drive",
+    "Total Program Rotation",
+  ].map((name) => ({ id: `pool-${name}`, name }));
+
+  for (const correction of RADIO_TRAFFIC_MIGRATION_CORRECTIONS) {
+    it(`${correction.sponsor}: every line saves and they total ${correction.expectedTotal}`, () => {
+      const proposal = proposeScheduleFromModelOutput(
+        output({ lines: correction.lines }),
+        context({ pools, programs: [] }),
+      );
+      for (const line of proposal.lines) expect(line.compile).toMatchObject({ ok: true });
+      const total = proposal.lines.reduce(
+        (sum, line) => sum + (line.compile.ok ? line.compile.expected : 0),
+        0,
+      );
+      expect(total).toBe(correction.expectedTotal);
+    });
+  }
+
+  it("rotates an every-other-week pair onto alternate weeks", () => {
+    const rotating = RADIO_TRAFFIC_MIGRATION_CORRECTIONS.find(
+      (correction) => correction.sponsor === "International Paper",
+    )!;
+    const proposal = proposeScheduleFromModelOutput(
+      output({ lines: rotating.lines }),
+      context({ pools, programs: [] }),
+    );
+    expect(proposal.lines.map((line) => (line.compile.ok ? line.compile.expected : -1))).toEqual([
+      26, 26,
+    ]);
+  });
+
+  it("saves an agency grid line that runs until midnight (5:00a–12:00a)", () => {
+    const proposal = proposeScheduleFromModelOutput(
+      output({
+        lines: [
+          modelLine({
+            label: "Line 42 BN",
+            source_text: "MTuWThFSaSu 5:00a-12:00a",
+            entry_kind: "week_grid",
+            count_per_day: null,
+            week_grid: [
+              { week_start: "2026-01-26", quantity: 6 },
+              { week_start: "2026-02-02", quantity: 12 },
+            ],
+            days_of_week: [0, 1, 2, 3, 4, 5, 6],
+            pool: "Total Program Rotation",
+            program: null,
+            time_mode: "window",
+            window_start: "05:00",
+            window_end: "00:00",
+            preferred_time: null,
+            start_date: "2026-01-26",
+            end_date: "2026-02-08",
+            stated_total: 18,
+          }),
+        ],
+      }),
+      context({ pools, programs: [] }),
+    );
+    expect(proposal.lines[0]!.compile).toMatchObject({ ok: true, expected: 18 });
   });
 });

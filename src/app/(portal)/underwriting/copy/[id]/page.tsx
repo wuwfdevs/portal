@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -81,7 +82,7 @@ export default async function CopyDetailPage({
                     href={`/underwriting/contracts/${contract.id}`}
                     className="font-semibold text-brand-link"
                   >
-                    {contract.contract_identifier}
+                    {orderNumberLabel(contract.contract_identifier)}
                   </Link>
                 </li>
               ))}

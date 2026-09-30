@@ -1271,6 +1271,64 @@ already happen with the sequential runner across two tabs. A partial
 unique index on `document_sha256` for processing and imported rows would
 close it if it ever matters.
 
+### 14.6 Reading an order's wording onto pools and lines (2026-09-30)
+
+The first real migration (37 agreements) left 10 instructions unsaved. None
+was a reading error: the reader understood each one and the prompt told it
+to give up. It said "never invent a name… put the instruction in
+unresolved", and "give one or the other" of pool and program, so "2 Drive
+Time spots a week", "1 each week in either Sat. or Sun. Weekend Edition",
+"1 Rotating AM/PM Drive", a spot "between 5 a.m. and 9:58 p.m." with no
+pool, and a Learning Minute at "Wednesday 7:19 am" all went unresolved.
+
+**Pools, not multi-pool lines, and never a split.** A line is one quantity
+owed per period plus where it may run; fulfillment and makegoods are
+counted per line. An either/or instruction split across lines owes
+something the order never promised (1 AM + 1 PM, or ½ + ½), so "any of
+these places" belongs in a pool — the station's named, reusable set of
+targets, which Carpool already is. Two pools were added in production for
+exactly this: **Drive Time** (the AM and PM Drive windows, weekdays) and
+**Weekend Edition** (Weekend Edition Saturday and Sunday). A line with
+several pools was considered and rejected: it duplicates pools as one-off
+sets per contract and would have changed the placement guard. Lines are
+split only when the order splits its count.
+
+**The prompt now maps wording onto the list** (`agreement-ai-import.ts`): a
+general or either/or daypart is the listed pool covering every choice; no
+pool or program named is Total Program Rotation (the station's anywhere
+pool), with the time rule narrowing it; "rotating" is two every-other-week
+lines a week apart (the demand compiler already anchors every_n_weeks on
+the line's start, so no new field); a branded product (Learning Minute) is
+a kind of credit whose line keeps the order's day and exact time.
+"Unresolved" is kept for what isn't broadcast inventory — app and website
+ads, print, tickets — and instructions with no quantity.
+
+**Midnight.** "5:00a-12:00a" read as 05:00–00:00 and failed "the window must
+end after it starts". `normalizeWindowEnd()` (`schedule-line-form.ts`, also
+used for pool targets) stores an end of 00:00 as 24:00, which Postgres
+`time` accepts and every start-inclusive, end-exclusive comparison already
+handles; the editor shows it as 00:00.
+
+**Order numbers are never composed.** `mergeOrderFacts()` used to invent
+"<sponsor> <start date>" because `uw_contracts.contract_identifier` was not
+null. `20260930130000_underwriting_optional_order_number.sql` drops the
+constraint and cleared the six composed numbers (exactly those whose value
+was the sponsor, a space and the start date and whose reading printed
+none). Screens show "No order number" (`lib/underwriting/contract-label.ts`);
+readiness no longer asks for one; an affidavit's internal report id falls
+back to the contract id.
+
+**The drafts were repaired in place, not re-imported** — the sandbox has no
+route to the reader. The corrected readings are a fixture
+(`fixtures/radio-traffic-migration.ts`) whose tests check each compiles to
+the order's own count; the same readings were compiled with the app's
+parser and written to the seven drafts' current revisions (Boyles 104 + 52,
+International Paper 26 + 26, Innisfree 365, the two Learning Minutes 52
+each, FPL's line 42 180, FPREN 260), each draft's stored reading updated so
+the schedule step marks them saved, and the entries' results recomputed.
+Still open: Santa Rosa County Tourist Development Office (not on file) and
+Choral Society of Pensacola (never run).
+
 ### 14.4 Not built
 
 No Drive integration (the administrator downloads the documents and

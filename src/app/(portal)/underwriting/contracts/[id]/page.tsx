@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -235,7 +236,7 @@ export default async function ContractDetailPage({
             )}
           </div>
           <p className="mt-1 text-[13px] text-ink-500">
-            {contract.contract_identifier} · {contract.effective_from}
+            {orderNumberLabel(contract.contract_identifier)} · {contract.effective_from}
             {contract.effective_to ? ` – ${contract.effective_to}` : ""}
             {contract.sponsorship_category ? ` · ${contract.sponsorship_category}` : ""}
             {contract.sponsorship_total != null
@@ -846,7 +847,7 @@ export default async function ContractDetailPage({
               {[
                 ["Underwriter", contract.underwriter.name],
                 ["Contact", contract.underwriter.contact_name ?? "—"],
-                ["Order", contract.contract_identifier],
+                ["Order", orderNumberLabel(contract.contract_identifier)],
                 [
                   "Runs",
                   `${contract.effective_from}${contract.effective_to ? ` – ${contract.effective_to}` : " (open-ended)"}`,
@@ -1006,7 +1007,7 @@ export default async function ContractDetailPage({
           {isDraft && (
             <DeleteContractControl
               contractId={contract.id}
-              label={`${contract.underwriter.name} · ${contract.contract_identifier}`}
+              label={`${contract.underwriter.name} · ${orderNumberLabel(contract.contract_identifier)}`}
             />
           )}
         </aside>

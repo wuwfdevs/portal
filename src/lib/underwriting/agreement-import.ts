@@ -190,7 +190,7 @@ export function buildAgreementOutputSchema(names: AgreementSchemaNames) {
       },
       pool: nameEnum(
         names.poolNames,
-        "The inventory pool the order sells, exactly as listed, or null when the order names a program instead.",
+        "The inventory pool the order sells, exactly as listed — the one covering every choice the order offers, or Total Program Rotation when it names no pool or program. Null when the line names a program instead.",
       ),
       program: nameEnum(
         names.programNames,
@@ -415,7 +415,8 @@ export interface TypedOrderFields {
 /** The uw_contracts facts a draft is created with. */
 export interface DraftContractFacts {
   underwriter_id: string;
-  contract_identifier: string;
+  /** Null when the document prints none — never made up. */
+  contract_identifier: string | null;
   effective_from: string;
   effective_to: string | null;
   sponsorship_total: number | null;
@@ -478,13 +479,8 @@ export function mergeOrderFacts(
   if (effectiveTo !== null && effectiveTo < effectiveFrom)
     return { ok: false, error: "The run's end date is before its start date." };
 
-  let identifier = text(typed.contract_identifier) ?? text(order.contract_identifier);
-  if (identifier === null) {
-    identifier = `${underwriter.name} ${effectiveFrom}`;
-    warnings.push(
-      `The document prints no order number, so the contract is identified as "${identifier}" — change it on the Order step.`,
-    );
-  }
+  // Never composed: an order with no printed number has none (2026-09-30).
+  const identifier = text(typed.contract_identifier) ?? text(order.contract_identifier);
 
   const typedTotal = Number.parseFloat(typed.sponsorship_total);
   const sponsorshipTotal = Number.isFinite(typedTotal)
@@ -503,7 +499,7 @@ export function mergeOrderFacts(
     ok: true,
     value: {
       underwriter_id: underwriter.id,
-      contract_identifier: identifier.slice(0, 120),
+      contract_identifier: identifier === null ? null : identifier.slice(0, 120),
       effective_from: effectiveFrom,
       effective_to: effectiveTo,
       sponsorship_total: sponsorshipTotal,

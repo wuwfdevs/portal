@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -109,7 +110,9 @@ export default async function AffidavitDetailPage({
               </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 <dt className="text-ink-500">Order number</dt>
-                <dd className="text-ink-900">{affidavit.contract.contract_identifier}</dd>
+                <dd className="text-ink-900">
+                  {orderNumberLabel(affidavit.contract.contract_identifier)}
+                </dd>
                 <dt className="text-ink-500">Period</dt>
                 <dd className="text-ink-900">{doc.periodLabel}</dd>
                 <dt className="text-ink-500">Account rep</dt>

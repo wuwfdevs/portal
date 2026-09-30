@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -82,7 +83,7 @@ export async function ContractCopyPanel({
       copy.execution_kind === "live_read" ? "live read" : "recorded",
       copy.duration_seconds != null ? `${copy.duration_seconds}s` : null,
       linkedTo[0]
-        ? `${linkedTo[0].contractIdentifier}${linkedTo[0].effectiveTo ? ` (to ${linkedTo[0].effectiveTo})` : ""}`
+        ? `${orderNumberLabel(linkedTo[0].contractIdentifier)}${linkedTo[0].effectiveTo ? ` (to ${linkedTo[0].effectiveTo})` : ""}`
         : null,
     ]
       .filter(Boolean)
@@ -126,8 +127,8 @@ export async function ContractCopyPanel({
                   <span className="font-semibold">Approved — ready to place</span>
                   <span className="mt-0.5 block text-xs leading-snug text-ink-400">
                     Tick this when the sponsor has already signed off on the wording, as it usually
-                    has by the time an order is entered. Left off, the message is a draft and nothing
-                    places it until someone approves it.
+                    has by the time an order is entered. Left off, the message is a draft and
+                    nothing places it until someone approves it.
                   </span>
                 </span>
               </label>
@@ -240,7 +241,7 @@ export async function ContractCopyPanel({
                             href={`/underwriting/contracts/${other.id}?tab=copy`}
                             className="font-semibold text-brand-link"
                           >
-                            {other.contractIdentifier}
+                            {orderNumberLabel(other.contractIdentifier)}
                           </Link>{" "}
                           ({other.underwriterName})
                         </span>
@@ -341,7 +342,11 @@ function CopyCard({
           <input type="hidden" name="return_to" value={returnTo} />
           <div className="w-full sm:w-56">
             <Label htmlFor={`status_${item.id}`}>Approval status</Label>
-            <Select id={`status_${item.id}`} name="approval_status" defaultValue={item.approval_status}>
+            <Select
+              id={`status_${item.id}`}
+              name="approval_status"
+              defaultValue={item.approval_status}
+            >
               <option value="draft">Draft</option>
               <option value="approved">Approved</option>
               <option value="expired">Expired</option>
@@ -401,7 +406,10 @@ function CopyCard({
         <Badge variant={APPROVAL_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
         <span className="text-[13px] text-ink-500">{meta}</span>
         <span className="flex-1" />
-        <Link href={editHref} className="px-1 text-[13px] font-bold text-brand-link hover:underline">
+        <Link
+          href={editHref}
+          className="px-1 text-[13px] font-bold text-brand-link hover:underline"
+        >
           Edit
         </Link>
         <Link

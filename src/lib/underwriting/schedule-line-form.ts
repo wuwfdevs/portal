@@ -326,6 +326,17 @@ export function compileScheduleLineDemand(values: ScheduleLineFormValues): Deman
   };
 }
 
+/**
+ * A window's end as stored: "00:00" (an order's "12:00a", "until midnight")
+ * is the end of the day, 24:00 — a Postgres `time` accepts it, and every
+ * window comparison here and in SQL is start-inclusive, end-exclusive, so
+ * nothing past midnight sneaks in. Anything else is returned as given.
+ */
+export function normalizeWindowEnd(end: string | null): string | null {
+  if (end === null) return null;
+  return /^00:00(:00)?$/.test(end.trim()) ? "24:00" : end;
+}
+
 export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResult {
   const demand = compileScheduleLineDemand(values);
   const problems: string[] = [];
@@ -341,7 +352,7 @@ export function parseScheduleLineForm(values: ScheduleLineFormValues): ParseResu
 
   const timeMode = values.time_mode as UwTimeMode;
   const windowStart = orNull(values.window_start);
-  const windowEnd = orNull(values.window_end);
+  const windowEnd = normalizeWindowEnd(orNull(values.window_end));
   const preferredTime = orNull(values.preferred_time);
   if (!TIME_MODES.includes(timeMode)) problems.push("Choose a time rule.");
   if (timeMode === "window") {
@@ -425,7 +436,10 @@ export interface StoredScheduleLine {
 
 /** Postgres returns a `time` as HH:MM:SS; the editor's <input type="time"> wants HH:MM. */
 function timeInputValue(raw: string | null): string {
-  return raw === null ? "" : raw.slice(0, 5);
+  if (raw === null) return "";
+  const hhmm = raw.slice(0, 5);
+  // <input type="time"> has no 24:00; midnight reads as 00:00 and parses back to 24:00.
+  return hhmm === "24:00" ? "00:00" : hhmm;
 }
 
 /**

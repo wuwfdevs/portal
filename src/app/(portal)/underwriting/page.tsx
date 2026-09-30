@@ -1,3 +1,4 @@
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -478,7 +479,7 @@ export default async function UnderwritingDashboardPage({
                             {contract.underwriter.name}
                           </span>
                           <span className="block truncate text-xs text-ink-400">
-                            {contract.contract_identifier}
+                            {orderNumberLabel(contract.contract_identifier)}
                           </span>
                         </span>
                         <Badge variant={CONTRACT_STATUS_VARIANT[contract.status]}>

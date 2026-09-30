@@ -69,7 +69,9 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
     .eq("campaign_period_start", periodStart)
     .eq("campaign_period_end", periodEnd);
   const reportIdentifier = buildReportIdentifier(
-    contract.contract_identifier,
+    // An internal report id, not an order number: a contract without one
+    // falls back to the start of its own id.
+    contract.contract_identifier ?? contractId.slice(0, 8),
     periodStart,
     periodEnd,
     count ?? 0,

@@ -187,13 +187,11 @@ export async function updateUnderwriter(formData: FormData): Promise<void> {
 export async function createContract(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const underwriterId = field(formData, "underwriter_id");
-  const contractIdentifier = field(formData, "contract_identifier");
+  // Optional: an order that prints no number has none (2026-09-30).
+  const contractIdentifier = optionalField(formData, "contract_identifier");
   const effectiveFrom = field(formData, "effective_from");
-  if (underwriterId === "" || contractIdentifier === "" || effectiveFrom === "") {
-    failWith(
-      NEW_CONTRACT_PATH,
-      "Give the contract an underwriter, identifier, and effective date.",
-    );
+  if (underwriterId === "" || effectiveFrom === "") {
+    failWith(NEW_CONTRACT_PATH, "Give the contract an underwriter and an effective date.");
   }
 
   const sponsorshipTotalRaw = optionalField(formData, "sponsorship_total");
@@ -396,10 +394,9 @@ export async function updateContractOrder(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "contract_id");
   const path = returnPath(formData, id);
-  const contractIdentifier = field(formData, "contract_identifier");
+  const contractIdentifier = optionalField(formData, "contract_identifier");
   const effectiveFrom = field(formData, "effective_from");
-  if (contractIdentifier === "" || !isValidDateISO(effectiveFrom))
-    failWith(path, "Give the contract an identifier and a start date.");
+  if (!isValidDateISO(effectiveFrom)) failWith(path, "Give the contract a start date.");
   const effectiveTo = optionalField(formData, "effective_to");
   if (effectiveTo !== null && (!isValidDateISO(effectiveTo) || effectiveTo < effectiveFrom))
     failWith(path, "The contract must end on or after it starts.");

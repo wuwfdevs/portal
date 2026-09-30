@@ -29,6 +29,12 @@ describe("computeReadiness", () => {
     expect(items[2]!.detail).toBe("Matches the 702 spots on the order.");
   });
 
+  it("treats an order with no printed number as complete, and says so", () => {
+    const items = computeReadiness(input({ contractIdentifier: null }));
+    expect(items[0]).toMatchObject({ key: "order", state: "ok" });
+    expect(items[0]!.detail.startsWith("No order number · 2025-08-11")).toBe(true);
+  });
+
   it("warns, never blocks, on unapproved copy, a stated-total mismatch, and an undecided separation rule", () => {
     const items = computeReadiness(
       input({ copyApproved: 1, expectedTotal: 698, separationUndecided: true }),
