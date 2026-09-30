@@ -18,7 +18,12 @@ import {
   type LinkableCopyOption,
   type UwCopyRow,
 } from "@/lib/underwriting/queries";
-import { linkCopyToContract, setCopyFlight, unlinkCopyFromContract } from "../../contract-actions";
+import {
+  linkCopyToContract,
+  setCopyFlight,
+  setCopyLine,
+  unlinkCopyFromContract,
+} from "../../contract-actions";
 import { createCopy, setCopyStatus, updateCopyDetails } from "../../copy-actions";
 import { CopyFormFields } from "../../copy/copy-form";
 import { LineActions } from "./line-actions";
@@ -68,6 +73,17 @@ export async function ContractCopyPanel({
     surface === "tab" ? listCopyUsageForContract(contract) : Promise.resolve(null),
   ]);
   const flightByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link.flight_id]));
+  const lineByCopy = new Map(
+    contract.copyLinks.map((link) => [link.copy_id, link.schedule_line_id]),
+  );
+  // Lines a message can be dedicated to: the current revision's active lines.
+  const scopeLines = contract.scheduleLines
+    .filter((line) => line.revision_id === contract.currentRevision?.id && line.status === "active")
+    .map((line) => ({ id: line.id, label: line.label || "Untitled line" }));
+  const lineLabelById = new Map(
+    contract.scheduleLines.map((line) => [line.id, line.label || "Untitled line"]),
+  );
+  const currentLineIds = new Set(scopeLines.map((line) => line.id));
   const flightNameById = new Map(contract.flights.map((flight) => [flight.id, flight.name]));
   const approved = contract.copy.filter((item) => item.approval_status === "approved").length;
   const awaiting = contract.copy.filter((item) => item.approval_status === "draft").length;
@@ -186,6 +202,23 @@ export async function ContractCopyPanel({
                 never places.
               </FieldHint>
             </div>
+            {scopeLines.length > 1 && (
+              <div className="sm:w-1/2">
+                <Label htmlFor="link_schedule_line_id">Use on</Label>
+                <Select id="link_schedule_line_id" name="schedule_line_id" defaultValue="">
+                  <option value="">Every line without its own message</option>
+                  {scopeLines.map((line) => (
+                    <option key={line.id} value={line.id}>
+                      Only {line.label}
+                    </option>
+                  ))}
+                </Select>
+                <FieldHint>
+                  Choose one line when the order gives this message to it (&ldquo;For Carpool:
+                  #1&rdquo;). That line then airs only its own messages.
+                </FieldHint>
+              </div>
+            )}
             {contract.flights.length > 0 && (
               <div className="sm:w-1/2">
                 <Label htmlFor="link_flight_id">Serves</Label>
@@ -278,6 +311,10 @@ export async function ContractCopyPanel({
             returnTo={returnTo}
             flightId={flightByCopy.get(item.id) ?? null}
             flightNameById={flightNameById}
+            lineId={lineByCopy.get(item.id) ?? null}
+            lineLabel={lineLabelById.get(lineByCopy.get(item.id) ?? "") ?? null}
+            lineIsCurrent={currentLineIds.has(lineByCopy.get(item.id) ?? "")}
+            scopeLines={scopeLines}
             usage={usage?.get(item.id) ?? null}
           />
         ),
@@ -285,7 +322,8 @@ export async function ContractCopyPanel({
 
       <p className="text-xs text-ink-500">
         Auto-fill and manual placement rotate approved messages in order across every line of this
-        contract. A message effective for part of the run only rotates on the dates it covers.
+        contract. A message effective for part of the run only rotates on the dates it covers. A
+        message dedicated to one line airs only there, and that line airs only its own messages.
       </p>
     </div>
   );
@@ -307,6 +345,10 @@ function CopyCard({
   returnTo,
   flightId,
   flightNameById,
+  lineId,
+  lineLabel,
+  lineIsCurrent,
+  scopeLines,
   usage,
 }: {
   item: UwCopyRow;
@@ -315,6 +357,10 @@ function CopyCard({
   returnTo: string;
   flightId: string | null;
   flightNameById: Map<string, string>;
+  lineId: string | null;
+  lineLabel: string | null;
+  lineIsCurrent: boolean;
+  scopeLines: { id: string; label: string }[];
   usage: CopyUsage | null;
 }) {
   const isDraft = item.approval_status === "draft";
@@ -324,6 +370,7 @@ function CopyCard({
     `effective ${item.effective_from}${item.effective_to ? ` – ${item.effective_to}` : " onward"}`,
     item.cart_identifier ? `cart ${item.cart_identifier}` : null,
     flightId ? `serves ${flightNameById.get(flightId) ?? "one flight"}` : null,
+    lineId ? `only on ${lineLabel ?? "one line"}` : null,
     usage
       ? `scheduled ${usage.scheduled} · aired ${usage.aired}${usage.nextScheduledAt ? ` · next ${formatPlacementTime(usage.nextScheduledAt)}` : ""}`
       : null,
@@ -363,6 +410,42 @@ function CopyCard({
         </form>
       ),
     },
+    ...(scopeLines.length > 1 || lineId
+      ? [
+          {
+            key: "line",
+            label: "Use on one line only…",
+            content: (
+              <form action={setCopyLine} className="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="copy_id" value={item.id} />
+                <input type="hidden" name="contract_id" value={contract.id} />
+                <input type="hidden" name="return_to" value={returnTo} />
+                <div className="w-full sm:w-72">
+                  <Label htmlFor={`line_${item.id}`}>Use on</Label>
+                  <Select
+                    id={`line_${item.id}`}
+                    name="schedule_line_id"
+                    defaultValue={lineIsCurrent ? (lineId ?? "") : ""}
+                  >
+                    <option value="">Every line without its own message</option>
+                    {scopeLines.map((line) => (
+                      <option key={line.id} value={line.id}>
+                        Only {line.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <FieldHint>
+                    A line with a message of its own airs only its own messages.
+                  </FieldHint>
+                </div>
+                <Button type="submit" variant="secondary">
+                  Set line
+                </Button>
+              </form>
+            ),
+          },
+        ]
+      : []),
     ...(contract.flights.length > 0
       ? [
           {
@@ -404,6 +487,11 @@ function CopyCard({
           {item.label}
         </span>
         <Badge variant={APPROVAL_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
+        {lineId && !lineIsCurrent && (
+          // A revision replaced the line this message was dedicated to; until
+          // it is set again it serves no line of the current revision.
+          <Badge variant="warning">Line replaced — set it again</Badge>
+        )}
         <span className="text-[13px] text-ink-500">{meta}</span>
         <span className="flex-1" />
         <Link

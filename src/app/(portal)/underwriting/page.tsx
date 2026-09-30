@@ -1,3 +1,4 @@
+import { servesLine } from "@/lib/underwriting/rotation";
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
@@ -97,7 +98,14 @@ export default async function UnderwritingDashboardPage({
   const conflicts = views
     .map((view) => {
       const contract = contractByLine.get(view.scheduleLine.id)!;
-      const linkedCopy = copyByContract.get(contract.id) ?? [];
+      // Copy that may fill this line: its flight's or contract-wide, and
+      // dedicated to this line if the line has dedicated copy (servesLine()).
+      const lineScopes = (copyByContract.get(contract.id) ?? []).map((link) => ({
+        lineId: link.scheduleLineId,
+      }));
+      const linkedCopy = (copyByContract.get(contract.id) ?? []).filter((link) =>
+        servesLine({ lineId: link.scheduleLineId }, view.scheduleLine.id, lineScopes),
+      );
       const placeable = placeableByLine.get(view.scheduleLine.id);
       const approvedDurations = linkedCopy
         .filter(

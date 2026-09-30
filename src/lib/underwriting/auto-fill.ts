@@ -32,7 +32,7 @@ import {
   type ExistingSequenceEntry,
   type UnplaceableUnit,
 } from "./inventory-selection";
-import { nextInRotation } from "./rotation";
+import { nextInRotation, previousInGroup } from "./rotation";
 import { describePoolReachability, poolReachability } from "./pool-targets";
 import { rebalanceContractRotation } from "./rotation-rebalance";
 
@@ -273,13 +273,14 @@ export async function autoFillScheduleLine(
   // placement of the contract's revision, all lines — and the caller
   // re-walks the whole contract once the run has written.
   const copyCandidates: CopyCandidate[] = (copyByContract.get(scheduleLine.contract_id) ?? []).map(
-    ({ copy, flightId }) => ({
+    ({ copy, flightId, scheduleLineId }) => ({
       id: copy.id,
       approvalStatus: copy.approval_status,
       durationSeconds: copy.duration_seconds,
       effectiveFrom: copy.effective_from,
       effectiveTo: copy.effective_to,
       flightId,
+      lineId: scheduleLineId,
       createdAt: copy.created_at,
     }),
   );
@@ -361,6 +362,7 @@ export async function autoFillScheduleLine(
     sequence.push({
       scheduledAt: scheduledAtByBreak.get(item.breakId) ?? `${item.airDate}T00:00:00Z`,
       copyId: item.copyId,
+      lineId: scheduleLine.id,
     });
   }
 
@@ -445,13 +447,11 @@ async function bumpToSeat(
   const rotationCopies = copyCandidates.map(toRotationCopy);
   /** The message the rotation gives a seat at this instant: the one after the contract's latest placement before it. */
   const copyForSeat = (seatScheduledAt: string, airDate: string, roomSeconds: number) => {
-    const before = sequence
-      .filter((entry) => entry.scheduledAt < seatScheduledAt)
-      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-    const previous = before.length > 0 ? before[before.length - 1]!.copyId : null;
+    const previous = previousInGroup(sequence, scheduleLine.id, rotationCopies, seatScheduledAt);
     return nextInRotation(rotationCopies, previous, {
       airDate,
       lineFlightId: scheduleLine.flight_id,
+      lineId: scheduleLine.id,
       roomSeconds,
     });
   };
@@ -531,7 +531,7 @@ async function bumpToSeat(
       result.stillUnplaceable.push(unit);
       continue;
     }
-    sequence.push({ scheduledAt: seat.scheduledAt, copyId: copy.id });
+    sequence.push({ scheduledAt: seat.scheduledAt, copyId: copy.id, lineId: scheduleLine.id });
     seat.remainingSeconds =
       seat.remainingSeconds + movedItem.durationSeconds - (copy.durationSeconds ?? 0);
     seat.items = seat.items.filter((item) => item.itemId !== plan.move.itemId);

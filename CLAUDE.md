@@ -1389,6 +1389,32 @@ either/or quantity across lines, and never add multi-pool lines. Order
 numbers are nullable and never composed; a window ending 00:00 is stored
 as 24:00.
 
+**Underwriting & Traffic: seeding active copy from RadioTraffic
+(2026-09-30).** Read `docs/underwriting-traffic-redesign.md` §15 before
+touching `/underwriting/migration/copy` or `lib/underwriting/legacy-copy*.ts`;
+this is a pointer. An administrator's one-time import of RadioTraffic's
+"Active Copy by Underwriter" CSV: the pure planner (`legacy-copy.ts`,
+tested against the real export in `fixtures/`) runs in the browser for the
+review and again in the non-redirecting action for the write, with no
+schema change and no migration table. A message is identified by
+underwriter + normalised script, never by its cart — RadioTraffic's cart
+numbers are its own copy references (reused across messages, and not DAD
+cut numbers), so `execution_kind` comes from the script. Copy on file is
+reused (dates from RadioTraffic, a missing cart added); its wording changes
+only on an explicit answer. Contracts link only when exactly one agreement
+fits, through the existing `rebalanceContractRotation()`.
+
+**Underwriting & Traffic: copy dedicated to one line (2026-09-30).** Read
+`docs/underwriting-traffic-redesign.md` §16 before touching
+`uw_contract_copy.schedule_line_id`, rotation, or copy selection; this is a
+pointer. Copy scoped to a line serves only that line, a line with copy of its
+own takes only that copy, other lines take the unscoped copy — `rotation.ts`'s
+`servesLine()` and SQL's `uw_copy_serves_line()` are twins, and a trigger on
+`uw_scheduled_placements` (`copy_wrong_line`) enforces it for every writer
+(`20260930150000`, applied to both projects). Rotation cycles per group (one
+per dedicated line, one general), not contract-wide. End of Line Cafe's
+production contract was linked this way to match its order.
+
 **Underwriting & Traffic: the schedule tab's line rows, and placing a
 credit as its own page (2026-09-28).** Read
 `docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`

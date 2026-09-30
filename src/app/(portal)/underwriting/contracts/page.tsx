@@ -124,7 +124,7 @@ export default async function ContractsPage({
             href="/underwriting/migration"
             className="px-1 text-sm font-bold text-brand-link hover:underline"
           >
-            Migrate legacy agreements
+            Migrate legacy records
           </Link>
         )}
         <PrimaryLink href="/underwriting/contracts/new">

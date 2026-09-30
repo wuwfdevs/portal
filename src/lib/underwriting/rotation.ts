@@ -31,6 +31,12 @@ export interface RotationCopy {
   effectiveTo: string | null;
   /** The uw_contract_copy link's flight scope — null for contract-wide copy. */
   flightId: string | null;
+  /**
+   * The uw_contract_copy link's schedule-line scope: the order gives this
+   * message to one line ("For Carpool: #1"). Null for copy that serves
+   * every line without dedicated copy of its own.
+   */
+  lineId?: string | null;
   createdAt: string;
 }
 
@@ -40,6 +46,8 @@ export interface RotationSlot {
   scheduledAt: string;
   airDate: string;
   lineFlightId: string | null;
+  /** The schedule line the slot belongs to; absent only for a fixed slot the walk never re-assigns. */
+  lineId?: string | null;
   /** The message the slot carries now; null for a unit still to be assigned. */
   copyId: string | null;
   /** Aired, frozen, or overridden: never changed, still advances the cycle. */
@@ -60,15 +68,33 @@ export function cycleOrder(copies: RotationCopy[]): RotationCopy[] {
   );
 }
 
+/**
+ * Whether a message may air on a line: copy scoped to a line serves only
+ * that line, and a line that has copy of its own takes only that copy —
+ * End of Line Cafe's order gives #1 to Carpool and #2 to Total Program
+ * Rotation, so neither rotates into the other. `copies` is every message
+ * linked to the contract. The SQL twin is uw_copy_serves_line().
+ */
+export function servesLine(
+  copy: Pick<RotationCopy, "lineId">,
+  lineId: string | null | undefined,
+  copies: Pick<RotationCopy, "lineId">[],
+): boolean {
+  if (copy.lineId != null) return copy.lineId === lineId;
+  return lineId == null || !copies.some((other) => other.lineId != null && other.lineId === lineId);
+}
+
 export function eligibleFor(
   copy: RotationCopy,
-  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "roomSeconds">,
+  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds">,
+  copies: RotationCopy[] = [copy],
 ): boolean {
   if (copy.approvalStatus !== "approved") return false;
   if (copy.durationSeconds == null || copy.durationSeconds > slot.roomSeconds) return false;
   if (copy.effectiveFrom > slot.airDate) return false;
   if (copy.effectiveTo != null && copy.effectiveTo < slot.airDate) return false;
   if (copy.flightId != null && copy.flightId !== slot.lineFlightId) return false;
+  if (!servesLine(copy, slot.lineId, copies)) return false;
   return true;
 }
 
@@ -84,7 +110,7 @@ export function eligibleFor(
 export function nextInRotation(
   copies: RotationCopy[],
   previousCopyId: string | null,
-  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "roomSeconds">,
+  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds">,
   avoidCopyId: string | null = null,
 ): RotationCopy | null {
   const cycle = cycleOrder(copies);
@@ -94,7 +120,7 @@ export function nextInRotation(
   const eligible: RotationCopy[] = [];
   for (let step = 1; step <= cycle.length; step++) {
     const copy = cycle[(previousIndex + step) % cycle.length]!;
-    if (eligibleFor(copy, slot)) eligible.push(copy);
+    if (eligibleFor(copy, slot, cycle)) eligible.push(copy);
   }
   if (eligible.length === 0) return null;
   // Repeating the previous message is worse than matching the fixed one
@@ -109,34 +135,76 @@ export function nextInRotation(
  * should change. Fixed slots are never in the result; an unfixed slot with
  * no eligible message keeps what it has (never cleared here).
  */
+/**
+ * Which cycle a slot belongs to. A line with dedicated copy rotates its own
+ * messages; every other line shares the contract's general cycle, which a
+ * dedicated message never interrupts (Phil Hall 2022–23: Copy 1–4 keep
+ * their order around the Carpool message). A slot without a line — an
+ * existing entry the planner only knows by time and message — is placed by
+ * its message.
+ */
+export function rotationGroup(
+  slot: { lineId?: string | null; copyId?: string | null },
+  copies: Pick<RotationCopy, "id" | "lineId">[],
+): string {
+  if (slot.lineId != null) {
+    return copies.some((copy) => copy.lineId === slot.lineId) ? `line:${slot.lineId}` : "general";
+  }
+  const copy = copies.find((entry) => entry.id === slot.copyId);
+  return copy?.lineId ? `line:${copy.lineId}` : "general";
+}
+
+/** The message that aired most recently before `beforeISO` in the same cycle as `lineId` — what a "next in rotation" default starts from. */
+export function previousInGroup(
+  entries: { scheduledAt: string; copyId: string | null; lineId?: string | null }[],
+  lineId: string | null | undefined,
+  copies: Pick<RotationCopy, "id" | "lineId">[],
+  beforeISO?: string,
+): string | null {
+  const group = rotationGroup({ lineId }, copies);
+  const before = entries
+    .filter((entry) => beforeISO === undefined || entry.scheduledAt < beforeISO)
+    .filter((entry) => rotationGroup(entry, copies) === group)
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  return before.length > 0 ? (before[before.length - 1]!.copyId ?? null) : null;
+}
+
 export function walkRotation(copies: RotationCopy[], slots: RotationSlot[]): RotationChange[] {
   const ordered = [...slots].sort(
     (a, b) => a.scheduledAt.localeCompare(b.scheduledAt) || a.id.localeCompare(b.id),
   );
-  // For each slot, the message of the nearest fixed slot after it — the one
-  // thing the walk cannot re-sequence around.
+  const groups = ordered.map((slot) => rotationGroup(slot, copies));
+  // For each slot, the message of the nearest fixed slot after it in the
+  // same cycle — the one thing the walk cannot re-sequence around.
   const nextFixedCopy: (string | null)[] = new Array(ordered.length).fill(null);
-  let upcoming: string | null = null;
+  const upcoming = new Map<string, string | null>();
   for (let index = ordered.length - 1; index >= 0; index--) {
-    nextFixedCopy[index] = upcoming;
+    const group = groups[index]!;
+    nextFixedCopy[index] = upcoming.get(group) ?? null;
     const slot = ordered[index]!;
-    if (slot.fixed) upcoming = slot.copyId;
+    if (slot.fixed) upcoming.set(group, slot.copyId);
   }
 
   const changes: RotationChange[] = [];
-  let previous: string | null = null;
+  const previous = new Map<string, string | null>();
   ordered.forEach((slot, index) => {
+    const group = groups[index]!;
     if (slot.fixed) {
-      previous = slot.copyId;
+      previous.set(group, slot.copyId);
       return;
     }
-    const pick = nextInRotation(copies, previous, slot, nextFixedCopy[index] ?? null);
+    const pick = nextInRotation(
+      copies,
+      previous.get(group) ?? null,
+      slot,
+      nextFixedCopy[index] ?? null,
+    );
     if (pick === null) {
-      previous = slot.copyId;
+      previous.set(group, slot.copyId);
       return;
     }
     if (pick.id !== slot.copyId) changes.push({ id: slot.id, copyId: pick.id });
-    previous = pick.id;
+    previous.set(group, pick.id);
   });
   return changes;
 }
