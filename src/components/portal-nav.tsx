@@ -30,21 +30,24 @@ export function PortalNav({ profile }: { profile: Profile }) {
   const helpOpen = rightPanel.open === "help";
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-line bg-white px-4 sm:gap-7 sm:px-7">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-line bg-white px-3 sm:gap-7 sm:px-7">
       <Link href="/dashboard" className="flex shrink-0 items-center gap-3.5">
         <Image
           src="/wuwf-logo.png"
           alt="WUWF"
           height={26}
           width={62}
-          className="h-[26px] w-auto max-w-none"
+          className="h-[22px] w-auto max-w-none sm:h-[26px]"
         />
         <span className="hidden h-[22px] w-px bg-line sm:block" />
         <span className="hidden text-[13px] font-bold tracking-wide text-ink-700 sm:inline">
           TOOLS
         </span>
       </Link>
-      <nav className="flex h-full min-w-0 items-center gap-4 sm:ml-2 sm:gap-[22px]">
+      {/* On the narrowest phones (with Admin and Help both showing) the tabs
+          can still outgrow the row; they scroll sideways rather than slide
+          under the Help button and account menu. */}
+      <nav className="flex h-full min-w-0 items-center gap-3 overflow-x-auto [scrollbar-width:none] sm:ml-2 sm:gap-[22px] [&::-webkit-scrollbar]:hidden">
         <NavLink href="/dashboard" active={!isOnAdmin && !isOnResources}>
           Dashboard
         </NavLink>
@@ -58,7 +61,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
           </NavLink>
         )}
       </nav>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {showHelp && (
           <button
             type="button"
@@ -66,7 +69,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
             aria-expanded={helpOpen}
             aria-label={helpOpen ? "Close help" : "Help"}
             className={cn(
-              "flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[13px] font-semibold",
+              "flex items-center gap-1.5 rounded p-1.5 text-[13px] font-semibold sm:px-2.5",
               helpOpen ? "bg-brand-surface text-brand-link" : "text-ink-700 hover:bg-panel-50",
             )}
           >
@@ -90,11 +93,11 @@ export function PortalNav({ profile }: { profile: Profile }) {
           </button>
         )}
         <details className="group relative shrink-0">
-          <summary className="flex cursor-pointer list-none items-center gap-2 rounded px-2 py-1.5 [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 rounded px-1 py-1.5 sm:px-2 [&::-webkit-details-marker]:hidden">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-surface text-xs font-bold text-brand-link">
               {initialsFor(profile.display_name)}
             </span>
-            <span className="hidden text-[13px] font-semibold text-ink-700 sm:inline">
+            <span className="hidden text-[13px] font-semibold text-ink-700 md:inline">
               {profile.display_name}
             </span>
             <svg
@@ -104,6 +107,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
               fill="none"
               stroke="#5A6068"
               strokeWidth="2"
+              className="hidden sm:block"
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -140,7 +144,7 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex h-full items-center border-b-2 text-sm font-semibold",
+        "flex h-full shrink-0 items-center whitespace-nowrap border-b-2 text-[13px] font-semibold sm:text-sm",
         active ? "border-brand-primary text-brand-link" : "border-transparent text-ink-700",
       )}
     >
