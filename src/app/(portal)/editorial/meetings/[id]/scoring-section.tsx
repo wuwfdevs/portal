@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PitchValues, fieldsWithValues } from "@/components/editorial/pitch-values";
 import { Alert } from "@/components/ui/alert";
+import { FloatingPanel, useDetailsMenu } from "@/components/ui/floating-panel";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
 import {
@@ -220,38 +221,47 @@ function AddPitchControl({
   meetingId: string;
   candidates: PitchListEntry[];
 }) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const menu = useDetailsMenu(detailsRef, panelRef);
+
   if (candidates.length === 0) {
     return <p className="text-xs text-ink-400">No open pitches available to add.</p>;
   }
 
   return (
-    <details className="relative">
+    <details ref={detailsRef} onToggle={menu.onToggle} className="relative">
       <summary className="inline-flex w-fit cursor-pointer list-none items-center rounded border border-brand-link px-3 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
         + Add pitch
       </summary>
-      <form
-        action={addPitchToSlate}
-        className="absolute right-0 z-10 mt-2 flex w-72 flex-col gap-2.5 rounded border border-line bg-white p-3 shadow-md"
+      <FloatingPanel
+        anchorRef={detailsRef}
+        open={menu.open}
+        ref={panelRef}
+        offset={8}
+        className="w-72 rounded border border-line bg-white p-3 shadow-md"
       >
-        <input type="hidden" name="meeting_id" value={meetingId} />
-        <Select name="pitch_id" required aria-label="Pitch to add to the slate" defaultValue="">
-          <option value="" disabled>
-            Choose a pitch…
-          </option>
-          {candidates.map((candidate) => (
-            <option key={candidate.pitch.id} value={candidate.pitch.id}>
-              {candidate.pitch.title}
-              {candidate.stale ? " · Stale" : ""}
-              {candidate.deferralCount > 0 ? ` · Deferred ${candidate.deferralCount}×` : ""}
+        <form action={addPitchToSlate} onSubmit={menu.close} className="flex flex-col gap-2.5">
+          <input type="hidden" name="meeting_id" value={meetingId} />
+          <Select name="pitch_id" required aria-label="Pitch to add to the slate" defaultValue="">
+            <option value="" disabled>
+              Choose a pitch…
             </option>
-          ))}
-        </Select>
-        <div className="flex justify-end">
-          <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
-            Add to slate
-          </Button>
-        </div>
-      </form>
+            {candidates.map((candidate) => (
+              <option key={candidate.pitch.id} value={candidate.pitch.id}>
+                {candidate.pitch.title}
+                {candidate.stale ? " · Stale" : ""}
+                {candidate.deferralCount > 0 ? ` · Deferred ${candidate.deferralCount}×` : ""}
+              </option>
+            ))}
+          </Select>
+          <div className="flex justify-end">
+            <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+              Add to slate
+            </Button>
+          </div>
+        </form>
+      </FloatingPanel>
     </details>
   );
 }

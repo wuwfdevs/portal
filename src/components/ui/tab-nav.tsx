@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 
 export interface TabNavItem {
   href: string;
@@ -29,6 +30,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(tabs.length);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -69,16 +71,20 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
 
   useEffect(() => {
     if (!menuOpen) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      // The menu is portaled to <body>, so it's outside containerRef — check both.
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setMenuOpen(false);
+      }
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setMenuOpen(false);
     }
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);
@@ -122,28 +128,29 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
               ⋯
             </span>
           </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded border border-line bg-white py-1 shadow-md"
-            >
-              {overflow.map((tab) => (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  role="menuitem"
-                  aria-current={tab.active ? "page" : undefined}
-                  onClick={() => setMenuOpen(false)}
-                  className={cn(
-                    "block px-3 py-1.5 text-sm hover:bg-panel-50",
-                    tab.active ? "font-semibold text-brand-link" : "text-ink-700",
-                  )}
-                >
-                  {tab.label}
-                </Link>
-              ))}
-            </div>
-          )}
+          <FloatingPanel
+            anchorRef={moreRef}
+            open={menuOpen}
+            ref={menuRef}
+            role="menu"
+            className="min-w-[10rem] rounded border border-line bg-white py-1 shadow-md"
+          >
+            {overflow.map((tab) => (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                role="menuitem"
+                aria-current={tab.active ? "page" : undefined}
+                onClick={() => setMenuOpen(false)}
+                className={cn(
+                  "block px-3 py-1.5 text-sm hover:bg-panel-50",
+                  tab.active ? "font-semibold text-brand-link" : "text-ink-700",
+                )}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </FloatingPanel>
         </div>
       )}
 
