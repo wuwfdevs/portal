@@ -5,7 +5,7 @@ import {
   buildReportIdentifier,
   certificationSentence,
   endOfPreviousMonth,
-  nextAffidavitPeriod,
+  dueAffidavitRanges,
   type AffidavitAiringInput,
   defaultAffidavitPeriod,
   newAffidavitHref,
@@ -256,36 +256,71 @@ describe("affidavitFileName", () => {
   });
 });
 
-describe("nextAffidavitPeriod", () => {
+describe("dueAffidavitRanges", () => {
   const base = {
     status: "active",
     effectiveFrom: "2026-01-12",
     effectiveTo: "2026-07-12",
-    coveredThrough: null,
+    covered: [],
     today: "2026-03-18",
   };
 
-  it("runs from the contract's start through the end of last month", () => {
+  it("owes one range per month, from the contract's start through the end of last month", () => {
     expect(endOfPreviousMonth("2026-03-18")).toBe("2026-02-28");
-    expect(nextAffidavitPeriod(base)).toEqual({ start: "2026-01-12", end: "2026-02-28" });
+    expect(dueAffidavitRanges(base)).toEqual([
+      { start: "2026-01-12", end: "2026-01-31" },
+      { start: "2026-02-01", end: "2026-02-28" },
+    ]);
   });
 
-  it("starts the day after the latest affidavit", () => {
-    expect(nextAffidavitPeriod({ ...base, coveredThrough: "2026-01-31" })).toEqual({
-      start: "2026-02-01",
-      end: "2026-02-28",
+  it("splits a long backlog into months instead of one multi-month period", () => {
+    const ranges = dueAffidavitRanges({
+      ...base,
+      effectiveFrom: "2026-01-01",
+      effectiveTo: null,
+      today: "2026-10-01",
     });
-    expect(nextAffidavitPeriod({ ...base, coveredThrough: "2026-02-28" })).toBeNull();
+    expect(ranges).toHaveLength(9);
+    expect(ranges[8]).toEqual({ start: "2026-09-01", end: "2026-09-30" });
+  });
+
+  it("takes out what existing affidavits cover, in any order", () => {
+    expect(
+      dueAffidavitRanges({ ...base, covered: [{ start: "2026-02-01", end: "2026-02-28" }] }),
+    ).toEqual([{ start: "2026-01-12", end: "2026-01-31" }]);
+    expect(
+      dueAffidavitRanges({
+        ...base,
+        covered: [
+          { start: "2026-01-12", end: "2026-01-31" },
+          { start: "2026-02-01", end: "2026-02-15" },
+        ],
+      }),
+    ).toEqual([{ start: "2026-02-16", end: "2026-02-28" }]);
+  });
+
+  it("leaves the gap around a hand-made period in the middle of a month", () => {
+    expect(
+      dueAffidavitRanges({ ...base, covered: [{ start: "2026-02-10", end: "2026-02-20" }] }),
+    ).toEqual([
+      { start: "2026-01-12", end: "2026-01-31" },
+      { start: "2026-02-01", end: "2026-02-09" },
+      { start: "2026-02-21", end: "2026-02-28" },
+    ]);
   });
 
   it("closes at the contract's end once it has passed", () => {
     expect(
-      nextAffidavitPeriod({ ...base, effectiveTo: "2026-03-10", coveredThrough: "2026-02-28" }),
-    ).toEqual({ start: "2026-03-01", end: "2026-03-10" });
+      dueAffidavitRanges({
+        ...base,
+        effectiveTo: "2026-03-10",
+        covered: [{ start: "2026-01-12", end: "2026-02-28" }],
+      }),
+    ).toEqual([{ start: "2026-03-01", end: "2026-03-10" }]);
   });
 
   it("is never due for a draft or a contract that hasn't reached a full month", () => {
-    expect(nextAffidavitPeriod({ ...base, status: "draft" })).toBeNull();
-    expect(nextAffidavitPeriod({ ...base, effectiveFrom: "2026-03-02" })).toBeNull();
+    expect(dueAffidavitRanges({ ...base, status: "draft" })).toEqual([]);
+    expect(dueAffidavitRanges({ ...base, effectiveFrom: "2026-03-02" })).toEqual([]);
   });
 });

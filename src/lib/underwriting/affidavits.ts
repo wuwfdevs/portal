@@ -313,27 +313,44 @@ export function endOfPreviousMonth(today: string): string {
 }
 
 /**
- * The period a contract's next affidavit would cover, or null if nothing is
- * due yet. Affidavits run monthly: the next one starts the day after the
- * latest one ends (or on the contract's start) and closes at the end of last
- * month — or at the contract's own end, once that has passed. A draft
- * contract has aired nothing. The caller still checks that something aired
- * in the period before listing it.
+ * The periods a contract still owes an affidavit for, one per calendar month
+ * (docs/underwriting-traffic-redesign.md §17). Affidavits run monthly, so the
+ * contract's run — its start through the end of last month, or through its
+ * own end once that has passed — is cut at month boundaries, and from each
+ * month whatever an existing affidavit already covers is taken out. A hand-
+ * made affidavit for September 1–15 leaves September 16–30 owed; one for
+ * September leaves August owed even though it came later. A draft contract
+ * has aired nothing. The caller still checks that something aired in each
+ * range before listing it.
  */
-export function nextAffidavitPeriod(contract: {
+export function dueAffidavitRanges(contract: {
   status: string;
   effectiveFrom: string;
   effectiveTo: string | null;
-  coveredThrough: string | null;
+  covered: readonly { start: string; end: string }[];
   today: string;
-}): { start: string; end: string } | null {
-  if (contract.status === "draft") return null;
-  const start = contract.coveredThrough
-    ? shiftDateISO(contract.coveredThrough, 1)
-    : contract.effectiveFrom;
-  // A contract that has ended is due through its last day; one still
-  // running, through the end of last month.
+}): { start: string; end: string }[] {
+  if (contract.status === "draft") return [];
   const ended = contract.effectiveTo !== null && contract.effectiveTo < contract.today;
   const end = ended ? contract.effectiveTo! : endOfPreviousMonth(contract.today);
-  return end >= start ? { start, end } : null;
+  if (end < contract.effectiveFrom) return [];
+
+  const covered = [...contract.covered].sort((a, b) => a.start.localeCompare(b.start));
+  const ranges: { start: string; end: string }[] = [];
+  let monthStart = `${contract.effectiveFrom.slice(0, 7)}-01`;
+  while (monthStart <= end) {
+    const nextMonth = shiftDateISO(`${monthStart.slice(0, 7)}-28`, 4).slice(0, 7) + "-01";
+    const monthEnd = shiftDateISO(nextMonth, -1);
+    let cursor = monthStart < contract.effectiveFrom ? contract.effectiveFrom : monthStart;
+    const last = monthEnd < end ? monthEnd : end;
+    for (const range of covered) {
+      if (range.end < cursor || range.start > last) continue;
+      if (range.start > cursor) ranges.push({ start: cursor, end: shiftDateISO(range.start, -1) });
+      if (range.end >= cursor) cursor = shiftDateISO(range.end, 1);
+      if (cursor > last) break;
+    }
+    if (cursor <= last) ranges.push({ start: cursor, end: last });
+    monthStart = nextMonth;
+  }
+  return ranges;
 }

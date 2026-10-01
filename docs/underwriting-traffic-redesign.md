@@ -1598,3 +1598,23 @@ One board detail was not built: the "By date" view hiding Clear on a live
 rundown. A staffer's manual clear is deliberately unrestricted on live
 rundowns (§10 — only automation is frozen out), so the board's note was
 wrong, not the code.
+
+### 17.7 Months owed, and one row per contract (same day, from review)
+
+Three review findings, all fixed. (1) What a contract owes was one period
+from its last affidavit through the end of last month, filed under the
+month it ended in: a contract running since January with no affidavits
+showed one January–September row under September, left January–August
+empty, and generated one nine-month affidavit. `dueAffidavitRanges`
+(`affidavits.ts`, pure, tested; replaces `nextAffidavitPeriod`) now cuts the
+run at month boundaries and subtracts every existing affidavit's period, so
+each month owes its own range and an out-of-order or hand-made affidavit
+leaves exactly the gaps it doesn't cover. (2) A month could hold both a
+generated affidavit and a range still owed for the same contract (a
+hand-made September 1–15 leaves 16–30), which appended a second row;
+`buildAffidavitMonth` now merges them — the affidavit sets the row's state
+and the remainder rides along as `due`, shown as a dated Generate button on
+that row, and "Generate N" submits every range owed. (3) The dashboard's
+"Awaiting your signature" tile opened last month even when the drafts were
+older; `listMonthsAwaitingSignature()` lets it open the oldest month with a
+draft, and the Affidavits page names any other month with drafts waiting.

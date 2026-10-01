@@ -13,8 +13,8 @@ import { autoFillAllAction } from "./auto-fill-actions";
 import {
   buildScheduleLineDemandViews,
   listBucketsForLines,
-  countAffidavitsAwaitingSignature,
   listAffidavitsDue,
+  listMonthsAwaitingSignature,
   listContracts,
   listCopy,
   listCopyLinkedToContracts,
@@ -76,7 +76,7 @@ export default async function UnderwritingDashboardPage({
     pools,
     programs,
     affidavitsDue,
-    affidavitsAwaitingSignature,
+    monthsAwaitingSignature,
   ] = await Promise.all([
     requireUnderwritingAccess(),
     listContracts(),
@@ -86,7 +86,7 @@ export default async function UnderwritingDashboardPage({
     listInventoryPools(),
     listProgramOptions(),
     listAffidavitsDue(),
-    countAffidavitsAwaitingSignature(),
+    listMonthsAwaitingSignature(),
   ]);
   const unresolvedExceptions = openExceptions.filter(
     (exception) => exception.resolution_status === "open",
@@ -260,8 +260,9 @@ export default async function UnderwritingDashboardPage({
           ? [
               {
                 label: "Awaiting your signature",
-                count: affidavitsAwaitingSignature,
-                href: `/underwriting/affidavits?month=${lastMonth}`,
+                count: monthsAwaitingSignature.reduce((sum, item) => sum + item.count, 0),
+                // The oldest month with a draft, so the tile always lands on a signing queue.
+                href: `/underwriting/affidavits?month=${monthsAwaitingSignature[0]?.month ?? lastMonth}`,
                 tone: "accent" as const,
               },
             ]

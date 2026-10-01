@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/button";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
-import { getAffidavitMonth } from "@/lib/underwriting/queries";
+import {
+  getAffidavitMonth,
+  listMonthsAwaitingSignature,
+  type AffidavitMonthContractRef,
+} from "@/lib/underwriting/queries";
 import { newAffidavitHref } from "@/lib/underwriting/affidavits";
 import {
   countAffidavitStates,
   defaultAffidavitMonth,
+  dueRangesToGenerate,
+  type AffidavitMonthRow,
   isMonthKey,
   shiftMonth,
   signingQueue,
@@ -35,10 +41,13 @@ export default async function AffidavitsPage({
   const { month: monthParam, q, error, signed } = await searchParams;
   const today = stationTodayISO();
   const month = monthParam && isMonthKey(monthParam) ? monthParam : defaultAffidavitMonth(today);
-  const [{ isManager }, { rows: allRows, otherMonths, openExceptionsByRow }] = await Promise.all([
-    requireUnderwritingAccess(),
-    getAffidavitMonth(month),
-  ]);
+  const [{ isManager }, { rows: allRows, otherMonths, openExceptionsByRow }, monthsToSign] =
+    await Promise.all([
+      requireUnderwritingAccess(),
+      getAffidavitMonth(month),
+      listMonthsAwaitingSignature(),
+    ]);
+  const otherMonthsToSign = isManager ? monthsToSign.filter((item) => item.month !== month) : [];
   const query = (q ?? "").trim().toLowerCase();
   const rows =
     query === ""
@@ -46,7 +55,7 @@ export default async function AffidavitsPage({
       : allRows.filter((row) => row.contract.underwriter.name.toLowerCase().includes(query));
   const counts = countAffidavitStates(allRows);
   const queue = signingQueue(allRows);
-  const toGenerate = allRows.filter((row) => row.state === "generate");
+  const toGenerate = dueRangesToGenerate(allRows);
   const monthHref = (next: string) => `/underwriting/affidavits?month=${next}`;
   const latestMonth = defaultAffidavitMonth(today);
 
@@ -87,12 +96,12 @@ export default async function AffidavitsPage({
         {toGenerate.length > 0 && (
           <form action={generateAffidavitsForMonth}>
             <input type="hidden" name="month" value={month} />
-            {toGenerate.map((row) => (
+            {toGenerate.map((range) => (
               <input
-                key={row.key}
+                key={`${range.contractId}-${range.periodStart}`}
                 type="hidden"
                 name="row"
-                value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
+                value={`${range.contractId}|${range.periodStart}|${range.periodEnd}`}
               />
             ))}
             <Button type="submit" variant="secondary">
@@ -113,6 +122,19 @@ export default async function AffidavitsPage({
       {error && <Alert>{error}</Alert>}
       {signed && queue.length === 0 && counts.sign === 0 && (
         <Alert variant="info">Every affidavit for {monthLabel(`${month}-01`)} is signed.</Alert>
+      )}
+      {otherMonthsToSign.length > 0 && (
+        <Alert variant="note">
+          Also waiting for your signature:{" "}
+          {otherMonthsToSign.map((other, index) => (
+            <span key={other.month}>
+              {index > 0 && ", "}
+              <Link href={monthHref(other.month)} className="font-semibold text-brand-link">
+                {monthLabel(`${other.month}-01`)} ({other.count})
+              </Link>
+            </span>
+          ))}
+        </Alert>
       )}
       {otherMonths.length > 0 && (
         <Alert variant="note">
@@ -201,17 +223,7 @@ export default async function AffidavitsPage({
                   </Cell>
                   <Cell stack="aside">
                     {row.state === "generate" ? (
-                      <form action={generateAffidavitsForMonth}>
-                        <input type="hidden" name="month" value={month} />
-                        <input
-                          type="hidden"
-                          name="row"
-                          value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
-                        />
-                        <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
-                          Generate
-                        </Button>
-                      </form>
+                      <GenerateRanges row={row} month={month} />
                     ) : row.state === "sign" && row.affidavit ? (
                       isManager ? (
                         <Link
@@ -264,6 +276,11 @@ export default async function AffidavitsPage({
                         />
                       </span>
                     ) : null}
+                    {row.state !== "generate" && row.due.length > 0 && (
+                      <div className="mt-2">
+                        <GenerateRanges row={row} month={month} withDates />
+                      </div>
+                    )}
                     {row.earlier.length > 0 && (
                       <div className="mt-1 text-xs text-ink-500">
                         Earlier:{" "}
@@ -300,6 +317,42 @@ export default async function AffidavitsPage({
       >
         Generate one by hand
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Generate for each range a row still owes this month — one button for a
+ * plain row; dated buttons for the rest of a month a hand-made affidavit
+ * only partly covers, or more than one range.
+ */
+function GenerateRanges({
+  row,
+  month,
+  withDates = false,
+}: {
+  row: AffidavitMonthRow<AffidavitMonthContractRef>;
+  month: string;
+  withDates?: boolean;
+}) {
+  const dated = withDates || row.due.length > 1;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {row.due.map((range) => (
+        <form key={range.periodStart} action={generateAffidavitsForMonth}>
+          <input type="hidden" name="month" value={month} />
+          <input
+            type="hidden"
+            name="row"
+            value={`${row.contract.id}|${range.periodStart}|${range.periodEnd}`}
+          />
+          <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+            {dated
+              ? `Generate ${shortDate(range.periodStart)} – ${shortDate(range.periodEnd)}`
+              : "Generate"}
+          </Button>
+        </form>
+      ))}
     </div>
   );
 }

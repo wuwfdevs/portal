@@ -539,8 +539,10 @@ refuses any change to a certified affidavit, and a check constraint keeps
 certified rows paired with their document). The download route
 (`/api/underwriting/affidavits/[id]/pdf`) serves the stored file for a
 certified affidavit and a watermarked draft otherwise. The affidavit list
-leads with contracts due their next monthly affidavit (`nextAffidavitPeriod`
-plus a check that something aired), required ones first. Sending it to the
+is one list per month (docs/underwriting-traffic-redesign.md §17): each
+contract's run is cut into calendar months, less what existing affidavits
+cover (`dueAffidavitRanges`, plus a check that something aired), required
+ones first. Sending it to the
 client stays with the account rep — no transactional email, by decision.
 
 ### Audit events

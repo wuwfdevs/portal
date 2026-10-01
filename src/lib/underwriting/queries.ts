@@ -28,7 +28,7 @@ import { eligibleDatesInBucket, minutesFromTimeString } from "./eligibility";
 import {
   buildAffidavitDocument,
   isAiredOutcome,
-  nextAffidavitPeriod,
+  dueAffidavitRanges,
   type AffidavitDocument,
 } from "./affidavits";
 import type { SelectionDemand } from "./inventory-selection";
@@ -1599,7 +1599,7 @@ export interface AffidavitDue {
 
 /**
  * Contracts owed their next monthly affidavit (lib/underwriting/affidavits.ts's
- * nextAffidavitPeriod) that have something aired in that period — the
+ * dueAffidavitRanges, one per month still owed) with something aired in that period — the
  * affidavit list's "Due" section. Contracts whose agreement requires
  * affidavits come first.
  */
@@ -1608,26 +1608,28 @@ export async function listAffidavitsDue(): Promise<AffidavitDue[]> {
   const today = stationTodayISO();
   const [contracts, affidavitsResult] = await Promise.all([
     listContracts(),
-    supabase.from("uw_affidavits").select("contract_id, campaign_period_end"),
+    supabase
+      .from("uw_affidavits")
+      .select("contract_id, campaign_period_start, campaign_period_end"),
   ]);
   const affidavits = unwrapRead(affidavitsResult, "the affidavits") ?? [];
-  const coveredThrough = new Map<string, string>();
+  const coveredByContract = new Map<string, { start: string; end: string }[]>();
   for (const affidavit of affidavits) {
-    const current = coveredThrough.get(affidavit.contract_id);
-    if (!current || affidavit.campaign_period_end > current)
-      coveredThrough.set(affidavit.contract_id, affidavit.campaign_period_end);
+    const list = coveredByContract.get(affidavit.contract_id) ?? [];
+    list.push({ start: affidavit.campaign_period_start, end: affidavit.campaign_period_end });
+    coveredByContract.set(affidavit.contract_id, list);
   }
 
-  const candidates = contracts.flatMap((contract) => {
-    const period = nextAffidavitPeriod({
+  // One candidate per contract per month still owed (dueAffidavitRanges).
+  const candidates = contracts.flatMap((contract) =>
+    dueAffidavitRanges({
       status: contract.status,
       effectiveFrom: contract.effective_from,
       effectiveTo: contract.effective_to,
-      coveredThrough: coveredThrough.get(contract.id) ?? null,
+      covered: coveredByContract.get(contract.id) ?? [],
       today,
-    });
-    return period ? [{ contract, period }] : [];
-  });
+    }).map((period) => ({ contract, period })),
+  );
   if (candidates.length === 0) return [];
 
   const lines =
@@ -1680,22 +1682,40 @@ export async function listAffidavitsDue(): Promise<AffidavitDue[]> {
     events.filter((event) => isAiredOutcome(event.outcome)).map((event) => event.rundown_item_id),
   );
 
-  const periodByContract = new Map(candidates.map((c) => [c.contract.id, c.period]));
-  const airedByContract = new Map<string, number>();
+  // Count each aired placement toward the candidate (contract + month range)
+  // it falls in.
+  const candidatesByContract = new Map<
+    string,
+    { contract: ContractWithUnderwriter; period: { start: string; end: string } }[]
+  >();
+  for (const candidate of candidates) {
+    const list = candidatesByContract.get(candidate.contract.id) ?? [];
+    list.push(candidate);
+    candidatesByContract.set(candidate.contract.id, list);
+  }
+  const airedByCandidate = new Map<(typeof candidates)[number], number>();
   for (const placement of placements) {
     if (!airedItems.has(placement.log_rundown_item_id as string)) continue;
     const contractId = contractByLine.get(placement.schedule_line_id);
-    const period = contractId ? periodByContract.get(contractId) : undefined;
-    if (!contractId || !period) continue;
-    if (placement.placement_date < period.start || placement.placement_date > period.end) continue;
-    airedByContract.set(contractId, (airedByContract.get(contractId) ?? 0) + 1);
+    const candidate = (contractId ? candidatesByContract.get(contractId) : undefined)?.find(
+      ({ period }) =>
+        placement.placement_date >= period.start && placement.placement_date <= period.end,
+    );
+    if (candidate) airedByCandidate.set(candidate, (airedByCandidate.get(candidate) ?? 0) + 1);
   }
 
   return candidates
-    .flatMap(({ contract, period }) => {
-      const airedCount = airedByContract.get(contract.id) ?? 0;
+    .flatMap((candidate) => {
+      const airedCount = airedByCandidate.get(candidate) ?? 0;
       return airedCount > 0
-        ? [{ contract, periodStart: period.start, periodEnd: period.end, airedCount }]
+        ? [
+            {
+              contract: candidate.contract,
+              periodStart: candidate.period.start,
+              periodEnd: candidate.period.end,
+              airedCount,
+            },
+          ]
         : [];
     })
     .sort(
@@ -1845,15 +1865,26 @@ export async function getAffidavitMonth(month: string): Promise<AffidavitMonth> 
   return { month, rows, openExceptionsByRow, otherMonths: otherMonthsOwed(month, due) };
 }
 
-/** How many affidavits are generated and waiting for a signature — the dashboard's tile for signers. */
-export async function countAffidavitsAwaitingSignature(): Promise<number> {
+/**
+ * Affidavits generated and waiting for a signature, counted by the month
+ * their period ends in, oldest first — the dashboard's tile for signers links
+ * to the oldest, and the Affidavits page points to the others.
+ */
+export async function listMonthsAwaitingSignature(): Promise<{ month: string; count: number }[]> {
   const supabase = await createClient();
-  const result = await supabase
-    .from("uw_affidavits")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "draft");
-  unwrapRead(result, "the affidavits awaiting a signature");
-  return result.count ?? 0;
+  const drafts =
+    unwrapRead(
+      await supabase.from("uw_affidavits").select("campaign_period_end").eq("status", "draft"),
+      "the affidavits awaiting a signature",
+    ) ?? [];
+  const counts = new Map<string, number>();
+  for (const draft of drafts) {
+    const month = draft.campaign_period_end.slice(0, 7);
+    counts.set(month, (counts.get(month) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, count]) => ({ month, count }));
 }
 
 // Copy on a contract (docs/underwriting-traffic-redesign.md §13) -----------------
