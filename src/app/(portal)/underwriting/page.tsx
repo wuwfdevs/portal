@@ -31,8 +31,13 @@ import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { stationTodayISO } from "@/lib/log/timezone";
-import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
+import {
+  countByExceptionFilter,
+  exceptionStep,
+  NEXT_STEP_LABEL,
+} from "@/lib/underwriting/exception-filters";
 import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
+import { monthLabel } from "@/lib/underwriting/dates";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
@@ -195,6 +200,7 @@ export default async function UnderwritingDashboardPage({
   // (docs/underwriting-traffic-redesign.md §17): each figure links to the
   // screen where it is worked, filtered the same way it was counted.
   const lastMonth = defaultAffidavitMonth(stationTodayISO());
+  const dueMonths = [...new Set(affidavitsDue.map((item) => item.periodEnd.slice(0, 7)))].sort();
   const attentionGroups: { label: string; items: AttentionItem[] }[] = [
     {
       label: "Missed credits",
@@ -240,7 +246,8 @@ export default async function UnderwritingDashboardPage({
       label: "Affidavits",
       items: [
         {
-          label: "To generate",
+          label:
+            dueMonths.length === 1 ? `To generate for ${monthName(dueMonths[0]!)}` : "To generate",
           count: affidavitsDue.length,
           href: `/underwriting/affidavits?month=${
             affidavitsDue.length > 0
@@ -388,8 +395,8 @@ export default async function UnderwritingDashboardPage({
                   <thead>
                     <HeaderRow>
                       <Th>Underwriter · line</Th>
-                      <Th>Scheduled</Th>
-                      <Th>Outcome</Th>
+                      <Th>Missed</Th>
+                      <Th>Next step</Th>
                     </HeaderRow>
                   </thead>
                   <tbody>
@@ -410,15 +417,8 @@ export default async function UnderwritingDashboardPage({
                         <Cell className="whitespace-nowrap text-ink-500">
                           {formatPlacementTime(exception.original_scheduled_at)}
                         </Cell>
-                        <Cell>
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="warning">
-                              {exception.host_action.replace(/_/g, " ")}
-                            </Badge>
-                            {exception.makegood_approval === "pending" && (
-                              <Badge variant="neutral">agency approval pending</Badge>
-                            )}
-                          </div>
+                        <Cell className="text-ink-700">
+                          {NEXT_STEP_LABEL[exceptionStep(exception)]}
                         </Cell>
                       </Row>
                     ))}
@@ -621,4 +621,9 @@ function AttentionTile({ item }: { item: AttentionItem }) {
       <span className="text-xs leading-snug text-ink-500">{item.label}</span>
     </Link>
   );
+}
+
+/** "September" for "2026-09" — the month is always recent, so the year is implied. */
+function monthName(month: string): string {
+  return monthLabel(`${month}-01`).split(" ")[0]!;
 }

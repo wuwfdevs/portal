@@ -1,6 +1,7 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ListToolbar } from "@/components/ui/list-toolbar";
@@ -34,7 +35,7 @@ export default async function AffidavitsPage({
   const { month: monthParam, q, error, signed } = await searchParams;
   const today = stationTodayISO();
   const month = monthParam && isMonthKey(monthParam) ? monthParam : defaultAffidavitMonth(today);
-  const [{ isManager }, { rows: allRows, otherMonths }] = await Promise.all([
+  const [{ isManager }, { rows: allRows, otherMonths, openExceptionsByRow }] = await Promise.all([
     requireUnderwritingAccess(),
     getAffidavitMonth(month),
   ]);
@@ -147,6 +148,7 @@ export default async function AffidavitsPage({
                 <Th>Order</Th>
                 <Th>Period</Th>
                 <Th className="text-right">Aired</Th>
+                <Th>Notes</Th>
                 <Th>Status</Th>
               </HeaderRow>
             </thead>
@@ -155,11 +157,6 @@ export default async function AffidavitsPage({
                 <Row key={row.key}>
                   <Cell stack="title" className="font-semibold text-ink-900">
                     {row.contract.underwriter.name}
-                    {row.contract.affidavit_required && (
-                      <Badge variant="warning" className="ml-2">
-                        order requires
-                      </Badge>
-                    )}
                     {row.earlier.length > 0 && (
                       <Badge variant="muted" className="ml-2">
                         correction
@@ -179,6 +176,28 @@ export default async function AffidavitsPage({
                   </Cell>
                   <Cell label="Aired" className="text-right text-ink-700">
                     {row.airedCount}
+                  </Cell>
+                  <Cell label="Notes" className="text-xs text-ink-500">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {row.contract.affidavit_required && (
+                        <Badge variant="warning">order requires</Badge>
+                      )}
+                      {(openExceptionsByRow.get(row.key) ?? 0) > 0 && (
+                        <Link
+                          href={`/underwriting/exceptions?q=${encodeURIComponent(row.contract.underwriter.name)}&status=all`}
+                        >
+                          <Badge variant="warning">
+                            {openExceptionsByRow.get(row.key)} open exception
+                            {openExceptionsByRow.get(row.key) === 1 ? "" : "s"}
+                          </Badge>
+                        </Link>
+                      )}
+                      {row.contract.effective_to &&
+                        row.contract.effective_to <= row.periodEnd &&
+                        row.contract.effective_to >= `${month}-01` && (
+                          <span>Contract ended {shortDate(row.contract.effective_to)}</span>
+                        )}
+                    </div>
                   </Cell>
                   <Cell stack="aside">
                     {row.state === "generate" ? (
@@ -220,12 +239,6 @@ export default async function AffidavitsPage({
                             ? ` ${shortDate(stationTodayISO(row.affidavit.certifiedAt))}`
                             : ""}
                         </Badge>
-                        <Link
-                          href={`/underwriting/affidavits/${row.affidavit.id}`}
-                          className="text-xs font-semibold text-brand-link"
-                        >
-                          Open
-                        </Link>
                         <a
                           href={`/api/underwriting/affidavits/${row.affidavit.id}/pdf`}
                           target="_blank"
@@ -234,6 +247,21 @@ export default async function AffidavitsPage({
                         >
                           PDF
                         </a>
+                        <form id={`correct-${row.key}`} action={generateAffidavitsForMonth}>
+                          <input type="hidden" name="month" value={month} />
+                          <input
+                            type="hidden"
+                            name="row"
+                            value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
+                          />
+                        </form>
+                        <ActionMenu
+                          label={`More for ${row.contract.underwriter.name}`}
+                          items={[
+                            { label: "Open", href: `/underwriting/affidavits/${row.affidavit.id}` },
+                            { label: "Generate a correction", formId: `correct-${row.key}` },
+                          ]}
+                        />
                       </span>
                     ) : null}
                     {row.earlier.length > 0 && (

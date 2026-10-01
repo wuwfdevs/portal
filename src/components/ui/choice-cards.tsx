@@ -4,6 +4,8 @@ export interface ChoiceCardOption<T extends string> {
   value: T;
   title: string;
   description?: string;
+  /** Shown but not choosable — a choice the viewer's role doesn't allow, with the reason in its description. */
+  disabled?: boolean;
 }
 
 /**
@@ -36,17 +38,24 @@ export function ChoiceCards<T extends string>({
   return (
     <div className={cn("grid grid-cols-1 gap-2", grid, className)}>
       {options.map((option) => (
-        <label key={option.value} className="relative block cursor-pointer">
+        <label
+          key={option.value}
+          className={cn(
+            "relative block",
+            option.disabled ? "cursor-not-allowed" : "cursor-pointer",
+          )}
+        >
           <input
             type="radio"
             name={name}
             value={option.value}
             className="peer sr-only"
+            disabled={option.disabled}
             checked={value !== undefined ? value === option.value : undefined}
             defaultChecked={value === undefined ? defaultValue === option.value : undefined}
             onChange={onChange ? () => onChange(option.value) : undefined}
           />
-          <span className="flex h-full flex-col gap-1 rounded border border-line bg-white px-3.5 py-3 peer-checked:border-brand-primary peer-checked:bg-[#F3F9FD] peer-checked:shadow-[inset_0_0_0_1px_#3090D0] peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+          <span className="flex h-full flex-col gap-1 rounded border border-line bg-white px-3.5 py-3 peer-disabled:bg-panel-50 peer-disabled:opacity-60 peer-checked:border-brand-primary peer-checked:bg-[#F3F9FD] peer-checked:shadow-[inset_0_0_0_1px_#3090D0] peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
             <span className="text-sm font-bold text-ink-900">{option.title}</span>
             {option.description && (
               <span className="text-xs leading-snug text-ink-500">{option.description}</span>

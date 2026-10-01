@@ -58,6 +58,51 @@ export default async function AffidavitDetailPage({
   const certified = affidavit.status === "certified";
   const pdfHref = `/api/underwriting/affidavits/${affidavit.id}/pdf`;
   const showLength = doc.rows.some((row) => row.length !== null);
+  // What a signer checks first (docs/underwriting-traffic-redesign.md §17):
+  // aired against ordered, makegoods, and anything still open in the period.
+  const orderedCount = doc.summary
+    .filter((row) => !row.bonus)
+    .reduce((sum, row) => sum + row.ordered, 0);
+  const makegoodCount = doc.rows.filter((row) => row.note?.startsWith("Makegood")).length;
+  const openExceptionCount = new Set(
+    affidavit.lineItems.flatMap(({ exception }) =>
+      exception && exception.resolution_status === "open" ? [exception.id] : [],
+    ),
+  ).size;
+  // In the signing view the log is folded after its first rows; the summary
+  // above is what a signer reads, the full log is one click away.
+  const LOG_PREVIEW_ROWS = 5;
+  const foldLog = signing !== undefined && !certified && doc.rows.length > LOG_PREVIEW_ROWS + 2;
+  const logHead = foldLog ? doc.rows.slice(0, LOG_PREVIEW_ROWS) : doc.rows;
+  const logRest = foldLog ? doc.rows.slice(LOG_PREVIEW_ROWS) : [];
+  const logTable = (rows: typeof doc.rows) => (
+    <TableFrame>
+      <Table>
+        <thead>
+          <HeaderRow>
+            <Th>Date</Th>
+            <Th>Time</Th>
+            <Th>Program</Th>
+            <Th>Message</Th>
+            {showLength && <Th>Length</Th>}
+            <Th>Note</Th>
+          </HeaderRow>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <Row key={row.broadcastEventId}>
+              <Cell className="whitespace-nowrap text-ink-700">{row.date}</Cell>
+              <Cell className="whitespace-nowrap text-ink-700">{row.time}</Cell>
+              <Cell className="text-ink-700">{row.program}</Cell>
+              <Cell className="text-ink-700">{row.message ?? "—"}</Cell>
+              {showLength && <Cell className="text-ink-700">{row.length ?? ""}</Cell>}
+              <Cell className="text-brand-link">{row.note ?? ""}</Cell>
+            </Row>
+          ))}
+        </tbody>
+      </Table>
+    </TableFrame>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,6 +144,37 @@ export default async function AffidavitDetailPage({
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-6">
+          {!certified && (
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Aired", value: doc.airedCount, warn: false },
+                {
+                  label: "Ordered this period",
+                  value: orderedCount,
+                  warn: doc.airedCount < orderedCount,
+                },
+                { label: "Makegoods aired", value: makegoodCount, warn: false },
+                {
+                  label: "Exceptions open",
+                  value: openExceptionCount,
+                  warn: openExceptionCount > 0,
+                },
+              ].map((stat) => (
+                <div key={stat.label} className="rounded border border-line bg-white px-4 py-3">
+                  <dt className="text-xs text-ink-500">{stat.label}</dt>
+                  <dd
+                    className={
+                      stat.warn
+                        ? "text-2xl font-bold tabular-nums text-warning-fg"
+                        : "text-2xl font-bold tabular-nums text-ink-900"
+                    }
+                  >
+                    {stat.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
           <article className="rounded border border-line bg-white p-6 sm:p-8">
             <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
               <div className="text-sm">
@@ -218,32 +294,17 @@ export default async function AffidavitDetailPage({
               {doc.rows.length === 0 ? (
                 <p className="text-sm text-ink-500">No announcements aired in this period.</p>
               ) : (
-                <TableFrame>
-                  <Table>
-                    <thead>
-                      <HeaderRow>
-                        <Th>Date</Th>
-                        <Th>Time</Th>
-                        <Th>Program</Th>
-                        <Th>Message</Th>
-                        {showLength && <Th>Length</Th>}
-                        <Th>Note</Th>
-                      </HeaderRow>
-                    </thead>
-                    <tbody>
-                      {doc.rows.map((row) => (
-                        <Row key={row.broadcastEventId}>
-                          <Cell className="whitespace-nowrap text-ink-700">{row.date}</Cell>
-                          <Cell className="whitespace-nowrap text-ink-700">{row.time}</Cell>
-                          <Cell className="text-ink-700">{row.program}</Cell>
-                          <Cell className="text-ink-700">{row.message ?? "—"}</Cell>
-                          {showLength && <Cell className="text-ink-700">{row.length ?? ""}</Cell>}
-                          <Cell className="text-brand-link">{row.note ?? ""}</Cell>
-                        </Row>
-                      ))}
-                    </tbody>
-                  </Table>
-                </TableFrame>
+                <>
+                  {logTable(logHead)}
+                  {logRest.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-sm font-semibold text-brand-link">
+                        {logRest.length} more
+                      </summary>
+                      <div className="mt-2">{logTable(logRest)}</div>
+                    </details>
+                  )}
+                </>
               )}
             </section>
 
@@ -383,6 +444,16 @@ export default async function AffidavitDetailPage({
                   ) : (
                     <Button type="submit">Sign and store PDF</Button>
                   )}
+                  <details className="text-sm">
+                    <summary className="cursor-pointer font-semibold text-brand-link">
+                      Something&apos;s wrong with this one
+                    </summary>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-500">
+                      Skip it and tell whoever generated it. Generating it again from the month list
+                      picks up any corrected log entries; the earlier draft stays listed as its
+                      earlier version.
+                    </p>
+                  </details>
                 </form>
               ) : (
                 <p className="p-5 text-sm text-ink-500">

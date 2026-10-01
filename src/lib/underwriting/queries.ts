@@ -1711,6 +1711,8 @@ export type AffidavitMonthContractRef = ContractWithUnderwriter & AffidavitMonth
 export interface AffidavitMonth {
   month: string;
   rows: AffidavitMonthRow<AffidavitMonthContractRef>[];
+  /** Open exceptions per row key whose missed credit falls in the row's period — a reason to wait before generating, never a block. */
+  openExceptionsByRow: Map<string, number>;
   /** Other months with something still to generate — a backlog the page points to. */
   otherMonths: { month: string; count: number }[];
 }
@@ -1800,7 +1802,47 @@ export async function getAffidavitMonth(month: string): Promise<AffidavitMonth> 
     }),
   );
 
-  return { month, rows, otherMonths: otherMonthsOwed(month, due) };
+  // Open exceptions in each row's period: a pending makegood may still add
+  // an airing, so the list flags the row rather than blocking it.
+  const openExceptionsByRow = new Map<string, number>();
+  if (rows.length > 0) {
+    const lines =
+      unwrapRead(
+        await supabase
+          .from("uw_contract_schedule_lines")
+          .select("id, contract_id")
+          .in("contract_id", [...new Set(rows.map((row) => row.contract.id))]),
+        "this month's schedule lines",
+      ) ?? [];
+    const contractByLine = new Map(lines.map((line) => [line.id, line.contract_id]));
+    const openExceptions =
+      lines.length === 0
+        ? []
+        : (unwrapRead(
+            await supabase
+              .from("uw_exceptions")
+              .select("schedule_line_id, original_scheduled_at")
+              .eq("resolution_status", "open")
+              .in(
+                "schedule_line_id",
+                lines.map((line) => line.id),
+              ),
+            "this month's open exceptions",
+          ) ?? []);
+    for (const row of rows) {
+      const count = openExceptions.filter((exception) => {
+        const day = stationTodayISO(exception.original_scheduled_at);
+        return (
+          contractByLine.get(exception.schedule_line_id) === row.contract.id &&
+          day >= row.periodStart &&
+          day <= row.periodEnd
+        );
+      }).length;
+      if (count > 0) openExceptionsByRow.set(row.key, count);
+    }
+  }
+
+  return { month, rows, openExceptionsByRow, otherMonths: otherMonthsOwed(month, due) };
 }
 
 /** How many affidavits are generated and waiting for a signature — the dashboard's tile for signers. */

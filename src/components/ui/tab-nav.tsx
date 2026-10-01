@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { FloatingPanel } from "@/components/ui/floating-panel";
@@ -9,6 +9,11 @@ export interface TabNavItem {
   href: string;
   label: string;
   active: boolean;
+}
+
+/** A link set apart at the right end of the row — a tool's Setup, say — that never folds into the "⋯" menu. */
+export interface TabNavTrailing extends TabNavItem {
+  icon?: ReactNode;
 }
 
 const TAB_CLASS =
@@ -24,13 +29,24 @@ const TAB_INACTIVE = "border-transparent text-ink-400 hover:border-line hover:te
  * would need per-tool tuning and would still break on unusual zoom/font
  * settings. Caller precomputes each tab's `active` state (route matching
  * varies per tool — see editorial's alsoMatch) rather than this component
- * guessing from the pathname itself.
+ * guessing from the pathname itself. `trailing` is one link held apart at
+ * the right (configuration rather than daily work); its width is reserved
+ * before the tabs are fitted, so it never moves into the overflow menu.
  */
-export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: string }) {
+export function TabNav({
+  tabs,
+  trailing,
+  className,
+}: {
+  tabs: TabNavItem[];
+  trailing?: TabNavTrailing;
+  className?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const trailingRef = useRef<HTMLAnchorElement>(null);
   const [visibleCount, setVisibleCount] = useState(tabs.length);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -43,7 +59,10 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
 
     function recompute() {
       if (!container) return;
-      const available = container.clientWidth;
+      const trailingWidth = trailingRef.current
+        ? trailingRef.current.getBoundingClientRect().width + 20
+        : 0;
+      const available = container.clientWidth - trailingWidth;
       const moreWidth = moreRef.current?.getBoundingClientRect().width ?? 40;
       const gap = 20; // matches gap-5
       const isLastItem = (i: number) => i === itemEls.length - 1;
@@ -67,7 +86,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
     const ro = new ResizeObserver(recompute);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [tabs]);
+  }, [tabs, trailing]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -110,7 +129,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
       ))}
 
       {overflow.length > 0 && (
-        <div className="relative ml-auto shrink-0">
+        <div className={cn("relative shrink-0", !trailing && "ml-auto")}>
           <button
             ref={moreRef}
             type="button"
@@ -152,6 +171,22 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
             ))}
           </FloatingPanel>
         </div>
+      )}
+
+      {trailing && (
+        <Link
+          ref={trailingRef}
+          href={trailing.href}
+          aria-current={trailing.active ? "page" : undefined}
+          className={cn(
+            TAB_CLASS,
+            "ml-auto flex items-center gap-1.5",
+            trailing.active ? TAB_ACTIVE : TAB_INACTIVE,
+          )}
+        >
+          {trailing.icon}
+          {trailing.label}
+        </Link>
       )}
 
       {/* Off-screen clone of every tab, used only to measure natural label widths. */}

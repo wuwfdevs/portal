@@ -24,6 +24,8 @@ import {
   RESOLUTION_ACTION_LABEL,
   type ExceptionStep,
 } from "@/lib/underwriting/exception-filters";
+import { formatStationTimestamp } from "@/lib/log/timezone";
+import { MakegoodScheduling } from "./makegood-scheduling";
 import { recordMakegoodApproval, resolveException } from "../../exception-actions";
 import {
   cancelMakegoodAction,
@@ -93,22 +95,21 @@ export default async function ExceptionDetailPage({
   const needsAgency = exception.makegood_approval !== "not_required";
   const activeMakegood = makegoods.some((makegood) => makegood.status === "scheduled");
 
+  // The board's four steps: the decision and the makegood are one step —
+  // creating a makegood is the decision — and Resolve is where it ends,
+  // usually by itself when the makegood airs.
   const steps = [
     { label: "What happened" },
-    ...(needsAgency ? [{ label: "Agency's answer" }] : []),
-    { label: "Decide" },
+    ...(needsAgency ? [{ label: "Agency approval" }] : []),
     { label: "Makegood" },
-    { label: "Resolved" },
+    { label: "Resolve" },
   ];
-  const stepIndex = (label: string) => steps.findIndex((item) => item.label === label);
   const current =
     step === "agency"
-      ? stepIndex("Agency's answer")
-      : step === "decision"
-        ? stepIndex("Decide")
-        : step === "resolved"
-          ? steps.length
-          : stepIndex("Makegood");
+      ? 1
+      : step === "resolved"
+        ? steps.length
+        : steps.findIndex((item) => item.label === "Makegood");
 
   const decisionDefault =
     exception.resolution_action ?? (activeMakegood ? "schedule_makegood" : undefined);
@@ -117,8 +118,14 @@ export default async function ExceptionDetailPage({
     title: RESOLUTION_ACTION_LABEL[action],
     description: DECISION_DESCRIPTION[action],
   });
-  const common = COMMON_DECISIONS.filter(
-    (action) => action !== "waive" || isManager || exception.resolution_action === "waive",
+  const common = COMMON_DECISIONS.map((action) =>
+    action === "waive" && !isManager && exception.resolution_action !== "waive"
+      ? {
+          ...decisionOption(action),
+          description: "The credit is not owed. Ask an underwriting manager.",
+          disabled: true,
+        }
+      : decisionOption(action),
   );
 
   return (
@@ -262,9 +269,7 @@ export default async function ExceptionDetailPage({
       </section>
 
       <section id="resolve" className="scroll-mt-4 rounded border border-line">
-        <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-          {open ? "Decide" : "Decision"}
-        </h3>
+        <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Resolve</h3>
         <form action={resolveException} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="exception_id" value={exception.id} />
           <input
@@ -278,9 +283,8 @@ export default async function ExceptionDetailPage({
               name="resolution_action"
               columns={2}
               defaultValue={decisionDefault}
-              options={common.map(decisionOption)}
+              options={common}
             />
-            {!isManager && <FieldHint>Waiving a credit needs an underwriting manager.</FieldHint>}
             <details
               className="text-sm"
               open={
@@ -329,19 +333,17 @@ export default async function ExceptionDetailPage({
             )}
             {open ? (
               <>
+                <Button type="submit" name="resolution_status" value="open" variant="secondary">
+                  Save
+                </Button>
                 <Button
                   type="submit"
                   name="resolution_status"
-                  value="open"
-                  variant={activeMakegood ? "primary" : "secondary"}
+                  value="resolved"
+                  disabled={activeMakegood}
                 >
-                  Save
+                  Save and resolve
                 </Button>
-                {!activeMakegood && (
-                  <Button type="submit" name="resolution_status" value="resolved">
-                    Save and resolve
-                  </Button>
-                )}
               </>
             ) : (
               <>
@@ -405,6 +407,10 @@ function MakegoodItem({
         ) : makegood.scheduled_for ? (
           <span className="text-ink-700">{formatPlacementTime(makegood.scheduled_for)}</span>
         ) : null}
+        <span className="text-xs text-ink-500">
+          Created {formatStationTimestamp(makegood.created_at)}. It counts toward the period the
+          original credit missed.
+        </span>
         <span className="flex-1" />
         {(state === "awaiting_slot" || state === "slot_scheduled") && (
           <form action={cancelMakegoodAction}>
@@ -425,23 +431,14 @@ function MakegoodItem({
               : "The agency declined this makegood."}
           </p>
         ) : (
-          <>
-            <p className="text-xs text-ink-500">
-              The next auto-fill places it first, ahead of regular credits, in the first eligible
-              break. It counts toward the period the original credit missed.
-            </p>
-            <details className="rounded border border-dashed border-line px-4 py-3">
-              <summary className="cursor-pointer text-sm font-semibold text-brand-link">
-                Pick a break now
-              </summary>
-              <PickBreak
-                makegood={makegood}
-                exceptionId={exceptionId}
-                contractId={contractId}
-                linkedCopy={linkedCopy}
-              />
-            </details>
-          </>
+          <MakegoodScheduling id={makegood.id}>
+            <PickBreak
+              makegood={makegood}
+              exceptionId={exceptionId}
+              contractId={contractId}
+              linkedCopy={linkedCopy}
+            />
+          </MakegoodScheduling>
         ))}
     </li>
   );
@@ -460,14 +457,14 @@ function PickBreak({
 }) {
   if (!makegood.placeable || !makegood.placeable.ok) {
     return (
-      <p className="mt-3 text-xs text-danger">
+      <p className="text-xs text-danger">
         {makegood.placeable ? makegood.placeable.message : "Could not check for eligible breaks."}
       </p>
     );
   }
   if (makegood.placeable.breaks.length === 0) {
     return (
-      <p className="mt-3 text-xs text-ink-500">
+      <p className="text-xs text-ink-500">
         No eligible open breaks right now — auto-fill generates the rundowns it needs, so leaving it
         for auto-fill is the way forward.
       </p>
@@ -475,7 +472,7 @@ function PickBreak({
   }
   if (linkedCopy.length === 0) {
     return (
-      <p className="mt-3 text-xs text-ink-500">
+      <p className="text-xs text-ink-500">
         Link copy to{" "}
         <Link
           href={`/underwriting/contracts/${contractId}?tab=copy`}
@@ -488,7 +485,7 @@ function PickBreak({
     );
   }
   return (
-    <form action={scheduleMakegoodAction} className="mt-3 flex flex-col gap-3">
+    <form action={scheduleMakegoodAction} className="flex flex-col gap-3">
       <input type="hidden" name="makegood_id" value={makegood.id} />
       <input type="hidden" name="exception_id" value={exceptionId} />
       <input type="hidden" name="schedule_line_id" value={makegood.schedule_line_id} />

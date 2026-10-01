@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { ListToolbar } from "@/components/ui/list-toolbar";
+import { FilterChips } from "@/components/ui/filter-chips";
+import { FilterMenu } from "@/components/ui/filter-menu";
+import { ListSearch } from "@/components/ui/list-search";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listExceptions, type ExceptionListItem } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
@@ -13,6 +15,7 @@ import {
   EXCEPTION_FILTERS,
   exceptionStep,
   matchesExceptionFilter,
+  OPEN_EXCEPTION_STEPS,
   RESOLUTION_ACTION_LABEL,
   type ExceptionFilter,
 } from "@/lib/underwriting/exception-filters";
@@ -69,16 +72,33 @@ export default async function ExceptionsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <ListToolbar
-        search={{
-          placeholder: "Search underwriter or line",
-          label: "Search exceptions",
-          defaultValue: q,
-          hidden: status ? { status: filter } : undefined,
-        }}
-        chipsLabel="Filter by step"
-        chips={EXCEPTION_FILTERS.map(chip)}
-      />
+      {/* The steps read in order, then the closed and everything views, set
+          apart. Inline from sm up — more chips than ListToolbar's inline
+          limit, but they're one ordered sequence, not separate dimensions —
+          and behind the Filter button on a phone, like every other list. */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <ListSearch
+          placeholder="Search underwriter or line"
+          label="Search exceptions"
+          defaultValue={q}
+          hidden={status ? { status: filter } : undefined}
+          className="w-full max-sm:order-first sm:w-72"
+        />
+        <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
+          <FilterChips label="Filter by step" chips={OPEN_EXCEPTION_STEPS.map(chip)} />
+          <span aria-hidden="true" className="mx-1 h-6 w-px bg-line" />
+          <FilterChips label="Closed and all" chips={[chip("resolved"), chip("all")]} />
+        </div>
+        <FilterMenu
+          className="sm:hidden"
+          groups={[
+            {
+              label: "Step",
+              chips: [chip("all"), ...OPEN_EXCEPTION_STEPS.map(chip), chip("resolved")],
+            },
+          ]}
+        />
+      </div>
 
       {shown.length === 0 ? (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">

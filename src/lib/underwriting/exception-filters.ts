@@ -100,3 +100,12 @@ export const RESOLUTION_ACTION_LABEL: Record<UwResolutionAction, string> = {
   clarification_requested: "Ask for clarification",
   corrected: "Correct the record",
 };
+
+/** What someone does next at each step — the dashboard's open-exceptions table. */
+export const NEXT_STEP_LABEL: Record<ExceptionStep, string> = {
+  decision: "Decide: makegood, alternate airing, or waive",
+  agency: "Waiting on the agency",
+  awaiting_break: "Makegood awaiting a break",
+  makegood_scheduled: "Makegood scheduled",
+  resolved: "Resolved",
+};

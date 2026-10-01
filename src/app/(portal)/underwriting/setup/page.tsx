@@ -61,9 +61,9 @@ export default async function UnderwritingSetupPage() {
     context.isAdministrator
       ? supabase
           .from("uw_agreement_migration_items")
-          .select("batch_label")
+          .select("batch_label, status")
           .then((result) => unwrapRead(result, "the migration batches") ?? [])
-      : Promise.resolve([] as { batch_label: string }[]),
+      : Promise.resolve([] as { batch_label: string; status: string }[]),
   ]);
 
   const activePools = pools.filter((pool) => pool.active);
@@ -82,6 +82,7 @@ export default async function UnderwritingSetupPage() {
   ).length;
   const activeCategories = categories.filter((category) => category.active).length;
   const batchCount = new Set(migrationLabels.map((item) => item.batch_label)).size;
+  const entriesToImport = migrationLabels.filter((item) => item.status !== "imported").length;
 
   return (
     <div className="flex flex-col gap-7">
@@ -135,7 +136,13 @@ export default async function UnderwritingSetupPage() {
               href="/underwriting/setup/migration"
               title="Import agreements"
               description="Bring legacy signed agreements in as draft contracts, in batches."
-              status={<span>{plural(batchCount, "batch", "batches")}</span>}
+              status={
+                <span>
+                  {plural(batchCount, "batch", "batches")}
+                  {entriesToImport > 0 &&
+                    ` · ${plural(entriesToImport, "entry", "entries")} still to import`}
+                </span>
+              }
             />
             <SetupCard
               href="/underwriting/setup/migration/copy"

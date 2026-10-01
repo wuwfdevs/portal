@@ -1571,3 +1571,30 @@ as a section at the bottom. Agreement holds the signed document, the
 traffic policy (read first, `?edit=policy` to change it), the contract's
 affidavits and its revision history. The side column gained a Missed
 credits count.
+
+### 17.6 Matching the boards (same day)
+
+A review against the Design canvas found the first build had drifted in
+places; these now match it. Setup sits apart at the right end of the tab
+row with a gear icon — `TabNav` gained a `trailing` link whose width is
+reserved before the tabs are fitted, so it never folds into the "⋯" menu.
+The Exceptions step chips show inline from `sm` up, with Resolved and All
+set apart by a divider, rather than behind ListToolbar's Filter button (its
+five-chip inline limit is for separate dimensions; these are one ordered
+sequence). The dashboard's open-exceptions table shows each one's next step
+(`NEXT_STEP_LABEL`), and the affidavit tile names the month owed. The
+exception page's step strip reads What happened · Agency approval ·
+Makegood · Resolve; a makegood awaiting a break offers "Leave it for
+auto-fill / Pick a break now" as choice cards (`makegood-scheduling.tsx`),
+and Waive shows greyed for non-managers (`ChoiceCards` gained a `disabled`
+option) rather than disappearing. The Affidavits list gained a Notes column
+(order requires, open exceptions in the period, contract ended) and a ⋮ on
+signed rows with "Generate a correction". The signing view leads with
+Aired · Ordered this period · Makegoods aired · Exceptions open, folds the
+broadcast log after five rows, and has a "Something's wrong with this one"
+note. Setup's agreement-import card counts entries still to import.
+
+One board detail was not built: the "By date" view hiding Clear on a live
+rundown. A staffer's manual clear is deliberately unrestricted on live
+rundowns (§10 — only automation is frozen out), so the board's note was
+wrong, not the code.
