@@ -1,7 +1,14 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import {
+  buildAffidavitMonth,
+  otherMonthsOwed,
+  shiftMonth,
+  type AffidavitMonthContract,
+  type AffidavitMonthRow,
+} from "./affidavit-month";
 import {
   listPlaceableRundownBreaks,
   type PlaceableRundownBreak,
@@ -1075,9 +1082,11 @@ export async function listContractDeliveryRollups(
 export interface ExceptionListItem extends UwExceptionRow {
   scheduleLine: UwContractScheduleLineRow;
   contract: ContractWithUnderwriter;
+  /** Every makegood created against this exception, newest first — its step (lib/underwriting/exception-filters.ts) and the list's Makegood column read these. */
+  makegoods: UwMakegoodRow[];
 }
 
-/** Every exception, newest first, joined to its schedule line and contract for display. */
+/** Every exception, newest first, joined to its schedule line, contract, and makegoods for display. */
 export async function listExceptions(): Promise<ExceptionListItem[]> {
   const supabase = await createClient();
   const exceptions =
@@ -1095,13 +1104,38 @@ export async function listExceptions(): Promise<ExceptionListItem[]> {
     ) ?? [];
   const scheduleLineById = new Map(scheduleLines.map((line) => [line.id, line]));
 
-  const contracts = await listContracts();
+  const [contracts, makegoodsResult] = await Promise.all([
+    listContracts(),
+    supabase
+      .from("uw_makegoods")
+      .select("*")
+      .in(
+        "exception_id",
+        exceptions.map((exception) => exception.id),
+      )
+      .order("created_at", { ascending: false }),
+  ]);
   const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
+  const makegoodsByException = new Map<string, UwMakegoodRow[]>();
+  for (const makegood of unwrapRead(makegoodsResult, "these exceptions' makegoods") ?? []) {
+    const list = makegoodsByException.get(makegood.exception_id) ?? [];
+    list.push(makegood);
+    makegoodsByException.set(makegood.exception_id, list);
+  }
 
   return exceptions.flatMap((exception) => {
     const scheduleLine = scheduleLineById.get(exception.schedule_line_id);
     const contract = scheduleLine ? contractById.get(scheduleLine.contract_id) : undefined;
-    return scheduleLine && contract ? [{ ...exception, scheduleLine, contract }] : [];
+    return scheduleLine && contract
+      ? [
+          {
+            ...exception,
+            scheduleLine,
+            contract,
+            makegoods: makegoodsByException.get(exception.id) ?? [],
+          },
+        ]
+      : [];
   });
 }
 
@@ -1185,53 +1219,36 @@ export async function listMakegoodsForException(exceptionId: string): Promise<Uw
   );
 }
 
-export interface MakegoodListItem extends UwMakegoodRow {
-  exception: UwExceptionRow;
-  scheduleLine: UwContractScheduleLineRow;
-  contract: ContractWithUnderwriter;
+export interface ExceptionMakegood extends UwMakegoodRow {
   placement: UwScheduledPlacementRow | null;
-  /** Eligible open breaks for this makegood's schedule line — only fetched for one still awaiting a slot, since a scheduled/aired/cancelled makegood's own screen state doesn't need it. */
+  /** Eligible open breaks for this makegood's schedule line — fetched only for one still awaiting a break, the one case the exception page offers a break picker for. */
   placeable: UnderwritingRpcResult<{ breaks: PlaceableRundownBreak[] }> | null;
-  /** Copy linked to this makegood's contract — the same picker the "Place a credit" form on the contract page offers. */
+}
+
+export interface ExceptionMakegoodContext {
+  makegoods: ExceptionMakegood[];
+  /** Copy linked to the exception's contract and usable on its line's flight — the break picker's message choices. */
   linkedCopy: UwCopyRow[];
 }
 
-/** Workflow F's "Makegood tracking" screen (docs/underwriting-design.md §4) — every makegood, newest first, with enough context to schedule or cancel it inline. */
-export async function listMakegoods(): Promise<MakegoodListItem[]> {
+/**
+ * The exception page's Makegood section (docs/underwriting-traffic-redesign.md
+ * §17): every makegood against this exception, newest first, with its
+ * placement and — for one still awaiting a break — the breaks it could go
+ * into. Replaces the retired Makegoods list's own read.
+ */
+export async function getExceptionMakegoodContext(
+  exception: Pick<UwExceptionRow, "id"> & {
+    scheduleLine: UwContractScheduleLineRow;
+    contract: Pick<UwContractRow, "id">;
+  },
+): Promise<ExceptionMakegoodContext> {
   const supabase = await createClient();
-  const makegoods =
-    unwrapRead(
-      await supabase.from("uw_makegoods").select("*").order("created_at", { ascending: false }),
-      "the makegoods",
-    ) ?? [];
-  if (makegoods.length === 0) return [];
+  const makegoods = await listMakegoodsForException(exception.id);
 
-  const exceptionIds = [...new Set(makegoods.map((makegood) => makegood.exception_id))];
-  const exceptions =
-    unwrapRead(
-      await supabase.from("uw_exceptions").select("*").in("id", exceptionIds),
-      "these makegoods' exceptions",
-    ) ?? [];
-  const exceptionById = new Map(exceptions.map((exception) => [exception.id, exception]));
-
-  const scheduleLineIds = [...new Set(makegoods.map((makegood) => makegood.schedule_line_id))];
-  const scheduleLines =
-    unwrapRead(
-      await supabase.from("uw_contract_schedule_lines").select("*").in("id", scheduleLineIds),
-      "these makegoods' schedule lines",
-    ) ?? [];
-  const scheduleLineById = new Map(scheduleLines.map((line) => [line.id, line]));
-
-  const contracts = await listContracts();
-  const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
-
-  const placementIds = [
-    ...new Set(
-      makegoods.flatMap((makegood) =>
-        makegood.scheduled_placement_id ? [makegood.scheduled_placement_id] : [],
-      ),
-    ),
-  ];
+  const placementIds = makegoods.flatMap((makegood) =>
+    makegood.scheduled_placement_id ? [makegood.scheduled_placement_id] : [],
+  );
   const placements =
     placementIds.length === 0
       ? []
@@ -1241,41 +1258,30 @@ export async function listMakegoods(): Promise<MakegoodListItem[]> {
         ) ?? []);
   const placementById = new Map(placements.map((placement) => [placement.id, placement]));
 
-  const copyByContract = await listCopyLinkedToContracts([
-    ...new Set(scheduleLines.map((line) => line.contract_id)),
+  const [withBreaks, copyByContract] = await Promise.all([
+    Promise.all(
+      makegoods.map(async (makegood): Promise<ExceptionMakegood> => ({
+        ...makegood,
+        placement: makegood.scheduled_placement_id
+          ? (placementById.get(makegood.scheduled_placement_id) ?? null)
+          : null,
+        placeable:
+          makegood.status === "scheduled" && makegood.scheduled_placement_id === null
+            ? await listPlaceableRundownBreaks(makegood.schedule_line_id)
+            : null,
+      })),
+    ),
+    listCopyLinkedToContracts([exception.contract.id]),
   ]);
 
-  return Promise.all(
-    makegoods.flatMap((makegood) => {
-      const exception = exceptionById.get(makegood.exception_id);
-      const scheduleLine = scheduleLineById.get(makegood.schedule_line_id);
-      const contract = scheduleLine ? contractById.get(scheduleLine.contract_id) : undefined;
-      if (!exception || !scheduleLine || !contract) return [];
-
-      return [
-        (async (): Promise<MakegoodListItem> => {
-          const placement = makegood.scheduled_placement_id
-            ? (placementById.get(makegood.scheduled_placement_id) ?? null)
-            : null;
-          const placeable =
-            makegood.status === "scheduled" && makegood.scheduled_placement_id === null
-              ? await listPlaceableRundownBreaks(makegood.schedule_line_id)
-              : null;
-          return {
-            ...makegood,
-            exception,
-            scheduleLine,
-            contract,
-            placement,
-            placeable,
-            linkedCopy: (copyByContract.get(contract.id) ?? [])
-              .filter((link) => link.flightId === null || link.flightId === scheduleLine.flight_id)
-              .map((link) => link.copy),
-          };
-        })(),
-      ];
-    }),
-  );
+  return {
+    makegoods: withBreaks,
+    linkedCopy: (copyByContract.get(exception.contract.id) ?? [])
+      .filter(
+        (link) => link.flightId === null || link.flightId === exception.scheduleLine.flight_id,
+      )
+      .map((link) => link.copy),
+  };
 }
 
 // Affidavits -----------------------------------------------------------------
@@ -1700,6 +1706,114 @@ export async function listAffidavitsDue(): Promise<AffidavitDue[]> {
     );
 }
 
+export type AffidavitMonthContractRef = ContractWithUnderwriter & AffidavitMonthContract;
+
+export interface AffidavitMonth {
+  month: string;
+  rows: AffidavitMonthRow<AffidavitMonthContractRef>[];
+  /** Other months with something still to generate — a backlog the page points to. */
+  otherMonths: { month: string; count: number }[];
+}
+
+/**
+ * One month of the Affidavits page (docs/underwriting-traffic-redesign.md
+ * §17): the contracts owed an affidavit for a period ending that month, and
+ * every affidavit already generated for one, merged into a row per contract
+ * by lib/underwriting/affidavit-month.ts. Aired counts for generated rows
+ * come from their own evidence, so they match the document.
+ */
+export async function getAffidavitMonth(month: string): Promise<AffidavitMonth> {
+  const supabase = await createClient();
+  const start = `${month}-01`;
+  const end = shiftDateISO(`${shiftMonth(month, 1)}-01`, -1);
+  const [due, contracts, affidavitsResult] = await Promise.all([
+    listAffidavitsDue(),
+    listContracts(),
+    supabase
+      .from("uw_affidavits")
+      .select("*")
+      .gte("campaign_period_end", start)
+      .lte("campaign_period_end", end),
+  ]);
+  const affidavits = unwrapRead(affidavitsResult, "this month's affidavits") ?? [];
+  const contractRef = (contract: ContractWithUnderwriter): AffidavitMonthContractRef => ({
+    ...contract,
+    underwriterName: contract.underwriter.name,
+    affidavitRequired: contract.affidavit_required,
+  });
+  const contractById = new Map(contracts.map((contract) => [contract.id, contractRef(contract)]));
+
+  const airedByAffidavit = new Map<string, number>();
+  if (affidavits.length > 0) {
+    const lineItems =
+      unwrapRead(
+        await supabase
+          .from("uw_affidavit_line_items")
+          .select("affidavit_id, log_broadcast_event_id")
+          .in(
+            "affidavit_id",
+            affidavits.map((affidavit) => affidavit.id),
+          ),
+        "this month's affidavit evidence",
+      ) ?? [];
+    const events =
+      lineItems.length === 0
+        ? []
+        : (unwrapRead(
+            await supabase
+              .from("log_broadcast_events")
+              .select("id, outcome")
+              .in(
+                "id",
+                lineItems.map((item) => item.log_broadcast_event_id),
+              ),
+            "this month's affidavit airings",
+          ) ?? []);
+    const aired = new Set(
+      events.filter((event) => isAiredOutcome(event.outcome)).map((event) => event.id),
+    );
+    for (const item of lineItems) {
+      if (!aired.has(item.log_broadcast_event_id)) continue;
+      airedByAffidavit.set(item.affidavit_id, (airedByAffidavit.get(item.affidavit_id) ?? 0) + 1);
+    }
+  }
+
+  const rows = buildAffidavitMonth(
+    month,
+    due.map((item) => ({ ...item, contract: contractRef(item.contract) })),
+    affidavits.flatMap((affidavit) => {
+      const contract = contractById.get(affidavit.contract_id);
+      return contract
+        ? [
+            {
+              id: affidavit.id,
+              contract,
+              status: affidavit.status,
+              campaignPeriodStart: affidavit.campaign_period_start,
+              campaignPeriodEnd: affidavit.campaign_period_end,
+              generatedAt: affidavit.generated_at,
+              certifiedAt: affidavit.certified_at,
+              airedCount: airedByAffidavit.get(affidavit.id) ?? 0,
+            },
+          ]
+        : [];
+    }),
+  );
+
+  return { month, rows, otherMonths: otherMonthsOwed(month, due) };
+}
+
+/** How many affidavits are generated and waiting for a signature — the dashboard's tile for signers. */
+export async function countAffidavitsAwaitingSignature(): Promise<number> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("uw_affidavits")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "draft");
+  unwrapRead(result, "the affidavits awaiting a signature");
+  return result.count ?? 0;
+}
+
 // Copy on a contract (docs/underwriting-traffic-redesign.md §13) -----------------
 
 export interface LinkableCopyOption {
@@ -1870,4 +1984,36 @@ export async function listCopyUsageForContract(
     }
   }
   return usage;
+}
+
+export interface ContractExceptionRef {
+  id: string;
+  scheduledPlacementId: string | null;
+  open: boolean;
+}
+
+/**
+ * The exceptions raised against a contract's schedule lines — just enough
+ * for the contract page to link a "not aired" placement to its exception
+ * and count the ones still open. One select, keyed on the line ids the
+ * page already holds.
+ */
+export async function listExceptionRefsForLines(
+  lineIds: string[],
+): Promise<ContractExceptionRef[]> {
+  if (lineIds.length === 0) return [];
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(
+      await supabase
+        .from("uw_exceptions")
+        .select("id, scheduled_placement_id, resolution_status")
+        .in("schedule_line_id", lineIds),
+      "this contract's exceptions",
+    ) ?? [];
+  return rows.map((row) => ({
+    id: row.id,
+    scheduledPlacementId: row.scheduled_placement_id,
+    open: row.resolution_status === "open",
+  }));
 }

@@ -181,6 +181,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/log/sources", "/log/sources/npr", "/log/sources/weather"],
   },
   {
+    key: "underwriting.dashboard",
+    name: "Dashboard",
+    toolKey: "underwriting",
+    paths: ["/underwriting"],
+  },
+  {
     key: "underwriting.contracts",
     name: "Contracts",
     toolKey: "underwriting",
@@ -201,21 +207,43 @@ export const SCREENS: readonly ScreenDefinition[] = [
     ],
   },
   {
+    key: "underwriting.exceptions",
+    name: "Exceptions",
+    toolKey: "underwriting",
+    paths: ["/underwriting/exceptions", "/underwriting/exceptions/:id"],
+  },
+  {
+    key: "underwriting.affidavits",
+    name: "Affidavits",
+    toolKey: "underwriting",
+    paths: [
+      "/underwriting/affidavits",
+      "/underwriting/affidavits/new",
+      "/underwriting/affidavits/:id",
+    ],
+  },
+  {
+    key: "underwriting.setup",
+    name: "Setup",
+    toolKey: "underwriting",
+    paths: ["/underwriting/setup", "/underwriting/setup/pools", "/underwriting/setup/industries"],
+  },
+  {
     key: "underwriting.migration",
     name: "Migrate legacy agreements",
     toolKey: "underwriting",
     paths: [
-      "/underwriting/migration",
-      "/underwriting/migration/new",
-      "/underwriting/migration/batch",
-      "/underwriting/migration/batch/documents",
+      "/underwriting/setup/migration",
+      "/underwriting/setup/migration/new",
+      "/underwriting/setup/migration/batch",
+      "/underwriting/setup/migration/batch/documents",
     ],
   },
   {
     key: "underwriting.migration-copy",
     name: "Migrate legacy copy",
     toolKey: "underwriting",
-    paths: ["/underwriting/migration/copy"],
+    paths: ["/underwriting/setup/migration/copy"],
   },
   {
     key: "underwriting.copy",

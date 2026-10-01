@@ -7,7 +7,12 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { createHash } from "node:crypto";
-import { findAffidavitEvidence, getAffidavitDetail } from "@/lib/underwriting/queries";
+import {
+  findAffidavitEvidence,
+  getAffidavitDetail,
+  getAffidavitMonth,
+} from "@/lib/underwriting/queries";
+import { monthOf, signingQueue } from "@/lib/underwriting/affidavit-month";
 import {
   buildReportIdentifier,
   certifiedAffidavitObjectPath,
@@ -27,6 +32,8 @@ function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
+type GenerateResult = { ok: true; id: string } | { ok: false; message: string };
+
 /**
  * Workflow G: assembles every broadcast event behind this contract's
  * placements in the given period (lib/underwriting/queries.ts's
@@ -34,31 +41,31 @@ function field(formData: FormData, name: string): string {
  * uw_affidavit_line_items — the durable evidence link §17 requires.
  * Regenerating for the same contract/period is allowed (it's how a
  * correction gets picked up) and produces a new, separately versioned
- * affidavit rather than overwriting the previous one.
+ * affidavit rather than overwriting the previous one. Shared by the
+ * one-at-a-time form and the month list's "Generate all".
  */
-export async function generateAffidavit(formData: FormData): Promise<void> {
-  const { profile } = await assertUnderwritingAccess();
-  const contractId = field(formData, "contract_id");
-  const periodStart = field(formData, "campaign_period_start");
-  const periodEnd = field(formData, "campaign_period_end");
-  // A failure returns to the form with what was entered, so an error never
-  // costs the contract picked (or prefilled from the contract page).
-  const newPath = newAffidavitHref({ contractId, start: periodStart, end: periodEnd });
-
+async function generateOne(
+  profileId: string,
+  contractId: string,
+  periodStart: string,
+  periodEnd: string,
+): Promise<GenerateResult> {
   if (contractId === "" || periodStart === "" || periodEnd === "") {
-    failWith(newPath, "Choose a contract and a campaign period.");
+    return { ok: false, message: "Choose a contract and a campaign period." };
   }
   if (periodEnd < periodStart) {
-    failWith(newPath, "The campaign period's end date can't be before its start date.");
+    return { ok: false, message: "The campaign period's end date can't be before its start date." };
   }
 
   const supabase = await createClient();
-  const { data: contract } = await supabase
+  const { data: contract, error: contractError } = await supabase
     .from("uw_contracts")
     .select("contract_identifier")
     .eq("id", contractId)
     .maybeSingle();
-  if (!contract) failWith(newPath, "That contract no longer exists.");
+  if (contractError)
+    return { ok: false, message: `Could not read the contract: ${contractError.message}` };
+  if (!contract) return { ok: false, message: "That contract no longer exists." };
 
   const evidence = await findAffidavitEvidence(contractId, periodStart, periodEnd);
 
@@ -83,13 +90,17 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
       contract_id: contractId,
       campaign_period_start: periodStart,
       campaign_period_end: periodEnd,
-      generated_by: profile.id,
+      generated_by: profileId,
       report_identifier: reportIdentifier,
     })
     .select("id")
     .single();
-  failIfError(error, newPath, "Could not generate the affidavit");
-  if (!affidavit) failWith(newPath, "Could not generate the affidavit.");
+  if (error || !affidavit) {
+    return {
+      ok: false,
+      message: `Could not generate the affidavit${error ? `: ${error.message}` : "."}`,
+    };
+  }
 
   if (evidence.length > 0) {
     const { error: lineItemsError } = await supabase.from("uw_affidavit_line_items").insert(
@@ -99,16 +110,64 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
         scheduled_placement_id: item.placement.id,
       })),
     );
-    failIfError(
-      lineItemsError,
-      newPath,
-      "Generated the affidavit, but could not attach its evidence",
-    );
+    if (lineItemsError) {
+      return {
+        ok: false,
+        message: `Generated the affidavit, but could not attach its evidence: ${lineItemsError.message}`,
+      };
+    }
+  }
+
+  revalidatePath(`/underwriting/contracts/${contractId}`);
+  return { ok: true, id: affidavit.id };
+}
+
+export async function generateAffidavit(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const periodStart = field(formData, "campaign_period_start");
+  const periodEnd = field(formData, "campaign_period_end");
+  // A failure returns to the form with what was entered, so an error never
+  // costs the contract picked (or prefilled from the contract page).
+  const newPath = newAffidavitHref({ contractId, start: periodStart, end: periodEnd });
+
+  const result = await generateOne(profile.id, contractId, periodStart, periodEnd);
+  if (!result.ok) failWith(newPath, result.message);
+
+  revalidatePath(LIST_PATH);
+  redirect(affidavitPath(result.id));
+}
+
+/**
+ * The month list's batch generate: one draft per selected row, each
+ * `<contract id>|<period start>|<period end>`, in turn. A row that fails
+ * doesn't stop the rest; the page says which ones did. Generating is
+ * ordinary member work — only signing is restricted.
+ */
+export async function generateAffidavitsForMonth(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const month = field(formData, "month");
+  const listPath = `${LIST_PATH}?month=${encodeURIComponent(month)}`;
+  const rows = formData
+    .getAll("row")
+    .map((value) => String(value).split("|"))
+    .filter((parts): parts is [string, string, string] => parts.length === 3);
+  if (rows.length === 0) failWith(listPath, "Nothing selected to generate.");
+
+  const failures: string[] = [];
+  for (const [contractId, periodStart, periodEnd] of rows) {
+    const result = await generateOne(profile.id, contractId, periodStart, periodEnd);
+    if (!result.ok) failures.push(result.message);
   }
 
   revalidatePath(LIST_PATH);
-  revalidatePath(`/underwriting/contracts/${contractId}`);
-  redirect(affidavitPath(affidavit.id));
+  if (failures.length > 0) {
+    failWith(
+      listPath,
+      `${rows.length - failures.length} of ${rows.length} generated. ${failures.join(" ")}`,
+    );
+  }
+  redirect(listPath);
 }
 
 /**
@@ -183,5 +242,14 @@ export async function certifyAffidavit(formData: FormData): Promise<void> {
   revalidatePath(path);
   revalidatePath(LIST_PATH);
   revalidatePath(`/underwriting/contracts/${affidavit.contract_id}`);
+
+  // "Sign and open next": the next draft in this month's order, or back to
+  // the month once none are left.
+  if (field(formData, "then") === "next") {
+    const month = monthOf(affidavit.campaign_period_end);
+    const queue = signingQueue((await getAffidavitMonth(month)).rows);
+    const next = queue.find((other) => other !== id);
+    redirect(next ? `${affidavitPath(next)}?signing=1` : `${LIST_PATH}?month=${month}&signed=1`);
+  }
   redirect(path);
 }

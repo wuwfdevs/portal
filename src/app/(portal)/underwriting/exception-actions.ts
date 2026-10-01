@@ -145,6 +145,6 @@ export async function recordMakegoodApproval(formData: FormData): Promise<void> 
   failIfError(error, path, "Could not record the agency's answer");
 
   revalidatePath(path);
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(path);
 }

@@ -1,6 +1,6 @@
 // Seeding active copy from RadioTraffic (docs/underwriting-traffic-redesign.md
 // §15). Pure — no Supabase import, colocated tests. The screen at
-// /underwriting/migration/copy runs this in the browser for the review and
+// /underwriting/setup/migration/copy runs this in the browser for the review and
 // the import action runs it again on the server against a fresh snapshot, so
 // the review is a courtesy and this plan, recomputed, is the boundary.
 //

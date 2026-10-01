@@ -95,7 +95,7 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
  * Clears a scheduled credit. From a line's period table
  * (`schedule_line_id` set) it returns to that line with its periods still
  * open, and a failure renders inside that line's card; from the
- * Placements tab (`return_to=placements`) it returns there.
+ * Schedule tab's By date view (`return_to=placements`) it returns there.
  */
 export async function clearCreditAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
@@ -105,7 +105,7 @@ export async function clearCreditAction(formData: FormData): Promise<void> {
   const path = contractPath(contractId);
   const returnPath =
     field(formData, "return_to") === "placements"
-      ? `${path}?tab=placements`
+      ? `${path}?view=date`
       : lineId
         ? `${path}?details=${lineId}#line-${lineId}`
         : path;

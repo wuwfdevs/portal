@@ -18,8 +18,8 @@ export default async function LegacyCopyMigrationPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/underwriting/contracts" className="text-sm font-bold text-brand-link">
-          ← Contracts
+        <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+          ← Setup
         </Link>
         <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy records</h2>
         <p className="mt-1 max-w-3xl text-sm text-ink-700">

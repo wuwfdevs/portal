@@ -93,10 +93,7 @@ export function UnderwriterForm({
         </Select>
         <FieldHint>
           Used for the competitive-adjacency rule when scheduling credits. Missing one?{" "}
-          <Link
-            href="/underwriting/underwriters/industries"
-            className="font-semibold text-brand-link"
-          >
+          <Link href="/underwriting/setup/industries" className="font-semibold text-brand-link">
             Manage industries
           </Link>
           .

@@ -40,7 +40,7 @@ const EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
 };
 
-/** The upload's content type from its declared type or, failing that, its name — the same three types the Policy tab's upload accepts. */
+/** The upload's content type from its declared type or, failing that, its name — the same three types the Agreement tab's upload accepts. */
 export function agreementContentType(file: { type: string; name: string }): string | null {
   if (file.type in EXTENSIONS) return file.type;
   const lower = file.name.toLowerCase();
@@ -157,7 +157,7 @@ export async function importAgreementAsDraft(
   if (!facts.ok) return { ok: false, stage: "facts", error: facts.error };
 
   // The contract's id is minted here so the document can be stored at the
-  // same per-contract path the Policy tab's upload uses before the row
+  // same per-contract path the Agreement tab's upload uses before the row
   // exists — an orphaned object if the insert then fails is harmless and
   // overwritten by the next attempt's upsert.
   const contractId = crypto.randomUUID();

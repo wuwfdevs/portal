@@ -307,10 +307,10 @@ function LineDetails({
             </Link>
           )}
           <Link
-            href={`${base}?tab=placements`}
+            href={`${base}?view=date`}
             className="text-xs font-semibold text-brand-link hover:underline"
           >
-            Open on the Placements tab
+            See every placement by date
           </Link>
         </div>
       </div>
@@ -433,12 +433,12 @@ function LineDetails({
                     ) : line.kind === "makegood" ? (
                       <td colSpan={4} className={cn(cellClass, "text-xs text-ink-500")}>
                         {row.makegoodsAwaitingSlot} makegood
-                        {row.makegoodsAwaitingSlot === 1 ? "" : "s"} awaiting a slot —{" "}
+                        {row.makegoodsAwaitingSlot === 1 ? "" : "s"} awaiting a break —{" "}
                         <Link
-                          href="/underwriting/makegoods"
+                          href="/underwriting/exceptions?status=awaiting_break"
                           className="font-semibold text-brand-link"
                         >
-                          Makegoods
+                          Exceptions
                         </Link>
                       </td>
                     ) : (

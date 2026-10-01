@@ -137,7 +137,7 @@ export async function autoFillScheduleLineAction(formData: FormData): Promise<vo
   await auditBumps(profile.id, result);
 
   revalidatePath(path);
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(result))}`);
 }
 
@@ -173,7 +173,7 @@ export async function autoFillContractAction(formData: FormData): Promise<void> 
   }
 
   revalidatePath(path);
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(totals))}`);
 }
 
@@ -202,6 +202,6 @@ export async function autoFillAllAction(): Promise<void> {
 
   revalidatePath(path);
   revalidatePath("/underwriting/contracts");
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(`${path}?notice=${encodeURIComponent(summarizeAutoFill(totals))}`);
 }

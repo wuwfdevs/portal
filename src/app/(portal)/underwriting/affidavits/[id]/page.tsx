@@ -8,7 +8,9 @@ import { DetailSummary } from "@/components/ui/detail-summary";
 import { FieldHint, Input, Label } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
-import { getAffidavitDetail } from "@/lib/underwriting/queries";
+import { getAffidavitDetail, getAffidavitMonth } from "@/lib/underwriting/queries";
+import { monthOf, signingQueue } from "@/lib/underwriting/affidavit-month";
+import { monthLabel } from "@/lib/underwriting/dates";
 import { STATION_LETTERHEAD, formatCalendarDate } from "@/lib/underwriting/affidavits";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { certifyAffidavit } from "../../affidavit-actions";
@@ -30,15 +32,27 @@ export default async function AffidavitDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; signing?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
-  const [{ isManager }, affidavit] = await Promise.all([
+  const { error, signing } = await searchParams;
+  const [{ isManager, profile }, affidavit] = await Promise.all([
     requireUnderwritingAccess(),
     getAffidavitDetail(id),
   ]);
   if (!affidavit) notFound();
+
+  // Working through a month's signatures: where this one sits in the
+  // month's queue, so Previous / Skip / "Sign and open next" can move on.
+  const month = monthOf(affidavit.campaign_period_end);
+  const monthHref = `/underwriting/affidavits?month=${month}`;
+  const queue =
+    signing && isManager && affidavit.status === "draft"
+      ? signingQueue((await getAffidavitMonth(month)).rows)
+      : [];
+  const position = queue.indexOf(affidavit.id);
+  const previousId = position > 0 ? queue[position - 1] : undefined;
+  const nextId = position >= 0 && position < queue.length - 1 ? queue[position + 1] : undefined;
 
   const doc = affidavit.document;
   const certified = affidavit.status === "certified";
@@ -48,12 +62,32 @@ export default async function AffidavitDetailPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={`/underwriting/contracts/${affidavit.contract.id}`}
-          className="text-xs font-semibold text-brand-link"
-        >
-          ← {affidavit.contract.underwriter.name}
+        <Link href={monthHref} className="text-xs font-semibold text-brand-link">
+          ← {monthLabel(`${month}-01`)}
         </Link>
+        {position >= 0 && (
+          <nav aria-label="Affidavits to sign" className="flex items-center gap-2 text-sm">
+            <span className="text-ink-500">
+              {position + 1} of {queue.length} to sign
+            </span>
+            {previousId && (
+              <Link
+                href={`/underwriting/affidavits/${previousId}?signing=1`}
+                className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-brand-link hover:bg-panel-50"
+              >
+                ‹ Previous
+              </Link>
+            )}
+            {nextId && (
+              <Link
+                href={`/underwriting/affidavits/${nextId}?signing=1`}
+                className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-brand-link hover:bg-panel-50"
+              >
+                Skip ›
+              </Link>
+            )}
+          </nav>
+        )}
         <a href={pdfHref} target="_blank" rel="noopener">
           <Button type="button" variant={certified ? "primary" : "secondary"}>
             {certified ? "Download PDF" : "Preview draft PDF"}
@@ -290,7 +324,7 @@ export default async function AffidavitDetailPage({
         <aside className="flex w-full flex-col gap-4 lg:w-80 lg:flex-none">
           {certified ? (
             <DetailSummary
-              title="Certified"
+              title="Signed"
               items={[
                 { label: "By", value: affidavit.certifyingStaffName },
                 { label: "Title", value: affidavit.certifying_staff_title },
@@ -313,7 +347,7 @@ export default async function AffidavitDetailPage({
           ) : (
             <div className="rounded border border-line bg-white">
               <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-                Certify
+                Sign
               </div>
               {isManager ? (
                 <form action={certifyAffidavit} className="flex flex-col gap-3 p-5">
@@ -323,21 +357,37 @@ export default async function AffidavitDetailPage({
                     <Input
                       id="certifying_staff_title"
                       name="certifying_staff_title"
-                      placeholder="Underwriting Manager"
+                      defaultValue={profile.title ?? ""}
                       required
                     />
+                    <FieldHint>
+                      {profile.title
+                        ? "From your profile. A change here applies to this affidavit only."
+                        : "Your profile has no title yet — an administrator can add one under Admin › Users."}
+                    </FieldHint>
                   </div>
                   <FieldHint>
                     Your name, this title and today&apos;s date print on the signature line. The PDF
-                    is then stored as certified and can&apos;t be changed — a correction is a new
+                    is then stored as signed and can&apos;t be changed — a correction is a new
                     affidavit.
                   </FieldHint>
-                  <Button type="submit">Certify and store PDF</Button>
+                  {position >= 0 ? (
+                    <>
+                      <Button type="submit" name="then" value="next">
+                        {nextId ? "Sign and open next" : "Sign and finish"}
+                      </Button>
+                      <Button type="submit" variant="secondary">
+                        Sign
+                      </Button>
+                    </>
+                  ) : (
+                    <Button type="submit">Sign and store PDF</Button>
+                  )}
                 </form>
               ) : (
                 <p className="p-5 text-sm text-ink-500">
-                  An underwriting manager certifies this affidavit. Until then its PDF is marked as
-                  a draft.
+                  An underwriting manager signs this affidavit. Until then its PDF is marked as a
+                  draft.
                 </p>
               )}
             </div>

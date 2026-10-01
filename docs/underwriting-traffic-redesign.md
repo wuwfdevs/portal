@@ -1489,3 +1489,85 @@ now links "car pool" (cart 72) to its "Carpool Thursday @ 8:42" line and
 "Gen" (cart 73) unscoped, both dated 2/10/2025–2/7/2027 as RadioTraffic
 has them. First City Art Center has no contract in the portal yet; scope
 its Carpool script when one is created.
+
+## 17. Fewer tabs, each built around its work (2026-10-01)
+
+Reviewed on a Design canvas before any code. The tool had eight tabs and a
+six-tab contract page. Two of the tabs were really parts of others, and
+the contract page split one job across several tabs. Nothing about
+scheduling, placement or rotation changed.
+
+### 17.1 Tabs
+
+Dashboard · Contracts · Underwriters · Copy · Exceptions · Affidavits ·
+Setup. Makegoods folded into Exceptions; Pools moved under Setup with
+Industries and the two RadioTraffic imports (`/underwriting/setup/…`, the
+imports still administrator-only). No redirects from retired URLs: nothing
+was in live use.
+
+### 17.2 Exceptions and makegoods
+
+Every open exception is at exactly one step, derived by
+`lib/underwriting/exception-filters.ts` (pure, tested) from its status,
+agency approval and makegoods: Need a decision → Waiting on the agency →
+Makegood awaiting a break → Makegood scheduled, then Resolved. The list's
+chips, its Next step column, the exception page's step strip and the
+dashboard's Missed credits tiles all read that one function, so a count
+and the list it links to always agree. The list opens on the first step
+with anything in it.
+
+The exception page is laid out in the order of the work: what happened,
+the agency's answer (only when the contract needs one), the makegood —
+created and, if wanted, placed on this page (`getExceptionMakegoodContext`;
+the Makegoods list and `listMakegoods` are gone) — and the decision, shown
+as choices with plain labels. Creating a makegood records the decision as
+"make it good" when none is set. Auto-fill remains the default way a
+makegood gets its break.
+
+**An exception closes itself when its last scheduled makegood airs**
+(`20261001120000_underwriting_exception_auto_close.sql`): an `after update
+of status` trigger on `uw_makegoods`, security definer for the same reason
+as the trigger that marks the makegood aired. It keeps a decision staff
+already recorded, leaves `resolved_by` null, and appends a note. A
+cancelled makegood doesn't count. The migration resolved any exception
+already in that state. Verified on production in a rolled-back block: with
+two makegoods, the exception stays open after the first airs and resolves
+on the second.
+
+### 17.3 Affidavits
+
+One list per month, one row per contract, whose action follows its state:
+Generate → Sign → Signed (`lib/underwriting/affidavit-month.ts`, pure,
+tested; `getAffidavitMonth` in queries.ts). A row belongs to the month its
+period ends in; the newest affidavit for a contract in that month is the
+row, older ones are its earlier versions. Opens on last month; earlier
+months are the archive, and a note names any earlier month still owed.
+Rows sort by "order requires" then underwriter, so a row keeps its place as
+it changes state. "Generate N" (`generateAffidavitsForMonth`) generates
+each row in turn and reports failures without stopping; any member may use
+it. "Sign N in order" opens the signing view (`?signing=1`), with
+Previous / Skip and "Sign and open next".
+
+The signer's title is `profiles.title`
+(`20261001120100_profiles_title.sql`), set by an administrator on the
+user's edit screen, pre-filled when signing. A change while signing
+applies to that affidavit only; `uw_affidavits.certifying_staff_title`
+still freezes with the PDF.
+
+### 17.4 Dashboard
+
+"Needs attention" is three groups — Missed credits, Scheduling, Affidavits
+— each tile linking to the list filtered the way it was counted.
+"Awaiting your signature" shows only to underwriting managers.
+
+### 17.5 Contract page
+
+Schedule · Copy · Agreement. Schedule has a By line / By date toggle
+(`?view=date`, which replaces the Placements tab and adds Upcoming / Aired
+/ Not aired chips, week dividers and pages — `lib/underwriting/
+placement-list.ts`), the revision workflow (a draft revision's banner,
+`?activate=1` for the full preview, `?revise=1` to start one), and Flights
+as a section at the bottom. Agreement holds the signed document, the
+traffic policy (read first, `?edit=policy` to change it), the contract's
+affidavits and its revision history. The side column gained a Missed
+credits count.
