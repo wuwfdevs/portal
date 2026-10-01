@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { FloatingPanel, useDetailsMenu } from "@/components/ui/floating-panel";
 
 // A whole-screen text-size control for the rundown/console screen — as of
 // 2026-08-24 THE text-size control, full stop: it is how
@@ -57,7 +58,9 @@ export function TextScaleProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, next);
   }
 
-  return <TextScaleContext.Provider value={{ scale, setScale }}>{children}</TextScaleContext.Provider>;
+  return (
+    <TextScaleContext.Provider value={{ scale, setScale }}>{children}</TextScaleContext.Provider>
+  );
 }
 
 function useTextScale() {
@@ -82,21 +85,29 @@ export function TextScaleZoom({ children }: { children: ReactNode }) {
  */
 export function TextScaleControl() {
   const { scale, setScale } = useTextScale();
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const menu = useDetailsMenu(detailsRef, panelRef);
 
   return (
-    <details className="relative">
+    <details ref={detailsRef} onToggle={menu.onToggle} className="relative">
       <summary className="flex h-9 cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded border border-line px-2.5 text-xs font-bold text-ink-700 hover:bg-panel-50 lg:h-auto lg:py-1 [&::-webkit-details-marker]:hidden">
         <span className="hidden sm:inline">Text size:</span>
         <span className="sm:hidden">Text:</span> {TEXT_SCALES[scale].label}
       </summary>
-      <div className="absolute right-0 z-20 mt-1 flex w-40 flex-col gap-1 rounded border border-line bg-white p-1 shadow-md">
+      <FloatingPanel
+        anchorRef={detailsRef}
+        open={menu.open}
+        ref={panelRef}
+        className="flex w-40 flex-col gap-1 rounded border border-line bg-white p-1 shadow-md"
+      >
         {(Object.keys(TEXT_SCALES) as TextScaleKey[]).map((key) => (
           <button
             key={key}
             type="button"
-            onClick={(event) => {
+            onClick={() => {
               setScale(key);
-              event.currentTarget.closest("details")?.removeAttribute("open");
+              menu.close();
             }}
             className={cn(
               "rounded px-2 py-1.5 text-left text-xs font-semibold",
@@ -106,7 +117,7 @@ export function TextScaleControl() {
             {TEXT_SCALES[key].label}
           </button>
         ))}
-      </div>
+      </FloatingPanel>
     </details>
   );
 }

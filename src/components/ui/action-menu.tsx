@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 
 export interface ActionMenuItem {
   label: string;
@@ -36,19 +37,24 @@ export function ActionMenu({
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      // The panel is portaled to <body>, so it's outside containerRef — check both.
+      if (!containerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
+        setOpen(false);
+      }
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
@@ -78,75 +84,76 @@ export function ActionMenu({
           ⋮
         </span>
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-10 mt-1 min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
-        >
-          {items.map((item) => {
-            const body = (
-              <>
-                <span className="block">{item.label}</span>
-                {item.hint && (
-                  <span className="block whitespace-nowrap text-xs text-ink-400">{item.hint}</span>
-                )}
-              </>
-            );
-            const divider = item.dividerBefore ? (
-              <div role="separator" className="my-1 border-t border-line" />
-            ) : null;
-            if (item.disabled) {
-              return (
-                <div key={item.label}>
-                  {divider}
-                  <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
-                    {body}
-                  </div>
-                </div>
-              );
-            }
-            if (item.href) {
-              return (
-                <div key={item.label}>
-                  {divider}
-                  <Link
-                    role="menuitem"
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={itemClasses(item)}
-                  >
-                    {body}
-                  </Link>
-                </div>
-              );
-            }
+      <FloatingPanel
+        anchorRef={containerRef}
+        open={open}
+        ref={panelRef}
+        role="menu"
+        className="min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
+      >
+        {items.map((item) => {
+          const body = (
+            <>
+              <span className="block">{item.label}</span>
+              {item.hint && (
+                <span className="block text-xs text-ink-400 sm:whitespace-nowrap">{item.hint}</span>
+              )}
+            </>
+          );
+          const divider = item.dividerBefore ? (
+            <div role="separator" className="my-1 border-t border-line" />
+          ) : null;
+          if (item.disabled) {
             return (
               <div key={item.label}>
                 {divider}
-                <button
-                  type="button"
+                <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
+                  {body}
+                </div>
+              </div>
+            );
+          }
+          if (item.href) {
+            return (
+              <div key={item.label}>
+                {divider}
+                <Link
                   role="menuitem"
-                  onClick={() => {
-                    // Submit before closing: closing unmounts this button, and
-                    // a detached submitter has no form owner, so a plain
-                    // type="submit" with the `form` attribute would submit
-                    // nothing once the menu re-rendered.
-                    if (item.formId) {
-                      const form = document.getElementById(item.formId);
-                      if (form instanceof HTMLFormElement) form.requestSubmit();
-                    }
-                    setOpen(false);
-                    item.onClick?.();
-                  }}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
                   className={itemClasses(item)}
                 >
                   {body}
-                </button>
+                </Link>
               </div>
             );
-          })}
-        </div>
-      )}
+          }
+          return (
+            <div key={item.label}>
+              {divider}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  // Submit before closing: closing unmounts this button, and
+                  // a detached submitter has no form owner, so a plain
+                  // type="submit" with the `form` attribute would submit
+                  // nothing once the menu re-rendered.
+                  if (item.formId) {
+                    const form = document.getElementById(item.formId);
+                    if (form instanceof HTMLFormElement) form.requestSubmit();
+                  }
+                  setOpen(false);
+                  item.onClick?.();
+                }}
+                className={itemClasses(item)}
+              >
+                {body}
+              </button>
+            </div>
+          );
+        })}
+      </FloatingPanel>
     </div>
   );
 }

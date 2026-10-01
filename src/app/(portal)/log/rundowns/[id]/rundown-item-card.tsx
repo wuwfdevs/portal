@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import { FloatingPanel, useDetailsMenu } from "@/components/ui/floating-panel";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
@@ -114,6 +115,8 @@ export function RundownItemCard({
   const [editing, setEditing] = useState(false);
   const [menuView, setMenuView] = useState<"main" | "move" | "save">("main");
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const menu = useDetailsMenu(detailsRef, panelRef, () => setMenuView("main"));
   const formId = `override-form-${itemId}`;
   const canMove = moveDestinations !== null && moveDestinations.length > 0 && onMoveTo !== null;
   const hasMenu =
@@ -124,7 +127,7 @@ export function RundownItemCard({
     applyToLibraryAction !== null;
 
   function closeMenu() {
-    if (detailsRef.current) detailsRef.current.open = false;
+    menu.close();
     setMenuView("main");
   }
 
@@ -200,20 +203,19 @@ export function RundownItemCard({
             <div className="float-right ml-2 flex items-center gap-1">
               {durationBadge}
               {hasMenu && (
-                <details
-                  ref={detailsRef}
-                  className="relative"
-                  onToggle={(event) => {
-                    if (!(event.target as HTMLDetailsElement).open) setMenuView("main");
-                  }}
-                >
+                <details ref={detailsRef} onToggle={menu.onToggle} className="relative">
                   <summary
                     aria-label={`Actions for ${title}`}
                     className="flex list-none items-center rounded p-1 text-ink-500 hover:bg-panel-100 [&::-webkit-details-marker]:hidden"
                   >
                     <DotsIcon className="h-3.5 w-3.5" />
                   </summary>
-                  <div className="absolute right-0 z-10 mt-1 w-52 rounded border border-line bg-white p-1 shadow-md">
+                  <FloatingPanel
+                    anchorRef={detailsRef}
+                    open={menu.open}
+                    ref={panelRef}
+                    className="w-52 rounded border border-line bg-white p-1 shadow-md"
+                  >
                     {menuView === "main" ? (
                       <>
                         {editable && (
@@ -355,7 +357,7 @@ export function RundownItemCard({
                         </div>
                       )
                     )}
-                  </div>
+                  </FloatingPanel>
                 </details>
               )}
             </div>
