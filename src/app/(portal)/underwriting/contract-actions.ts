@@ -71,7 +71,7 @@ function optionalInt(formData: FormData, name: string): number | null {
 
 // Industry categories ------------------------------------------------------
 
-const INDUSTRIES_PATH = `${UNDERWRITERS_LIST_PATH}/industries`;
+const INDUSTRIES_PATH = "/underwriting/setup/industries";
 /** The industries list with its inline create row open — where a create failure lands so its message renders in the row. */
 const NEW_INDUSTRY_PATH = `${INDUSTRIES_PATH}?new=1`;
 
@@ -354,15 +354,19 @@ const SEPARATION_POLICIES: UwSeparationPolicy[] = ["unspecified", "none", "min_m
 export async function updateContractPolicy(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "contract_id");
-  const path = returnPath(formData, id);
+  // The wizard's policy step returns to itself; the contract page's
+  // Agreement tab returns to the tab, and a failure reopens its edit form.
+  const fromWizard = WIZARD_STEPS.has(field(formData, "return_to"));
+  const path = fromWizard ? returnPath(formData, id) : `${contractPath(id)}?tab=agreement`;
+  const failPath = fromWizard ? path : `${path}&edit=policy`;
 
   const separationPolicy = field(formData, "separation_policy") as UwSeparationPolicy;
   if (!SEPARATION_POLICIES.includes(separationPolicy))
-    failWith(path, "That is not a recognized separation policy.");
+    failWith(failPath, "That is not a recognized separation policy.");
   const separationMinutes =
     separationPolicy === "min_minutes" ? optionalInt(formData, "separation_minutes") : null;
   if (separationPolicy === "min_minutes" && (separationMinutes == null || separationMinutes <= 0)) {
-    failWith(path, "Give the minimum number of minutes between this contract's credits.");
+    failWith(failPath, "Give the minimum number of minutes between this contract's credits.");
   }
 
   const supabase = await createClient();
@@ -378,7 +382,7 @@ export async function updateContractPolicy(formData: FormData): Promise<void> {
       preemption_policy: optionalField(formData, "preemption_policy"),
     })
     .eq("id", id);
-  failIfError(error, path, "Could not update the contract's traffic policy");
+  failIfError(error, failPath, "Could not update the contract's traffic policy");
 
   revalidatePath(contractPath(id));
   revalidatePath(path);
@@ -469,7 +473,8 @@ export async function getContractDocumentDownloadUrl(
 export async function createRevisionFromCurrent(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = field(formData, "contract_id");
-  const path = contractPath(contractId);
+  // A failure reopens the Schedule tab's "Revise the schedule" form.
+  const path = `${contractPath(contractId)}?revise=1`;
   const effectiveFrom = optionalField(formData, "effective_from") ?? stationTodayISO();
   if (!isValidDateISO(effectiveFrom)) failWith(path, "Give the date the revision takes effect.");
   const receivedAt = optionalField(formData, "received_at");
@@ -542,8 +547,7 @@ export async function createRevisionFromCurrent(formData: FormData): Promise<voi
   }
 
   revalidatePath(contractPath(contractId));
-  revalidatePath(path);
-  redirect(path);
+  redirect(contractPath(contractId));
 }
 
 /**
@@ -559,7 +563,7 @@ export async function activateRevisionAction(formData: FormData): Promise<void> 
   const path = contractPath(contractId);
 
   const message = await activateRevision(revisionId, profile.id);
-  if (message) failWith(path, message);
+  if (message) failWith(`${path}?activate=1`, message);
   // The activation cleared placements from its effective date; whatever
   // remains ahead of it re-sequences.
   await rebalanceContractRotation(contractId, profile.id);
@@ -573,7 +577,7 @@ export async function activateRevisionAction(formData: FormData): Promise<void> 
   });
 
   revalidatePath(path);
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(path);
 }
 
@@ -622,7 +626,7 @@ export async function createFlight(formData: FormData): Promise<void> {
   failIfError(error, path, "Could not create the flight");
 
   revalidatePath(path);
-  redirect(path);
+  redirect(`${path}#flights`);
 }
 
 /**
@@ -661,7 +665,7 @@ export async function cancelFlight(formData: FormData): Promise<void> {
   await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
-  redirect(path);
+  redirect(`${path}#flights`);
 }
 
 // Schedule lines -----------------------------------------------------------
@@ -956,7 +960,7 @@ export async function cancelScheduleLine(formData: FormData): Promise<void> {
   await rebalanceContractRotation(contractId, profile.id);
 
   revalidatePath(path);
-  revalidatePath("/underwriting/makegoods");
+  revalidatePath("/underwriting/exceptions");
   redirect(path);
 }
 

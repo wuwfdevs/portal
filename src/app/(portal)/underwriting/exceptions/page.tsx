@@ -2,26 +2,30 @@ import Link from "next/link";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listExceptions } from "@/lib/underwriting/queries";
+import { listExceptions, type ExceptionListItem } from "@/lib/underwriting/queries";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
 import { describeScheduleLine } from "@/lib/underwriting/demand";
-import type { UwResolutionStatus } from "@/lib/database.types";
+import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import {
+  countByExceptionFilter,
+  defaultExceptionFilter,
+  EXCEPTION_FILTER_LABEL,
   EXCEPTION_FILTERS,
+  exceptionStep,
   matchesExceptionFilter,
+  RESOLUTION_ACTION_LABEL,
   type ExceptionFilter,
 } from "@/lib/underwriting/exception-filters";
-
-const STATUS_VARIANT: Record<UwResolutionStatus, BadgeVariant> = {
-  open: "warning",
-  resolved: "success",
-};
+import { describeMakegoodState } from "@/lib/underwriting/makegoods";
+import { shortDate } from "@/lib/underwriting/dates";
+import { stationTodayISO } from "@/lib/log/timezone";
 
 /**
- * Workflow E (docs/underwriting-design.md §3E): every underwriting-kind
- * broadcast event whose outcome wasn't aired_as_scheduled, auto-created by
- * uw_flag_exception_from_broadcast_event() the moment a host records it —
- * there's no "check for new exceptions" step, they're just here.
+ * Workflow E with makegoods folded in (docs/underwriting-traffic-redesign.md
+ * §17): one row per missed credit, its makegood alongside, filtered by the
+ * step it's at. Exceptions are created by uw_flag_exception_from_broadcast_event()
+ * the moment a host records a miss, and close themselves when their last
+ * makegood airs — there's no "check for new exceptions" or "close" step.
  */
 export default async function ExceptionsPage({
   searchParams,
@@ -29,9 +33,6 @@ export default async function ExceptionsPage({
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const { q, status } = await searchParams;
-  const filter: ExceptionFilter = (EXCEPTION_FILTERS as readonly string[]).includes(status ?? "")
-    ? (status as ExceptionFilter)
-    : "all";
   const query = (q ?? "").trim().toLowerCase();
   const exceptions = await listExceptions();
 
@@ -49,17 +50,19 @@ export default async function ExceptionsPage({
       exception.contract.underwriter.name.toLowerCase().includes(query) ||
       (exception.scheduleLine.label ?? "").toLowerCase().includes(query),
   );
-  const count = (next: ExceptionFilter) =>
-    matching.filter((exception) => matchesExceptionFilter(exception, next)).length;
+  const filter: ExceptionFilter = (EXCEPTION_FILTERS as readonly string[]).includes(status ?? "")
+    ? (status as ExceptionFilter)
+    : defaultExceptionFilter(matching);
+  const counts = countByExceptionFilter(matching);
   const shown = matching.filter((exception) => matchesExceptionFilter(exception, filter));
   const hrefFor = (next: ExceptionFilter) =>
     `/underwriting/exceptions?${new URLSearchParams({
       ...(query ? { q: q ?? "" } : {}),
-      ...(next !== "all" ? { status: next } : {}),
-    }).toString()}`.replace(/\?$/, "");
-  const chip = (label: string, next: ExceptionFilter) => ({
-    label,
-    count: count(next),
+      status: next,
+    }).toString()}`;
+  const chip = (next: ExceptionFilter) => ({
+    label: EXCEPTION_FILTER_LABEL[next],
+    count: counts[next],
     href: hrefFor(next),
     active: filter === next,
   });
@@ -71,15 +74,10 @@ export default async function ExceptionsPage({
           placeholder: "Search underwriter or line",
           label: "Search exceptions",
           defaultValue: q,
-          hidden: filter !== "all" ? { status: filter } : undefined,
+          hidden: status ? { status: filter } : undefined,
         }}
-        chipsLabel="Filter by status"
-        chips={[
-          chip("All", "all"),
-          chip("Open", "open"),
-          chip("Agency approval pending", "agency_pending"),
-          chip("Resolved", "resolved"),
-        ]}
+        chipsLabel="Filter by step"
+        chips={EXCEPTION_FILTERS.map(chip)}
       />
 
       {shown.length === 0 ? (
@@ -92,10 +90,11 @@ export default async function ExceptionsPage({
             <thead>
               <HeaderRow>
                 <Th>Underwriter</Th>
-                <Th>Schedule line</Th>
-                <Th>Scheduled</Th>
-                <Th>Outcome</Th>
-                <Th>Status</Th>
+                <Th>Line</Th>
+                <Th>Missed</Th>
+                <Th>What the host recorded</Th>
+                <Th>Makegood</Th>
+                <Th>Next step</Th>
               </HeaderRow>
             </thead>
             <tbody>
@@ -108,26 +107,24 @@ export default async function ExceptionsPage({
                     >
                       {exception.contract.underwriter.name}
                     </Link>
+                    <div className="text-xs font-normal text-ink-400">
+                      {orderNumberLabel(exception.contract.contract_identifier)}
+                    </div>
                   </Cell>
                   <Cell label="Line" className="text-ink-500">
                     {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
                   </Cell>
-                  <Cell label="Scheduled" className="whitespace-nowrap text-ink-500">
+                  <Cell label="Missed" className="whitespace-nowrap text-ink-500">
                     {formatPlacementTime(exception.original_scheduled_at)}
                   </Cell>
-                  <Cell label="Outcome" className="text-ink-700">
-                    {exception.host_action.replace(/_/g, " ")}
-                    {exception.host_reason ? ` (${exception.host_reason.replace(/_/g, " ")})` : ""}
+                  <Cell label="Recorded" className="text-ink-700">
+                    {hostOutcome(exception)}
                   </Cell>
                   <Cell stack="aside">
-                    <div className="flex flex-wrap justify-end gap-1.5 md:justify-start">
-                      <Badge variant={STATUS_VARIANT[exception.resolution_status]}>
-                        {exception.resolution_status}
-                      </Badge>
-                      {exception.makegood_approval === "pending" && (
-                        <Badge variant="neutral">agency approval pending</Badge>
-                      )}
-                    </div>
+                    <MakegoodBadge exception={exception} />
+                  </Cell>
+                  <Cell label="Next step" className="text-ink-700">
+                    <NextStep exception={exception} />
                   </Cell>
                 </Row>
               ))}
@@ -137,4 +134,94 @@ export default async function ExceptionsPage({
       )}
     </div>
   );
+}
+
+function hostOutcome(exception: ExceptionListItem): string {
+  const action = exception.host_action.replace(/_/g, " ");
+  const reason = exception.host_reason?.replace(/_/g, " ");
+  const text = reason ? `${action} · ${reason}` : action;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const MAKEGOOD_VARIANT: Record<ReturnType<typeof describeMakegoodState>, BadgeVariant> = {
+  awaiting_slot: "warning",
+  slot_scheduled: "accent",
+  aired: "success",
+  cancelled: "muted",
+};
+
+/** The makegood that says the most: one still in play, else the newest. */
+function MakegoodBadge({ exception }: { exception: ExceptionListItem }) {
+  if (exception.resolution_status === "open" && exception.makegood_approval === "pending") {
+    return <Badge variant="accent">Agency asked</Badge>;
+  }
+  const makegood =
+    exception.makegoods.find((item) => item.status === "scheduled") ?? exception.makegoods[0];
+  if (!makegood) {
+    return exception.resolution_action === "waive" ? (
+      <Badge variant="muted">Waived</Badge>
+    ) : (
+      <Badge variant="muted">None yet</Badge>
+    );
+  }
+  const state = describeMakegoodState(makegood);
+  const label =
+    state === "awaiting_slot"
+      ? "Awaiting a break"
+      : state === "slot_scheduled"
+        ? makegood.scheduled_for
+          ? formatPlacementTime(makegood.scheduled_for)
+          : "Scheduled"
+        : state === "aired"
+          ? "Aired"
+          : "Cancelled";
+  const more = exception.makegoods.length > 1 ? ` +${exception.makegoods.length - 1}` : "";
+  return (
+    <Badge variant={MAKEGOOD_VARIANT[state]}>
+      {label}
+      {more}
+    </Badge>
+  );
+}
+
+function NextStep({ exception }: { exception: ExceptionListItem }) {
+  const href = `/underwriting/exceptions/${exception.id}`;
+  switch (exceptionStep(exception)) {
+    case "decision":
+      return (
+        <>
+          <Link href={`${href}#resolve`} className="font-bold text-brand-link">
+            Decide
+          </Link>
+          <span className="text-ink-500"> · makegood, alternate airing, or waive</span>
+        </>
+      );
+    case "agency":
+      return (
+        <Link href={`${href}#agency`} className="font-semibold text-brand-link">
+          Record the agency&apos;s answer
+        </Link>
+      );
+    case "awaiting_break":
+      return (
+        <span className="text-ink-500">
+          Auto-fill will place it ·{" "}
+          <Link href={`${href}#makegood`} className="font-semibold text-brand-link">
+            Pick a break
+          </Link>
+        </span>
+      );
+    case "makegood_scheduled":
+      return <span className="text-ink-500">Closes itself when it airs</span>;
+    case "resolved":
+      return (
+        <span className="text-ink-500">
+          Resolved
+          {exception.resolved_at ? ` ${shortDate(stationTodayISO(exception.resolved_at))}` : ""}
+          {exception.resolution_action
+            ? ` · ${RESOLUTION_ACTION_LABEL[exception.resolution_action]}`
+            : ""}
+        </span>
+      );
+  }
 }

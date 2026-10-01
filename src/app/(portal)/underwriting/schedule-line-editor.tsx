@@ -729,7 +729,10 @@ export function ScheduleLineEditor({
               The order&apos;s own name for the inventory, mapped to Log on the Pools screen. A
               bundle of programs that isn&apos;t here yet — &ldquo;Drive Time&rdquo;, &ldquo;ME and
               ATC&rdquo; — is a pool:{" "}
-              <Link href="/underwriting/pools?new=1" className="font-semibold text-brand-link">
+              <Link
+                href="/underwriting/setup/pools?new=1"
+                className="font-semibold text-brand-link"
+              >
                 create it
               </Link>
               , then pick it here.

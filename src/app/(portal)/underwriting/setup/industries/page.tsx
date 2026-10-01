@@ -6,7 +6,7 @@ import { PrimaryLink } from "@/components/ui/primary-link";
 import { listIndustryCategories } from "@/lib/underwriting/queries";
 import { createIndustryCategory, setIndustryCategoryActive } from "../../contract-actions";
 
-const INDUSTRIES_PATH = "/underwriting/underwriters/industries";
+const INDUSTRIES_PATH = "/underwriting/setup/industries";
 
 /**
  * The industry lookup, on its own view rather than sharing the underwriters
@@ -25,8 +25,8 @@ export default async function IndustriesPage({
 
   return (
     <div>
-      <Link href="/underwriting/underwriters" className="text-xs font-semibold text-brand-link">
-        ← Back to underwriters
+      <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+        ← Setup
       </Link>
       <div className="mt-2 mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-xl font-bold text-ink-900">Industries</h2>

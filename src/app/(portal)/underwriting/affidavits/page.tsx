@@ -1,135 +1,258 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listAffidavits, listAffidavitsDue } from "@/lib/underwriting/queries";
-import { formatCalendarDate, newAffidavitHref } from "@/lib/underwriting/affidavits";
-import type { UwAffidavitStatus } from "@/lib/database.types";
-
-const STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
-  draft: "neutral",
-  certified: "success",
-};
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
+import { getAffidavitMonth } from "@/lib/underwriting/queries";
+import { newAffidavitHref } from "@/lib/underwriting/affidavits";
+import {
+  countAffidavitStates,
+  defaultAffidavitMonth,
+  isMonthKey,
+  shiftMonth,
+  signingQueue,
+} from "@/lib/underwriting/affidavit-month";
+import { monthLabel, shortDate } from "@/lib/underwriting/dates";
+import { stationTodayISO } from "@/lib/log/timezone";
+import { generateAffidavitsForMonth } from "../affidavit-actions";
 
 /**
- * Workflow G (docs/underwriting-design.md §3G, §4) — contracts due their
- * next monthly affidavit (lib/underwriting/affidavits.ts's
- * nextAffidavitPeriod, only where something aired), then every generated
- * affidavit, newest first.
+ * Workflow G as one list per month (docs/underwriting-traffic-redesign.md
+ * §17): a row per contract whose action follows its state — Generate,
+ * Sign, Signed. Opens on last month, the one being worked; earlier months
+ * are the archive. Generating is any member's work; signing is a
+ * manager's, enforced by uw_guard_affidavit_certification().
  */
-export default async function AffidavitsPage() {
-  const [affidavits, due] = await Promise.all([listAffidavits(), listAffidavitsDue()]);
+export default async function AffidavitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; q?: string; error?: string; signed?: string }>;
+}) {
+  const { month: monthParam, q, error, signed } = await searchParams;
+  const today = stationTodayISO();
+  const month = monthParam && isMonthKey(monthParam) ? monthParam : defaultAffidavitMonth(today);
+  const [{ isManager }, { rows: allRows, otherMonths }] = await Promise.all([
+    requireUnderwritingAccess(),
+    getAffidavitMonth(month),
+  ]);
+  const query = (q ?? "").trim().toLowerCase();
+  const rows =
+    query === ""
+      ? allRows
+      : allRows.filter((row) => row.contract.underwriter.name.toLowerCase().includes(query));
+  const counts = countAffidavitStates(allRows);
+  const queue = signingQueue(allRows);
+  const toGenerate = allRows.filter((row) => row.state === "generate");
+  const monthHref = (next: string) => `/underwriting/affidavits?month=${next}`;
+  const latestMonth = defaultAffidavitMonth(today);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Link href="/underwriting/affidavits/new">
-          <Button type="button">Generate an affidavit</Button>
-        </Link>
+      <div className="flex flex-wrap items-center gap-3">
+        <nav aria-label="Month" className="flex items-center gap-1">
+          <Link
+            href={monthHref(shiftMonth(month, -1))}
+            aria-label="Previous month"
+            className="rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50"
+          >
+            ‹
+          </Link>
+          <h2 className="min-w-[11rem] text-center font-serif text-xl font-bold text-ink-900">
+            {monthLabel(`${month}-01`)}
+          </h2>
+          {month < latestMonth ? (
+            <Link
+              href={monthHref(shiftMonth(month, 1))}
+              aria-label="Next month"
+              className="rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50"
+            >
+              ›
+            </Link>
+          ) : (
+            <span className="px-2 py-1 text-lg text-ink-300" aria-hidden="true">
+              ›
+            </span>
+          )}
+        </nav>
+        <span className="text-sm text-ink-500">
+          {allRows.length === 0
+            ? "Nothing aired for an affidavit this month."
+            : `${allRows.length} contract${allRows.length === 1 ? "" : "s"} · ${counts.generate} to generate · ${counts.sign} to sign · ${counts.signed} signed`}
+        </span>
+        <span className="flex-1" />
+        {toGenerate.length > 0 && (
+          <form action={generateAffidavitsForMonth}>
+            <input type="hidden" name="month" value={month} />
+            {toGenerate.map((row) => (
+              <input
+                key={row.key}
+                type="hidden"
+                name="row"
+                value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
+              />
+            ))}
+            <Button type="submit" variant="secondary">
+              Generate {toGenerate.length}
+            </Button>
+          </form>
+        )}
+        {isManager && queue.length > 0 && (
+          <Link
+            href={`/underwriting/affidavits/${queue[0]}?signing=1`}
+            className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
+          >
+            Sign {queue.length} in order
+          </Link>
+        )}
       </div>
 
-      {due.length > 0 && (
-        <section className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5">
-            <div className="text-sm font-bold text-ink-900">Due</div>
-            <p className="text-xs text-ink-500">
-              Aired credits not yet covered by an affidavit, through the end of last month or the
-              contract&apos;s end. Contracts whose agreement requires affidavits come first.
-            </p>
-          </div>
-          <TableFrame className="rounded-none border-0">
-            <Table>
-              <thead>
-                <HeaderRow>
-                  <Th>Underwriter</Th>
-                  <Th>Order</Th>
-                  <Th>Period</Th>
-                  <Th className="text-right">Aired</Th>
-                  <Th>
-                    <span className="sr-only">Generate</span>
-                  </Th>
-                </HeaderRow>
-              </thead>
-              <tbody>
-                {due.map((item) => (
-                  <Row key={item.contract.id}>
-                    <Cell className="font-semibold text-ink-900">
-                      {item.contract.underwriter.name}
-                      {item.contract.affidavit_required && (
-                        <Badge variant="warning" className="ml-2">
-                          required
-                        </Badge>
-                      )}
-                    </Cell>
-                    <Cell className="text-ink-500">
-                      <Link
-                        href={`/underwriting/contracts/${item.contract.id}`}
-                        className="text-brand-link"
-                      >
-                        {orderNumberLabel(item.contract.contract_identifier)}
-                      </Link>
-                    </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
-                      {formatCalendarDate(item.periodStart)} – {formatCalendarDate(item.periodEnd)}
-                    </Cell>
-                    <Cell className="text-right text-ink-700">{item.airedCount}</Cell>
-                    <Cell className="text-right">
-                      <Link
-                        href={newAffidavitHref({
-                          contractId: item.contract.id,
-                          start: item.periodStart,
-                          end: item.periodEnd,
-                        })}
-                        className="text-sm font-bold text-brand-link"
-                      >
-                        Generate
-                      </Link>
-                    </Cell>
-                  </Row>
-                ))}
-              </tbody>
-            </Table>
-          </TableFrame>
-        </section>
+      {error && <Alert>{error}</Alert>}
+      {signed && queue.length === 0 && counts.sign === 0 && (
+        <Alert variant="info">Every affidavit for {monthLabel(`${month}-01`)} is signed.</Alert>
+      )}
+      {otherMonths.length > 0 && (
+        <Alert variant="note">
+          Also owed:{" "}
+          {otherMonths.map((other, index) => (
+            <span key={other.month}>
+              {index > 0 && ", "}
+              <Link href={monthHref(other.month)} className="font-semibold text-brand-link">
+                {monthLabel(`${other.month}-01`)} ({other.count})
+              </Link>
+            </span>
+          ))}
+        </Alert>
       )}
 
-      {affidavits.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No affidavits yet.
-        </div>
-      ) : (
+      {allRows.length > 0 && (
+        <ListToolbar
+          search={{
+            placeholder: "Search underwriter",
+            label: "Search affidavits",
+            defaultValue: q,
+            hidden: { month },
+          }}
+        />
+      )}
+
+      {rows.length > 0 && (
         <TableFrame>
-          <Table>
+          <Table stack>
             <thead>
               <HeaderRow>
-                <Th>Report #</Th>
                 <Th>Underwriter</Th>
+                <Th>Order</Th>
                 <Th>Period</Th>
-                <Th>Generated</Th>
+                <Th className="text-right">Aired</Th>
                 <Th>Status</Th>
               </HeaderRow>
             </thead>
             <tbody>
-              {affidavits.map((affidavit) => (
-                <Row key={affidavit.id}>
-                  <Cell className="font-semibold text-ink-900">
+              {rows.map((row) => (
+                <Row key={row.key}>
+                  <Cell stack="title" className="font-semibold text-ink-900">
+                    {row.contract.underwriter.name}
+                    {row.contract.affidavit_required && (
+                      <Badge variant="warning" className="ml-2">
+                        order requires
+                      </Badge>
+                    )}
+                    {row.earlier.length > 0 && (
+                      <Badge variant="muted" className="ml-2">
+                        correction
+                      </Badge>
+                    )}
+                  </Cell>
+                  <Cell label="Order" className="text-ink-500">
                     <Link
-                      href={`/underwriting/affidavits/${affidavit.id}`}
+                      href={`/underwriting/contracts/${row.contract.id}?tab=agreement`}
                       className="text-brand-link"
                     >
-                      {affidavit.report_identifier}
+                      {orderNumberLabel(row.contract.contract_identifier)}
                     </Link>
                   </Cell>
-                  <Cell className="text-ink-500">{affidavit.contract.underwriter.name}</Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
-                    {affidavit.campaign_period_start} – {affidavit.campaign_period_end}
+                  <Cell label="Period" className="whitespace-nowrap text-ink-500">
+                    {shortDate(row.periodStart)} – {shortDate(row.periodEnd)}
                   </Cell>
-                  <Cell className="whitespace-nowrap text-ink-500">
-                    {new Date(affidavit.generated_at).toLocaleDateString("en-US")}
+                  <Cell label="Aired" className="text-right text-ink-700">
+                    {row.airedCount}
                   </Cell>
-                  <Cell>
-                    <Badge variant={STATUS_VARIANT[affidavit.status]}>{affidavit.status}</Badge>
+                  <Cell stack="aside">
+                    {row.state === "generate" ? (
+                      <form action={generateAffidavitsForMonth}>
+                        <input type="hidden" name="month" value={month} />
+                        <input
+                          type="hidden"
+                          name="row"
+                          value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
+                        />
+                        <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+                          Generate
+                        </Button>
+                      </form>
+                    ) : row.state === "sign" && row.affidavit ? (
+                      isManager ? (
+                        <Link
+                          href={`/underwriting/affidavits/${row.affidavit.id}?signing=1`}
+                          className="inline-flex items-center rounded bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-[#2278B8]"
+                        >
+                          Sign
+                        </Link>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <Badge variant="accent">Waiting for signature</Badge>
+                          <Link
+                            href={`/underwriting/affidavits/${row.affidavit.id}`}
+                            className="text-xs font-semibold text-brand-link"
+                          >
+                            Preview
+                          </Link>
+                        </span>
+                      )
+                    ) : row.affidavit ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge variant="success">
+                          Signed
+                          {row.affidavit.certifiedAt
+                            ? ` ${shortDate(stationTodayISO(row.affidavit.certifiedAt))}`
+                            : ""}
+                        </Badge>
+                        <Link
+                          href={`/underwriting/affidavits/${row.affidavit.id}`}
+                          className="text-xs font-semibold text-brand-link"
+                        >
+                          Open
+                        </Link>
+                        <a
+                          href={`/api/underwriting/affidavits/${row.affidavit.id}/pdf`}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-xs font-semibold text-brand-link"
+                        >
+                          PDF
+                        </a>
+                      </span>
+                    ) : null}
+                    {row.earlier.length > 0 && (
+                      <div className="mt-1 text-xs text-ink-500">
+                        Earlier:{" "}
+                        {row.earlier.map((earlier, index) => (
+                          <span key={earlier.id}>
+                            {index > 0 && ", "}
+                            <Link
+                              href={`/underwriting/affidavits/${earlier.id}`}
+                              className="text-brand-link"
+                            >
+                              {earlier.status === "certified" ? "signed" : "draft"}{" "}
+                              {shortDate(stationTodayISO(earlier.generatedAt))}
+                            </Link>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </Cell>
                 </Row>
               ))}
@@ -137,6 +260,18 @@ export default async function AffidavitsPage() {
           </Table>
         </TableFrame>
       )}
+      {allRows.length > 0 && rows.length === 0 && (
+        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+          No affidavits match.
+        </div>
+      )}
+
+      <Link
+        href={newAffidavitHref({})}
+        className="self-start text-sm font-semibold text-brand-link"
+      >
+        Generate one by hand
+      </Link>
     </div>
   );
 }

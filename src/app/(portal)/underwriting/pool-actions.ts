@@ -7,7 +7,7 @@ import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { collectTargetRows, parseTarget } from "@/lib/underwriting/pool-targets";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 
-const POOLS_PATH = "/underwriting/pools";
+const POOLS_PATH = "/underwriting/setup/pools";
 /** The list with the inline "New pool" card open — where a create failure lands so its message renders inside the card. */
 const NEW_POOL_PATH = `${POOLS_PATH}?new=1`;
 

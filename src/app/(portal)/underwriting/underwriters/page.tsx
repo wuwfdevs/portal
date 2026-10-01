@@ -93,7 +93,7 @@ export default async function UnderwritersPage({
         ]}
       >
         <Link
-          href="/underwriting/underwriters/industries"
+          href="/underwriting/setup/industries"
           className="px-1 text-sm font-bold text-brand-link hover:underline"
         >
           Industries

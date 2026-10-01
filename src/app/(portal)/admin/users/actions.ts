@@ -137,7 +137,8 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
 
-  await supabase.from("profiles").update({ platform_role: platformRole }).eq("id", userId);
+  const title = String(formData.get("title") ?? "").trim().slice(0, 120) || null;
+  await supabase.from("profiles").update({ platform_role: platformRole, title }).eq("id", userId);
 
   const { data: existingGrants } = await supabase
     .from("tool_access")

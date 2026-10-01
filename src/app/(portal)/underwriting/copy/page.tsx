@@ -87,7 +87,7 @@ export default async function CopyLibraryPage({
       >
         {isAdministrator && (
           <Link
-            href="/underwriting/migration/copy"
+            href="/underwriting/setup/migration/copy"
             className="px-1 text-sm font-bold text-brand-link hover:underline"
           >
             Import from RadioTraffic

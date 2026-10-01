@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Label, Select } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { getRoleCatalog } from "@/lib/tool-roles";
 import { updateUserAccess } from "../../actions";
 
@@ -43,6 +43,11 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
               <option value="faculty_partner">Faculty / partner</option>
               <option value="administrator">Administrator</option>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input id="title" name="title" maxLength={120} defaultValue={profile.title ?? ""} />
+            <FieldHint>Prints on the signature line of an affidavit this person signs.</FieldHint>
           </div>
           <div>
             <Label>Authorized tools</Label>

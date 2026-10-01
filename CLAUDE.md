@@ -1290,6 +1290,21 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: fewer tabs (2026-10-01).** Read
+`docs/underwriting-traffic-redesign.md` §17 before touching the tab row,
+Exceptions, makegoods, Affidavits, the dashboard's tiles, or the contract
+page's tabs; this is a pointer. Tabs are Dashboard · Contracts ·
+Underwriters · Copy · Exceptions · Affidavits · Setup — Makegoods folded into
+Exceptions, and pools, industries and the imports live under
+`/underwriting/setup/`. An exception's step comes from
+`lib/underwriting/exception-filters.ts` alone (list chips, dashboard tiles and
+the exception page all read it), and an exception closes itself when its last
+makegood airs (a trigger, `20261001120000`). Affidavits are one list per month
+(`lib/underwriting/affidavit-month.ts`), and the signer's title is
+`profiles.title` (`20261001120100`). The contract page is Schedule (By line /
+By date, revisions, flights) · Copy · Agreement. All three migrations are
+applied to both projects.
+
 **Underwriting & Traffic: affidavits are a signed PDF (2026-09-28).** Read
 `docs/underwriting-design.md` §6, "Affidavits are a signed PDF", before
 touching affidavits; this is a pointer. `@react-pdf/renderer` (added for

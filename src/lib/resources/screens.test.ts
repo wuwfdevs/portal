@@ -38,7 +38,7 @@ describe("helpContextForPath", () => {
   });
 
   it("opens on the tool with no screen for a page no screen covers", () => {
-    expect(helpContextForPath("/underwriting")).toEqual({
+    expect(helpContextForPath("/underwriting/underwriters")).toEqual({
       toolKey: "underwriting",
       screenKey: null,
     });

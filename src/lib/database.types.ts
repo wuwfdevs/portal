@@ -601,6 +601,8 @@ export interface Database {
           id: string;
           email: string;
           display_name: string;
+          /** Job title; pre-fills an Underwriting affidavit's signature line (20261001120100_profiles_title.sql). */
+          title: string | null;
           platform_role: PlatformRole;
           account_status: AccountStatus;
           invited_by: string | null;

@@ -13,7 +13,7 @@ import {
 } from "@/lib/underwriting/rotation-rebalance";
 import { getScheduleLine } from "@/lib/underwriting/queries";
 
-const LIST_PATH = "/underwriting/makegoods";
+const LIST_PATH = "/underwriting/exceptions";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -28,8 +28,8 @@ function exceptionPath(id: string): string {
  * lib/underwriting/makegoods.ts on why that's a valid state. It carries the
  * missed placement's demand bucket, so the replacement airing is
  * attributed to the bucket the order missed rather than counted as a new
- * unit (docs/underwriting-traffic-redesign.md §3). Picking a slot happens on
- * the makegoods list page or through auto-fill, not here.
+ * unit (docs/underwriting-traffic-redesign.md §3). Picking a break happens
+ * through auto-fill or the exception page's own picker, not here.
  */
 export async function createMakegood(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
@@ -60,6 +60,14 @@ export async function createMakegood(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not create a makegood record");
 
+  // Creating a makegood is the decision; record it unless one already is.
+  const { error: decisionError } = await supabase
+    .from("uw_exceptions")
+    .update({ resolution_action: "schedule_makegood" })
+    .eq("id", exceptionId)
+    .is("resolution_action", null);
+  failIfError(decisionError, path, "Could not record the decision");
+
   revalidatePath(path);
   revalidatePath(LIST_PATH);
   redirect(path);
@@ -76,18 +84,19 @@ export async function createMakegood(formData: FormData): Promise<void> {
 export async function scheduleMakegoodAction(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const makegoodId = field(formData, "makegood_id");
+  const path = exceptionPath(field(formData, "exception_id"));
   const scheduleLineId = field(formData, "schedule_line_id");
   const breakId = field(formData, "break_id");
   const overrideReason = field(formData, "override_reason");
 
-  if (breakId === "") failWith(LIST_PATH, "Choose an open break to place into.");
+  if (breakId === "") failWith(path, "Choose an open break to place into.");
   // Rotation decides the message unless the form named one — same rule as
   // placeCreditAction.
   const copyId =
     (await resolveCopyForBreak(scheduleLineId, breakId, field(formData, "copy_id") || null)) ?? "";
   if (copyId === "")
     failWith(
-      LIST_PATH,
+      path,
       "No linked message is approved, in date, and short enough for that break — choose one, or approve a message on the contract's Copy tab.",
     );
 
@@ -98,7 +107,7 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
     overrideReason: overrideReason || undefined,
     makegoodId,
   });
-  if (!result.ok) failWith(LIST_PATH, result.message);
+  if (!result.ok) failWith(path, result.message);
   const line = await getScheduleLine(scheduleLineId);
   if (line) await rebalanceContractRotation(line.contract_id, profile.id);
 
@@ -120,13 +129,15 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
   }
 
   revalidatePath(LIST_PATH);
-  redirect(LIST_PATH);
+  revalidatePath(path);
+  redirect(path);
 }
 
 /** Cancels a makegood — freeing its slot (if one was chosen) the same way clearing an ordinary placement does. Best-effort on the clear: an already-cleared or missing placement shouldn't block marking the makegood itself cancelled. */
 export async function cancelMakegoodAction(formData: FormData): Promise<void> {
   await assertUnderwritingAccess();
   const id = field(formData, "makegood_id");
+  const path = exceptionPath(field(formData, "exception_id"));
 
   const supabase = await createClient();
   const { data: makegood } = await supabase
@@ -134,9 +145,9 @@ export async function cancelMakegoodAction(formData: FormData): Promise<void> {
     .select("status, scheduled_placement_id")
     .eq("id", id)
     .maybeSingle();
-  if (!makegood) failWith(LIST_PATH, "That makegood no longer exists.");
+  if (!makegood) failWith(path, "That makegood no longer exists.");
   if (makegood.status !== "scheduled")
-    failWith(LIST_PATH, "Only a scheduled makegood can be cancelled.");
+    failWith(path, "Only a scheduled makegood can be cancelled.");
 
   if (makegood.scheduled_placement_id) {
     await clearCredit(makegood.scheduled_placement_id);
@@ -146,8 +157,9 @@ export async function cancelMakegoodAction(formData: FormData): Promise<void> {
     .from("uw_makegoods")
     .update({ status: "cancelled" })
     .eq("id", id);
-  failIfError(error, LIST_PATH, "Could not cancel this makegood");
+  failIfError(error, path, "Could not cancel this makegood");
 
   revalidatePath(LIST_PATH);
-  redirect(LIST_PATH);
+  revalidatePath(path);
+  redirect(path);
 }

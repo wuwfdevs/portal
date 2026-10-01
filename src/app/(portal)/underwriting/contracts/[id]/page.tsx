@@ -4,38 +4,34 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import {
   buildScheduleLineDemandViews,
   getContractDetail,
   listAffidavitsForContract,
+  listExceptionRefsForLines,
   listInventoryPools,
   type ScheduleLineDemandView,
-  type UwContractRevisionRow,
 } from "@/lib/underwriting/queries";
 import { previewRevisionActivation } from "@/lib/underwriting/revisions";
-import { formatPlacementTime, listProgramOptions } from "@/lib/underwriting/placement";
+import { listProgramOptions } from "@/lib/underwriting/placement";
+import { parsePlacementListFilter } from "@/lib/underwriting/placement-list";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { computeReadiness, countReady } from "@/lib/underwriting/readiness";
 import { defaultAffidavitPeriod, newAffidavitHref } from "@/lib/underwriting/affidavits";
 import { stationTodayISO } from "@/lib/log/timezone";
-import {
-  activateRevisionAction,
-  cancelDraftRevision,
-  cancelFlight,
-  createFlight,
-  createRevisionFromCurrent,
-  setContractStatus,
-  updateContractPolicy,
-} from "../../contract-actions";
+import { setContractStatus } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
-import { clearCreditAction } from "../../placement-actions";
-import { ContractDocumentUpload } from "../../contract-document-upload";
+import { AgreementTab, REVISION_STATUS_VARIANT, separationSummary } from "./agreement-tab";
 import { ContractCopyPanel, type CopyPanelParams } from "./copy-panel";
 import { DeleteContractControl } from "./delete-contract-control";
+import { FlightsSection } from "./flights-section";
 import { FULFILLMENT_VARIANT, LineCard } from "./line-card";
-import type { UwAffidavitStatus, UwContractStatus, UwRevisionStatus } from "@/lib/database.types";
+import { PlacementsByDate } from "./placements-by-date";
+import { DraftRevisionBanner, ReviseScheduleForm, revisionName } from "./revision-panels";
+import { ViewToggle, type ScheduleView } from "./view-toggle";
+import type { UwContractStatus } from "@/lib/database.types";
 
 const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   draft: "neutral",
@@ -44,33 +40,23 @@ const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
   terminated: "danger",
 };
 
-const AFFIDAVIT_STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
-  draft: "neutral",
-  certified: "success",
-};
-
-const REVISION_STATUS_VARIANT: Record<UwRevisionStatus, BadgeVariant> = {
-  draft: "warning",
-  current: "success",
-  superseded: "muted",
-  cancelled: "muted",
-};
-
-const TABS = ["schedule", "copy", "flights", "placements", "revisions", "policy"] as const;
+const TABS = ["schedule", "copy", "agreement"] as const;
 type Tab = (typeof TABS)[number];
-
-function revisionName(revision: UwContractRevisionRow, index: number): string {
-  return revision.revision_label ?? `Revision ${index + 1}`;
-}
 
 /**
  * The contract page (docs/underwriting-traffic-redesign.md §11, from the
  * reviewed mockup; §11.7 for the schedule tab's current shape): what needs
- * doing first, then the contract's parts as sub-tabs, with the facts and
- * the status beside them. A draft leads with a readiness checklist; lines
- * are entered on the schedule step and appear here as summary rows that
- * expand (`?details=<lineId>`) into a table of periods and placements.
- * `?line=<lineId>` says which card a failed action's `error` belongs in.
+ * doing first, then the contract's parts as three sub-tabs — Schedule,
+ * Copy, Agreement — with the facts and the status beside them. A draft
+ * leads with a readiness checklist. The Schedule tab shows the lines
+ * (summary rows that expand with `?details=<lineId>`) or, with
+ * `?view=date`, every placement by date (`?show=`, `?page=`); a draft
+ * revision is reviewed there (`?activate=1`) and a new one started there
+ * (`?revise=1`), and the flights sit at its foot (`#flights`). The
+ * Agreement tab holds the signed order, the traffic policy
+ * (`&edit=policy`), affidavits and the revision history. `?line=<lineId>`
+ * says which card a failed action's `error` belongs in. An unknown `?tab=`
+ * falls back to Schedule.
  */
 export default async function ContractDetailPage({
   params,
@@ -85,6 +71,12 @@ export default async function ContractDetailPage({
       details?: string;
       periods?: string;
       line?: string;
+      view?: string;
+      show?: string;
+      page?: string;
+      activate?: string;
+      revise?: string;
+      edit?: string;
     } & CopyPanelParams
   >;
 }) {
@@ -97,15 +89,23 @@ export default async function ContractDetailPage({
   const tab: Tab = (TABS as readonly string[]).includes(rawTab ?? "")
     ? (rawTab as Tab)
     : "schedule";
+  const scheduleView: ScheduleView = query.view === "date" ? "date" : "line";
   const contract = await getContractDetail(id);
   if (!contract) notFound();
 
-  const [programs, pools, activation, affidavits] = await Promise.all([
+  const [programs, pools, activation, affidavits, exceptionRefs] = await Promise.all([
     listProgramOptions(),
     listInventoryPools(),
     contract.draftRevision ? previewRevisionActivation(contract.draftRevision.id) : null,
     listAffidavitsForContract(contract.id),
+    listExceptionRefsForLines(contract.scheduleLines.map((line) => line.id)),
   ]);
+  const exceptionIdByPlacement = new Map(
+    exceptionRefs.flatMap((ref) =>
+      ref.scheduledPlacementId ? [[ref.scheduledPlacementId, ref.id] as const] : [],
+    ),
+  );
+  const openExceptionCount = exceptionRefs.filter((ref) => ref.open).length;
   const programNameById = new Map(programs.map((program) => [program.id, program.name]));
   const poolNameById = new Map(pools.map((pool) => [pool.id, pool.name]));
   const flightNameById = new Map(contract.flights.map((flight) => [flight.id, flight.name]));
@@ -169,7 +169,7 @@ export default async function ContractDetailPage({
     : null;
   const readinessHref: Record<string, string> = {
     order: `${base}/order`,
-    agreement: `${base}?tab=policy`,
+    agreement: `${base}?tab=agreement#signed-agreement`,
     schedule: `${base}/schedule`,
     copy: `${base}/copy`,
     policy: `${base}/policy`,
@@ -184,11 +184,9 @@ export default async function ContractDetailPage({
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "schedule", label: "Schedule", count: currentViews.length },
     { key: "copy", label: "Copy", count: contract.copy.length },
-    { key: "flights", label: "Flights", count: contract.flights.length },
-    { key: "placements", label: "Placements", count: allPlacements.length },
-    { key: "revisions", label: "Revisions", count: contract.revisions.length },
-    { key: "policy", label: "Policy" },
+    { key: "agreement", label: "Agreement" },
   ];
+  const canRevise = !contract.draftRevision && contract.currentRevision !== null;
 
   const revisionsForSchedule = [
     ...(contract.draftRevision ? [contract.draftRevision] : []),
@@ -278,8 +276,14 @@ export default async function ContractDetailPage({
       {separationUndecided && !isDraft && (
         <Alert variant="note" className="mb-4">
           The order states a separation rule (&ldquo;{contract.separation_source_text}&rdquo;) with
-          no unit. Auto-fill won&apos;t schedule this contract until a policy is chosen under
-          Policy.
+          no unit. Auto-fill won&apos;t schedule this contract until a policy is chosen under{" "}
+          <Link
+            href={`${base}?tab=agreement&edit=policy#traffic-policy`}
+            className="font-semibold text-brand-link"
+          >
+            Traffic policy
+          </Link>
+          .
         </Alert>
       )}
 
@@ -352,489 +356,165 @@ export default async function ContractDetailPage({
 
           {tab === "schedule" && (
             <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Link
-                  href={`${base}/schedule`}
-                  className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                >
-                  Add a line
-                </Link>
-                {contract.currentRevision && currentViews.length > 0 && (
-                  <form action={autoFillContractAction}>
-                    <input type="hidden" name="contract_id" value={contract.id} />
-                    <Button
-                      type="submit"
-                      className="px-3 py-2 text-[13px]"
-                      disabled={contract.status !== "active"}
-                    >
-                      Auto-fill this contract
-                    </Button>
-                  </form>
-                )}
-              </div>
-              {revisionsForSchedule.map((revision) => {
-                const revisionViews = viewsByRevision.get(revision.id) ?? [];
-                const isCurrent = revision.status === "current";
-                const isDraftRevision = revision.status === "draft";
-                const index = contract.revisions.findIndex((r) => r.id === revision.id);
-                return (
-                  <section key={revision.id} className="flex flex-col gap-3">
-                    {showRevisionHeadings && (
-                      <h3 className="text-[15px] font-bold text-ink-900">
-                        {revisionName(revision, index)}{" "}
-                        <span className="font-normal text-ink-500">
-                          · {revision.status} revision · effective {revision.effective_from}
-                        </span>
-                      </h3>
-                    )}
-                    {revisionViews.length === 0 ? (
-                      <p className="rounded border border-dashed border-line px-5 py-4 text-sm text-ink-500">
-                        No schedule lines yet — enter the order&apos;s schedule on the schedule
-                        step.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-line rounded border border-line">
-                        {revisionViews.map((view) => (
-                          <LineCard
-                            key={view.scheduleLine.id}
-                            {...lineCardProps(view)}
-                            isCurrent={isCurrent}
-                            isDraft={isDraftRevision}
-                          />
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                );
-              })}
-              {revisionsForSchedule.length === 0 && (
-                <p className="text-sm text-ink-500">
-                  This contract has no revision to schedule from.
-                </p>
+              {contract.draftRevision && (
+                <DraftRevisionBanner
+                  base={base}
+                  contractId={contract.id}
+                  revisionId={contract.draftRevision.id}
+                  name={revisionName(
+                    contract.draftRevision,
+                    contract.revisions.findIndex((r) => r.id === contract.draftRevision?.id),
+                  )}
+                  effectiveFrom={contract.draftRevision.effective_from}
+                  draftLineCount={(viewsByRevision.get(contract.draftRevision.id) ?? []).length}
+                  activation={activation}
+                  expanded={query.activate === "1"}
+                />
               )}
-              {olderRevisionsWithLines.length > 0 && (
-                <details className="rounded border border-line">
-                  <summary className="cursor-pointer px-5 py-3 text-[13px] font-semibold text-brand-link">
-                    Earlier revisions&apos; lines
-                  </summary>
-                  {olderRevisionsWithLines.map((revision) => {
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ViewToggle base={base} view={scheduleView} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`${base}/schedule`}
+                    className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                  >
+                    Add a line
+                  </Link>
+                  {canRevise && (
+                    <Link
+                      href={`${base}?revise=1`}
+                      className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                    >
+                      Revise the schedule
+                    </Link>
+                  )}
+                  {contract.currentRevision && currentViews.length > 0 && (
+                    <form action={autoFillContractAction}>
+                      <input type="hidden" name="contract_id" value={contract.id} />
+                      <Button
+                        type="submit"
+                        className="px-3 py-2 text-[13px]"
+                        disabled={contract.status !== "active"}
+                      >
+                        Auto-fill this contract
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              </div>
+              {canRevise && query.revise === "1" && (
+                <ReviseScheduleForm base={base} contractId={contract.id} />
+              )}
+
+              {scheduleView === "date" ? (
+                <PlacementsByDate
+                  base={base}
+                  contractId={contract.id}
+                  contractActive={contract.status === "active"}
+                  placements={allPlacements}
+                  copyLabelById={new Map(contract.copy.map((copy) => [copy.id, copy.label]))}
+                  exceptionIdByPlacement={exceptionIdByPlacement}
+                  filter={parsePlacementListFilter(query.show)}
+                  rawPage={query.page}
+                />
+              ) : (
+                <>
+                  {revisionsForSchedule.map((revision) => {
                     const revisionViews = viewsByRevision.get(revision.id) ?? [];
+                    const isCurrent = revision.status === "current";
+                    const isDraftRevision = revision.status === "draft";
                     const index = contract.revisions.findIndex((r) => r.id === revision.id);
                     return (
-                      <div key={revision.id} className="border-t border-line">
-                        <div className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-ink-700">
-                          {revisionName(revision, index)}
-                          <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
-                            {revision.status}
-                          </Badge>
-                        </div>
-                        <ul className="divide-y divide-line border-t border-line">
-                          {revisionViews.map((view) => (
-                            <LineCard
-                              key={view.scheduleLine.id}
-                              {...lineCardProps(view)}
-                              isCurrent={false}
-                              isDraft={false}
-                            />
-                          ))}
-                        </ul>
-                      </div>
+                      <section key={revision.id} className="flex flex-col gap-3">
+                        {showRevisionHeadings && (
+                          <h3 className="text-[15px] font-bold text-ink-900">
+                            {revisionName(revision, index)}{" "}
+                            <span className="font-normal text-ink-500">
+                              · {revision.status} revision · effective {revision.effective_from}
+                            </span>
+                          </h3>
+                        )}
+                        {revisionViews.length === 0 ? (
+                          <p className="rounded border border-dashed border-line px-5 py-4 text-sm text-ink-500">
+                            No schedule lines yet — enter the order&apos;s schedule on the schedule
+                            step.
+                          </p>
+                        ) : (
+                          <ul className="divide-y divide-line rounded border border-line">
+                            {revisionViews.map((view) => (
+                              <LineCard
+                                key={view.scheduleLine.id}
+                                {...lineCardProps(view)}
+                                isCurrent={isCurrent}
+                                isDraft={isDraftRevision}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                      </section>
                     );
                   })}
-                </details>
+                  {revisionsForSchedule.length === 0 && (
+                    <p className="text-sm text-ink-500">
+                      This contract has no revision to schedule from.
+                    </p>
+                  )}
+                  {olderRevisionsWithLines.length > 0 && (
+                    <details className="rounded border border-line">
+                      <summary className="cursor-pointer px-5 py-3 text-[13px] font-semibold text-brand-link">
+                        Earlier revisions&apos; lines
+                      </summary>
+                      {olderRevisionsWithLines.map((revision) => {
+                        const revisionViews = viewsByRevision.get(revision.id) ?? [];
+                        const index = contract.revisions.findIndex((r) => r.id === revision.id);
+                        return (
+                          <div key={revision.id} className="border-t border-line">
+                            <div className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-ink-700">
+                              {revisionName(revision, index)}
+                              <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
+                                {revision.status}
+                              </Badge>
+                            </div>
+                            <ul className="divide-y divide-line border-t border-line">
+                              {revisionViews.map((view) => (
+                                <LineCard
+                                  key={view.scheduleLine.id}
+                                  {...lineCardProps(view)}
+                                  isCurrent={false}
+                                  isDraft={false}
+                                />
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </details>
+                  )}
+                </>
               )}
+
+              <FlightsSection contract={contract} />
             </div>
           )}
 
           {tab === "copy" && <ContractCopyPanel contract={contract} surface="tab" params={query} />}
 
-          {tab === "flights" && (
-            <section className="rounded border border-line">
-              <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-                Flights
-              </div>
-              {contract.flights.length === 0 ? (
-                <p className="px-5 py-4 text-sm text-ink-500">
-                  No flights — add one for each concert, production, or event the order groups its
-                  dates and copy under.
-                </p>
-              ) : (
-                <ul className="divide-y divide-line">
-                  {contract.flights.map((flight) => (
-                    <li
-                      key={flight.id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm"
-                    >
-                      <span>
-                        <span className="font-semibold text-ink-900">{flight.name}</span>
-                        <span className="ml-2 text-xs text-ink-400">
-                          {flight.start_date} – {flight.end_date}
-                        </span>
-                        {flight.status === "cancelled" && (
-                          <Badge variant="danger" className="ml-2">
-                            cancelled
-                          </Badge>
-                        )}
-                      </span>
-                      {flight.status === "active" && (
-                        <form action={cancelFlight} className="flex items-center gap-2">
-                          <input type="hidden" name="contract_id" value={contract.id} />
-                          <input type="hidden" name="flight_id" value={flight.id} />
-                          <Input
-                            name="cancelled_from"
-                            type="date"
-                            defaultValue={flight.start_date}
-                            className="max-w-[160px]"
-                          />
-                          <Button type="submit" variant="ghost">
-                            Cancel flight
-                          </Button>
-                        </form>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <form
-                action={createFlight}
-                className="flex flex-wrap items-end gap-3 border-t border-line px-5 py-4"
-              >
-                <input type="hidden" name="contract_id" value={contract.id} />
-                <div>
-                  <Label htmlFor="flight_name">Name</Label>
-                  <Input id="flight_name" name="name" placeholder="El Mesias — Dec 4 & 5" />
-                </div>
-                <div>
-                  <Label htmlFor="flight_start">From</Label>
-                  <Input id="flight_start" name="start_date" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="flight_end">To</Label>
-                  <Input id="flight_end" name="end_date" type="date" />
-                </div>
-                <Button type="submit" variant="secondary">
-                  Add flight
-                </Button>
-              </form>
-            </section>
-          )}
-
-          {tab === "placements" && (
-            <section className="rounded border border-line">
-              <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-                Placements under the current revision
-              </div>
-              {allPlacements.length === 0 ? (
-                <p className="px-5 py-4 text-sm text-ink-500">
-                  Nothing scheduled yet. Auto-fill or place credits from the Schedule tab.
-                </p>
-              ) : (
-                <ul className="divide-y divide-line">
-                  {allPlacements.map(({ placement, view }) => (
-                    <li
-                      key={placement.id}
-                      className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-[13px]"
-                    >
-                      <span className="w-40 shrink-0 font-semibold text-ink-900">
-                        {formatPlacementTime(placement.scheduled_at)}
-                      </span>
-                      <span className="text-ink-700">
-                        {placement.program_name}
-                        {placement.break_label ? ` · ${placement.break_label}` : ""}
-                      </span>
-                      <span className="text-ink-500">
-                        {view.scheduleLine.label || view.description}
-                      </span>
-                      <span className="flex-1" />
-                      {placement.makegood_id && <Badge variant="warning">makegood</Badge>}
-                      <Badge
-                        variant={
-                          placement.outcome === "aired"
-                            ? "success"
-                            : placement.outcome === "not_aired"
-                              ? "danger"
-                              : "accent"
-                        }
-                      >
-                        {placement.outcome === "pending"
-                          ? "scheduled"
-                          : placement.outcome === "aired"
-                            ? "aired"
-                            : "not aired"}
-                      </Badge>
-                      {placement.outcome === "pending" &&
-                        view.scheduleLine.status === "active" &&
-                        contract.status === "active" && (
-                          <form action={clearCreditAction}>
-                            <input type="hidden" name="contract_id" value={contract.id} />
-                            <input type="hidden" name="placement_id" value={placement.id} />
-                            <input type="hidden" name="return_to" value="placements" />
-                            <Button type="submit" variant="ghost" className="py-0.5 text-xs">
-                              Clear
-                            </Button>
-                          </form>
-                        )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {tab === "revisions" && (
-            <section className="rounded border border-line">
-              <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-                Revisions
-              </div>
-              <ul className="divide-y divide-line">
-                {contract.revisions.map((revision, index) => (
-                  <li
-                    key={revision.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm"
-                  >
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-ink-900">
-                        {revisionName(revision, index)}
-                      </span>
-                      <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
-                        {revision.status}
-                      </Badge>
-                      <span className="text-xs text-ink-400">
-                        effective {revision.effective_from}
-                        {revision.received_at ? ` · received ${revision.received_at}` : ""}
-                        {` · ${(viewsByRevision.get(revision.id) ?? []).length} line${(viewsByRevision.get(revision.id) ?? []).length === 1 ? "" : "s"}`}
-                      </span>
-                    </span>
-                    {revision.notes && (
-                      <span className="text-xs text-ink-500">{revision.notes}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-
-              {contract.draftRevision && activation && (
-                <div className="border-t border-line bg-warning-bg/40 px-5 py-4 text-sm">
-                  <div className="mb-1 font-semibold text-ink-900">
-                    Activating &ldquo;
-                    {revisionName(
-                      contract.draftRevision,
-                      contract.revisions.findIndex((r) => r.id === contract.draftRevision?.id),
-                    )}
-                    &rdquo; from {contract.draftRevision.effective_from} would:
-                  </div>
-                  <ul className="mb-3 list-disc pl-5 text-xs text-ink-700">
-                    <li>
-                      Supersede {activation.bucketsToSupersede.length} open demand bucket
-                      {activation.bucketsToSupersede.length === 1 ? "" : "s"} of the current
-                      revision (
-                      {activation.bucketsToSupersede.reduce((s, b) => s + b.quantity_required, 0)}{" "}
-                      credits still owed there).
-                    </li>
-                    <li>
-                      Clear {activation.placementsToClear.length} scheduled placement
-                      {activation.placementsToClear.length === 1 ? "" : "s"} dated on or after the
-                      effective date
-                      {activation.placementsToClear.length > 0 &&
-                        ` (${activation.placementsToClear
-                          .slice(0, 4)
-                          .map((p) => formatPlacementTime(p.scheduled_at))
-                          .join(", ")}${activation.placementsToClear.length > 4 ? ", …" : ""})`}
-                      . {activation.placementsKept} earlier placement
-                      {activation.placementsKept === 1 ? "" : "s"} and every broadcast event stay
-                      with the old revision.
-                    </li>
-                    {activation.makegoodsLeftOpen > 0 && (
-                      <li>
-                        Leave {activation.makegoodsLeftOpen} makegood
-                        {activation.makegoodsLeftOpen === 1 ? "" : "s"} awaiting a slot open under
-                        the old revision — resolve or cancel them on the Makegoods screen.
-                      </li>
-                    )}
-                    {activation.draftBucketsDropped.length > 0 && (
-                      <li>
-                        Drop {activation.draftBucketsDropped.length} of the draft&apos;s own bucket
-                        {activation.draftBucketsDropped.length === 1 ? "" : "s"} that end before the
-                        effective date, so no period is counted twice.
-                      </li>
-                    )}
-                    <li>
-                      Make the draft&apos;s{" "}
-                      {(viewsByRevision.get(contract.draftRevision.id) ?? []).length} line
-                      {(viewsByRevision.get(contract.draftRevision.id) ?? []).length === 1
-                        ? ""
-                        : "s"}{" "}
-                      the ones auto-fill and manual placement schedule from.
-                    </li>
-                  </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <form action={activateRevisionAction}>
-                      <input type="hidden" name="contract_id" value={contract.id} />
-                      <input type="hidden" name="revision_id" value={contract.draftRevision.id} />
-                      <Button type="submit">Activate revision</Button>
-                    </form>
-                    <form action={cancelDraftRevision}>
-                      <input type="hidden" name="contract_id" value={contract.id} />
-                      <input type="hidden" name="revision_id" value={contract.draftRevision.id} />
-                      <Button type="submit" variant="ghost">
-                        Discard draft
-                      </Button>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {!contract.draftRevision && contract.currentRevision && (
-                <details className="border-t border-line px-5 py-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                    Create a revision from the current schedule
-                  </summary>
-                  <form
-                    action={createRevisionFromCurrent}
-                    className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
-                  >
-                    <input type="hidden" name="contract_id" value={contract.id} />
-                    <div>
-                      <Label htmlFor="revision_label">Label</Label>
-                      <Input
-                        id="revision_label"
-                        name="revision_label"
-                        placeholder="Revised order, Oct 1"
-                        maxLength={80}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="revision_effective_from">Takes effect</Label>
-                      <Input
-                        id="revision_effective_from"
-                        name="effective_from"
-                        type="date"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="revision_received_at">Received</Label>
-                      <Input id="revision_received_at" name="received_at" type="date" />
-                    </div>
-                    <label className="flex items-center gap-2 pb-2 text-sm text-ink-700">
-                      <input type="checkbox" name="copy_lines" className="h-4 w-4" defaultChecked />
-                      Start from a copy of the current lines
-                    </label>
-                    <Button type="submit" variant="secondary">
-                      Create draft
-                    </Button>
-                  </form>
-                  <FieldHint>
-                    A draft is edited beside the current schedule and schedules nothing until it is
-                    activated. Activation changes future demand only — aired credits, broadcast
-                    events and exceptions stay with the revision they happened under.
-                  </FieldHint>
-                </details>
-              )}
-            </section>
-          )}
-
-          {tab === "policy" && (
-            <div className="flex flex-col gap-6">
-              <section className="rounded border border-line p-5">
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-500">
-                  Executed agreement
-                </div>
-                <ContractDocumentUpload
-                  contractId={contract.id}
-                  existingPath={contract.agreement_document_path}
-                />
-              </section>
-              <section className="rounded border border-line">
-                <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-                  Traffic policy
-                </div>
-                <form action={updateContractPolicy} className="flex flex-col gap-4 p-5">
-                  <input type="hidden" name="contract_id" value={contract.id} />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="stated_total_spots">Total spots on the order</Label>
-                      <Input
-                        id="stated_total_spots"
-                        name="stated_total_spots"
-                        type="number"
-                        min={0}
-                        defaultValue={contract.stated_total_spots ?? ""}
-                      />
-                      <FieldHint>
-                        Checked against what the lines compile to — never the scheduling target.
-                      </FieldHint>
-                    </div>
-                    <div>
-                      <Label htmlFor="preemption_policy">Preemption / makegood policy</Label>
-                      <Input
-                        id="preemption_policy"
-                        name="preemption_policy"
-                        defaultValue={contract.preemption_policy ?? ""}
-                      />
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      name="affidavit_required"
-                      className="h-4 w-4"
-                      defaultChecked={contract.affidavit_required}
-                    />
-                    Affidavit required
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      name="makegood_requires_agency_approval"
-                      className="h-4 w-4"
-                      defaultChecked={contract.makegood_requires_agency_approval}
-                    />
-                    Makegoods need agency approval
-                  </label>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                      <Label htmlFor="separation_source_text">
-                        Separation, as the order prints it
-                      </Label>
-                      <Input
-                        id="separation_source_text"
-                        name="separation_source_text"
-                        defaultValue={contract.separation_source_text ?? ""}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="separation_policy">Separation policy</Label>
-                      <Select
-                        id="separation_policy"
-                        name="separation_policy"
-                        defaultValue={contract.separation_policy}
-                      >
-                        <option value="unspecified">
-                          Undecided (blocks auto-fill if the order states one)
-                        </option>
-                        <option value="none">None beyond the standard rules</option>
-                        <option value="min_minutes">At least N minutes apart on a day</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="separation_minutes">Minutes apart</Label>
-                      <Input
-                        id="separation_minutes"
-                        name="separation_minutes"
-                        type="number"
-                        min={1}
-                        defaultValue={contract.separation_minutes ?? ""}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Button type="submit" variant="secondary">
-                      Save policy
-                    </Button>
-                  </div>
-                </form>
-              </section>
-            </div>
+          {tab === "agreement" && (
+            <AgreementTab
+              contract={contract}
+              base={base}
+              editingPolicy={query.edit === "policy"}
+              affidavits={affidavits}
+              newAffidavitHref={isDraft ? null : newAffidavitHref(affidavitPrefill)}
+              lineCountByRevision={
+                new Map(
+                  contract.revisions.map((revision) => [
+                    revision.id,
+                    (viewsByRevision.get(revision.id) ?? []).length,
+                  ]),
+                )
+              }
+            />
           )}
         </div>
 
@@ -887,13 +567,39 @@ export default async function ContractDetailPage({
             </div>
           )}
 
+          {!isDraft && (
+            <div className="rounded border border-line px-5 py-4">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                Missed credits
+              </div>
+              {openExceptionCount === 0 ? (
+                <p className="text-[13px] text-ink-700">
+                  No missed credit is waiting on a decision.
+                </p>
+              ) : (
+                <p className="text-[13px] text-ink-700">
+                  {openExceptionCount} open exception{openExceptionCount === 1 ? "" : "s"}.{" "}
+                  <Link
+                    href={`/underwriting/exceptions?q=${encodeURIComponent(contract.underwriter.name)}`}
+                    className="font-semibold text-brand-link"
+                  >
+                    Review
+                  </Link>
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="rounded border border-line px-5 py-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
                 Traffic policy
               </span>
-              <Link href={`${base}?tab=policy`} className="text-xs font-semibold text-brand-link">
-                Edit
+              <Link
+                href={`${base}?tab=agreement#traffic-policy`}
+                className="text-xs font-semibold text-brand-link"
+              >
+                Agreement
               </Link>
             </div>
             <dl className="text-[13px]">
@@ -905,17 +611,7 @@ export default async function ContractDetailPage({
                     ? "Agency approval needed"
                     : "Station's discretion",
                 ],
-                [
-                  "Separation",
-                  contract.separation_policy === "min_minutes"
-                    ? `At least ${contract.separation_minutes} min apart`
-                    : contract.separation_policy === "none"
-                      ? "None stated"
-                      : contract.separation_source_text
-                        ? `“${contract.separation_source_text}” — undecided`
-                        : "None stated",
-                ],
-                ["Preemption", contract.preemption_policy ?? "—"],
+                ["Separation", separationSummary(contract)],
               ].map(([term, value]) => (
                 <div
                   key={term}
@@ -927,48 +623,6 @@ export default async function ContractDetailPage({
               ))}
             </dl>
           </div>
-
-          {!isDraft && (
-            <div className="rounded border border-line px-5 py-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
-                  Affidavits
-                </span>
-                <Link
-                  href={newAffidavitHref(affidavitPrefill)}
-                  className="text-xs font-semibold text-brand-link"
-                >
-                  Generate
-                </Link>
-              </div>
-              {affidavits.length === 0 ? (
-                <p className="text-[13px] leading-relaxed text-ink-700">
-                  {contract.affidavit_required
-                    ? "The order requires affidavits, and none has been generated yet."
-                    : "None generated. The order doesn't require one, but you can still generate one."}
-                </p>
-              ) : (
-                <ul className="text-[13px]">
-                  {affidavits.map((affidavit) => (
-                    <li
-                      key={affidavit.id}
-                      className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0"
-                    >
-                      <Link
-                        href={`/underwriting/affidavits/${affidavit.id}`}
-                        className="font-semibold text-brand-link"
-                      >
-                        {affidavit.campaign_period_start} – {affidavit.campaign_period_end}
-                      </Link>
-                      <Badge variant={AFFIDAVIT_STATUS_VARIANT[affidavit.status]}>
-                        {affidavit.status}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
 
           <div className="rounded border border-line px-5 py-4">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">

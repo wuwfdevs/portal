@@ -13,6 +13,8 @@ import { autoFillAllAction } from "./auto-fill-actions";
 import {
   buildScheduleLineDemandViews,
   listBucketsForLines,
+  countAffidavitsAwaitingSignature,
+  listAffidavitsDue,
   listContracts,
   listCopy,
   listCopyLinkedToContracts,
@@ -29,7 +31,9 @@ import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { stationTodayISO } from "@/lib/log/timezone";
-import { matchesExceptionFilter } from "@/lib/underwriting/exception-filters";
+import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
+import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
 const LOOK_AHEAD_DAYS = 14;
@@ -58,17 +62,31 @@ export default async function UnderwritingDashboardPage({
   searchParams: Promise<{ notice?: string }>;
 }) {
   const { notice } = await searchParams;
-  const [contracts, copy, scheduleLines, openExceptions, pools, programs] = await Promise.all([
+  const [
+    { isManager },
+    contracts,
+    copy,
+    scheduleLines,
+    openExceptions,
+    pools,
+    programs,
+    affidavitsDue,
+    affidavitsAwaitingSignature,
+  ] = await Promise.all([
+    requireUnderwritingAccess(),
     listContracts(),
     listCopy(),
     listScheduleLinesWithActiveContracts(),
     listExceptions(),
     listInventoryPools(),
     listProgramOptions(),
+    listAffidavitsDue(),
+    countAffidavitsAwaitingSignature(),
   ]);
   const unresolvedExceptions = openExceptions.filter(
     (exception) => exception.resolution_status === "open",
   );
+  const exceptionCounts = countByExceptionFilter(openExceptions);
 
   const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))];
   const [copyByContract, bucketsByLine, lineContexts] = await Promise.all([
@@ -168,54 +186,83 @@ export default async function UnderwritingDashboardPage({
       view.buckets.filter((b) => b.periodEnd >= todayISO).reduce((s, b) => s + b.freshShortfall, 0),
     0,
   );
-  // Counted per exception, the same rule as the Exceptions list's
-  // "Agency approval pending" filter the tile links to.
-  const makegoodsPendingApproval = openExceptions.filter((exception) =>
-    matchesExceptionFilter(exception, "agency_pending"),
-  ).length;
-  const makegoodsAwaitingSlot = views.reduce(
-    (sum, view) => sum + view.openItems.awaitingSlot.length,
-    0,
-  );
   const capacityConflicts = conflicts.filter((check) =>
     check.reasons.includes("capacity_conflict"),
   ).length;
 
   // What needs action, first (2026-09-25, after comparing against
-  // RadioTraffic's own attention-first dashboard): each figure links to
-  // the screen where it is worked.
-  const attention: {
-    label: string;
-    count: number;
-    href: string;
-    tone: "danger" | "warning" | "neutral";
-  }[] = [
+  // RadioTraffic's own attention-first dashboard), grouped by job
+  // (docs/underwriting-traffic-redesign.md §17): each figure links to the
+  // screen where it is worked, filtered the same way it was counted.
+  const lastMonth = defaultAffidavitMonth(stationTodayISO());
+  const attentionGroups: { label: string; items: AttentionItem[] }[] = [
     {
-      label: "Open exceptions",
-      count: unresolvedExceptions.length,
-      href: "/underwriting/exceptions?status=open",
-      tone: "warning",
+      label: "Missed credits",
+      items: [
+        {
+          label: "Need a decision",
+          count: exceptionCounts.decision,
+          href: "/underwriting/exceptions?status=decision",
+          tone: "warning",
+        },
+        {
+          label: "Waiting on the agency",
+          count: exceptionCounts.agency,
+          href: "/underwriting/exceptions?status=agency",
+          tone: "warning",
+        },
+        {
+          label: "Makegoods awaiting a break",
+          count: exceptionCounts.awaiting_break,
+          href: "/underwriting/exceptions?status=awaiting_break",
+          tone: "neutral",
+        },
+      ],
     },
     {
-      label: "Makegoods pending agency approval",
-      count: makegoodsPendingApproval,
-      href: "/underwriting/exceptions?status=agency_pending",
-      tone: "warning",
+      label: "Scheduling",
+      items: [
+        {
+          label: "Units not yet scheduled",
+          count: unplacedUnits,
+          href: "/underwriting/contracts",
+          tone: "neutral",
+        },
+        {
+          label: "Capacity conflicts",
+          count: capacityConflicts,
+          href: "#conflicts",
+          tone: "danger",
+        },
+      ],
     },
     {
-      label: "Makegoods awaiting a slot",
-      count: makegoodsAwaitingSlot,
-      href: "/underwriting/makegoods",
-      tone: "warning",
+      label: "Affidavits",
+      items: [
+        {
+          label: "To generate",
+          count: affidavitsDue.length,
+          href: `/underwriting/affidavits?month=${
+            affidavitsDue.length > 0
+              ? affidavitsDue.map((item) => item.periodEnd.slice(0, 7)).sort()[0]
+              : lastMonth
+          }`,
+          tone: "warning",
+        },
+        ...(isManager
+          ? [
+              {
+                label: "Awaiting your signature",
+                count: affidavitsAwaitingSignature,
+                href: `/underwriting/affidavits?month=${lastMonth}`,
+                tone: "accent" as const,
+              },
+            ]
+          : []),
+      ],
     },
-    {
-      label: "Open units still unscheduled",
-      count: unplacedUnits,
-      href: "/underwriting/contracts",
-      tone: "neutral",
-    },
-    { label: "Capacity conflicts", count: capacityConflicts, href: "#conflicts", tone: "danger" },
   ];
+  const attention = attentionGroups.flatMap((group) => group.items);
   const allClear = attention.every((item) => item.count === 0) && conflicts.length === 0;
 
   return (
@@ -224,42 +271,25 @@ export default async function UnderwritingDashboardPage({
 
       <section aria-labelledby="attention">
         <SectionHeading id="attention">Needs attention</SectionHeading>
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {attention.map((item) => {
-            const flagged = item.count > 0 && item.tone !== "neutral";
-            return (
-              <li key={item.label} className="last:col-span-2 sm:last:col-span-1">
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex h-full flex-col gap-1 rounded border border-l-4 bg-white px-4 py-3 transition-colors hover:bg-panel-50",
-                    flagged
-                      ? item.tone === "danger"
-                        ? "border-danger/30 border-l-danger"
-                        : "border-line border-l-warning-fg"
-                      : "border-line border-l-line",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-2xl font-bold tabular-nums",
-                      flagged
-                        ? item.tone === "danger"
-                          ? "text-danger"
-                          : "text-warning-fg"
-                        : item.count === 0
-                          ? "text-ink-400"
-                          : "text-ink-900",
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                  <span className="text-xs leading-snug text-ink-500">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="grid gap-4 lg:grid-cols-[3fr_2fr_2fr]">
+          {attentionGroups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-2">
+              <h3 className="text-xs font-semibold text-ink-700">{group.label}</h3>
+              <ul
+                className={cn(
+                  "grid grid-cols-2 gap-3",
+                  group.items.length === 3 && "sm:grid-cols-3",
+                )}
+              >
+                {group.items.map((item) => (
+                  <li key={item.label}>
+                    <AttentionTile item={item} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
         {allClear && (
           <p className="mt-2 text-xs text-ink-500">
             Nothing needs attention — every open period is scheduled and nothing is blocked.
@@ -546,5 +576,49 @@ function EmptyState({ children }: { children: ReactNode }) {
     <div className="rounded border border-dashed border-line px-4 py-5 text-sm text-ink-500">
       {children}
     </div>
+  );
+}
+
+interface AttentionItem {
+  label: string;
+  count: number;
+  href: string;
+  tone: "danger" | "warning" | "accent" | "neutral";
+}
+
+function AttentionTile({ item }: { item: AttentionItem }) {
+  const flagged = item.count > 0 && item.tone !== "neutral";
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex h-full flex-col gap-1 rounded border border-l-4 bg-white px-4 py-3 transition-colors hover:bg-panel-50",
+        !flagged
+          ? "border-line border-l-line"
+          : item.tone === "danger"
+            ? "border-danger/30 border-l-danger"
+            : item.tone === "accent"
+              ? "border-line border-l-brand-primary"
+              : "border-line border-l-warning-fg",
+      )}
+    >
+      <span
+        className={cn(
+          "text-2xl font-bold tabular-nums",
+          !flagged
+            ? item.count === 0
+              ? "text-ink-400"
+              : "text-ink-900"
+            : item.tone === "danger"
+              ? "text-danger"
+              : item.tone === "accent"
+                ? "text-brand-link"
+                : "text-warning-fg",
+        )}
+      >
+        {item.count}
+      </span>
+      <span className="text-xs leading-snug text-ink-500">{item.label}</span>
+    </Link>
   );
 }

@@ -7,6 +7,7 @@ function makeProfile(overrides: Partial<Profile> = {}): Profile {
     id: "00000000-0000-0000-0000-000000000001",
     email: "dana.ruiz@wuwf.org",
     display_name: "Dana Ruiz",
+    title: null,
     platform_role: "staff",
     account_status: "active",
     invited_by: null,

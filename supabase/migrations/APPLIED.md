@@ -181,6 +181,9 @@ repo and a project's history, not the version number.
 | `20260930140000_resources_underwriting_legacy_copy.sql`               | 2026-09-30 | 2026-09-30 |
 | `20260930150000_underwriting_line_scoped_copy.sql`                    | 2026-09-30 | 2026-09-30 |
 | `20260930150100_resources_underwriting_line_scoped_copy.sql`          | 2026-09-30 | 2026-09-30 |
+| `20261001120000_underwriting_exception_auto_close.sql`                | 2026-10-01 | 2026-10-01 |
+| `20261001120100_profiles_title.sql`                                   | 2026-10-01 | 2026-10-01 |
+| `20261001120200_resources_underwriting_fewer_tabs.sql`                | 2026-10-01 | 2026-10-01 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

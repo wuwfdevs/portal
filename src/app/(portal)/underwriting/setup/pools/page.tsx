@@ -16,10 +16,10 @@ import {
   createInventoryPool,
   removeInventoryPoolTarget,
   setInventoryPoolActive,
-} from "../pool-actions";
+} from "../../pool-actions";
 import { PoolTargetRows } from "./pool-target-rows";
 
-const POOLS_PATH = "/underwriting/pools";
+const POOLS_PATH = "/underwriting/setup/pools";
 
 function formatTime(time: string | null): string {
   if (!time) return "";
@@ -69,6 +69,12 @@ export default async function InventoryPoolsPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+          ← Setup
+        </Link>
+        <h2 className="mt-2 font-serif text-xl font-bold text-ink-900">Inventory pools</h2>
+      </div>
       <ListToolbar
         search={{
           placeholder: "Search pools or programs",

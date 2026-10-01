@@ -10,7 +10,7 @@ import { WizardHeader } from "../wizard-header";
 /**
  * Setup step 4: the traffic policy the order states (docs/underwriting-
  * traffic-redesign.md §11; copy moved to its own step 3 in §13). The same
- * action the contract page's Policy tab offers; this screen only puts it
+ * action the contract page's Agreement tab offers; this screen only puts it
  * where a staffer setting up an order reaches it in turn.
  */
 export default async function ContractPolicyPage({
