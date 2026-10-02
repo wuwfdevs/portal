@@ -1,31 +1,40 @@
-// Pure role logic for Underwriting & Traffic, factored out of access.ts so
-// it's testable without "server-only" / Supabase (mirrors lib/log/roles.ts).
+// Pure role logic for Traffic (key `underwriting`), factored out of access.ts
+// so it's testable without "server-only" / Supabase. See
+// docs/broadcast-roles.md.
 //
-// Underwriting is invite_only: a tool_access grant is still the ticket in. A
-// grant carrying tool_role = 'manager' additionally allows waiving an
-// obligation, certifying an affidavit, and overriding expired/unapproved
-// copy into a placement — docs/underwriting-design.md §6. The override
-// check itself lives in private.is_underwriting_manager(), enforced inside
-// log_place_underwriting_credit() (the boundary), not here.
+// Traffic is invite_only: a tool_access grant is the ticket in, and a grant
+// with no role is ordinary traffic staff (contracts, copy, placement,
+// exception triage). Roles stack — a grant carries a list
+// (tool_access.tool_roles):
+//   * manager — waives obligations, certifies affidavits, and overrides
+//     expired/unapproved copy into a placement
+//     (private.is_underwriting_manager(), enforced in the database);
+//   * production — records messages into DAD and marks them recorded
+//     (private.is_underwriting_production()).
 
-export type UnderwritingRole = "member" | "manager";
+export type UnderwritingRole = "manager" | "production";
 
-export function normalizeToolRole(toolRole: string | null): UnderwritingRole {
-  return toolRole?.trim().toLowerCase() === "manager" ? "manager" : "member";
+const KNOWN: readonly UnderwritingRole[] = ["manager", "production"];
+
+/** The roles a grant carries, in a stable order. */
+export function parseUnderwritingRoles(
+  toolRoles: readonly string[] | null | undefined,
+): UnderwritingRole[] {
+  const found = new Set((toolRoles ?? []).map((role) => role.trim().toLowerCase()));
+  return KNOWN.filter((role) => found.has(role));
 }
 
-/** What each recognized tool_role value means, for the admin grant UI's dropdown. */
+/** What each role means, for the admin grant screen's checkboxes. */
 export const ROLE_OPTIONS: { value: UnderwritingRole; label: string; description: string }[] = [
   {
-    value: "member",
-    label: "Member",
+    value: "manager",
+    label: "Traffic manager",
     description:
-      "Contracts, copy, placement, and exception triage up to but not including a waive/certify decision",
+      "Waives obligations, certifies affidavits, and overrides expired or unapproved copy into a placement",
   },
   {
-    value: "manager",
-    label: "Manager",
-    description:
-      "Additionally waives obligations, certifies affidavits, and overrides expired/unapproved copy into a placement",
+    value: "production",
+    label: "Production",
+    description: "Records messages into DAD and marks them recorded",
   },
 ];

@@ -27,7 +27,44 @@ const ROLE_CATALOG: Record<string, RoleOption[]> = {
   resources: RESOURCES_ROLE_OPTIONS,
 };
 
+// Tools whose roles stack: a grant may carry any combination
+// (tool_access.tool_roles), and the admin screen shows a checkbox per role
+// instead of one dropdown. See docs/broadcast-roles.md.
+const STACKING_TOOLS = new Set(["log", "underwriting"]);
+
 /** The role options for a tool (by `tools.key`), or null if it has none. */
 export function getRoleCatalog(toolKey: string): RoleOption[] | null {
   return ROLE_CATALOG[toolKey] ?? null;
+}
+
+/** Whether a tool's roles stack (checkboxes) rather than being one choice (a dropdown). */
+export function rolesStack(toolKey: string): boolean {
+  return STACKING_TOOLS.has(toolKey);
+}
+
+export interface ToolGrantInput {
+  toolId: string;
+  /** Lowercased, deduplicated and sorted, the same way the tool_access trigger stores them. */
+  toolRoles: string[];
+}
+
+/**
+ * Reads the admin grant form: one `tool_id` per checked tool, its roles from
+ * either the checkboxes (`tool_roles_<id>`, tools whose roles stack) or the
+ * dropdown (`tool_role_<id>`, everything else).
+ */
+export function parseToolGrants(form: { getAll(name: string): unknown[] }): ToolGrantInput[] {
+  const toolIds = [...new Set(form.getAll("tool_id").map(String).filter(Boolean))];
+  return toolIds.map((toolId) => {
+    const raw = [...form.getAll(`tool_roles_${toolId}`), ...form.getAll(`tool_role_${toolId}`)];
+    const toolRoles = [
+      ...new Set(raw.map((value) => String(value).trim().toLowerCase()).filter(Boolean)),
+    ].sort();
+    return { toolId, toolRoles };
+  });
+}
+
+/** Whether two stored role lists say the same thing. */
+export function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((role, index) => role === b[index]);
 }

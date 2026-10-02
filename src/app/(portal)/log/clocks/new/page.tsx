@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
-import { requireLogProducer } from "@/lib/log/access";
+import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram } from "@/lib/log/queries";
 import { createClockTemplate } from "../../clock-actions";
 
@@ -18,7 +18,7 @@ export default async function NewClockTemplatePage({
   searchParams: Promise<{ from?: string; error?: string }>;
 }) {
   const { from, error } = await searchParams;
-  await requireLogProducer();
+  await requireProgramDirector();
   const program = from ? await getProgram(from) : null;
   const backHref = program ? `/log/programs/${program.id}` : "/log/programs";
 

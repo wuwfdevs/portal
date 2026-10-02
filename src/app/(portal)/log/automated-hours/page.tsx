@@ -94,7 +94,7 @@ export default async function AutomatedHoursPage({
   }>;
 }) {
   const params = await searchParams;
-  const { isProducer } = await requireLogAccess();
+  const { isProgramDirector } = await requireLogAccess();
   const view: View = params.view === "month" ? "month" : "week";
   const today = stationTodayISO();
   const date = isValidDateISO(params.date) ? params.date : today;
@@ -128,8 +128,8 @@ export default async function AutomatedHoursPage({
     return text ? `${BASE_PATH}?${text}` : BASE_PATH;
   };
   const closeHref = href({ changes: listParams.changes, page: page > 1 ? String(page) : null });
-  const creating = isProducer ? params.new : undefined;
-  const editing = isProducer ? params.edit : undefined;
+  const creating = isProgramDirector ? params.new : undefined;
+  const editing = isProgramDirector ? params.edit : undefined;
   const error = params.error;
   const editingWeekly = weeklyRows.find((row) => row.id === editing) ?? null;
   const editingChange = changePage.rows.find((row) => row.id === editing) ?? null;
@@ -185,7 +185,7 @@ export default async function AutomatedHoursPage({
         <div className="flex items-center gap-3">
           <h2 className="text-base font-bold text-ink-900">Every week</h2>
           <span className="flex-1" />
-          {isProducer && !cardOpen && (
+          {isProgramDirector && !cardOpen && (
             <PrimaryLink href={href({ new: "weekly" })}>+ Weekly hours</PrimaryLink>
           )}
         </div>
@@ -202,7 +202,7 @@ export default async function AutomatedHoursPage({
           rows={weeklyRows}
           entries={scheduleEntries}
           today={today}
-          editHref={isProducer ? (id) => href({ edit: id }) : null}
+          editHref={isProgramDirector ? (id) => href({ edit: id }) : null}
         />
       </section>
 
@@ -227,7 +227,7 @@ export default async function AutomatedHoursPage({
             ]}
           />
           <span className="flex-1" />
-          {isProducer && !cardOpen && (
+          {isProgramDirector && !cardOpen && (
             <PrimaryLink href={href({ new: "once", changes: listParams.changes })}>
               + One-time change
             </PrimaryLink>
@@ -246,7 +246,7 @@ export default async function AutomatedHoursPage({
           rows={changePage.rows}
           scope={scope}
           editHref={
-            isProducer
+            isProgramDirector
               ? (id) =>
                   href({
                     edit: id,

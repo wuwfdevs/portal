@@ -3217,6 +3217,20 @@ and the GUID is the item id. Download is `/api/log/dad-export/[date]`. Not
 yet verified against DAD itself: whether it accepts lettered cuts, ListGen's
 folder, and whether a re-dropped file replaces or merges the day.
 
+**Broadcast roles stack (2026-10-02).** Read `docs/broadcast-roles.md` before
+gating anything in Log or Underwriting & Traffic; this is a pointer. A grant
+now carries a list, `tool_access.tool_roles` (`20261002150000`, applied to
+both projects); `tool_role` is kept equal to its first element by a trigger,
+so the single-role tools read it unchanged. Log's `producer` became
+`program_director` (clocks, schedule, programs, automated hours —
+`private.is_log_producer()` keeps its name and now means this; TypeScript is
+`isProgramDirector`/`assertProgramDirector()`) plus `traffic` (station ID
+pins, with the program director, and the DAD log release —
+`private.is_log_traffic()`, `assertLogTraffic()`). Underwriting gained
+`production` beside `manager`. `private.has_tool_role()` is the one check;
+the admin grant screen shows checkboxes for tools in `lib/tool-roles.ts`'s
+`STACKING_TOOLS`, and `parseToolGrants()` reads both shapes.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

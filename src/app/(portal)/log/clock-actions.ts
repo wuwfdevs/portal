@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertLogProducer } from "@/lib/log/access";
+import { assertCanPinContent, assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import type {
@@ -46,7 +46,7 @@ function optionalField(formData: FormData, name: string): string | null {
 }
 
 export async function createClockTemplate(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   // The program whose page sent the producer here, if any — carried through so
   // a failure returns to the same form and success lands on the new clock with
   // a way back to that program.
@@ -92,7 +92,7 @@ const VARIANTS: LogClockVersionVariant[] = [
  * version superseding the old one for its variant from effective_from on.
  */
 export async function createClockVersion(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const templateId = field(formData, "clock_template_id");
   const path = returnPath(formData, templateId);
   const variant = field(formData, "variant") as LogClockVersionVariant;
@@ -122,7 +122,7 @@ const TIMING_MODES: LogSlotTimingMode[] = ["fixed", "float"];
  * addLocalOpportunity below.
  */
 export async function addClockSlot(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const templateId = field(formData, "clock_template_id");
   const versionId = field(formData, "clock_version_id");
   const path = returnPath(formData, templateId);
@@ -191,7 +191,7 @@ function readPermittedContentTypes(formData: FormData): string[] {
  * row with this call's own values instead of trying to create a second one.
  */
 export async function addLocalOpportunity(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const templateId = field(formData, "clock_template_id");
   const versionId = field(formData, "clock_version_id");
   const slotId = field(formData, "slot_id");
@@ -229,7 +229,7 @@ export async function addLocalOpportunity(formData: FormData): Promise<void> {
  * requirement/permitted_content_types/notes can change here.
  */
 export async function updateLocalOpportunity(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
   const path = returnPath(formData, templateId);
@@ -254,7 +254,7 @@ export async function updateLocalOpportunity(formData: FormData): Promise<void> 
 
 /** Deactivates a local opportunity (doesn't delete it) — the same deactivate-don't-delete lifecycle log_content_items uses. */
 export async function deactivateLocalOpportunity(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
   const path = returnPath(formData, templateId);
@@ -290,7 +290,7 @@ function readDaysOfWeek(formData: FormData): number[] {
  * an empty days_of_week means every day.
  */
 export async function assignOpportunityContent(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertCanPinContent();
   const templateId = field(formData, "clock_template_id");
   const opportunityId = field(formData, "opportunity_id");
   const path = returnPath(formData, templateId);
@@ -322,7 +322,7 @@ export async function assignOpportunityContent(formData: FormData): Promise<void
 
 /** Deactivates a content assignment (doesn't delete it) — same lifecycle as deactivateLocalOpportunity. */
 export async function deactivateOpportunityAssignment(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertCanPinContent();
   const templateId = field(formData, "clock_template_id");
   const assignmentId = field(formData, "assignment_id");
   const path = returnPath(formData, templateId);

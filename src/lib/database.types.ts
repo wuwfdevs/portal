@@ -649,6 +649,8 @@ export interface Database {
           user_id: string;
           tool_id: string;
           tool_role: string | null;
+          /** Source of truth for a grant's roles; tool_role mirrors its first element (trigger). */
+          tool_roles: string[];
           granted_by: string | null;
           granted_at: string;
           revoked_at: string | null;

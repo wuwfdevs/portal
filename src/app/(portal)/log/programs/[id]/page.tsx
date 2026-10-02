@@ -69,7 +69,7 @@ export default async function ProgramDetailPage({
 }) {
   const { id } = await params;
   const { error, saved, edit } = await searchParams;
-  const { isProducer } = await requireLogAccess();
+  const { isProgramDirector } = await requireLogAccess();
   const today = stationTodayISO();
   const [program, entries, templates, summaries, allEntries, allPrograms] = await Promise.all([
     getProgram(id),
@@ -80,7 +80,7 @@ export default async function ProgramDetailPage({
     listPrograms(),
   ]);
   if (!program) notFound();
-  const editing = isProducer && edit === "1";
+  const editing = isProgramDirector && edit === "1";
   const programPath = `/log/programs/${program.id}`;
   const sharesNprCollection =
     program.npr_collection_id === null
@@ -125,7 +125,7 @@ export default async function ProgramDetailPage({
             {saved && SAVED_MESSAGE[saved] && (
               <Badge variant="success">{SAVED_MESSAGE[saved]}</Badge>
             )}
-            {isProducer && (
+            {isProgramDirector && (
               <div className="ml-auto flex flex-wrap gap-2">
                 <Link
                   href={`/log/programs/${program.id}/schedule/new`}
@@ -153,7 +153,7 @@ export default async function ProgramDetailPage({
                 opportunity to fill until it has a real clock.
               </p>
             </div>
-            {isProducer && (
+            {isProgramDirector && (
               <div className="flex shrink-0 flex-col gap-2">
                 <Link
                   href={`/log/programs/${program.id}/schedule/${placeholderEntries[0]!.id}/edit`}
@@ -257,7 +257,7 @@ export default async function ProgramDetailPage({
                         <div className="text-sm text-ink-700">{summaryParts.join(" · ")}</div>
                         {entry.notes && <div className="text-xs text-ink-400">{entry.notes}</div>}
                       </div>
-                      {isProducer && (
+                      {isProgramDirector && (
                         <Link
                           href={editHref}
                           className="inline-flex h-9 shrink-0 items-center justify-center rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface"
@@ -412,7 +412,7 @@ export default async function ProgramDetailPage({
         ) : (
           <DetailSummary
             title="Details"
-            editHref={isProducer ? `${programPath}?edit=1` : undefined}
+            editHref={isProgramDirector ? `${programPath}?edit=1` : undefined}
             items={[
               { label: "Kind", value: program.kind },
               { label: "Description", value: program.description, preserveLines: true },
@@ -432,14 +432,14 @@ export default async function ProgramDetailPage({
                           see today&apos;s stories →
                         </Link>
                       </span>
-                      {isProducer && (
+                      {isProgramDirector && (
                         <span className="text-xs text-ink-500">
                           Collection {program.npr_collection_id}
                           {program.npr_feed_start_hour_et !== null &&
                             ` · first hour on the feed ${formatHour(program.npr_feed_start_hour_et)} ET`}
                         </span>
                       )}
-                      {isProducer && sharesNprCollection.length > 0 && (
+                      {isProgramDirector && sharesNprCollection.length > 0 && (
                         <span className="text-xs text-warning-fg">
                           Also used by {sharesNprCollection.map((other) => other.name).join(", ")}
                         </span>

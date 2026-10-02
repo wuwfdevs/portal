@@ -32,7 +32,7 @@ const NAV_LINK =
 /**
  * The DAD log for one day (lib/log/dad-export.ts): the credits DAD plays in
  * automated hours, what stops them from playing, the exact file, and its
- * releases. Producers release; every Log member can read and download.
+ * releases. Traffic releases; every On Air member can read and download.
  */
 export default async function DadLogPage({
   searchParams,
@@ -40,7 +40,7 @@ export default async function DadLogPage({
   searchParams: Promise<{ date?: string; show?: string; error?: string; released?: string }>;
 }) {
   const params = await searchParams;
-  const { isProducer } = await requireLogAccess();
+  const { isTraffic } = await requireLogAccess();
   const today = stationTodayISO();
   const date = isValidDateISO(params.date) ? params.date : today;
   const showFile = params.show === "file";
@@ -213,7 +213,7 @@ export default async function DadLogPage({
             {latest && current === true && (
               <p className="text-sm text-ink-700">v{latest.version} matches the rundowns.</p>
             )}
-            {isProducer && (latest === null || current === false) && (
+            {isTraffic && (latest === null || current === false) && (
               <form action={releaseDadLog} className="flex flex-col gap-1.5">
                 <input type="hidden" name="date" value={date} />
                 <Button
@@ -230,8 +230,8 @@ export default async function DadLogPage({
                 )}
               </form>
             )}
-            {!isProducer && latest === null && (
-              <p className="text-sm text-ink-500">A producer releases the day.</p>
+            {!isTraffic && latest === null && (
+              <p className="text-sm text-ink-500">Traffic releases the day.</p>
             )}
             {latest && (
               <div className="flex flex-col gap-1">
