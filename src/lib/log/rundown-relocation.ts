@@ -123,7 +123,16 @@ export async function relocateCredit(
     p_item_id: itemId,
     p_destination_break_id: destinationBreakId,
   });
-  if (error) return { error: "Could not move this credit." };
+  if (error) {
+    // The placement guard (uw_guard_placement_dad_cut()) raises rather than
+    // returning a code: DAD plays that break, and this message has no cut.
+    if (error.message === "copy_needs_dad_cut")
+      return {
+        error: "That break plays from DAD, and this credit has no DAD cut.",
+        code: "copy_needs_dad_cut",
+      };
+    return { error: "Could not move this credit." };
+  }
   if (!data || "error" in data) {
     const code = (data as { error?: string } | null)?.error;
     return { error: (code && RELOCATE_CREDIT_ERRORS[code]) || "Could not move this credit.", code };

@@ -41,7 +41,11 @@ function clockToSeconds(value: string): number | null {
   const match = LENGTH_RE.exec(value.trim());
   if (!match) return null;
   const [, hours, minutes, seconds] = match;
-  return Number.parseInt(hours!, 10) * 3600 + Number.parseInt(minutes!, 10) * 60 + Number.parseInt(seconds!, 10);
+  return (
+    Number.parseInt(hours!, 10) * 3600 +
+    Number.parseInt(minutes!, 10) * 60 +
+    Number.parseInt(seconds!, 10)
+  );
 }
 
 /**

@@ -37,7 +37,13 @@
 
 import type { LogRundownStatus, UwCopyApprovalStatus } from "@/lib/database.types";
 import { automationBlockFor } from "./freeze";
-import { servesLine, walkRotation, type RotationCopy, type RotationSlot } from "./rotation";
+import {
+  servesBreak,
+  servesLine,
+  walkRotation,
+  type RotationCopy,
+  type RotationSlot,
+} from "./rotation";
 
 export interface CandidateBreak {
   breakId: string;
@@ -55,6 +61,8 @@ export interface CandidateBreak {
   holdsThisContract: boolean;
   /** The active bucket this break would consume, from log_list_placeable_rundown_breaks(). */
   bucketId: string;
+  /** In automated hours (lib/log/automated-hours.ts): only copy with a DAD cut fits. */
+  automated?: boolean;
 }
 
 export interface CopyCandidate {
@@ -67,6 +75,8 @@ export interface CopyCandidate {
   flightId: string | null;
   /** The schedule line this copy is dedicated to, or null (rotation.ts's servesLine()). */
   lineId?: string | null;
+  /** uw_copy.dad_cut — null can't fill an automated break (rotation.ts's servesBreak()). */
+  dadCut?: string | null;
   /** uw_copy.created_at — the rotation's cycle order. */
   createdAt: string;
 }
@@ -157,7 +167,7 @@ interface DayState {
 
 export function copyEligible(
   copy: CopyCandidate,
-  brk: Pick<CandidateBreak, "remainingSeconds" | "airDate">,
+  brk: Pick<CandidateBreak, "remainingSeconds" | "airDate" | "automated">,
   lineFlightId: string | null,
   lineId: string | null = null,
   copies: CopyCandidate[] = [copy],
@@ -168,6 +178,7 @@ export function copyEligible(
   if (copy.effectiveTo != null && copy.effectiveTo < brk.airDate) return false;
   if (copy.flightId != null && copy.flightId !== lineFlightId) return false;
   if (!servesLine(copy, lineId, copies)) return false;
+  if (!servesBreak(copy, brk.automated)) return false;
   return true;
 }
 
@@ -180,6 +191,7 @@ export function toRotationCopy(copy: CopyCandidate): RotationCopy {
     effectiveTo: copy.effectiveTo,
     flightId: copy.flightId,
     lineId: copy.lineId,
+    ...(copy.dadCut !== undefined ? { dadCut: copy.dadCut } : {}),
     createdAt: copy.createdAt,
   };
 }
@@ -192,7 +204,11 @@ export function toRotationCopy(copy: CopyCandidate): RotationCopy {
  * dropped (the caller already checked one fits, so this is a guard).
  */
 export function assignCopyByRotation(
-  items: (Omit<PlanItem, "copyId"> & { scheduledAt: string; roomSeconds: number })[],
+  items: (Omit<PlanItem, "copyId"> & {
+    scheduledAt: string;
+    roomSeconds: number;
+    automated?: boolean;
+  })[],
   copies: CopyCandidate[],
   sequence: ExistingSequenceEntry[],
   lineFlightId: string | null,
@@ -218,6 +234,7 @@ export function assignCopyByRotation(
       copyId: null,
       fixed: false,
       roomSeconds: item.roomSeconds,
+      automated: item.automated ?? false,
     })),
   ];
   const copyByUnit = new Map(
@@ -308,7 +325,11 @@ export function planInventorySelection(
     state.times.push(placement.minutesOfDay);
   }
 
-  type PendingItem = Omit<PlanItem, "copyId"> & { scheduledAt: string; roomSeconds: number };
+  type PendingItem = Omit<PlanItem, "copyId"> & {
+    scheduledAt: string;
+    roomSeconds: number;
+    automated?: boolean;
+  };
   const pending: PendingItem[] = [];
   const unplaceable: UnplaceableUnit[] = [];
 
@@ -354,6 +375,7 @@ export function planInventorySelection(
         bucketId: brk.bucketId,
         scheduledAt: brk.scheduledAt,
         roomSeconds: brk.remainingSeconds,
+        automated: brk.automated ?? false,
       };
     }
     return why;

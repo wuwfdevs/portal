@@ -5,11 +5,12 @@
 // unmapped program or an unconfigured token must never reach the network.
 
 export type NprAccessState =
-  | { kind: "unmapped" }
-  | { kind: "not_configured" }
-  | { kind: "ready"; collectionId: number };
+  { kind: "unmapped" } | { kind: "not_configured" } | { kind: "ready"; collectionId: number };
 
-export function classifyNprAccess(nprCollectionId: number | null, cdsConfigured: boolean): NprAccessState {
+export function classifyNprAccess(
+  nprCollectionId: number | null,
+  cdsConfigured: boolean,
+): NprAccessState {
   if (nprCollectionId === null) return { kind: "unmapped" };
   if (!cdsConfigured) return { kind: "not_configured" };
   return { kind: "ready", collectionId: nprCollectionId };

@@ -417,3 +417,31 @@ describe("frozen rundowns", () => {
     expect(plan.items.map((item) => item.breakId)).toEqual(open.map((b) => b.breakId));
   });
 });
+
+describe("automated hours", () => {
+  const demand = only(demandFor(BOYLES, 0, { todayISO: "2026-09-21", underwriterId: "boyles" }), 0);
+
+  it("leaves an automated break to copy with a DAD cut", () => {
+    const breaks = [
+      brk({ breakId: "mon-auto", airDate: "2026-09-21", automated: true, bucketId: "b0" }),
+      brk({ breakId: "tue", airDate: "2026-09-22", bucketId: "b0" }),
+      brk({ breakId: "wed", airDate: "2026-09-23", bucketId: "b0" }),
+    ];
+    const uncut = planInventorySelection(breaks, demand, [copy({ dadCut: null })]);
+    expect(uncut.items.map((i) => i.breakId)).not.toContain("mon-auto");
+
+    const cut = planInventorySelection(breaks, demand, [copy({ dadCut: "00013A" })]);
+    expect(cut.items.map((i) => i.breakId)).toContain("mon-auto");
+  });
+
+  it("picks the cut message for the automated break when the cycle offers both", () => {
+    const breaks = [
+      brk({ breakId: "mon-auto", airDate: "2026-09-21", automated: true, bucketId: "b0" }),
+    ];
+    const plan = planInventorySelection(breaks, demand, [
+      copy({ id: "uncut", dadCut: null, createdAt: "2026-01-01T00:00:00Z" }),
+      copy({ id: "cut", dadCut: "00013A", createdAt: "2026-01-02T00:00:00Z" }),
+    ]);
+    expect(plan.items.find((i) => i.breakId === "mon-auto")?.copyId).toBe("cut");
+  });
+});

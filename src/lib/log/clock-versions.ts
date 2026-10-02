@@ -48,9 +48,14 @@ export function resolveCurrentClockVersion<T extends ClockVersionLike>(
  * a future genuinely-shared weekday/weekend template can still opt into
  * variant filtering explicitly.
  */
-export function resolveCurrentVersion<T extends ClockVersionLike>(versions: T[], asOfDate: string): T | null {
+export function resolveCurrentVersion<T extends ClockVersionLike>(
+  versions: T[],
+  asOfDate: string,
+): T | null {
   const inEffect = versions.filter(
-    (version) => version.effective_from <= asOfDate && (version.effective_to === null || version.effective_to >= asOfDate),
+    (version) =>
+      version.effective_from <= asOfDate &&
+      (version.effective_to === null || version.effective_to >= asOfDate),
   );
   if (inEffect.length === 0) return null;
 

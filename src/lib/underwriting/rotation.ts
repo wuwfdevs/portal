@@ -37,6 +37,12 @@ export interface RotationCopy {
    * every line without dedicated copy of its own.
    */
   lineId?: string | null;
+  /**
+   * The message's DAD cut. Undefined means unknown (treated as playable);
+   * null means DAD has nothing to play, so the message can't fill a break
+   * in automated hours.
+   */
+  dadCut?: string | null;
   createdAt: string;
 }
 
@@ -54,6 +60,8 @@ export interface RotationSlot {
   fixed: boolean;
   /** Seconds the slot can hold — the break's remaining room plus this slot's own current duration. */
   roomSeconds: number;
+  /** The break is in automated hours (lib/log/automated-hours.ts): DAD plays it. */
+  automated?: boolean;
 }
 
 export interface RotationChange {
@@ -66,6 +74,18 @@ export function cycleOrder(copies: RotationCopy[]): RotationCopy[] {
   return [...copies].sort(
     (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
   );
+}
+
+/**
+ * Whether a message may air in a break: in automated hours DAD plays it, so
+ * it needs a DAD cut — a live read qualifies through its recorded version.
+ * The SQL twin is uw_guard_placement_dad_cut().
+ */
+export function servesBreak(
+  copy: Pick<RotationCopy, "dadCut">,
+  automated: boolean | undefined,
+): boolean {
+  return !automated || copy.dadCut !== null;
 }
 
 /**
@@ -86,7 +106,7 @@ export function servesLine(
 
 export function eligibleFor(
   copy: RotationCopy,
-  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds">,
+  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds" | "automated">,
   copies: RotationCopy[] = [copy],
 ): boolean {
   if (copy.approvalStatus !== "approved") return false;
@@ -95,6 +115,7 @@ export function eligibleFor(
   if (copy.effectiveTo != null && copy.effectiveTo < slot.airDate) return false;
   if (copy.flightId != null && copy.flightId !== slot.lineFlightId) return false;
   if (!servesLine(copy, slot.lineId, copies)) return false;
+  if (!servesBreak(copy, slot.automated)) return false;
   return true;
 }
 
@@ -110,7 +131,7 @@ export function eligibleFor(
 export function nextInRotation(
   copies: RotationCopy[],
   previousCopyId: string | null,
-  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds">,
+  slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds" | "automated">,
   avoidCopyId: string | null = null,
 ): RotationCopy | null {
   const cycle = cycleOrder(copies);

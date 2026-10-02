@@ -1,0 +1,23 @@
+-- Resources content for automated hours (CLAUDE.md, "Resources stay in step
+-- with the code"). Content only; the schema changes are 20261002130000 and
+-- 20261002130100.
+
+select private.rc_release_guide(
+  p_slug => 'log-automated-hours',
+  p_tool_key => 'log',
+  p_title => 'Automated hours',
+  p_summary => 'When no one is in the studio: weekly automated hours and one-time changes, and what they mean for credits.',
+  p_screen_keys => array['log.automated-hours'],
+  p_sort_order => 45,
+  p_version_note => 'Automated hours',
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Every hour is hosted unless it's listed on this page. In automated hours no one is in the studio, so DAD plays that hour's underwriting credits. Open it from "},{"type":"text","text":"Programs","marks":[{"type":"bold"}]},{"type":"text","text":"."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Weekly hours"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Use "},{"type":"text","text":"+ Weekly hours","marks":[{"type":"bold"}]},{"type":"text","text":" for the routine ones, such as overnights from 8:00 PM to 5:00 AM. Pick the days, the times, and the date they start."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"An end time at or before the start runs past midnight. The early-morning part belongs to the day the hours started, so Saturday 8:00 PM – 5:00 AM covers early Sunday."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Weekly hours can cover a whole program or just some of its hours. The "},{"type":"text","text":"Programs in these hours","marks":[{"type":"bold"}]},{"type":"text","text":" column shows what's on the air then."}]}]}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"One-time changes"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Use "},{"type":"text","text":"+ One-time change","marks":[{"type":"bold"}]},{"type":"text","text":" for a holiday, a host out, or a special. Choose "},{"type":"text","text":"Automated","marks":[{"type":"bold"}]},{"type":"text","text":" to automate hours that are normally hosted, or "},{"type":"text","text":"Live","marks":[{"type":"bold"}]},{"type":"text","text":" to host hours that are normally automated."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"A one-time change wins over the weekly hours. One-time changes can't overlap each other."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Midnight to midnight covers whole days: Thanksgiving is Thursday 12:00 AM until Friday 12:00 AM."}]}]}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Week and month"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"The week view draws each day's automated hours over the programs on the air. Grey is weekly, dashed amber is automated once, and dashed blue is live once."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"The month view shows each day's automated hours. Pick a day to see its week."}]}]}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Good to know"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"A credit in automated hours needs copy with a DAD cut, since DAD plays it. A live read qualifies through its recorded version. Auto-fill leaves those breaks to copy that has one, and placing cut-less copy there is refused."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Only producers can change automated hours. Nothing is deleted: removing hours or a change takes it off the schedule."}]}]}]}]}$body$
+);
+
+select private.rc_release_note(
+  p_slug => 'release-2026-10-02-log-automated-hours',
+  p_tool_key => 'log',
+  p_released_on => '2026-10-02',
+  p_title => 'Automated hours',
+  p_guide_slugs => array['log-automated-hours'],
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Log has an Automated hours page, reached from Programs. Every hour is hosted unless it's listed there as weekly automated hours or a one-time change, and a one-time change can also make normally automated hours live. Credits in automated hours are played by DAD, so they need copy with a DAD cut."}]}]}$body$
+);

@@ -460,6 +460,8 @@ export type LogRundownItemKind = "content" | "live_read" | "weather" | "underwri
 // supabase/migrations/20260807160000_log_broadcast_events.sql. This slice's
 // own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
 // see that migration's file header for the rest of the vocabulary's status.
+export type LogOnAirMode = "automated" | "live";
+
 export type LogBroadcastOutcome =
   | "scheduled"
   | "aired_as_scheduled"
@@ -2115,6 +2117,48 @@ export interface Database {
       };
       // Append-only from the application — no update grant. See the
       // migration's file header.
+      /** Weekly automated hours (20261002130000) — lib/log/automated-hours.ts. */
+      log_automated_weekly: {
+        Row: {
+          id: string;
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+          effective_from: string;
+          effective_to: string | null;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_automated_weekly"]["Row"]> & {
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_automated_weekly"]["Row"]>;
+        Relationships: [];
+      };
+      /** One-time automated or live changes (20261002130000); active rows never overlap. */
+      log_on_air_changes: {
+        Row: {
+          id: string;
+          starts_at: string;
+          ends_at: string;
+          mode: LogOnAirMode;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]> & {
+          starts_at: string;
+          ends_at: string;
+          mode: LogOnAirMode;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]>;
+        Relationships: [];
+      };
       log_broadcast_events: {
         Row: {
           id: string;

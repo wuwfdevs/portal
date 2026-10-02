@@ -1,5 +1,7 @@
 import "server-only";
 import { stationTodayISO } from "@/lib/log/timezone";
+import { isAutomated } from "@/lib/log/automated-hours";
+import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import {
   bumpCredit,
   listPlaceableRundownBreaks,
@@ -109,7 +111,8 @@ const EMPTY_RESULT: AutoFillResult = {
 /** The planner's view of a listed break. Items are kept beside it for the bump planner. */
 function toCandidate(
   brk: PlaceableRundownBreak,
-  lastItem?: { underwriterId: string; categoryId: string | null },
+  lastItem: { underwriterId: string; categoryId: string | null } | undefined,
+  automated: boolean,
 ): CandidateBreak {
   return {
     breakId: brk.break_id,
@@ -122,6 +125,7 @@ function toCandidate(
     lastItemCategoryId: lastItem?.categoryId ?? null,
     holdsThisContract: brk.holds_this_contract,
     bucketId: brk.bucket_id,
+    automated,
   };
 }
 
@@ -155,14 +159,19 @@ async function listCandidates(
 > {
   const placeable = await listPlaceableRundownBreaks(scheduleLineId);
   if (!placeable.ok) return { ok: false, message: placeable.message };
-  const adjacencyByItemId = await resolveLastItemAdjacency(
-    placeable.breaks.map((brk) => brk.last_item_id),
-  );
+  const [adjacencyByItemId, hours] = await Promise.all([
+    resolveLastItemAdjacency(placeable.breaks.map((brk) => brk.last_item_id)),
+    loadAutomatedHours(),
+  ]);
   return {
     ok: true,
     breaks: placeable.breaks,
     candidates: placeable.breaks.map((brk) =>
-      toCandidate(brk, brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined),
+      toCandidate(
+        brk,
+        brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined,
+        isAutomated(brk.scheduled_at, hours.weekly, hours.changes),
+      ),
     ),
   };
 }
@@ -281,6 +290,7 @@ export async function autoFillScheduleLine(
       effectiveTo: copy.effective_to,
       flightId,
       lineId: scheduleLineId,
+      dadCut: copy.dad_cut,
       createdAt: copy.created_at,
     }),
   );
@@ -446,13 +456,19 @@ async function bumpToSeat(
   const alternativesByLine = new Map<string, CandidateBreak[]>();
   const rotationCopies = copyCandidates.map(toRotationCopy);
   /** The message the rotation gives a seat at this instant: the one after the contract's latest placement before it. */
-  const copyForSeat = (seatScheduledAt: string, airDate: string, roomSeconds: number) => {
+  const copyForSeat = (
+    seatScheduledAt: string,
+    airDate: string,
+    roomSeconds: number,
+    automated: boolean | undefined,
+  ) => {
     const previous = previousInGroup(sequence, scheduleLine.id, rotationCopies, seatScheduledAt);
     return nextInRotation(rotationCopies, previous, {
       airDate,
       lineFlightId: scheduleLine.flight_id,
       lineId: scheduleLine.id,
       roomSeconds,
+      automated,
     });
   };
 
@@ -509,6 +525,7 @@ async function bumpToSeat(
       seat.scheduledAt,
       seat.airDate,
       seat.remainingSeconds + movedItem.durationSeconds,
+      seat.automated,
     );
     if (!copy) {
       result.errors.push(

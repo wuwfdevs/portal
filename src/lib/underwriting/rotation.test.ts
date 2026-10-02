@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cycleOrder,
   nextInRotation,
+  servesBreak,
   servesLine,
   walkRotation,
   type RotationCopy,
@@ -253,5 +254,28 @@ describe("copy dedicated to one line (§16)", () => {
       roomSeconds: 90,
     });
     expect(pick).toBeNull();
+  });
+});
+
+describe("automated hours", () => {
+  const anySlot = { airDate: "2026-03-02", lineFlightId: null, roomSeconds: 90 };
+
+  it("needs a DAD cut only when DAD plays the break", () => {
+    expect(servesBreak({ dadCut: null }, true)).toBe(false);
+    expect(servesBreak({ dadCut: "00013A" }, true)).toBe(true);
+    expect(servesBreak({ dadCut: null }, false)).toBe(true);
+    // Unknown (not loaded) is not refused here; the SQL guard is the backstop.
+    expect(servesBreak({}, true)).toBe(true);
+  });
+
+  it("skips cut-less copy in an automated break and keeps the cycle otherwise", () => {
+    const uncut = copy("b", { dadCut: null });
+    const cutA = copy("a", { dadCut: "00001A" });
+    const cutC = copy("c", { dadCut: "00003A" });
+    expect(nextInRotation([cutA, uncut, cutC], "a", { ...anySlot, automated: true })?.id).toBe("c");
+    expect(nextInRotation([cutA, uncut, cutC], "a", { ...anySlot, automated: false })?.id).toBe(
+      "b",
+    );
+    expect(nextInRotation([uncut], null, { ...anySlot, automated: true })).toBeNull();
   });
 });

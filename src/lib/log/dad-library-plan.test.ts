@@ -18,7 +18,12 @@ const PROGRAMS: PlanProgram[] = [
   { id: "p-wesat", name: "Weekend Edition Saturday" },
 ];
 
-function cut(cutNumber: string, title: string, lengthSeconds: number, group: string): DadLibraryCut {
+function cut(
+  cutNumber: string,
+  title: string,
+  lengthSeconds: number,
+  group: string,
+): DadLibraryCut {
   return { cutNumber, title, lengthSeconds, group };
 }
 
@@ -26,8 +31,9 @@ describe("matchProgram", () => {
   it("matches exactly and by containment, longest name winning", () => {
     expect(matchProgram("All Things Considered", PROGRAMS)?.id).toBe("p-atc");
     expect(
-      matchProgram("Marketplace PM - Play through ENCO Programs Fader", [{ id: "prog-mpm", name: "Marketplace PM" }])
-        ?.id,
+      matchProgram("Marketplace PM - Play through ENCO Programs Fader", [
+        { id: "prog-mpm", name: "Marketplace PM" },
+      ])?.id,
     ).toBe("prog-mpm");
     expect(matchProgram("1A", PROGRAMS)?.id).toBe("p-1a");
     expect(matchProgram("UW Credit (01:00)", PROGRAMS)).toBeNull();
@@ -40,9 +46,9 @@ describe("matchProgram", () => {
 
 describe("matchProgramForPromo", () => {
   it("matches a title that already contains the program's full name", () => {
-    expect(matchProgramForPromo("Fresh Air Wed Aug 26", [{ id: "p", name: "Fresh Air" }])?.name).toBe(
-      "Fresh Air",
-    );
+    expect(
+      matchProgramForPromo("Fresh Air Wed Aug 26", [{ id: "p", name: "Fresh Air" }])?.name,
+    ).toBe("Fresh Air");
   });
 
   it("falls back to a curated abbreviation prefix", () => {
@@ -64,7 +70,12 @@ describe("matchProgramForPromo", () => {
 
 describe("describeScheduleTiming", () => {
   it("names the day for a single-day entry", () => {
-    const entry: PlanScheduleEntry = { program_id: "p", entry_type: "recurring", days_of_week: [5], air_time: "13:00:00" };
+    const entry: PlanScheduleEntry = {
+      program_id: "p",
+      entry_type: "recurring",
+      days_of_week: [5],
+      air_time: "13:00:00",
+    };
     expect(describeScheduleTiming(entry)).toBe("Friday afternoon at 1:00 PM");
   });
 
@@ -79,7 +90,12 @@ describe("describeScheduleTiming", () => {
   });
 
   it("phrases a weekend entry generically", () => {
-    const entry: PlanScheduleEntry = { program_id: "p", entry_type: "recurring", days_of_week: [0, 6], air_time: "07:00:00" };
+    const entry: PlanScheduleEntry = {
+      program_id: "p",
+      entry_type: "recurring",
+      days_of_week: [0, 6],
+      air_time: "07:00:00",
+    };
     expect(describeScheduleTiming(entry)).toBe("weekend mornings at 7:00 AM");
   });
 
@@ -108,11 +124,22 @@ describe("buildDadLibraryPlan", () => {
   it("routes a direct-mapped group's cuts to their content type", () => {
     const plan = buildDadLibraryPlan({
       ...baseInputs,
-      cuts: [cut("00001", "UF-Parks-Museums-1", 90, "UNEARTH"), cut("00005", "Some PSA", 60, "PPA")],
+      cuts: [
+        cut("00001", "UF-Parks-Museums-1", 90, "UNEARTH"),
+        cut("00005", "Some PSA", 60, "PPA"),
+      ],
     });
     expect(plan.directItems).toEqual([
-      expect.objectContaining({ cutNumber: "00001", contentType: "interview_feature", unmatchedProgramPromo: false }),
-      expect.objectContaining({ cutNumber: "00005", contentType: "psa", unmatchedProgramPromo: false }),
+      expect.objectContaining({
+        cutNumber: "00001",
+        contentType: "interview_feature",
+        unmatchedProgramPromo: false,
+      }),
+      expect.objectContaining({
+        cutNumber: "00005",
+        contentType: "psa",
+        unmatchedProgramPromo: false,
+      }),
     ]);
     expect(plan.groupSummaries).toContainEqual({
       group: "UNEARTH",
@@ -123,14 +150,24 @@ describe("buildDadLibraryPlan", () => {
   });
 
   it("skips a skip-listed group entirely", () => {
-    const plan = buildDadLibraryPlan({ ...baseInputs, cuts: [cut("00002", "Test tone", 5, "TEST")] });
+    const plan = buildDadLibraryPlan({
+      ...baseInputs,
+      cuts: [cut("00002", "Test tone", 5, "TEST")],
+    });
     expect(plan.directItems).toEqual([]);
-    expect(plan.groupSummaries).toEqual([{ group: "TEST", cutCount: 1, treatment: "skip", contentType: null }]);
+    expect(plan.groupSummaries).toEqual([
+      { group: "TEST", cutCount: 1, treatment: "skip", contentType: null },
+    ]);
   });
 
   it("warns on a group it has never seen, and skips it", () => {
-    const plan = buildDadLibraryPlan({ ...baseInputs, cuts: [cut("00099", "Mystery cut", 30, "MYSTERY")] });
-    expect(plan.groupSummaries).toEqual([{ group: "MYSTERY", cutCount: 1, treatment: "unknown", contentType: null }]);
+    const plan = buildDadLibraryPlan({
+      ...baseInputs,
+      cuts: [cut("00099", "Mystery cut", 30, "MYSTERY")],
+    });
+    expect(plan.groupSummaries).toEqual([
+      { group: "MYSTERY", cutCount: 1, treatment: "unknown", contentType: null },
+    ]);
     expect(plan.warnings.some((warning) => warning.includes("MYSTERY"))).toBe(true);
   });
 
@@ -160,7 +197,11 @@ describe("buildDadLibraryPlan", () => {
     });
     expect(plan.synthesizedPromos).toEqual([]);
     expect(plan.directItems).toEqual([
-      expect.objectContaining({ cutNumber: "20228", contentType: "station_promo", unmatchedProgramPromo: true }),
+      expect.objectContaining({
+        cutNumber: "20228",
+        contentType: "station_promo",
+        unmatchedProgramPromo: true,
+      }),
     ]);
   });
 

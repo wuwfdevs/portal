@@ -127,7 +127,9 @@ export function componentScriptText(components: ComponentScriptLike[]): string |
     .sort((a, b) => a.sequence - b.sequence);
   if (scripted.length === 0) return null;
   if (scripted.length === 1) return scripted[0]!.script;
-  return scripted.map((component) => `${COMPONENT_TYPE_LABEL[component.component_type]}: ${component.script}`).join("\n\n");
+  return scripted
+    .map((component) => `${COMPONENT_TYPE_LABEL[component.component_type]}: ${component.script}`)
+    .join("\n\n");
 }
 
 export interface AiringOverrides {
@@ -176,11 +178,20 @@ export function computeEffectiveDurationSeconds(
   let total = 0;
   for (const component of components) {
     if (!component.required) continue;
-    if (component.component_type === "live_intro" && overrides.override_live_intro_seconds != null) {
+    if (
+      component.component_type === "live_intro" &&
+      overrides.override_live_intro_seconds != null
+    ) {
       total += overrides.override_live_intro_seconds;
-    } else if (component.component_type === "live_outro" && overrides.override_live_outro_seconds != null) {
+    } else if (
+      component.component_type === "live_outro" &&
+      overrides.override_live_outro_seconds != null
+    ) {
       total += overrides.override_live_outro_seconds;
-    } else if (component.component_type === "optional_tag" && overrides.override_tag_seconds != null) {
+    } else if (
+      component.component_type === "optional_tag" &&
+      overrides.override_tag_seconds != null
+    ) {
       total += overrides.override_tag_seconds;
     } else {
       total += component.duration_seconds;
