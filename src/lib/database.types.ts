@@ -2106,6 +2106,8 @@ export interface Database {
           source_npr_item_id: string | null;
           /** The NPR story's title captured at creation time — never re-read from log_npr_episode_items. */
           source_npr_item_title: string | null;
+          /** The DAD log's spot number, minted on the item's first release (20261002140000). */
+          dad_spot_number: number | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
           break_id: string;
@@ -2115,8 +2117,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
         Relationships: [];
       };
-      // Append-only from the application — no update grant. See the
-      // migration's file header.
+      /** Each release of a day's DAD log (20261002140000). Append-only. */
+      log_dad_exports: {
+        Row: {
+          id: string;
+          air_date: string;
+          version: number;
+          file_name: string;
+          file_path: string;
+          sha256: string;
+          event_count: number;
+          warnings: unknown;
+          released_by: string;
+          released_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_dad_exports"]["Row"]> & {
+          air_date: string;
+          version: number;
+          file_name: string;
+          file_path: string;
+          sha256: string;
+          event_count: number;
+          released_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_dad_exports"]["Row"]>;
+        Relationships: [];
+      };
       /** Weekly automated hours (20261002130000) — lib/log/automated-hours.ts. */
       log_automated_weekly: {
         Row: {
@@ -2159,6 +2185,8 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]>;
         Relationships: [];
       };
+      // Append-only from the application — no update grant. See the
+      // migration's file header.
       log_broadcast_events: {
         Row: {
           id: string;
@@ -3110,6 +3138,12 @@ export interface Database {
       };
       /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */
       /** Added by 20261002120000_underwriting_copy_dad_cut.sql — DAD library cuts matching a cut number or title, at most 20, for the copy form's existing-spot picker. */
+      log_assign_dad_spot_numbers: {
+        Args: { p_item_ids: string[] };
+        Returns:
+          | { ok: true; numbers: { item_id: string; spot_number: number }[] }
+          | { error: string };
+      };
       log_search_dad_cuts: {
         Args: { p_query: string };
         Returns:
