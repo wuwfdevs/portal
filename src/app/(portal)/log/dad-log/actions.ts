@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -50,7 +51,10 @@ export async function releaseDadLog(formData: FormData): Promise<void> {
   const content = serializeDadLog(rowsFromEvents(day.events));
   const hash = sha256(content);
   const version = (day.releases[0]?.version ?? 0) + 1;
-  const filePath = `${date}/v${version}/${day.fileName}`;
+  // A fresh folder per attempt: if the upload lands but recording the
+  // release fails, a retry reuses the version number without colliding
+  // with the orphaned file (producers have no storage delete).
+  const filePath = `${date}/v${version}-${randomUUID()}/${day.fileName}`;
 
   const { error: uploadError } = await supabase.storage
     .from(EXPORTS_BUCKET)
