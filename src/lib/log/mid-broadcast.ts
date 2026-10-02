@@ -43,9 +43,7 @@ export function isValidMoveDestination(
     return false;
 
   if (sourceKind === "content") {
-    return (
-      sourceContentType !== null && destination.permitted_content_types.includes(sourceContentType)
-    );
+    return sourceContentType !== null && destination.permitted_content_types.includes(sourceContentType);
   }
   if (sourceKind === "weather") {
     return destination.permitted_content_types.includes("weather");
@@ -121,11 +119,7 @@ export function sortByProximityToOriginal<T>(
 ): T[] {
   const originalMs = new Date(originalScheduledAtISO).getTime();
   return breaks
-    .map((brk, index) => ({
-      brk,
-      index,
-      distance: Math.abs(new Date(getScheduledAt(brk)).getTime() - originalMs),
-    }))
+    .map((brk, index) => ({ brk, index, distance: Math.abs(new Date(getScheduledAt(brk)).getTime() - originalMs) }))
     .sort((a, b) => a.distance - b.distance || a.index - b.index)
     .map(({ brk }) => brk);
 }

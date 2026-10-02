@@ -26,13 +26,7 @@ import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertLogAccess } from "./access";
 import { clampOccurredAt } from "./broadcast-queue";
 import { CONTENT_TYPE_LABEL, computeTotalDurationSeconds } from "./content-library";
-import {
-  getContentItemDetail,
-  getRundownBreak,
-  listContentItems,
-  listItemsForBreak,
-  type LogContentItemRow,
-} from "./queries";
+import { getContentItemDetail, getRundownBreak, listContentItems, listItemsForBreak, type LogContentItemRow } from "./queries";
 import type { LogMissReason } from "@/lib/database.types";
 
 const CONTENT_TYPES = Object.keys(CONTENT_TYPE_LABEL) as [
@@ -92,8 +86,7 @@ export const buildRundownItem = defineCapability({
     if (!brk) return { ok: false, message: "That break no longer exists." };
     if (!contentItem) return { ok: false, message: "That content item no longer exists." };
     const plannedDurationSeconds =
-      computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ??
-      0;
+      computeTotalDurationSeconds(contentItem.components, contentItem.expected_duration_seconds) ?? 0;
 
     const nextPosition = existingItems.reduce((max, item) => Math.max(max, item.position), 0) + 1;
 
@@ -111,19 +104,15 @@ export const buildRundownItem = defineCapability({
       .single();
     if (error) return { ok: false, message: `Could not fill this break: ${error.message}` };
 
-    return {
-      ok: true,
-      itemId: data.id,
-      contentItemId: input.contentItemId,
-      plannedDurationSeconds,
-    };
+    return { ok: true, itemId: data.id, contentItemId: input.contentItemId, plannedDurationSeconds };
   },
 });
 
 // --- log.rundownItem.recordOutcome -----------------------------------------
 
 export type RecordRundownOutcomeResult =
-  { ok: true; outcome: "aired" | "missed" } | { ok: false; message: string };
+  | { ok: true; outcome: "aired" | "missed" }
+  | { ok: false; message: string };
 
 /**
  * One capability over the two remaining mid-broadcast outcomes (the live
@@ -138,8 +127,7 @@ export type RecordRundownOutcomeResult =
  */
 export const recordRundownItemOutcome = defineCapability({
   id: "log.rundownItem.recordOutcome",
-  summary:
-    "Record what happened to a rundown item — aired as scheduled, or missed (with a brief reason).",
+  summary: "Record what happened to a rundown item — aired as scheduled, or missed (with a brief reason).",
   input: z.discriminatedUnion("outcome", [
     z.object({ outcome: z.literal("aired"), itemId: z.string(), ...OUTCOME_REPLAY_FIELDS }),
     z.object({
@@ -206,8 +194,7 @@ export interface ContentSearchResult extends LogContentItemRow {
 /** Mirrors sourcework.project.search — filters the same listContentItems() read the library browse screen uses. */
 export const searchContentLibrary = defineCapability({
   id: "log.content.search",
-  summary:
-    "Find content-library items (news, promos, PSAs, etc.) by title text, content type, and/or approval status.",
+  summary: "Find content-library items (news, promos, PSAs, etc.) by title text, content type, and/or approval status.",
   input: z.object({
     query: z.string().trim().optional(),
     contentType: z.enum(CONTENT_TYPES).optional(),

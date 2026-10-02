@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveCurrentClockVersion,
-  resolveCurrentVersion,
-  type ClockVersionLike,
-} from "./clock-versions";
+import { resolveCurrentClockVersion, resolveCurrentVersion, type ClockVersionLike } from "./clock-versions";
 
 function version(
   id: string,
@@ -67,8 +63,6 @@ describe("resolveCurrentVersion", () => {
   });
 
   it("returns null when no version is in effect", () => {
-    expect(
-      resolveCurrentVersion([version("v1", "program_specific", "2026-06-01")], "2026-01-01"),
-    ).toBeNull();
+    expect(resolveCurrentVersion([version("v1", "program_specific", "2026-06-01")], "2026-01-01")).toBeNull();
   });
 });

@@ -56,10 +56,7 @@ export const DEFAULT_OUTLOOK_DAYS = 5;
  * this tool has otherwise avoided everywhere). A code missing from this
  * table — or no icon at all — falls back to categorizeFromText below.
  */
-const ICON_CONDITION_CATEGORY: Record<
-  string,
-  WeatherIconCode | { day: WeatherIconCode; night: WeatherIconCode }
-> = {
+const ICON_CONDITION_CATEGORY: Record<string, WeatherIconCode | { day: WeatherIconCode; night: WeatherIconCode }> = {
   skc: { day: "sunny", night: "clear-night" },
   few: { day: "partly-cloudy", night: "partly-cloudy-night" },
   sct: { day: "partly-cloudy", night: "partly-cloudy-night" },
@@ -105,12 +102,7 @@ function extractConditionCode(iconUrl: string): string | null {
 function categorizeFromText(shortForecast: string, isDaytime: boolean): WeatherIconCode {
   const text = shortForecast.toLowerCase();
   if (text.includes("thunderstorm")) return "thunderstorm";
-  if (
-    text.includes("snow") ||
-    text.includes("sleet") ||
-    text.includes("blizzard") ||
-    text.includes("flurries")
-  ) {
+  if (text.includes("snow") || text.includes("sleet") || text.includes("blizzard") || text.includes("flurries")) {
     return "snow";
   }
   if (text.includes("rain") || text.includes("shower") || text.includes("drizzle")) return "rain";
@@ -124,11 +116,7 @@ function categorizeFromText(shortForecast: string, isDaytime: boolean): WeatherI
 }
 
 /** Which of this module's icon buckets a forecast period falls into — the icon URL's own condition code first, falling back to keyword-matching shortForecast when the icon is missing or its code isn't one this table recognizes. */
-export function categorizeForecastIcon(
-  iconUrl: string | null,
-  shortForecast: string,
-  isDaytime: boolean,
-): WeatherIconCode {
+export function categorizeForecastIcon(iconUrl: string | null, shortForecast: string, isDaytime: boolean): WeatherIconCode {
   const code = iconUrl ? extractConditionCode(iconUrl) : null;
   const mapped = code ? ICON_CONDITION_CATEGORY[code] : undefined;
   if (mapped) return typeof mapped === "string" ? mapped : isDaytime ? mapped.day : mapped.night;
@@ -184,8 +172,7 @@ export function buildDailyOutlook(
       high: dayPeriod?.temperature ?? null,
       low: nightPeriod?.temperature ?? null,
       short_forecast: leadPeriod.shortForecast,
-      precipitation_chance:
-        precipitationCandidates.length > 0 ? Math.max(...precipitationCandidates) : null,
+      precipitation_chance: precipitationCandidates.length > 0 ? Math.max(...precipitationCandidates) : null,
       icon: categorizeForecastIcon(leadPeriod.icon, leadPeriod.shortForecast, leadPeriod.isDaytime),
     };
   });

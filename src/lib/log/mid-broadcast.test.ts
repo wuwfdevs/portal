@@ -8,9 +8,7 @@ import {
   type MoveDestinationBreakLike,
 } from "./mid-broadcast";
 
-function destination(
-  overrides: Partial<MoveDestinationBreakLike> & { id: string },
-): MoveDestinationBreakLike {
+function destination(overrides: Partial<MoveDestinationBreakLike> & { id: string }): MoveDestinationBreakLike {
   return {
     scheduled_at: "2026-08-07T10:00:00.000Z",
     permitted_content_types: ["psa", "legal_id"],
@@ -22,20 +20,14 @@ const NOW = "2026-08-07T09:00:00.000Z";
 
 describe("isValidMoveDestination", () => {
   it("accepts an empty, future, content-type-permitted destination", () => {
-    expect(
-      isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", "psa", NOW),
-    ).toBe(true);
+    expect(isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", "psa", NOW)).toBe(
+      true,
+    );
   });
 
   it("rejects the source break itself", () => {
     expect(
-      isValidMoveDestination(
-        destination({ id: "source-break" }),
-        "source-break",
-        "content",
-        "psa",
-        NOW,
-      ),
+      isValidMoveDestination(destination({ id: "source-break" }), "source-break", "content", "psa", NOW),
     ).toBe(false);
   });
 
@@ -70,21 +62,21 @@ describe("isValidMoveDestination", () => {
   });
 
   it("rejects a destination whose permitted content types don't include the moving content item's type", () => {
-    expect(
-      isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", "news", NOW),
-    ).toBe(false);
+    expect(isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", "news", NOW)).toBe(
+      false,
+    );
   });
 
   it("rejects a content item with no content type at all", () => {
-    expect(
-      isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", null, NOW),
-    ).toBe(false);
+    expect(isValidMoveDestination(destination({ id: "d1" }), "source-break", "content", null, NOW)).toBe(
+      false,
+    );
   });
 
   it("gates a weather item on the destination permitting weather", () => {
-    expect(
-      isValidMoveDestination(destination({ id: "d1" }), "source-break", "weather", null, NOW),
-    ).toBe(false);
+    expect(isValidMoveDestination(destination({ id: "d1" }), "source-break", "weather", null, NOW)).toBe(
+      false,
+    );
     expect(
       isValidMoveDestination(
         destination({ id: "d1", permitted_content_types: ["weather"] }),
@@ -134,22 +126,14 @@ function creditDestination(
 
 describe("isValidCreditRelocationDestination", () => {
   it("accepts an open, eligible break in the same rundown", () => {
-    expect(
-      isValidCreditRelocationDestination(
-        creditDestination({ id: "d1" }),
-        "source-break",
-        "rundown-1",
-      ),
-    ).toBe(true);
+    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1")).toBe(
+      true,
+    );
   });
 
   it("rejects the source break itself", () => {
     expect(
-      isValidCreditRelocationDestination(
-        creditDestination({ id: "source-break" }),
-        "source-break",
-        "rundown-1",
-      ),
+      isValidCreditRelocationDestination(creditDestination({ id: "source-break" }), "source-break", "rundown-1"),
     ).toBe(false);
   });
 
@@ -174,13 +158,9 @@ describe("isValidCreditRelocationDestination", () => {
   });
 
   it("accepts an already-occupied break — no item-count cap", () => {
-    expect(
-      isValidCreditRelocationDestination(
-        creditDestination({ id: "d1" }),
-        "source-break",
-        "rundown-1",
-      ),
-    ).toBe(true);
+    expect(isValidCreditRelocationDestination(creditDestination({ id: "d1" }), "source-break", "rundown-1")).toBe(
+      true,
+    );
   });
 
   it("accepts a destination already in the past, when live — moving a credit earlier or recovering from a miss routinely targets a break 'now' has already passed", () => {

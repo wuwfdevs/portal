@@ -78,12 +78,7 @@ export function categorizeOpportunity(opportunity: ClockFaceOpportunityLike): Cl
 }
 
 /** Point on a circle of radius r centered at (cx, cy), at angleDeg measured clockwise from the top (12 o'clock = 0). */
-export function pointOnCircle(
-  cx: number,
-  cy: number,
-  r: number,
-  angleDeg: number,
-): { x: number; y: number } {
+export function pointOnCircle(cx: number, cy: number, r: number, angleDeg: number): { x: number; y: number } {
   const angleRad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
 }
@@ -200,9 +195,7 @@ export function formatOffsetLabel(seconds: number, totalDurationSeconds: number)
   const wrapped = ((seconds % totalDurationSeconds) + totalDurationSeconds) % totalDurationSeconds;
   const minutes = Math.floor(wrapped / 60);
   const remainderSeconds = Math.round(wrapped % 60);
-  return remainderSeconds === 0
-    ? `${minutes}`
-    : `${minutes}:${String(remainderSeconds).padStart(2, "0")}`;
+  return remainderSeconds === 0 ? `${minutes}` : `${minutes}:${String(remainderSeconds).padStart(2, "0")}`;
 }
 
 export interface ClockFaceBoundaryLabel {
@@ -255,8 +248,7 @@ export function buildBoundaryLabels<T>(
   const offsets = new Set<number>([0]);
   for (const slot of slots) {
     const { start, duration } = getWindow(slot);
-    const wrap = (value: number) =>
-      ((value % totalDurationSeconds) + totalDurationSeconds) % totalDurationSeconds;
+    const wrap = (value: number) => ((value % totalDurationSeconds) + totalDurationSeconds) % totalDurationSeconds;
     offsets.add(wrap(start));
     offsets.add(wrap(start + duration));
   }

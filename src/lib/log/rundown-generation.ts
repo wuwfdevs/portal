@@ -154,9 +154,7 @@ export function selectMissingBreakDrafts(
   drafts: RundownBreakDraft[],
   existingBreaks: ExistingBreakLike[],
 ): RundownBreakDraft[] {
-  const existingKeys = new Set(
-    existingBreaks.map((brk) => `${brk.clock_slot_id}|${brk.hour_index}`),
-  );
+  const existingKeys = new Set(existingBreaks.map((brk) => `${brk.clock_slot_id}|${brk.hour_index}`));
   return drafts.filter((draft) => !existingKeys.has(`${draft.clock_slot_id}|${draft.hour_index}`));
 }
 

@@ -40,7 +40,8 @@ const MAX_OUTPUT_TOKENS = 32768;
 const MAX_ROUNDS = 8;
 
 export type ImportProgramLogResult =
-  { ok: true; output: ProgramLogModelOutput; toolCalls: number } | { ok: false; error: string };
+  | { ok: true; output: ProgramLogModelOutput; toolCalls: number }
+  | { ok: false; error: string };
 
 const INSTRUCTIONS = `You turn a radio station's daily program log — a traffic/automation system's printout of what is scheduled to air, uploaded as a PDF — into a structured import plan for WUWF-FM's Log tool. Read the whole document, use the tools to look up what you need, then answer with the plan in the required JSON shape.
 

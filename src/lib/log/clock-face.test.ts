@@ -118,16 +118,7 @@ describe("buildClockFaceSegments", () => {
       { start_offset_seconds: 0, duration_seconds: 900 }, // first quarter
       { start_offset_seconds: 2700, duration_seconds: 900 }, // last quarter
     ];
-    const segments = buildClockFaceSegments(
-      slots,
-      3600,
-      () => "segment",
-      fixedWindow,
-      100,
-      100,
-      90,
-      60,
-    );
+    const segments = buildClockFaceSegments(slots, 3600, () => "segment", fixedWindow, 100, 100, 90, 60);
     expect(segments).toHaveLength(2);
     // A quarter-turn sweep starting at the top should not need the large-arc flag.
     expect(segments[0]!.pathD).toContain(" A 90 90 0 0 1 ");

@@ -92,11 +92,7 @@ async function replaceEpisodeCache(
 
   const items =
     unwrapRead(
-      await supabase
-        .from("log_npr_episode_items")
-        .select("*")
-        .eq("episode_id", episode.id)
-        .order("position"),
+      await supabase.from("log_npr_episode_items").select("*").eq("episode_id", episode.id).order("position"),
       "this program's NPR episode items",
     ) ?? [];
 
@@ -133,8 +129,7 @@ export async function getNprEpisodeForProgramOnDate(
     }
   }
 
-  if (!cached)
-    return { kind: "error", message: refreshError ?? "No NPR episode has been retrieved yet." };
+  if (!cached) return { kind: "error", message: refreshError ?? "No NPR episode has been retrieved yet." };
 
   if (cached.episode.status === "not_found") {
     return {
