@@ -891,7 +891,8 @@ export interface UnderwritingCopyForLog {
   script: string | null;
   duration_seconds: number | null;
   execution_kind: string;
-  cart_identifier: string | null;
+  /** The DAD cut a recorded spot plays from — what a host fires. Not shown for a live read. */
+  dad_cut: string | null;
   /**
    * The underwriter the credit is for — resolved by
    * log_underwriters_for_copy() (direct uw_copy.underwriter_id attribution
@@ -920,7 +921,7 @@ export async function listUnderwritingCopyForItems(
   const [copy, underwriters] = await Promise.all([
     supabase
       .from("uw_copy")
-      .select("id, label, script, duration_seconds, execution_kind, cart_identifier")
+      .select("id, label, script, duration_seconds, execution_kind, dad_cut")
       .in("id", copyIds),
     supabase.rpc("log_underwriters_for_copy", { p_copy_ids: copyIds }),
   ]);

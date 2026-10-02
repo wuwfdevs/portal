@@ -365,10 +365,10 @@ function CopyCard({
 }) {
   const isDraft = item.approval_status === "draft";
   const meta = [
-    item.execution_kind === "live_read" ? "Live read" : "Recorded",
+    item.execution_kind === "live_read" ? "Live read" : "Recorded spot",
     describeDuration(item),
     `effective ${item.effective_from}${item.effective_to ? ` – ${item.effective_to}` : " onward"}`,
-    item.cart_identifier ? `cart ${item.cart_identifier}` : null,
+    item.dad_cut ? `DAD ${item.dad_cut}` : "no DAD cut",
     flightId ? `serves ${flightNameById.get(flightId) ?? "one flight"}` : null,
     lineId ? `only on ${lineLabel ?? "one line"}` : null,
     usage

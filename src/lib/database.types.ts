@@ -2445,6 +2445,13 @@ export interface Database {
           execution_kind: UwCopyExecutionKind;
           duration_seconds: number | null;
           cart_identifier: string | null;
+          /**
+           * Added by 20261002120000_underwriting_copy_dad_cut.sql — the DAD cut this message
+           * plays from. NNNNNA: assigned by the Portal (a trigger fills it on insert, and again
+           * when an update clears it). NNNNN: an existing DAD spot picked from the library.
+           * Null: copy that plays an existing spot nobody has picked yet.
+           */
+          dad_cut: string | null;
           effective_from: string;
           effective_to: string | null;
           approval_status: UwCopyApprovalStatus;
@@ -3058,6 +3065,13 @@ export interface Database {
         Returns: { ok: true; changed: boolean } | { error: string };
       };
       /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */
+      /** Added by 20261002120000_underwriting_copy_dad_cut.sql — DAD library cuts matching a cut number or title, at most 20, for the copy form's existing-spot picker. */
+      log_search_dad_cuts: {
+        Args: { p_query: string };
+        Returns:
+          | { ok: true; cuts: { cut: string; title: string; group: string | null }[] }
+          | { error: string };
+      };
       log_list_programs: {
         Args: Record<string, never>;
         Returns: { ok: true; programs: { id: string; name: string }[] } | { error: string };

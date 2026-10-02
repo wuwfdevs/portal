@@ -3,7 +3,8 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { listCopy } from "@/lib/underwriting/queries";
+import { listCopy, type CopyListRow } from "@/lib/underwriting/queries";
+import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
@@ -14,11 +15,13 @@ const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
   retired: "muted",
 };
 
-const FILTERS = ["all", "approved", "draft", "inactive"] as const;
+const FILTERS = ["all", "approved", "draft", "needs-cut", "inactive"] as const;
 type Filter = (typeof FILTERS)[number];
 
-function matchesFilter(status: UwCopyApprovalStatus, filter: Filter): boolean {
+function matchesFilter(item: CopyListRow, filter: Filter): boolean {
+  const status: UwCopyApprovalStatus = item.approval_status;
   if (filter === "all") return true;
+  if (filter === "needs-cut") return item.dad_cut === null;
   if (filter === "inactive") return status === "expired" || status === "retired";
   return status === filter;
 }
@@ -42,11 +45,11 @@ export default async function CopyLibraryPage({
       query === "" ||
       item.label.toLowerCase().includes(query) ||
       (item.script ?? "").toLowerCase().includes(query) ||
-      (item.cart_identifier ?? "").toLowerCase().includes(query),
+      (item.underwriter_name ?? "").toLowerCase().includes(query) ||
+      (item.dad_cut ?? "").toLowerCase().includes(query),
   );
-  const count = (next: Filter) =>
-    matching.filter((item) => matchesFilter(item.approval_status, next)).length;
-  const shown = matching.filter((item) => matchesFilter(item.approval_status, filter));
+  const count = (next: Filter) => matching.filter((item) => matchesFilter(item, next)).length;
+  const shown = matching.filter((item) => matchesFilter(item, filter));
   const hrefFor = (next: Filter) =>
     `/underwriting/copy?${new URLSearchParams({
       ...(query ? { q: q ?? "" } : {}),
@@ -57,7 +60,7 @@ export default async function CopyLibraryPage({
     <div className="flex flex-col gap-4">
       <ListToolbar
         search={{
-          placeholder: "Search label, script, or cart",
+          placeholder: "Search underwriter, script, or DAD cut",
           label: "Search copy",
           defaultValue: q,
           hidden: filter !== "all" ? { status: filter } : undefined,
@@ -76,6 +79,12 @@ export default async function CopyLibraryPage({
             count: count("draft"),
             href: hrefFor("draft"),
             active: filter === "draft",
+          },
+          {
+            label: "Needs a DAD cut",
+            count: count("needs-cut"),
+            href: hrefFor("needs-cut"),
+            active: filter === "needs-cut",
           },
           {
             label: "Expired or retired",
@@ -111,10 +120,11 @@ export default async function CopyLibraryPage({
           <Table stack>
             <thead>
               <HeaderRow>
-                <Th>Label</Th>
+                <Th>Copy</Th>
                 <Th>Script</Th>
-                <Th>Duration</Th>
-                <Th>Execution</Th>
+                <Th>Length</Th>
+                <Th>Airs as</Th>
+                <Th>DAD cut</Th>
                 <Th>Approval</Th>
               </HeaderRow>
             </thead>
@@ -128,17 +138,34 @@ export default async function CopyLibraryPage({
                     >
                       {item.label}
                     </Link>
+                    {item.underwriter_name && (
+                      <div className="text-xs text-ink-500">{item.underwriter_name}</div>
+                    )}
                   </Cell>
                   <Cell stack="full" className="text-ink-500">
                     <div className="max-w-xs truncate max-md:line-clamp-2 max-md:max-w-none max-md:whitespace-normal">
                       {item.script ?? "—"}
                     </div>
                   </Cell>
-                  <Cell label="Duration" className="whitespace-nowrap text-ink-500">
+                  <Cell label="Length" className="whitespace-nowrap text-ink-500">
                     {item.duration_seconds ? `${item.duration_seconds}s` : "—"}
                   </Cell>
-                  <Cell label="Execution" className="text-ink-500">
-                    {item.execution_kind === "recorded" ? "Recorded" : "Live read"}
+                  <Cell label="Airs as" className="text-ink-500">
+                    {item.execution_kind === "recorded" ? "Recorded spot" : "Live read"}
+                  </Cell>
+                  <Cell label="DAD cut" className="whitespace-nowrap">
+                    {item.dad_cut ? (
+                      <>
+                        <span className="font-mono font-bold text-ink-900">{item.dad_cut}</span>
+                        {!isPortalAssignedCut(item.dad_cut) && (
+                          <div className="text-xs text-ink-500">Existing DAD spot</div>
+                        )}
+                      </>
+                    ) : (
+                      <Link href={`/underwriting/copy/${item.id}/edit`}>
+                        <Badge variant="warning">Pick a DAD spot</Badge>
+                      </Link>
+                    )}
                   </Cell>
                   <Cell stack="aside">
                     <Badge variant={APPROVAL_VARIANT[item.approval_status]}>

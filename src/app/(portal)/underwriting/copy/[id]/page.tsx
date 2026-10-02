@@ -8,6 +8,8 @@ import { DetailSummary } from "@/components/ui/detail-summary";
 import { FieldHint, Label, Select } from "@/components/ui/input";
 import { getCopyDetail } from "@/lib/underwriting/queries";
 import { setCopyStatus } from "../../copy-actions";
+import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
+import { CopyCutButton } from "./copy-cut-button";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
 const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
@@ -45,7 +47,7 @@ export default async function CopyDetailPage({
           <h2 className="font-serif text-xl font-bold text-ink-900">{copy.label}</h2>
           <Badge variant={APPROVAL_VARIANT[copy.approval_status]}>{copy.approval_status}</Badge>
           <Badge variant="neutral">
-            {copy.execution_kind === "recorded" ? "Recorded" : "Live read"}
+            {copy.execution_kind === "recorded" ? "Recorded spot" : "Live read"}
           </Badge>
           {saved === "created" && <Badge variant="success">Created</Badge>}
           {saved === "1" && <Badge variant="success">Saved</Badge>}
@@ -65,6 +67,60 @@ export default async function CopyDetailPage({
             <p className="px-5 py-4 text-sm text-ink-500">No script recorded.</p>
           )}
         </div>
+
+        <section aria-labelledby="in-dad" className="mt-6 rounded border border-line">
+          <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+            <h3 id="in-dad" className="text-sm font-bold text-ink-900">
+              In DAD
+            </h3>
+            <Link
+              href={`/underwriting/copy/${copy.id}/edit`}
+              className="text-[13px] font-bold text-brand-link hover:underline"
+            >
+              {copy.dad_cut ? "Change cut" : "Pick a DAD spot"}
+            </Link>
+          </div>
+          {copy.dad_cut ? (
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-ink-500">DAD cut</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="font-mono text-[28px] font-bold leading-none text-ink-900">
+                    {copy.dad_cut}
+                  </span>
+                  <CopyCutButton cut={copy.dad_cut} />
+                </div>
+                <span className="text-xs text-ink-500">
+                  {isPortalAssignedCut(copy.dad_cut) ? "New recording" : "Existing DAD spot"}
+                </span>
+              </div>
+              <p className="flex-1 rounded bg-panel-50 px-4 py-3.5 text-sm leading-relaxed text-ink-700">
+                {copy.execution_kind === "live_read"
+                  ? "Hosts read this message live. For hours with no one on air, DAD plays its recorded version"
+                  : "DAD plays this recording every time the credit airs"}
+                {isPortalAssignedCut(copy.dad_cut) ? (
+                  <>
+                    {" "}
+                    — record it into DAD under cut{" "}
+                    <strong className="font-mono font-bold">{copy.dad_cut}</strong>.
+                  </>
+                ) : (
+                  <>
+                    , already in DAD as cut{" "}
+                    <strong className="font-mono font-bold">{copy.dad_cut}</strong>.
+                  </>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div className="p-5">
+              <Alert variant="warning">
+                This copy plays a spot that&apos;s already in DAD, and nobody has picked which one.
+                Until someone does, it can&apos;t air in hours with no host.
+              </Alert>
+            </div>
+          )}
+        </section>
 
         <div className="mt-6 rounded border border-line">
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
@@ -98,13 +154,16 @@ export default async function CopyDetailPage({
           items={[
             {
               label: "Execution",
-              value: copy.execution_kind === "recorded" ? "Recorded (via DAD)" : "Live read",
+              value:
+                copy.execution_kind === "recorded"
+                  ? "Recorded spot"
+                  : "Live read — recorded version in automated hours",
             },
             {
               label: "Duration",
               value: copy.duration_seconds ? `${copy.duration_seconds}s` : null,
             },
-            { label: "DAD cart #", value: copy.cart_identifier },
+            { label: "DAD cut", value: copy.dad_cut },
             {
               label: "Effective",
               value: `${copy.effective_from}${copy.effective_to ? ` – ${copy.effective_to}` : " onward"}`,

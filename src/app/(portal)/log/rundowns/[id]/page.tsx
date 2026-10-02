@@ -727,7 +727,9 @@ export default async function RundownDetailPage({
             )}
             {copy && (
               <div className="mt-0.5 text-xs text-ink-400">
-                {copy.execution_kind === "recorded" ? `DAD cart ${copy.cart_identifier ?? "—"}` : "Live read"}
+                {copy.execution_kind === "recorded"
+                  ? `Recorded spot · ${copy.dad_cut ? `DAD ${copy.dad_cut}` : "no DAD cut"}`
+                  : "Live read"}
                 {creditDurationEstimated && ` · ~${item.planned_duration_seconds}s estimated from script`}
               </div>
             )}

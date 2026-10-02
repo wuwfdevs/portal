@@ -354,14 +354,60 @@ export async function listBucketsForLines(
 
 // Copy -----------------------------------------------------------------------
 
-export async function listCopy(): Promise<UwCopyRow[]> {
+export interface CopyListRow extends UwCopyRow {
+  /** The underwriter the copy is for: its direct attribution, else the first linked contract's. */
+  underwriter_name: string | null;
+}
+
+export async function listCopy(): Promise<CopyListRow[]> {
   const supabase = await createClient();
-  return (
-    unwrapRead(
-      await supabase.from("uw_copy").select("*").order("created_at", { ascending: false }),
-      "the copy library",
-    ) ?? []
-  );
+  const [copyResult, linksResult] = await Promise.all([
+    supabase.from("uw_copy").select("*").order("created_at", { ascending: false }),
+    supabase.from("uw_contract_copy").select("copy_id, contract_id"),
+  ]);
+  const copy = unwrapRead(copyResult, "the copy library") ?? [];
+  const links = unwrapRead(linksResult, "the copy library's contracts") ?? [];
+
+  const contractIds = [...new Set(links.map((link) => link.contract_id))];
+  const contracts =
+    contractIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("uw_contracts").select("id, underwriter_id").in("id", contractIds),
+          "the copy library's contracts",
+        ) ?? []);
+  const underwriterByContract = new Map(contracts.map((c) => [c.id, c.underwriter_id]));
+  const contractUnderwriterByCopy = new Map<string, string>();
+  for (const link of links) {
+    const underwriterId = underwriterByContract.get(link.contract_id);
+    if (underwriterId && !contractUnderwriterByCopy.has(link.copy_id)) {
+      contractUnderwriterByCopy.set(link.copy_id, underwriterId);
+    }
+  }
+
+  const underwriterIds = [
+    ...new Set(
+      copy
+        .map((row) => row.underwriter_id ?? contractUnderwriterByCopy.get(row.id) ?? null)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  const underwriters =
+    underwriterIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase.from("uw_underwriters").select("id, name").in("id", underwriterIds),
+          "the copy library's underwriters",
+        ) ?? []);
+  const nameById = new Map(underwriters.map((u) => [u.id, u.name]));
+
+  return copy.map((row) => {
+    const underwriterId = row.underwriter_id ?? contractUnderwriterByCopy.get(row.id) ?? null;
+    return {
+      ...row,
+      underwriter_name: underwriterId ? (nameById.get(underwriterId) ?? null) : null,
+    };
+  });
 }
 
 export interface CopyDetail extends UwCopyRow {
