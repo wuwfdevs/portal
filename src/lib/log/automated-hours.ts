@@ -12,7 +12,7 @@
 // counts. Pure, station time (America/Chicago). The SQL twin is
 // private.log_is_automated() — keep them in step.
 
-import { STATION_TIME_ZONE, shiftDateISO } from "./timezone";
+import { STATION_TIME_ZONE, shiftDateISO, stationLocalDateTimeToUTC } from "./timezone";
 
 export interface WeeklyAutomatedWindow {
   id: string;
@@ -67,33 +67,9 @@ export function stationLocalParts(instantISO: string): StationLocalParts {
   };
 }
 
-function stationOffsetMs(instantMs: number): number {
-  const parts = Object.fromEntries(
-    partsFormatter.formatToParts(new Date(instantMs)).map((part) => [part.type, part.value]),
-  );
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return asUtc - instantMs;
-}
-
-/**
- * A station-local date and time as a UTC instant, right on daylight-saving
- * changeover days too: the offset is taken at the guessed instant, not at
- * the naive one (lib/log/timezone.ts's stationLocalDateTimeToUTC uses the
- * naive one, which is an hour out for times after a changeover that day —
- * fine for rundowns, which never air across one, but this module draws
- * whole days).
- */
+/** A station-local date and time as a UTC instant, right on daylight-saving changeover days too. */
 export function stationLocalToUTC(dateISO: string, time: string): string {
-  const naive = Date.parse(`${dateISO}T${time}Z`);
-  const guess = naive - stationOffsetMs(naive);
-  return new Date(naive - stationOffsetMs(guess)).toISOString();
+  return stationLocalDateTimeToUTC(dateISO, time);
 }
 
 export function timeToSeconds(time: string): number {
