@@ -13,12 +13,21 @@ const TABS = [
 
 // Clocks have no tab of their own: nobody starts from a clock, so a clock's
 // page is reached from the program that airs on it and keeps Programs lit.
+// Automated hours are reached from Programs too.
 function isTabActive(href: string, pathname: string): boolean {
   // Today owns the program-log import: it is started from there and returns
-  // there, so it has no tab of its own.
-  if (href === "/log") return pathname === href || pathname.startsWith("/log/import");
+  // there, so it has no tab of its own. So does the day's DAD log.
+  if (href === "/log") {
+    return (
+      pathname === href || pathname.startsWith("/log/import") || pathname.startsWith("/log/dad-log")
+    );
+  }
   if (href === "/log/programs") {
-    return pathname.startsWith("/log/programs") || pathname.startsWith("/log/clocks");
+    return (
+      pathname.startsWith("/log/programs") ||
+      pathname.startsWith("/log/clocks") ||
+      pathname.startsWith("/log/automated-hours")
+    );
   }
   // NPR and weather live under Sources; their old top-level paths redirect there.
   if (href === "/log/sources") return isDataSourcesPath(pathname);

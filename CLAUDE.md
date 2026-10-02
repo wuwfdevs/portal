@@ -3186,6 +3186,37 @@ the weather card goes through weather's ordinary lazy-refresh read. A new source
 is an entry in `DATA_SOURCES`, a loader, and a page under `/log/sources/`. No
 schema change.
 
+**Unattended hours: DAD cuts, automated hours, and the DAD log (2026-10-02).**
+Three parts, built in order; this is a pointer. (1) **Every `uw_copy` row has a
+`dad_cut`** (`20261002120000`): a Portal-assigned `NNNNNA` from
+`uw_dad_cut_seq` (never reused; existing copy adopted its RadioTraffic cart
+where unique), or a plain `NNNNN` existing DAD spot picked from the library
+(`log_search_dad_cuts()`) for copy whose script says "please play". A trigger
+assigns the next cut on insert; `execution_kind` comes from the script
+(`private.uw_script_plays_recording()`), never from having a cart — a live
+read airs in automated hours as its recorded version. RadioTraffic is never
+named in the UI; `cart_identifier` stays only for the two transitional
+importers. (2) **Automated hours** (`20261002130000`, `/log/automated-hours`,
+reached from Programs): hosted is the norm and has no record; only
+exceptions are kept — `log_automated_weekly` (may overlap; union counts) and
+`log_on_air_changes` (automated or live, wins over weekly, never overlap —
+an exclusion constraint). `lib/log/automated-hours.ts`'s `isAutomated()` and
+`private.log_is_automated()` are twins — keep them in step. A trigger on
+`uw_scheduled_placements` refuses cut-less copy in automated time
+(`copy_needs_dad_cut`), and the planner/rotation skip it there
+(`rotation.ts`'s `servesBreak()`); Underwriting members can read both tables
+(`20261002130100`). (3) **The DAD log** (`20261002140000`, `/log/dad-log?date=`,
+reached from Today): `lib/log/dad-export.ts` (pure; its golden test
+round-trips RadioTraffic's real export, `fixtures/100126tWUWF.log`, byte for
+byte — `.gitattributes` keeps its CRLF) builds play rows for automated breaks
+only, blocks a release on anything DAD can't play, and writes the
+fixed-width file. A release is a new version in `log_dad_exports` (append-only)
+with its file in the private `log-exports` bucket; spot numbers are minted
+once per rundown item (`log_assign_dad_spot_numbers()`, from 400000000001)
+and the GUID is the item id. Download is `/api/log/dad-export/[date]`. Not
+yet verified against DAD itself: whether it accepts lettered cuts, ListGen's
+folder, and whether a re-dropped file replaces or merges the day.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

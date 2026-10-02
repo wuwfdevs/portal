@@ -184,6 +184,15 @@ repo and a project's history, not the version number.
 | `20261001120000_underwriting_exception_auto_close.sql`                | 2026-10-01 | 2026-10-01 |
 | `20261001120100_profiles_title.sql`                                   | 2026-10-01 | 2026-10-01 |
 | `20261001120200_resources_underwriting_fewer_tabs.sql`                | 2026-10-01 | 2026-10-01 |
+| `20261002120000_underwriting_copy_dad_cut.sql`                        | 2026-10-02 | 2026-10-02 |
+| `20261002120100_underwriting_copy_dad_cut_on_update.sql`              | 2026-10-02 | 2026-10-02 |
+| `20261002120200_resources_underwriting_copy_dad_cut.sql`              | 2026-10-02 | 2026-10-02 |
+| `20261002130000_log_automated_hours.sql`                              | 2026-10-02 | 2026-10-02 |
+| `20261002130100_log_automated_hours_underwriting_read.sql`            | 2026-10-02 | 2026-10-02 |
+| `20261002130200_resources_log_automated_hours.sql`                    | 2026-10-02 | 2026-10-02 |
+| `20261002140000_log_dad_export.sql`                                   | 2026-10-02 | 2026-10-02 |
+| `20261002140100_resources_log_dad_log.sql`                            | 2026-10-02 | 2026-10-02 |
+| `20261002140200_log_import_copy_kind_follows_script.sql`              | 2026-10-02 | 2026-10-02 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

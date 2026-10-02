@@ -1,0 +1,2 @@
+# The DAD log fixture is byte-exact (CRLF) — never normalize it.
+src/lib/log/fixtures/*.log -text

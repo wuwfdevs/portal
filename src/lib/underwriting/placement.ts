@@ -97,6 +97,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   copy_wrong_flight: "That copy belongs to a different flight than this schedule line.",
   copy_wrong_line:
     "That copy is dedicated to another line, or this line has messages of its own — check the contract's Copy tab.",
+  copy_needs_dad_cut:
+    "This break is in automated hours, and the message has no DAD cut for DAD to play — pick its DAD spot on the copy first.",
   copy_duration_unknown: "Set this copy's duration before placing it.",
   too_long: "This copy is longer than the break's remaining time allows.",
   copy_needs_override:

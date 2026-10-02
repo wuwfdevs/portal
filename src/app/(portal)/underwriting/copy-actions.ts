@@ -8,6 +8,8 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwCopyApprovalStatus, UwCopyExecutionKind } from "@/lib/database.types";
 import { estimateReadSeconds } from "@/lib/log/read-time";
 import { rebalanceRotationForCopy } from "@/lib/underwriting/rotation-rebalance";
+import { isPortalAssignedCut, normalizeDadCut } from "@/lib/underwriting/dad-cut";
+import { playsRecording } from "@/lib/underwriting/legacy-copy";
 
 const LIST_PATH = "/underwriting/copy";
 const NEW_COPY_PATH = `${LIST_PATH}/new`;
@@ -63,6 +65,48 @@ function defaultCopyDuration(
   return executionKind === "live_read" ? estimateReadSeconds(script) : null;
 }
 
+/**
+ * What the copy form's "In DAD" fieldset asks to store in uw_copy.dad_cut.
+ * `{ write: false }` leaves the column alone; `{ write: true, cut: null }`
+ * clears it, which the uw_copy_assign_dad_cut trigger answers with the next
+ * Portal cut (20261002120100); a string is stored as typed or picked.
+ *   * New recording, nothing typed: on create, the trigger assigns one; on
+ *     edit, a Portal cut stays, and a picked spot is swapped for a new cut.
+ *   * New recording, typed: that cut, normalized.
+ *   * Existing DAD spot: the picked cut. Nothing picked is an error, except
+ *     copy that plays a spot nobody has picked yet, which stays as it is.
+ */
+function resolveDadCut(
+  formData: FormData,
+  script: string | null,
+  currentCut: string | null,
+): { write: false } | { write: true; cut: string | null } | { error: string } {
+  const source = field(formData, "dad_cut_source");
+  const typed = field(formData, "dad_cut");
+  if (source === "existing") {
+    if (typed === "") {
+      if (currentCut === null && script !== null && playsRecording(script)) return { write: false };
+      return { error: "Pick the DAD spot this message plays, or choose New recording." };
+    }
+    const cut = normalizeDadCut(typed);
+    if (cut === null) return { error: "That isn't a DAD cut number." };
+    return { write: true, cut };
+  }
+  if (typed !== "") {
+    const cut = normalizeDadCut(typed);
+    if (cut === null)
+      return { error: "A DAD cut is five digits, with an A for a Portal cut (00013A)." };
+    return { write: true, cut };
+  }
+  if (currentCut !== null && isPortalAssignedCut(currentCut)) return { write: false };
+  return currentCut === null ? { write: false } : { write: true, cut: null };
+}
+
+/** A unique-index clash on uw_copy_dad_cut_key reads as a sentence, not a Postgres error. */
+function dadCutClash(error: { code?: string; message: string } | null): boolean {
+  return error?.code === "23505" && error.message.includes("uw_copy_dad_cut_key");
+}
+
 export async function createCopy(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();
   const contractId = optionalField(formData, "contract_id");
@@ -80,6 +124,8 @@ export async function createCopy(formData: FormData): Promise<void> {
   const script = optionalField(formData, "script");
   const durationRaw = optionalField(formData, "duration_seconds");
   const durationSeconds = durationRaw === null ? null : Number.parseInt(durationRaw, 10);
+  const dadCut = resolveDadCut(formData, script, null);
+  if ("error" in dadCut) failWith(failPath, dadCut.error);
 
   const supabase = await createClient();
   // From a contract's own screen the message is attributed to that
@@ -106,7 +152,7 @@ export async function createCopy(formData: FormData): Promise<void> {
       label,
       script,
       execution_kind: executionKind,
-      cart_identifier: optionalField(formData, "cart_identifier"),
+      ...(dadCut.write ? { dad_cut: dadCut.cut } : {}),
       duration_seconds:
         durationSeconds !== null && Number.isFinite(durationSeconds)
           ? durationSeconds
@@ -120,6 +166,7 @@ export async function createCopy(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
+  if (dadCutClash(error)) failWith(failPath, "That DAD cut already belongs to another message.");
   failIfError(error, failPath, "Could not create the copy");
   if (!data) failWith(failPath, "Could not create the copy.");
 
@@ -146,7 +193,7 @@ export async function createCopy(formData: FormData): Promise<void> {
 }
 
 /**
- * Corrects a copy's own metadata in place — label, script, cart #,
+ * Corrects a copy's own metadata in place — label, script, DAD cut,
  * duration, effective dates — from /copy/[id]/edit, or from the in-place
  * edit card on a contract's copy step or Copy tab (contract_id +
  * return_to). No approval workflow gate: see setCopyStatus below for that.
@@ -173,18 +220,24 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
 
   const script = optionalField(formData, "script");
   const supabase = await createClient();
+  const current = (await supabase.from("uw_copy").select("dad_cut").eq("id", id).maybeSingle())
+    .data;
+  if (!current) failWith(path, "That copy no longer exists.");
+  const dadCut = resolveDadCut(formData, script, current.dad_cut);
+  if ("error" in dadCut) failWith(path, dadCut.error);
   const { error } = await supabase
     .from("uw_copy")
     .update({
       label: field(formData, "label") || undefined,
       script,
       execution_kind: executionKind,
-      cart_identifier: optionalField(formData, "cart_identifier"),
+      ...(dadCut.write ? { dad_cut: dadCut.cut } : {}),
       duration_seconds: durationSeconds ?? defaultCopyDuration(executionKind, script),
       effective_from: field(formData, "effective_from") || undefined,
       effective_to: optionalField(formData, "effective_to"),
     })
     .eq("id", id);
+  if (dadCutClash(error)) failWith(path, "That DAD cut already belongs to another message.");
   failIfError(error, path, "Could not update this copy");
   await rebalanceRotationForCopy(id, profile.id);
 

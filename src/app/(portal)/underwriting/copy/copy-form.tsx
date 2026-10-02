@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { FieldHint, Input, Label } from "@/components/ui/input";
 import type { UwCopyRow } from "@/lib/underwriting/queries";
+import { spotNumberFromScript } from "@/lib/underwriting/dad-cut";
+import { DadCutField } from "./dad-cut-field";
 import { ScriptField } from "./script-field";
 
 export type CopyFormDefaults = Pick<
@@ -12,7 +14,7 @@ export type CopyFormDefaults = Pick<
   | "execution_kind"
   | "script"
   | "duration_seconds"
-  | "cart_identifier"
+  | "dad_cut"
   | "effective_from"
   | "effective_to"
 >;
@@ -39,7 +41,9 @@ export function CopyFormFields({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <span className="mb-1.5 block text-xs font-semibold text-ink-700">Execution</span>
+        <span className="mb-1.5 block text-xs font-semibold text-ink-700">
+          How it airs when a host is on
+        </span>
         <ChoiceCards
           name="execution_kind"
           columns={2}
@@ -49,12 +53,12 @@ export function CopyFormFields({
               value: "live_read",
               title: "Live read",
               description:
-                "The host reads the script on air. Length is estimated from the words unless you time it.",
+                "The host reads the script. In hours with no host, DAD plays its recorded version.",
             },
             {
               value: "recorded",
-              title: "Recorded (via DAD)",
-              description: "ENCO/DAD plays the cart. Enter the cart number and the audio's length.",
+              title: "Recorded spot",
+              description: "DAD always plays the recording, whether or not a host is on air.",
             },
           ]}
         />
@@ -86,11 +90,13 @@ export function CopyFormFields({
             placeholder="Estimate"
             defaultValue={defaults?.duration_seconds ?? ""}
           />
-          <FieldHint>Blank uses the estimate; a recorded spot needs its audio&apos;s length.</FieldHint>
+          <FieldHint>
+            Blank uses the estimate; a recorded spot needs its audio&apos;s length.
+          </FieldHint>
         </div>
       </div>
       <ScriptField id={id("script")} defaultValue={defaults?.script ?? ""} />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor={id("from")}>Effective from</Label>
           <Input
@@ -114,17 +120,12 @@ export function CopyFormFields({
           />
           <FieldHint>Blank runs until retired.</FieldHint>
         </div>
-        <div>
-          <Label htmlFor={id("cart")}>DAD cart #</Label>
-          <Input
-            id={id("cart")}
-            name="cart_identifier"
-            maxLength={120}
-            defaultValue={defaults?.cart_identifier ?? ""}
-          />
-          <FieldHint>Recorded spots only — ENCO/DAD plays the audio, not the portal.</FieldHint>
-        </div>
       </div>
+      <DadCutField
+        idPrefix={idPrefix}
+        currentCut={defaults?.dad_cut ?? null}
+        suggestedSpot={spotNumberFromScript(defaults?.script)}
+      />
     </div>
   );
 }

@@ -114,6 +114,9 @@ export default async function LogTodayPage({
             </svg>
             Import program log
           </Link>
+          <Link href={`/log/dad-log?date=${selectedDate}`} className={NAV_LINK_CLASSES}>
+            DAD log
+          </Link>
         </div>
       </div>
       {error && <Alert className="mb-4">{error}</Alert>}

@@ -460,6 +460,8 @@ export type LogRundownItemKind = "content" | "live_read" | "weather" | "underwri
 // supabase/migrations/20260807160000_log_broadcast_events.sql. This slice's
 // own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
 // see that migration's file header for the rest of the vocabulary's status.
+export type LogOnAirMode = "automated" | "live";
+
 export type LogBroadcastOutcome =
   | "scheduled"
   | "aired_as_scheduled"
@@ -2104,6 +2106,8 @@ export interface Database {
           source_npr_item_id: string | null;
           /** The NPR story's title captured at creation time — never re-read from log_npr_episode_items. */
           source_npr_item_title: string | null;
+          /** The DAD log's spot number, minted on the item's first release (20261002140000). */
+          dad_spot_number: number | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]> & {
           break_id: string;
@@ -2111,6 +2115,74 @@ export interface Database {
           planned_duration_seconds: number;
         };
         Update: Partial<Database["public"]["Tables"]["log_rundown_items"]["Row"]>;
+        Relationships: [];
+      };
+      /** Each release of a day's DAD log (20261002140000). Append-only. */
+      log_dad_exports: {
+        Row: {
+          id: string;
+          air_date: string;
+          version: number;
+          file_name: string;
+          file_path: string;
+          sha256: string;
+          event_count: number;
+          warnings: unknown;
+          released_by: string;
+          released_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_dad_exports"]["Row"]> & {
+          air_date: string;
+          version: number;
+          file_name: string;
+          file_path: string;
+          sha256: string;
+          event_count: number;
+          released_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_dad_exports"]["Row"]>;
+        Relationships: [];
+      };
+      /** Weekly automated hours (20261002130000) — lib/log/automated-hours.ts. */
+      log_automated_weekly: {
+        Row: {
+          id: string;
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+          effective_from: string;
+          effective_to: string | null;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_automated_weekly"]["Row"]> & {
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_automated_weekly"]["Row"]>;
+        Relationships: [];
+      };
+      /** One-time automated or live changes (20261002130000); active rows never overlap. */
+      log_on_air_changes: {
+        Row: {
+          id: string;
+          starts_at: string;
+          ends_at: string;
+          mode: LogOnAirMode;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]> & {
+          starts_at: string;
+          ends_at: string;
+          mode: LogOnAirMode;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]>;
         Relationships: [];
       };
       // Append-only from the application — no update grant. See the
@@ -2445,6 +2517,13 @@ export interface Database {
           execution_kind: UwCopyExecutionKind;
           duration_seconds: number | null;
           cart_identifier: string | null;
+          /**
+           * Added by 20261002120000_underwriting_copy_dad_cut.sql — the DAD cut this message
+           * plays from. NNNNNA: assigned by the Portal (a trigger fills it on insert, and again
+           * when an update clears it). NNNNN: an existing DAD spot picked from the library.
+           * Null: copy that plays an existing spot nobody has picked yet.
+           */
+          dad_cut: string | null;
           effective_from: string;
           effective_to: string | null;
           approval_status: UwCopyApprovalStatus;
@@ -3058,6 +3137,19 @@ export interface Database {
         Returns: { ok: true; changed: boolean } | { error: string };
       };
       /** Human-readable program list for pickers outside Log — see CLAUDE.md's "Underwriting domain redesign" note. */
+      /** Added by 20261002120000_underwriting_copy_dad_cut.sql — DAD library cuts matching a cut number or title, at most 20, for the copy form's existing-spot picker. */
+      log_assign_dad_spot_numbers: {
+        Args: { p_item_ids: string[] };
+        Returns:
+          | { ok: true; numbers: { item_id: string; spot_number: number }[] }
+          | { error: string };
+      };
+      log_search_dad_cuts: {
+        Args: { p_query: string };
+        Returns:
+          | { ok: true; cuts: { cut: string; title: string; group: string | null }[] }
+          | { error: string };
+      };
       log_list_programs: {
         Args: Record<string, never>;
         Returns: { ok: true; programs: { id: string; name: string }[] } | { error: string };

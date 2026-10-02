@@ -76,6 +76,16 @@ describe("shiftDateISO", () => {
 });
 
 describe("stationLocalDateTimeToUTC", () => {
+  it("is right after the 2 AM switch on both changeover Sundays", () => {
+    // Fall back, 2026-11-01: 5 AM is CST (UTC-6).
+    expect(stationLocalDateTimeToUTC("2026-11-01", "05:00:00")).toBe("2026-11-01T11:00:00.000Z");
+    // Midnight is still CDT (UTC-5).
+    expect(stationLocalDateTimeToUTC("2026-11-01", "00:00:00")).toBe("2026-11-01T05:00:00.000Z");
+    // Spring forward, 2027-03-14: 5 AM is CDT (UTC-5).
+    expect(stationLocalDateTimeToUTC("2027-03-14", "05:00:00")).toBe("2027-03-14T10:00:00.000Z");
+    expect(stationLocalDateTimeToUTC("2027-03-14", "00:00:00")).toBe("2027-03-14T06:00:00.000Z");
+  });
+
   it("applies the CDT offset (UTC-5) in August", () => {
     // 9:00 AM in Pensacola on August 7 (CDT) is 14:00 UTC.
     expect(stationLocalDateTimeToUTC("2026-08-07", "09:00:00")).toBe("2026-08-07T14:00:00.000Z");

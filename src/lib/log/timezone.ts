@@ -112,7 +112,14 @@ function stationOffsetMinutesAt(instant: Date): number {
     second: "2-digit",
   }).formatToParts(instant);
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
   return (asUtc - instant.getTime()) / 60_000;
 }
 
@@ -124,12 +131,18 @@ function stationOffsetMinutesAt(instant: Date): number {
  * roughly half the year. Used by rundown generation to turn a schedule
  * entry's local air time into a real timestamptz; nothing before this needed
  * to construct a new instant from wall-clock time, only format an existing
- * one. Accurate for any ordinary broadcast time; does not attempt to
- * disambiguate the one repeated/skipped hour on a DST transition night
- * itself, which doesn't occur during this station's programming day.
+ * one.
+ *
+ * The offset is taken twice: once at the local time read as if it were UTC,
+ * which only gives a guess, then again at that guess. Taking it only at the
+ * first reading was an hour out on the two changeover Sundays — that reading
+ * sits five or six hours ahead of the real instant, on the wrong side of the
+ * 2 AM switch, so a 5 AM airing came out at 4 AM in November and 6 AM in
+ * March. Times inside the skipped or repeated hour itself (2–3 AM) are
+ * ambiguous and resolve to one of their two readings.
  */
 export function stationLocalDateTimeToUTC(dateISO: string, timeHHMMSS: string): string {
   const naiveUtc = new Date(`${dateISO}T${timeHHMMSS}Z`);
-  const offsetMinutes = stationOffsetMinutesAt(naiveUtc);
-  return new Date(naiveUtc.getTime() - offsetMinutes * 60_000).toISOString();
+  const guess = new Date(naiveUtc.getTime() - stationOffsetMinutesAt(naiveUtc) * 60_000);
+  return new Date(naiveUtc.getTime() - stationOffsetMinutesAt(guess) * 60_000).toISOString();
 }

@@ -2,6 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
 import { unwrapRead } from "@/lib/read-result";
+import {
+  isAutomated,
+  type OnAirChange,
+  type WeeklyAutomatedWindow,
+} from "@/lib/log/automated-hours";
+import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import { automationBlockFor } from "./freeze";
 import { listCreditRooms, listPlaceableRundownBreaks, reassignCreditCopy } from "./placement";
 import {
@@ -47,6 +53,8 @@ const NOTHING: RotationRebalanceResult = { changed: 0, refused: [] };
 interface RotationContext {
   copies: RotationCopy[];
   slots: RotationSlot[];
+  /** Automated hours, so a slot DAD plays only takes copy with a DAD cut. */
+  hours: { weekly: WeeklyAutomatedWindow[]; changes: OnAirChange[] };
 }
 
 /** The contract's linked messages and every current-revision placement as the walk sees them, or null for a contract that isn't active. */
@@ -55,7 +63,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
   if (!contract || contract.status !== "active") return null;
   const supabase = await createClient();
 
-  const [linked, revision, roomsResult] = await Promise.all([
+  const [linked, revision, roomsResult, hours] = await Promise.all([
     listCopyLinkedToContracts([contractId]),
     supabase
       .from("uw_contract_revisions")
@@ -64,6 +72,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
       .eq("status", "current")
       .maybeSingle(),
     listCreditRooms(contractId),
+    loadAutomatedHours(),
   ]);
   const current = unwrapRead(revision, "this contract's current revision");
   if (!current) return null;
@@ -78,6 +87,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
       effectiveTo: copy.effective_to,
       flightId,
       lineId: scheduleLineId,
+      dadCut: copy.dad_cut,
       createdAt: copy.created_at,
     }),
   );
@@ -118,10 +128,11 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
         copyId: placement.copy_id,
         fixed,
         roomSeconds: room?.room_seconds ?? 0,
+        automated: isAutomated(placement.scheduled_at, hours.weekly, hours.changes),
       });
     }
   }
-  return { copies, slots };
+  return { copies, slots, hours };
 }
 
 /** Re-sequences every future, unfixed placement of an active contract; a no-op for any other contract. */
@@ -202,6 +213,11 @@ export async function suggestNextCopyForLine(
           lineFlightId: line.flight_id,
           lineId: line.id,
           roomSeconds: candidate.roomSeconds,
+          automated: isAutomated(
+            candidate.scheduledAt,
+            context.hours.weekly,
+            context.hours.changes,
+          ),
         }
       : {
           airDate: "9999-12-31",
