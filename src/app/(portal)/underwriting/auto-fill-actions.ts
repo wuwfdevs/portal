@@ -44,7 +44,7 @@ function summarizeAutoFill(result: AutoFillResult): string {
   }
   if (result.unschedulableAirDates.length > 0) {
     parts.push(
-      `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no Log schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
+      `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
     );
   }
   if (result.bumps.length > 0) {

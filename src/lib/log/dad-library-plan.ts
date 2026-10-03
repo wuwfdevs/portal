@@ -321,7 +321,7 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
       ? `Join us for ${program.name}, ${describeScheduleTiming(scheduleEntry)}.`
       : `Join us for ${program.name}.`;
     if (!scheduleEntry) {
-      warnings.push(`${program.name} has no Log schedule entry, so its canonical promo has no air-time tag.`);
+      warnings.push(`${program.name} has no schedule entry, so its canonical promo has no air-time tag.`);
     }
     synthesizedPromos.push({
       programId: program.id,

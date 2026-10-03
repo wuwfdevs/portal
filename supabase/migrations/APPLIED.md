@@ -198,6 +198,7 @@ repo and a project's history, not the version number.
 | `20261002160000_underwriting_copy_dad_recorded.sql`                  | 2026-10-02 | 2026-10-02 |
 | `20261002160100_resources_underwriting_recorded_in_dad.sql`          | 2026-10-02 | 2026-10-02 |
 | `20261002170000_resources_log_station_ids.sql`                        | 2026-10-02 | 2026-10-02 |
+| `20261002180000_on_air_and_traffic_names.sql`                         | 2026-10-02 | 2026-10-02 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

@@ -88,7 +88,7 @@ export async function relocateItem(
 
 const RELOCATE_CREDIT_ERRORS: Record<string, string> = {
   unauthenticated: "Your session has expired — sign in again.",
-  forbidden: "You don't have access to Log.",
+  forbidden: "You don't have access to On Air.",
   not_a_credit: "That item isn't an underwriting credit.",
   already_aired: "This credit already aired — it can't be moved.",
   unknown_placement: "Couldn't find this credit's scheduled placement.",

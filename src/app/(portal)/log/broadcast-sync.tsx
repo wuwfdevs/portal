@@ -462,8 +462,9 @@ export function BroadcastSyncStatus() {
     tone = "warning";
     banner = (
       <>
-        <span className="font-semibold">Log was updated while this screen was open.</span> Reload to
-        send {count > 0 ? `the ${waiting} saved on this device` : "anything new"} — nothing is lost.{" "}
+        <span className="font-semibold">On Air was updated while this screen was open.</span> Reload
+        to send {count > 0 ? `the ${waiting} saved on this device` : "anything new"} — nothing is
+        lost.{" "}
         <Button
           type="button"
           variant="secondary"

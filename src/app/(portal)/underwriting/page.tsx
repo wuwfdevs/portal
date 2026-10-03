@@ -451,8 +451,8 @@ export default async function UnderwritingDashboardPage({
             <div>
               <h2 className="text-sm font-semibold text-ink-900">Auto-fill scheduling</h2>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                Fills every active contract&apos;s open periods, makegoods first, generating the Log
-                rundowns it needs.
+                Fills every active contract&apos;s open periods, makegoods first, generating the On
+                Air rundowns it needs.
               </p>
             </div>
             <form action={autoFillAllAction}>

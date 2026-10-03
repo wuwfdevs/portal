@@ -726,9 +726,9 @@ export function ScheduleLineEditor({
               ))}
             </Select>
             <FieldHint>
-              The order&apos;s own name for the inventory, mapped to Log on the Pools screen. A
-              bundle of programs that isn&apos;t here yet — &ldquo;Drive Time&rdquo;, &ldquo;ME and
-              ATC&rdquo; — is a pool:{" "}
+              The order&apos;s own name for the inventory, mapped to On Air programs on the Pools
+              screen. A bundle of programs that isn&apos;t here yet — &ldquo;Drive Time&rdquo;,
+              &ldquo;ME and ATC&rdquo; — is a pool:{" "}
               <Link
                 href="/underwriting/setup/pools?new=1"
                 className="font-semibold text-brand-link"

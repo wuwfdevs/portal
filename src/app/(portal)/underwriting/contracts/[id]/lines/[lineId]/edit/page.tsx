@@ -100,7 +100,7 @@ export default async function EditScheduleLinePage({
             .map((pool) => ({
               id: pool.id,
               name: pool.name,
-              hint: pool.targets.length === 0 ? "(no Log mapping yet)" : undefined,
+              hint: pool.targets.length === 0 ? "(no On Air mapping yet)" : undefined,
               programIds: programsPermittedByPool(pool.targets),
             }))}
           programs={programs.map((program) => ({ id: program.id, name: program.name }))}

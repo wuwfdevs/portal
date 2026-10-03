@@ -24,7 +24,7 @@ export type ScheduleCreditResult =
 export const scheduleCredit = defineCapability({
   id: "underwriting.credit.schedule",
   summary:
-    "Place a credit for a contract schedule line into an open, eligible Log rundown break. Browse the schedule line's contract page first to find eligible breaks. Leave copyId out to let the contract's copy rotation choose the message (the normal case); name one only when the order calls for a specific message there. This only succeeds for already-approved, in-date copy; an expired or unapproved override is a manager-only action done from the contract's own screen.",
+    "Place a credit for a contract schedule line into an open, eligible On Air rundown break. Browse the schedule line's contract page first to find eligible breaks. Leave copyId out to let the contract's copy rotation choose the message (the normal case); name one only when the order calls for a specific message there. This only succeeds for already-approved, in-date copy; an expired or unapproved override is a manager-only action done from the contract's own screen.",
   input: z.object({
     breakId: z.string(),
     scheduleLineId: z.string(),

@@ -20,7 +20,7 @@ export function LogChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div className="mb-5">
-        <h1 className="font-serif text-2xl font-bold text-ink-900">Log</h1>
+        <h1 className="font-serif text-2xl font-bold text-ink-900">On Air</h1>
         <p className="mt-1 text-xs text-ink-400">
           Daily broadcast rundown planning — clocks, programs, the content library, NPR and weather in
           context, and the live-broadcast host view.

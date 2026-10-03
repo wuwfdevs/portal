@@ -1217,7 +1217,7 @@ export default async function RundownDetailPage({
                 {hasOpenExceptions && (
                   <Alert variant="danger" className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}>
                     This rundown has an unresolved underwriting exception. Submission is blocked
-                    until it&apos;s resolved in Underwriting &amp; Traffic — a makegood, an accepted
+                    until it&apos;s resolved in Traffic — a makegood, an accepted
                     alternate, or a waiver.
                   </Alert>
                 )}

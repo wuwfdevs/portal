@@ -3241,6 +3241,13 @@ the pins are ordinary `log_opportunity_assignments`, which the program director
 or traffic may write. Traffic's dashboard shows the next three days' DAD log
 releases to anyone who can open Log.
 
+**Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display
+names only (`20261002180000`, applied to both projects): the registry rows'
+`name`/`description`, page headings, and user-facing strings. The keys (`log`,
+`underwriting`), routes (`/log`, `/underwriting`), directories, identifiers, and
+the older notes in this file keep the old names, the same precedent as
+Sourcework's `transcription` key. Write new user-facing copy with the new names.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

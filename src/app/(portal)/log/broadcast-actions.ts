@@ -58,7 +58,7 @@ export async function submitRundown(formData: FormData): Promise<void> {
   if (hasOpenExceptions) {
     failWith(
       path,
-      "This rundown has an unresolved underwriting exception — resolve it in Underwriting & Traffic before submitting.",
+      "This rundown has an unresolved underwriting exception — resolve it in Traffic before submitting.",
     );
   }
 
@@ -161,7 +161,7 @@ export async function syncBroadcastAction(
     return {
       status: "unauthenticated",
       message:
-        "Your sign-in has expired (or your Log access changed). Sign in again to send what's waiting.",
+        "Your sign-in has expired (or your On Air access changed). Sign in again to send what's waiting.",
     };
   }
 
