@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { assertToolAccess, requireToolAccess } from "@/lib/auth/authz";
+import { ForbiddenError, assertToolAccess, requireToolAccess } from "@/lib/auth/authz";
 import type { Profile } from "@/lib/auth/session";
 import type { Tool } from "@/lib/tools";
 import { parseUnderwritingRoles, type UnderwritingRole } from "./roles";
@@ -53,6 +53,16 @@ export async function requireUnderwritingAccess(): Promise<UnderwritingContext> 
 export async function assertUnderwritingAccess(): Promise<UnderwritingContext> {
   const { profile, tool } = await assertToolAccess(UNDERWRITING_TOOL_KEY);
   return contextFor(profile, tool, await lookupRoles(profile, tool));
+}
+
+/**
+ * For marking copy recorded in DAD. The uw_copy_dad_recording() trigger is
+ * the boundary; this is the courtesy check in front of it.
+ */
+export async function assertUnderwritingProduction(): Promise<UnderwritingContext> {
+  const context = await assertUnderwritingAccess();
+  if (!context.isProduction) throw new ForbiddenError();
+  return context;
 }
 
 /**

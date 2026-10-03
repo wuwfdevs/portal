@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertUnderwritingAccess } from "@/lib/underwriting/access";
+import { assertUnderwritingAccess, assertUnderwritingProduction } from "@/lib/underwriting/access";
+import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import type { UwCopyApprovalStatus, UwCopyExecutionKind } from "@/lib/database.types";
 import { estimateReadSeconds } from "@/lib/log/read-time";
@@ -279,5 +280,54 @@ export async function setCopyStatus(formData: FormData): Promise<void> {
   revalidatePath(copyPath(id));
   revalidatePath(LIST_PATH);
   if (contractId) revalidatePath(contractPath(contractId));
+  redirect(path);
+}
+
+/**
+ * Production marks a message recorded into DAD under its Portal cut, or
+ * takes the mark back. From the copy page's In DAD card, or the To record
+ * list (return_to=to-record). Changing the cut or a Portal cut's script
+ * clears the mark on its own (uw_copy_dad_recording()).
+ */
+export async function setCopyRecorded(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingProduction();
+  const id = field(formData, "copy_id");
+  const recorded = field(formData, "recorded") === "1";
+  const path =
+    field(formData, "return_to") === "to-record" ? `${LIST_PATH}?status=to-record` : copyPath(id);
+
+  const supabase = await createClient();
+  const { data: copy, error: readError } = await supabase
+    .from("uw_copy")
+    .select("dad_cut, dad_recorded_at")
+    .eq("id", id)
+    .maybeSingle();
+  failIfError(readError, path, "Could not read the copy");
+  if (!copy) failWith(path, "That copy no longer exists.");
+  if (!copy.dad_cut || !isPortalAssignedCut(copy.dad_cut)) {
+    failWith(path, "Only a new recording under a Portal cut is marked recorded.");
+  }
+  if ((copy.dad_recorded_at !== null) === recorded) {
+    revalidatePath(LIST_PATH);
+    redirect(path);
+  }
+
+  const { error } = await supabase
+    .from("uw_copy")
+    .update({ dad_recorded_at: recorded ? new Date().toISOString() : null })
+    .eq("id", id);
+  failIfError(error, path, "Could not update the recording status");
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: recorded ? "underwriting.copy.recorded_in_dad" : "underwriting.copy.recording_cleared",
+    targetType: "uw_copy",
+    targetId: id,
+    metadata: { dad_cut: copy.dad_cut },
+  });
+
+  revalidatePath(copyPath(id));
+  revalidatePath(LIST_PATH);
+  revalidatePath("/underwriting");
   redirect(path);
 }

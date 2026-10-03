@@ -34,3 +34,35 @@ export function spotNumberFromScript(script: string | null | undefined): number 
   const match = /#\s*(\d{1,3})\b/.exec(text) ?? /\bspot\s+#?\s*(\d{1,3})\b/i.exec(text);
   return match ? Number.parseInt(match[1]!, 10) : null;
 }
+
+/**
+ * Whether DAD has a recording under this copy's cut: an existing DAD spot
+ * always does; a Portal cut does once production marks it recorded
+ * (uw_copy.dad_recorded_at, cleared when the cut or the script changes).
+ */
+export function isRecordedInDad(copy: {
+  dad_cut: string | null;
+  dad_recorded_at: string | null;
+}): boolean {
+  if (copy.dad_cut === null) return false;
+  return !isPortalAssignedCut(copy.dad_cut) || copy.dad_recorded_at !== null;
+}
+
+/**
+ * The To record list: a Portal cut not yet recorded, on copy that can still
+ * air — a draft or approved message whose dates haven't ended.
+ */
+export function needsRecording(
+  copy: {
+    dad_cut: string | null;
+    dad_recorded_at: string | null;
+    approval_status: string;
+    effective_to: string | null;
+  },
+  todayISO: string,
+): boolean {
+  if (copy.dad_cut === null || !isPortalAssignedCut(copy.dad_cut)) return false;
+  if (copy.dad_recorded_at !== null) return false;
+  if (copy.approval_status !== "draft" && copy.approval_status !== "approved") return false;
+  return copy.effective_to === null || copy.effective_to >= todayISO;
+}

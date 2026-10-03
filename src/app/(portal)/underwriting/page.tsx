@@ -30,6 +30,7 @@ import { poolReachability } from "@/lib/underwriting/pool-targets";
 import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
+import { needsRecording } from "@/lib/underwriting/dad-cut";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
 import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
@@ -233,6 +234,12 @@ export default async function UnderwritingDashboardPage({
           count: capacityConflicts,
           href: "#conflicts",
           tone: "danger",
+        },
+        {
+          label: "To record in DAD",
+          count: copy.filter((item) => needsRecording(item, todayISO)).length,
+          href: "/underwriting/copy?status=to-record",
+          tone: "warning",
         },
       ],
     },
