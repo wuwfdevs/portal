@@ -26,7 +26,8 @@ function isTabActive(href: string, pathname: string): boolean {
     return (
       pathname.startsWith("/log/programs") ||
       pathname.startsWith("/log/clocks") ||
-      pathname.startsWith("/log/automated-hours")
+      pathname.startsWith("/log/automated-hours") ||
+      pathname.startsWith("/log/station-ids")
     );
   }
   // NPR and weather live under Sources; their old top-level paths redirect there.

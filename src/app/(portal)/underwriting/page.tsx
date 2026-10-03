@@ -31,7 +31,10 @@ import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
 import { automationBlockFor } from "@/lib/underwriting/freeze";
 import { needsRecording } from "@/lib/underwriting/dad-cut";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { listDadReleaseDays } from "@/lib/log/dad-release-status";
+import { hasToolAccess } from "@/lib/auth/authz";
+import { getToolByKey } from "@/lib/tools";
+import { formatStationTimestamp, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
 import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
@@ -64,7 +67,7 @@ export default async function UnderwritingDashboardPage({
 }) {
   const { notice } = await searchParams;
   const [
-    { isManager },
+    { isManager, profile },
     contracts,
     copy,
     scheduleLines,
@@ -112,6 +115,13 @@ export default async function UnderwritingDashboardPage({
   const contractByLine = new Map(scheduleLines.map((line) => [line.id, line.contract]));
 
   const todayISO = stationTodayISO();
+  // The log of record lives in On Air; show its state only to someone who
+  // can open it (log_dad_exports and the Station IDs page are On Air's).
+  const logTool = await getToolByKey("log");
+  const canOpenOnAir = logTool ? await hasToolAccess(profile.id, logTool.id) : false;
+  const dadDays = canOpenOnAir
+    ? await listDadReleaseDays([0, 1, 2].map((offset) => shiftDateISO(todayISO, offset)))
+    : [];
   const nowISO = new Date().toISOString();
   const horizon = addDays(todayISO, LOOK_AHEAD_DAYS);
   const conflicts = views
@@ -463,6 +473,50 @@ export default async function UnderwritingDashboardPage({
             </details>
           </Card>
 
+          {canOpenOnAir && (
+            <section aria-labelledby="log-of-record-heading">
+              <SectionHeading id="log-of-record-heading">Log of record</SectionHeading>
+              <Card>
+                <ul className="divide-y divide-line text-sm">
+                  {dadDays.map((day) => (
+                    <li key={day.dateISO}>
+                      <Link
+                        href={`/log/dad-log?date=${day.dateISO}`}
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-panel-50"
+                      >
+                        <span className="text-ink-500">
+                          DAD log ·{" "}
+                          {day.dateISO === todayISO ? "today" : formatDayShort(day.dateISO)}
+                        </span>
+                        {day.latest ? (
+                          <span
+                            className="text-xs text-ink-700"
+                            title={`Released ${formatStationTimestamp(day.latest.releasedAt)}`}
+                          >
+                            v{day.latest.version} released
+                          </span>
+                        ) : (
+                          <Badge variant="warning">Not released</Badge>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link
+                      href="/log/station-ids"
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-panel-50"
+                    >
+                      <span className="text-ink-500">Station IDs</span>
+                      <span aria-hidden className="text-brand-link">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                </ul>
+              </Card>
+            </section>
+          )}
+
           <section aria-labelledby="glance-heading">
             <SectionHeading id="glance-heading">At a glance</SectionHeading>
             <Card>
@@ -628,4 +682,14 @@ function AttentionTile({ item }: { item: AttentionItem }) {
       <span className="text-xs leading-snug text-ink-500">{item.label}</span>
     </Link>
   );
+}
+
+/** "Sat, Oct 3" for a station-local date. */
+function formatDayShort(dateISO: string): string {
+  return new Date(`${dateISO}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }

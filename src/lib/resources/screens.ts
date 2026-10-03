@@ -187,6 +187,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/log/automated-hours"],
   },
   {
+    key: "log.station-ids",
+    name: "Station IDs",
+    toolKey: "log",
+    paths: ["/log/station-ids"],
+  },
+  {
     key: "log.sources",
     name: "Sources",
     toolKey: "log",

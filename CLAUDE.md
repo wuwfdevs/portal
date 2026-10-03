@@ -3230,6 +3230,16 @@ pins, with the program director, and the DAD log release —
 `production` beside `manager`. `private.has_tool_role()` is the one check;
 the admin grant screen shows checkboxes for tools in `lib/tool-roles.ts`'s
 `STACKING_TOOLS`, and `parseToolGrants()` reads both shapes.
+Production's **To record** list: `uw_copy.dad_recorded_at`/`_by`
+(`20261002160000`), set only by production through the
+`uw_copy_dad_recording()` trigger, which also clears it when the cut or a
+Portal cut's script changes; `dad-cut.ts`'s `isRecordedInDad()`/
+`needsRecording()` are the rule, and the DAD log blocks an unrecorded credit
+(`not_recorded`). **Station IDs** (`/log/station-ids`, from Programs) lists each
+clock's legal-ID positions and pins (`lib/log/station-ids.ts`, pure, tested);
+the pins are ordinary `log_opportunity_assignments`, which the program director
+or traffic may write. Traffic's dashboard shows the next three days' DAD log
+releases to anyone who can open Log.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
