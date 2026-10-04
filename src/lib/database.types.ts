@@ -649,6 +649,8 @@ export interface Database {
           user_id: string;
           tool_id: string;
           tool_role: string | null;
+          /** Source of truth for a grant's roles; tool_role mirrors its first element (trigger). */
+          tool_roles: string[];
           granted_by: string | null;
           granted_at: string;
           revoked_at: string | null;
@@ -2524,6 +2526,9 @@ export interface Database {
            * Null: copy that plays an existing spot nobody has picked yet.
            */
           dad_cut: string | null;
+          /** 20261002160000: production marked the Portal cut recorded in DAD. Cleared when the cut, or a Portal cut's script, changes. */
+          dad_recorded_at: string | null;
+          dad_recorded_by: string | null;
           effective_from: string;
           effective_to: string | null;
           approval_status: UwCopyApprovalStatus;

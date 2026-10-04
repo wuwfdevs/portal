@@ -4,7 +4,10 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy, type CopyListRow } from "@/lib/underwriting/queries";
-import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
+import { isPortalAssignedCut, needsRecording } from "@/lib/underwriting/dad-cut";
+import { stationTodayISO } from "@/lib/log/timezone";
+import { Button } from "@/components/ui/button";
+import { setCopyRecorded } from "../copy-actions";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 
@@ -15,12 +18,13 @@ const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
   retired: "muted",
 };
 
-const FILTERS = ["all", "approved", "draft", "needs-cut", "inactive"] as const;
+const FILTERS = ["all", "approved", "draft", "to-record", "needs-cut", "inactive"] as const;
 type Filter = (typeof FILTERS)[number];
 
-function matchesFilter(item: CopyListRow, filter: Filter): boolean {
+function matchesFilter(item: CopyListRow, filter: Filter, todayISO: string): boolean {
   const status: UwCopyApprovalStatus = item.approval_status;
   if (filter === "all") return true;
+  if (filter === "to-record") return needsRecording(item, todayISO);
   if (filter === "needs-cut") return item.dad_cut === null;
   if (filter === "inactive") return status === "expired" || status === "retired";
   return status === filter;
@@ -32,13 +36,14 @@ export default async function CopyLibraryPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { isAdministrator } = await requireUnderwritingAccess();
+  const { isAdministrator, isProduction } = await requireUnderwritingAccess();
   const { q, status } = await searchParams;
   const filter: Filter = (FILTERS as readonly string[]).includes(status ?? "")
     ? (status as Filter)
     : "all";
   const query = (q ?? "").trim().toLowerCase();
   const copy = await listCopy();
+  const today = stationTodayISO();
 
   const matching = copy.filter(
     (item) =>
@@ -48,8 +53,9 @@ export default async function CopyLibraryPage({
       (item.underwriter_name ?? "").toLowerCase().includes(query) ||
       (item.dad_cut ?? "").toLowerCase().includes(query),
   );
-  const count = (next: Filter) => matching.filter((item) => matchesFilter(item, next)).length;
-  const shown = matching.filter((item) => matchesFilter(item, filter));
+  const count = (next: Filter) =>
+    matching.filter((item) => matchesFilter(item, next, today)).length;
+  const shown = matching.filter((item) => matchesFilter(item, filter, today));
   const hrefFor = (next: Filter) =>
     `/underwriting/copy?${new URLSearchParams({
       ...(query ? { q: q ?? "" } : {}),
@@ -79,6 +85,12 @@ export default async function CopyLibraryPage({
             count: count("draft"),
             href: hrefFor("draft"),
             active: filter === "draft",
+          },
+          {
+            label: "To record",
+            count: count("to-record"),
+            href: hrefFor("to-record"),
+            active: filter === "to-record",
           },
           {
             label: "Needs a DAD cut",
@@ -113,7 +125,9 @@ export default async function CopyLibraryPage({
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           {copy.length === 0
             ? "No copy yet — usually created from a contract's own page."
-            : "No copy matches."}
+            : filter === "to-record"
+              ? "Nothing to record. Every message that can air has its recording in DAD."
+              : "No copy matches."}
         </div>
       ) : (
         <TableFrame>
@@ -157,9 +171,29 @@ export default async function CopyLibraryPage({
                     {item.dad_cut ? (
                       <>
                         <span className="font-mono font-bold text-ink-900">{item.dad_cut}</span>
-                        {!isPortalAssignedCut(item.dad_cut) && (
+                        {!isPortalAssignedCut(item.dad_cut) ? (
                           <div className="text-xs text-ink-500">Existing DAD spot</div>
-                        )}
+                        ) : item.dad_recorded_at ? (
+                          <div className="text-xs text-ink-500">Recorded</div>
+                        ) : needsRecording(item, today) ? (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                            <Badge variant="warning">To record</Badge>
+                            {isProduction && filter === "to-record" && (
+                              <form action={setCopyRecorded}>
+                                <input type="hidden" name="copy_id" value={item.id} />
+                                <input type="hidden" name="recorded" value="1" />
+                                <input type="hidden" name="return_to" value="to-record" />
+                                <Button
+                                  type="submit"
+                                  variant="secondary"
+                                  className="px-2.5 py-1.5 text-xs"
+                                >
+                                  Mark recorded
+                                </Button>
+                              </form>
+                            )}
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <Link href={`/underwriting/copy/${item.id}/edit`}>

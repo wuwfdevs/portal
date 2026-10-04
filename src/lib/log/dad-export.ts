@@ -140,6 +140,8 @@ export interface DadExportItem {
   /** Underwriting credits only: whether the copy may air on this date. */
   copyApproved?: boolean;
   copyInDate?: boolean;
+  /** Underwriting credits only: whether DAD has a recording under the cut (lib/underwriting/dad-cut.ts's isRecordedInDad). */
+  recorded?: boolean;
   /** Where the fix is: the copy, or the library item. */
   fixHref?: string | null;
 }
@@ -266,6 +268,7 @@ export interface DadIssue {
   severity: DadIssueSeverity;
   code:
     | "no_cut"
+    | "not_recorded"
     | "host_only"
     | "overrun"
     | "copy_not_approved"
@@ -325,6 +328,15 @@ export function validateDadEvents(
           itemId: item.id,
           message: `${when(brk)}: “${item.description}” has no DAD cut.`,
           href: item.fixHref ?? rundownHref,
+        });
+      } else if (item.kind === "underwriting_credit" && item.recorded === false) {
+        issues.push({
+          ...base,
+          severity: "blocking",
+          code: "not_recorded",
+          itemId: item.id,
+          message: `${when(brk)}: “${item.description}” isn't recorded in DAD under ${item.cut} yet.`,
+          href: item.fixHref?.replace(/\/edit$/, "") ?? rundownHref,
         });
       }
       if (item.kind === "underwriting_credit" && item.copyApproved === false) {

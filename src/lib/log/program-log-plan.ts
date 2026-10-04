@@ -609,7 +609,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
         time: modelRundown.breaks[0]?.time ?? "",
         description: modelRundown.program_name,
         reason:
-          "No Log schedule entry matches this program on this date, so its rundown can't be created.",
+          "No schedule entry matches this program on this date, so its rundown can't be created.",
       });
       continue;
     }

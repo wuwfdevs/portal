@@ -80,6 +80,7 @@ function item(overrides: Partial<DadExportItem> & { id: string }): DadExportItem
     spotNumber: null,
     copyApproved: true,
     copyInDate: true,
+    recorded: true,
     fixHref: "/underwriting/copy/c1/edit",
     ...overrides,
   };
@@ -152,6 +153,14 @@ describe("validateDadEvents", () => {
   it("blocks an item with no cut, pointing at its copy", () => {
     const issues = validateDadEvents([brk("21:06:00", [item({ id: "a", cut: null })])]);
     expect(issues.map((i) => [i.code, i.href])).toEqual([["no_cut", "/underwriting/copy/c1/edit"]]);
+    expect(hasBlockingIssues(issues)).toBe(true);
+  });
+
+  it("blocks a Portal cut nobody has recorded, pointing at its copy", () => {
+    const issues = validateDadEvents([brk("21:06:00", [item({ id: "a", recorded: false })])]);
+    expect(issues.map((i) => [i.code, i.href])).toEqual([
+      ["not_recorded", "/underwriting/copy/c1"],
+    ]);
     expect(hasBlockingIssues(issues)).toBe(true);
   });
 

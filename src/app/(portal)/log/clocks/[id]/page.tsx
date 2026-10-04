@@ -70,7 +70,7 @@ export default async function ClockTemplateDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { isProducer } = await requireLogAccess();
+  const { isProgramDirector } = await requireLogAccess();
   const template = await getClockTemplateDetail(id);
   if (!template) notFound();
   const basePath = `/log/clocks/${template.id}`;
@@ -111,7 +111,7 @@ export default async function ClockTemplateDetailPage({
   const [assignments, contentItems] = version
     ? await Promise.all([
         listOpportunityAssignmentsForVersion(version.id),
-        isProducer && mode === "pin"
+        isProgramDirector && mode === "pin"
           ? listContentItems({ approvalStatus: "approved" })
           : Promise.resolve([]),
       ])
@@ -119,7 +119,7 @@ export default async function ClockTemplateDetailPage({
 
   // The form for the slot named in the URL, when a producer asked for one.
   let form: ClockViewerForm | null = null;
-  if (isProducer && version && mode && slotParam) {
+  if (isProgramDirector && version && mode && slotParam) {
     const slot = version.slots.find((candidate) => candidate.id === slotParam);
     const opportunity =
       version.opportunities.find((candidate) => candidate.slot_id === slotParam) ?? null;
@@ -217,7 +217,7 @@ export default async function ClockTemplateDetailPage({
             keepParams={fromProgram ? { from: fromProgram.id } : {}}
           />
         )}
-        {isProducer && (
+        {isProgramDirector && (
           <a
             href="#new-version"
             className="inline-flex h-[38px] items-center rounded border border-brand-link px-3.5 text-sm font-bold text-brand-link hover:bg-brand-surface"
@@ -231,7 +231,7 @@ export default async function ClockTemplateDetailPage({
 
       {template.versions.length === 0 && (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No versions yet.{isProducer && " Start one below."}
+          No versions yet.{isProgramDirector && " Start one below."}
         </div>
       )}
 
@@ -265,7 +265,7 @@ export default async function ClockTemplateDetailPage({
             title: assignment.contentItemTitle,
           }))}
           shift={shift}
-          canEdit={isProducer}
+          canEdit={isProgramDirector}
           initial={{ view, hour, slotId: slotParam ?? null }}
           form={form}
           keepParams={keepParams}
@@ -274,7 +274,7 @@ export default async function ClockTemplateDetailPage({
         />
       )}
 
-      {isProducer && version && (
+      {isProgramDirector && version && (
         <details className="rounded border border-line px-5 py-4">
           <summary className="cursor-pointer text-sm font-semibold text-brand-link">
             Add a network slot to this version
@@ -323,7 +323,7 @@ export default async function ClockTemplateDetailPage({
         </details>
       )}
 
-      {isProducer && (
+      {isProgramDirector && (
         <div id="new-version" className="max-w-md scroll-mt-24 rounded border border-line">
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Start a new version

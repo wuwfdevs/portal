@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { FieldHint, Label, Select } from "@/components/ui/input";
 import { getCopyDetail } from "@/lib/underwriting/queries";
-import { setCopyStatus } from "../../copy-actions";
+import { setCopyRecorded, setCopyStatus } from "../../copy-actions";
+import { requireUnderwritingAccess } from "@/lib/underwriting/access";
+import { formatStationTimestamp } from "@/lib/log/timezone";
 import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
 import { CopyCutButton } from "./copy-cut-button";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
@@ -34,8 +36,12 @@ export default async function CopyDetailPage({
 }) {
   const { id } = await params;
   const { error, saved } = await searchParams;
-  const copy = await getCopyDetail(id);
+  const [{ isProduction }, copy] = await Promise.all([
+    requireUnderwritingAccess(),
+    getCopyDetail(id),
+  ]);
   if (!copy) notFound();
+  const portalCut = copy.dad_cut !== null && isPortalAssignedCut(copy.dad_cut);
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -118,6 +124,33 @@ export default async function CopyDetailPage({
                 This copy plays a spot that&apos;s already in DAD, and nobody has picked which one.
                 Until someone does, it can&apos;t air in hours with no host.
               </Alert>
+            </div>
+          )}
+          {portalCut && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5">
+              {copy.dad_recorded_at ? (
+                <p className="text-sm text-ink-700">
+                  <Badge variant="success">Recorded</Badge>{" "}
+                  {formatStationTimestamp(copy.dad_recorded_at)}
+                  {copy.recordedByName ? ` · ${copy.recordedByName}` : ""}
+                </p>
+              ) : (
+                <p className="text-sm text-ink-700">
+                  <Badge variant="warning">To record</Badge>{" "}
+                  {isProduction
+                    ? "Mark it recorded once it's in DAD under this cut."
+                    : "Production marks it recorded once it's in DAD."}
+                </p>
+              )}
+              {isProduction && (
+                <form action={setCopyRecorded}>
+                  <input type="hidden" name="copy_id" value={copy.id} />
+                  <input type="hidden" name="recorded" value={copy.dad_recorded_at ? "0" : "1"} />
+                  <Button type="submit" variant={copy.dad_recorded_at ? "ghost" : "secondary"}>
+                    {copy.dad_recorded_at ? "Mark not recorded" : "Mark recorded"}
+                  </Button>
+                </form>
+              )}
             </div>
           )}
         </section>

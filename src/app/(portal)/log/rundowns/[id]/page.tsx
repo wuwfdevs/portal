@@ -931,7 +931,7 @@ export default async function RundownDetailPage({
       {rundown.breaks.length === 0 ? (
         <div className="rounded border border-dashed border-line p-6 text-sm text-ink-500">
           This clock has no local opportunities defined yet — every bit of it is network-automatic,
-          so there&apos;s nothing here for a host to fill. A producer can add opportunities from the
+          so there&apos;s nothing here for a host to fill. The program director can add opportunities from the
           clock template screen.
         </div>
       ) : (
@@ -1217,7 +1217,7 @@ export default async function RundownDetailPage({
                 {hasOpenExceptions && (
                   <Alert variant="danger" className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}>
                     This rundown has an unresolved underwriting exception. Submission is blocked
-                    until it&apos;s resolved in Underwriting &amp; Traffic — a makegood, an accepted
+                    until it&apos;s resolved in Traffic — a makegood, an accepted
                     alternate, or a waiver.
                   </Alert>
                 )}

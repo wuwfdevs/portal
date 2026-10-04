@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DAD_CUT_PATTERN,
+  isRecordedInDad,
+  needsRecording,
   isPortalAssignedCut,
   normalizeDadCut,
   spotNumberFromScript,
@@ -52,5 +54,46 @@ describe("spotNumberFromScript", () => {
   it("returns null when no spot is named", () => {
     expect(spotNumberFromScript("Support for WUWF comes from Loyalty Credit Union")).toBeNull();
     expect(spotNumberFromScript(null)).toBeNull();
+  });
+});
+
+describe("isRecordedInDad", () => {
+  it("counts an existing DAD spot as recorded", () => {
+    expect(isRecordedInDad({ dad_cut: "00065", dad_recorded_at: null })).toBe(true);
+  });
+
+  it("needs production's mark for a Portal cut", () => {
+    expect(isRecordedInDad({ dad_cut: "00013A", dad_recorded_at: null })).toBe(false);
+    expect(isRecordedInDad({ dad_cut: "00013A", dad_recorded_at: "2026-10-02T15:00:00Z" })).toBe(
+      true,
+    );
+  });
+
+  it("is false with no cut", () => {
+    expect(isRecordedInDad({ dad_cut: null, dad_recorded_at: null })).toBe(false);
+  });
+});
+
+describe("needsRecording", () => {
+  const base = {
+    dad_cut: "00013A",
+    dad_recorded_at: null,
+    approval_status: "approved",
+    effective_to: null,
+  };
+
+  it("lists an unrecorded Portal cut on copy that can still air", () => {
+    expect(needsRecording(base, "2026-10-02")).toBe(true);
+    expect(needsRecording({ ...base, approval_status: "draft" }, "2026-10-02")).toBe(true);
+    expect(needsRecording({ ...base, effective_to: "2026-10-02" }, "2026-10-02")).toBe(true);
+  });
+
+  it("leaves out recorded, existing-spot, ended, and retired copy", () => {
+    expect(needsRecording({ ...base, dad_recorded_at: "2026-10-01T00:00:00Z" }, "2026-10-02")).toBe(
+      false,
+    );
+    expect(needsRecording({ ...base, dad_cut: "00065" }, "2026-10-02")).toBe(false);
+    expect(needsRecording({ ...base, effective_to: "2026-10-01" }, "2026-10-02")).toBe(false);
+    expect(needsRecording({ ...base, approval_status: "retired" }, "2026-10-02")).toBe(false);
   });
 });

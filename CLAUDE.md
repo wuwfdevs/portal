@@ -3217,6 +3217,37 @@ and the GUID is the item id. Download is `/api/log/dad-export/[date]`. Not
 yet verified against DAD itself: whether it accepts lettered cuts, ListGen's
 folder, and whether a re-dropped file replaces or merges the day.
 
+**Broadcast roles stack (2026-10-02).** Read `docs/broadcast-roles.md` before
+gating anything in Log or Underwriting & Traffic; this is a pointer. A grant
+now carries a list, `tool_access.tool_roles` (`20261002150000`, applied to
+both projects); `tool_role` is kept equal to its first element by a trigger,
+so the single-role tools read it unchanged. Log's `producer` became
+`program_director` (clocks, schedule, programs, automated hours —
+`private.is_log_producer()` keeps its name and now means this; TypeScript is
+`isProgramDirector`/`assertProgramDirector()`) plus `traffic` (station ID
+pins, with the program director, and the DAD log release —
+`private.is_log_traffic()`, `assertLogTraffic()`). Underwriting gained
+`production` beside `manager`. `private.has_tool_role()` is the one check;
+the admin grant screen shows checkboxes for tools in `lib/tool-roles.ts`'s
+`STACKING_TOOLS`, and `parseToolGrants()` reads both shapes.
+Production's **To record** list: `uw_copy.dad_recorded_at`/`_by`
+(`20261002160000`), set only by production through the
+`uw_copy_dad_recording()` trigger, which also clears it when the cut or a
+Portal cut's script changes; `dad-cut.ts`'s `isRecordedInDad()`/
+`needsRecording()` are the rule, and the DAD log blocks an unrecorded credit
+(`not_recorded`). **Station IDs** (`/log/station-ids`, from Programs) lists each
+clock's legal-ID positions and pins (`lib/log/station-ids.ts`, pure, tested);
+the pins are ordinary `log_opportunity_assignments`, which the program director
+or traffic may write. Traffic's dashboard shows the next three days' DAD log
+releases to anyone who can open Log.
+
+**Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display
+names only (`20261002180000`, applied to both projects): the registry rows'
+`name`/`description`, page headings, and user-facing strings. The keys (`log`,
+`underwriting`), routes (`/log`, `/underwriting`), directories, identifiers, and
+the older notes in this file keep the old names, the same precedent as
+Sourcework's `transcription` key. Write new user-facing copy with the new names.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

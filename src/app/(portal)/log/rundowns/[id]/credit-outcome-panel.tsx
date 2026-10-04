@@ -76,8 +76,8 @@ export function CreditOutcomePanel({
         <p className="mt-1 text-xs text-ink-700">
           Drag this credit (⠿ above) or use its ⋮ menu&apos;s &quot;Move to…&quot; to reschedule it
           into another open break in this broadcast — that&apos;s the default fix, and destinations
-          are offered closest to the original time first. Underwriting &amp; Traffic only needs to
-          schedule a makegood if it&apos;s still unresolved when this broadcast wraps up.
+          are offered closest to the original time first. Traffic only needs to schedule a makegood
+          if it&apos;s still unresolved when this broadcast wraps up.
         </p>
       </div>
     );
@@ -132,9 +132,8 @@ export function CreditOutcomePanel({
       </div>
       <p className="mt-2 text-xs text-ink-700">
         If you flag it missed, you can move it to another open break in this same broadcast right
-        from this card — Underwriting &amp; Traffic only gets involved if it&apos;s still unresolved
-        once this broadcast wraps up. Both answers work without a connection and send when it
-        returns.
+        from this card — Traffic only gets involved if it&apos;s still unresolved once this
+        broadcast wraps up. Both answers work without a connection and send when it returns.
       </p>
     </div>
   );

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { getRoleCatalog } from "@/lib/tool-roles";
 import { inviteUser } from "../actions";
+import { ToolGrantRow } from "../tool-grant-row";
 
 export default async function InviteUserPage({
   searchParams,
@@ -52,31 +52,9 @@ export default async function InviteUserPage({
           <div>
             <Label>Authorized tools</Label>
             <div className="flex flex-col gap-2.5">
-              {(tools ?? []).map((tool) => {
-                const roleOptions = getRoleCatalog(tool.key);
-                return (
-                  <label key={tool.id} className="flex items-center justify-between gap-2.5 text-sm text-ink-900">
-                    <span className="flex items-center gap-2">
-                      <input type="checkbox" name="tool_id" value={tool.id} className="accent-brand-primary" />
-                      {tool.name}
-                    </span>
-                    {roleOptions && (
-                      <select
-                        name={`tool_role_${tool.id}`}
-                        defaultValue=""
-                        className="w-56 rounded border border-line px-2 py-1 text-xs text-ink-900"
-                      >
-                        <option value="">No specific role (defaults to {roleOptions[0]!.label})</option>
-                        {roleOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label} — {option.description}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </label>
-                );
-              })}
+              {(tools ?? []).map((tool) => (
+                <ToolGrantRow key={tool.id} tool={tool} hasAccess={false} roles={[]} />
+              ))}
             </div>
           </div>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">

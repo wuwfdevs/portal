@@ -123,12 +123,12 @@ export default async function ProgramsPage({
     view,
     week,
   } = await searchParams;
-  const { isProducer } = await requireLogAccess();
+  const { isProgramDirector } = await requireLogAccess();
 
   if (view === "week") {
-    return <WeekView isProducer={isProducer} week={week} error={error} />;
+    return <WeekView isProgramDirector={isProgramDirector} week={week} error={error} />;
   }
-  const creating = isProducer && newParam === "1";
+  const creating = isProgramDirector && newParam === "1";
   const query = (q ?? "").trim().toLowerCase();
   const statusFilter = status ? (STATUS_PARAM[status] ?? null) : null;
   const today = stationTodayISO();
@@ -219,7 +219,13 @@ export default async function ProgramsPage({
         >
           Automated hours
         </Link>
-        {isProducer && !creating && (
+        <Link
+          href="/log/station-ids"
+          className="text-sm font-semibold text-brand-link hover:underline"
+        >
+          Station IDs
+        </Link>
+        {isProgramDirector && !creating && (
           <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
             <span>
               + New<span className="max-sm:sr-only"> program</span>
@@ -423,11 +429,11 @@ export default async function ProgramsPage({
  * missing or invalid means the current week in station time.
  */
 async function WeekView({
-  isProducer,
+  isProgramDirector,
   week,
   error,
 }: {
-  isProducer: boolean;
+  isProgramDirector: boolean;
   week: string | undefined;
   error: string | undefined;
 }) {
@@ -505,6 +511,12 @@ async function WeekView({
         >
           Automated hours
         </Link>
+        <Link
+          href="/log/station-ids"
+          className="text-sm font-semibold text-brand-link hover:underline"
+        >
+          Station IDs
+        </Link>
         <span className="text-[13px] text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
@@ -519,7 +531,7 @@ async function WeekView({
           />
           Needs a clock
         </span>
-        {isProducer && (
+        {isProgramDirector && (
           <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
             <span>
               + New<span className="max-sm:sr-only"> program</span>
@@ -535,11 +547,11 @@ async function WeekView({
           days={days}
           startHour={startHour}
           endHour={endHour}
-          canEdit={isProducer}
+          canEdit={isProgramDirector}
           todayISO={today}
         />
       </div>
-      <WeekAgenda days={days} canEdit={isProducer} todayISO={today} />
+      <WeekAgenda days={days} canEdit={isProgramDirector} todayISO={today} />
 
       <p className="text-[13px] text-ink-500">
         <span className="max-md:hidden">

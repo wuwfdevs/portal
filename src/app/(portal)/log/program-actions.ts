@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertLogProducer } from "@/lib/log/access";
+import { assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { parseNprMapping } from "@/lib/log/program-npr";
 import { stationTodayISO } from "@/lib/log/timezone";
@@ -29,7 +29,7 @@ function optionalField(formData: FormData, name: string): string | null {
 const PROGRAM_KINDS: LogProgramKind[] = ["recurring", "special"];
 
 export async function createProgram(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const name = field(formData, "name");
   if (name === "") failWith(NEW_PROGRAM_PATH, "Give the program a name.");
   const kind = field(formData, "kind") as LogProgramKind;
@@ -104,7 +104,7 @@ function readScheduleEntryFields(formData: FormData, formPath: string): Schedule
 
 /** Posted from /log/programs/[id]/schedule/new; a failure returns there, success lands on the program's page. */
 export async function createScheduleEntry(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const programId = field(formData, "program_id");
   if (programId === "") failWith(LIST_PATH, "Choose a program to schedule.");
   const formPath = `${programPath(programId)}/schedule/new`;
@@ -138,7 +138,7 @@ export async function createScheduleEntry(formData: FormData): Promise<void> {
  * records when the entry took effect, not something an edit rewrites.
  */
 export async function updateScheduleEntry(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const programId = field(formData, "program_id");
   const entryId = field(formData, "entry_id");
   if (programId === "" || entryId === "") failWith(LIST_PATH, "Choose a schedule entry to edit.");
@@ -178,7 +178,7 @@ export async function updateScheduleEntry(formData: FormData): Promise<void> {
  * stories until they go stale; earlier dates keep the episodes they aired with.
  */
 export async function updateProgram(formData: FormData): Promise<void> {
-  await assertLogProducer();
+  await assertProgramDirector();
   const id = field(formData, "id");
   const editPath = `${programPath(id)}?edit=1`;
   const name = field(formData, "name");

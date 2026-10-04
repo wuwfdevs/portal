@@ -8,19 +8,9 @@ import { logAuditEvent } from "@/lib/audit";
 import { getSiteUrl } from "@/lib/site-url";
 import { isValidEmail } from "@/lib/validation";
 import type { PlatformRole, AccountStatus } from "@/lib/database.types";
+import { parseToolGrants, sameRoles } from "@/lib/tool-roles";
 
 const PLATFORM_ROLES: PlatformRole[] = ["administrator", "staff", "student", "faculty_partner"];
-
-function parseToolGrants(formData: FormData): { toolId: string; toolRole: string | null }[] {
-  return formData
-    .getAll("tool_id")
-    .map((value) => String(value))
-    .filter(Boolean)
-    .map((toolId) => ({
-      toolId,
-      toolRole: (formData.get(`tool_role_${toolId}`) as string | null)?.trim() || null,
-    }));
-}
 
 export async function inviteUser(formData: FormData): Promise<void> {
   const admin = await assertAdministrator();
@@ -57,7 +47,7 @@ export async function inviteUser(formData: FormData): Promise<void> {
       toolGrants.map((grant) => ({
         user_id: newUserId,
         tool_id: grant.toolId,
-        tool_role: grant.toolRole,
+        tool_roles: grant.toolRoles,
         granted_by: admin.id,
       })),
     );
@@ -142,7 +132,7 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
 
   const { data: existingGrants } = await supabase
     .from("tool_access")
-    .select("id, tool_id, tool_role")
+    .select("id, tool_id, tool_roles")
     .eq("user_id", userId)
     .is("revoked_at", null);
 
@@ -160,15 +150,16 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
       );
   }
 
-  // Insert newly checked grants; update tool_role on ones that already existed.
+  // Insert newly checked grants; update the roles on ones that already existed.
+  // tool_role follows tool_roles[1] through the table's trigger.
   for (const grant of toolGrants) {
     const existing = existingByToolId.get(grant.toolId);
     if (!existing) {
       await supabase
         .from("tool_access")
-        .insert({ user_id: userId, tool_id: grant.toolId, tool_role: grant.toolRole, granted_by: admin.id });
-    } else if (existing.tool_role !== grant.toolRole) {
-      await supabase.from("tool_access").update({ tool_role: grant.toolRole }).eq("id", existing.id);
+        .insert({ user_id: userId, tool_id: grant.toolId, tool_roles: grant.toolRoles, granted_by: admin.id });
+    } else if (!sameRoles(existing.tool_roles, grant.toolRoles)) {
+      await supabase.from("tool_access").update({ tool_roles: grant.toolRoles }).eq("id", existing.id);
     }
   }
 
@@ -177,7 +168,11 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
     action: "user.access_updated",
     targetType: "profile",
     targetId: userId,
-    metadata: { platform_role: platformRole, tool_ids: Array.from(grantedToolIds) },
+    metadata: {
+      platform_role: platformRole,
+      tool_ids: Array.from(grantedToolIds),
+      tool_roles: Object.fromEntries(toolGrants.map((grant) => [grant.toolId, grant.toolRoles])),
+    },
   });
 
   redirect("/admin/users");

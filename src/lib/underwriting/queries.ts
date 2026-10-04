@@ -412,6 +412,8 @@ export async function listCopy(): Promise<CopyListRow[]> {
 
 export interface CopyDetail extends UwCopyRow {
   contracts: UwContractRow[];
+  /** Who marked the cut recorded in DAD, when it is. */
+  recordedByName: string | null;
 }
 
 /** One piece of copy plus every contract it's linked to (via uw_contract_copy). */
@@ -438,7 +440,18 @@ export async function getCopyDetail(id: string): Promise<CopyDetail | null> {
           "this copy's linked contracts",
         ) ?? []);
 
-  return { ...copy, contracts };
+  const recorder = copy.dad_recorded_by
+    ? unwrapRead(
+        await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", copy.dad_recorded_by)
+          .maybeSingle(),
+        "who recorded this copy",
+      )
+    : null;
+
+  return { ...copy, contracts, recordedByName: recorder?.display_name ?? null };
 }
 
 /** Every uw_contract_copy link for the given contracts, with the copy rows, grouped by contract id. */

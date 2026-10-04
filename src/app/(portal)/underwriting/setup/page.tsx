@@ -100,7 +100,7 @@ export default async function UnderwritingSetupPage() {
           <SetupCard
             href="/underwriting/setup/pools"
             title="Inventory pools"
-            description="What an order’s “AM Drive” or “Carpool” means in Log programs and time windows."
+            description="What an order’s “AM Drive” or “Carpool” means in On Air programs and time windows."
             status={
               <>
                 <span>{plural(activePools.length, "pool", "pools")}</span>

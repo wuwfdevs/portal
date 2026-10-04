@@ -87,10 +87,10 @@ export default async function InventoryPoolsPage({
 
       {generalError && <Alert>{generalError}</Alert>}
       <Alert variant="note">
-        An order&apos;s &ldquo;AM Drive&rdquo; is not a program in Log. Each pool below maps a name
-        the orders use to the real programs, station-local windows, and days a credit may land in. A
-        pool with no targets can be chosen on a line but will never find a break; a target with no
-        program and no window means any marked opportunity on any program.
+        An order&apos;s &ldquo;AM Drive&rdquo; is not a program in On Air. Each pool below maps a
+        name the orders use to the real programs, station-local windows, and days a credit may land
+        in. A pool with no targets can be chosen on a line but will never find a break; a target
+        with no program and no window means any marked opportunity on any program.
       </Alert>
 
       {creating && (
@@ -102,7 +102,7 @@ export default async function InventoryPoolsPage({
           sections={
             <div className="flex flex-col gap-2.5 border-t border-line px-5 py-4">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-xs font-semibold text-ink-700">Log targets</span>
+                <span className="text-xs font-semibold text-ink-700">On Air targets</span>
                 <span className="text-xs text-ink-400">
                   Where a credit sold as this pool may land. Leave a field blank for any; fully
                   blank rows are skipped.
@@ -144,7 +144,7 @@ export default async function InventoryPoolsPage({
                   <span className="text-sm font-bold text-ink-900">{pool.name}</span>
                   {!pool.active && <Badge variant="muted">inactive</Badge>}
                   {pool.targets.length === 0 && pool.active && (
-                    <Badge variant="warning">no Log mapping yet</Badge>
+                    <Badge variant="warning">no On Air mapping yet</Badge>
                   )}
                 </div>
                 <form action={setInventoryPoolActive}>
@@ -237,8 +237,8 @@ export default async function InventoryPoolsPage({
       <p className="text-xs text-ink-500">
         Windows are station-local (Central). A marked opportunity qualifies when its start falls
         inside the window. Program clocks and marked opportunities are managed in{" "}
-        <Link href="/log/clocks" className="font-semibold text-brand-link">
-          Log
+        <Link href="/log/programs" className="font-semibold text-brand-link">
+          On Air
         </Link>
         .
       </p>

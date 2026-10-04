@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertLogProducer } from "@/lib/log/access";
+import { assertProgramDirector } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { stationLocalToUTC } from "@/lib/log/automated-hours";
@@ -83,7 +83,7 @@ function parseWeekly(formData: FormData, errorPath: string): WeeklyFields {
 }
 
 export async function createWeeklyWindow(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const errorPath = pathFrom(formData, { new: "weekly" });
   const fields = parseWeekly(formData, errorPath);
   const supabase = await createClient();
@@ -104,7 +104,7 @@ export async function createWeeklyWindow(formData: FormData): Promise<void> {
 }
 
 export async function updateWeeklyWindow(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const errorPath = pathFrom(formData, { edit: id });
   const fields = parseWeekly(formData, errorPath);
@@ -122,7 +122,7 @@ export async function updateWeeklyWindow(formData: FormData): Promise<void> {
 }
 
 export async function removeWeeklyWindow(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const supabase = await createClient();
   const { error } = await supabase
@@ -183,7 +183,7 @@ function overlapMessage(code: string | undefined): string | null {
 }
 
 export async function createOnAirChange(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const errorPath = pathFrom(formData, { new: "once" });
   const fields = parseChange(formData, errorPath);
   const supabase = await createClient();
@@ -206,7 +206,7 @@ export async function createOnAirChange(formData: FormData): Promise<void> {
 }
 
 export async function updateOnAirChange(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const errorPath = pathFrom(formData, { edit: id });
   const fields = parseChange(formData, errorPath);
@@ -226,7 +226,7 @@ export async function updateOnAirChange(formData: FormData): Promise<void> {
 }
 
 export async function removeOnAirChange(formData: FormData): Promise<void> {
-  const { profile } = await assertLogProducer();
+  const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const supabase = await createClient();
   const { error } = await supabase

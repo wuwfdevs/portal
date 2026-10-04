@@ -63,7 +63,7 @@ export type UnderwritingRpcResult<T> =
 
 const ERROR_MESSAGES: Record<string, string> = {
   unauthenticated: "Your session has expired — sign in again.",
-  forbidden: "You don't have access to Underwriting & Traffic.",
+  forbidden: "You don't have access to Traffic.",
   unknown_schedule_line: "That schedule line no longer exists.",
   unknown_break: "That break no longer exists.",
   break_not_eligible: "That break isn't a marked opportunity that permits an underwriting credit.",
@@ -107,10 +107,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   unknown_placement: "That placement no longer exists.",
   already_cleared: "That placement was already cleared.",
   rundown_frozen:
-    "That rundown is live or already submitted — automation never writes into it; a host can still act on it from Log.",
+    "That rundown is live or already submitted — automation never writes into it; a host can still act on it from On Air.",
   break_in_past: "That break has already started — automation never writes into the past.",
   air_date_in_past: "Automation never generates a rundown for a date that has passed.",
-  unknown_item: "That placement's Log item no longer exists.",
+  unknown_item: "That placement's rundown item no longer exists.",
   credit_fixed:
     "That credit is fixed in place — an exact-time, opening or closing line, or a makegood — and is never bumped.",
   already_aired: "That credit already has a recorded outcome and is never moved.",

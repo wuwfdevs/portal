@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import { normalizeDadCut } from "@/lib/underwriting/dad-cut";
+import { isRecordedInDad, normalizeDadCut } from "@/lib/underwriting/dad-cut";
 import { automatedSegments } from "./automated-hours";
 import { loadAutomatedHours } from "./automated-hours-queries";
 import {
@@ -130,7 +130,9 @@ export async function loadDadDay(dateISO: string): Promise<DadDay> {
       ? null
       : supabase
           .from("uw_copy")
-          .select("id, label, dad_cut, approval_status, effective_from, effective_to")
+          .select(
+            "id, label, dad_cut, dad_recorded_at, approval_status, effective_from, effective_to",
+          )
           .in("id", copyIds),
     copyIds.length === 0
       ? null
@@ -183,6 +185,7 @@ export async function loadDadDay(dateISO: string): Promise<DadDay> {
         cut: copy?.dad_cut ?? null,
         spotNumber: item.dad_spot_number,
         copyApproved: copy ? copy.approval_status === "approved" : false,
+        recorded: copy ? isRecordedInDad(copy) : false,
         copyInDate: copy
           ? copy.effective_from <= airDate &&
             (copy.effective_to === null || copy.effective_to >= airDate)

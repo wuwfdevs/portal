@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireLogProducer } from "@/lib/log/access";
+import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram, listClockTemplates, listScheduleEntries } from "@/lib/log/queries";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { toOverlapOther } from "../to-overlap-other";
@@ -21,7 +21,7 @@ export default async function NewScheduleEntryPage({
 }) {
   const { id } = await params;
   const { error, clock } = await searchParams;
-  await requireLogProducer();
+  await requireProgramDirector();
   const [program, templates, allEntries] = await Promise.all([
     getProgram(id),
     listClockTemplates(),

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireLogProducer } from "@/lib/log/access";
+import { requireProgramDirector } from "@/lib/log/access";
 import {
   getProgram,
   getScheduleEntry,
@@ -25,7 +25,7 @@ export default async function EditScheduleEntryPage({
 }) {
   const { id, entryId } = await params;
   const { error } = await searchParams;
-  await requireLogProducer();
+  await requireProgramDirector();
   const [program, entry, templates, allEntries] = await Promise.all([
     getProgram(id),
     getScheduleEntry(entryId),

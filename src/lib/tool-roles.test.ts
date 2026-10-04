@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRoleCatalog } from "./tool-roles";
+import { getRoleCatalog, parseToolGrants, rolesStack, sameRoles } from "./tool-roles";
 
 describe("getRoleCatalog", () => {
   it("returns editorial planning's role options in rank order", () => {
@@ -13,5 +13,61 @@ describe("getRoleCatalog", () => {
     expect(getRoleCatalog("remote-interview")).toBeNull();
     expect(getRoleCatalog("audience-listening")).toBeNull();
     expect(getRoleCatalog("nonexistent-tool")).toBeNull();
+  });
+});
+
+function form(entries: [string, string][]) {
+  const data = new FormData();
+  for (const [name, value] of entries) data.append(name, value);
+  return data;
+}
+
+describe("rolesStack", () => {
+  it("is true only for the broadcast tools", () => {
+    expect(rolesStack("log")).toBe(true);
+    expect(rolesStack("underwriting")).toBe(true);
+    expect(rolesStack("editorial-planning")).toBe(false);
+  });
+});
+
+describe("parseToolGrants", () => {
+  it("reads stacked role checkboxes in stored order", () => {
+    expect(
+      parseToolGrants(
+        form([
+          ["tool_id", "a"],
+          ["tool_roles_a", "traffic"],
+          ["tool_roles_a", "program_director"],
+          ["tool_roles_a", "Traffic"],
+        ]),
+      ),
+    ).toEqual([{ toolId: "a", toolRoles: ["program_director", "traffic"] }]);
+  });
+
+  it("reads a dropdown role, and an empty one as no role", () => {
+    expect(
+      parseToolGrants(
+        form([
+          ["tool_id", "a"],
+          ["tool_role_a", " Editor "],
+          ["tool_id", "b"],
+          ["tool_role_b", ""],
+        ]),
+      ),
+    ).toEqual([
+      { toolId: "a", toolRoles: ["editor"] },
+      { toolId: "b", toolRoles: [] },
+    ]);
+  });
+
+  it("ignores roles for a tool that isn't checked", () => {
+    expect(parseToolGrants(form([["tool_roles_a", "traffic"]]))).toEqual([]);
+  });
+});
+
+describe("sameRoles", () => {
+  it("compares stored lists", () => {
+    expect(sameRoles(["a", "b"], ["a", "b"])).toBe(true);
+    expect(sameRoles(["a"], ["a", "b"])).toBe(false);
   });
 });

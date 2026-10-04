@@ -237,7 +237,7 @@ export function ImportClient() {
               ))}
               {plan.synthesizedPromos.length === 0 && (
                 <li className="px-4 py-2.5 text-sm text-ink-500">
-                  No program promos matched a Log program.
+                  No program promos matched an On Air program.
                 </li>
               )}
             </ul>
