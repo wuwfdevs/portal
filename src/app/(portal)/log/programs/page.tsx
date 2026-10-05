@@ -213,18 +213,6 @@ export default async function ProgramsPage({
         chips={chips}
         chipsLabel="Status"
       >
-        <Link
-          href="/log/automated-hours"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Automated hours
-        </Link>
-        <Link
-          href="/log/station-ids"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Station IDs
-        </Link>
         {isProgramDirector && !creating && (
           <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
             <span>
@@ -505,18 +493,6 @@ async function WeekView({
           Today
         </Link>
         <span className="flex-1" />
-        <Link
-          href="/log/automated-hours"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Automated hours
-        </Link>
-        <Link
-          href="/log/station-ids"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Station IDs
-        </Link>
         <span className="text-[13px] text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"

@@ -18,7 +18,6 @@ import type {
 // place a revalidation of the old list would have gone.
 const LIST_PATH = "/log/clocks";
 const NEW_TEMPLATE_PATH = `${LIST_PATH}/new`;
-const STATION_IDS_PATH = "/log/station-ids";
 
 function templatePath(id: string): string {
   return `${LIST_PATH}/${id}`;
@@ -31,7 +30,6 @@ function templatePath(id: string): string {
  * plain query string of ids is ignored.
  */
 function returnPath(formData: FormData, templateId: string): string {
-  if (String(formData.get("return_to") ?? "") === "station-ids") return STATION_IDS_PATH;
   const query = String(formData.get("return_query") ?? "").trim();
   return /^[A-Za-z0-9_=&.-]{1,400}$/.test(query)
     ? `${templatePath(templateId)}?${query}`

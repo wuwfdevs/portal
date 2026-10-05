@@ -145,13 +145,7 @@ export default async function AutomatedHoursPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <Link
-          href="/log/programs"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          ← Programs
-        </Link>
-        <h1 className="text-xl font-bold text-ink-900">Automated hours</h1>
+        <h1 className="text-xl font-bold text-ink-900">Automation</h1>
         <p className="text-sm text-ink-500">
           Every hour is hosted unless it&apos;s listed here. Credits in automated hours go to DAD.
         </p>

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   describeGap,
-  describePinScope,
-  formatOffset,
   stationIdCoverage,
   type StationIdPin,
   type StationIdPosition,
@@ -81,21 +79,5 @@ describe("stationIdCoverage", () => {
         pins: [pin({ opportunityId: "other" })],
       }).status,
     ).toBe("not_pinned");
-  });
-});
-
-describe("describePinScope", () => {
-  it("reads common scopes plainly", () => {
-    expect(describePinScope({ hourIndex: null, daysOfWeek: [] })).toBe("Every hour, every day");
-    expect(describePinScope({ hourIndex: 1, daysOfWeek: [5, 1, 2, 3, 4] })).toBe("Hour 2, Mon–Fri");
-    expect(describePinScope({ hourIndex: null, daysOfWeek: [6, 0] })).toBe("Every hour, weekends");
-    expect(describePinScope({ hourIndex: 0, daysOfWeek: [3] })).toBe("Hour 1, Wed");
-  });
-});
-
-describe("formatOffset", () => {
-  it("prints minutes and seconds into the hour", () => {
-    expect(formatOffset(3590)).toBe("59:50");
-    expect(formatOffset(65)).toBe("01:05");
   });
 });

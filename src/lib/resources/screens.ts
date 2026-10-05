@@ -182,11 +182,14 @@ export const SCREENS: readonly ScreenDefinition[] = [
   },
   {
     key: "log.automated-hours",
-    name: "Automated hours",
+    name: "Automation",
     toolKey: "log",
     paths: ["/log/automated-hours"],
   },
   {
+    // The Station IDs page is gone (IDs are pinned on the clock page) and the
+    // path only redirects; the key stays because an applied release migration
+    // names it, and release-content.test.ts checks every key it finds.
     key: "log.station-ids",
     name: "Station IDs",
     toolKey: "log",

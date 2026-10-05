@@ -1,9 +1,9 @@
-// Station IDs (docs/broadcast-roles.md §5): for each clock a program airs on,
-// where the hourly legal ID goes and whether it is pinned for every hour the
-// clock runs. 47 CFR §73.1201 wants an ID each hour, as close to the top as
+// Station IDs (docs/broadcast-roles.md §5): for one clock, whether the hourly
+// legal ID is pinned for every hour the clock runs. The clock page warns when
+// it isn't. 47 CFR §73.1201 wants an ID each hour, as close to the top as
 // feasible, at a natural break; the clock says where the ID position is (an
 // opportunity permitting `legal_id`), and a pin (log_opportunity_assignments)
-// fills it. Pure — the page loads the rows.
+// fills it. Pure — the clock page loads the rows.
 
 export interface StationIdPosition {
   opportunityId: string;
@@ -79,20 +79,4 @@ export function describeGap(gap: StationIdHourGap): string {
   return gap.missingDays.length === 0
     ? hour
     : `${hour} (${gap.missingDays.map((day) => DAY_NAMES[day]).join(", ")})`;
-}
-
-/** A pin's scope as staff read it: "Every hour, every day", "Hour 2, Mon–Fri". */
-export function describePinScope(pin: Pick<StationIdPin, "hourIndex" | "daysOfWeek">): string {
-  const hour = pin.hourIndex === null ? "Every hour" : `Hour ${pin.hourIndex + 1}`;
-  const days = [...new Set(pin.daysOfWeek)].sort((a, b) => a - b);
-  if (days.length === 0 || days.length === 7) return `${hour}, every day`;
-  if (days.join(",") === "1,2,3,4,5") return `${hour}, Mon–Fri`;
-  if (days.join(",") === "0,6") return `${hour}, weekends`;
-  return `${hour}, ${days.map((day) => DAY_NAMES[day]).join(", ")}`;
-}
-
-/** "59:50" — where in the hour a position starts. */
-export function formatOffset(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }

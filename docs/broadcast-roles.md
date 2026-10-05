@@ -121,12 +121,14 @@ data lives in the other tool:
   tile.
 - **DAD log:** On Air → Today → DAD log, with a dashboard tile in Traffic
   showing the next days' status.
-- **Station IDs:** On Air → Programs → Station IDs, linked from Traffic's
-  dashboard. The page lists every clock's ID position and what fills it.
-  Station IDs are still stored as clock pins, but nobody has to find them on
-  a clock page.
-- **Automated hours:** On Air → Programs → Automated hours, next to the
-  schedule.
+- **Station IDs:** pinned on each clock's page, the same way as any other
+  pinned content: one pin per clock, every hour, every day. The clock page
+  warns when an hour has no legal ID. (A separate Station IDs page existed
+  briefly and was removed on 2026-10-05: the rule for where the ID goes
+  doesn't change, so a second screen for the same pins was only something
+  else to keep track of.)
+- **Automation:** On Air → Automation, its own tab beside Programs (route
+  `/log/automated-hours`).
 
 ## 6. Permissions
 

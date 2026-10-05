@@ -3197,7 +3197,7 @@ assigns the next cut on insert; `execution_kind` comes from the script
 read airs in automated hours as its recorded version. RadioTraffic is never
 named in the UI; `cart_identifier` stays only for the two transitional
 importers. (2) **Automated hours** (`20261002130000`, `/log/automated-hours`,
-reached from Programs): hosted is the norm and has no record; only
+now its own "Automation" tab): hosted is the norm and has no record; only
 exceptions are kept — `log_automated_weekly` (may overlap; union counts) and
 `log_on_air_changes` (automated or live, wins over weekly, never overlap —
 an exclusion constraint). `lib/log/automated-hours.ts`'s `isAutomated()` and
@@ -3235,10 +3235,14 @@ Production's **To record** list: `uw_copy.dad_recorded_at`/`_by`
 `uw_copy_dad_recording()` trigger, which also clears it when the cut or a
 Portal cut's script changes; `dad-cut.ts`'s `isRecordedInDad()`/
 `needsRecording()` are the rule, and the DAD log blocks an unrecorded credit
-(`not_recorded`). **Station IDs** (`/log/station-ids`, from Programs) lists each
-clock's legal-ID positions and pins (`lib/log/station-ids.ts`, pure, tested);
-the pins are ordinary `log_opportunity_assignments`, which the program director
-or traffic may write. Traffic's dashboard shows the next three days' DAD log
+(`not_recorded`). **Station IDs** are ordinary `log_opportunity_assignments`
+pinned on the clock page, which the program director or traffic may write
+(the clock viewer's `canPin`, separate from `canEdit`); the clock page warns
+when an hour has no legal ID (`lib/log/station-ids.ts`, pure, tested). The
+separate `/log/station-ids` page was removed 2026-10-05 and now redirects to
+Programs; don't rebuild a second screen for the same pins. Automated hours
+became the "Automation" tab the same day. Traffic's dashboard shows the next
+three days' DAD log
 releases to anyone who can open Log.
 
 **Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display

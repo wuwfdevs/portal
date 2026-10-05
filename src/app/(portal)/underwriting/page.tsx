@@ -116,7 +116,7 @@ export default async function UnderwritingDashboardPage({
 
   const todayISO = stationTodayISO();
   // The log of record lives in On Air; show its state only to someone who
-  // can open it (log_dad_exports and the Station IDs page are On Air's).
+  // can open it (log_dad_exports is On Air's).
   const logTool = await getToolByKey("log");
   const canOpenOnAir = logTool ? await hasToolAccess(profile.id, logTool.id) : false;
   const dadDays = canOpenOnAir
@@ -501,17 +501,6 @@ export default async function UnderwritingDashboardPage({
                       </Link>
                     </li>
                   ))}
-                  <li>
-                    <Link
-                      href="/log/station-ids"
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-panel-50"
-                    >
-                      <span className="text-ink-500">Station IDs</span>
-                      <span aria-hidden className="text-brand-link">
-                        →
-                      </span>
-                    </Link>
-                  </li>
                 </ul>
               </Card>
             </section>

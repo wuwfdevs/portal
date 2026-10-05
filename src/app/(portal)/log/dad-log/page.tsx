@@ -101,7 +101,7 @@ export default async function DadLogPage({
             <Alert variant="note">
               Every hour on this day is hosted, so there&apos;s nothing for DAD to play.{" "}
               <Link href="/log/automated-hours" className="font-bold text-brand-link">
-                Automated hours
+                Automation
               </Link>
             </Alert>
           )}
