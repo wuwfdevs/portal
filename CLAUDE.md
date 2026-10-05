@@ -3294,6 +3294,22 @@ docs, but had no CLAUDE.md entry until now — same staleness this section's
 Underwriting entry above already explains, and now fixed in the strategy
 doc's §8 too. Read it before starting any of it.
 
+**Production Partnerships: design is done, not yet authorized to build.**
+The tool that implements the _University Production Partnerships_
+framework and its v0.1 rate workbook: a rate model with a validation gate,
+a term plan whose guardrail is professional hours (a project day is 8),
+requests priced from facts rather than a chosen "pool", a booking rule
+with tentative holds, partners and anchor agreements, settlement, and a
+term report. Read `docs/production-partnerships-design.md` before starting
+any of it. Three of its decisions are easy to undo by accident: **airtime
+is a second capacity envelope that is read from the clocks and from
+Traffic's placements and is never placed here** (Traffic and On Air
+already have two placement schemes — §2.5, §6.5); **no rate ever appears
+on the public form** (`/produce`, `/produce/embed`); and **`pp_rate_card_lines`
+is a snapshot written at adoption**, so an estimate keeps the rate it was
+priced at. The reviewed Design canvas it was distilled from is linked at
+the top of the doc.
+
 **Editorial Inquiry: milestone 1 has landed — the guardrail against building
 it is lifted.** An editorial workspace that turns one broad guiding question
 into concrete, reportable story questions through iterative collaboration
