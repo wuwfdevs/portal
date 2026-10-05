@@ -4,14 +4,17 @@
 export const BOOKINGS_PATH = "/bookings";
 export const RATES_PATH = `${BOOKINGS_PATH}/rates`;
 
-export type RatesSection = "assumptions" | "pools" | "packages" | "card" | "assets" | "changes";
+export type RatesSection =
+  "assumptions" | "labor" | "pools" | "packages" | "card" | "assets" | "setup" | "changes";
 
 export const RATES_SECTIONS: { key: RatesSection; label: string; versioned: boolean }[] = [
   { key: "assumptions", label: "Assumptions", versioned: true },
+  { key: "labor", label: "Labor", versioned: true },
   { key: "pools", label: "Resource pools", versioned: true },
   { key: "packages", label: "Service packages", versioned: true },
   { key: "card", label: "Rate card", versioned: true },
   { key: "assets", label: "Assets", versioned: false },
+  { key: "setup", label: "Setup", versioned: false },
   { key: "changes", label: "Change log", versioned: false },
 ];
 

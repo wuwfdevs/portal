@@ -7,36 +7,56 @@ import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { TERM_PLAN_STATUS_LABEL } from "@/lib/bookings/labels";
-import { PLAN_PATH, calendarHref, withQuery } from "@/lib/bookings/paths";
-import { getPlanCalendar, listPlans, pickPlan, type BkTermPlanRow } from "@/lib/bookings/queries";
-import { POOL_KEYS, POOL_LABEL } from "@/lib/bookings/rates";
+import { PLAN_PATH, RATES_PATH, calendarHref, withQuery } from "@/lib/bookings/paths";
 import {
-  DEFAULT_UNIT_LABEL,
-  DEFAULT_WINDOWS,
+  getPlanCalendar,
+  listLaborClasses,
+  listPlans,
+  listPools,
+  pickPlan,
+  type BkTermPlanRow,
+} from "@/lib/bookings/queries";
+import {
   HOURS_PER_PROJECT_DAY,
   formatHours,
   formatWindow,
   formatWindowLines,
   parseWindows,
+  windowsFor,
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
-import { createPlan, setPlanStatus, updatePlan, updateResource } from "../actions";
+import {
+  createPlan,
+  removeCapacity,
+  removeResource,
+  saveCapacity,
+  setPlanStatus,
+  updatePlan,
+  updateResource,
+} from "../actions";
 
-type Params = { plan?: string; new?: string; edit?: string; error?: string };
+type Params = { plan?: string; new?: string; edit?: string; capacity?: string; error?: string };
 
 /**
- * The term plan (docs/bookings-design.md §8): the term's dates and its two
- * envelopes, then each pool's units and windows. The director's screen;
- * everyone else reads. `?new=1` is the create form, `?edit=<pool>` opens
- * one resource's row for editing.
+ * The term plan (docs/bookings-design.md §8): the term's dates and the two
+ * envelopes, each tracked labor class's capacity, then each pool's units,
+ * concurrent units and windows. The director's screen; everyone else reads.
+ * `?new=1` is the create form, `?capacity=<classId>` and `?edit=<poolId>`
+ * open one row for editing.
  */
 export default async function TermPlanPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const context = await requireBookingsAccess();
   const canEdit = context.isDirector;
-  const plans = await listPlans();
+  const [plans, classes, pools] = await Promise.all([listPlans(), listLaborClasses(), listPools()]);
   const plan = params.new === "1" ? null : pickPlan(plans, params.plan);
   const calendar = plan ? await getPlanCalendar(plan) : null;
+  const activePools = pools.filter(
+    (pool) => pool.active || calendar?.resources.some((r) => r.pool_id === pool.id),
+  );
+  const activeClasses = classes.filter(
+    (cls) => cls.active || calendar?.capacity.some((row) => row.labor_class_id === cls.id),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -149,12 +169,182 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
           )}
 
           <section className="flex flex-col gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-ink-900">Resources and windows</h3>
-              <p className="text-xs text-ink-500">
-                Each pool&apos;s units for the term and the windows a booking may take. Units are
-                availability constraints on the calendar; the guardrail is professional hours.
-              </p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-ink-900">Capacity by labor class</h3>
+                <p className="text-xs text-ink-500">
+                  Each class the term tracks: its net schedulable hours for the term (a project day
+                  is {HOURS_PER_PROJECT_DAY}), how many people, and each person&apos;s hours a day.
+                  The reserve is the plan&apos;s share of each class&apos;s net. A class with no row
+                  is not capacity-checked.
+                </p>
+              </div>
+              <Link
+                href={`${RATES_PATH}/setup`}
+                className="text-sm font-bold text-brand-link hover:underline"
+              >
+                Classes are kept under Rates · Setup
+              </Link>
+            </div>
+            <TableFrame>
+              <Table stack>
+                <thead>
+                  <HeaderRow>
+                    <Th>Class</Th>
+                    <Th className="text-right">Net hours</Th>
+                    <Th className="text-right">People</Th>
+                    <Th className="text-right">Hours a day each</Th>
+                    <Th className="text-right">Day capacity</Th>
+                    <Th>
+                      <span className="sr-only">Actions</span>
+                    </Th>
+                  </HeaderRow>
+                </thead>
+                <tbody>
+                  {activeClasses.map((cls) => {
+                    const row = calendar?.capacity.find((c) => c.labor_class_id === cls.id) ?? null;
+                    if (canEdit && params.capacity === cls.id) {
+                      return (
+                        <Row key={cls.id}>
+                          <Cell stack="full" colSpan={6}>
+                            <form action={saveCapacity} className="flex flex-col gap-3 py-1">
+                              <input type="hidden" name="plan_id" value={plan.id} />
+                              <input type="hidden" name="labor_class_id" value={cls.id} />
+                              <div className="text-sm font-semibold text-ink-900">{cls.name}</div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div>
+                                  <Label htmlFor="net_hours">Net hours for the term</Label>
+                                  <Input
+                                    id="net_hours"
+                                    name="net_hours"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    required
+                                    autoFocus
+                                    defaultValue={row ? String(row.net_hours) : "800"}
+                                  />
+                                  <FieldHint>
+                                    The framework&apos;s placeholder is 100 days = 800 hours.
+                                  </FieldHint>
+                                </div>
+                                <div>
+                                  <Label htmlFor="headcount">People</Label>
+                                  <Input
+                                    id="headcount"
+                                    name="headcount"
+                                    type="number"
+                                    step="1"
+                                    min="1"
+                                    required
+                                    defaultValue={row ? String(row.headcount) : "1"}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="hours_per_person_day">Hours a day each</Label>
+                                  <Input
+                                    id="hours_per_person_day"
+                                    name="hours_per_person_day"
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    max="24"
+                                    required
+                                    defaultValue={row ? String(row.hours_per_person_day) : "8"}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Button type="submit">Save</Button>
+                                <Link
+                                  href={withQuery(PLAN_PATH, { plan: plan.id })}
+                                  className="px-1 text-sm font-bold text-brand-link hover:underline"
+                                >
+                                  Cancel
+                                </Link>
+                              </div>
+                            </form>
+                          </Cell>
+                        </Row>
+                      );
+                    }
+                    return (
+                      <Row key={cls.id} className={cls.active ? undefined : "text-ink-400"}>
+                        <Cell stack="title">
+                          {cls.name}
+                          {!cls.active && (
+                            <Badge variant="muted" className="ml-2">
+                              Retired
+                            </Badge>
+                          )}
+                        </Cell>
+                        <Cell label="Net hours" className="text-right">
+                          {row ? (
+                            formatHours(Number(row.net_hours))
+                          ) : (
+                            <span className="text-ink-400">Not tracked</span>
+                          )}
+                        </Cell>
+                        <Cell label="People" className="text-right">
+                          {row ? row.headcount : "—"}
+                        </Cell>
+                        <Cell label="Hours a day each" className="text-right">
+                          {row ? Number(row.hours_per_person_day) : "—"}
+                        </Cell>
+                        <Cell label="Day capacity" className="text-right">
+                          {row
+                            ? `${Number(row.headcount) * Number(row.hours_per_person_day)} h`
+                            : "—"}
+                        </Cell>
+                        <Cell stack="aside" className="text-right">
+                          {canEdit && (
+                            <span className="inline-flex items-center gap-3">
+                              <Link
+                                href={withQuery(PLAN_PATH, { plan: plan.id, capacity: cls.id })}
+                                className="text-sm font-bold text-brand-link hover:underline"
+                              >
+                                {row ? "Edit" : "Track"}
+                              </Link>
+                              {row && (
+                                <form action={removeCapacity}>
+                                  <input type="hidden" name="plan_id" value={plan.id} />
+                                  <input type="hidden" name="id" value={row.id} />
+                                  <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    className="text-xs text-ink-500"
+                                  >
+                                    Stop tracking
+                                  </Button>
+                                </form>
+                              )}
+                            </span>
+                          )}
+                        </Cell>
+                      </Row>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </TableFrame>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-ink-900">Resources and windows</h3>
+                <p className="text-xs text-ink-500">
+                  Each pool&apos;s units for the term, how many bookings it takes in one window, and
+                  the windows a booking may take. Units are availability constraints on the
+                  calendar; the guardrail is labor hours.
+                </p>
+              </div>
+              <Link
+                href={`${RATES_PATH}/setup`}
+                className="text-sm font-bold text-brand-link hover:underline"
+              >
+                Pools are kept under Rates · Setup
+              </Link>
             </div>
             <TableFrame>
               <Table stack>
@@ -162,6 +352,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                   <HeaderRow>
                     <Th>Pool</Th>
                     <Th className="text-right">Available units</Th>
+                    <Th className="text-right">At a time</Th>
                     <Th>Windows</Th>
                     <Th>
                       <span className="sr-only">Actions</span>
@@ -169,22 +360,23 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                   </HeaderRow>
                 </thead>
                 <tbody>
-                  {POOL_KEYS.map((pool) => {
-                    const resource = calendar?.resources.find((r) => r.pool === pool) ?? null;
+                  {activePools.map((pool) => {
+                    const resource = calendar?.resources.find((r) => r.pool_id === pool.id) ?? null;
                     const windows = resource ? parseWindows(resource.windows) : [];
-                    if (canEdit && params.edit === pool) {
+                    const defaults = parseWindows(pool.default_windows);
+                    if (canEdit && params.edit === pool.id) {
                       return (
-                        <Row key={pool}>
-                          <Cell stack="full" colSpan={4}>
+                        <Row key={pool.id}>
+                          <Cell stack="full" colSpan={5}>
                             <form action={updateResource} className="flex flex-col gap-3 py-1">
                               <input type="hidden" name="plan_id" value={plan.id} />
-                              <input type="hidden" name="pool" value={pool} />
-                              <div className="text-sm font-semibold text-ink-900">
-                                {POOL_LABEL[pool]}
-                              </div>
+                              <input type="hidden" name="pool_id" value={pool.id} />
+                              <div className="text-sm font-semibold text-ink-900">{pool.name}</div>
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
                                 <div>
-                                  <Label htmlFor="available_units">Available units</Label>
+                                  <Label htmlFor="available_units">
+                                    Available {pool.unit_label}s this term
+                                  </Label>
                                   <Input
                                     id="available_units"
                                     name="available_units"
@@ -192,18 +384,26 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     step="0.5"
                                     min="0"
                                     required
+                                    autoFocus
                                     defaultValue={resource ? String(resource.available_units) : "0"}
                                   />
                                 </div>
                                 <div>
-                                  <Label htmlFor="unit_label">Unit</Label>
+                                  <Label htmlFor="concurrent_units">Bookings at a time</Label>
                                   <Input
-                                    id="unit_label"
-                                    name="unit_label"
+                                    id="concurrent_units"
+                                    name="concurrent_units"
+                                    type="number"
+                                    step="1"
+                                    min="1"
                                     required
-                                    maxLength={40}
-                                    defaultValue={resource?.unit_label ?? DEFAULT_UNIT_LABEL[pool]}
+                                    defaultValue={
+                                      resource ? String(resource.concurrent_units) : "1"
+                                    }
                                   />
+                                  <FieldHint>
+                                    Two field kits take two bookings in one window.
+                                  </FieldHint>
                                 </div>
                                 <div>
                                   <Label htmlFor="windows">Windows, one per line</Label>
@@ -213,7 +413,17 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     rows={4}
                                     required
                                     defaultValue={formatWindowLines(
-                                      windows.length > 0 ? windows : DEFAULT_WINDOWS[pool],
+                                      windowsFor(
+                                        resource
+                                          ? {
+                                              pool_id: pool.id,
+                                              available_units: 0,
+                                              concurrent_units: 1,
+                                              windows,
+                                            }
+                                          : undefined,
+                                        defaults,
+                                      ),
                                     )}
                                   />
                                   <FieldHint>
@@ -236,14 +446,24 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                       );
                     }
                     return (
-                      <Row key={pool}>
-                        <Cell stack="title">{POOL_LABEL[pool]}</Cell>
+                      <Row key={pool.id} className={pool.active ? undefined : "text-ink-400"}>
+                        <Cell stack="title">
+                          {pool.name}
+                          {!pool.active && (
+                            <Badge variant="muted" className="ml-2">
+                              Retired
+                            </Badge>
+                          )}
+                        </Cell>
                         <Cell label="Available units" className="text-right">
                           {resource ? (
-                            `${resource.available_units} ${resource.unit_label}`
+                            `${resource.available_units} ${pool.unit_label}s`
                           ) : (
-                            <span className="text-ink-400">Not set</span>
+                            <span className="text-ink-400">Not on this term</span>
                           )}
+                        </Cell>
+                        <Cell label="At a time" className="text-right">
+                          {resource ? resource.concurrent_units : "—"}
                         </Cell>
                         <Cell label="Windows">
                           {windows.length > 0 ? (
@@ -251,17 +471,32 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                               .map((w) => `${w.label} ${formatWindow(w.start, w.end)}`)
                               .join(" · ")
                           ) : (
-                            <span className="text-ink-400">Defaults</span>
+                            <span className="text-ink-400">—</span>
                           )}
                         </Cell>
                         <Cell stack="aside" className="text-right">
                           {canEdit && (
-                            <Link
-                              href={withQuery(PLAN_PATH, { plan: plan.id, edit: pool })}
-                              className="text-sm font-bold text-brand-link hover:underline"
-                            >
-                              Edit
-                            </Link>
+                            <span className="inline-flex items-center gap-3">
+                              <Link
+                                href={withQuery(PLAN_PATH, { plan: plan.id, edit: pool.id })}
+                                className="text-sm font-bold text-brand-link hover:underline"
+                              >
+                                {resource ? "Edit" : "Add to this term"}
+                              </Link>
+                              {resource && (
+                                <form action={removeResource}>
+                                  <input type="hidden" name="plan_id" value={plan.id} />
+                                  <input type="hidden" name="id" value={resource.id} />
+                                  <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    className="text-xs text-ink-500"
+                                  >
+                                    Remove
+                                  </Button>
+                                </form>
+                              )}
+                            </span>
                           )}
                         </Cell>
                       </Row>
@@ -280,17 +515,15 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
 function PlanSummary({ plan }: { plan: BkTermPlanRow }) {
   const items: [string, string][] = [
     ["Term", `${formatDateShort(plan.starts_on)} – ${formatDateShort(plan.ends_on)}`],
-    ["Net professional hours", formatHours(Number(plan.net_professional_hours))],
     ["Reserve share", `${Math.round(Number(plan.reserve_share) * 1000) / 10}%`],
     ["Contributed airtime", `${plan.airtime_contributed_minutes_per_week} min a week`],
-    ["Lead's hours a day", String(plan.lead_hours_per_day)],
   ];
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded border border-line bg-white px-4 py-3 text-sm sm:grid-cols-2">
       {items.map(([label, value]) => (
         <div
           key={label}
-          className="flex justify-between gap-4 border-b border-line py-1.5 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0"
+          className="flex justify-between gap-4 border-b border-line py-1.5 last:border-b-0"
         >
           <dt className="text-ink-500">{label}</dt>
           <dd className="font-semibold text-ink-900">{value}</dd>
@@ -312,7 +545,6 @@ function PlanForm({
   submitLabel: string;
   cancelHref: string;
 }) {
-  const netDays = plan ? Number(plan.net_professional_hours) / HOURS_PER_PROJECT_DAY : null;
   return (
     <form action={action} className="flex flex-col gap-4 rounded border border-line bg-white p-4">
       {plan && <input type="hidden" name="plan_id" value={plan.id} />}
@@ -349,22 +581,6 @@ function PlanForm({
           />
         </div>
         <div>
-          <Label htmlFor="net_professional_hours">Net professional hours</Label>
-          <Input
-            id="net_professional_hours"
-            name="net_professional_hours"
-            type="number"
-            step="0.5"
-            min="0"
-            required
-            defaultValue={plan ? String(plan.net_professional_hours) : "800"}
-          />
-          <FieldHint>
-            A project day is 8 hours; the framework&apos;s placeholder is 100 days = 800 hours.
-            {netDays !== null && ` Now ${Math.round(netDays * 100) / 100} days.`}
-          </FieldHint>
-        </div>
-        <div>
           <Label htmlFor="reserve_percent">Reserve share</Label>
           <Input
             id="reserve_percent"
@@ -377,21 +593,9 @@ function PlanForm({
             defaultValue={plan ? String(Math.round(Number(plan.reserve_share) * 1000) / 10) : "15"}
           />
           <FieldHint>
-            Percent of net kept for strategic work: the station&apos;s contribution.
+            Percent of each tracked class&apos;s net hours kept for strategic work: the
+            station&apos;s contribution.
           </FieldHint>
-        </div>
-        <div>
-          <Label htmlFor="lead_hours_per_day">Lead&apos;s hours a day</Label>
-          <Input
-            id="lead_hours_per_day"
-            name="lead_hours_per_day"
-            type="number"
-            step="0.5"
-            min="0.5"
-            max="24"
-            required
-            defaultValue={plan ? String(plan.lead_hours_per_day) : "8"}
-          />
         </div>
         <div>
           <Label htmlFor="airtime_contributed_minutes_per_week">
@@ -408,7 +612,7 @@ function PlanForm({
           />
           <FieldHint>The executive&apos;s envelope of university-eligible avail time.</FieldHint>
         </div>
-        <div className="sm:col-span-2">
+        <div>
           <Label htmlFor="notes">Notes</Label>
           <Textarea
             id="notes"
@@ -419,6 +623,12 @@ function PlanForm({
           />
         </div>
       </div>
+      {!plan && (
+        <FieldHint>
+          A new plan starts with a resource for each pool that has default windows; set units, then
+          track each class&apos;s capacity below.
+        </FieldHint>
+      )}
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>
         <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">

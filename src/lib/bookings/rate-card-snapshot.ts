@@ -13,11 +13,7 @@ export async function writeRateCardSnapshot(version: BkVersionRow): Promise<stri
   const detail = await getVersionDetail(version);
   const computed = cardForVersion(detail);
   if (!computed.ok) {
-    const missing = [
-      ...computed.missing.missing.map((key) => key.replace(/_/g, " ")),
-      ...computed.missing.missingPools.map((pool) => `${pool} pool`),
-    ];
-    return `This version can't be priced yet; it is missing: ${missing.join(", ")}.`;
+    return `This version can't be priced yet; it is missing: ${computed.missing.join(", ")}.`;
   }
 
   const supabase = await createClient();

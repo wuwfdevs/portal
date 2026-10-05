@@ -6,16 +6,18 @@ import { PLAN_PATH, withQuery } from "@/lib/bookings/paths";
 import {
   formatHours,
   formatMonth,
-  type CapacitySummary,
+  totalCapacity,
+  type ClassCapacitySummary,
   type MonthCapacity,
 } from "@/lib/bookings/scheduling";
 import type { BkTermPlanRow } from "@/lib/bookings/queries";
 
 /**
  * The two envelopes (docs/bookings-design.md §8), side by side above the
- * calendar: production capacity in professional hours (shown in days), and
- * the airtime envelope read from On Air's clocks. Pure display; the figures
- * come from lib/bookings/scheduling.ts and lib/bookings/airtime.ts.
+ * calendar: production capacity per labor class in professional hours
+ * (shown in days), and the airtime envelope read from On Air's clocks.
+ * Pure display; the figures come from lib/bookings/scheduling.ts and
+ * lib/bookings/airtime.ts.
  */
 
 function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -30,22 +32,24 @@ function Figure({ label, value, hint }: { label: string; value: string; hint?: s
 
 export function CapacityPanel({
   plan,
-  capacity,
+  classes,
   months,
   canEdit,
 }: {
   plan: BkTermPlanRow;
-  capacity: CapacitySummary;
+  classes: ClassCapacitySummary[];
   months: MonthCapacity[];
   canEdit: boolean;
 }) {
   const reservePercent = Math.round(Number(plan.reserve_share) * 1000) / 10;
+  const total = totalCapacity(classes);
   return (
     <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Production capacity</h3>
         <span className="text-xs text-ink-500">
-          Professional hours; a project day is 8. The reserve is the station&apos;s contribution.
+          Hours per labor class; a project day is 8. The reserve ({reservePercent}%) is the
+          station&apos;s contribution.
         </span>
         <span className="flex-1" />
         {canEdit && (
@@ -57,34 +61,83 @@ export function CapacityPanel({
           </Link>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Figure
-          label="Net capacity"
-          value={formatHours(capacity.net)}
-          hint="The director's figure"
-        />
-        <Figure
-          label={`Reserve (${reservePercent}%)`}
-          value={formatHours(capacity.reserveRemaining)}
-          hint={`of ${formatHours(capacity.reserve)} left for strategic work`}
-        />
-        <Figure
-          label="Spoken for"
-          value={formatHours(capacity.booked + capacity.held)}
-          hint={`${formatHours(capacity.booked)} booked · ${formatHours(capacity.held)} held`}
-        />
-        <Figure
-          label="Open capacity"
-          value={formatHours(capacity.open)}
-          hint="Net − reserve − held − incremental and external bookings"
-        />
-      </div>
-      {capacity.net === 0 && (
+      {classes.length === 0 ? (
         <Alert variant="note">
-          Net capacity is zero, so nothing can be booked yet. The director sets it on the term plan.
+          No labor class has capacity on this term plan yet, so bookings are not capacity-checked.
+          The director sets each class&apos;s net hours, headcount and hours a day on the term plan.
         </Alert>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Figure
+              label="Net capacity"
+              value={formatHours(total.net)}
+              hint="Across tracked classes"
+            />
+            <Figure
+              label="Reserve left"
+              value={formatHours(total.reserveRemaining)}
+              hint={`of ${formatHours(total.reserve)} for strategic work`}
+            />
+            <Figure
+              label="Spoken for"
+              value={formatHours(total.booked + total.held)}
+              hint={`${formatHours(total.booked)} booked · ${formatHours(total.held)} held`}
+            />
+            <Figure
+              label="Open capacity"
+              value={formatHours(total.open)}
+              hint="Net − reserve − held − incremental and external bookings"
+            />
+          </div>
+          <TableFrame>
+            <Table stack>
+              <thead>
+                <HeaderRow>
+                  <Th>Class</Th>
+                  <Th className="text-right">Net</Th>
+                  <Th className="text-right">Reserve left</Th>
+                  <Th className="text-right">Held</Th>
+                  <Th className="text-right">Booked</Th>
+                  <Th className="text-right">Open</Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {classes.map((row) => (
+                  <Row key={row.labor_class_id}>
+                    <Cell stack="title">
+                      {row.name}
+                      <span className="block text-xs text-ink-500">
+                        {row.headcount > 1 ? `${row.headcount} people · ` : ""}
+                        {row.hoursPerPersonDay} h a day each
+                      </span>
+                    </Cell>
+                    <Cell label="Net" className="text-right">
+                      {formatHours(row.net)}
+                    </Cell>
+                    <Cell label="Reserve left" className="text-right">
+                      {formatHours(row.reserveRemaining)}
+                    </Cell>
+                    <Cell label="Held" className="text-right">
+                      {formatHours(row.held)}
+                    </Cell>
+                    <Cell label="Booked" className="text-right">
+                      {formatHours(row.booked)}
+                    </Cell>
+                    <Cell
+                      label="Open"
+                      className={`text-right font-semibold ${row.open < 0 ? "text-[#8F3A3A]" : ""}`}
+                    >
+                      {formatHours(row.open)}
+                    </Cell>
+                  </Row>
+                ))}
+              </tbody>
+            </Table>
+          </TableFrame>
+        </>
       )}
-      {months.length > 0 && (
+      {months.length > 0 && classes.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-xs font-bold text-brand-link">
             Open capacity by month

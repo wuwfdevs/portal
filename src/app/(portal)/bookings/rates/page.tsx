@@ -11,12 +11,11 @@ import {
   listVersions,
   pickVersion,
   type BkAssumptionRow,
+  type BkPoolRow,
 } from "@/lib/bookings/queries";
 import {
   MODEL_INPUT_KEYS,
   MODEL_INPUT_LABEL,
-  POOL_LABEL,
-  POOL_KEYS,
   adoptionGate,
   formatDollars,
   sensitivity,
@@ -136,7 +135,7 @@ function AssumptionsTable({
   params,
   canEdit,
   canValidate,
-  showKind,
+  poolNames,
 }: {
   title: string;
   intro: string;
@@ -145,9 +144,17 @@ function AssumptionsTable({
   params: Params;
   canEdit: boolean;
   canValidate: boolean;
-  showKind: boolean;
+  poolNames: Map<string, string>;
 }) {
   const here = (extra?: Record<string, string>) => ratesHref("assumptions", versionId, extra);
+  const kindLabel = (row: BkAssumptionRow) =>
+    row.kind === "pool_line"
+      ? row.pool_id
+        ? `${poolNames.get(row.pool_id) ?? "Pool"} — own budget line`
+        : "Shared production resource pool"
+      : row.key && (MODEL_INPUT_KEYS as readonly string[]).includes(row.key)
+        ? `Model input · ${MODEL_INPUT_LABEL[row.key as (typeof MODEL_INPUT_KEYS)[number]]}`
+        : "Model input";
   return (
     <section className="flex flex-col gap-3">
       <div>
@@ -186,21 +193,7 @@ function AssumptionsTable({
                   <Row key={row.id}>
                     <Cell stack="title">
                       <div className="font-semibold text-ink-900">{row.label}</div>
-                      {showKind && (
-                        <div className="text-xs text-ink-400">
-                          {row.kind === "shared_pool_line"
-                            ? "Shared production resource pool"
-                            : row.kind === "webcast_pool_line"
-                              ? "Webcasting operating pool"
-                              : row.key
-                                ? MODEL_INPUT_LABEL[
-                                    row.key as (typeof MODEL_INPUT_KEYS)[number]
-                                  ] === row.label
-                                  ? "Model input"
-                                  : `Model input · ${MODEL_INPUT_LABEL[row.key as (typeof MODEL_INPUT_KEYS)[number]] ?? row.key}`
-                                : "Model input"}
-                        </div>
-                      )}
+                      <div className="text-xs text-ink-400">{kindLabel(row)}</div>
                       {row.notes && <div className="mt-1 text-xs text-ink-500">{row.notes}</div>}
                     </Cell>
                     <Cell label="Value" className="text-right tabular-nums">
@@ -296,11 +289,16 @@ export default async function RatesAssumptionsPage({
   const working = detail.assumptions.filter((row) => row.section === "working");
   const gate = adoptionGate([
     ...detail.assumptions.map((row) => ({ validationState: row.validation_state })),
+    ...detail.laborRates.map((row) => ({ validationState: row.validation_state })),
     ...detail.pools.map((row) => ({ validationState: row.validation_state })),
   ]);
   const computed = cardForVersion(detail);
   const usedKeys = new Set(detail.assumptions.map((row) => row.key).filter(Boolean));
   const freeKeys = MODEL_INPUT_KEYS.filter((key) => !usedKeys.has(key));
+  const poolNames = new Map(detail.poolCatalog.map((pool) => [pool.id, pool.name]));
+  const ownLinePools: BkPoolRow[] = detail.poolCatalog.filter(
+    (pool) => pool.costing === "own_lines" && pool.active,
+  );
   const here = (extra?: Record<string, string>) => ratesHref("assumptions", version.id, extra);
 
   return (
@@ -325,11 +323,25 @@ export default async function RatesAssumptionsPage({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="new-kind">What kind of input</Label>
-              <Select id="new-kind" name="kind" defaultValue="shared_pool_line">
-                <option value="shared_pool_line">Budget line in the shared production pool</option>
-                <option value="webcast_pool_line">Budget line in the webcasting pool</option>
+              <Select id="new-kind" name="kind" defaultValue="pool_line">
+                <option value="pool_line">A budget line</option>
                 <option value="model_input">A model input the rate math reads</option>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="new-pool">Which pool the line belongs to (for a budget line)</Label>
+              <Select id="new-pool" name="pool_id" defaultValue="shared">
+                <option value="shared">The shared production pool</option>
+                {ownLinePools.map((pool) => (
+                  <option key={pool.id} value={pool.id}>
+                    {pool.name} — its own lines
+                  </option>
+                ))}
+              </Select>
+              <FieldHint>
+                Only pools costed from their own lines are offered; the others take a share of the
+                shared pool.
+              </FieldHint>
             </div>
             <div>
               <Label htmlFor="new-key">Model input (for a model input only)</Label>
@@ -344,15 +356,15 @@ export default async function RatesAssumptionsPage({
               <FieldHint>Only inputs this version doesn&apos;t have yet are offered.</FieldHint>
             </div>
             <div>
-              <Label htmlFor="new-label">Name</Label>
-              <Input id="new-label" name="label" required autoFocus />
-            </div>
-            <div>
               <Label htmlFor="new-section">Section</Label>
               <Select id="new-section" name="section" defaultValue="working">
                 <option value="sourced">Sourced cost input</option>
                 <option value="working">Working assumption</option>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="new-label">Name</Label>
+              <Input id="new-label" name="label" required autoFocus />
             </div>
             <div>
               <Label htmlFor="new-value">Value</Label>
@@ -364,17 +376,9 @@ export default async function RatesAssumptionsPage({
               <Input
                 id="new-unit"
                 name="unit"
-                placeholder="per year, per hour, of salary, hours…"
+                placeholder="per year, of price, of revenue…"
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="new-basis">Source or basis</Label>
-              <Input id="new-basis" name="basis" />
-            </div>
-            <div>
-              <Label htmlFor="new-source_url">Source link</Label>
-              <Input id="new-source_url" name="source_url" type="url" />
             </div>
             <div>
               <Label htmlFor="new-owner">Validated by</Label>
@@ -387,6 +391,14 @@ export default async function RatesAssumptionsPage({
               </Select>
             </div>
             <div>
+              <Label htmlFor="new-basis">Source or basis</Label>
+              <Input id="new-basis" name="basis" />
+            </div>
+            <div>
+              <Label htmlFor="new-source_url">Source link</Label>
+              <Input id="new-source_url" name="source_url" type="url" />
+            </div>
+            <div className="sm:col-span-2">
               <Label htmlFor="new-needed">What validating it takes</Label>
               <Input id="new-needed" name="validation_needed" />
             </div>
@@ -400,24 +412,24 @@ export default async function RatesAssumptionsPage({
 
       <AssumptionsTable
         title="Sourced current cost inputs"
-        intro="FY26–27 operating and auxiliary budget lines. The shared production pool is the sum of its lines; the webcasting pool is the sum of its own."
+        intro="FY26–27 operating and auxiliary budget lines. The shared production pool is the sum of its lines; a pool costed from its own lines (webcasting) is the sum of those."
         rows={sourced}
         versionId={version.id}
         params={params}
         canEdit={canEdit}
         canValidate={canValidate}
-        showKind
+        poolNames={poolNames}
       />
 
       <AssumptionsTable
         title="Working assumptions"
-        intro="Validate before adoption. Each row names who must validate it and what that takes; changing a value never changes an adopted version."
+        intro="Validate before adoption. Each row names who must validate it and what that takes; changing a value never changes an adopted version. Labor pay figures are on the Labor tab, pool shares and units on Resource pools."
         rows={working}
         versionId={version.id}
         params={params}
         canEdit={canEdit}
         canValidate={canValidate}
-        showKind={false}
+        poolNames={poolNames}
       />
 
       {canEdit && params.new !== "1" && (
@@ -433,50 +445,35 @@ export default async function RatesAssumptionsPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="rounded border border-line bg-white p-4">
-          <h3 className="text-sm font-bold text-ink-900">
-            Derived — recomputed from the rows above
-          </h3>
+          <h3 className="text-sm font-bold text-ink-900">Derived — recomputed from the rows</h3>
           {computed.ok ? (
             <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 text-sm">
-              <dt className="text-ink-500">Professional loaded hourly cost</dt>
-              <dd className="text-right font-semibold tabular-nums">
-                {formatDollars(computed.card.derived.proLoadedHourly, { cents: true })}
-              </dd>
-              <dt className="text-ink-500">Student / OPS loaded hourly cost</dt>
-              <dd className="text-right font-semibold tabular-nums">
-                {formatDollars(computed.card.derived.studentLoadedHourly, { cents: true })}
-              </dd>
+              {computed.card.derived.labor.map((labor) => (
+                <div key={labor.id} className="contents">
+                  <dt className="text-ink-500">{labor.name}, loaded hourly</dt>
+                  <dd className="text-right font-semibold tabular-nums">
+                    {formatDollars(labor.loadedHourly, { cents: true })}
+                  </dd>
+                </div>
+              ))}
               <dt className="text-ink-500">Shared production resource pool</dt>
               <dd className="text-right font-semibold tabular-nums">
                 {formatDollars(computed.card.derived.sharedPoolAnnual)} / yr
               </dd>
-              <dt className="text-ink-500">Webcast operations per event</dt>
-              <dd className="text-right font-semibold tabular-nums">
-                {formatDollars(computed.card.derived.webcastOpsPerEvent)}
-              </dd>
-              <dt className="text-ink-500">Baseline institutional capacity</dt>
-              <dd className="text-right font-semibold tabular-nums">
-                {computed.card.derived.baselineCapacityDays} days
-              </dd>
-              {POOL_KEYS.map((pool) => (
-                <div key={pool} className="contents">
+              {computed.card.derived.pools.map((pool) => (
+                <div key={pool.id} className="contents">
                   <dt className="text-ink-500">
-                    {POOL_LABEL[pool]}, per {computed.card.derived.pools[pool].unitLabel}
+                    {pool.name}, per {pool.unitLabel}
                   </dt>
                   <dd className="text-right font-semibold tabular-nums">
-                    {formatDollars(computed.card.derived.pools[pool].costPerUnit, { cents: true })}
+                    {formatDollars(pool.costPerUnit, { cents: true })}
                   </dd>
                 </div>
               ))}
             </dl>
           ) : (
             <p className="mt-3 text-sm text-ink-500">
-              This version can&apos;t be priced yet. Missing:{" "}
-              {[
-                ...computed.missing.missing.map((key) => MODEL_INPUT_LABEL[key]),
-                ...computed.missing.missingPools.map((pool) => `${POOL_LABEL[pool]} pool`),
-              ].join(", ")}
-              .
+              This version can&apos;t be priced yet. Missing: {computed.missing.join(", ")}.
             </p>
           )}
         </section>
@@ -495,8 +492,9 @@ export default async function RatesAssumptionsPage({
                 <span className="font-semibold text-ink-900">
                   {gate.pending} of {gate.total}
                 </span>{" "}
-                inputs await validation. Finance must mark each one validated, or accepted as is
-                with a note, before this version can be submitted; the Executive Director adopts it.
+                inputs await validation across assumptions, labor and pools. Finance must mark each
+                one validated, or accepted as is with a note, before this version can be submitted;
+                the Executive Director adopts it.
               </>
             )}
           </p>
@@ -513,41 +511,8 @@ export default async function RatesAssumptionsPage({
           {computed.ok ? (
             <>
               <ul className="mt-3 flex flex-col gap-2 text-sm">
-                {sensitivity(
-                  (() => {
-                    // cardForVersion already proved the model assembles; rebuild it for the moves.
-                    const assembled = computed.card;
-                    return {
-                      inputs: Object.fromEntries(
-                        MODEL_INPUT_KEYS.map((key) => [
-                          key,
-                          Number(detail.assumptions.find((row) => row.key === key)?.value ?? 0),
-                        ]),
-                      ) as Record<(typeof MODEL_INPUT_KEYS)[number], number>,
-                      sharedPoolLines: detail.assumptions
-                        .filter((row) => row.kind === "shared_pool_line")
-                        .map((row) => Number(row.value)),
-                      webcastPoolLines: detail.assumptions
-                        .filter((row) => row.kind === "webcast_pool_line")
-                        .map((row) => Number(row.value)),
-                      pools: Object.fromEntries(
-                        POOL_KEYS.map((pool) => [
-                          pool,
-                          {
-                            allocationShare: assembled.derived.pools[pool].allocationShare,
-                            availableUnits: assembled.derived.pools[pool].availableUnits,
-                            unitLabel: assembled.derived.pools[pool].unitLabel,
-                          },
-                        ]),
-                      ) as Record<
-                        (typeof POOL_KEYS)[number],
-                        { allocationShare: number; availableUnits: number; unitLabel: string }
-                      >,
-                    };
-                  })(),
-                  computed.specs,
-                )
-                  .slice(0, 4)
+                {sensitivity(computed.model, computed.specs)
+                  .slice(0, 5)
                   .map((row) => {
                     const biggest = computed.specs.reduce<{ name: string; delta: number } | null>(
                       (best, spec) => {
@@ -559,7 +524,10 @@ export default async function RatesAssumptionsPage({
                       null,
                     );
                     return (
-                      <li key={row.move.key} className="flex items-baseline justify-between gap-3">
+                      <li
+                        key={`${row.move.kind}-${row.move.targetId}`}
+                        className="flex items-baseline justify-between gap-3"
+                      >
                         <span className="text-ink-700">
                           {row.move.label}{" "}
                           <span className="text-ink-400">{row.move.moveLabel}</span>
@@ -579,8 +547,8 @@ export default async function RatesAssumptionsPage({
                   })}
               </ul>
               <p className="mt-3 text-xs text-ink-500">
-                Computed by re-running the rate math with one input moved, so validation effort goes
-                where it changes the card.
+                Computed by re-running the rate math with one figure moved, so validation effort
+                goes where it changes the card.
               </p>
             </>
           ) : (

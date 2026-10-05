@@ -3,8 +3,8 @@ import { ROLE_OPTIONS, parseBookingsRoles } from "./roles";
 
 describe("parseBookingsRoles", () => {
   it("keeps known roles in a stable order and drops the rest", () => {
-    expect(parseBookingsRoles(["executive", "Lead ", "manager", "finance"])).toEqual([
-      "lead",
+    expect(parseBookingsRoles(["executive", "Production ", "manager", "finance"])).toEqual([
+      "production",
       "finance",
       "executive",
     ]);
@@ -20,7 +20,7 @@ describe("parseBookingsRoles", () => {
       "director",
       "executive",
       "finance",
-      "lead",
+      "production",
     ]);
   });
 });

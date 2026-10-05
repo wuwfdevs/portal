@@ -7,8 +7,7 @@ import {
   ASSET_CONDITION_LABEL,
   ASSET_FUNDING_LABEL,
 } from "@/lib/bookings/labels";
-import type { BkAssetRow } from "@/lib/bookings/queries";
-import { POOL_KEYS, POOL_LABEL } from "@/lib/bookings/rates";
+import type { BkAssetRow, BkPoolRow } from "@/lib/bookings/queries";
 
 const FUNDINGS = ["station", "foundation_gift", "grant_restricted", "uwf"] as const;
 const BURDENS = ["low", "medium", "high"] as const;
@@ -23,12 +22,14 @@ const CONDITIONS = ["good", "fair", "worn", "out_of_service"] as const;
 export function AssetForm({
   action,
   defaults,
+  pools,
   submitLabel,
   cancelHref,
   error,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   defaults?: BkAssetRow;
+  pools: BkPoolRow[];
   submitLabel: string;
   cancelHref: string;
   error?: string;
@@ -64,13 +65,19 @@ export function AssetForm({
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <Label htmlFor="pool">Pool</Label>
-          <Select id="pool" name="pool" defaultValue={defaults?.pool ?? "studio"}>
-            {POOL_KEYS.map((pool) => (
-              <option key={pool} value={pool}>
-                {POOL_LABEL[pool]}
-              </option>
-            ))}
+          <Label htmlFor="pool_id">Pool</Label>
+          <Select
+            id="pool_id"
+            name="pool_id"
+            defaultValue={defaults?.pool_id ?? pools[0]?.id ?? ""}
+          >
+            {pools
+              .filter((pool) => pool.active || pool.id === defaults?.pool_id)
+              .map((pool) => (
+                <option key={pool.id} value={pool.id}>
+                  {pool.name}
+                </option>
+              ))}
           </Select>
         </div>
         <div>

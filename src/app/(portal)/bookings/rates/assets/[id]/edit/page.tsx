@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { RATES_PATH } from "@/lib/bookings/paths";
-import { getAsset } from "@/lib/bookings/queries";
+import { getAsset, listPools } from "@/lib/bookings/queries";
 import { updateAsset } from "../../../actions";
 import { RatesTabs } from "../../../rates-tabs";
 import { AssetForm } from "../../asset-form";
@@ -16,7 +16,7 @@ export default async function EditAssetPage({
   const [{ id }, { error }] = await Promise.all([params, searchParams]);
   const context = await requireBookingsAccess();
   if (!context.isFinance && !context.isDirector) redirect(`${RATES_PATH}/assets`);
-  const asset = await getAsset(id);
+  const [asset, pools] = await Promise.all([getAsset(id), listPools()]);
   if (!asset) notFound();
 
   return (
@@ -26,6 +26,7 @@ export default async function EditAssetPage({
       <AssetForm
         action={updateAsset}
         defaults={asset}
+        pools={pools}
         submitLabel="Save asset"
         cancelHref={`${RATES_PATH}/assets`}
         error={error}

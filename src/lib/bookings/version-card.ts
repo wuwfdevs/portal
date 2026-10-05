@@ -5,35 +5,53 @@ import {
   buildRateCard,
   modelFromRows,
   packageSpecFromRow,
+  type LaborClassLike,
+  type LaborRateLike,
   type ModelFromRows,
+  type PackageLike,
   type PackageSpec,
+  type PoolCatalogLike,
+  type PoolRowLike,
   type RateCard,
 } from "./rates";
 
 export interface VersionRowsLike {
-  assumptions: Parameters<typeof modelFromRows>[0];
-  pools: Parameters<typeof modelFromRows>[1];
-  packages: Parameters<typeof packageSpecFromRow>[0][];
+  assumptions: Parameters<typeof modelFromRows>[0]["assumptions"];
+  classes: LaborClassLike[];
+  laborRates: LaborRateLike[];
+  poolCatalog: PoolCatalogLike[];
+  pools: PoolRowLike[];
+  packages: PackageLike[];
 }
 
 export type VersionCard =
-  | { ok: true; card: RateCard; specs: PackageSpec[] }
-  | { ok: false; missing: Extract<ModelFromRows, { ok: false }> };
+  | {
+      ok: true;
+      card: RateCard;
+      specs: PackageSpec[];
+      model: Extract<ModelFromRows, { ok: true }>["model"];
+    }
+  | { ok: false; missing: string[] };
 
 /** The rate card a version's rows compute to, over its active packages only. */
 export function cardForVersion(rows: VersionRowsLike): VersionCard {
-  const model = modelFromRows(rows.assumptions, rows.pools);
-  if (!model.ok) return { ok: false, missing: model };
+  const model = modelFromRows(rows);
+  if (!model.ok) return { ok: false, missing: model.missing };
   const specs = rows.packages.filter((pkg) => pkg.active).map(packageSpecFromRow);
-  return { ok: true, card: buildRateCard(model.model, specs), specs };
+  try {
+    return { ok: true, card: buildRateCard(model.model, specs), specs, model: model.model };
+  } catch (error) {
+    return { ok: false, missing: [error instanceof Error ? error.message : String(error)] };
+  }
 }
 
-/** A line's identity within a snapshot: the package id, or the labor line's key. */
+/** A line's identity within a snapshot: the package id, or the labor class's key. */
 export function snapshotLinesForCard(card: RateCard, versionId: string) {
   const packageLines = card.packages.map((line, index) => ({
     version_id: versionId,
     kind: "package" as const,
     package_id: line.key,
+    labor_class_id: null,
     line_key: line.key,
     name: line.name,
     unit_label: line.unitLabel,
@@ -50,6 +68,7 @@ export function snapshotLinesForCard(card: RateCard, versionId: string) {
     version_id: versionId,
     kind: "labor" as const,
     package_id: null,
+    labor_class_id: line.laborClassId,
     line_key: line.key,
     name: line.name,
     unit_label: line.unitLabel,

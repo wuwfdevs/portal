@@ -6,6 +6,8 @@ import type {
   BkAssumptionOwner,
   BkBookingStatus,
   BkHoldKind,
+  BkPayBasis,
+  BkPoolCosting,
   BkPricingTreatment,
   BkTermPlanStatus,
   BkValidationState,
@@ -103,4 +105,16 @@ export const TREATMENT_SHORT_LABEL: Record<BkPricingTreatment, string> = {
   strategic: "Strategic",
   incremental: "Incremental",
   external: "External",
+};
+
+// Slice 2b — labor classes and pools as data.
+
+export const PAY_BASIS_LABEL: Record<BkPayBasis, string> = {
+  salaried: "Salaried (salary ÷ paid hours)",
+  hourly: "Hourly (wage)",
+};
+
+export const POOL_COSTING_LABEL: Record<BkPoolCosting, string> = {
+  allocated: "A share of the shared production pool",
+  own_lines: "Its own budget lines",
 };

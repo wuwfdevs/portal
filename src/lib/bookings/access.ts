@@ -12,7 +12,7 @@ export interface BookingsContext {
   tool: Tool;
   roles: BookingsRole[];
   /** UI hints; the private.is_bookings_*() predicates are the boundary. */
-  isLead: boolean;
+  isProduction: boolean;
   isDirector: boolean;
   isFinance: boolean;
   isExecutive: boolean;
@@ -37,7 +37,7 @@ function contextFor(profile: Profile, tool: Tool, roles: BookingsRole[]): Bookin
     profile,
     tool,
     roles,
-    isLead: roles.includes("lead") || isAdministrator,
+    isProduction: roles.includes("production") || isAdministrator,
     isDirector: roles.includes("director") || isAdministrator,
     isFinance: roles.includes("finance") || isAdministrator,
     isExecutive: roles.includes("executive") || isAdministrator,
@@ -78,10 +78,12 @@ export async function assertBookingsDirector(): Promise<BookingsContext> {
   return context;
 }
 
-/** Booking a window: the lead or the director (the executive, for an exception). */
+/** Booking a window: production staff or the director (the executive, for an exception). */
 export async function assertBookingsScheduler(): Promise<BookingsContext> {
   const context = await assertBookingsAccess();
-  if (!context.isLead && !context.isDirector && !context.isExecutive) throw new ForbiddenError();
+  if (!context.isProduction && !context.isDirector && !context.isExecutive) {
+    throw new ForbiddenError();
+  }
   return context;
 }
 

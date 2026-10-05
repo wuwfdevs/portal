@@ -296,9 +296,11 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: [
       "/bookings",
       "/bookings/rates",
+      "/bookings/rates/labor",
       "/bookings/rates/pools",
       "/bookings/rates/packages",
       "/bookings/rates/card",
+      "/bookings/rates/setup",
       "/bookings/rates/changes",
       "/bookings/rates/versions/new",
     ],

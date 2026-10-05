@@ -3,25 +3,24 @@ import { cn } from "@/lib/cn";
 import {
   bookingIsLive,
   blackoutOn,
+  classHoursOn,
   formatWindow,
-  leadHoursOn,
   type BlackoutLike,
   type BookingLike,
   type CalendarState,
   type HoldLike,
 } from "@/lib/bookings/scheduling";
-import { POOL_LABEL, type PoolKey } from "@/lib/bookings/rates";
 import { formatDateShort } from "@/lib/log/program-status";
 import { shiftDateISO } from "@/lib/log/timezone";
 import { formatWeekRange, weekDates, weekStartISO } from "@/lib/log/week-layout";
 
 /**
  * The production calendar's week and month pictures (docs/bookings-design.md
- * §4): one row per resource pool and one for the lead's day, seven columns.
- * A server component — navigation is links, every write is a form elsewhere
- * on the page. Unlike On Air's hours calendar there is no hour axis: a pool's
- * day holds a handful of windows, and a block's label matters more than its
- * exact height.
+ * §4): one row per pool the term plan resources, one per labor class it
+ * tracks, seven columns. A server component — navigation is links, every
+ * write is a form elsewhere on the page. Unlike On Air's hours calendar
+ * there is no hour axis: a pool's day holds a handful of windows, and a
+ * block's label matters more than its exact height.
  */
 
 export type CalendarView = "week" | "month";
@@ -65,7 +64,7 @@ export function Legend() {
         <span key={item.label}>
           <span
             aria-hidden="true"
-            className={cn("mr-1.5 inline-block size-3 align-[-1px] rounded-[2px]", item.className)}
+            className={cn("mr-1.5 inline-block size-3 rounded-[2px] align-[-1px]", item.className)}
           />
           {item.label}
         </span>
@@ -81,7 +80,7 @@ export interface CalendarGridProps {
   today: string;
   state: CalendarState;
   /** Pools shown, in order (the pool filter). */
-  pools: PoolKey[];
+  poolIds: string[];
   weekHref: (dateISO: string) => string;
   monthHref: (dateISO: string) => string;
 }
@@ -143,20 +142,24 @@ function bookingClass(booking: BookingLike): string {
   return booking.status === "confirmed" ? BLOCK_CONFIRMED : BLOCK_TENTATIVE;
 }
 
-function dayItems(state: CalendarState, pool: PoolKey, dateISO: string) {
-  const blackout = blackoutOn(dateISO, pool, state.blackouts);
-  const holds = state.holds.filter((h) => h.pool === pool && h.date === dateISO);
+function dayItems(state: CalendarState, poolId: string, dateISO: string) {
+  const blackout = blackoutOn(dateISO, poolId, state.blackouts);
+  const holds = state.holds.filter((h) => h.pool_id === poolId && h.date === dateISO);
   const bookings = state.bookings.filter(
-    (b) => b.pool === pool && b.date === dateISO && bookingIsLive(b, state.nowISO),
+    (b) => b.pool_id === poolId && b.date === dateISO && bookingIsLive(b, state.nowISO),
   );
   return { blackout, holds, bookings };
 }
 
-function WeekGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGridProps) {
+function trim(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: CalendarGridProps) {
   const monday = weekStartISO(date);
   const dates = weekDates(date);
   const inPlan = (d: string) => d >= state.plan.starts_on && d <= state.plan.ends_on;
-  const leadHoldsOnly = (d: string) => state.holds.filter((h) => h.pool === null && h.date === d);
+  const poolName = (id: string) => state.pools.find((p) => p.id === id)?.name ?? "Pool";
 
   return (
     <section className="flex flex-col gap-3" aria-label="Week">
@@ -201,23 +204,27 @@ function WeekGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGr
             </tr>
           </thead>
           <tbody>
-            {pools.map((pool) => {
-              const resource = state.resources.find((r) => r.pool === pool);
+            {poolIds.map((poolId) => {
+              const resource = state.resources.find((r) => r.pool_id === poolId);
+              const pool = state.pools.find((p) => p.id === poolId);
               return (
-                <tr key={pool} className="align-top">
+                <tr key={poolId} className="align-top">
                   <th
                     scope="row"
                     className="border-b border-line px-3 py-2 text-left text-[13px] font-semibold text-ink-900"
                   >
-                    {POOL_LABEL[pool]}
+                    {poolName(poolId)}
                     {resource && (
                       <span className="block text-[11px] font-normal text-ink-500">
-                        {resource.available_units} {resource.unit_label} this term
+                        {trim(Number(resource.available_units))} {pool?.unit_label ?? "unit"}s this
+                        term
+                        {resource.concurrent_units > 1 &&
+                          ` · ${resource.concurrent_units} at a time`}
                       </span>
                     )}
                   </th>
                   {dates.map((d) => {
-                    const { blackout, holds, bookings } = dayItems(state, pool, d);
+                    const { blackout, holds, bookings } = dayItems(state, poolId, d);
                     const outside = !inPlan(d);
                     return (
                       <td
@@ -228,7 +235,6 @@ function WeekGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGr
                           outside && "bg-[#F4F5F7]",
                           blackout && BLACKOUT_HATCH,
                         )}
-                        style={{ minHeight: 56 }}
                       >
                         <div className="flex min-h-[44px] flex-col gap-1">
                           {blackout && (
@@ -264,47 +270,68 @@ function WeekGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGr
                 </tr>
               );
             })}
-            <tr className="align-top bg-panel-50/60">
-              <th
-                scope="row"
-                className="px-3 py-2 text-left text-[13px] font-semibold text-ink-900"
-              >
-                Lead&apos;s day
-                <span className="block text-[11px] font-normal text-ink-500">
-                  {state.plan.lead_hours_per_day} h a day
-                </span>
-              </th>
-              {dates.map((d) => {
-                const used = leadHoursOn(d, state.holds, state.bookings, state.nowISO);
-                const cap = Number(state.plan.lead_hours_per_day);
-                const share = cap > 0 ? Math.min(1, used / cap) : 0;
-                const extra = leadHoldsOnly(d);
-                return (
-                  <td
-                    key={d}
-                    className={cn("border-l border-line px-2 py-2", !inPlan(d) && "bg-[#F4F5F7]")}
+            {state.capacity.map((row) => {
+              const cls = state.classes.find((c) => c.id === row.labor_class_id);
+              const cap = Number(row.headcount) * Number(row.hours_per_person_day);
+              return (
+                <tr key={row.labor_class_id} className="bg-panel-50/60 align-top">
+                  <th
+                    scope="row"
+                    className="px-3 py-2 text-left text-[13px] font-semibold text-ink-900"
                   >
-                    <div className="text-[12px] font-semibold text-ink-900">
-                      {trim(used)} / {trim(cap)} h
-                    </div>
-                    <div
-                      aria-hidden="true"
-                      className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#E3E7EB]"
-                    >
-                      <div
-                        className={cn("h-full", share >= 1 ? "bg-[#B45454]" : "bg-[#2E6DA4]")}
-                        style={{ width: `${share * 100}%` }}
-                      />
-                    </div>
-                    {extra.map((hold) => (
-                      <div key={hold.id} className="mt-1 text-[11px] text-ink-700">
-                        {hold.label} · {trim(Number(hold.professional_hours))} h
-                      </div>
-                    ))}
-                  </td>
-                );
-              })}
-            </tr>
+                    {cls?.name ?? "Labor"}
+                    <span className="block text-[11px] font-normal text-ink-500">
+                      {row.headcount > 1
+                        ? `${row.headcount} × ${trim(Number(row.hours_per_person_day))} h a day`
+                        : `${trim(Number(row.hours_per_person_day))} h a day`}
+                    </span>
+                  </th>
+                  {dates.map((d) => {
+                    const used = classHoursOn(
+                      d,
+                      row.labor_class_id,
+                      state.holds,
+                      state.bookings,
+                      state.nowISO,
+                    );
+                    const share = cap > 0 ? Math.min(1, used / cap) : 0;
+                    const laborOnly = state.holds.filter(
+                      (h) =>
+                        h.pool_id === null &&
+                        h.date === d &&
+                        (h.hours[row.labor_class_id] ?? 0) > 0,
+                    );
+                    return (
+                      <td
+                        key={d}
+                        className={cn(
+                          "border-l border-line px-2 py-2",
+                          !inPlan(d) && "bg-[#F4F5F7]",
+                        )}
+                      >
+                        <div className="text-[12px] font-semibold text-ink-900">
+                          {trim(used)} / {trim(cap)} h
+                        </div>
+                        <div
+                          aria-hidden="true"
+                          className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#E3E7EB]"
+                        >
+                          <div
+                            className={cn("h-full", share >= 1 ? "bg-[#B45454]" : "bg-[#2E6DA4]")}
+                            style={{ width: `${share * 100}%` }}
+                          />
+                        </div>
+                        {laborOnly.map((hold) => (
+                          <div key={hold.id} className="mt-1 text-[11px] text-ink-700">
+                            {hold.label} · {trim(Number(hold.hours[row.labor_class_id] ?? 0))} h
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -312,11 +339,7 @@ function WeekGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGr
   );
 }
 
-function trim(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function MonthGrid({ date, today, state, pools, weekHref, monthHref }: CalendarGridProps) {
+function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: CalendarGridProps) {
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
   const first = `${date.slice(0, 7)}-01`;
@@ -337,14 +360,14 @@ function MonthGrid({ date, today, state, pools, weekHref, monthHref }: CalendarG
     let tentative = 0;
     let holds = 0;
     let blackout: BlackoutLike | null = null;
-    for (const pool of pools) {
-      const items = dayItems(state, pool, d);
+    for (const poolId of poolIds) {
+      const items = dayItems(state, poolId, d);
       bookings += items.bookings.filter((b) => b.status === "confirmed").length;
       tentative += items.bookings.filter((b) => b.status === "tentative").length;
       holds += items.holds.length;
       blackout = blackout ?? items.blackout;
     }
-    holds += state.holds.filter((h) => h.pool === null && h.date === d).length;
+    holds += state.holds.filter((h) => h.pool_id === null && h.date === d).length;
     return { inPlan, bookings, tentative, holds, blackout };
   };
 
@@ -380,13 +403,14 @@ function MonthGrid({ date, today, state, pools, weekHref, monthHref }: CalendarG
         </div>
         <div className="grid grid-cols-7">
           {cells.map((d, index) => {
-            if (!d)
+            if (!d) {
               return (
                 <div
                   key={`empty-${index}`}
                   className="min-h-[88px] border-b border-l border-line bg-[#F8F9FA]"
                 />
               );
+            }
             const summary = summarize(d);
             return (
               <Link

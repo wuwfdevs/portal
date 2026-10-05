@@ -2,14 +2,47 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { hoursByClass, type HoursByClass } from "./scheduling";
 
-export type BkVersionRow = Database["public"]["Tables"]["bk_rate_model_versions"]["Row"];
-export type BkAssumptionRow = Database["public"]["Tables"]["bk_assumptions"]["Row"];
-export type BkResourcePoolRow = Database["public"]["Tables"]["bk_resource_pools"]["Row"];
-export type BkServicePackageRow = Database["public"]["Tables"]["bk_service_packages"]["Row"];
-export type BkRateCardLineRow = Database["public"]["Tables"]["bk_rate_card_lines"]["Row"];
-export type BkAssetRow = Database["public"]["Tables"]["bk_assets"]["Row"];
-export type BkRateModelEventRow = Database["public"]["Tables"]["bk_rate_model_events"]["Row"];
+type Tables = Database["public"]["Tables"];
+export type BkLaborClassRow = Tables["bk_labor_classes"]["Row"];
+export type BkPoolRow = Tables["bk_pools"]["Row"];
+export type BkVersionRow = Tables["bk_rate_model_versions"]["Row"];
+export type BkAssumptionRow = Tables["bk_assumptions"]["Row"];
+export type BkLaborRateRow = Tables["bk_labor_rates"]["Row"];
+export type BkResourcePoolRow = Tables["bk_resource_pools"]["Row"];
+export type BkServicePackageRow = Tables["bk_service_packages"]["Row"];
+export type BkRateCardLineRow = Tables["bk_rate_card_lines"]["Row"];
+export type BkAssetRow = Tables["bk_assets"]["Row"];
+export type BkRateModelEventRow = Tables["bk_rate_model_events"]["Row"];
+export type BkTermPlanRow = Tables["bk_term_plans"]["Row"];
+export type BkTermCapacityRow = Tables["bk_term_capacity"]["Row"];
+export type BkTermResourceRow = Tables["bk_term_resources"]["Row"];
+export type BkBlackoutRow = Tables["bk_blackouts"]["Row"];
+export type BkHoldRow = Tables["bk_holds"]["Row"];
+export type BkBookingRow = Tables["bk_bookings"]["Row"];
+
+// Catalogs ------------------------------------------------------------------------------------------------
+
+/** Every labor class, retired ones included, in sort order. */
+export async function listLaborClasses(): Promise<BkLaborClassRow[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_labor_classes")
+    .select("*")
+    .order("sort_order")
+    .order("name");
+  return unwrapRead(result, "labor classes") ?? [];
+}
+
+/** Every pool, retired ones included, in sort order. */
+export async function listPools(): Promise<BkPoolRow[]> {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_pools").select("*").order("sort_order").order("name");
+  return unwrapRead(result, "resource pools") ?? [];
+}
+
+// Rate model ------------------------------------------------------------------------------------------------
 
 /** Every version, newest first. */
 export async function listVersions(): Promise<BkVersionRow[]> {
@@ -36,16 +69,24 @@ export function pickVersion(
   return versions.find((version) => version.in_use) ?? versions[0] ?? null;
 }
 
+export interface PackageWithParts extends BkServicePackageRow {
+  labor: { labor_class_id: string; hours: number }[];
+  resources: { pool_id: string; units: number }[];
+}
+
 export interface VersionDetail {
   version: BkVersionRow;
   assumptions: BkAssumptionRow[];
+  laborRates: BkLaborRateRow[];
   pools: BkResourcePoolRow[];
-  packages: BkServicePackageRow[];
+  packages: PackageWithParts[];
+  classes: BkLaborClassRow[];
+  poolCatalog: BkPoolRow[];
 }
 
 export async function getVersionDetail(version: BkVersionRow): Promise<VersionDetail> {
   const supabase = await createClient();
-  const [assumptions, pools, packages] = await Promise.all([
+  const [assumptions, laborRates, pools, packages, classes, poolCatalog] = await Promise.all([
     supabase
       .from("bk_assumptions")
       .select("*")
@@ -53,22 +94,45 @@ export async function getVersionDetail(version: BkVersionRow): Promise<VersionDe
       .order("section")
       .order("sort_order")
       .order("created_at"),
-    supabase.from("bk_resource_pools").select("*").eq("version_id", version.id).order("pool"),
+    supabase.from("bk_labor_rates").select("*").eq("version_id", version.id),
+    supabase.from("bk_resource_pools").select("*").eq("version_id", version.id),
     supabase
       .from("bk_service_packages")
       .select("*")
       .eq("version_id", version.id)
       .order("sort_order")
       .order("created_at"),
+    listLaborClasses(),
+    listPools(),
   ]);
-  const poolOrder: Record<string, number> = { studio: 0, field: 1, live: 2, edit: 3 };
+  const packageRows = unwrapRead(packages, "service packages") ?? [];
+  const packageIds = packageRows.map((pkg) => pkg.id);
+  const [labor, resources] = await Promise.all([
+    packageIds.length > 0
+      ? supabase.from("bk_package_labor").select("*").in("package_id", packageIds)
+      : Promise.resolve({ data: [], error: null }),
+    packageIds.length > 0
+      ? supabase.from("bk_package_resources").select("*").in("package_id", packageIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const laborRows = unwrapRead(labor, "package labor") ?? [];
+  const resourceRows = unwrapRead(resources, "package resources") ?? [];
   return {
     version,
     assumptions: unwrapRead(assumptions, "rate model assumptions") ?? [],
-    pools: (unwrapRead(pools, "resource pools") ?? []).sort(
-      (a, b) => (poolOrder[a.pool] ?? 9) - (poolOrder[b.pool] ?? 9),
-    ),
-    packages: unwrapRead(packages, "service packages") ?? [],
+    laborRates: unwrapRead(laborRates, "labor rates") ?? [],
+    pools: unwrapRead(pools, "resource pool figures") ?? [],
+    packages: packageRows.map((pkg) => ({
+      ...pkg,
+      labor: laborRows
+        .filter((row) => row.package_id === pkg.id)
+        .map((row) => ({ labor_class_id: row.labor_class_id, hours: Number(row.hours) })),
+      resources: resourceRows
+        .filter((row) => row.package_id === pkg.id)
+        .map((row) => ({ pool_id: row.pool_id, units: Number(row.units) })),
+    })),
+    classes,
+    poolCatalog,
   };
 }
 
@@ -84,7 +148,7 @@ export async function listRateCardLines(versionId: string): Promise<BkRateCardLi
 
 export async function listAssets(): Promise<BkAssetRow[]> {
   const supabase = await createClient();
-  const result = await supabase.from("bk_assets").select("*").order("pool").order("name");
+  const result = await supabase.from("bk_assets").select("*").order("name");
   return unwrapRead(result, "assets") ?? [];
 }
 
@@ -134,13 +198,7 @@ export async function listRateModelEvents(limit = 100): Promise<RateModelEvent[]
   }));
 }
 
-// Slice 2 — the term plan and the calendar ------------------------------------------------------
-
-export type BkTermPlanRow = Database["public"]["Tables"]["bk_term_plans"]["Row"];
-export type BkTermResourceRow = Database["public"]["Tables"]["bk_term_resources"]["Row"];
-export type BkBlackoutRow = Database["public"]["Tables"]["bk_blackouts"]["Row"];
-export type BkHoldRow = Database["public"]["Tables"]["bk_holds"]["Row"];
-export type BkBookingRow = Database["public"]["Tables"]["bk_bookings"]["Row"];
+// The term plan and the calendar --------------------------------------------------------------------
 
 /** Every term plan, latest term first. */
 export async function listPlans(): Promise<BkTermPlanRow[]> {
@@ -167,20 +225,30 @@ export function pickPlan(
   return plans.find((plan) => plan.status === "active") ?? plans[0] ?? null;
 }
 
-export interface PlanCalendar {
-  plan: BkTermPlanRow;
-  resources: BkTermResourceRow[];
-  blackouts: BkBlackoutRow[];
-  holds: BkHoldRow[];
-  bookings: BkBookingRow[];
+export interface HoldWithHours extends BkHoldRow {
+  hours: HoursByClass;
 }
 
-const POOL_ORDER: Record<string, number> = { studio: 0, field: 1, live: 2, edit: 3 };
+export interface BookingWithHours extends BkBookingRow {
+  hours: HoursByClass;
+}
 
-/** Everything on a plan's calendar: its resources and every blackout, hold and booking. */
+export interface PlanCalendar {
+  plan: BkTermPlanRow;
+  capacity: BkTermCapacityRow[];
+  resources: BkTermResourceRow[];
+  blackouts: BkBlackoutRow[];
+  holds: HoldWithHours[];
+  bookings: BookingWithHours[];
+  classes: BkLaborClassRow[];
+  pools: BkPoolRow[];
+}
+
+/** Everything on a plan's calendar: its capacity, resources, and every blackout, hold and booking with their hours. */
 export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar> {
   const supabase = await createClient();
-  const [resources, blackouts, holds, bookings] = await Promise.all([
+  const [capacity, resources, blackouts, holds, bookings, classes, pools] = await Promise.all([
+    supabase.from("bk_term_capacity").select("*").eq("plan_id", plan.id),
     supabase.from("bk_term_resources").select("*").eq("plan_id", plan.id),
     supabase.from("bk_blackouts").select("*").eq("plan_id", plan.id).order("starts_on"),
     supabase
@@ -195,15 +263,51 @@ export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar
       .eq("plan_id", plan.id)
       .order("date")
       .order("window_start"),
+    listLaborClasses(),
+    listPools(),
   ]);
+  const holdRows = unwrapRead(holds, "holds") ?? [];
+  const bookingRows = unwrapRead(bookings, "bookings") ?? [];
+  const [holdLabor, bookingLabor] = await Promise.all([
+    holdRows.length > 0
+      ? supabase
+          .from("bk_hold_labor")
+          .select("*")
+          .in(
+            "hold_id",
+            holdRows.map((h) => h.id),
+          )
+      : Promise.resolve({ data: [], error: null }),
+    bookingRows.length > 0
+      ? supabase
+          .from("bk_booking_labor")
+          .select("*")
+          .in(
+            "booking_id",
+            bookingRows.map((b) => b.id),
+          )
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const holdLaborRows = unwrapRead(holdLabor, "hold labor") ?? [];
+  const bookingLaborRows = unwrapRead(bookingLabor, "booking labor") ?? [];
+  const poolOrder = new Map(pools.map((pool, index) => [pool.id, index]));
   return {
     plan,
+    capacity: unwrapRead(capacity, "term capacity") ?? [],
     resources: (unwrapRead(resources, "term resources") ?? []).sort(
-      (a, b) => (POOL_ORDER[a.pool] ?? 9) - (POOL_ORDER[b.pool] ?? 9),
+      (a, b) => (poolOrder.get(a.pool_id) ?? 99) - (poolOrder.get(b.pool_id) ?? 99),
     ),
     blackouts: unwrapRead(blackouts, "blackouts") ?? [],
-    holds: unwrapRead(holds, "holds") ?? [],
-    bookings: unwrapRead(bookings, "bookings") ?? [],
+    holds: holdRows.map((hold) => ({
+      ...hold,
+      hours: hoursByClass(holdLaborRows.filter((row) => row.hold_id === hold.id)),
+    })),
+    bookings: bookingRows.map((booking) => ({
+      ...booking,
+      hours: hoursByClass(bookingLaborRows.filter((row) => row.booking_id === booking.id)),
+    })),
+    classes,
+    pools,
   };
 }
 

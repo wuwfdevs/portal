@@ -1,7 +1,8 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slices 1–2 (the rate model; the term plan and calendar) built 2026-10-05; slices 3–6
-designed, not started — see §9, §12 and §13.** Written 2026-10-05 from two
+Status: **Milestone 1, slices 1–2 (the rate model; the term plan and calendar) built 2026-10-05 and
+rebuilt the same day as slice 2b (labor classes and pools as data — §14); slices 3–6
+designed, not started — see §9 and §12–§14.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -238,24 +239,30 @@ All tables `bk_*`, RLS enabled, staff-only (§6.2). Columns below are the
 load-bearing ones; the usual `id`, `created_at`, `created_by`,
 `updated_at` are implied.
 
-### Rate model (built in slice 1 — `20261005140000_bookings_foundation.sql`; the columns below are as shipped)
+### Rate model (built in slice 1, rebuilt in slice 2b — `20261005160000_bookings_labor_and_pools.sql`; the columns below are as shipped)
 
+Two unversioned catalogs name what the model prices; the figures for each are versioned.
+
+- **`bk_labor_classes`** — `key`, `name`, `pay_basis` (`salaried` | `hourly`), `charged_in_strategic` (whether this class's hours are charged in a strategic price — students yes, professionals no; data, not doctrine), `sort_order`, `active`. A class of labor: the production lead, student/OPS crew, later a second producer or an engineer. Retired with `active`, never deleted.
+- **`bk_pools`** — `key`, `name`, `unit_label`, `costing` (`allocated`: a share of the shared production pool | `own_lines`: its own budget lines), `default_windows jsonb` (what a new term plan's resource for this pool starts with), `sort_order`, `active`. Webcasting is an own-lines pool whose unit is an event, not a special case.
 - **`bk_rate_model_versions`** — `label`, `status` (`draft` | `submitted` | `adopted` | `superseded`), `in_use` (exactly one version is in use for estimates — a partial unique index; separate from `adopted`, so the provisional v0.1 can price estimates before anyone adopts it), `destination_index` (where recoveries go, a Budget / Controller decision, recorded at adoption), `notes`, and `submitted_at/by`, `adopted_at/by`, `superseded_at`.
-- **`bk_assumptions`** — `version_id`, `section` (`sourced` | `working`, the workbook's two blocks), `kind` (`shared_pool_line` | `webcast_pool_line` | `model_input`), `key` (one of `lib/bookings/rates.ts`'s `MODEL_INPUT_KEYS`, required for a model input and null for a budget line), `label`, `value numeric`, `unit`, `basis`, `source_url`, `notes`, `owner` (`finance` | `director` | `executive`), `validation_state` (`pending` | `validated` | `accepted_as_is` — a sourced budget line is seeded `validated` with "Current budget" as what validated it, so there is no separate `current_budget` state), `validation_needed` (the workbook's "Confirm with HR"), `validation_note`, `validated_at/by`, `sort_order`. The workbook's "Inputs & Assumptions" sheet, one row each. The two external labor planning rates ($25 and $65 an hour) are model inputs too, since the workbook types them.
-- **`bk_resource_pools`** — `version_id`, `pool` (`bk_pool_key`: `studio` | `field` | `live` | `edit`), `allocation_share`, `available_units`, `unit_label`, `basis`, and the same `validation_*` columns as an assumption. Cost per unit is computed, never stored.
-- **`bk_service_packages`** — `version_id`, `name`, `unit_label`, `professional_hours`, `student_hours`, `studio_units`, `field_units`, `live_units`, `edit_hours`, `webcast_ops_units`, `market_floor`, `historical_reference`, `application_note`, `notes`, `active`, `sort_order`. `agreement_id` (a bespoke package scoped to one agreement, e.g. an OUR Voices episode) arrives with `bk_agreements` in slice 5.
-- **`bk_rate_card_lines`** — `version_id`, `kind` (`package` | `labor`), `package_id`, `line_key`, `name`, `unit_label`, `strategic_rate`, `incremental_rate`, `external_rate`, the three costs behind them, `market_floor`, `historical_reference`, `application_note`, `snapshotted_at`. A snapshot TypeScript writes when a version is **put in use or adopted** (and, for the version in use, on "Record for estimates" once its rows have moved), so an estimate keeps the rate it was priced at when a later version changes an input. A labor line carries its loaded internal cost in `incremental_rate`.
-- **`bk_assets`** — `name`, `tag`, `pool`, `acquired_on`, `acquisition_cost`, `annual_cost` (a subscription), `funding` (`station` | `foundation_gift` | `grant_restricted` | `uwf`), `useful_life_years`, `restrictions`, `maintenance_burden` (`low` | `medium` | `high`), `condition` (`good` | `fair` | `worn` | `out_of_service`), `notes`, `active`. Unversioned; feeds a future version's pool allocation; Foundation and restricted-grant assets are never assumed to be prepaid institutional capacity.
+- **`bk_assumptions`** — `version_id`, `section` (`sourced` | `working`), `kind` (`pool_line` | `model_input`), `pool_id` (a pool line's own-lines pool; null means the shared production pool), `key` (a model input's `external_margin_share` or `assessment_share` — `lib/bookings/rates.ts`'s `MODEL_INPUT_KEYS`), `label`, `value numeric`, `unit`, `basis`, `source_url`, `notes`, `owner` (`finance` | `director` | `executive`), `validation_state` (`pending` | `validated` | `accepted_as_is` — a sourced budget line is seeded `validated` with "Current budget" as what validated it), `validation_needed`, `validation_note`, `validated_at/by`, `sort_order`. Budget lines and the two inputs the math reads directly; everything about a person or a pool moved to the two tables below.
+- **`bk_labor_rates`** — `version_id`, `labor_class_id`, `annual_salary` + `paid_hours` (salaried) or `hourly_wage` (hourly), `load_share`, `external_rate` (the planning rate an external estimate charges for this class), `basis`, and the same `validation_*` columns. One row per class per version; the loaded hourly cost is computed, never stored.
+- **`bk_resource_pools`** — `version_id`, `pool_id`, `allocation_share` (allocated pools only), `available_units`, `basis`, `validation_*`. Cost per unit is computed, never stored.
+- **`bk_service_packages`** — `version_id`, `name`, `unit_label`, `market_floor`, `historical_reference`, `application_note`, `notes`, `active`, `sort_order`, with its parts in **`bk_package_labor`** (`package_id`, `labor_class_id`, `hours`) and **`bk_package_resources`** (`package_id`, `pool_id`, `units`). `agreement_id` (a bespoke package scoped to one agreement, e.g. an OUR Voices episode) arrives with `bk_agreements` in slice 5.
+- **`bk_rate_card_lines`** — `version_id`, `kind` (`package` | `labor`), `package_id`, `labor_class_id`, `line_key`, `name`, `unit_label`, `strategic_rate`, `incremental_rate`, `external_rate`, the three costs behind them, `market_floor`, `historical_reference`, `application_note`, `snapshotted_at`. A snapshot TypeScript writes when a version is **put in use or adopted** (and, for the version in use, on "Record for estimates" once its rows have moved), so an estimate keeps the rate it was priced at when a later version changes an input. A labor line carries its loaded internal cost in `incremental_rate`.
+- **`bk_assets`** — `name`, `tag`, `pool_id`, `acquired_on`, `acquisition_cost`, `annual_cost` (a subscription), `funding` (`station` | `foundation_gift` | `grant_restricted` | `uwf`), `useful_life_years`, `restrictions`, `maintenance_burden` (`low` | `medium` | `high`), `condition` (`good` | `fair` | `worn` | `out_of_service`), `notes`, `active`. Unversioned; feeds a future version's pool allocation; Foundation and restricted-grant assets are never assumed to be prepaid institutional capacity.
 - **`bk_rate_model_events`** — the Rates tab's change log (`version_id`, `actor_id`, `kind`, `note`, `metadata`), append-only.
 
-Two guard triggers and two functions hold the lifecycle: `bk_guard_frozen_version()` refuses any write to the assumptions, pools or packages of an adopted or superseded version (a correction is a new version, copied from `/bookings/rates/versions/new`); `bk_guard_version_transition()` refuses to submit a version with anything still `pending` and refuses adoption or superseding unless `private.is_bookings_executive()`; `bk_set_version_in_use()` and `bk_adopt_version()` (security invoker) give the two lifecycle writes atomicity without widening RLS. SQL never computes a price.
+Two guard triggers and three functions hold the lifecycle: `bk_guard_frozen_version()` refuses any write to the assumptions, labor rates, pools or packages (and their parts) of an adopted or superseded version (a correction is a new version, copied from `/bookings/rates/versions/new`); `bk_guard_version_transition()` refuses to submit a version with anything still `pending` and refuses adoption or superseding unless `private.is_bookings_executive()`; `bk_set_version_in_use()`, `bk_adopt_version()` and `bk_save_package()` (a package and its parts in one transaction; all security invoker) give the lifecycle and package writes atomicity without widening RLS. SQL never computes a price.
 
 ### Capacity
 
-- **`bk_term_plans`** — `label`, `starts_on`, `ends_on`, `net_professional_hours`, `reserve_share`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`).
-- **`bk_term_resources`** — `plan_id`, `resource_key`, `available_units`, `unit_label`, `windows jsonb` (studio: `am` 08:00–12:00, `pm` 13:00–17:00, `full`, `evening`; field and live: `day`; edit: from–to), `lead_hours_per_day` (8).
-- **`bk_blackouts`** — `plan_id`, `starts_on`, `ends_on`, `resource_keys text[]` (null = all), `reason`. A policy; no partner work; no exception below the executive.
-- **`bk_holds`** — `resource_key`, `date`, `window_start`, `window_end`, `professional_hours`, `kind` (`core` | `maintenance`), `label`. WUWF's own use of one window. Entered by the director; nothing is pulled from On Air's broadcast schedule in milestone 1.
+- **`bk_term_plans`** — `label`, `starts_on`, `ends_on`, `reserve_share`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`), `notes`. One active at a time.
+- **`bk_term_capacity`** — `plan_id`, `labor_class_id`, `net_hours` (the term's net available hours for that class, after core WUWF work), `headcount`, `hours_per_person_day`. One row per tracked class; a class with no row is not capacity-checked that term. The rate model no longer carries a copy of capacity — the term plan is the one place.
+- **`bk_term_resources`** — `plan_id`, `pool_id`, `available_units`, `concurrent_units` (how many bookings one window on this pool takes at once — two field kits, one studio), `windows jsonb` (`parseWindows()` in `lib/bookings/scheduling.ts`; a new plan starts from each active pool's `default_windows`).
+- **`bk_blackouts`** — `plan_id`, `starts_on`, `ends_on`, `pool_ids uuid[]` (null = all), `reason`. A policy; no partner work; no exception below the executive.
+- **`bk_holds`** — `plan_id`, `pool_id` (null holds only hours), `date`, `window_start`, `window_end`, `kind` (`core` | `maintenance`), `label`, with hours per class in **`bk_hold_labor`** (`hold_id`, `labor_class_id`, `hours`). WUWF's own use of one window. Entered by the director; nothing is pulled from On Air's broadcast schedule in milestone 1.
 
 ### Partners
 
@@ -267,7 +274,7 @@ Two guard triggers and two functions hold the lifecycle: `bk_guard_frozen_versio
 
 - **`bk_projects`** — `partner_id`, `agreement_id`, `title`, `description`, `requested` (`production` | `airtime` | `both`), `qualifies_strategic` (nullable boolean), `qualification_by`, `priced_as` (`strategic` | `incremental` | `external`), `pricing_reason`, `pricing_overridden_by`, `stage`, `disposition`, `disposition_reason`, `estimate_sent_at`, `estimate_expires_at`, `estimate_approved_at`, `rate_model_version_id`, `funding_index`, `event_starts_on`, `event_ends_on`, `deliverables_due_on`, `location`, `contact_*`, `source` (`public` | `staff`), `editorial_review` (`not_needed` | `needed` | `cleared`), `owner_id`, `delivered_at`, `legacy_rate_delta` (computed at estimate approval: modeled minus the $500 convention per webcast line), `margin_foregone` (set when an external project is declined for capacity: its estimate's margin).
 - **`bk_estimate_lines`** — `project_id`, `package_id` (nullable for labor and direct-expense lines), `label`, `quantity`, `unit_rate`, `amount`, `professional_hours_draw`.
-- **`bk_bookings`** — `project_id`, `resource_key`, `date`, `window_start`, `window_end`, `units`, `professional_hours`, `status` (`tentative` | `confirmed` | `released`), `expires_at` (tentative only), `exception_by`, `exception_reason`. One resource window on one date.
+- **`bk_bookings`** — `plan_id`, `project_id`, `pool_id`, `date`, `window_start`, `window_end`, `units`, `treatment` (`strategic` | `incremental` | `external`), `status` (`tentative` | `confirmed` | `released`), `expires_at` (tentative only), `released_at`, `label`, `notes`, `exception_by`, `exception_reason`, with hours per class in **`bk_booking_labor`** (`booking_id`, `labor_class_id`, `hours`). One resource window on one date, taking one of the window's `concurrent_units`.
 - **`bk_airtime_commitments`** — `project_id`, `airings_per_week`, `seconds`, `starts_on`, `ends_on`, `treatment` (`contributed` | `paid`), `honored_in` (`pending` | `traffic` | `on_air`), `external_ref` (a Traffic contract id or an On Air assignment id), `notes`.
 - **`bk_hours_used`** — `project_id`, `measure` (`professional_hours` | `student_hours` | `studio_units` | `field_units` | `live_units` | `edit_hours`), `planned`, `used`, `confirmed_at`, `confirmed_by`.
 - **`bk_settlements`** — `project_id`, `kind` (`recharge` | `invoice`), `amount`, `funding_index`, `assessment_amount`, `journal_entry_number`, `status` (`drafted` | `posted`), `posted_at`, `posted_by`.
@@ -287,12 +294,12 @@ Roles **stack** on `tool_access.tool_roles`, so `bookings`
 joins `STACKING_TOOLS` in `lib/tool-roles.ts` and the admin grant screen
 shows checkboxes:
 
-| Role        | May                                                                                                                         |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `lead`      | estimate, book, attach reserved blocks, confirm hours, mark delivered, record a declined external request's foregone margin |
-| `director`  | the term plan, resources and windows, blackouts and holds, keep or release a reserved block                                 |
-| `finance`   | assumptions and their validation, submit a version, post settlements                                                        |
-| `executive` | adopt a rate card version, approve agreements, decide contested strategic pricing, record a booking-rule exception          |
+| Role         | May                                                                                                                                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `production` | estimate, book, attach reserved blocks, confirm hours, mark delivered, record a declined external request's foregone margin — anyone on the production staff, not one position (slice 2b renamed it from `lead`) |
+| `director`   | the term plan, resources and windows, blackouts and holds, keep or release a reserved block                                                                                                                      |
+| `finance`    | assumptions and their validation, submit a version, post settlements                                                                                                                                             |
+| `executive`  | adopt a rate card version, approve agreements, decide contested strategic pricing, record a booking-rule exception                                                                                               |
 
 A member with no role reads everything. Content & Audience leadership is
 the `editorial_review` flag on a project, not a role; a feature hosted by
@@ -329,14 +336,19 @@ needs no microphone permission, so nothing in it is fragile.
 ### 6.4 The booking rule (scheduling)
 
 `lib/bookings/scheduling.ts` is pure and tested; `bk_booking_allowed()`
-is its SQL twin, run by a trigger on `bk_bookings`, so no writer slips
-past it. For one date of a request, in this order:
+(the pool checks, a before trigger on `bk_bookings`) and
+`bk_check_booking_labor()` (the per-class checks, run from a trigger on
+`bk_booking_labor` and again on an update of the booking) are its SQL
+twins, so no writer slips past it; `bk_create_booking()` and
+`bk_create_hold()` write a parent and its hours in one transaction so a
+refusal of any part rolls the whole booking back. For one date of a
+request, in this order:
 
 1. **Blacked out, or a core WUWF hold?** Not available. Name it; offer the nearest open date on the same resource.
 2. **Reserved for another partner and not yet released?** Not available until its release deadline.
-3. **Window free, with tentative holds counted as taken?** Else propose the next open windows, nearest first.
-4. **Room in the lead's day?** `8 − hours booked that day ≥ draw`. Else move prep or edit hours to a neighbouring day.
-5. **Capacity for its pricing?** Strategic draws the reserve's unused balance. Incremental and external draw open capacity = net − booked − held − unused reserve. Core WUWF work is never checked; it reduces net.
+3. **Window free, with tentative holds counted as taken?** A window is taken once holds plus live bookings reach the resource's `concurrent_units`. Else propose the next open windows, nearest first.
+4. **Room in each class's day?** For every class the booking draws on: `headcount × hours_per_person_day − hours booked that day ≥ draw`. Else move prep or edit hours to a neighbouring day.
+5. **Capacity for its pricing, per class?** Strategic draws the reserve's unused balance. Incremental and external draw open capacity = net − booked − held − unused reserve. Core WUWF work is never checked; it reduces net. A class with no `bk_term_capacity` row that term is not checked.
 
 A request with several dates is a series: every date runs the check and
 the result lists the ones that fail, with alternatives, before anything
@@ -384,7 +396,7 @@ library and Sourcework exist); partner-side funding splits or labor
 | ----------------------------- | ----------------------------------------------------------------------------- |
 | `lib/bookings/rates.ts`       | the v0.1 workbook as its fixture — every rate card figure must reproduce (§7) |
 | `lib/bookings/pricing.ts`     | the derivation table in §2.2                                                  |
-| `lib/bookings/scheduling.ts`  | §6.4, with the SQL twin kept in step                                          |
+| `lib/bookings/scheduling.ts`  | §6.4, with the two SQL twins kept in step                                     |
 | `lib/bookings/capacity.ts`    | the envelope arithmetic, the month warning                                    |
 | `lib/bookings/settlements.ts` | recharge vs. invoice, the assessment, the legacy delta                        |
 | `lib/bookings/embed.ts`       | the snippet                                                                   |
@@ -450,6 +462,7 @@ Supabase projects and recorded in `APPLIED.md` before the next slice:
 
 1. **Rate model** — versions, assumptions, pools, packages, the snapshot card, assets; the Rates tab. Replaces the workbook; nothing else can be priced without it. **Built 2026-10-05 (§12).**
 2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab. **Built 2026-10-05 (§13); the second boundary read moved to slice 3, which has the commitments it reads for.**
+   - **2b. Labor classes and pools as data** — a sanity check before slice 3 found slices 1 and 2 had fixed one professional and four pools into the schema; rebuilt the same day as a clean rewrite (§14). Not in the original plan.
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list.
 4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page.
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
@@ -561,6 +574,84 @@ lead/director exercised every refusal in the trigger (blackout, hold,
 window taken, lead's day, reserve, no resource), confirm-then-release
 freeing the window, and the airtime read against the real seeded clocks.
 Not yet verified: a browser click-through, for the same magic-link reason
-as slice 1. Open: the per-pool concurrency question — a window is one
-booking per pool at a time, which is right for the studio and the edit
-suite and may be wrong for a field pool with more than one kit.
+as slice 1. The per-pool concurrency question this slice left open (a
+window was one booking per pool at a time, right for the studio and wrong
+for a field pool with two kits) is closed by slice 2b's `concurrent_units`
+(§14).
+
+## 14. What slice 2b shipped (2026-10-05) — labor classes and pools as data
+
+A sanity check before slice 3 asked whether the model could price more
+than one staffer's time. It couldn't, and the same inspection found four
+more things slices 1 and 2 had built faithfully from this document that
+were poorly conceived as schema. Both projects held only the seeded v0.1
+rate model — no grants, no assets, no term plan, no booking — so
+`20261005160000_bookings_labor_and_pools.sql` is a clean rewrite (every
+`bk_*` table dropped and recreated), the same call `20260925150000` made
+for Traffic, rather than a patch. §5 above describes the shipped shape;
+this section records what changed and why.
+
+1. **One professional → labor classes.** The rate model had one salary,
+   one load, one paid-hours figure and one external rate, as named
+   assumption keys; the term plan had one `net_professional_hours` and
+   one `lead_hours_per_day`; every package had `professional_hours` and
+   `student_hours` columns. Now `bk_labor_classes` is a catalog (seeded:
+   `production_lead`, salaried, not charged in strategic; `student`,
+   hourly, charged in strategic), `bk_labor_rates` carries each class's
+   figures per version, a package's hours are rows in `bk_package_labor`,
+   the term's capacity is per class in `bk_term_capacity`, and a booking's
+   or hold's hours are rows in `bk_booking_labor`/`bk_hold_labor`. Adding
+   a second producer or an engineer is a catalog row and a rate row, no
+   migration. `rates.ts`'s math generalizes without changing a figure:
+   salaried loaded hourly = salary × (1 + load) ÷ paid hours; hourly =
+   wage × (1 + load); strategic cost = resources + the hours of classes
+   with `charged_in_strategic`; incremental adds the rest. The v0.1
+   workbook still reproduces exactly.
+2. **Four pools in an enum → `bk_pools`.** `bk_pool_key` (`studio` |
+   `field` | `live` | `edit`) is gone, and with it one fixed unit column
+   per pool on `bk_service_packages` (`bk_package_resources` replaces
+   them), the `resource_key` text on resources, holds, bookings and
+   blackouts (`pool_id`/`pool_ids` now), and the `pool` enum on assets.
+   A pool carries its own `unit_label` and `default_windows`; the
+   `/bookings/rates/setup` page creates one.
+3. **Webcasting as a special case → an own-lines pool.** The workbook
+   costs webcasting from its own budget lines (software, encoder,
+   captioning) divided by its events, which slice 1 modeled as a separate
+   assumption kind (`webcast_pool_line`), a separate volume input and a
+   separate package column. `bk_pools.costing` says `allocated` (a share
+   of the shared production pool) or `own_lines` (its own
+   `bk_assumptions` rows, `pool_id` set); a `webcast` pool with
+   `own_lines` costing and `available_units` = events is the same math
+   with nothing special-cased.
+4. **Capacity in two places → one.** `net_capacity_days` and
+   `baseline_share` were model inputs that duplicated the term plan's
+   `net_professional_hours`/`reserve_share` and were read by nothing a
+   rate depends on. Gone from the rate model; the term plan is the one
+   place.
+5. **One booking per pool per window → `concurrent_units`.** A term
+   resource says how many bookings a window takes at once; the rule
+   counts holds plus live bookings against it.
+6. **`lead` → `production`.** The role named one position; it now names
+   the production staff. `private.is_bookings_production()`,
+   `isProduction`, `assertBookingsScheduler()`.
+
+The booking rule's substance is unchanged (§6.4) but it now runs in two
+triggers — the pool checks on `bk_bookings`, the per-class day and
+capacity checks on `bk_booking_labor` — with `bk_create_booking()` and
+`bk_create_hold()` writing a parent and its hours in one transaction so a
+refusal of any part rolls back the whole booking; an update of a booking
+re-runs the labor checks for each of its classes. `bk_save_package()` does
+the same for a package and its parts. Screens: the Rates tab gained
+**Labor** (`/bookings/rates/labor`, a class's figures per version) and
+**Setup** (`/bookings/rates/setup`, the two catalogs); Pools, Packages,
+Rate card and Assets read the catalogs; the term plan page has a
+capacity-by-class table and `concurrent_units` per resource; the
+Calendar's hold, booking and Find-a-slot forms take hours per class, and
+the week grid shows one day row per class.
+
+Verified: lint, typecheck, 1,827 tests (the workbook fixture still
+reproduces under the generalized model; `scheduling.test.ts` covers
+per-class capacity and concurrent units). Migration status at the time of
+writing: see `APPLIED.md` — the MCP route this session applies migrations
+through waits for a user confirmation on any `drop` statement, which did
+not reach it.

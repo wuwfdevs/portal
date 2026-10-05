@@ -10,8 +10,8 @@ import {
   ASSET_FUNDING_LABEL,
 } from "@/lib/bookings/labels";
 import { RATES_PATH } from "@/lib/bookings/paths";
-import { listAssets } from "@/lib/bookings/queries";
-import { POOL_KEYS, POOL_LABEL, formatDollars, type PoolKey } from "@/lib/bookings/rates";
+import { listAssets, listPools } from "@/lib/bookings/queries";
+import { formatDollars } from "@/lib/bookings/rates";
 import type { BkAssetFunding } from "@/lib/database.types";
 import { RatesTabs } from "../rates-tabs";
 
@@ -22,11 +22,10 @@ const FUNDINGS = ["station", "foundation_gift", "grant_restricted", "uwf"] as co
 export default async function AssetsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const context = await requireBookingsAccess();
-  const assets = await listAssets();
+  const [assets, pools] = await Promise.all([listAssets(), listPools()]);
+  const poolNames = new Map(pools.map((row) => [row.id, row.name]));
   const query = (params.q ?? "").trim().toLowerCase();
-  const pool = (POOL_KEYS as readonly string[]).includes(params.pool ?? "")
-    ? (params.pool as PoolKey)
-    : null;
+  const pool = pools.some((row) => row.id === params.pool) ? (params.pool as string) : null;
   const funding = (FUNDINGS as readonly string[]).includes(params.funding ?? "")
     ? (params.funding as BkAssetFunding)
     : null;
@@ -41,9 +40,9 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
   );
   const shown = matching.filter(
     (asset) =>
-      (pool === null || asset.pool === pool) && (funding === null || asset.funding === funding),
+      (pool === null || asset.pool_id === pool) && (funding === null || asset.funding === funding),
   );
-  const hrefFor = (next: { pool?: PoolKey | null; funding?: BkAssetFunding | null }) => {
+  const hrefFor = (next: { pool?: string | null; funding?: BkAssetFunding | null }) => {
     const search = new URLSearchParams();
     if (query) search.set("q", params.q ?? "");
     const nextPool = next.pool === undefined ? pool : next.pool;
@@ -85,12 +84,14 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
             label: "Pool",
             chips: [
               { label: "All pools", href: hrefFor({ pool: null }), active: pool === null },
-              ...POOL_KEYS.map((key) => ({
-                label: POOL_LABEL[key].split(" ")[0]!,
-                href: hrefFor({ pool: key }),
-                active: pool === key,
-                count: matching.filter((asset) => asset.pool === key).length,
-              })),
+              ...pools
+                .filter((row) => row.active || assets.some((asset) => asset.pool_id === row.id))
+                .map((row) => ({
+                  label: row.name.split(" / ")[0]!,
+                  href: hrefFor({ pool: row.id }),
+                  active: pool === row.id,
+                  count: matching.filter((asset) => asset.pool_id === row.id).length,
+                })),
             ],
           },
           {
@@ -154,7 +155,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
                       <span className="ml-2 text-xs text-ink-400">tag {asset.tag}</span>
                     )}
                   </Cell>
-                  <Cell label="Pool">{POOL_LABEL[asset.pool].split(" / ")[0]}</Cell>
+                  <Cell label="Pool">{(poolNames.get(asset.pool_id) ?? "—").split(" / ")[0]}</Cell>
                   <Cell label="Acquired">
                     {asset.acquired_on
                       ? new Date(`${asset.acquired_on}T00:00:00`).toLocaleDateString("en-US", {

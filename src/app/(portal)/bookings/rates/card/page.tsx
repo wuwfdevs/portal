@@ -9,7 +9,7 @@ import {
   listVersions,
   pickVersion,
 } from "@/lib/bookings/queries";
-import { MODEL_INPUT_LABEL, POOL_LABEL, formatDollars, formatShare } from "@/lib/bookings/rates";
+import { formatDollars, formatShare } from "@/lib/bookings/rates";
 import { cardForVersion, snapshotMatchesCard } from "@/lib/bookings/version-card";
 import { snapshotRateCard } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
@@ -49,12 +49,7 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
 
       {!computed.ok ? (
         <Alert variant="note">
-          This version can&apos;t be priced yet. Missing:{" "}
-          {[
-            ...computed.missing.missing.map((key) => MODEL_INPUT_LABEL[key]),
-            ...computed.missing.missingPools.map((pool) => `${POOL_LABEL[pool]} pool`),
-          ].join(", ")}
-          .
+          This version can&apos;t be priced yet. Missing: {computed.missing.join(", ")}.
         </Alert>
       ) : (
         <>

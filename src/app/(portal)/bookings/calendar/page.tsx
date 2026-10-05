@@ -22,11 +22,10 @@ import {
   listPlans,
   pickPlan,
   readUniversityAvails,
+  type BkLaborClassRow,
   type PlanCalendar,
 } from "@/lib/bookings/queries";
-import { POOL_KEYS, POOL_LABEL, type PoolKey } from "@/lib/bookings/rates";
 import {
-  DEFAULT_WINDOWS,
   bookingIsLive,
   capacitySummary,
   checkBooking,
@@ -35,8 +34,11 @@ import {
   monthlyCapacity,
   parseWindows,
   toHHMM,
+  totalHours,
+  windowsFor,
   type BookingRequest,
   type CalendarState,
+  type HoursByClass,
 } from "@/lib/bookings/scheduling";
 import type { BkPricingTreatment } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
@@ -65,20 +67,33 @@ type Params = {
   c_pool?: string;
   c_date?: string;
   c_window?: string;
-  c_hours?: string;
   c_treatment?: string;
+  [key: `c_hours_${string}`]: string | undefined;
 };
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The database rows as the pure modules' shapes ("HH:MM" times, typed windows). */
 function stateFrom(calendar: PlanCalendar, nowISO: string): CalendarState {
   return {
     plan: calendar.plan,
+    capacity: calendar.capacity.map((row) => ({
+      labor_class_id: row.labor_class_id,
+      net_hours: Number(row.net_hours),
+      headcount: Number(row.headcount),
+      hours_per_person_day: Number(row.hours_per_person_day),
+    })),
+    classes: calendar.classes.map((cls) => ({ id: cls.id, name: cls.name })),
+    pools: calendar.pools.map((pool) => ({
+      id: pool.id,
+      name: pool.name,
+      unit_label: pool.unit_label,
+    })),
     resources: calendar.resources.map((r) => ({
-      pool: r.pool,
+      pool_id: r.pool_id,
       available_units: Number(r.available_units),
-      unit_label: r.unit_label,
+      concurrent_units: Number(r.concurrent_units),
       windows: parseWindows(r.windows),
     })),
     blackouts: calendar.blackouts,
@@ -86,23 +101,31 @@ function stateFrom(calendar: PlanCalendar, nowISO: string): CalendarState {
       ...h,
       window_start: toHHMM(h.window_start),
       window_end: toHHMM(h.window_end),
-      professional_hours: Number(h.professional_hours),
     })),
     bookings: calendar.bookings.map((b) => ({
       ...b,
       window_start: toHHMM(b.window_start),
       window_end: toHHMM(b.window_end),
-      professional_hours: Number(b.professional_hours),
     })),
     nowISO,
   };
 }
 
+function describeHours(hours: HoursByClass, classes: BkLaborClassRow[]): string {
+  const parts = Object.entries(hours)
+    .filter(([, value]) => Number(value) > 0)
+    .map(
+      ([classId, value]) => `${classes.find((c) => c.id === classId)?.name ?? "Labor"} ${value} h`,
+    );
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
 /**
  * The Calendar tab (docs/bookings-design.md §4): the term's two envelopes,
- * then the week or month picture of every resource, with the director's
- * blackouts and holds and the lead's bookings. View, date, pool and the
- * open create card are query-string state; every write is a form.
+ * then the week or month picture of every resource and tracked labor class,
+ * with the director's blackouts and holds and production's bookings. View,
+ * date, pool and the open create card are query-string state; every write
+ * is a form.
  */
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
@@ -111,7 +134,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const plans = await listPlans();
   const plan = pickPlan(plans, params.plan);
   const canDirect = context.isDirector;
-  const canSchedule = context.isLead || context.isDirector || context.isExecutive;
+  const canSchedule = context.isProduction || context.isDirector || context.isExecutive;
 
   if (!plan) {
     return (
@@ -120,8 +143,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <div className="rounded border border-dashed border-line bg-white px-6 py-10 text-center">
           <p className="text-sm font-semibold text-ink-900">No term plan yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-            The calendar starts from a term plan: the term&apos;s dates, its net professional hours,
-            the reserve, the airtime the station contributes, and each pool&apos;s units and
+            The calendar starts from a term plan: the term&apos;s dates, each labor class&apos;s
+            hours, the reserve, the airtime the station contributes, and each pool&apos;s units and
             windows.
           </p>
           {canDirect ? (
@@ -142,9 +165,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     : today >= plan.starts_on && today <= plan.ends_on
       ? today
       : plan.starts_on;
-  const poolFilter = (POOL_KEYS as readonly string[]).includes(params.pool ?? "")
-    ? (params.pool as PoolKey)
-    : null;
 
   const nowISO = new Date().toISOString();
   const [calendar, avails] = await Promise.all([
@@ -152,14 +172,23 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     readUniversityAvails(plan.id),
   ]);
   const state = stateFrom(calendar, nowISO);
-  const capacity = capacitySummary(plan, state.holds, state.bookings, nowISO);
+  const classSummaries = capacitySummary(state);
   const months = monthlyCapacity(state);
   const read = parseAirtimeRead(avails.payload);
   const envelope = airtimeEnvelope(read, plan.airtime_contributed_minutes_per_week);
 
-  const pools = (
-    state.resources.length > 0 ? state.resources.map((r) => r.pool) : [...POOL_KEYS]
-  ).filter((pool) => poolFilter === null || pool === poolFilter);
+  const resourcedPools = calendar.pools.filter((pool) =>
+    state.resources.some((r) => r.pool_id === pool.id),
+  );
+  const poolFilter = resourcedPools.some((pool) => pool.id === params.pool)
+    ? (params.pool as string)
+    : null;
+  const poolIds = resourcedPools
+    .filter((pool) => poolFilter === null || pool.id === poolFilter)
+    .map((pool) => pool.id);
+  const poolName = (id: string | null) => calendar.pools.find((p) => p.id === id)?.name ?? "Pool";
+  const classesForHours = calendar.classes.filter((cls) => cls.active);
+
   const here = (extra?: Record<string, string | undefined>) =>
     calendarHref({ plan: plan.id, view, date, pool: poolFilter ?? undefined, ...extra });
   const weekHref = (d: string) =>
@@ -185,23 +214,24 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const rangeStart = rangeDates[0]!;
   const rangeEnd = rangeDates[rangeDates.length - 1]!;
   const inRange = (d: string) => d >= rangeStart && d <= rangeEnd;
-  const poolMatches = (pool: PoolKey | null) =>
-    poolFilter === null || pool === null || pool === poolFilter;
+  const poolMatches = (poolId: string | null) =>
+    poolFilter === null || poolId === null || poolId === poolFilter;
   const blackoutsInRange = state.blackouts.filter(
     (b) =>
       b.starts_on <= rangeEnd &&
       b.ends_on >= rangeStart &&
-      (b.pools === null || b.pools.some((p) => poolMatches(p))),
+      (b.pool_ids === null || b.pool_ids.some((id) => poolMatches(id))),
   );
-  const holdsInRange = state.holds.filter((h) => inRange(h.date) && poolMatches(h.pool));
+  const holdsInRange = state.holds.filter((h) => inRange(h.date) && poolMatches(h.pool_id));
   const bookingsInRange = state.bookings.filter(
-    (b) => inRange(b.date) && poolMatches(b.pool) && bookingIsLive(b, nowISO),
+    (b) => inRange(b.date) && poolMatches(b.pool_id) && bookingIsLive(b, nowISO),
   );
-  const windowOptions = (pool: PoolKey) => {
-    const resource = state.resources.find((r) => r.pool === pool);
-    return resource && resource.windows.length > 0 ? resource.windows : DEFAULT_WINDOWS[pool];
-  };
-  const allWindows = pools.flatMap((pool) => windowOptions(pool).map((w) => ({ pool, ...w })));
+  const allWindows = poolIds.flatMap((poolId) =>
+    windowsFor(
+      state.resources.find((r) => r.pool_id === poolId),
+      parseWindows(calendar.pools.find((p) => p.id === poolId)?.default_windows),
+    ),
+  );
   const uniqueWindows = allWindows.filter(
     (w, index) => allWindows.findIndex((o) => o.start === w.start && o.end === w.end) === index,
   );
@@ -254,9 +284,25 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       {params.error && <Alert>{params.error}</Alert>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <CapacityPanel plan={plan} capacity={capacity} months={months} canEdit={canDirect} />
+        <CapacityPanel plan={plan} classes={classSummaries} months={months} canEdit={canDirect} />
         <AirtimePanel envelope={envelope} error={avails.error} asOf={read?.as_of ?? null} />
       </div>
+
+      {resourcedPools.length === 0 && (
+        <Alert variant="note">
+          The term plan has no resources yet, so nothing can be booked.{" "}
+          {canDirect ? (
+            <Link
+              href={withQuery(PLAN_PATH, { plan: plan.id })}
+              className="font-bold text-brand-link hover:underline"
+            >
+              Add each pool&apos;s units and windows on the term plan.
+            </Link>
+          ) : (
+            "The director adds each pool's units and windows on the term plan."
+          )}
+        </Alert>
+      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -264,13 +310,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             label="Pool"
             chips={[
               { label: "All pools", href: here({ pool: undefined }), active: poolFilter === null },
-              ...POOL_KEYS.filter(
-                (pool) =>
-                  state.resources.some((r) => r.pool === pool) || state.resources.length === 0,
-              ).map((pool) => ({
-                label: POOL_LABEL[pool],
-                href: here({ pool }),
-                active: poolFilter === pool,
+              ...resourcedPools.map((pool) => ({
+                label: pool.name,
+                href: here({ pool: pool.id }),
+                active: poolFilter === pool.id,
               })),
             ]}
           />
@@ -297,101 +340,102 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               </Link>
             </>
           )}
-          {canSchedule && <PrimaryLink href={here({ new: "booking" })}>+ Booking</PrimaryLink>}
+          {canSchedule && resourcedPools.length > 0 && (
+            <PrimaryLink href={here({ new: "booking" })}>+ Booking</PrimaryLink>
+          )}
         </div>
 
         {params.check === "1" && (
           <section className="rounded border border-line bg-white p-4">
             <h3 className="text-sm font-bold text-ink-900">Find a slot</h3>
             <p className="mt-0.5 text-xs text-ink-500">
-              Runs the booking rule for one window without booking it: blackout or hold, window
-              free, room in the lead&apos;s day, capacity for the pricing.
+              Runs the booking rule for one window without booking it: blackout or hold, the
+              window&apos;s units free, room in each class&apos;s day, capacity for the pricing.
             </p>
-            <form
-              method="get"
-              action={calendarHref({})}
-              className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-6"
-            >
+            <form method="get" action={calendarHref({})} className="mt-3 flex flex-col gap-3">
               <input type="hidden" name="plan" value={plan.id} />
               <input type="hidden" name="view" value={view} />
               <input type="hidden" name="date" value={date} />
               {poolFilter && <input type="hidden" name="pool" value={poolFilter} />}
               <input type="hidden" name="check" value="1" />
-              <div>
-                <Label htmlFor="c_pool">Pool</Label>
-                <Select id="c_pool" name="c_pool" defaultValue={params.c_pool ?? pools[0]}>
-                  {(state.resources.length > 0
-                    ? state.resources.map((r) => r.pool)
-                    : [...POOL_KEYS]
-                  ).map((pool) => (
-                    <option key={pool} value={pool}>
-                      {POOL_LABEL[pool]}
-                    </option>
-                  ))}
-                </Select>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div>
+                  <Label htmlFor="c_pool">Pool</Label>
+                  <Select id="c_pool" name="c_pool" defaultValue={params.c_pool ?? poolIds[0]}>
+                    {resourcedPools.map((pool) => (
+                      <option key={pool.id} value={pool.id}>
+                        {pool.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="c_date">Date</Label>
+                  <Input
+                    id="c_date"
+                    name="c_date"
+                    type="date"
+                    defaultValue={params.c_date ?? date}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="c_window">Window</Label>
+                  <Select id="c_window" name="c_window" defaultValue={params.c_window ?? ""}>
+                    {uniqueWindows.map((w) => (
+                      <option key={`${w.start}-${w.end}`} value={`${w.start}-${w.end}`}>
+                        {w.label} · {formatWindow(w.start, w.end)}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="c_treatment">Pricing</Label>
+                  <Select
+                    id="c_treatment"
+                    name="c_treatment"
+                    defaultValue={params.c_treatment ?? "incremental"}
+                  >
+                    {TREATMENTS.map((t) => (
+                      <option key={t} value={t}>
+                        {TREATMENT_SHORT_LABEL[t]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="c_date">Date</Label>
-                <Input
-                  id="c_date"
-                  name="c_date"
-                  type="date"
-                  defaultValue={params.c_date ?? date}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="c_window">Window</Label>
-                <Select id="c_window" name="c_window" defaultValue={params.c_window ?? ""}>
-                  {uniqueWindows.map((w) => (
-                    <option key={`${w.start}-${w.end}`} value={`${w.start}-${w.end}`}>
-                      {w.label} · {formatWindow(w.start, w.end)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="c_hours">Pro hours</Label>
-                <Input
-                  id="c_hours"
-                  name="c_hours"
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  defaultValue={params.c_hours ?? "5"}
-                />
-              </div>
-              <div>
-                <Label htmlFor="c_treatment">Pricing</Label>
-                <Select
-                  id="c_treatment"
-                  name="c_treatment"
-                  defaultValue={params.c_treatment ?? "incremental"}
-                >
-                  {TREATMENTS.map((t) => (
-                    <option key={t} value={t}>
-                      {TREATMENT_SHORT_LABEL[t]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="flex items-end gap-3">
-                <Button type="submit" variant="secondary">
-                  Check
-                </Button>
-                <Link
-                  href={here()}
-                  className="pb-2.5 text-sm font-bold text-brand-link hover:underline"
-                >
-                  Close
-                </Link>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {classesForHours.map((cls) => (
+                  <div key={cls.id}>
+                    <Label htmlFor={`c_hours_${cls.id}`}>{cls.name} hours</Label>
+                    <Input
+                      id={`c_hours_${cls.id}`}
+                      name={`c_hours_${cls.id}`}
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      defaultValue={params[`c_hours_${cls.id}`] ?? ""}
+                    />
+                  </div>
+                ))}
+                <div className="flex items-end gap-3">
+                  <Button type="submit" variant="secondary">
+                    Check
+                  </Button>
+                  <Link
+                    href={here()}
+                    className="pb-2.5 text-sm font-bold text-brand-link hover:underline"
+                  >
+                    Close
+                  </Link>
+                </div>
               </div>
             </form>
             {check && (
               <div className="mt-3">
                 {check.result.ok ? (
                   <Alert variant="success">
-                    Available: {POOL_LABEL[check.request.pool]} on{" "}
+                    Available: {poolName(check.request.pool_id)} on{" "}
                     {formatDateShort(check.request.date, true)},{" "}
                     {formatWindow(check.request.window_start, check.request.window_end)}.
                     {check.result.warnings.map((warning) => (
@@ -457,10 +501,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               <legend className="text-xs font-bold text-ink-700">Pools</legend>
               <FieldHint>Leave every pool unchecked to black out all of them.</FieldHint>
               <div className="mt-1.5 flex flex-wrap gap-3">
-                {POOL_KEYS.map((pool) => (
-                  <label key={pool} className="flex items-center gap-1.5 text-sm text-ink-900">
-                    <input type="checkbox" name="pools" value={pool} className="size-4" />
-                    {POOL_LABEL[pool]}
+                {resourcedPools.map((pool) => (
+                  <label key={pool.id} className="flex items-center gap-1.5 text-sm text-ink-900">
+                    <input type="checkbox" name="pool_ids" value={pool.id} className="size-4" />
+                    {pool.name}
                   </label>
                 ))}
               </div>
@@ -497,13 +541,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               </div>
               <div>
                 <Label htmlFor="h_pool">Pool</Label>
-                <Select id="h_pool" name="pool" defaultValue={poolFilter ?? "studio"}>
-                  {POOL_KEYS.map((pool) => (
-                    <option key={pool} value={pool}>
-                      {POOL_LABEL[pool]}
+                <Select
+                  id="h_pool"
+                  name="pool_id"
+                  defaultValue={poolFilter ?? resourcedPools[0]?.id ?? "none"}
+                >
+                  {resourcedPools.map((pool) => (
+                    <option key={pool.id} value={pool.id}>
+                      {pool.name}
                     </option>
                   ))}
-                  <option value="none">No pool — the lead&apos;s hours only</option>
+                  <option value="none">No pool — labor hours only</option>
                 </Select>
               </div>
               <div>
@@ -511,20 +559,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 <Input id="h_date" name="date" type="date" required defaultValue={date} />
               </div>
               <WindowFields prefix="h" windows={uniqueWindows} />
-              <div>
-                <Label htmlFor="h_hours">Lead&apos;s hours</Label>
-                <Input
-                  id="h_hours"
-                  name="professional_hours"
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  defaultValue="4"
-                  required
-                />
-                <FieldHint>Taken from the lead&apos;s day and from net capacity.</FieldHint>
-              </div>
             </div>
+            <HoursFields
+              prefix="h"
+              classes={classesForHours}
+              hint="Taken from each class's day and from its net capacity."
+            />
           </InlineCreateCard>
         )}
 
@@ -561,13 +601,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               </div>
               <div>
                 <Label htmlFor="k_pool">Pool</Label>
-                <Select id="k_pool" name="pool" defaultValue={poolFilter ?? pools[0] ?? "studio"}>
-                  {(state.resources.length > 0
-                    ? state.resources.map((r) => r.pool)
-                    : [...POOL_KEYS]
-                  ).map((pool) => (
-                    <option key={pool} value={pool}>
-                      {POOL_LABEL[pool]}
+                <Select
+                  id="k_pool"
+                  name="pool_id"
+                  defaultValue={poolFilter ?? resourcedPools[0]?.id ?? ""}
+                >
+                  {resourcedPools.map((pool) => (
+                    <option key={pool.id} value={pool.id}>
+                      {pool.name}
                     </option>
                   ))}
                 </Select>
@@ -586,19 +627,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               </div>
               <WindowFields prefix="k" windows={uniqueWindows} />
               <div>
-                <Label htmlFor="k_hours">Professional hours</Label>
-                <Input
-                  id="k_hours"
-                  name="professional_hours"
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  defaultValue="5"
-                  required
-                />
-                <FieldHint>The package&apos;s own figure; a basic webcast is 5.</FieldHint>
-              </div>
-              <div>
                 <Label htmlFor="k_treatment">Pricing</Label>
                 <Select id="k_treatment" name="treatment" defaultValue="incremental">
                   {TREATMENTS.map((t) => (
@@ -607,8 +635,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     </option>
                   ))}
                 </Select>
-                <FieldHint>Strategic draws the reserve; the others draw open capacity.</FieldHint>
+                <FieldHint>
+                  Strategic draws each class&apos;s reserve; the others draw its open capacity.
+                </FieldHint>
               </div>
+            </div>
+            <HoursFields
+              prefix="k"
+              classes={classesForHours}
+              hint="The package's own figures; a basic webcast is 5 lead hours and 10 student hours."
+            />
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="sm:col-span-3">
                 <Label htmlFor="k_notes">Notes</Label>
                 <Textarea id="k_notes" name="notes" rows={2} maxLength={1000} />
@@ -637,7 +674,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           date={date}
           today={today}
           state={state}
-          pools={pools}
+          poolIds={poolIds}
           weekHref={weekHref}
           monthHref={monthHref}
         />
@@ -665,7 +702,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   <Th>When</Th>
                   <Th>What</Th>
                   <Th>Pool</Th>
-                  <Th className="text-right">Pro hours</Th>
+                  <Th>Hours</Th>
                   <Th>Status</Th>
                   <Th>
                     <span className="sr-only">Actions</span>
@@ -682,13 +719,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     </Cell>
                     <Cell label="What">Blacked out: {blackout.reason}</Cell>
                     <Cell label="Pool">
-                      {blackout.pools === null
+                      {blackout.pool_ids === null
                         ? "Every pool"
-                        : blackout.pools.map((p) => POOL_LABEL[p]).join(", ")}
+                        : blackout.pool_ids.map((id) => poolName(id)).join(", ")}
                     </Cell>
-                    <Cell label="Pro hours" className="text-right">
-                      —
-                    </Cell>
+                    <Cell label="Hours">—</Cell>
                     <Cell label="Status">
                       <Badge variant="danger">Blackout</Badge>
                     </Cell>
@@ -713,10 +748,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     </Cell>
                     <Cell label="What">{hold.label}</Cell>
                     <Cell label="Pool">
-                      {hold.pool ? POOL_LABEL[hold.pool] : "Lead's hours only"}
+                      {hold.pool_id ? poolName(hold.pool_id) : "Labor hours only"}
                     </Cell>
-                    <Cell label="Pro hours" className="text-right">
-                      {hold.professional_hours}
+                    <Cell label="Hours" className="text-xs text-ink-700">
+                      {describeHours(hold.hours, calendar.classes)}
                     </Cell>
                     <Cell label="Status">
                       <Badge variant={hold.kind === "core" ? "neutral" : "warning"}>
@@ -748,9 +783,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         {TREATMENT_SHORT_LABEL[booking.treatment]}
                       </span>
                     </Cell>
-                    <Cell label="Pool">{POOL_LABEL[booking.pool]}</Cell>
-                    <Cell label="Pro hours" className="text-right">
-                      {booking.professional_hours}
+                    <Cell label="Pool">{poolName(booking.pool_id)}</Cell>
+                    <Cell label="Hours" className="text-xs text-ink-700">
+                      {describeHours(booking.hours, calendar.classes)}
+                      {totalHours(booking.hours) > 0 && (
+                        <span className="block text-ink-400">
+                          {totalHours(booking.hours)} h in all
+                        </span>
+                      )}
                     </Cell>
                     <Cell label="Status">
                       <Badge variant={booking.status === "confirmed" ? "success" : "accent"}>
@@ -835,31 +875,60 @@ function WindowFields({
   );
 }
 
+/** One hours input per active labor class (`hours_<classId>`). */
+function HoursFields({
+  prefix,
+  classes,
+  hint,
+}: {
+  prefix: string;
+  classes: BkLaborClassRow[];
+  hint: string;
+}) {
+  return (
+    <fieldset className="mt-4">
+      <legend className="text-xs font-bold text-ink-700">Hours per labor class</legend>
+      <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {classes.map((cls) => (
+          <div key={cls.id}>
+            <Label htmlFor={`${prefix}_hours_${cls.id}`}>{cls.name}</Label>
+            <Input
+              id={`${prefix}_hours_${cls.id}`}
+              name={`hours_${cls.id}`}
+              type="number"
+              step="0.25"
+              min="0"
+            />
+          </div>
+        ))}
+      </div>
+      <FieldHint>{hint}</FieldHint>
+    </fieldset>
+  );
+}
+
 function runCheck(params: Params, state: CalendarState) {
-  const pool = (POOL_KEYS as readonly string[]).includes(params.c_pool ?? "")
-    ? (params.c_pool as PoolKey)
+  const poolId = state.resources.some((r) => r.pool_id === params.c_pool)
+    ? (params.c_pool as string)
     : null;
   const [start = "", end = ""] = (params.c_window ?? "").split("-");
-  const hours = Number(params.c_hours ?? "");
   const treatment = TREATMENTS.includes((params.c_treatment ?? "") as BkPricingTreatment)
     ? (params.c_treatment as BkPricingTreatment)
     : null;
-  if (
-    !pool ||
-    !isValidDateISO(params.c_date) ||
-    !start ||
-    !end ||
-    !Number.isFinite(hours) ||
-    !treatment
-  ) {
-    return null;
+  if (!poolId || !isValidDateISO(params.c_date) || !start || !end || !treatment) return null;
+  const hours: HoursByClass = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!key.startsWith("c_hours_") || typeof value !== "string") continue;
+    const classId = key.slice("c_hours_".length);
+    const asked = Number(value);
+    if (UUID.test(classId) && Number.isFinite(asked) && asked > 0) hours[classId] = asked;
   }
   const request: BookingRequest = {
-    pool,
+    pool_id: poolId,
     date: params.c_date,
     window_start: start,
     window_end: end,
-    professional_hours: hours,
+    hours,
     treatment,
   };
   return { request, result: checkBooking(request, state) };

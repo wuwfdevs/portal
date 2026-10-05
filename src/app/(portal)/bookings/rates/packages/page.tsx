@@ -11,22 +11,30 @@ import {
   getVersionDetail,
   listVersions,
   pickVersion,
-  type BkServicePackageRow,
+  type BkLaborClassRow,
+  type BkPoolRow,
+  type PackageWithParts,
 } from "@/lib/bookings/queries";
-import {
-  POOL_KEYS,
-  POOL_LABEL,
-  formatDollars,
-  formatShare,
-  type PackageCosts,
-} from "@/lib/bookings/rates";
+import { formatDollars, formatShare, type PackageCosts } from "@/lib/bookings/rates";
 import { cardForVersion } from "@/lib/bookings/version-card";
 import { createPackage, setPackageActive, updatePackage } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
 
 type Params = { version?: string; edit?: string; new?: string; error?: string };
 
-function PackageFields({ defaults }: { defaults?: BkServicePackageRow }) {
+function PackageFields({
+  defaults,
+  classes,
+  pools,
+}: {
+  defaults?: PackageWithParts;
+  classes: BkLaborClassRow[];
+  pools: BkPoolRow[];
+}) {
+  const hoursFor = (classId: string) =>
+    defaults?.labor.find((row) => row.labor_class_id === classId)?.hours;
+  const unitsFor = (poolId: string) =>
+    defaults?.resources.find((row) => row.pool_id === poolId)?.units;
   const num = (value: number | undefined) => (value === undefined ? "" : String(value));
   return (
     <>
@@ -55,76 +63,44 @@ function PackageFields({ defaults }: { defaults?: BkServicePackageRow }) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-7">
-        <div>
-          <Label htmlFor="pkg-pro">Pro hrs</Label>
-          <Input
-            id="pkg-pro"
-            name="professional_hours"
-            inputMode="decimal"
-            defaultValue={num(defaults?.professional_hours)}
-          />
+      <fieldset>
+        <legend className="text-xs font-bold text-ink-700">Labor hours per class</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {classes.map((cls) => (
+            <div key={cls.id}>
+              <Label htmlFor={`labor-${cls.id}`}>{cls.name}</Label>
+              <Input
+                id={`labor-${cls.id}`}
+                name={`labor_${cls.id}`}
+                inputMode="decimal"
+                defaultValue={num(hoursFor(cls.id))}
+              />
+            </div>
+          ))}
         </div>
-        <div>
-          <Label htmlFor="pkg-student">Student hrs</Label>
-          <Input
-            id="pkg-student"
-            name="student_hours"
-            inputMode="decimal"
-            defaultValue={num(defaults?.student_hours)}
-          />
+      </fieldset>
+      <fieldset>
+        <legend className="text-xs font-bold text-ink-700">Resource units per pool</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {pools.map((pool) => (
+            <div key={pool.id}>
+              <Label htmlFor={`pool-${pool.id}`}>
+                {pool.name} <span className="font-normal text-ink-400">({pool.unit_label}s)</span>
+              </Label>
+              <Input
+                id={`pool-${pool.id}`}
+                name={`pool_${pool.id}`}
+                inputMode="decimal"
+                defaultValue={num(unitsFor(pool.id))}
+              />
+            </div>
+          ))}
         </div>
-        <div>
-          <Label htmlFor="pkg-studio">Studio</Label>
-          <Input
-            id="pkg-studio"
-            name="studio_units"
-            inputMode="decimal"
-            defaultValue={num(defaults?.studio_units)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="pkg-field">Field</Label>
-          <Input
-            id="pkg-field"
-            name="field_units"
-            inputMode="decimal"
-            defaultValue={num(defaults?.field_units)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="pkg-live">Live</Label>
-          <Input
-            id="pkg-live"
-            name="live_units"
-            inputMode="decimal"
-            defaultValue={num(defaults?.live_units)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="pkg-edit">Edit hrs</Label>
-          <Input
-            id="pkg-edit"
-            name="edit_units"
-            inputMode="decimal"
-            defaultValue={num(defaults?.edit_hours)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="pkg-ops">Webcast ops</Label>
-          <Input
-            id="pkg-ops"
-            name="webcast_ops_units"
-            inputMode="decimal"
-            defaultValue={num(defaults?.webcast_ops_units)}
-          />
-        </div>
-      </div>
-      <FieldHint>
-        Units of each pool in the pool&apos;s own unit (studio half-days, field and live days, edit
-        hours). A project day is 8 professional hours, so the professional hours are the
-        package&apos;s draw on the capacity reserve.
-      </FieldHint>
+        <FieldHint>
+          Units in each pool&apos;s own unit. A class not charged in a strategic price (the
+          production lead) is the package&apos;s draw on the capacity reserve.
+        </FieldHint>
+      </fieldset>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="pkg-hist">Historical reference</Label>
@@ -170,6 +146,18 @@ export default async function ServicePackagesPage({
   const here = (extra?: Record<string, string>) => ratesHref("packages", version.id, extra);
   const margin = detail.assumptions.find((row) => row.key === "external_margin_share");
   const assessment = detail.assumptions.find((row) => row.key === "assessment_share");
+  // Columns: every active class and pool, plus any a package on this version still references.
+  const classes = detail.classes.filter(
+    (cls) =>
+      cls.active ||
+      detail.packages.some((pkg) => pkg.labor.some((row) => row.labor_class_id === cls.id)),
+  );
+  const pools = detail.poolCatalog.filter(
+    (pool) =>
+      pool.active ||
+      detail.packages.some((pkg) => pkg.resources.some((row) => row.pool_id === pool.id)),
+  );
+  const columnCount = 1 + classes.length + pools.length + 3 + 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -190,7 +178,7 @@ export default async function ServicePackagesPage({
         >
           <input type="hidden" name="version_id" value={version.id} />
           <div className="flex flex-col gap-4">
-            <PackageFields />
+            <PackageFields classes={classes} pools={pools} />
           </div>
         </InlineCreateCard>
       )}
@@ -202,8 +190,9 @@ export default async function ServicePackagesPage({
               Service packages — what each one assumes
             </h3>
             <p className="text-xs text-ink-500">
-              Strategic cost = student labor + resource units + webcast ops. Incremental cost adds
-              professional hours at the loaded rate. External = the higher of incremental ÷ (1 −{" "}
+              Strategic cost = resource units + the hours of every class charged in a strategic
+              price. Incremental cost adds the other classes&apos; hours at their loaded rate.
+              External = the higher of incremental ÷ (1 −{" "}
               {margin ? formatShare(Number(margin.value)) : "margin"} −{" "}
               {assessment ? formatShare(Number(assessment.value)) : "assessment"}) and the market
               floor. Everything rounds up to the next $25 on the card.
@@ -223,14 +212,16 @@ export default async function ServicePackagesPage({
             <thead>
               <HeaderRow>
                 <Th>Service</Th>
-                <Th className="text-right">Pro hrs</Th>
-                <Th className="text-right">Student hrs</Th>
-                {POOL_KEYS.map((pool) => (
-                  <Th key={pool} className="text-right">
-                    {pool === "edit" ? "Edit hrs" : POOL_LABEL[pool].split(" ")[0]}
+                {classes.map((cls) => (
+                  <Th key={cls.id} className="text-right">
+                    {cls.name} hrs
                   </Th>
                 ))}
-                <Th className="text-right">Ops</Th>
+                {pools.map((pool) => (
+                  <Th key={pool.id} className="text-right">
+                    {pool.name.split(" / ")[0]}
+                  </Th>
+                ))}
                 <Th className="text-right">Strategic cost</Th>
                 <Th className="text-right">Incremental cost</Th>
                 <Th className="text-right">Market floor</Th>
@@ -244,11 +235,11 @@ export default async function ServicePackagesPage({
                 if (canEdit && params.edit === pkg.id) {
                   return (
                     <Row key={pkg.id}>
-                      <Cell colSpan={12} stack="full">
+                      <Cell colSpan={columnCount} stack="full">
                         <form action={updatePackage} className="flex flex-col gap-4">
                           <input type="hidden" name="id" value={pkg.id} />
                           <input type="hidden" name="version_id" value={version.id} />
-                          <PackageFields defaults={pkg} />
+                          <PackageFields defaults={pkg} classes={classes} pools={pools} />
                           <div className="flex items-center gap-4">
                             <Button type="submit">Save</Button>
                             <Link
@@ -264,7 +255,6 @@ export default async function ServicePackagesPage({
                   );
                 }
                 const cost = costs.get(pkg.id);
-                const units = [pkg.studio_units, pkg.field_units, pkg.live_units, pkg.edit_hours];
                 return (
                   <Row key={pkg.id} className={pkg.active ? undefined : "text-ink-400"}>
                     <Cell stack="title">
@@ -279,24 +269,24 @@ export default async function ServicePackagesPage({
                       </div>
                       {pkg.notes && <div className="text-xs text-ink-400">{pkg.notes}</div>}
                     </Cell>
-                    <Cell label="Pro hrs" className="text-right tabular-nums">
-                      {formatQuantity(Number(pkg.professional_hours))}
-                    </Cell>
-                    <Cell label="Student hrs" className="text-right tabular-nums">
-                      {formatQuantity(Number(pkg.student_hours))}
-                    </Cell>
-                    {POOL_KEYS.map((pool, index) => (
+                    {classes.map((cls) => (
                       <Cell
-                        key={pool}
-                        label={pool === "edit" ? "Edit hrs" : POOL_LABEL[pool]}
+                        key={cls.id}
+                        label={`${cls.name} hrs`}
                         className="text-right tabular-nums"
                       >
-                        {formatQuantity(Number(units[index]))}
+                        {formatQuantity(
+                          pkg.labor.find((row) => row.labor_class_id === cls.id)?.hours ?? 0,
+                        )}
                       </Cell>
                     ))}
-                    <Cell label="Webcast ops" className="text-right tabular-nums">
-                      {formatQuantity(Number(pkg.webcast_ops_units))}
-                    </Cell>
+                    {pools.map((pool) => (
+                      <Cell key={pool.id} label={pool.name} className="text-right tabular-nums">
+                        {formatQuantity(
+                          pkg.resources.find((row) => row.pool_id === pool.id)?.units ?? 0,
+                        )}
+                      </Cell>
+                    ))}
                     <Cell label="Strategic cost" className="text-right tabular-nums">
                       {cost && pkg.active
                         ? formatDollars(cost.strategicCost, { cents: true })
