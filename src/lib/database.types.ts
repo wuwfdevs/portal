@@ -461,6 +461,8 @@ export type LogRundownItemKind = "content" | "live_read" | "weather" | "underwri
 // own code only ever writes 'aired_as_scheduled' | 'missed' | 'skipped' —
 // see that migration's file header for the rest of the vocabulary's status.
 export type LogOnAirMode = "automated" | "live";
+/** Hours closed to underwriting auto-fill (20261005130000) — lib/log/underwriting-hours.ts. */
+export type LogUnderwritingHoursMode = "closed" | "open";
 
 export type LogBroadcastOutcome =
   | "scheduled"
@@ -2185,6 +2187,48 @@ export interface Database {
           mode: LogOnAirMode;
         };
         Update: Partial<Database["public"]["Tables"]["log_on_air_changes"]["Row"]>;
+        Relationships: [];
+      };
+      /** Weekly hours closed to underwriting auto-fill (20261005130000) — lib/log/underwriting-hours.ts. */
+      log_underwriting_closed_weekly: {
+        Row: {
+          id: string;
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+          effective_from: string;
+          effective_to: string | null;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_underwriting_closed_weekly"]["Row"]> & {
+          days_of_week: number[];
+          start_time: string;
+          end_time: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_underwriting_closed_weekly"]["Row"]>;
+        Relationships: [];
+      };
+      /** One-time closed or open changes to the underwriting hours (20261005130000); active rows never overlap. */
+      log_underwriting_hour_changes: {
+        Row: {
+          id: string;
+          starts_at: string;
+          ends_at: string;
+          mode: LogUnderwritingHoursMode;
+          reason: string | null;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["log_underwriting_hour_changes"]["Row"]> & {
+          starts_at: string;
+          ends_at: string;
+          mode: LogUnderwritingHoursMode;
+        };
+        Update: Partial<Database["public"]["Tables"]["log_underwriting_hour_changes"]["Row"]>;
         Relationships: [];
       };
       // Append-only from the application — no update grant. See the

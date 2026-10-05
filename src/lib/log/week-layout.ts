@@ -204,3 +204,38 @@ export function formatHourLabel(hour: number): string {
   const display = normalized % 12 === 0 ? 12 : normalized % 12;
   return `${display} ${period}`;
 }
+
+export type WeekBandKind = "automated" | "closed";
+
+export interface WeekBand {
+  kind: WeekBandKind;
+  /** Minutes below the top of the visible range. */
+  topMinutes: number;
+  heightMinutes: number;
+}
+
+/**
+ * The shaded bands behind a day column: a layer's covered runs (seconds
+ * since local midnight, from automatedSegments()/closedSegments()) clipped
+ * to the visible hour range, the same way layoutDayBlocks clips a program.
+ * A run outside the range, or shorter than a minute once clipped, draws
+ * nothing.
+ */
+export function shadingBands(
+  runs: Array<{ fromSeconds: number; toSeconds: number; covered: boolean }>,
+  kind: WeekBandKind,
+  startHour: number,
+  endHour: number,
+): WeekBand[] {
+  const rangeStart = startHour * 60;
+  const rangeEnd = endHour * 60;
+  const bands: WeekBand[] = [];
+  for (const run of runs) {
+    if (!run.covered) continue;
+    const from = Math.max(rangeStart, Math.floor(run.fromSeconds / 60));
+    const to = Math.min(rangeEnd, Math.ceil(run.toSeconds / 60));
+    if (to - from < 1) continue;
+    bands.push({ kind, topMinutes: from - rangeStart, heightMinutes: to - from });
+  }
+  return bands;
+}

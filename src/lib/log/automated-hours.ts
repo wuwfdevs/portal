@@ -10,7 +10,9 @@
 // A one-time change wins over the weekly windows; one-time changes never
 // overlap (an exclusion constraint); weekly windows may, and their union
 // counts. Pure, station time (America/Chicago). The SQL twin is
-// private.log_is_automated() — keep them in step.
+// private.log_is_automated() — keep them in step. The weekly-window and
+// day-segment logic is shared with underwriting-hours.ts (hours closed to
+// underwriting auto-fill), which has the same shape of record.
 
 import { STATION_TIME_ZONE, shiftDateISO, stationLocalDateTimeToUTC } from "./timezone";
 
@@ -113,8 +115,16 @@ export function weeklyWindowCovers(window: WeeklyAutomatedWindow, at: StationLoc
   return false;
 }
 
+/** A dated one-time change of any kind: an on-air change here, an underwriting-hours change in underwriting-hours.ts. */
+export interface DatedChangeLike {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  active: boolean;
+}
+
 /** The one-time change in effect at an instant, if any ([starts, ends)). */
-export function changeAt(instantISO: string, changes: OnAirChange[]): OnAirChange | null {
+export function changeAt<T extends DatedChangeLike>(instantISO: string, changes: T[]): T | null {
   const at = Date.parse(instantISO);
   return (
     changes.find(
@@ -138,27 +148,36 @@ export function isAutomated(
 
 export type SegmentSource = "weekly" | "once" | "default";
 
-export interface DaySegment {
+/** A run of one state within a station-local day, whatever the state means (automated, closed to underwriting). */
+export interface CoverageSegment {
   startsAt: string;
   endsAt: string;
-  automated: boolean;
-  /** What decided it: a weekly window, a one-time change, or the hosted default. */
+  /** Whether the weekly windows or a one-time change cover this run. */
+  covered: boolean;
+  /** What decided it: a weekly window, a one-time change, or the default. */
   source: SegmentSource;
   /** The one-time change behind a `once` segment, for its reason. */
   changeId: string | null;
 }
 
+export interface DaySegment extends CoverageSegment {
+  automated: boolean;
+}
+
 /**
  * A station-local day cut into runs of the same state, in order: each run
- * says whether it's automated and what decided it. Built by evaluating the
+ * says whether it's covered and what decided it. Built by evaluating the
  * day between every boundary any window or change could put in it, so a
  * DST day and windows past midnight come out right without special cases.
+ * `covers` says whether a one-time change turns coverage on or off — the
+ * only thing that differs between automated hours and underwriting hours.
  */
-export function automatedSegments(
+export function coverageSegments<T extends DatedChangeLike>(
   dateISO: string,
   weekly: WeeklyAutomatedWindow[],
-  changes: OnAirChange[],
-): DaySegment[] {
+  changes: T[],
+  covers: (change: T) => boolean,
+): CoverageSegment[] {
   const dayStart = stationLocalToUTC(dateISO, "00:00:00");
   const dayEnd = stationLocalToUTC(shiftDateISO(dateISO, 1), "00:00:00");
   const startMs = Date.parse(dayStart);
@@ -178,7 +197,7 @@ export function automatedSegments(
   }
   const points = [...boundaries].filter((ms) => ms >= startMs && ms <= endMs).sort((a, b) => a - b);
 
-  const segments: DaySegment[] = [];
+  const segments: CoverageSegment[] = [];
   for (let index = 0; index < points.length - 1; index += 1) {
     const from = points[index]!;
     const to = points[index + 1]!;
@@ -186,15 +205,15 @@ export function automatedSegments(
     const middle = new Date((from + to) / 2).toISOString();
     const change = changeAt(middle, changes);
     const at = stationLocalParts(middle);
-    const automated = change
-      ? change.mode === "automated"
+    const covered = change
+      ? covers(change)
       : weekly.some((window) => weeklyWindowCovers(window, at));
-    const source: SegmentSource = change ? "once" : automated ? "weekly" : "default";
+    const source: SegmentSource = change ? "once" : covered ? "weekly" : "default";
     const changeId = change?.id ?? null;
     const previous = segments[segments.length - 1];
     if (
       previous &&
-      previous.automated === automated &&
+      previous.covered === covered &&
       previous.source === source &&
       previous.changeId === changeId
     ) {
@@ -203,7 +222,7 @@ export function automatedSegments(
       segments.push({
         startsAt: new Date(from).toISOString(),
         endsAt: new Date(to).toISOString(),
-        automated,
+        covered,
         source,
         changeId,
       });
@@ -212,14 +231,30 @@ export function automatedSegments(
   return segments;
 }
 
+/** The day's runs with `covered` read as `automated` — coverageSegments() for the on-air state. */
+export function automatedSegments(
+  dateISO: string,
+  weekly: WeeklyAutomatedWindow[],
+  changes: OnAirChange[],
+): DaySegment[] {
+  return coverageSegments(dateISO, weekly, changes, (change) => change.mode === "automated").map(
+    (segment) => ({ ...segment, automated: segment.covered }),
+  );
+}
+
+/** Hours a day is covered, to one decimal — the month views' per-day figure. */
+export function coveredHoursOnDay(segments: CoverageSegment[]): number {
+  const ms = segments
+    .filter((segment) => segment.covered)
+    .reduce((sum, segment) => sum + (Date.parse(segment.endsAt) - Date.parse(segment.startsAt)), 0);
+  return Math.round((ms / 3_600_000) * 10) / 10;
+}
+
 /** Automated hours in a station-local day, to one decimal — the month view's per-day figure. */
 export function automatedHoursOnDay(
   dateISO: string,
   weekly: WeeklyAutomatedWindow[],
   changes: OnAirChange[],
 ): number {
-  const ms = automatedSegments(dateISO, weekly, changes)
-    .filter((segment) => segment.automated)
-    .reduce((sum, segment) => sum + (Date.parse(segment.endsAt) - Date.parse(segment.startsAt)), 0);
-  return Math.round((ms / 3_600_000) * 10) / 10;
+  return coveredHoursOnDay(automatedSegments(dateISO, weekly, changes));
 }

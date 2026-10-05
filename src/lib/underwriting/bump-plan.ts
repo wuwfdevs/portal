@@ -17,7 +17,7 @@
 
 import type { UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 import { isFixedPosition } from "./fill-order";
-import { automationBlockFor } from "./freeze";
+import { automationPlacementBlockFor } from "./freeze";
 import type { CandidateBreak } from "./inventory-selection";
 
 /** One item currently sitting in a break, as log_list_placeable_rundown_breaks() reports it. Placement fields are null for host content. */
@@ -128,7 +128,7 @@ export function planBump(
   nowISO: string,
 ): BumpPlan {
   const eligible = breaks.filter(
-    (brk) => automationBlockFor(brk, nowISO) === null && !brk.holdsThisContract,
+    (brk) => automationPlacementBlockFor(brk, nowISO) === null && !brk.holdsThisContract,
   );
   const breakIds = eligible.map((brk) => brk.breakId);
   const conflict = (reason: CapacityConflictReason): BumpPlan => ({
@@ -159,7 +159,7 @@ export function planBump(
           alt.breakId !== brk.breakId &&
           alt.bucketId === item.bucketId &&
           alt.remainingSeconds >= item.durationSeconds &&
-          automationBlockFor(alt, nowISO) === null &&
+          automationPlacementBlockFor(alt, nowISO) === null &&
           !alt.holdsThisContract &&
           !sameIdentity(
             { underwriterId: alt.lastItemUnderwriterId, categoryId: alt.lastItemCategoryId },

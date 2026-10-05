@@ -17,6 +17,8 @@ import {
 } from "@/lib/underwriting/queries";
 import { describeScheduleLine } from "@/lib/underwriting/demand";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
+import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import { describeMakegoodState, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
 import {
   EXCEPTION_FILTER_LABEL,
@@ -447,7 +449,7 @@ function MakegoodItem({
   );
 }
 
-function PickBreak({
+async function PickBreak({
   makegood,
   exceptionId,
   contractId,
@@ -487,6 +489,9 @@ function PickBreak({
       </p>
     );
   }
+  // A hand-picked slot may be in hours closed to underwriting (the rule
+  // reaches automation only), but the option says so.
+  const underwritingHours = await loadUnderwritingHours();
   return (
     <form action={scheduleMakegoodAction} className="mt-3 flex flex-col gap-3">
       <input type="hidden" name="makegood_id" value={makegood.id} />
@@ -503,7 +508,13 @@ function PickBreak({
             options={makegood.placeable.breaks.map((brk) => ({
               id: brk.break_id,
               label: `${brk.program_name} — ${formatPlacementTime(brk.scheduled_at)} (${brk.label})`,
-              hint: `${brk.remaining_seconds}s remaining`,
+              hint: isClosedToUnderwriting(
+                brk.scheduled_at,
+                underwritingHours.weekly,
+                underwritingHours.changes,
+              )
+                ? `${brk.remaining_seconds}s remaining · closed to underwriting`
+                : `${brk.remaining_seconds}s remaining`,
             }))}
           />
         </div>

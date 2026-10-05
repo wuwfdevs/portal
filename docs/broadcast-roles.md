@@ -46,6 +46,9 @@ Owns the shape of the broadcast day.
   local breaks fall and what each may hold.
 - Automated hours: when the station runs unattended. This is a programming
   and staffing decision, like the schedule.
+- Underwriting hours: which hours are closed to underwriting auto-fill. Which
+  hours carry credits is a decision about what listeners hear when, like the
+  schedule, so it sits with the program director; traffic reads it.
 - Content standards and the content library's approvals.
 
 Replaces the old `producer` role.
@@ -127,14 +130,19 @@ data lives in the other tool:
   briefly and was removed on 2026-10-05: the rule for where the ID goes
   doesn't change, so a second screen for the same pins was only something
   else to keep track of.)
-- **Automation:** On Air → Automation, its own tab beside Programs (route
-  `/log/automated-hours`).
+- **The Schedule tab** (On Air → Schedule) holds the three weekly overlays on
+  one axis, each with its own page in a row under it: **Programs** (what airs
+  when, `/log/programs`), **Automation** (automated hours,
+  `/log/automated-hours`) and **Underwriting** (hours closed to underwriting,
+  `/log/underwriting-hours`). The Programs week view shades the other two
+  behind the programs. Automation was briefly a top-level tab of its own on
+  2026-10-05, before the three were grouped the same day.
 
 ## 6. Permissions
 
 | Action | Who |
 |---|---|
-| Edit clocks, local opportunities, schedule, programs, automated hours | Program director |
+| Edit clocks, local opportunities, schedule, programs, automated hours, underwriting hours | Program director |
 | Pin station IDs and other required content to clock slots | Program director or traffic |
 | Release the DAD log | Traffic |
 | Mark copy recorded in DAD | Production |

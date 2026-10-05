@@ -532,6 +532,18 @@ surfaced yet):
 `start_date`, `end_date` (nullable), `effective_from`, `notes`,
 `created_by`.
 
+### Automated hours and underwriting hours (2026-10-02, 2026-10-05)
+Two weekly overlays on the schedule, each "a default plus the exceptions":
+`log_automated_weekly` / `log_on_air_changes` (hosted is the default; when
+no one is in the studio, DAD plays that hour's credits — `lib/log/
+automated-hours.ts`) and `log_underwriting_closed_weekly` /
+`log_underwriting_hour_changes` (open is the default; the hours Traffic's
+auto-fill may not schedule a credit into — `lib/log/underwriting-hours.ts`,
+`docs/underwriting-traffic-redesign.md` §18). Both are the program
+director's and sit with Programs under the Schedule tab
+(`docs/broadcast-roles.md` §5); the Programs week view shades both behind
+the programs.
+
 ### `log_content_items`
 `id`, `content_type` (`news` | `station_promo` | `program_promo` |
 `membership_message` | `university_announcement` | `psa` | `legal_id` |

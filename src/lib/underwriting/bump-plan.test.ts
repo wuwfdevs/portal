@@ -142,6 +142,31 @@ describe("planBump", () => {
     ).toMatchObject({ kind: "conflict", conflict: { reason: "no_legal_alternative" } });
   });
 
+  it("never moves a credit into hours closed to underwriting, nor seats one there", () => {
+    const opening = full({ breakId: "brk-706", items: [item({ itemId: "a" })] });
+    const closedAlternative = candidate({
+      breakId: "brk-749",
+      minutesOfDay: 7 * 60 + 49,
+      closedToUnderwriting: true,
+    });
+    expect(
+      planBump(unit, [opening], new Map([["line-a", [closedAlternative]]]), NOW),
+    ).toMatchObject({ kind: "conflict", conflict: { reason: "no_legal_alternative" } });
+    const closedSeat = full({
+      breakId: "brk-706",
+      items: [item({ itemId: "a" })],
+      closedToUnderwriting: true,
+    });
+    expect(
+      planBump(
+        unit,
+        [closedSeat],
+        new Map([["line-a", [candidate({ breakId: "brk-749", minutesOfDay: 7 * 60 + 49 })]]]),
+        NOW,
+      ),
+    ).toMatchObject({ kind: "conflict", conflict: { reason: "no_eligible_break" } });
+  });
+
   it("never moves a credit outside its own demand bucket", () => {
     const open = full({ breakId: "brk-706", items: [item({ itemId: "a", bucketId: "week-1" })] });
     const nextWeek = candidate({ breakId: "brk-next", airDate: "2026-10-06", bucketId: "week-2" });

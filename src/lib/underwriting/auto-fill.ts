@@ -2,6 +2,8 @@ import "server-only";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { isAutomated } from "@/lib/log/automated-hours";
 import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
+import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import {
   bumpCredit,
   listPlaceableRundownBreaks,
@@ -10,7 +12,7 @@ import {
 } from "./placement";
 import { provisionRundownsForDates } from "./rundown-provisioning";
 import { isFixedPosition, orderLinesForFill } from "./fill-order";
-import { automationBlockFor } from "./freeze";
+import { automationPlacementBlockFor } from "./freeze";
 import { planBump, type BumpBreak, type BumpMove, type CapacityConflict } from "./bump-plan";
 import {
   buildSelectionDemand,
@@ -68,6 +70,14 @@ import { rebalanceContractRotation } from "./rotation-rebalance";
  * another legal break in its own bucket (bump-plan.ts chooses,
  * log_bump_underwriting_credit() executes atomically) — or is reported
  * as a named capacity conflict when no clean move exists.
+ *
+ * A fourth, since 2026-10-05: hours closed to underwriting
+ * (lib/log/underwriting-hours.ts) — the program director's list of hours
+ * no credit is auto-scheduled into. The planner and the bump planner skip
+ * those breaks (freeze.ts's automationPlacementBlockFor), provisioning
+ * never generates a rundown whose every eligible break is closed, and the
+ * SQL guard refuses `hours_closed` as the backstop. A staffer's own manual
+ * placement is not automation and is not refused.
  */
 
 /** A bump this run carried out: the moved placement, where it went, and the constrained unit seated in the room it left. */
@@ -85,6 +95,8 @@ export interface AutoFillResult {
   rundownsGeneratedCount: number;
   /** Dates this line still needs but no program it can use has an active Log schedule entry, a clock version in effect, or an underwriting-eligible local opportunity on. */
   unschedulableAirDates: string[];
+  /** Dates this line still needs whose every eligible break falls in hours closed to underwriting — open them under Schedule → Underwriting, or the line can't be auto-filled there. */
+  closedAirDates: string[];
   /** Demand units the plan could not place, with the reason. */
   unplaceable: UnplaceableUnit[];
   /** Movable credits this run relocated so a constrained unit could be seated. */
@@ -101,6 +113,7 @@ const EMPTY_RESULT: AutoFillResult = {
   makegoodsResolvedCount: 0,
   rundownsGeneratedCount: 0,
   unschedulableAirDates: [],
+  closedAirDates: [],
   unplaceable: [],
   bumps: [],
   capacityConflicts: [],
@@ -113,6 +126,7 @@ function toCandidate(
   brk: PlaceableRundownBreak,
   lastItem: { underwriterId: string; categoryId: string | null } | undefined,
   automated: boolean,
+  closedToUnderwriting: boolean,
 ): CandidateBreak {
   return {
     breakId: brk.break_id,
@@ -126,6 +140,7 @@ function toCandidate(
     holdsThisContract: brk.holds_this_contract,
     bucketId: brk.bucket_id,
     automated,
+    closedToUnderwriting,
   };
 }
 
@@ -159,9 +174,10 @@ async function listCandidates(
 > {
   const placeable = await listPlaceableRundownBreaks(scheduleLineId);
   if (!placeable.ok) return { ok: false, message: placeable.message };
-  const [adjacencyByItemId, hours] = await Promise.all([
+  const [adjacencyByItemId, hours, underwritingHours] = await Promise.all([
     resolveLastItemAdjacency(placeable.breaks.map((brk) => brk.last_item_id)),
     loadAutomatedHours(),
+    loadUnderwritingHours(),
   ]);
   return {
     ok: true,
@@ -171,6 +187,11 @@ async function listCandidates(
         brk,
         brk.last_item_id ? adjacencyByItemId.get(brk.last_item_id) : undefined,
         isAutomated(brk.scheduled_at, hours.weekly, hours.changes),
+        isClosedToUnderwriting(
+          brk.scheduled_at,
+          underwritingHours.weekly,
+          underwritingHours.changes,
+        ),
       ),
     ),
   };
@@ -187,7 +208,7 @@ function countOpenCandidates(
       brk.airDate >= todayISO &&
       brk.remainingSeconds > 0 &&
       !brk.holdsThisContract &&
-      automationBlockFor(brk, nowISO) === null,
+      automationPlacementBlockFor(brk, nowISO) === null,
   ).length;
 }
 
@@ -305,6 +326,7 @@ export async function autoFillScheduleLine(
   let finalCandidates = existingCandidates;
   let rundownsGeneratedCount = 0;
   let unschedulableAirDates: string[] = [];
+  let closedAirDates: string[] = [];
   const provisioningErrors: string[] = [];
 
   const remaining = probePlan.unplaceable.filter(
@@ -327,6 +349,7 @@ export async function autoFillScheduleLine(
       const provisioning = await provisionRundownsForDates(programId, candidateDates, remaining);
       rundownsGeneratedCount += provisioning.generatedCount;
       unschedulableAirDates = provisioning.unschedulableAirDates;
+      closedAirDates = provisioning.closedAirDates;
       provisioningErrors.push(...provisioning.errors);
     }
     if (rundownsGeneratedCount > 0) {
@@ -408,6 +431,7 @@ export async function autoFillScheduleLine(
     makegoodsResolvedCount,
     rundownsGeneratedCount,
     unschedulableAirDates,
+    closedAirDates,
     unplaceable,
     bumps,
     capacityConflicts,
@@ -619,6 +643,7 @@ async function runAutoFillOverLines(
       unschedulableAirDates: [
         ...new Set([...acc.unschedulableAirDates, ...result.unschedulableAirDates]),
       ],
+      closedAirDates: [...new Set([...acc.closedAirDates, ...result.closedAirDates])],
       unplaceable: [...acc.unplaceable, ...result.unplaceable],
       bumps: [...acc.bumps, ...result.bumps],
       capacityConflicts: [...acc.capacityConflicts, ...result.capacityConflicts],

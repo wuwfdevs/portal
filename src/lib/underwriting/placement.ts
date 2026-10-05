@@ -109,6 +109,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   rundown_frozen:
     "That rundown is live or already submitted — automation never writes into it; a host can still act on it from On Air.",
   break_in_past: "That break has already started — automation never writes into the past.",
+  hours_closed:
+    "That break is in hours closed to underwriting — automation never schedules there. A staffer can still place by hand, or the program director can open the hours under On Air → Schedule → Underwriting.",
   air_date_in_past: "Automation never generates a rundown for a date that has passed.",
   unknown_item: "That placement's rundown item no longer exists.",
   credit_fixed:

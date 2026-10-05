@@ -13,6 +13,8 @@ import {
   listProgramOptions,
   type PlaceableRundownBreak,
 } from "@/lib/underwriting/placement";
+import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import {
   buildScheduleLineDemandViews,
   getContractDetail,
@@ -64,13 +66,15 @@ export default async function PlaceCreditPage({
     return servesLine({ lineId: link?.schedule_line_id ?? null }, line.id, lineScopes);
   });
 
-  const [pools, programs, placeable, nearby, suggestedCopyId] = await Promise.all([
-    listInventoryPools(),
-    listProgramOptions(),
-    schedulable ? listPlaceableRundownBreaks(line.id) : null,
-    line.program_id ? listNearbyPlacementsForAdjacency(line.program_id, contract.id) : [],
-    schedulable ? suggestNextCopyForLine(contract.id, line) : null,
-  ]);
+  const [pools, programs, placeable, nearby, suggestedCopyId, underwritingHours] =
+    await Promise.all([
+      listInventoryPools(),
+      listProgramOptions(),
+      schedulable ? listPlaceableRundownBreaks(line.id) : null,
+      line.program_id ? listNearbyPlacementsForAdjacency(line.program_id, contract.id) : [],
+      schedulable ? suggestNextCopyForLine(contract.id, line) : null,
+      loadUnderwritingHours(),
+    ]);
   const [view] = await buildScheduleLineDemandViews(contract, [line], contract.bucketsByLine, {
     poolNameById: new Map(pools.map((pool) => [pool.id, pool.name])),
     programNameById: new Map(programs.map((program) => [program.id, program.name])),
@@ -109,7 +113,16 @@ export default async function PlaceCreditPage({
       options: list.map((brk) => ({
         id: brk.break_id,
         when: formatPlacementDateTime(brk.scheduled_at),
-        where: `${brk.program_name} · ${brk.label}`,
+        // A manual placement may go into hours closed to underwriting —
+        // the rule reaches automation only — but say so, since auto-fill
+        // would never have put a credit there.
+        where: isClosedToUnderwriting(
+          brk.scheduled_at,
+          underwritingHours.weekly,
+          underwritingHours.changes,
+        )
+          ? `${brk.program_name} · ${brk.label} · closed to underwriting`
+          : `${brk.program_name} · ${brk.label}`,
         room: `${brk.remaining_seconds}s open`,
         disabledReason: brk.holds_this_contract ? "Already holds this contract" : undefined,
       })),

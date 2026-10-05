@@ -187,6 +187,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/log/automated-hours"],
   },
   {
+    key: "log.underwriting-hours",
+    name: "Underwriting hours",
+    toolKey: "log",
+    paths: ["/log/underwriting-hours"],
+  },
+  {
     // The Station IDs page is gone (IDs are pinned on the clock page) and the
     // path only redirects; the key stays because an applied release migration
     // names it, and release-content.test.ts checks every key it finds.

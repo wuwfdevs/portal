@@ -74,6 +74,27 @@ describe("capacity conflicts", () => {
     ).toEqual(["capacity_conflict"]);
   });
 
+  it("names a period whose every break is closed to underwriting, and only then", () => {
+    const closed = { airDate: "2026-09-28", remainingSeconds: 60, openToAutomation: false };
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        isFixedPosition: false,
+        candidateBreaks: [{ ...closed, closedToUnderwriting: true }],
+      }),
+    ).toEqual(["hours_closed"]);
+    expect(
+      computeScheduleLineConflicts({
+        ...base,
+        isFixedPosition: false,
+        candidateBreaks: [
+          { ...closed, closedToUnderwriting: true },
+          { airDate: "2026-09-28", remainingSeconds: 60, openToAutomation: true },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
   it("never flags a line that can take any avail, nor one with room left", () => {
     const tooFull = [{ airDate: "2026-09-28", remainingSeconds: 10, openToAutomation: true }];
     expect(

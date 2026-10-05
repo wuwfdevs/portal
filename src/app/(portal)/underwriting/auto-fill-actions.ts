@@ -47,6 +47,11 @@ function summarizeAutoFill(result: AutoFillResult): string {
       `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
     );
   }
+  if (result.closedAirDates.length > 0) {
+    parts.push(
+      `${result.closedAirDates.length} date${result.closedAirDates.length === 1 ? "" : "s"} fall entirely in hours closed to underwriting (On Air → Schedule → Underwriting)`,
+    );
+  }
   if (result.bumps.length > 0) {
     parts.push(
       `moved ${result.bumps.length} movable credit${result.bumps.length === 1 ? "" : "s"} to seat a fixed-position one`,

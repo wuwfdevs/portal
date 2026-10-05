@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { formatHourLabel } from "@/lib/log/week-layout";
+import { formatHourLabel, type WeekBand } from "@/lib/log/week-layout";
 
 /** Pixels per hour; a block's height is its minutes scaled by this. */
 const HOUR_PX = 34;
@@ -37,7 +37,19 @@ export interface WeekDay {
   /** Day of the month */
   num: number;
   blocks: WeekBlock[];
+  /** Automated hours and hours closed to underwriting, drawn behind the programs (lib/log/week-layout.ts shadingBands). */
+  bands: WeekBand[];
 }
+
+/** The two schedule overlays' looks — the same marks the Automation and Underwriting pages use. */
+export const BAND_CLASS: Record<WeekBand["kind"], string> = {
+  automated: "bg-[#DCE1E6]/60",
+  closed: "bg-[repeating-linear-gradient(135deg,rgba(166,52,52,0.16)_0_4px,transparent_4px_9px)]",
+};
+const BAND_LABEL: Record<WeekBand["kind"], string> = {
+  automated: "Automated",
+  closed: "Closed to underwriting",
+};
 
 interface Selected {
   key: string;
@@ -47,7 +59,10 @@ interface Selected {
 
 /**
  * The Programs week grid: Monday–Sunday columns, an hour gutter, and one
- * button per airing. Selecting a block opens a small card beside it (edit the
+ * button per airing. Behind the airings, each day's automated hours and hours
+ * closed to underwriting are shaded, so the one grid shows what airs, who is
+ * in the studio, and where credits may go (edited under Automation and
+ * Underwriting). Selecting a block opens a small card beside it (edit the
  * schedule, open the program). The grid scrolls horizontally inside its own
  * frame at narrow widths instead of widening the page.
  */
@@ -192,6 +207,18 @@ export function WeekGrid({
                 backgroundSize: `100% ${HOUR_PX}px`,
               }}
             >
+              {day.bands.map((band, index) => (
+                <div
+                  key={`${band.kind}-${index}`}
+                  aria-hidden="true"
+                  title={BAND_LABEL[band.kind]}
+                  className={cn("pointer-events-none absolute inset-x-0", BAND_CLASS[band.kind])}
+                  style={{
+                    top: (band.topMinutes / 60) * HOUR_PX,
+                    height: (band.heightMinutes / 60) * HOUR_PX,
+                  }}
+                />
+              ))}
               {day.blocks.map((block) => {
                 const isSelected = selected?.key === block.key;
                 const widthPct = 100 / block.laneCount;

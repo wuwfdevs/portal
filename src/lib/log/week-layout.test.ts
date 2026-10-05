@@ -7,6 +7,7 @@ import {
   formatWeekRange,
   isValidDateISO,
   layoutDayBlocks,
+  shadingBands,
   visibleHourRange,
   weekDates,
   weekStartISO,
@@ -131,5 +132,26 @@ describe("formatHourLabel", () => {
     expect(formatHourLabel(5)).toBe("5 AM");
     expect(formatHourLabel(12)).toBe("12 PM");
     expect(formatHourLabel(24)).toBe("12 AM");
+  });
+});
+
+describe("shadingBands", () => {
+  it("clips covered runs to the visible range and skips what falls outside it", () => {
+    const runs = [
+      { fromSeconds: 0, toSeconds: 5 * 3600, covered: true }, // overnight tail, before 5 AM
+      { fromSeconds: 5 * 3600, toSeconds: 17 * 3600, covered: true }, // the daytime window
+      { fromSeconds: 17 * 3600, toSeconds: 20 * 3600, covered: false },
+      { fromSeconds: 20 * 3600, toSeconds: 24 * 3600 + 1800, covered: true }, // past midnight
+    ];
+    expect(shadingBands(runs, "closed", 5, 24)).toEqual([
+      { kind: "closed", topMinutes: 0, heightMinutes: 12 * 60 },
+      { kind: "closed", topMinutes: 15 * 60, heightMinutes: 4 * 60 },
+    ]);
+    // A range starting earlier shows the overnight tail too.
+    expect(shadingBands(runs, "automated", 3, 24)[0]).toEqual({
+      kind: "automated",
+      topMinutes: 0,
+      heightMinutes: 2 * 60,
+    });
   });
 });
