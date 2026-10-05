@@ -313,6 +313,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
       "/bookings/rates/assets/:id/edit",
     ],
   },
+  {
+    key: "bookings.calendar",
+    name: "Calendar and term plan",
+    toolKey: "bookings",
+    paths: ["/bookings/calendar", "/bookings/calendar/plan"],
+  },
 ];
 
 /**

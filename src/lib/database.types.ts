@@ -574,6 +574,11 @@ export type BkAssetFunding = "station" | "foundation_gift" | "grant_restricted" 
 export type BkAssetBurden = "low" | "medium" | "high";
 export type BkAssetCondition = "good" | "fair" | "worn" | "out_of_service";
 export type BkRateCardLineKind = "package" | "labor";
+// Slice 2 (20261005150000_bookings_term_plan.sql).
+export type BkTermPlanStatus = "draft" | "active" | "closed";
+export type BkHoldKind = "core" | "maintenance";
+export type BkBookingStatus = "tentative" | "confirmed" | "released";
+export type BkPricingTreatment = "strategic" | "incremental" | "external";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -3099,6 +3104,140 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      // Bookings slice 2 — the term plan and the calendar
+      // (20261005150000_bookings_term_plan.sql; docs/bookings-design.md §5).
+      /** One term's production and airtime envelopes; one plan is active at a time. */
+      bk_term_plans: {
+        Row: {
+          id: string;
+          label: string;
+          starts_on: string;
+          ends_on: string;
+          /** Net schedulable professional hours for the term (a project day is 8). */
+          net_professional_hours: number;
+          /** The station's contribution as a share of net (0..1). */
+          reserve_share: number;
+          /** University-eligible avail minutes a week the station contributes. */
+          airtime_contributed_minutes_per_week: number;
+          lead_hours_per_day: number;
+          status: BkTermPlanStatus;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_term_plans"]["Row"]> & {
+          label: string;
+          starts_on: string;
+          ends_on: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_term_plans"]["Row"]>;
+        Relationships: [];
+      };
+      /** A plan's schedulable pools, their units for the term and their windows. */
+      bk_term_resources: {
+        Row: {
+          id: string;
+          plan_id: string;
+          pool: BkPoolKey;
+          available_units: number;
+          unit_label: string;
+          /** [{ key, label, start: "HH:MM", end: "HH:MM" }] — see lib/bookings/scheduling.ts's parseWindows. */
+          windows: unknown;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_term_resources"]["Row"]> & {
+          plan_id: string;
+          pool: BkPoolKey;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_term_resources"]["Row"]>;
+        Relationships: [];
+      };
+      /** A policy: no partner work on these dates and pools (null pools = every pool). */
+      bk_blackouts: {
+        Row: {
+          id: string;
+          plan_id: string;
+          starts_on: string;
+          ends_on: string;
+          pools: BkPoolKey[] | null;
+          reason: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_blackouts"]["Row"]> & {
+          plan_id: string;
+          starts_on: string;
+          ends_on: string;
+          reason: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_blackouts"]["Row"]>;
+        Relationships: [];
+      };
+      /** WUWF's own use of one window; a null pool holds only the lead's hours. */
+      bk_holds: {
+        Row: {
+          id: string;
+          plan_id: string;
+          pool: BkPoolKey | null;
+          date: string;
+          window_start: string;
+          window_end: string;
+          professional_hours: number;
+          kind: BkHoldKind;
+          label: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_holds"]["Row"]> & {
+          plan_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_holds"]["Row"]>;
+        Relationships: [];
+      };
+      /** A partner's hold on one window of one pool; bk_booking_allowed() is the rule. */
+      bk_bookings: {
+        Row: {
+          id: string;
+          plan_id: string;
+          /** A bare uuid until slice 3 adds bk_projects. */
+          project_id: string | null;
+          pool: BkPoolKey;
+          date: string;
+          window_start: string;
+          window_end: string;
+          units: number;
+          professional_hours: number;
+          treatment: BkPricingTreatment;
+          status: BkBookingStatus;
+          expires_at: string | null;
+          released_at: string | null;
+          label: string;
+          notes: string | null;
+          exception_by: string | null;
+          exception_reason: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_bookings"]["Row"]> & {
+          plan_id: string;
+          pool: BkPoolKey;
+          date: string;
+          window_start: string;
+          window_end: string;
+          treatment: BkPricingTreatment;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_bookings"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -3111,6 +3250,28 @@ export interface Database {
       bk_adopt_version: {
         Args: { p_version_id: string; p_destination_index?: string | null };
         Returns: { ok: true } | { error: string };
+      };
+      /**
+       * Security definer read of On Air's clocks (docs/bookings-design.md §6.5):
+       * university-eligible avails and minutes a week per program, with the
+       * minutes their pinned content already takes. Parsed by
+       * lib/bookings/airtime.ts's parseAirtimeRead().
+       */
+      bk_university_avails_per_week: {
+        Args: { p_plan_id: string };
+        Returns:
+          | {
+              ok: true;
+              as_of: string;
+              programs: {
+                program_id: string;
+                name: string;
+                avails_per_week: number;
+                minutes_per_week: number;
+                pinned_minutes_per_week: number;
+              }[];
+            }
+          | { error: string };
       };
       /**
        * The seven-function public surface of Audience Listening
@@ -3632,6 +3793,10 @@ export interface Database {
       bk_asset_burden: BkAssetBurden;
       bk_asset_condition: BkAssetCondition;
       bk_rate_card_line_kind: BkRateCardLineKind;
+      bk_term_plan_status: BkTermPlanStatus;
+      bk_hold_kind: BkHoldKind;
+      bk_booking_status: BkBookingStatus;
+      bk_pricing_treatment: BkPricingTreatment;
     };
     CompositeTypes: Record<string, never>;
   };

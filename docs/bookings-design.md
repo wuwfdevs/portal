@@ -1,7 +1,7 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slice 1 (the rate model) built 2026-10-05; slices 2–6
-designed, not started — see §9 and §12.** Written 2026-10-05 from two
+Status: **Milestone 1, slices 1–2 (the rate model; the term plan and calendar) built 2026-10-05; slices 3–6
+designed, not started — see §9, §12 and §13.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -449,7 +449,7 @@ Built in order, one migration each, every migration applied to both
 Supabase projects and recorded in `APPLIED.md` before the next slice:
 
 1. **Rate model** — versions, assumptions, pools, packages, the snapshot card, assets; the Rates tab. Replaces the workbook; nothing else can be priced without it. **Built 2026-10-05 (§12).**
-2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab.
+2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab. **Built 2026-10-05 (§13); the second boundary read moved to slice 3, which has the commitments it reads for.**
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list.
 4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page.
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
@@ -514,3 +514,53 @@ migrations applied to both Supabase projects and the v0.1 seed checked in
 each. Not yet verified: a browser click-through — sign-in from this
 sandbox is magic-link-only — so the first real validation click is the
 first end-to-end test of the lifecycle forms.
+
+## 13. What slice 2 shipped (2026-10-05)
+
+- `20261005150000_bookings_term_plan.sql`: `bk_term_plans` (one active at a
+  time, partial unique index; `lead_hours_per_day` lives here rather than on
+  each resource, since it is one figure for the lead, not one per pool),
+  `bk_term_resources` (pool, units, `windows` jsonb — `lib/bookings/
+scheduling.ts`'s `parseWindows()` is the reader, `DEFAULT_WINDOWS` the
+  seed every new plan gets), `bk_blackouts`, `bk_holds` (a null pool holds
+  only the lead's hours), `bk_bookings` (`project_id` a bare uuid until slice
+  3 adds `bk_projects`; `released_at`; `exception_by`/`exception_reason`
+  both or neither). `bk_booking_allowed()` is §6.4 as a before trigger —
+  steps 1, 3, 4 and 5; step 2 waits for agreements — and skips re-checking
+  an update that leaves the booking in place, so confirming an estimate's
+  hold cannot be refused by a later hold. Releasing frees the window; an
+  exception is the executive's and audited. `bk_university_avails_per_week()`
+  is the first §6.5 read: for every recurring schedule entry on the plan's
+  reference date (today inside the term, else its first day), the clock
+  version then in effect, its active opportunities that permit a
+  `university_announcement`, repeated per hour of the block and per weekday,
+  with the pinned content's minutes. `bk_institutional_airtime_honored()`
+  keys off a project's airtime commitments and ships with them in slice 3.
+  RLS: reads for members; plan, resources, blackouts and holds the
+  director's; bookings the lead's, the director's or the executive's.
+- `20261005150100_resources_bookings_calendar.sql`: the release note and
+  the `bookings-calendar` guide (screen key `bookings.calendar`).
+- `lib/bookings/scheduling.ts` (+ test): the rule (`checkBooking`,
+  refusal reasons and the nearest open windows on the same resource), the
+  envelope arithmetic (`capacitySummary`), the lead's day, the month spread
+  and the half-a-month warning (`monthlyCapacity`, `monthShareWarning`),
+  windows and the 14-day tentative expiry. `lib/bookings/airtime.ts` (+
+  test): the boundary payload parsed and netted — eligible − pins −
+  contributed = Traffic's to sell.
+- `src/app/(portal)/bookings/calendar/`: the Calendar tab — the two
+  envelope panels, a week grid (one row per pool plus the lead's day) or a
+  month grid, a pool filter, "Find a slot" (a GET form running the rule
+  without writing), inline create cards for a blackout, a hold and a
+  booking (`?new=`), and the range's items with confirm/release/remove —
+  and `calendar/plan/`, the director's term plan form, status (draft →
+  active → closed), and per-pool resources with windows one per line.
+
+Verified: 1,821 tests, lint, typecheck, `db:check`; both migrations applied
+to both Supabase projects, and a rolled-back scenario on preview as a
+lead/director exercised every refusal in the trigger (blackout, hold,
+window taken, lead's day, reserve, no resource), confirm-then-release
+freeing the window, and the airtime read against the real seeded clocks.
+Not yet verified: a browser click-through, for the same magic-link reason
+as slice 1. Open: the per-pool concurrency question — a window is one
+booking per pool at a time, which is right for the studio and the edit
+suite and may be wrong for a field pool with more than one kit.

@@ -133,3 +133,93 @@ export async function listRateModelEvents(limit = 100): Promise<RateModelEvent[]
     version_label: event.version_id ? (labels.get(event.version_id) ?? null) : null,
   }));
 }
+
+// Slice 2 — the term plan and the calendar ------------------------------------------------------
+
+export type BkTermPlanRow = Database["public"]["Tables"]["bk_term_plans"]["Row"];
+export type BkTermResourceRow = Database["public"]["Tables"]["bk_term_resources"]["Row"];
+export type BkBlackoutRow = Database["public"]["Tables"]["bk_blackouts"]["Row"];
+export type BkHoldRow = Database["public"]["Tables"]["bk_holds"]["Row"];
+export type BkBookingRow = Database["public"]["Tables"]["bk_bookings"]["Row"];
+
+/** Every term plan, latest term first. */
+export async function listPlans(): Promise<BkTermPlanRow[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_term_plans")
+    .select("*")
+    .order("starts_on", { ascending: false });
+  return unwrapRead(result, "term plans") ?? [];
+}
+
+/**
+ * The plan a Calendar screen shows: the one asked for, else the active one,
+ * else the latest. Null only when no plan exists at all.
+ */
+export function pickPlan(
+  plans: BkTermPlanRow[],
+  requestedId: string | undefined,
+): BkTermPlanRow | null {
+  if (requestedId) {
+    const requested = plans.find((plan) => plan.id === requestedId);
+    if (requested) return requested;
+  }
+  return plans.find((plan) => plan.status === "active") ?? plans[0] ?? null;
+}
+
+export interface PlanCalendar {
+  plan: BkTermPlanRow;
+  resources: BkTermResourceRow[];
+  blackouts: BkBlackoutRow[];
+  holds: BkHoldRow[];
+  bookings: BkBookingRow[];
+}
+
+const POOL_ORDER: Record<string, number> = { studio: 0, field: 1, live: 2, edit: 3 };
+
+/** Everything on a plan's calendar: its resources and every blackout, hold and booking. */
+export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar> {
+  const supabase = await createClient();
+  const [resources, blackouts, holds, bookings] = await Promise.all([
+    supabase.from("bk_term_resources").select("*").eq("plan_id", plan.id),
+    supabase.from("bk_blackouts").select("*").eq("plan_id", plan.id).order("starts_on"),
+    supabase
+      .from("bk_holds")
+      .select("*")
+      .eq("plan_id", plan.id)
+      .order("date")
+      .order("window_start"),
+    supabase
+      .from("bk_bookings")
+      .select("*")
+      .eq("plan_id", plan.id)
+      .order("date")
+      .order("window_start"),
+  ]);
+  return {
+    plan,
+    resources: (unwrapRead(resources, "term resources") ?? []).sort(
+      (a, b) => (POOL_ORDER[a.pool] ?? 9) - (POOL_ORDER[b.pool] ?? 9),
+    ),
+    blackouts: unwrapRead(blackouts, "blackouts") ?? [],
+    holds: unwrapRead(holds, "holds") ?? [],
+    bookings: unwrapRead(bookings, "bookings") ?? [],
+  };
+}
+
+/**
+ * The airtime boundary read (docs/bookings-design.md §6.5). A failed read is
+ * reported, not hidden: the Calendar shows the envelope as unavailable with
+ * the reason rather than as zero inventory.
+ */
+export async function readUniversityAvails(
+  planId: string,
+): Promise<{ payload: unknown; error: string | null }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bk_university_avails_per_week", {
+    p_plan_id: planId,
+  });
+  if (error) return { payload: null, error: error.message };
+  if (data && "error" in data) return { payload: null, error: String(data.error) };
+  return { payload: data, error: null };
+}

@@ -3296,7 +3296,7 @@ University Production Partnerships framework, revised, and
 **stack** like the broadcast roles (`lead` · `director` · `finance` ·
 `executive`, `lib/bookings/roles.ts`, `private.is_bookings_<role>()` over
 `private.has_tool_role()`); a member with no role reads everything. Slice 1
-ships the Rates tab alone (`/bookings/rates`, with Assumptions · Resource
+ships the Rates tab (`/bookings/rates`, with Assumptions · Resource
 pools · Service packages · Rate card · Assets · Change log under it;
 `/bookings` redirects there until the dashboard exists). Five things are
 load-bearing:
@@ -3324,11 +3324,45 @@ load-bearing:
    the director, out of service rather than deleted; they change a rate only
    through a later version.
 
-Slices 2–6 (term plan and the booking rule, projects with derived pricing,
-`/book` intake, partners and agreements, hours/settlement/term report) are
-designed in the doc and **not authorized to start without their own
-instruction**. Airtime is read across the Traffic/On Air boundary and never
-placed from this tool, in every slice.
+**Bookings slice 2 (the term plan and the calendar) has landed too
+(2026-10-05)** — `20261005150000_bookings_term_plan.sql`, the Calendar tab
+(`/bookings/calendar`, week or month, `?view=&date=&pool=`) and the term
+plan page (`/bookings/calendar/plan`). Read `docs/bookings-design.md` §6.4,
+§6.5 and §8 first; this is a pointer. Four things are load-bearing:
+
+1. **The booking rule runs in a trigger, and the TypeScript is its twin.**
+   `bk_booking_allowed()` (before insert or update on `bk_bookings`) refuses,
+   in §6.4's order: blacked out or held, window taken (a tentative booking
+   counts until `expires_at`), the lead's day full, no capacity for the
+   treatment (strategic draws the reserve; incremental and external draw
+   open = net − reserve − held − non-strategic). `lib/bookings/scheduling.ts`
+   explains the same refusal and proposes alternatives — keep them in step.
+   An update that leaves a booking where it is (confirming, a label) is not
+   re-checked, so a later hold never blocks confirming an estimate's hold.
+   An `exception_reason` skips the rule, only for `is_bookings_executive()`,
+   and is audited (`bookings.booking.exception`). Step 2 (reserved blocks)
+   waits for slice 5.
+2. **Nothing deletes a booking; it is released.** `status = 'released'`
+   frees the window and stamps `released_at`. Blackouts and holds are the
+   director's and may be deleted.
+3. **Capacity is professional hours, never units.** `bk_term_resources.
+available_units` and `windows` (jsonb, `parseWindows()`) are calendar
+   constraints; the guardrail reads `net_professional_hours`, `reserve_share`
+   and each booking's `professional_hours`. `lead_hours_per_day` lives on the
+   plan, not per resource as the doc's §5 first listed it.
+4. **The airtime read is one security-definer function and places nothing.**
+   `bk_university_avails_per_week(plan)` counts marked opportunities whose
+   `permitted_content_types` include `university_announcement` across the
+   recurring schedule on the plan's reference date, plus pinned minutes;
+   `lib/bookings/airtime.ts` nets the plan's contributed minutes off it. The
+   second read the doc names, `bk_institutional_airtime_honored()`, keys off
+   project airtime commitments and ships with them in slice 3.
+
+Slices 3–6 (projects with derived pricing, `/book` intake, partners and
+agreements, hours/settlement/term report) are designed in the doc and
+**not authorized to start without their own instruction**. Airtime is read
+across the Traffic/On Air boundary and never placed from this tool, in
+every slice.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
@@ -3805,7 +3839,8 @@ src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas
                             needs the space, unlike every other tool)
 src/app/(portal)/bookings/  Bookings (route: /bookings; key `bookings`) — its own route
                             segment, gated by requireBookingsAccess() from lib/bookings/access.ts;
-                            slice 1 is the Rates section under bookings/rates/ (see "Bookings")
+                            the Rates section under bookings/rates/ and the Calendar under
+                            bookings/calendar/ (see "Bookings")
 src/app/(portal)/resources/  Resources (procedures, tool guides, what's new) — its own route
                             segment and nav tab, gated by requireResourcesAccess() from
                             lib/resources/access.ts; open to every active user

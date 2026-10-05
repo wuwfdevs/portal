@@ -4,6 +4,10 @@ import type {
   BkAssetCondition,
   BkAssetFunding,
   BkAssumptionOwner,
+  BkBookingStatus,
+  BkHoldKind,
+  BkPricingTreatment,
+  BkTermPlanStatus,
   BkValidationState,
   BkVersionStatus,
 } from "@/lib/database.types";
@@ -69,3 +73,34 @@ export function formatAssumptionValue(value: number, unit: string): string {
 export function formatQuantity(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }
+
+// Slice 2 — the term plan and the calendar.
+
+export const TERM_PLAN_STATUS_LABEL: Record<BkTermPlanStatus, string> = {
+  draft: "Draft",
+  active: "Active",
+  closed: "Closed",
+};
+
+export const HOLD_KIND_LABEL: Record<BkHoldKind, string> = {
+  core: "Core WUWF work",
+  maintenance: "Maintenance",
+};
+
+export const BOOKING_STATUS_LABEL: Record<BkBookingStatus, string> = {
+  tentative: "Tentative",
+  confirmed: "Confirmed",
+  released: "Released",
+};
+
+export const TREATMENT_LABEL: Record<BkPricingTreatment, string> = {
+  strategic: "Strategic (baseline envelope)",
+  incremental: "Incremental internal",
+  external: "External",
+};
+
+export const TREATMENT_SHORT_LABEL: Record<BkPricingTreatment, string> = {
+  strategic: "Strategic",
+  incremental: "Incremental",
+  external: "External",
+};

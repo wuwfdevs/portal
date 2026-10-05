@@ -28,3 +28,23 @@ export function ratesHref(
   const query = params.toString();
   return query ? `${base}?${query}` : base;
 }
+
+// The Calendar tab (slice 2) --------------------------------------------------------------------
+
+export const CALENDAR_PATH = `${BOOKINGS_PATH}/calendar`;
+export const PLAN_PATH = `${CALENDAR_PATH}/plan`;
+
+/** A path with the given query fields, skipping empty ones. */
+export function withQuery(base: string, query: Record<string, string | undefined | null>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value) params.set(key, value);
+  }
+  const text = params.toString();
+  return text ? `${base}?${text}` : base;
+}
+
+/** The Calendar screen at a view and date, scoped to a plan, carrying any extra query fields. */
+export function calendarHref(query: Record<string, string | undefined | null>): string {
+  return withQuery(CALENDAR_PATH, query);
+}

@@ -71,6 +71,20 @@ export async function assertBookingsExecutive(): Promise<BookingsContext> {
   return context;
 }
 
+/** The term plan, its resources, blackouts and holds. is_bookings_director() is the boundary. */
+export async function assertBookingsDirector(): Promise<BookingsContext> {
+  const context = await assertBookingsAccess();
+  if (!context.isDirector) throw new ForbiddenError();
+  return context;
+}
+
+/** Booking a window: the lead or the director (the executive, for an exception). */
+export async function assertBookingsScheduler(): Promise<BookingsContext> {
+  const context = await assertBookingsAccess();
+  if (!context.isLead && !context.isDirector && !context.isExecutive) throw new ForbiddenError();
+  return context;
+}
+
 /** The asset inventory: the director's resources, priced by finance — either may keep it. */
 export async function assertBookingsAssetWriter(): Promise<BookingsContext> {
   const context = await assertBookingsAccess();
