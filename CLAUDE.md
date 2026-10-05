@@ -3197,7 +3197,7 @@ assigns the next cut on insert; `execution_kind` comes from the script
 read airs in automated hours as its recorded version. RadioTraffic is never
 named in the UI; `cart_identifier` stays only for the two transitional
 importers. (2) **Automated hours** (`20261002130000`, `/log/automated-hours`,
-reached from Programs): hosted is the norm and has no record; only
+now its own "Automation" tab): hosted is the norm and has no record; only
 exceptions are kept — `log_automated_weekly` (may overlap; union counts) and
 `log_on_air_changes` (automated or live, wins over weekly, never overlap —
 an exclusion constraint). `lib/log/automated-hours.ts`'s `isAutomated()` and
@@ -3235,11 +3235,48 @@ Production's **To record** list: `uw_copy.dad_recorded_at`/`_by`
 `uw_copy_dad_recording()` trigger, which also clears it when the cut or a
 Portal cut's script changes; `dad-cut.ts`'s `isRecordedInDad()`/
 `needsRecording()` are the rule, and the DAD log blocks an unrecorded credit
-(`not_recorded`). **Station IDs** (`/log/station-ids`, from Programs) lists each
-clock's legal-ID positions and pins (`lib/log/station-ids.ts`, pure, tested);
-the pins are ordinary `log_opportunity_assignments`, which the program director
-or traffic may write. Traffic's dashboard shows the next three days' DAD log
+(`not_recorded`). **Station IDs** are ordinary `log_opportunity_assignments`
+pinned on the clock page, which the program director or traffic may write
+(the clock viewer's `canPin`, separate from `canEdit`); the clock page warns
+when an hour has no legal ID (`lib/log/station-ids.ts`, pure, tested). The
+separate `/log/station-ids` page was removed 2026-10-05 and now redirects to
+Programs; don't rebuild a second screen for the same pins. Automated hours
+became the "Automation" tab the same day (now a page under the Schedule tab —
+see the 2026-10-05 Schedule entry below). Traffic's dashboard shows the next
+three days' DAD log
 releases to anyone who can open Log.
+
+**On Air: the Schedule tab, and hours closed to underwriting (2026-10-05).**
+Read `docs/underwriting-traffic-redesign.md` §18 and `docs/broadcast-roles.md`
+§3/§5 before touching auto-fill's eligibility, the Programs/Automation/
+Underwriting pages, or On Air's tabs; this is a pointer. Nothing before this
+said which hours Traffic's automation could sell into — "credits only after
+5 PM" was an accident of which lines and pool targets existed — and automated
+hours are the wrong lever (they only change which copy qualifies). Now:
+(1) **Programs is the Schedule tab**: Today · Schedule · Library · Sources,
+with a second-level row (`log/schedule-tabs.tsx`, the `MigrationTabs` shape)
+Programs · Automation · Underwriting; routes unchanged. The other session's
+top-level Automation tab (same day) was folded into this. (2) **Hours
+closed to underwriting** — `log_underwriting_closed_weekly` /
+`log_underwriting_hour_changes` (`20261005130000`), the program director's,
+Traffic reads through additive select policies. `lib/log/underwriting-hours.ts`'s
+`isClosedToUnderwriting()` and `private.log_is_closed_to_underwriting()` are
+twins; the window and day-segment logic is shared with `automated-hours.ts`
+(`coverageSegments`, a generic `changeAt`), and the two actions files share
+`lib/log/hour-window-form.ts`. (3) **Automation only**: `freeze.ts`'s
+`automationPlacementBlockFor()` (freeze result or `hours_closed`) filters the
+planner, the bump planner and the dashboard counts; `automationBlockFor()` is
+deliberately unchanged, so rotation still swaps copy on a hand-placed credit
+in closed hours; the SQL check is in `log_place_underwriting_credit()`, **not**
+`uw_automation_block()`, so automation can still *clear* such a credit.
+Provisioning skips a day whose eligible breaks are all closed
+(`closedAirDates`), conflicts gain `hours_closed`, and the manual and
+makegood pickers label a closed break rather than refuse it. (4) **One
+picture**: `components/log/hours-calendar.tsx` is the week/month view both
+pages share, the page's own layer drawn as blocks and the other as a faint
+band; the Programs week grid shades both (`week-layout.ts`'s `shadingBands`).
+Not built: per-line exemptions, moving already-placed credits when the hours
+change.
 
 **Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display
 names only (`20261002180000`, applied to both projects): the registry rows'

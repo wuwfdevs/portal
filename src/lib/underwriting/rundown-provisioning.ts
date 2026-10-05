@@ -9,6 +9,8 @@ import {
   type OpportunityAssignmentLike,
 } from "@/lib/log/opportunity-assignments";
 import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/log/timezone";
+import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 /**
@@ -86,6 +88,8 @@ export interface RundownProvisioningResult {
   provisionedBreaks: ProvisionedBreak[];
   /** Dates tried but with no active Log schedule entry, no clock version in effect, or no underwriting-eligible local opportunity on that clock at all — a real gap for a traffic staffer to raise with Log, not something auto-fill can resolve on its own. */
   unschedulableAirDates: string[];
+  /** Dates tried whose every underwriting-eligible break would fall in hours closed to underwriting (lib/log/underwriting-hours.ts) — no rundown is written, since automation could never fill it; the program director opens the hours, or the line changes. */
+  closedAirDates: string[];
   errors: string[];
 }
 
@@ -93,6 +97,7 @@ const EMPTY_PROVISIONING_RESULT: RundownProvisioningResult = {
   generatedCount: 0,
   provisionedBreaks: [],
   unschedulableAirDates: [],
+  closedAirDates: [],
   errors: [],
 };
 
@@ -161,10 +166,12 @@ export async function provisionRundownsForDates(
   }
   const context = data as ProgramScheduleContext;
   const existingDates = new Set(context.existing_rundown_dates);
+  const underwritingHours = await loadUnderwritingHours();
 
   let generatedCount = 0;
   const provisionedBreaks: ProvisionedBreak[] = [];
   const unschedulableAirDates: string[] = [];
+  const closedAirDates: string[] = [];
   const errors: string[] = [];
 
   for (const airDate of candidateDates) {
@@ -209,6 +216,25 @@ export async function provisionRundownsForDates(
       shiftStartAt,
       scheduleEntry.duration_minutes,
     );
+    // The same lesson one step later: a day whose every eligible break
+    // starts in hours closed to underwriting is one automation could never
+    // fill, so don't leave an empty rundown behind for it either. The
+    // drafts carry the instants the trigger will derive, so the check is
+    // the same one the planner makes on a real break.
+    if (
+      !drafts.some(
+        (draft) =>
+          draft.permitted_content_types.includes("underwriting_credit") &&
+          !isClosedToUnderwriting(
+            draft.scheduled_at,
+            underwritingHours.weekly,
+            underwritingHours.changes,
+          ),
+      )
+    ) {
+      closedAirDates.push(airDate);
+      continue;
+    }
 
     const { data: genData, error: genError } = await supabase.rpc(
       "log_generate_rundown_for_underwriting",
@@ -297,5 +323,5 @@ export async function provisionRundownsForDates(
     }
   }
 
-  return { generatedCount, provisionedBreaks, unschedulableAirDates, errors };
+  return { generatedCount, provisionedBreaks, unschedulableAirDates, closedAirDates, errors };
 }

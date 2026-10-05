@@ -29,7 +29,9 @@ import { computeScheduleLineConflicts, CONFLICT_LABEL } from "@/lib/underwriting
 import { poolReachability } from "@/lib/underwriting/pool-targets";
 import { addDays, describeScheduleLine } from "@/lib/underwriting/demand";
 import { isFixedPosition } from "@/lib/underwriting/fill-order";
-import { automationBlockFor } from "@/lib/underwriting/freeze";
+import { automationPlacementBlockFor } from "@/lib/underwriting/freeze";
+import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import { needsRecording } from "@/lib/underwriting/dad-cut";
 import { listDadReleaseDays } from "@/lib/log/dad-release-status";
 import { hasToolAccess } from "@/lib/auth/authz";
@@ -93,10 +95,11 @@ export default async function UnderwritingDashboardPage({
   const exceptionCounts = countByExceptionFilter(openExceptions);
 
   const contractIds = [...new Set(scheduleLines.map((line) => line.contract_id))];
-  const [copyByContract, bucketsByLine, lineContexts] = await Promise.all([
+  const [copyByContract, bucketsByLine, lineContexts, underwritingHours] = await Promise.all([
     listCopyLinkedToContracts(contractIds),
     listBucketsForLines(scheduleLines.map((line) => line.id)),
     listScheduleLinePlacementContexts(scheduleLines),
+    loadUnderwritingHours(),
   ]);
   const poolById = new Map(pools.map((pool) => [pool.id, pool]));
   const names = {
@@ -116,7 +119,7 @@ export default async function UnderwritingDashboardPage({
 
   const todayISO = stationTodayISO();
   // The log of record lives in On Air; show its state only to someone who
-  // can open it (log_dad_exports and the Station IDs page are On Air's).
+  // can open it (log_dad_exports is On Air's).
   const logTool = await getToolByKey("log");
   const canOpenOnAir = logTool ? await hasToolAccess(profile.id, logTool.id) : false;
   const dadDays = canOpenOnAir
@@ -152,15 +155,27 @@ export default async function UnderwritingDashboardPage({
         ),
         isFixedPosition: isFixedPosition(view.scheduleLine),
         candidateBreaks: placeable?.ok
-          ? placeable.breaks.map((brk) => ({
-              airDate: brk.air_date,
-              remainingSeconds: brk.remaining_seconds,
-              openToAutomation:
-                automationBlockFor(
-                  { rundownStatus: brk.rundown_status, scheduledAt: brk.scheduled_at },
-                  nowISO,
-                ) === null,
-            }))
+          ? placeable.breaks.map((brk) => {
+              const closedToUnderwriting = isClosedToUnderwriting(
+                brk.scheduled_at,
+                underwritingHours.weekly,
+                underwritingHours.changes,
+              );
+              return {
+                airDate: brk.air_date,
+                remainingSeconds: brk.remaining_seconds,
+                openToAutomation:
+                  automationPlacementBlockFor(
+                    {
+                      rundownStatus: brk.rundown_status,
+                      scheduledAt: brk.scheduled_at,
+                      closedToUnderwriting,
+                    },
+                    nowISO,
+                  ) === null,
+                closedToUnderwriting,
+              };
+            })
           : [],
         shortestApprovedCopySeconds:
           approvedDurations.length > 0 ? Math.min(...approvedDurations) : null,
@@ -501,17 +516,6 @@ export default async function UnderwritingDashboardPage({
                       </Link>
                     </li>
                   ))}
-                  <li>
-                    <Link
-                      href="/log/station-ids"
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-panel-50"
-                    >
-                      <span className="text-ink-500">Station IDs</span>
-                      <span aria-hidden className="text-brand-link">
-                        →
-                      </span>
-                    </Link>
-                  </li>
                 </ul>
               </Card>
             </section>

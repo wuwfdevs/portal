@@ -17,9 +17,15 @@ import {
 } from "@/lib/log/queries";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import { clampHour, shiftInfoFromEntries } from "@/lib/log/clock-view";
-import { formatDateShort } from "@/lib/log/program-status";
+import { formatDateShort, isPlaceholderClockName } from "@/lib/log/program-status";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { stationTodayISO } from "@/lib/log/timezone";
+import {
+  describeGap,
+  stationIdCoverage,
+  type StationIdPin,
+  type StationIdPosition,
+} from "@/lib/log/station-ids";
 import {
   addClockSlot,
   addLocalOpportunity,
@@ -70,7 +76,10 @@ export default async function ClockTemplateDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { isProgramDirector } = await requireLogAccess();
+  const { isProgramDirector, isTraffic } = await requireLogAccess();
+  // Pins (station IDs included) are the program director's or traffic's;
+  // everything else about the clock is the program director's.
+  const canPin = isProgramDirector || isTraffic;
   const template = await getClockTemplateDetail(id);
   if (!template) notFound();
   const basePath = `/log/clocks/${template.id}`;
@@ -111,7 +120,7 @@ export default async function ClockTemplateDetailPage({
   const [assignments, contentItems] = version
     ? await Promise.all([
         listOpportunityAssignmentsForVersion(version.id),
-        isProgramDirector && mode === "pin"
+        canPin && mode === "pin"
           ? listContentItems({ approvalStatus: "approved" })
           : Promise.resolve([]),
       ])
@@ -119,7 +128,7 @@ export default async function ClockTemplateDetailPage({
 
   // The form for the slot named in the URL, when a producer asked for one.
   let form: ClockViewerForm | null = null;
-  if (isProgramDirector && version && mode && slotParam) {
+  if ((isProgramDirector || (canPin && mode === "pin")) && version && mode && slotParam) {
     const slot = version.slots.find((candidate) => candidate.id === slotParam);
     const opportunity =
       version.opportunities.find((candidate) => candidate.slot_id === slotParam) ?? null;
@@ -171,12 +180,30 @@ export default async function ClockTemplateDetailPage({
             templateId={template.id}
             opportunityId={opportunity.id}
             contentItems={contentItems}
+            shiftHours={shift.hours}
             returnQuery={returnQuery}
           />
         ),
       };
     }
   }
+
+  // The hourly legal ID is an ordinary pin; warn when the version in effect
+  // today leaves an hour without one. Only for a clock a program airs on, and
+  // never the shared placeholder, which has no real breaks to put an ID in.
+  const stationIds =
+    version &&
+    version.id === currentVersion?.id &&
+    liveEntries.length > 0 &&
+    !isPlaceholderClockName(template.name)
+      ? stationIdStatusFor(
+          version.opportunities,
+          version.slots,
+          assignments,
+          liveEntries,
+          shift.hours,
+        )
+      : null;
 
   const labelForType = (value: string) =>
     PERMITTED_CONTENT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
@@ -229,6 +256,23 @@ export default async function ClockTemplateDetailPage({
 
       {query.error && <Alert>{query.error}</Alert>}
 
+      {stationIds && stationIds.status !== "covered" && (
+        <Alert variant="warning">
+          {stationIds.status === "no_position"
+            ? "No slot on this clock takes a legal ID, so its hours have no station ID. "
+            : stationIds.status === "not_pinned"
+              ? "No legal ID is pinned on this clock, so its hours have no station ID. "
+              : `No legal ID is pinned for ${stationIds.gaps.map(describeGap).join(", ")}. `}
+          {stationIds.status === "no_position"
+            ? isProgramDirector
+              ? "Mark the last break before the top of the hour eligible for a legal ID, then pin the station ID there."
+              : "The program director marks a slot eligible for a legal ID."
+            : canPin
+              ? "Select the slot that takes the legal ID, then Pin content. Leave the hour on Every hour and no days checked to cover the whole shift."
+              : "The program director or traffic pins it."}
+        </Alert>
+      )}
+
       {template.versions.length === 0 && (
         <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
           No versions yet.{isProgramDirector && " Start one below."}
@@ -266,6 +310,7 @@ export default async function ClockTemplateDetailPage({
           }))}
           shift={shift}
           canEdit={isProgramDirector}
+          canPin={canPin}
           initial={{ view, hour, slotId: slotParam ?? null }}
           form={form}
           keepParams={keepParams}
@@ -444,11 +489,13 @@ function AssignmentForm({
   templateId,
   opportunityId,
   contentItems,
+  shiftHours,
   returnQuery,
 }: {
   templateId: string;
   opportunityId: string;
   contentItems: LogContentItemRow[];
+  shiftHours: number;
   returnQuery: string;
 }) {
   return (
@@ -476,11 +523,15 @@ function AssignmentForm({
       </div>
       <div>
         <Label htmlFor={`assign-hour-${opportunityId}`}>Hour of the shift</Label>
-        <Input id={`assign-hour-${opportunityId}`} name="hour_index" type="number" min={0} />
-        <FieldHint>
-          0-based (0 = the shift&apos;s first hour, 1 = its second, and so on). Leave blank for
-          every hour the opportunity recurs — legal ID&apos;s own case.
-        </FieldHint>
+        <Select id={`assign-hour-${opportunityId}`} name="hour_index" defaultValue="">
+          <option value="">Every hour</option>
+          {Array.from({ length: Math.max(1, shiftHours) }, (_, index) => (
+            <option key={index} value={index}>
+              Hour {index + 1}
+            </option>
+          ))}
+        </Select>
+        <FieldHint>Every hour is right for the station ID.</FieldHint>
       </div>
       <div>
         <Label>Days</Label>
@@ -503,4 +554,44 @@ function AssignmentForm({
       </div>
     </form>
   );
+}
+
+/**
+ * Whether the clock's hourly legal ID is pinned (lib/log/station-ids.ts): the
+ * positions are local slots that permit a legal ID, and only pinned legal IDs
+ * count. The days are every day any live schedule entry airs.
+ */
+function stationIdStatusFor(
+  opportunities: LogLocalOpportunityWithSlot[],
+  slots: { id: string; label: string | null; start_offset_seconds: number | null }[],
+  assignments: Awaited<ReturnType<typeof listOpportunityAssignmentsForVersion>>,
+  entries: { days_of_week: number[] }[],
+  shiftHours: number,
+) {
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+  const positions: StationIdPosition[] = opportunities
+    .filter((opportunity) => opportunity.permitted_content_types.includes("legal_id"))
+    .map((opportunity) => {
+      const slot = slotById.get(opportunity.slot_id);
+      return {
+        opportunityId: opportunity.id,
+        label: slot?.label ?? "Local break",
+        startOffsetSeconds: slot?.start_offset_seconds ?? 0,
+        requirement: opportunity.requirement,
+      };
+    });
+  const pins: StationIdPin[] = assignments
+    .filter((assignment) => assignment.contentItemType === "legal_id")
+    .map((assignment) => ({
+      id: assignment.id,
+      opportunityId: assignment.local_opportunity_id,
+      contentTitle: assignment.contentItemTitle,
+      hourIndex: assignment.hour_index,
+      daysOfWeek: assignment.days_of_week,
+    }));
+  // An entry with no days airs every day.
+  const airDays = entries.some((entry) => entry.days_of_week.length === 0)
+    ? []
+    : [...new Set(entries.flatMap((entry) => entry.days_of_week))];
+  return stationIdCoverage({ shiftHours, airDays, positions, pins });
 }

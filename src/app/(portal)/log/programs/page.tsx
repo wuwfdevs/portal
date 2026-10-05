@@ -21,6 +21,10 @@ import {
   type ProgramScheduleStatus,
 } from "@/lib/log/program-status";
 import { formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { automatedSegments, stationLocalParts } from "@/lib/log/automated-hours";
+import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
+import { closedSegments } from "@/lib/log/underwriting-hours";
+import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import {
   airTimeToMinutes,
@@ -29,9 +33,11 @@ import {
   formatWeekRange,
   isValidDateISO,
   layoutDayBlocks,
+  shadingBands,
   visibleHourRange,
   weekDates,
   weekStartISO,
+  type WeekBand,
 } from "@/lib/log/week-layout";
 import {
   listClockSummaries,
@@ -40,7 +46,8 @@ import {
   listScheduleEntries,
 } from "@/lib/log/queries";
 import { createProgram } from "../program-actions";
-import { WeekGrid, type WeekDay } from "./week-grid";
+import { ScheduleTabs } from "../schedule-tabs";
+import { BAND_CLASS, WeekGrid, type WeekDay } from "./week-grid";
 
 const PROGRAMS_PATH = "/log/programs";
 
@@ -126,7 +133,12 @@ export default async function ProgramsPage({
   const { isProgramDirector } = await requireLogAccess();
 
   if (view === "week") {
-    return <WeekView isProgramDirector={isProgramDirector} week={week} error={error} />;
+    return (
+      <>
+        <ScheduleTabs active="programs" />
+        <WeekView isProgramDirector={isProgramDirector} week={week} error={error} />
+      </>
+    );
   }
   const creating = isProgramDirector && newParam === "1";
   const query = (q ?? "").trim().toLowerCase();
@@ -201,225 +213,218 @@ export default async function ProgramsPage({
   const listParams = { q, status };
 
   return (
-    <div className="flex flex-col gap-4">
-      <ListToolbar
-        leading={<ViewToggle active="list" />}
-        search={{
-          placeholder: "Search programs",
-          label: "Search programs",
-          defaultValue: q,
-          hidden: status ? { status } : undefined,
-        }}
-        chips={chips}
-        chipsLabel="Status"
-      >
-        <Link
-          href="/log/automated-hours"
-          className="text-sm font-semibold text-brand-link hover:underline"
+    <>
+      <ScheduleTabs active="programs" />
+      <div className="flex flex-col gap-4">
+        <ListToolbar
+          leading={<ViewToggle active="list" />}
+          search={{
+            placeholder: "Search programs",
+            label: "Search programs",
+            defaultValue: q,
+            hidden: status ? { status } : undefined,
+          }}
+          chips={chips}
+          chipsLabel="Status"
         >
-          Automated hours
-        </Link>
-        <Link
-          href="/log/station-ids"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Station IDs
-        </Link>
-        {isProgramDirector && !creating && (
-          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
-            <span>
-              + New<span className="max-sm:sr-only"> program</span>
-            </span>
-          </PrimaryLink>
-        )}
-      </ListToolbar>
+          {isProgramDirector && !creating && (
+            <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
+              <span>
+                + New<span className="max-sm:sr-only"> program</span>
+              </span>
+            </PrimaryLink>
+          )}
+        </ListToolbar>
 
-      {error && !creating && <Alert>{error}</Alert>}
+        {error && !creating && <Alert>{error}</Alert>}
 
-      {creating && (
-        <InlineCreateCard
-          title="New program"
-          action={createProgram}
-          submitLabel="Create program"
-          cancelHref={PROGRAMS_PATH}
-        >
-          {error && <Alert className="mb-4">{error}</Alert>}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                maxLength={120}
-                placeholder="Morning Edition"
-                autoFocus
-              />
-            </div>
-            <div>
-              <Label htmlFor="kind">Kind</Label>
-              <Select id="kind" name="kind" defaultValue="recurring">
-                <option value="recurring">Recurring</option>
-                <option value="special">Special</option>
-              </Select>
-            </div>
-          </div>
-          <div className="mt-4">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" rows={2} />
-          </div>
-        </InlineCreateCard>
-      )}
-
-      {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          {programs.length === 0 ? "No programs yet." : "No programs match."}
-        </div>
-      ) : (
-        <TableFrame>
-          <Table stack>
-            <thead>
-              <HeaderRow>
-                <Th>Program</Th>
-                <Th>Airs</Th>
-                <Th>Days</Th>
-                <Th>Clock</Th>
-                <Th>Status</Th>
-              </HeaderRow>
-            </thead>
-            <tbody>
-              {pageRows.map(({ program, live, status: rowStatus }) => {
-                const primary = live[0] ?? null;
-                const summary = primary ? summaries.get(primary.clock_template_id) : undefined;
-                const placeholder = primary
-                  ? isPlaceholderClockName(primary.clockTemplateName)
-                  : false;
-                const sharedBy = primary
-                  ? (programIdsByTemplate.get(primary.clock_template_id)?.size ?? 0)
-                  : 0;
-                return (
-                  <Row key={program.id}>
-                    <Cell stack="title">
-                      <Link
-                        href={`${PROGRAMS_PATH}/${program.id}`}
-                        className="font-bold text-brand-link hover:underline"
-                      >
-                        {program.name}
-                      </Link>
-                      {program.kind === "special" && (
-                        <Badge variant="warning" className="ml-2">
-                          Special
-                        </Badge>
-                      )}
-                    </Cell>
-                    <Cell label="Airs" className="whitespace-nowrap">
-                      {primary
-                        ? `${formatAirTime(primary.air_time)} · ${formatDurationMinutes(primary.duration_minutes)}`
-                        : "—"}
-                    </Cell>
-                    <Cell label="Days" className="whitespace-nowrap">
-                      {primary
-                        ? primary.entry_type === "recurring"
-                          ? formatDaysOfWeek(primary.days_of_week)
-                          : primary.entry_type === "override"
-                            ? "Override"
-                            : "Holiday"
-                        : "—"}
-                    </Cell>
-                    <Cell label="Clock">
-                      {primary ? (
-                        <div className="flex items-center gap-3">
-                          <ClockThumb
-                            slots={summary?.slots ?? []}
-                            placeholder={placeholder}
-                            label={
-                              placeholder
-                                ? "Placeholder clock, one slot for the whole hour"
-                                : `Clock face for ${primary.clockTemplateName}`
-                            }
-                          />
-                          <div className="flex min-w-0 flex-col leading-tight">
-                            <Link
-                              href={`/log/clocks/${primary.clock_template_id}?from=${program.id}`}
-                              className={
-                                placeholder
-                                  ? "font-semibold text-ink-500 hover:underline"
-                                  : "font-semibold text-brand-link hover:underline"
-                              }
-                            >
-                              {primary.clockTemplateName}
-                            </Link>
-                            <span className="text-xs text-ink-500">
-                              {placeholder
-                                ? `Shared by ${sharedBy} ${sharedBy === 1 ? "program" : "programs"}`
-                                : summary?.current
-                                  ? `Version in effect since ${formatDateShort(summary.current.effective_from)}${
-                                      summary.versionCount > 1
-                                        ? ` · ${summary.versionCount} versions`
-                                        : ""
-                                    }`
-                                  : "No version yet"}
-                              {live.length > 1 &&
-                                ` · +${live.length - 1} more ${live.length === 2 ? "entry" : "entries"}`}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-ink-400">Schedule it to choose a clock</span>
-                      )}
-                    </Cell>
-                    <Cell stack="aside">
-                      <Badge variant={STATUS_VARIANT[rowStatus]}>{STATUS_LABEL[rowStatus]}</Badge>
-                    </Cell>
-                  </Row>
-                );
-              })}
-            </tbody>
-          </Table>
-        </TableFrame>
-      )}
-
-      <Pagination info={info} path={PROGRAMS_PATH} params={listParams} noun="programs" />
-
-      {unused.length > 0 && (
-        <div className="text-xs text-ink-500">
-          <Link
-            href={pageHref(
-              PROGRAMS_PATH,
-              { ...listParams, unusedClocks: unusedClocks ? null : "1" },
-              1,
-            )}
-            className="font-bold text-brand-link hover:underline"
+        {creating && (
+          <InlineCreateCard
+            title="New program"
+            action={createProgram}
+            submitLabel="Create program"
+            cancelHref={PROGRAMS_PATH}
           >
-            Unused clocks ({unused.length})
-          </Link>
-          <span> — clocks no program is scheduled on.</span>
-        </div>
-      )}
+            {error && <Alert className="mb-4">{error}</Alert>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+              <div>
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  required
+                  maxLength={120}
+                  placeholder="Morning Edition"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label htmlFor="kind">Kind</Label>
+                <Select id="kind" name="kind" defaultValue="recurring">
+                  <option value="recurring">Recurring</option>
+                  <option value="special">Special</option>
+                </Select>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" name="description" rows={2} />
+            </div>
+          </InlineCreateCard>
+        )}
 
-      {unusedClocks === "1" && unused.length > 0 && (
-        <div className="rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-            Unused clocks
+        {shown.length === 0 ? (
+          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+            {programs.length === 0 ? "No programs yet." : "No programs match."}
           </div>
-          <ul className="divide-y divide-line">
-            {unused.map((template) => (
-              <li key={template.id} className="px-5 py-3 text-sm">
-                <Link
-                  href={`/log/clocks/${template.id}`}
-                  className="font-semibold text-brand-link hover:underline"
-                >
-                  {template.name}
-                </Link>
-                {template.description && (
-                  <span className="ml-2 text-ink-500">{template.description}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+        ) : (
+          <TableFrame>
+            <Table stack>
+              <thead>
+                <HeaderRow>
+                  <Th>Program</Th>
+                  <Th>Airs</Th>
+                  <Th>Days</Th>
+                  <Th>Clock</Th>
+                  <Th>Status</Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {pageRows.map(({ program, live, status: rowStatus }) => {
+                  const primary = live[0] ?? null;
+                  const summary = primary ? summaries.get(primary.clock_template_id) : undefined;
+                  const placeholder = primary
+                    ? isPlaceholderClockName(primary.clockTemplateName)
+                    : false;
+                  const sharedBy = primary
+                    ? (programIdsByTemplate.get(primary.clock_template_id)?.size ?? 0)
+                    : 0;
+                  return (
+                    <Row key={program.id}>
+                      <Cell stack="title">
+                        <Link
+                          href={`${PROGRAMS_PATH}/${program.id}`}
+                          className="font-bold text-brand-link hover:underline"
+                        >
+                          {program.name}
+                        </Link>
+                        {program.kind === "special" && (
+                          <Badge variant="warning" className="ml-2">
+                            Special
+                          </Badge>
+                        )}
+                      </Cell>
+                      <Cell label="Airs" className="whitespace-nowrap">
+                        {primary
+                          ? `${formatAirTime(primary.air_time)} · ${formatDurationMinutes(primary.duration_minutes)}`
+                          : "—"}
+                      </Cell>
+                      <Cell label="Days" className="whitespace-nowrap">
+                        {primary
+                          ? primary.entry_type === "recurring"
+                            ? formatDaysOfWeek(primary.days_of_week)
+                            : primary.entry_type === "override"
+                              ? "Override"
+                              : "Holiday"
+                          : "—"}
+                      </Cell>
+                      <Cell label="Clock">
+                        {primary ? (
+                          <div className="flex items-center gap-3">
+                            <ClockThumb
+                              slots={summary?.slots ?? []}
+                              placeholder={placeholder}
+                              label={
+                                placeholder
+                                  ? "Placeholder clock, one slot for the whole hour"
+                                  : `Clock face for ${primary.clockTemplateName}`
+                              }
+                            />
+                            <div className="flex min-w-0 flex-col leading-tight">
+                              <Link
+                                href={`/log/clocks/${primary.clock_template_id}?from=${program.id}`}
+                                className={
+                                  placeholder
+                                    ? "font-semibold text-ink-500 hover:underline"
+                                    : "font-semibold text-brand-link hover:underline"
+                                }
+                              >
+                                {primary.clockTemplateName}
+                              </Link>
+                              <span className="text-xs text-ink-500">
+                                {placeholder
+                                  ? `Shared by ${sharedBy} ${sharedBy === 1 ? "program" : "programs"}`
+                                  : summary?.current
+                                    ? `Version in effect since ${formatDateShort(summary.current.effective_from)}${
+                                        summary.versionCount > 1
+                                          ? ` · ${summary.versionCount} versions`
+                                          : ""
+                                      }`
+                                    : "No version yet"}
+                                {live.length > 1 &&
+                                  ` · +${live.length - 1} more ${live.length === 2 ? "entry" : "entries"}`}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-ink-400">
+                            Schedule it to choose a clock
+                          </span>
+                        )}
+                      </Cell>
+                      <Cell stack="aside">
+                        <Badge variant={STATUS_VARIANT[rowStatus]}>{STATUS_LABEL[rowStatus]}</Badge>
+                      </Cell>
+                    </Row>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableFrame>
+        )}
+
+        <Pagination info={info} path={PROGRAMS_PATH} params={listParams} noun="programs" />
+
+        {unused.length > 0 && (
+          <div className="text-xs text-ink-500">
+            <Link
+              href={pageHref(
+                PROGRAMS_PATH,
+                { ...listParams, unusedClocks: unusedClocks ? null : "1" },
+                1,
+              )}
+              className="font-bold text-brand-link hover:underline"
+            >
+              Unused clocks ({unused.length})
+            </Link>
+            <span> — clocks no program is scheduled on.</span>
+          </div>
+        )}
+
+        {unusedClocks === "1" && unused.length > 0 && (
+          <div className="rounded border border-line">
+            <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+              Unused clocks
+            </div>
+            <ul className="divide-y divide-line">
+              {unused.map((template) => (
+                <li key={template.id} className="px-5 py-3 text-sm">
+                  <Link
+                    href={`/log/clocks/${template.id}`}
+                    className="font-semibold text-brand-link hover:underline"
+                  >
+                    {template.name}
+                  </Link>
+                  {template.description && (
+                    <span className="ml-2 text-ink-500">{template.description}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -440,7 +445,11 @@ async function WeekView({
   const today = stationTodayISO();
   const monday = weekStartISO(isValidDateISO(week) ? week : today);
   const dates = weekDates(monday);
-  const entries = await listScheduleEntries();
+  const [entries, automatedHours, underwritingHours] = await Promise.all([
+    listScheduleEntries(),
+    loadAutomatedHours(),
+    loadUnderwritingHours(),
+  ]);
 
   const dayEntries = dates.map((dateISO) =>
     entries
@@ -479,7 +488,31 @@ async function WeekView({
         },
       ];
     });
-    return { dateISO, name: DAY_NAMES[index] ?? "", num: Number(dateISO.slice(8)), blocks };
+    // Behind the airings: the day's automated hours and its hours closed
+    // to underwriting, each from its own page's records.
+    const bands: WeekBand[] = [
+      ...shadingBands(
+        automatedSegments(dateISO, automatedHours.weekly, automatedHours.changes).map((s) => ({
+          fromSeconds: secondsInto(s.startsAt, dateISO),
+          toSeconds: secondsInto(s.endsAt, dateISO),
+          covered: s.automated,
+        })),
+        "automated",
+        startHour,
+        endHour,
+      ),
+      ...shadingBands(
+        closedSegments(dateISO, underwritingHours.weekly, underwritingHours.changes).map((s) => ({
+          fromSeconds: secondsInto(s.startsAt, dateISO),
+          toSeconds: secondsInto(s.endsAt, dateISO),
+          covered: s.closed,
+        })),
+        "closed",
+        startHour,
+        endHour,
+      ),
+    ];
+    return { dateISO, name: DAY_NAMES[index] ?? "", num: Number(dateISO.slice(8)), blocks, bands };
   });
 
   const weekHref = (dateISO: string) => `${PROGRAMS_PATH}?view=week&week=${dateISO}`;
@@ -505,18 +538,6 @@ async function WeekView({
           Today
         </Link>
         <span className="flex-1" />
-        <Link
-          href="/log/automated-hours"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Automated hours
-        </Link>
-        <Link
-          href="/log/station-ids"
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          Station IDs
-        </Link>
         <span className="text-[13px] text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
@@ -530,6 +551,26 @@ async function WeekView({
             className="mr-1.5 inline-block size-3 border border-dashed border-warning-border bg-warning-bg align-[-1px]"
           />
           Needs a clock
+        </span>
+        <span className="text-[13px] text-ink-700 max-md:hidden">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "mr-1.5 inline-block size-3 border border-line align-[-1px]",
+              BAND_CLASS.automated,
+            )}
+          />
+          Automated
+        </span>
+        <span className="text-[13px] text-ink-700 max-md:hidden">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "mr-1.5 inline-block size-3 border border-line align-[-1px]",
+              BAND_CLASS.closed,
+            )}
+          />
+          Closed to underwriting
         </span>
         {isProgramDirector && (
           <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
@@ -551,11 +592,12 @@ async function WeekView({
           todayISO={today}
         />
       </div>
-      <WeekAgenda days={days} canEdit={isProgramDirector} todayISO={today} />
+      <WeekAgenda days={days} canEdit={isProgramDirector} todayISO={today} startHour={startHour} />
 
       <p className="text-[13px] text-ink-500">
         <span className="max-md:hidden">
-          Select a block to edit when it airs or open its program.{" "}
+          Select a block to edit when it airs or open its program. Shading is edited under
+          Automation and Underwriting.{" "}
         </span>
         Times are Central.
       </p>
@@ -574,10 +616,12 @@ function WeekAgenda({
   days,
   canEdit,
   todayISO,
+  startHour,
 }: {
   days: WeekDay[];
   canEdit: boolean;
   todayISO: string;
+  startHour: number;
 }) {
   return (
     <div className="flex flex-col gap-4 md:hidden">
@@ -592,6 +636,9 @@ function WeekAgenda({
                 <span className="normal-case tracking-normal text-brand-link">Today</span>
               )}
             </h3>
+            {day.bands.length > 0 && (
+              <p className="mb-1.5 text-xs text-ink-500">{describeBands(day.bands, startHour)}</p>
+            )}
             {blocks.length === 0 ? (
               <p className="rounded border border-dashed border-line px-3 py-2 text-sm text-ink-500">
                 Nothing scheduled.
@@ -636,4 +683,27 @@ function WeekAgenda({
       })}
     </div>
   );
+}
+
+/** Seconds since local midnight of `dateISO` at an instant on or after it: 86400 for the next midnight. */
+function secondsInto(instantISO: string, dateISO: string): number {
+  const parts = stationLocalParts(instantISO);
+  return parts.dateISO === dateISO ? parts.seconds : 86_400;
+}
+
+/** The agenda's one line for a day's shading: "Automated 8:00 PM – 12:00 AM · Closed to underwriting 5:00 – 5:00 PM". */
+function describeBands(bands: WeekBand[], startHour: number): string {
+  const label: Record<WeekBand["kind"], string> = {
+    automated: "Automated",
+    closed: "Closed to underwriting",
+  };
+  const clock = (minutes: number) =>
+    formatAirTime(`${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`);
+  return bands
+    .map((band) => {
+      const from = startHour * 60 + band.topMinutes;
+      const to = from + band.heightMinutes;
+      return `${label[band.kind]} ${clock(from)} – ${clock(to)}`;
+    })
+    .join(" · ");
 }

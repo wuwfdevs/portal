@@ -25,17 +25,17 @@ import {
   localFormValues,
   programsInWindow,
 } from "@/lib/log/automated-hours-display";
+import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import {
-  countOnAirChanges,
-  listOnAirChanges,
-  listWeeklyWindows,
-  loadAutomatedHours,
-  ONE_TIME_CHANGES_PAGE_SIZE,
-  toWeeklyWindow,
-  type LogAutomatedWeeklyRow,
-  type LogOnAirChangeRow,
-} from "@/lib/log/automated-hours-queries";
-import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
+  countUnderwritingHourChanges,
+  listClosedWindows,
+  listUnderwritingHourChanges,
+  loadUnderwritingHours,
+  toClosedWindow,
+  UNDERWRITING_HOUR_CHANGES_PAGE_SIZE,
+  type LogUnderwritingClosedWeeklyRow,
+  type LogUnderwritingHourChangeRow,
+} from "@/lib/log/underwriting-hours-queries";
 import { formatDateShort, formatDaysOfWeek } from "@/lib/log/program-status";
 import { listScheduleEntries, type ScheduleEntryWithNames } from "@/lib/log/queries";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
@@ -43,26 +43,27 @@ import { isValidDateISO } from "@/lib/log/week-layout";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import { ScheduleTabs } from "../schedule-tabs";
 import {
-  createOnAirChange,
-  createWeeklyWindow,
-  removeOnAirChange,
-  removeWeeklyWindow,
-  updateOnAirChange,
-  updateWeeklyWindow,
+  createClosedWindow,
+  createUnderwritingHourChange,
+  removeClosedWindow,
+  removeUnderwritingHourChange,
+  updateClosedWindow,
+  updateUnderwritingHourChange,
 } from "./actions";
 
-const BASE_PATH = "/log/automated-hours";
+const BASE_PATH = "/log/underwriting-hours";
 
 /**
- * Automation (lib/log/automated-hours.ts): every hour is hosted unless it's
- * listed here, and the credits in automated hours go to DAD. The week or
- * month picture (components/log/hours-calendar.tsx, shared with the
- * Underwriting page, which supplies the faint context layer here) and then
- * the two kinds of record behind it — weekly windows and one-time changes.
- * The program director adds and edits inline (`?new=weekly`, `?new=once`,
- * `?edit=<id>`); everyone else reads.
+ * Underwriting hours (lib/log/underwriting-hours.ts): auto-fill may schedule
+ * an underwriting credit in any hour unless it's closed here; a staffer's
+ * manual placement and a host's relocation are never refused by it. The
+ * week or month picture (components/log/hours-calendar.tsx, shared with the
+ * Automation page, which supplies the faint context layer here) and then
+ * the two kinds of record behind it — weekly closed windows and one-time
+ * changes. The program director adds and edits inline (`?new=weekly`,
+ * `?new=once`, `?edit=<id>`); everyone else reads.
  */
-export default async function AutomatedHoursPage({
+export default async function UnderwritingHoursPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -84,17 +85,17 @@ export default async function AutomatedHoursPage({
   const page = parsePage(params.page);
   const nowISO = new Date().toISOString();
 
-  const [hours, underwritingHours, weeklyRows, changePage, changeCounts, scheduleEntries] =
+  const [hours, automatedHours, weeklyRows, changePage, changeCounts, scheduleEntries] =
     await Promise.all([
-      loadAutomatedHours(),
       loadUnderwritingHours(),
-      listWeeklyWindows(),
-      listOnAirChanges(scope, page, nowISO),
-      countOnAirChanges(nowISO),
+      loadAutomatedHours(),
+      listClosedWindows(),
+      listUnderwritingHourChanges(scope, page, nowISO),
+      countUnderwritingHourChanges(nowISO),
       listScheduleEntries(),
     ]);
 
-  const info = pageInfo(page, changePage.total, ONE_TIME_CHANGES_PAGE_SIZE);
+  const info = pageInfo(page, changePage.total, UNDERWRITING_HOUR_CHANGES_PAGE_SIZE);
   const listParams = {
     view: view === "month" ? "month" : null,
     date: params.date ?? null,
@@ -128,12 +129,13 @@ export default async function AutomatedHoursPage({
 
   return (
     <>
-      <ScheduleTabs active="automation" />
+      <ScheduleTabs active="underwriting" />
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold text-ink-900">Automation</h1>
-          <p className="text-sm text-ink-500">
-            Every hour is hosted unless it&apos;s listed here. Credits in automated hours go to DAD.
+          <h1 className="text-xl font-bold text-ink-900">Underwriting hours</h1>
+          <p className="max-w-3xl text-sm text-ink-500">
+            Auto-fill may schedule an underwriting credit in any hour unless it&apos;s closed here.
+            Traffic staff can still place one by hand, and hosts can still move one.
           </p>
         </div>
 
@@ -144,15 +146,15 @@ export default async function AutomatedHoursPage({
           date={date}
           today={today}
           entries={scheduleEntries}
-          primary={automatedLayer(hours)}
-          context={underwritingLayer(underwritingHours)}
+          primary={underwritingLayer(hours)}
+          context={automatedLayer(automatedHours)}
           weekHref={(iso) => href({ view: null, date: iso })}
           monthHref={(iso) => href({ view: "month", date: iso })}
         />
 
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-ink-900">Every week</h2>
+            <h2 className="text-base font-bold text-ink-900">Closed every week</h2>
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
               <PrimaryLink href={href({ new: "weekly" })}>+ Weekly hours</PrimaryLink>
@@ -228,7 +230,7 @@ export default async function AutomatedHoursPage({
           <Pagination info={info} path={BASE_PATH} params={listParams} noun="changes" />
           <p className="text-[13px] text-ink-500">
             A one-time change wins over the weekly hours. One-time changes can&apos;t overlap each
-            other. Times are Central.
+            other. Times are Central. Nothing already placed is moved when the hours change.
           </p>
         </section>
       </div>
@@ -236,7 +238,7 @@ export default async function AutomatedHoursPage({
   );
 }
 
-function formatSince(row: LogAutomatedWeeklyRow): string {
+function formatSince(row: LogUnderwritingClosedWeeklyRow): string {
   return row.effective_to
     ? `${formatDateShort(row.effective_from)} – ${formatDateShort(row.effective_to)}`
     : formatDateShort(row.effective_from);
@@ -248,7 +250,7 @@ function WeeklyTable({
   today,
   editHref,
 }: {
-  rows: LogAutomatedWeeklyRow[];
+  rows: LogUnderwritingClosedWeeklyRow[];
   entries: ScheduleEntryWithNames[];
   today: string;
   editHref: ((id: string) => string) | null;
@@ -256,7 +258,7 @@ function WeeklyTable({
   if (rows.length === 0) {
     return (
       <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No weekly automated hours. Every week is hosted.
+        No hours are closed. Auto-fill may schedule a credit in any hour that has an eligible break.
       </div>
     );
   }
@@ -278,7 +280,7 @@ function WeeklyTable({
         </thead>
         <tbody>
           {rows.map((row) => {
-            const programs = programsInWindow(toWeeklyWindow(row), entries, today);
+            const programs = programsInWindow(toClosedWindow(row), entries, today);
             return (
               <Row key={row.id}>
                 <Cell stack="title">
@@ -318,7 +320,7 @@ function ChangesTable({
   scope,
   editHref,
 }: {
-  rows: LogOnAirChangeRow[];
+  rows: LogUnderwritingHourChangeRow[];
   scope: "upcoming" | "past";
   editHref: ((id: string) => string) | null;
 }) {
@@ -349,8 +351,8 @@ function ChangesTable({
             <Row key={row.id}>
               <Cell stack="title">{formatChangeWhen(row.starts_at, row.ends_at)}</Cell>
               <Cell label="Change">
-                <Badge variant={row.mode === "automated" ? "warning" : "accent"}>
-                  {row.mode === "automated" ? "Automated" : "Live"}
+                <Badge variant={row.mode === "closed" ? "warning" : "success"}>
+                  {row.mode === "closed" ? "Closed" : "Open"}
                 </Badge>
               </Cell>
               <Cell label="Reason">{row.reason ?? "—"}</Cell>
@@ -379,7 +381,7 @@ function WeeklyCard({
   cancelHref,
   hidden,
 }: {
-  row: LogAutomatedWeeklyRow | null;
+  row: LogUnderwritingClosedWeeklyRow | null;
   today: string;
   error: string | undefined;
   cancelHref: string;
@@ -387,14 +389,14 @@ function WeeklyCard({
 }) {
   return (
     <InlineCreateCard
-      title={row ? "Edit weekly hours" : "New weekly automated hours"}
-      action={row ? updateWeeklyWindow : createWeeklyWindow}
+      title={row ? "Edit closed hours" : "New weekly closed hours"}
+      action={row ? updateClosedWindow : createClosedWindow}
       submitLabel={row ? "Save" : "Add hours"}
       cancelHref={cancelHref}
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button type="submit" variant="ghost" formAction={removeWeeklyWindow} formNoValidate>
+            <Button type="submit" variant="ghost" formAction={removeClosedWindow} formNoValidate>
               Remove these hours
             </Button>
           </div>
@@ -417,7 +419,7 @@ function WeeklyCard({
               name="start_time"
               type="time"
               required
-              defaultValue={row?.start_time.slice(0, 5) ?? "20:00"}
+              defaultValue={row?.start_time.slice(0, 5) ?? "05:00"}
             />
           </div>
           <div>
@@ -427,7 +429,7 @@ function WeeklyCard({
               name="end_time"
               type="time"
               required
-              defaultValue={row?.end_time.slice(0, 5) ?? "05:00"}
+              defaultValue={row?.end_time.slice(0, 5) ?? "17:00"}
             />
           </div>
         </div>
@@ -461,7 +463,7 @@ function WeeklyCard({
             id="reason"
             name="reason"
             maxLength={200}
-            placeholder="Overnights"
+            placeholder="Daytime"
             defaultValue={row?.reason ?? ""}
           />
         </div>
@@ -477,7 +479,7 @@ function ChangeCard({
   cancelHref,
   hidden,
 }: {
-  row: LogOnAirChangeRow | null;
+  row: LogUnderwritingHourChangeRow | null;
   date: string;
   error: string | undefined;
   cancelHref: string;
@@ -488,13 +490,18 @@ function ChangeCard({
   return (
     <InlineCreateCard
       title={row ? "Edit one-time change" : "New one-time change"}
-      action={row ? updateOnAirChange : createOnAirChange}
+      action={row ? updateUnderwritingHourChange : createUnderwritingHourChange}
       submitLabel={row ? "Save" : "Add change"}
       cancelHref={cancelHref}
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button type="submit" variant="ghost" formAction={removeOnAirChange} formNoValidate>
+            <Button
+              type="submit"
+              variant="ghost"
+              formAction={removeUnderwritingHourChange}
+              formNoValidate
+            >
               Remove this change
             </Button>
           </div>
@@ -509,10 +516,10 @@ function ChangeCard({
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">These hours are</span>
           <Segmented
             name="mode"
-            defaultValue={row?.mode ?? "automated"}
+            defaultValue={row?.mode ?? "closed"}
             options={[
-              { value: "automated", label: "Automated" },
-              { value: "live", label: "Live" },
+              { value: "closed", label: "Closed" },
+              { value: "open", label: "Open" },
             ]}
           />
         </div>
@@ -555,7 +562,7 @@ function ChangeCard({
             id="reason"
             name="reason"
             maxLength={200}
-            placeholder="Thanksgiving"
+            placeholder="Pledge drive"
             defaultValue={row?.reason ?? ""}
           />
         </div>

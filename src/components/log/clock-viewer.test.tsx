@@ -55,6 +55,7 @@ function props(over: Partial<ClockViewerProps> = {}): ClockViewerProps {
     ],
     shift: { hours: 2, startTime: "07:00:00" },
     canEdit: true,
+    canPin: true,
     initial: { view: "timeline", hour: 0, slotId: null },
     form: null,
     keepParams: { version: "v1" },
@@ -166,7 +167,15 @@ describe("ClockViewer", () => {
     expect(hrefs.some((href) => href?.includes("mode=pin"))).toBe(true);
     act(() => root.unmount());
     root = createRoot(container);
-    mount({ canEdit: false });
+    mount({ canEdit: false, canPin: false });
+    expect(text()).not.toContain("Edit eligibility");
+  });
+
+  it("lets traffic pin content without changing eligibility", () => {
+    mount({ canEdit: false, canPin: true });
+    const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(hrefs.some((href) => href?.includes("mode=pin"))).toBe(true);
+    expect(hrefs.some((href) => href?.includes("mode=edit"))).toBe(false);
     expect(text()).not.toContain("Edit eligibility");
   });
 

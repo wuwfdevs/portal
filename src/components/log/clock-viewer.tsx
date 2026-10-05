@@ -56,7 +56,10 @@ export interface ClockViewerProps {
   opportunities: ClockViewerOpportunity[];
   pins: ClockPinInput[];
   shift: ShiftInfo;
+  /** Marking slots eligible and editing eligibility: the program director. */
   canEdit: boolean;
+  /** Pinning and removing pinned content: the program director or traffic. */
+  canPin: boolean;
   initial: { view: ClockViewMode; hour: number; slotId: string | null };
   form: ClockViewerForm | null;
   /** Query params to keep on every link and form return (version, from). */
@@ -120,6 +123,7 @@ export function ClockViewer(props: ClockViewerProps) {
     pins,
     shift,
     canEdit,
+    canPin,
     initial,
     form,
     keepParams,
@@ -224,6 +228,7 @@ export function ClockViewer(props: ClockViewerProps) {
       shift={shift}
       hour={hour}
       canEdit={canEdit}
+      canPin={canPin}
       templateId={templateId}
       returnQuery={returnQuery}
       actionHref={actionHref}
@@ -939,6 +944,7 @@ function SlotPanel({
   shift,
   hour,
   canEdit,
+  canPin,
   templateId,
   returnQuery,
   actionHref,
@@ -953,6 +959,7 @@ function SlotPanel({
   shift: ShiftInfo;
   hour: number;
   canEdit: boolean;
+  canPin: boolean;
   templateId: string;
   returnQuery: string;
   actionHref: (mode: "edit" | "pin" | "mark") => string;
@@ -963,7 +970,9 @@ function SlotPanel({
   if (!slot) return null;
   const isLocal = Boolean(slot.local);
   // Actions belong to the selected slot; while previewing another, the panel is read-only.
-  const acting = canEdit && !previewing && selected?.id === slot.id;
+  const isSelected = !previewing && selected?.id === slot.id;
+  const acting = canEdit && isSelected;
+  const pinning = canPin && isSelected;
   const hourLabel = shift.startTime
     ? `Hour ${hour + 1} (${shiftTimeOfDay(shift.startTime, hour, 0)})`
     : `Hour ${hour + 1}`;
@@ -1041,7 +1050,7 @@ function SlotPanel({
                     <div className="text-[15px] font-semibold text-ink-900">{pin.title}</div>
                     <div className="text-[13px] text-ink-500">{describePinScope(pin)}</div>
                   </div>
-                  {acting && (
+                  {pinning && (
                     <form action={removePinAction}>
                       <input type="hidden" name="clock_template_id" value={templateId} />
                       <input type="hidden" name="assignment_id" value={pin.id} />
@@ -1076,40 +1085,46 @@ function SlotPanel({
         )}
       </div>
 
-      {acting && !form && (
+      {(acting || (pinning && isLocal)) && !form && (
         <div className="flex flex-wrap items-center gap-2.5 border-t border-line px-5 py-3">
           {isLocal ? (
             <>
-              <Link
-                href={actionHref("edit")}
-                className={cn(link, "bg-brand-link text-white hover:bg-[#124B78]")}
-              >
-                Edit eligibility
-              </Link>
-              <Link
-                href={actionHref("pin")}
-                className={cn(
-                  link,
-                  "border border-brand-link text-brand-link hover:bg-brand-surface",
-                )}
-              >
-                Pin content
-              </Link>
-              <form action={removeOpportunityAction}>
-                <input type="hidden" name="clock_template_id" value={templateId} />
-                <input
-                  type="hidden"
-                  name="opportunity_id"
-                  value={slot.local?.opportunityId ?? ""}
-                />
-                <input type="hidden" name="return_query" value={returnQuery} />
-                <button
-                  type="submit"
-                  className={cn(link, "border border-[#C9CED4] text-ink-700 hover:bg-panel-50")}
+              {acting && (
+                <Link
+                  href={actionHref("edit")}
+                  className={cn(link, "bg-brand-link text-white hover:bg-[#124B78]")}
                 >
-                  Remove
-                </button>
-              </form>
+                  Edit eligibility
+                </Link>
+              )}
+              {pinning && (
+                <Link
+                  href={actionHref("pin")}
+                  className={cn(
+                    link,
+                    "border border-brand-link text-brand-link hover:bg-brand-surface",
+                  )}
+                >
+                  Pin content
+                </Link>
+              )}
+              {acting && (
+                <form action={removeOpportunityAction}>
+                  <input type="hidden" name="clock_template_id" value={templateId} />
+                  <input
+                    type="hidden"
+                    name="opportunity_id"
+                    value={slot.local?.opportunityId ?? ""}
+                  />
+                  <input type="hidden" name="return_query" value={returnQuery} />
+                  <button
+                    type="submit"
+                    className={cn(link, "border border-[#C9CED4] text-ink-700 hover:bg-panel-50")}
+                  >
+                    Remove
+                  </button>
+                </form>
+              )}
             </>
           ) : (
             <Link

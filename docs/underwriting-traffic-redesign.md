@@ -1571,3 +1571,63 @@ as a section at the bottom. Agreement holds the signed document, the
 traffic policy (read first, `?edit=policy` to change it), the contract's
 affidavits and its revision history. The side column gained a Missed
 credits count.
+
+## 18. Hours closed to underwriting (2026-10-05)
+
+WUWF runs credits only after 5 PM today, and wants to widen that as automation
+makes more hours usable. Nothing before this said which hours auto-fill could
+sell into: "after 5 PM" was an accident of which schedule lines and pool
+targets existed, and a line targeting Morning Edition would have auto-filled
+into it. Automated hours are the wrong lever — they say whether anyone is in
+the studio and only change which copy qualifies (a DAD cut); a break in
+automated hours is still a candidate.
+
+### 18.1 The rule
+
+Every hour is open unless listed. The program director lists the exceptions
+under On Air → Schedule → Underwriting (`docs/broadcast-roles.md` §3, §5):
+weekly closed windows (`log_underwriting_closed_weekly`; end at or before the
+start runs past midnight; the union of windows counts) and one-time changes
+(`log_underwriting_hour_changes`, `closed` or `open`, winning over the weekly
+windows, never overlapping each other). `lib/log/underwriting-hours.ts`'s
+`isClosedToUnderwriting()` and `private.log_is_closed_to_underwriting()` are
+twins — keep them in step — and both reuse the automated-hours window logic
+(`weeklyWindowCovers`, `coverageSegments`) rather than copying it. WUWF's
+first row is "5:00 AM – 5:00 PM every day".
+
+### 18.2 Automation only
+
+The rule reaches auto-fill, rundown provisioning and bumping, the same set
+the freeze rule (§10.2) governs, and nothing else:
+
+- The planner (`inventory-selection.ts`), the bump planner (`bump-plan.ts`)
+  and the dashboard's open-candidate counts filter with
+  `freeze.ts`'s `automationPlacementBlockFor()`, which is the freeze result
+  or `hours_closed`. `automationBlockFor()` itself is unchanged: copy
+  rotation on an existing placement (`rotation-rebalance.ts`) is not a
+  placement and still swaps copy on a credit a staffer placed into closed
+  hours.
+- `log_place_underwriting_credit(p_automated => true)` returns
+  `hours_closed` as the backstop. The check lives in that function, not in
+  `uw_automation_block()`, because the helper also gates
+  `log_clear_underwriting_credit(p_automated)` and automation must still be
+  able to clear a hand-placed credit in closed hours (a revision
+  activation, a line cancelled from a date). Bumping's destination is
+  covered because the bump places through the same function.
+- Provisioning (`rundown-provisioning.ts`) never generates a rundown for a
+  day whose every underwriting-eligible break would fall in closed hours —
+  the lesson of the 25 empty All Things Considered rundowns — and reports
+  those dates as `closedAirDates`, which the auto-fill notice names.
+- The dashboard's conflict check (`conflicts.ts`) gains `hours_closed`: a
+  short period whose candidate breaks all fall in closed hours, said as
+  that rather than as missing inventory.
+- A traffic staffer's manual placement and a makegood picked by hand are
+  not refused; their pickers label such a break "closed to underwriting".
+  A host's relocation on the rundown is untouched.
+
+### 18.3 Deliberately not built
+
+A per-line or per-underwriter exemption (a sponsor allowed into closed
+hours), a time-of-day rule on a pool target standing in for this, and moving
+credits already placed when the hours change. The rule says where automation
+may add a credit from now on; what is placed stays placed.

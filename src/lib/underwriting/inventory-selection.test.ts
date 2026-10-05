@@ -418,6 +418,44 @@ describe("frozen rundowns", () => {
   });
 });
 
+describe("hours closed to underwriting", () => {
+  // Boyles' drive-time line: two a week, weekdays, from 2026-09-21.
+  const demand = only(demandFor(BOYLES, 0, { todayISO: "2026-09-21", underwriterId: "boyles" }), 0);
+
+  it("never plans a closed break, and takes an open one on the same day instead", () => {
+    const breaks = [
+      brk({ breakId: "mon-am", airDate: "2026-09-21", closedToUnderwriting: true, bucketId: "b0" }),
+      brk({
+        breakId: "mon-pm",
+        airDate: "2026-09-21",
+        minutesOfDay: 18 * 60,
+        scheduledAt: "2026-09-21T23:00:00Z",
+        bucketId: "b0",
+      }),
+      brk({ breakId: "tue-am", airDate: "2026-09-22", closedToUnderwriting: true, bucketId: "b0" }),
+      brk({
+        breakId: "tue-pm",
+        airDate: "2026-09-22",
+        minutesOfDay: 18 * 60,
+        scheduledAt: "2026-09-22T23:00:00Z",
+        bucketId: "b0",
+      }),
+    ];
+    const plan = planInventorySelection(breaks, demand, [copy()]);
+    expect(plan.items.map((i) => i.breakId).sort()).toEqual(["mon-pm", "tue-pm"]);
+  });
+
+  it("reports no inventory when every break of the period is closed", () => {
+    const breaks = [
+      brk({ breakId: "mon-am", airDate: "2026-09-21", closedToUnderwriting: true, bucketId: "b0" }),
+      brk({ breakId: "tue-am", airDate: "2026-09-22", closedToUnderwriting: true, bucketId: "b0" }),
+    ];
+    const plan = planInventorySelection(breaks, demand, [copy()]);
+    expect(plan.items).toEqual([]);
+    expect(plan.unplaceable.map((unit) => unit.why)).toEqual(["no_inventory", "no_inventory"]);
+  });
+});
+
 describe("automated hours", () => {
   const demand = only(demandFor(BOYLES, 0, { todayISO: "2026-09-21", underwriterId: "boyles" }), 0);
 

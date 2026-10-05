@@ -8,19 +8,20 @@ import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { overlapMessage, parseChangeForm, parseWeeklyWindowForm } from "@/lib/log/hour-window-form";
 import { isValidDateISO } from "@/lib/log/week-layout";
-import type { LogOnAirMode } from "@/lib/database.types";
+import type { LogUnderwritingHoursMode } from "@/lib/database.types";
 
 /**
- * Program-director-only writes for automated hours (20261002130000).
- * Nothing is ever deleted: removing a window or change sets
- * `active = false`, which also frees its time for the one-time changes'
- * no-overlap rule. Every write is audited as `log.automated_hours.*`. The
- * form parsing is shared with the Underwriting hours screen
- * (lib/log/hour-window-form.ts).
+ * Program-director-only writes for the hours closed to underwriting
+ * (20261005130000) — the same shape as automated hours' actions, over the
+ * other pair of tables. Nothing is ever deleted: removing a window or
+ * change sets `active = false`, which also frees its time for the one-time
+ * changes' no-overlap rule. Every write is audited as
+ * `log.underwriting_hours.*`. Traffic's auto-fill reads the result on its
+ * next run; nothing already placed is moved.
  */
 
-const BASE_PATH = "/log/automated-hours";
-const MODES: readonly LogOnAirMode[] = ["automated", "live"];
+const BASE_PATH = "/log/underwriting-hours";
+const MODES: readonly LogUnderwritingHoursMode[] = ["closed", "open"];
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -41,77 +42,81 @@ function pathFrom(formData: FormData, extra: Record<string, string> = {}): strin
 function done(formData: FormData): never {
   revalidatePath(BASE_PATH);
   revalidatePath("/log/programs");
-  revalidatePath("/log/underwriting-hours");
+  revalidatePath("/log/automated-hours");
+  revalidatePath("/underwriting");
   redirect(pathFrom(formData));
 }
 
-export async function createWeeklyWindow(formData: FormData): Promise<void> {
+export async function createClosedWindow(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const errorPath = pathFrom(formData, { new: "weekly" });
   const parsed = parseWeeklyWindowForm(formData);
   if (!parsed.ok) failWith(errorPath, parsed.message);
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("log_automated_weekly")
+    .from("log_underwriting_closed_weekly")
     .insert({ ...parsed.fields, created_by: profile.id })
     .select("id")
     .single();
   failIfError(error, errorPath, "Could not add these hours");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.weekly_added",
-    targetType: "log_automated_weekly",
+    action: "log.underwriting_hours.weekly_added",
+    targetType: "log_underwriting_closed_weekly",
     targetId: data?.id,
     metadata: { ...parsed.fields },
   });
   done(formData);
 }
 
-export async function updateWeeklyWindow(formData: FormData): Promise<void> {
+export async function updateClosedWindow(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const errorPath = pathFrom(formData, { edit: id });
   const parsed = parseWeeklyWindowForm(formData);
   if (!parsed.ok) failWith(errorPath, parsed.message);
   const supabase = await createClient();
-  const { error } = await supabase.from("log_automated_weekly").update(parsed.fields).eq("id", id);
+  const { error } = await supabase
+    .from("log_underwriting_closed_weekly")
+    .update(parsed.fields)
+    .eq("id", id);
   failIfError(error, errorPath, "Could not save these hours");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.weekly_updated",
-    targetType: "log_automated_weekly",
+    action: "log.underwriting_hours.weekly_updated",
+    targetType: "log_underwriting_closed_weekly",
     targetId: id,
     metadata: { ...parsed.fields },
   });
   done(formData);
 }
 
-export async function removeWeeklyWindow(formData: FormData): Promise<void> {
+export async function removeClosedWindow(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const supabase = await createClient();
   const { error } = await supabase
-    .from("log_automated_weekly")
+    .from("log_underwriting_closed_weekly")
     .update({ active: false })
     .eq("id", id);
   failIfError(error, pathFrom(formData), "Could not remove these hours");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.weekly_removed",
-    targetType: "log_automated_weekly",
+    action: "log.underwriting_hours.weekly_removed",
+    targetType: "log_underwriting_closed_weekly",
     targetId: id,
   });
   done(formData);
 }
 
-export async function createOnAirChange(formData: FormData): Promise<void> {
+export async function createUnderwritingHourChange(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const errorPath = pathFrom(formData, { new: "once" });
-  const parsed = parseChangeForm(formData, MODES, "Choose automated or live.");
+  const parsed = parseChangeForm(formData, MODES, "Choose closed or open.");
   if (!parsed.ok) failWith(errorPath, parsed.message);
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("log_on_air_changes")
+    .from("log_underwriting_hour_changes")
     .insert({ ...parsed.fields, created_by: profile.id })
     .select("id")
     .single();
@@ -120,48 +125,51 @@ export async function createOnAirChange(formData: FormData): Promise<void> {
   failIfError(error, errorPath, "Could not add the change");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.change_added",
-    targetType: "log_on_air_changes",
+    action: "log.underwriting_hours.change_added",
+    targetType: "log_underwriting_hour_changes",
     targetId: data?.id,
     metadata: { ...parsed.fields },
   });
   done(formData);
 }
 
-export async function updateOnAirChange(formData: FormData): Promise<void> {
+export async function updateUnderwritingHourChange(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const errorPath = pathFrom(formData, { edit: id });
-  const parsed = parseChangeForm(formData, MODES, "Choose automated or live.");
+  const parsed = parseChangeForm(formData, MODES, "Choose closed or open.");
   if (!parsed.ok) failWith(errorPath, parsed.message);
   const supabase = await createClient();
-  const { error } = await supabase.from("log_on_air_changes").update(parsed.fields).eq("id", id);
+  const { error } = await supabase
+    .from("log_underwriting_hour_changes")
+    .update(parsed.fields)
+    .eq("id", id);
   const overlap = overlapMessage(error?.code);
   if (overlap) failWith(errorPath, overlap);
   failIfError(error, errorPath, "Could not save the change");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.change_updated",
-    targetType: "log_on_air_changes",
+    action: "log.underwriting_hours.change_updated",
+    targetType: "log_underwriting_hour_changes",
     targetId: id,
     metadata: { ...parsed.fields },
   });
   done(formData);
 }
 
-export async function removeOnAirChange(formData: FormData): Promise<void> {
+export async function removeUnderwritingHourChange(formData: FormData): Promise<void> {
   const { profile } = await assertProgramDirector();
   const id = field(formData, "id");
   const supabase = await createClient();
   const { error } = await supabase
-    .from("log_on_air_changes")
+    .from("log_underwriting_hour_changes")
     .update({ active: false })
     .eq("id", id);
   failIfError(error, pathFrom(formData), "Could not remove the change");
   await logAuditEvent({
     actorId: profile.id,
-    action: "log.automated_hours.change_removed",
-    targetType: "log_on_air_changes",
+    action: "log.underwriting_hours.change_removed",
+    targetType: "log_underwriting_hour_changes",
     targetId: id,
   });
   done(formData);

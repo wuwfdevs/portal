@@ -673,6 +673,8 @@ export async function listLocalOpportunitiesForVersion(
 
 export interface OpportunityAssignmentWithContentTitle extends LogOpportunityAssignmentRow {
   contentItemTitle: string;
+  /** Null when the content item can't be read. */
+  contentItemType: LogContentItemRow["content_type"] | null;
 }
 
 /**
@@ -704,15 +706,22 @@ export async function listOpportunityAssignmentsForVersion(
   const contentItemIds = [...new Set(assignments.map((assignment) => assignment.content_item_id))];
   const items =
     unwrapRead(
-      await supabase.from("log_content_items").select("id, title").in("id", contentItemIds),
+      await supabase
+        .from("log_content_items")
+        .select("id, title, content_type")
+        .in("id", contentItemIds),
       "these assignments' content items",
     ) ?? [];
-  const titleById = new Map(items.map((item) => [item.id, item.title]));
+  const itemById = new Map(items.map((item) => [item.id, item]));
 
-  return assignments.map((assignment) => ({
-    ...assignment,
-    contentItemTitle: titleById.get(assignment.content_item_id) ?? "Unknown content item",
-  }));
+  return assignments.map((assignment) => {
+    const item = itemById.get(assignment.content_item_id);
+    return {
+      ...assignment,
+      contentItemTitle: item?.title ?? "Unknown content item",
+      contentItemType: item?.content_type ?? null,
+    };
+  });
 }
 
 /** Every rundown for a given air date — the Today screen's per-program status column. */

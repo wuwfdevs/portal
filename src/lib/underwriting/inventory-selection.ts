@@ -12,6 +12,8 @@
 //   * Never in the past (a break before todayISO, or one already started
 //     by nowISO), never in a rundown that is live or submitted (freeze.ts —
 //     the log belongs to the host from the moment the broadcast starts),
+//     never in hours closed to underwriting (lib/log/underwriting-hours.ts
+//     — the program director's call on which hours carry credits),
 //     never in a break this contract already holds a credit in, never in a break whose last item
 //     is the same underwriter or the same industry (the reference
 //     agreement's "does not run adjacent to a business with similar
@@ -36,7 +38,7 @@
 //     never used. The execution side re-walks the whole contract afterwards.
 
 import type { LogRundownStatus, UwCopyApprovalStatus } from "@/lib/database.types";
-import { automationBlockFor } from "./freeze";
+import { automationPlacementBlockFor } from "./freeze";
 import {
   servesBreak,
   servesLine,
@@ -63,6 +65,8 @@ export interface CandidateBreak {
   bucketId: string;
   /** In automated hours (lib/log/automated-hours.ts): only copy with a DAD cut fits. */
   automated?: boolean;
+  /** In hours closed to underwriting (lib/log/underwriting-hours.ts): automation never adds a credit here. */
+  closedToUnderwriting?: boolean;
 }
 
 export interface CopyCandidate {
@@ -290,7 +294,7 @@ export function planInventorySelection(
     (brk) =>
       brk.airDate >= demand.todayISO &&
       brk.remainingSeconds > 0 &&
-      automationBlockFor(brk, demand.nowISO) === null,
+      automationPlacementBlockFor(brk, demand.nowISO) === null,
   );
   const byDate = new Map<string, CandidateBreak[]>();
   for (const brk of usable) {
