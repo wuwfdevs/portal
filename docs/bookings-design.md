@@ -1,4 +1,4 @@
-# Production Partnerships — Product & Engineering Design
+# Bookings — Product & Engineering Design
 
 Status: **Design, not yet authorized to build.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
@@ -182,7 +182,7 @@ reserve share, each resource's units and windows, the contributed airtime
 minutes, blackouts (a policy over a date range) and holds (WUWF's own use
 of a window).
 
-**C. A request arrives** — from `/produce` (or its Grove embed) or typed
+**C. A request arrives** — from `/book` (or its Grove embed) or typed
 in by staff — and lands at stage `request`.
 
 **D. The lead estimates.** Picks packages, adjusts hours and direct
@@ -213,73 +213,73 @@ framework's decision rule.
 
 ## 4. Screens
 
-Five tabs, following `docs/ui-patterns.md`: list pages are a `ListToolbar`
+Five tabs — Dashboard · Requests · Calendar · Partners · Rates — following `docs/ui-patterns.md`: list pages are a `ListToolbar`
 over a table; create and edit are dedicated pages; right columns exist
 only on detail pages.
 
-| Route                                                    | Screen                                                                                                                                                                                                                                                                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/production`                                            | **Dashboard** — the term's capacity bar (reserve used, reserve to preserve, incremental, external, held, open), the airtime envelope in one line, "Needs your action" filtered by the viewer's roles, this week, term-to-date tiles, a link to the term report                                               |
-| `/production/report`                                     | The **term report** (under Dashboard): capacity by pool, utilization by resource vs. package assumptions, recovery by partner, foregone margins, airtime contributed, WUWF work delayed or displaced, the decision rule                                                                                      |
-| `/production/requests`, `/[id]`                          | **Requests** list with stage chips; the **project page** — stage strip, estimate (priced-as strip with reason, lines, the capacity check as one line with "show the check", the legacy-rate delta), bookings, hours used, settlement, scope, activity; an aside with summary, opportunity cost, dispositions |
-| `/production/intake`                                     | Intake form settings and the embed snippet (under Requests)                                                                                                                                                                                                                                                  |
-| `/production/calendar`                                   | **Calendar** — week or month, one row per resource plus the production lead's hours lane; blocks for core WUWF, strategic, incremental, external, tentative, reserved, hold, blackout; "find a slot"; the term plan beneath it with the resource table and the airtime section                               |
-| `/production/partners`, `/[id]`, `/[id]/agreements/[id]` | **Partners** list; a partner's page; an agreement's terms, reserved blocks with release status, consumption bars, projects under it                                                                                                                                                                          |
-| `/production/rate-model`                                 | **Rate model** — version picker and adoption steps; chips for Assumptions · Resource pools · Service packages · Rate card · Assets · Change log                                                                                                                                                              |
-| `/produce`, `/produce/embed`                             | The **public request form** and its chrome-free embed variant                                                                                                                                                                                                                                                |
+| Route                                                  | Screen                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/bookings`                                            | **Dashboard** — the term's capacity bar (reserve used, reserve to preserve, incremental, external, held, open), the airtime envelope in one line, "Needs your action" filtered by the viewer's roles, this week, term-to-date tiles, a link to the term report                                               |
+| `/bookings/report`                                     | The **term report** (under Dashboard): capacity by pool, utilization by resource vs. package assumptions, recovery by partner, foregone margins, airtime contributed, WUWF work delayed or displaced, the decision rule                                                                                      |
+| `/bookings/requests`, `/[id]`                          | **Requests** list with stage chips; the **project page** — stage strip, estimate (priced-as strip with reason, lines, the capacity check as one line with "show the check", the legacy-rate delta), bookings, hours used, settlement, scope, activity; an aside with summary, opportunity cost, dispositions |
+| `/bookings/intake`                                     | Intake form settings and the embed snippet (under Requests)                                                                                                                                                                                                                                                  |
+| `/bookings/calendar`                                   | **Calendar** — week or month, one row per resource plus the production lead's hours lane; blocks for core WUWF, strategic, incremental, external, tentative, reserved, hold, blackout; "find a slot"; the term plan beneath it with the resource table and the airtime section                               |
+| `/bookings/partners`, `/[id]`, `/[id]/agreements/[id]` | **Partners** list; a partner's page; an agreement's terms, reserved blocks with release status, consumption bars, projects under it                                                                                                                                                                          |
+| `/bookings/rates`                                      | **Rates** — the rate model: version picker and adoption steps; chips for Assumptions · Resource pools · Service packages · Rate card · Assets · Change log                                                                                                                                                   |
+| `/book`, `/book/embed`                                 | The **public request form** and its chrome-free embed variant                                                                                                                                                                                                                                                |
 
 No rate appears on the public form. A partner sees a figure only on their
 estimate.
 
 ## 5. Data model
 
-All tables `pp_*`, RLS enabled, staff-only (§6.2). Columns below are the
+All tables `bk_*`, RLS enabled, staff-only (§6.2). Columns below are the
 load-bearing ones; the usual `id`, `created_at`, `created_by`,
 `updated_at` are implied.
 
 ### Rate model
 
-- **`pp_rate_model_versions`** — `label`, `status` (`draft` | `submitted` | `adopted` | `retired`), `adopted_at`, `adopted_by`, `destination_index` (where recoveries go, a Budget / Controller decision), `notes`. One `adopted` at a time.
-- **`pp_assumptions`** — `version_id`, `key`, `label`, `value numeric`, `unit`, `basis`, `source_url`, `validation_status` (`current_budget` | `needs_validation` | `validated` | `accepted_as_is`), `validation_note`, `owner_role` (`finance` | `director` | `executive`). The workbook's "Inputs & Assumptions" sheet, one row each.
-- **`pp_resource_pools`** — `version_id`, `key` (`studio` | `field` | `live` | `edit`), `allocation_share`, `available_units`, `unit_label`. Cost per unit is computed, never stored.
-- **`pp_service_packages`** — `version_id`, `key`, `name`, `unit_label`, `professional_hours`, `student_hours`, `studio_units`, `field_units`, `live_units`, `edit_hours`, `webcast_ops_units`, `market_floor`, `agreement_id` (nullable — a bespoke package scoped to one agreement, e.g. an OUR Voices episode), `active`.
-- **`pp_rate_card_lines`** — `version_id`, `package_id`, `strategic`, `incremental`, `external`, `historical_reference`, `applies_note`. **Written only at adoption**, a snapshot, so an estimate keeps the rate it was priced at when a later version changes an input.
-- **`pp_assets`** — `name`, `tag`, `pool_key`, `acquired_on`, `cost`, `funding_source` (`station` | `foundation` | `grant_restricted` | `uwf`), `useful_life_years`, `restrictions`, `maintenance_burden`, `condition`, `active`. Feeds a future version's pool allocation; Foundation and restricted-grant assets are never assumed to be prepaid institutional capacity.
+- **`bk_rate_model_versions`** — `label`, `status` (`draft` | `submitted` | `adopted` | `retired`), `adopted_at`, `adopted_by`, `destination_index` (where recoveries go, a Budget / Controller decision), `notes`. One `adopted` at a time.
+- **`bk_assumptions`** — `version_id`, `key`, `label`, `value numeric`, `unit`, `basis`, `source_url`, `validation_status` (`current_budget` | `needs_validation` | `validated` | `accepted_as_is`), `validation_note`, `owner_role` (`finance` | `director` | `executive`). The workbook's "Inputs & Assumptions" sheet, one row each.
+- **`bk_resource_pools`** — `version_id`, `key` (`studio` | `field` | `live` | `edit`), `allocation_share`, `available_units`, `unit_label`. Cost per unit is computed, never stored.
+- **`bk_service_packages`** — `version_id`, `key`, `name`, `unit_label`, `professional_hours`, `student_hours`, `studio_units`, `field_units`, `live_units`, `edit_hours`, `webcast_ops_units`, `market_floor`, `agreement_id` (nullable — a bespoke package scoped to one agreement, e.g. an OUR Voices episode), `active`.
+- **`bk_rate_card_lines`** — `version_id`, `package_id`, `strategic`, `incremental`, `external`, `historical_reference`, `applies_note`. **Written only at adoption**, a snapshot, so an estimate keeps the rate it was priced at when a later version changes an input.
+- **`bk_assets`** — `name`, `tag`, `pool_key`, `acquired_on`, `cost`, `funding_source` (`station` | `foundation` | `grant_restricted` | `uwf`), `useful_life_years`, `restrictions`, `maintenance_burden`, `condition`, `active`. Feeds a future version's pool allocation; Foundation and restricted-grant assets are never assumed to be prepaid institutional capacity.
 
 ### Capacity
 
-- **`pp_term_plans`** — `label`, `starts_on`, `ends_on`, `net_professional_hours`, `reserve_share`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`).
-- **`pp_term_resources`** — `plan_id`, `resource_key`, `available_units`, `unit_label`, `windows jsonb` (studio: `am` 08:00–12:00, `pm` 13:00–17:00, `full`, `evening`; field and live: `day`; edit: from–to), `lead_hours_per_day` (8).
-- **`pp_blackouts`** — `plan_id`, `starts_on`, `ends_on`, `resource_keys text[]` (null = all), `reason`. A policy; no partner work; no exception below the executive.
-- **`pp_holds`** — `resource_key`, `date`, `window_start`, `window_end`, `professional_hours`, `kind` (`core` | `maintenance`), `label`. WUWF's own use of one window. Entered by the director; nothing is pulled from On Air's broadcast schedule in milestone 1.
+- **`bk_term_plans`** — `label`, `starts_on`, `ends_on`, `net_professional_hours`, `reserve_share`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`).
+- **`bk_term_resources`** — `plan_id`, `resource_key`, `available_units`, `unit_label`, `windows jsonb` (studio: `am` 08:00–12:00, `pm` 13:00–17:00, `full`, `evening`; field and live: `day`; edit: from–to), `lead_hours_per_day` (8).
+- **`bk_blackouts`** — `plan_id`, `starts_on`, `ends_on`, `resource_keys text[]` (null = all), `reason`. A policy; no partner work; no exception below the executive.
+- **`bk_holds`** — `resource_key`, `date`, `window_start`, `window_end`, `professional_hours`, `kind` (`core` | `maintenance`), `label`. WUWF's own use of one window. Entered by the director; nothing is pulled from On Air's broadcast schedule in milestone 1.
 
 ### Partners
 
-- **`pp_partners`** — `name`, `kind` (`uwf_unit` | `external`), `contact_name`, `contact_email`, `contact_phone`, `default_funding_index`, `notes`.
-- **`pp_agreements`** — `partner_id`, `label`, `starts_on`, `ends_on`, `status` (`draft` | `active` | `ended`), `reserve_hours_allocated`, `funded_student_hours`, `expected_volume` (text), `booking_deadline_days` (14), `release_deadline_days` (7), `blackout_notes`, `direct_cost_treatment`, `capital_notes`, `beyond_envelope_note`, `airtime_minutes_per_week`, `approved_by`, `approved_at`, `document_path` (the signed agreement, in a private `production-documents` bucket, as `uw_contracts.agreement_document_path` is).
-- **`pp_reserved_blocks`** — `agreement_id`, `resource_key`, `date`, `window_start`, `window_end`, `project_id` (nullable until attached), `released_at`, `kept_by` (a director may keep an unbooked block past its deadline). A block past `date − release_deadline_days` with no project and no `kept_by` **reads as open at query time**; no scheduled job.
+- **`bk_partners`** — `name`, `kind` (`uwf_unit` | `external`), `contact_name`, `contact_email`, `contact_phone`, `default_funding_index`, `notes`.
+- **`bk_agreements`** — `partner_id`, `label`, `starts_on`, `ends_on`, `status` (`draft` | `active` | `ended`), `reserve_hours_allocated`, `funded_student_hours`, `expected_volume` (text), `booking_deadline_days` (14), `release_deadline_days` (7), `blackout_notes`, `direct_cost_treatment`, `capital_notes`, `beyond_envelope_note`, `airtime_minutes_per_week`, `approved_by`, `approved_at`, `document_path` (the signed agreement, in a private `bookings-documents` bucket, as `uw_contracts.agreement_document_path` is).
+- **`bk_reserved_blocks`** — `agreement_id`, `resource_key`, `date`, `window_start`, `window_end`, `project_id` (nullable until attached), `released_at`, `kept_by` (a director may keep an unbooked block past its deadline). A block past `date − release_deadline_days` with no project and no `kept_by` **reads as open at query time**; no scheduled job.
 
 ### Work
 
-- **`pp_projects`** — `partner_id`, `agreement_id`, `title`, `description`, `requested` (`production` | `airtime` | `both`), `qualifies_strategic` (nullable boolean), `qualification_by`, `priced_as` (`strategic` | `incremental` | `external`), `pricing_reason`, `pricing_overridden_by`, `stage`, `disposition`, `disposition_reason`, `estimate_sent_at`, `estimate_expires_at`, `estimate_approved_at`, `rate_model_version_id`, `funding_index`, `event_starts_on`, `event_ends_on`, `deliverables_due_on`, `location`, `contact_*`, `source` (`public` | `staff`), `editorial_review` (`not_needed` | `needed` | `cleared`), `owner_id`, `delivered_at`, `legacy_rate_delta` (computed at estimate approval: modeled minus the $500 convention per webcast line), `margin_foregone` (set when an external project is declined for capacity: its estimate's margin).
-- **`pp_estimate_lines`** — `project_id`, `package_id` (nullable for labor and direct-expense lines), `label`, `quantity`, `unit_rate`, `amount`, `professional_hours_draw`.
-- **`pp_bookings`** — `project_id`, `resource_key`, `date`, `window_start`, `window_end`, `units`, `professional_hours`, `status` (`tentative` | `confirmed` | `released`), `expires_at` (tentative only), `exception_by`, `exception_reason`. One resource window on one date.
-- **`pp_airtime_commitments`** — `project_id`, `airings_per_week`, `seconds`, `starts_on`, `ends_on`, `treatment` (`contributed` | `paid`), `honored_in` (`pending` | `traffic` | `on_air`), `external_ref` (a Traffic contract id or an On Air assignment id), `notes`.
-- **`pp_hours_used`** — `project_id`, `measure` (`professional_hours` | `student_hours` | `studio_units` | `field_units` | `live_units` | `edit_hours`), `planned`, `used`, `confirmed_at`, `confirmed_by`.
-- **`pp_settlements`** — `project_id`, `kind` (`recharge` | `invoice`), `amount`, `funding_index`, `assessment_amount`, `journal_entry_number`, `status` (`drafted` | `posted`), `posted_at`, `posted_by`.
-- **`pp_project_events`** — `project_id`, `kind`, `actor_id`, `metadata jsonb`. The staff-visible timeline, as `ap_submission_events` is; privileged actions also log `audit_events`.
+- **`bk_projects`** — `partner_id`, `agreement_id`, `title`, `description`, `requested` (`production` | `airtime` | `both`), `qualifies_strategic` (nullable boolean), `qualification_by`, `priced_as` (`strategic` | `incremental` | `external`), `pricing_reason`, `pricing_overridden_by`, `stage`, `disposition`, `disposition_reason`, `estimate_sent_at`, `estimate_expires_at`, `estimate_approved_at`, `rate_model_version_id`, `funding_index`, `event_starts_on`, `event_ends_on`, `deliverables_due_on`, `location`, `contact_*`, `source` (`public` | `staff`), `editorial_review` (`not_needed` | `needed` | `cleared`), `owner_id`, `delivered_at`, `legacy_rate_delta` (computed at estimate approval: modeled minus the $500 convention per webcast line), `margin_foregone` (set when an external project is declined for capacity: its estimate's margin).
+- **`bk_estimate_lines`** — `project_id`, `package_id` (nullable for labor and direct-expense lines), `label`, `quantity`, `unit_rate`, `amount`, `professional_hours_draw`.
+- **`bk_bookings`** — `project_id`, `resource_key`, `date`, `window_start`, `window_end`, `units`, `professional_hours`, `status` (`tentative` | `confirmed` | `released`), `expires_at` (tentative only), `exception_by`, `exception_reason`. One resource window on one date.
+- **`bk_airtime_commitments`** — `project_id`, `airings_per_week`, `seconds`, `starts_on`, `ends_on`, `treatment` (`contributed` | `paid`), `honored_in` (`pending` | `traffic` | `on_air`), `external_ref` (a Traffic contract id or an On Air assignment id), `notes`.
+- **`bk_hours_used`** — `project_id`, `measure` (`professional_hours` | `student_hours` | `studio_units` | `field_units` | `live_units` | `edit_hours`), `planned`, `used`, `confirmed_at`, `confirmed_by`.
+- **`bk_settlements`** — `project_id`, `kind` (`recharge` | `invoice`), `amount`, `funding_index`, `assessment_amount`, `journal_entry_number`, `status` (`drafted` | `posted`), `posted_at`, `posted_by`.
+- **`bk_project_events`** — `project_id`, `kind`, `actor_id`, `metadata jsonb`. The staff-visible timeline, as `ap_submission_events` is; privileged actions also log `audit_events`.
 
 ### Settings
 
-- **`pp_settings`** — singleton (`id boolean primary key default true check (id)`, as `ap_settings`): `is_open`, `intro_copy`, `confirmation_copy`, `closed_copy`, `offered_packages text[]`.
+- **`bk_settings`** — singleton (`id boolean primary key default true check (id)`, as `ap_settings`): `is_open`, `intro_copy`, `confirmation_copy`, `closed_copy`, `offered_packages text[]`.
 
 ## 6. Architecture
 
 ### 6.1 Access and roles
 
-Registry key `production-partnerships`, route `/production`,
+Registry key `bookings`, route `/bookings`,
 `default_access = 'invite_only'`. A `tool_access` grant is the ticket in.
-Roles **stack** on `tool_access.tool_roles`, so `production-partnerships`
+Roles **stack** on `tool_access.tool_roles`, so `bookings`
 joins `STACKING_TOOLS` in `lib/tool-roles.ts` and the admin grant screen
 shows checkboxes:
 
@@ -293,39 +293,39 @@ shows checkboxes:
 A member with no role reads everything. Content & Audience leadership is
 the `editorial_review` flag on a project, not a role; a feature hosted by
 a university administrator is the case that makes it mandatory.
-`private.has_production_access()` mirrors
+`private.has_bookings_access()` mirrors
 `private.has_academic_partnerships_access()`; `private.has_tool_role()`
 (from the broadcast roles) is the one role check.
 
 ### 6.2 RLS
 
-Every `pp_*` table is staff-only, keyed off `has_production_access()`,
+Every `bk_*` table is staff-only, keyed off `has_bookings_access()`,
 with role-gated `insert`/`update` policies where §6.1 says so — a term
 plan is the director's, a rate model version Finance's. Writes that
 §6.1 calls privileged (adopt, approve, exception, post) also get a
 `before update` guard trigger in the shape of `rd_guard_post_curation()`,
 so the boundary holds however the table is written. `audit_events` gains
-an `audit_events_insert_production` policy for this tool's members, as
+an `audit_events_insert_bookings` policy for this tool's members, as
 every other tool has.
 
 ### 6.3 The public surface
 
-`/produce` and `/produce/embed`, outside `(portal)` and `(auth)`, in the
+`/book` and `/book/embed`, outside `(portal)` and `(auth)`, in the
 middleware's `PUBLIC_PATHS`, needing **no session at all** — the same
 reasoning as `/partner`: one page load, one submit, nothing read back. Two
-`security definer` functions are the whole surface: `pp_public_form_config()`
-(read `pp_settings`) and `pp_submit_request(...)` (validates required
+`security definer` functions are the whole surface: `bk_public_form_config()`
+(read `bk_settings`) and `bk_submit_request(...)` (validates required
 fields and the offered packages, applies the per-address-hash rate limit
 `lib/academic-partnerships/rate-limit.ts` already implements, inserts the
 project at stage `request`, source `public`). No participant-facing RLS
-policy on any `pp_*` table, ever. The Grove snippet comes from a pure
-`lib/production/embed.ts` in the shape of Audience Listening's; the embed
+policy on any `bk_*` table, ever. The Grove snippet comes from a pure
+`lib/bookings/embed.ts` in the shape of Audience Listening's; the embed
 needs no microphone permission, so nothing in it is fragile.
 
 ### 6.4 The booking rule (scheduling)
 
-`lib/production/scheduling.ts` is pure and tested; `pp_booking_allowed()`
-is its SQL twin, run by a trigger on `pp_bookings`, so no writer slips
+`lib/bookings/scheduling.ts` is pure and tested; `bk_booking_allowed()`
+is its SQL twin, run by a trigger on `bk_bookings`, so no writer slips
 past it. For one date of a request, in this order:
 
 1. **Blacked out, or a core WUWF hold?** Not available. Name it; offer the nearest open date on the same resource.
@@ -355,11 +355,11 @@ Two `security definer` **reads**, owned by this tool's migration the way
 Traffic owns its Log boundary functions, in the shape of
 `log_list_programs()`:
 
-- `pp_university_avails_per_week(plan)` — counts the clocks' marked
+- `bk_university_avails_per_week(plan)` — counts the clocks' marked
   opportunities whose `permitted_content_types` admit institutional
   messaging across the plan's schedule, returning avails and minutes a
   week;
-- `pp_institutional_airtime_honored(plan)` — the contributed and paid
+- `bk_institutional_airtime_honored(plan)` — the contributed and paid
   placements Traffic has scheduled and the pins On Air carries for the
   plan's commitments, by `external_ref`.
 
@@ -376,14 +376,14 @@ library and Sourcework exist); partner-side funding splits or labor
 
 ### 6.7 Pure modules
 
-| Module                          | Tested against                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------- |
-| `lib/production/rates.ts`       | the v0.1 workbook as its fixture — every rate card figure must reproduce (§7) |
-| `lib/production/pricing.ts`     | the derivation table in §2.2                                                  |
-| `lib/production/scheduling.ts`  | §6.4, with the SQL twin kept in step                                          |
-| `lib/production/capacity.ts`    | the envelope arithmetic, the month warning                                    |
-| `lib/production/settlements.ts` | recharge vs. invoice, the assessment, the legacy delta                        |
-| `lib/production/embed.ts`       | the snippet                                                                   |
+| Module                        | Tested against                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `lib/bookings/rates.ts`       | the v0.1 workbook as its fixture — every rate card figure must reproduce (§7) |
+| `lib/bookings/pricing.ts`     | the derivation table in §2.2                                                  |
+| `lib/bookings/scheduling.ts`  | §6.4, with the SQL twin kept in step                                          |
+| `lib/bookings/capacity.ts`    | the envelope arithmetic, the month warning                                    |
+| `lib/bookings/settlements.ts` | recharge vs. invoice, the assessment, the legacy delta                        |
+| `lib/bookings/embed.ts`       | the snippet                                                                   |
 
 ## 7. The rate model, from the workbook
 
@@ -414,7 +414,7 @@ Director and billed through a Traffic contract, not here (§10).
 
 **Adoption gate.** A version can be submitted only when every assumption
 is `current_budget`, `validated`, or `accepted_as_is` with a note; the
-executive adopts; adoption snapshots `pp_rate_card_lines`. Until a version
+executive adopts; adoption snapshots `bk_rate_card_lines`. Until a version
 is adopted the tool prices with the provisional one and labels every
 figure "provisional", the workbook's own posture. A sensitivity list on
 the assumptions screen (re-run the pure math with one input moved) shows
@@ -441,14 +441,14 @@ airtime calendar exists already, twice, and this tool only reads it.
 Built in order, one migration each, every migration applied to both
 Supabase projects and recorded in `APPLIED.md` before the next slice:
 
-1. **Rate model** — versions, assumptions, pools, packages, the snapshot card, assets; the Rate model tab. Replaces the workbook; nothing else can be priced without it.
+1. **Rate model** — versions, assumptions, pools, packages, the snapshot card, assets; the Rates tab. Replaces the workbook; nothing else can be priced without it.
 2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab.
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list.
-4. **Public intake** — `/produce`, `/produce/embed`, the two functions, `pp_settings`, the settings page.
+4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page.
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
 6. **Hours, settlement, the term report** — and Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
 
-Capabilities for the in-portal agent (`lib/production/capabilities.ts`)
+Capabilities for the in-portal agent (`lib/bookings/capabilities.ts`)
 follow after milestone 1, as every other tool's did: a read-only capacity
 check first.
 
