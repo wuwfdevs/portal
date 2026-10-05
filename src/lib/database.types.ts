@@ -562,6 +562,18 @@ export type RdPostStatus =
 // Resources (20260928140000_resources.sql)
 export type RcKind = "procedure" | "guide" | "release_note";
 export type RcSource = "editor" | "release";
+
+// Bookings (20261005140000_bookings_foundation.sql) — lib/bookings/rates.ts.
+export type BkVersionStatus = "draft" | "submitted" | "adopted" | "superseded";
+export type BkValidationState = "pending" | "validated" | "accepted_as_is";
+export type BkAssumptionSection = "sourced" | "working";
+export type BkAssumptionKind = "shared_pool_line" | "webcast_pool_line" | "model_input";
+export type BkAssumptionOwner = "finance" | "director" | "executive";
+export type BkPoolKey = "studio" | "field" | "live" | "edit";
+export type BkAssetFunding = "station" | "foundation_gift" | "grant_restricted" | "uwf";
+export type BkAssetBurden = "low" | "medium" | "high";
+export type BkAssetCondition = "good" | "fair" | "worn" | "out_of_service";
+export type BkRateCardLineKind = "package" | "labor";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -2896,9 +2908,210 @@ export interface Database {
           },
         ];
       };
+      /** Bookings rate model versions (20261005140000) — one in use at a time. */
+      bk_rate_model_versions: {
+        Row: {
+          id: string;
+          label: string;
+          status: BkVersionStatus;
+          in_use: boolean;
+          notes: string | null;
+          destination_index: string | null;
+          created_at: string;
+          created_by: string | null;
+          submitted_at: string | null;
+          submitted_by: string | null;
+          adopted_at: string | null;
+          adopted_by: string | null;
+          superseded_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_model_versions"]["Row"]> & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_rate_model_versions"]["Row"]>;
+        Relationships: [];
+      };
+      bk_assumptions: {
+        Row: {
+          id: string;
+          version_id: string;
+          section: BkAssumptionSection;
+          kind: BkAssumptionKind;
+          key: string | null;
+          label: string;
+          value: number;
+          unit: string;
+          basis: string | null;
+          source_url: string | null;
+          notes: string | null;
+          owner: BkAssumptionOwner;
+          validation_state: BkValidationState;
+          validation_needed: string | null;
+          validation_note: string | null;
+          validated_at: string | null;
+          validated_by: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_assumptions"]["Row"]> & {
+          version_id: string;
+          section: BkAssumptionSection;
+          kind: BkAssumptionKind;
+          label: string;
+          value: number;
+          unit: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_assumptions"]["Row"]>;
+        Relationships: [];
+      };
+      bk_resource_pools: {
+        Row: {
+          id: string;
+          version_id: string;
+          pool: BkPoolKey;
+          allocation_share: number;
+          available_units: number;
+          unit_label: string;
+          basis: string | null;
+          validation_state: BkValidationState;
+          validation_needed: string | null;
+          validation_note: string | null;
+          validated_at: string | null;
+          validated_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_resource_pools"]["Row"]> & {
+          version_id: string;
+          pool: BkPoolKey;
+          allocation_share: number;
+          available_units: number;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_resource_pools"]["Row"]>;
+        Relationships: [];
+      };
+      bk_service_packages: {
+        Row: {
+          id: string;
+          version_id: string;
+          name: string;
+          unit_label: string;
+          professional_hours: number;
+          student_hours: number;
+          studio_units: number;
+          field_units: number;
+          live_units: number;
+          edit_hours: number;
+          webcast_ops_units: number;
+          market_floor: number;
+          historical_reference: string | null;
+          application_note: string | null;
+          notes: string | null;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_service_packages"]["Row"]> & {
+          version_id: string;
+          name: string;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_service_packages"]["Row"]>;
+        Relationships: [];
+      };
+      /** The rate card as computed when a version was put in use or adopted — a snapshot. */
+      bk_rate_card_lines: {
+        Row: {
+          id: string;
+          version_id: string;
+          kind: BkRateCardLineKind;
+          package_id: string | null;
+          line_key: string;
+          name: string;
+          unit_label: string;
+          strategic_rate: number | null;
+          incremental_rate: number | null;
+          external_rate: number;
+          strategic_cost: number | null;
+          incremental_cost: number | null;
+          external_grossed_cost: number | null;
+          market_floor: number | null;
+          historical_reference: string | null;
+          application_note: string | null;
+          sort_order: number;
+          snapshotted_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_card_lines"]["Row"]> & {
+          version_id: string;
+          kind: BkRateCardLineKind;
+          line_key: string;
+          name: string;
+          unit_label: string;
+          external_rate: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_rate_card_lines"]["Row"]>;
+        Relationships: [];
+      };
+      bk_assets: {
+        Row: {
+          id: string;
+          name: string;
+          tag: string | null;
+          pool: BkPoolKey;
+          acquired_on: string | null;
+          acquisition_cost: number | null;
+          annual_cost: number | null;
+          funding: BkAssetFunding;
+          useful_life_years: number | null;
+          restrictions: string | null;
+          maintenance_burden: BkAssetBurden;
+          condition: BkAssetCondition;
+          notes: string | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_assets"]["Row"]> & {
+          name: string;
+          pool: BkPoolKey;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_assets"]["Row"]>;
+        Relationships: [];
+      };
+      /** Append-only change log for the Rates tab. */
+      bk_rate_model_events: {
+        Row: {
+          id: string;
+          version_id: string | null;
+          actor_id: string | null;
+          kind: string;
+          note: string;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_model_events"]["Row"]> & {
+          kind: string;
+          note: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      /** Security invoker; finance's RLS applies. Puts one version in use for estimates. */
+      bk_set_version_in_use: {
+        Args: { p_version_id: string };
+        Returns: { ok: true; changed: boolean } | { error: string };
+      };
+      /** Security invoker; the guard trigger checks the executive. */
+      bk_adopt_version: {
+        Args: { p_version_id: string; p_destination_index?: string | null };
+        Returns: { ok: true } | { error: string };
+      };
       /**
        * The seven-function public surface of Audience Listening
        * (20260730170000_audience_listening.sql). al_* table RLS is staff-only;
@@ -3409,6 +3622,16 @@ export interface Database {
       ap_capacity: ApCapacity;
       ap_timing: ApTiming;
       ap_event_type: ApEventType;
+      bk_version_status: BkVersionStatus;
+      bk_validation_state: BkValidationState;
+      bk_assumption_section: BkAssumptionSection;
+      bk_assumption_kind: BkAssumptionKind;
+      bk_assumption_owner: BkAssumptionOwner;
+      bk_pool_key: BkPoolKey;
+      bk_asset_funding: BkAssetFunding;
+      bk_asset_burden: BkAssetBurden;
+      bk_asset_condition: BkAssetCondition;
+      bk_rate_card_line_kind: BkRateCardLineKind;
     };
     CompositeTypes: Record<string, never>;
   };

@@ -289,6 +289,30 @@ export const SCREENS: readonly ScreenDefinition[] = [
     toolKey: "editorial-inquiry",
     paths: ["/editorial-inquiry"],
   },
+  {
+    key: "bookings.rates",
+    name: "Rate model",
+    toolKey: "bookings",
+    paths: [
+      "/bookings",
+      "/bookings/rates",
+      "/bookings/rates/pools",
+      "/bookings/rates/packages",
+      "/bookings/rates/card",
+      "/bookings/rates/changes",
+      "/bookings/rates/versions/new",
+    ],
+  },
+  {
+    key: "bookings.assets",
+    name: "Asset inventory",
+    toolKey: "bookings",
+    paths: [
+      "/bookings/rates/assets",
+      "/bookings/rates/assets/new",
+      "/bookings/rates/assets/:id/edit",
+    ],
+  },
 ];
 
 /**
@@ -306,6 +330,8 @@ const TOOL_ROUTE_SEGMENTS: Record<string, string> = {
   log: "log",
   underwriting: "underwriting",
   "editorial-inquiry": "editorial-inquiry",
+  // Bookings (docs/bookings-design.md §6.1).
+  bookings: "bookings",
 };
 
 const BY_KEY = new Map(SCREENS.map((screen) => [screen.key, screen]));
