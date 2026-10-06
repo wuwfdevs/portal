@@ -1176,3 +1176,42 @@ reads the same column as the line's cost).
 `20261007120000_bookings_happy_path.sql` (additive): `bk_projects.event_window_start`,
 `event_window_end`, `dates_mode`, `reserve_depleted`; `bk_estimate_lines.direct_cost`
 (backfilled from `unit_rate` for expense lines; nothing is external yet).
+
+### 18.10 What slice A shipped (2026-10-06)
+
+- `20261007120000_bookings_happy_path.sql` (+ `20261007120100_resources_bookings_happy_path.sql`:
+  the guide `bookings-new-request` and a release note), applied to both projects.
+- `lib/bookings/booking-plan.ts` (the plan, `plainRefusal`, `timeOfDayOptions`),
+  `summary.ts` (the line, `hourBuckets`, `capacityStatusFor`), `badges.ts`, `nav.ts`,
+  `estimate-lines.ts`, `plan-sync.ts` (server-only: replaces a project's planned dates with the
+  plan), `PRODUCTION_RATE_LABEL`/`_HINT`, and `rates.fixture.ts` (the workbook fixture, now
+  shared by every test that needs real figures). `derivePricing` also returns `reserveDepleted`;
+  `priceLine` derives an expense's rate from `direct_cost`.
+- `/bookings/requests/new` is one form (`new-request-form.tsx`): partner, services with quantities,
+  event date, optional time of day, the strategic yes/no for a UWF unit, and "More details".
+  `createRequest` writes the project, its package lines, reprices and plans in one submit.
+- The project page opens with the summary line, the strategic question inline when unanswered, the
+  exception panel with one-click alternatives when the plan can't be written, **Show calculation**
+  (the estimate section, closed unless a line is being edited) and **Adjust scope** (the old
+  Dates card, closed unless it is in use). Sending is disabled while the dates are an exception.
+- Plain rate names everywhere production staff read a rate (list, project, partner and agreement
+  pages, dashboard, calendar); the internal names remain on the Rates tab.
+- `TabNav` takes `forceMore` tabs; Rates and the term plan link sit behind "⋯"/"More" for production
+  staff and role-less members.
+
+**Deferred.** Dollar contribution in the summary line (Slice B stores it; the line already prints
+dollars when it is given and staff hours until then). The three estimate-level badges (above
+market, adjusted scope, custom package) arrive with Slice C; the facts are already in
+`projectBadgeFacts`. A package's recipe can't be adjusted per project yet (Slice C item 6). A
+multi-day event (an end date later than the start) plans only its first date; the other days are
+added under Adjust scope.
+
+**Measured.** The acceptance test needs a person with a stopwatch and a signed-in session; this
+environment signs in by magic link only, so the wall-clock figure is **not measured**. What is
+measured: the path is partner → tick service → date → Create, which is (counting the "+ New
+request" click) eight interactions for an existing partner — open, partner box, type, pick,
+service, date field, date, Create — with no advanced surface opened. `new-request-form.test.tsx`
+renders the form and asserts none of *pool, labor class, treatment, draw, reserve, rate model
+version* appears and that no field beyond the three is asked up front; `happy-path.test.ts` runs the
+workbook's Basic event webcast through the plan, the price and the summary line: $800 at the
+university rate, or $575 with WUWF contributing, "Ready to send".
