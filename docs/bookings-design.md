@@ -1515,52 +1515,59 @@ Five facts, each checked against the code rather than the prose, because the two
 - Core work has to be estimated by someone; a gross base does not remove that estimate, it moves it.
 - "Explicit holds protect core work" does not work alone: most core work is never on a calendar, and nobody will enter a thousand hours of holds. Without an estimated block, every unheld hour looks sellable.
 
-**The strongest case for the alternative** (the hours figure typed before core work, so the percentage applies to capacity, not leftovers):
+**The strongest case for the alternative** (percentages of a role's total hours, not of a typed leftover):
 
 - **Who absorbs a change in core work.** Under the current model, when core work grows, the _commitment_ shrinks: the reserve is 15% of a smaller remainder, silently, in exactly the weeks WUWF is busiest. A defined commitment to institutional work should be a number the executive signs and that stays put; the squeeze should land on sellable capacity, where it is visible and priced.
 - The base carries one fewer stacked estimate. Allocable hours are staffing arithmetic (people × productive hours); core work is the most judgmental subtraction in the chain.
-- It needs no new input: the director types one hours figure, as today, and the only question is what that figure means.
-- Reporting becomes a true partition of one whole: hours available = reserve + other bookings + WUWF holds + unbooked. The four-pool view in §2.2 can be shown as shares of that.
+- The shares are stated outright, so "15% of what?" has an answer: of the role's total hours.
+- Reporting becomes a true partition of one whole: a role's total hours = core + institutional + sellable. The four-pool view in §2.2 can be shown as shares of that.
 
-**Assessment against WUWF's use case.** The percentage and the hours figure it applies to are one parameter: `s × hours`. The two models differ only in what the director types as the hours. Type the net figure (after core work) and the reserve is 15% of leftovers; type the larger figure (before core work) and it is 15% of capacity. The guard refuses the same bookings for the same `s × hours` either way. So this is a question of **what the signed number means and what moves it**: with the larger figure, a busy news season does not shrink the commitment. That is the better meaning for a small station whose core work is large and variable. The current definition is not wrong on its own terms, and the framework's author may have meant it, so **the figure and the percentage are a policy decision for the executive** (15% of a larger figure commits more than the framework's 120 hours). Nothing in the code needs a second number to express either choice.
+**Assessment against WUWF's use case.** The model WUWF actually describes is simpler than either version above: a role has a known number of hours (a full-time schedule), and the director declares what share of them goes to WUWF's own core work, what share to the institutional envelope, and the rest is what can be sold. Both shares are percentages of the role's total hours. Under that model there is no "net" figure to type: net is what the shares leave. The current build asks the director to type net hours after core work and then takes 15% of that, which hides the core share inside a typed number and makes the reserve a percentage of leftovers. Stating the shares explicitly removes the ambiguity this section started from, with the same guard.
 
-**Recommendation: one hours figure per class, a share per class, and a plain statement of what "open" means.** WUWF does not track core work here, so the system does not model it. For a class `c` over a window `W` (the capacity period, §22.2):
+**Recommendation: split each role's total hours three ways, with two percentages.** WUWF does not track core work here, and nothing below requires it: core is a declared share, not a record of tasks. For a class `c` (a role) over a window `W` (the capacity period, §22.2):
 
 ```
-A   hours available   hours of the class available for production work, after leave,
-                      holidays, non-production duties and contingency (entered)
-s   reserve share     this class's share, or none (entered, per class)
-R   reserve           s × A                         (no reserve if s is none)
-open                  A − R − non-strategic booked − dated WUWF holds
+T   total hours      headcount × hours per person per week × weeks in W
+                     (a full-time schedule is 40; enter average productive hours
+                     if leave should be netted out)
 
-strategic booking     with a share: refused if strategic booked + ask > R
-                      without one: counts as any other booking
-other bookings        refused if non-strategic booked + ask > open
+core share           c   the share of T WUWF keeps for its own work          (entered)
+institutional share  s   the share of T for institutional priorities          (entered)
+sellable             what is left: 1 − c − s                                   (derived)
+
+core hours           c × T      not bookable
+institutional hours  s × T      strategic work inside the envelope, comped
+sellable hours       (1 − c − s) × T, less dated WUWF holds beyond the core hours
+
+strategic booking    refused if strategic booked + ask > institutional hours
+other bookings       incremental and external, refused if booked + ask > sellable hours
 ```
 
-- **The share belongs to each class.** The 15% is a property of the professional class's row; the student class has none, so student hours are never limited by it. In today's code a tracked student class would get 15% of its own hours as a "reserve" (§22.0 (3)). "None" is not "0%": a 0% share would refuse every strategic student hour, whereas none means student hours draw open capacity like any other. Setting a share on a class that partners pay for in strategic work (`charged_in_strategic`) raises a warning on the plan form. The share is a database value on the capacity row, edited by the executive and effective-dated like the rest of §22.2.
-- **The percentage computes the reserve; nothing else is needed.** There is no second "net" figure and no core-work input. The director types the hours WUWF makes available and the share, and the reserve and the sellable remainder follow.
-- **The one trade-off.** If the director types a figure that includes core work, `open` counts hours that core work will really use, because the system cannot see them. `open` then means "not reserved, booked or held", not "guaranteed free". Core work is protected in two ways: dated blocks WUWF enters as holds (a pledge drive, maintenance), and the director's judgment when accepting a request. The guard will not stop a sale that squeezes untracked core work. If that proves too loose, the remedy is to type a lower figure (which shrinks the reserve too) or, later, to add a second figure; neither is needed now.
-- **Over-commitment** (holds plus reserve exceeding the hours) makes `open` negative; the plan form says by how much, and incremental and external bookings are refused until it is fixed.
-- **Unused reserve** stays protected, as today. Whether it opens to paid work near the end of a period is a policy question (§22.4), not a model one.
+- **What draws what.** Institutional work that qualifies as strategic and fits the envelope draws institutional hours and is comped. Institutional work beyond the envelope, or not a strategic priority, is priced incremental (§2.2) and draws sellable hours like outside work does. That sellable pool is the answer to "do we have capacity to take outside work".
+- **Each share is a database value per class.** Core and institutional shares live on the class's capacity row and are edited by the executive, effective-dated like the rest of §22.2. They must add to no more than 100%.
+- **Students have no split.** A class partners pay for (`charged_in_strategic`) has neither share: all its hours are bookable under any treatment, so the institutional share never touches student workers. In today's code a tracked student class would get 15% of its own hours as a "reserve" (§22.0 (3)).
+- **Dated holds** (a pledge drive, maintenance) are WUWF's own use of specific windows. They count against the core hours; only a hold beyond the core hours reduces sellable hours, so nothing is subtracted twice. Holds keep their other job, the window and day-room checks (§6.4 steps 3 and 4).
+- **Over-commitment.** If `c + s` exceeds 100%, or holds beyond core exceed the sellable hours, the plan form says so and outside bookings are refused until it is fixed.
+- **Unused institutional hours** stay protected, as today. Whether they open to paid work near the end of a period is a policy question (§22.4).
 
-Illustrative only; the figures are invented, and the workbook's 800 is a net figure. Professional class, hours a year, `s = 15%`:
+Illustrative only; the hours and shares are invented. One full-time professional, 1,800 productive hours a year:
 
-| Director types                        | R   | open  | Share of the larger figure |
-| ------------------------------------- | --- | ----- | -------------------------- |
-| 800 (net of core work, as today)      | 120 | 680   | n/a                        |
-| 1,400 (before core work of about 600) | 210 | 1,190 | 120 ÷ 1,400 = 8.6%         |
+| Share              | Hours | What it covers                                                                        |
+| ------------------ | ----- | ------------------------------------------------------------------------------------- |
+| Core, 50%          | 900   | WUWF's own programming and upkeep                                                     |
+| Institutional, 15% | 270   | strategic university work, comped                                                     |
+| Sellable, 35%      | 630   | outside work, and institutional work beyond or outside the envelope, at cost recovery |
 
-The second row is the policy decision, and its trade-off: 15% of the larger figure is a larger commitment than 120 hours, and `open` shows 1,190 when about 590 is really sellable. If 120 hours is the intent, the share is 8.6% and should be stated that way. The executive chooses; the model change ships with the seed holding today's figures so nothing moves until they do.
+The framework's 120 hours of reserve was 15% of an 800-hour net. In this model the same commitment is 120 ÷ 1,800 = 6.7% of total hours. Which percentage to adopt is the executive's decision (§22.4); the model makes it a plain number instead of a share of an unstated remainder.
 
 **Implications.**
 
-- **Schema.** `bk_term_capacity` keeps `net_hours` (its label becomes "hours available for production work") and gains a nullable `reserve_share` per class. `bk_term_plans.reserve_share` goes. A guard on `reserve_share`, executive-only to change, matches the other privileged values (§6.1); the share is now a signed policy figure.
-- **Scheduling.** `classCapacity()` and the two SQL functions apply the reserve only where the class has a share; a class without one counts every booking against open capacity. `ClassCapacitySummary` gains nothing else. The regression test: with the share on the professional class only, every result matches today's except student hours, which no longer face a reserve.
-- **UI.** The plan form asks, per class, for the hours available (with a hint saying whether core work is in or out, so the figure is typed knowingly) and an optional share, and shows the reserve and open figures live. The Calendar's capacity bar shows reserve used, reserve unused, incremental, external, WUWF holds and unbooked.
-- **Pricing.** None to the rate math: labor cost per hour comes from salary and load, and pool unit costs divide by the pool's practical capacity (§20.1), neither of which reads labor capacity. The derived treatment (§2.2, "the reserve's unused balance covers its hours") reads the professional class's `R` for the period of the project's dates.
-- **Reporting.** The term report's capacity block is the partition above, in hours and days.
-- **Migration.** Add the nullable column; move the plan's share onto the professional class and leave the student class without one. Professional hours, reserve and open are unchanged.
+- **Schema.** `bk_term_capacity` replaces `net_hours` with `hours_per_person_week` (default 40; `headcount` already exists) and gains nullable `core_share` and `institutional_share` (both null for a class with no split). `bk_term_plans.reserve_share` goes. A guard trigger makes changing either share executive-only (§6.1), and a check keeps them non-negative and summing to at most 1.
+- **Scheduling.** `classCapacity()` and the two SQL functions compute the three buckets from `T` and the shares. Strategic bookings draw institutional hours; every other booking draws sellable hours; a class with no shares counts every booking against its total. Holds draw core hours first. The regression test: with `core_share` 0 and the plan's old share as `institutional_share`, every result matches today's for the professional class; the student class no longer faces a reserve.
+- **UI.** The plan form asks, per class, for headcount, hours per person per week and the two percentages, and shows the three buckets in hours and days, live, with any over-commitment. The Calendar's capacity bar shows core, institutional used and unused, and sellable booked and unbooked.
+- **Pricing.** None to the rate math: labor cost per hour comes from salary and load, and pool unit costs divide by the pool's practical capacity (§20.1), neither of which reads labor capacity. The derived treatment (§2.2) reads the professional class's institutional hours remaining for the period of the project's dates.
+- **Reporting.** The term report's capacity block is the three buckets, with hours used against each.
+- **Migration.** For each existing plan, set `hours_per_person_week` from `net_hours ÷ headcount ÷ weeks in the term`, `core_share` to 0, and `institutional_share` to the plan's old reserve share on the professional class, none on the student class. Behaviour for the professional class is unchanged until the executive sets a core share.
 
 ### 22.2 Question 2 — the planning container
 
@@ -1585,7 +1592,7 @@ The second row is the policy decision, and its trade-off: 15% of the larger figu
 **A third model: one standing calendar, effective-dated capacity revisions.** The _term_ is doing three jobs: bounding capacity, owning calendar objects, and versioning assumptions. The first is real; the other two are accidents. Separate them:
 
 - **Standing, date-keyed calendar objects.** Blackouts, holds, bookings, refusal events and the pool resources (units, concurrent units, windows) belong to no plan. Resources are edited in place (a window or a second kit changes future checks only; a booking stores its own date and window).
-- **Capacity as revisions.** A revision is `effective_from`, the airtime minutes a week, and per class the hours available **a week**, the class's reserve share (or none), headcount and hours per person per day. It is in force until the next revision. A week is the natural labor unit ("20 hours a week to university work"), the display converts to "project days a year" for the framework, and a period's total is `rate × days ÷ 7`, so a split never asks the director to restate totals.
+- **Capacity as revisions.** A revision is `effective_from`, the airtime minutes a week, and per class the hours per person per week, headcount, and the core and institutional shares (or none), headcount and hours per person per day. It is in force until the next revision. A week is the natural labor unit ("20 hours a week to university work"), the display converts to "project days a year" for the framework, and a period's total is `rate × days ÷ 7`, so a split never asks the director to restate totals.
 - **The capacity period is derived, not stored.** For a date `d` it runs from the later of the revision in force and the fiscal-year start, to the earlier of the next revision and the fiscal-year end. It is the window for the cumulative check, the reserve and the monthly spread. Fiscal years bound it so a period never exceeds a year; revisions cut it where capacity changes. A "boundary-only" revision with unchanged numbers cuts a period at a semester when the director wants a tighter hard check, which is how today's term behavior is kept.
 - **Revisions are prospective and then frozen.** A revision may be created with `effective_from` no earlier than today (the first one may be backdated), is editable until it takes effect, and is then immutable by a guard trigger; a correction is a new revision. That is the clock-version and contract-revision precedent (`log_clock_versions`, `uw_contract_revisions`). Past dates therefore never change their capacity, so a booking needs no revision id: the date resolves it. Saving a future revision lists any periods it would overdraw (a warning, not a block).
 - **Booking ahead works.** A date after the last revision uses it, carried forward, with a notice. Only a date before the first revision is refused (`no_capacity_defined`, replacing `outside_plan`).
@@ -1613,11 +1620,11 @@ The second row is the policy decision, and its trade-off: 15% of the larger figu
 - **Pricing.** The rate model is untouched; versions and capacity revisions are independent clocks, and an estimate keeps its card snapshot. Where pricing reads "reserve remaining" it reads the period of each of the project's dates, so a project straddling two periods draws each reserve for its own dates.
 - **Agreements.** A reserve allocation is compared against the reserve over the agreement's dates (a range total), not one term's. Protecting an allocation from other strategic work remains unbuilt, as today.
 - **Reporting.** `inTerm()` becomes `inRange()`; the report takes `from`/`to`; the revision log is printed so a reader can see why capacity differed between two periods.
-- **Migration.** One new migration (applied ones are not rewritten): create the revision tables, backfill one revision per existing plan (`effective_from = starts_on`, hours a week = `net_hours ÷ (days ÷ 7)`, the plan's share on the professional class only, resources from the latest plan), repoint the functions, then drop `plan_id` and the plan tables. Both projects held no real plan data at last check (§20.11: preview carries `[Test]` data, production none), which would let it be a clean rebuild as slice 2b was; verify the row counts in both before choosing. Per the Resources rule it ships a release note and updated `bookings-calendar` and rate/plan guides.
+- **Migration.** One new migration (applied ones are not rewritten): create the revision tables, backfill one revision per existing plan (`effective_from = starts_on`, hours per person per week = `net_hours ÷ headcount ÷ (days ÷ 7)`, core share 0 and the plan's share as the professional class's institutional share, resources from the latest plan), repoint the functions, then drop `plan_id` and the plan tables. Both projects held no real plan data at last check (§20.11: preview carries `[Test]` data, production none), which would let it be a clean rebuild as slice 2b was; verify the row counts in both before choosing. Per the Resources rule it ships a release note and updated `bookings-calendar` and rate/plan guides.
 
 ### 22.3 How the two answers fit
 
-They are one model, not two. The capacity period of §22.2 is the window `W` of §22.1, and revisions carry the hours and shares the partition needs. Neither depends on the other for correctness, so they can ship separately; the order below keeps each step behavior-preserving.
+They are one model, not two. The capacity period of §22.2 is the window `W` of §22.1, and revisions carry the hours and shares the three-way split needs. Neither depends on the other for correctness, so they can ship separately; the order below keeps each step behavior-preserving.
 
 1. **Pure functions first**, with the equivalence tests: the partition and the per-class share (§22.1), `capacityPeriodFor` (§22.2). With one boundary revision per term and allowance 0, every current test must pass unchanged, except those that give student hours a reserve.
 2. **The denominator** (schema columns, SQL twins, plan form, report) on the existing term plans: it fixes the double count and the charged-class reserve with no change of container.
@@ -1627,8 +1634,8 @@ They are one model, not two. The capacity period of §22.2 is the window `W` of 
 
 For the executive and director, not for code:
 
-- **The percentage and the figure it applies to.** Keep 120 hours a year (state it as a share of the larger figure), or keep 15% of the larger figure. Whether the hours figure is typed net of core work (as today) or before it is the same decision, and the model does not make it.
-- **The capacity study** now produces one hours figure per class, plus headcount. The 100-day placeholder was net and annual.
+- **The two percentages.** The core share and the institutional share are the executive's to set. The framework's 15% was a share of an 800-hour net; as a share of total hours the same 120 hours is a smaller percentage, and 15% of total hours is a larger commitment. The model makes either a plain number.
+- **The capacity study** now produces, per class, a headcount and weekly hours; the shares are policy. The 100-day placeholder was net and annual.
 - **Unused reserve:** stays protected to the end of the period, or opens to paid work in the last N days (the "unused capacity is a finding" principle, §20.1, pulls toward the latter).
 - **Reserve pooling:** whether unused reserve carries from one capacity period to the next within a fiscal year. Recommended no, matching today.
 - **Segmentation:** how finely to cut periods. Finer is a tighter hard check and more revisions to keep.
