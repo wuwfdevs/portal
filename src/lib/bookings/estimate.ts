@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { agreementReserveCovers } from "./agreements";
+import { computeEconomics, economicsColumns } from "./economics";
 import { parseAirtimeRead } from "./airtime";
 import {
   derivePricing,
@@ -191,6 +192,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     .eq("id", projectId);
   if (projectError) return { ok: false, error: projectError.message };
 
+  const pricedLines: typeof lines = [];
   for (const line of lines) {
     const priced = priceLine(
       line,
@@ -200,6 +202,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
       context.assessmentShare,
     );
     if (!priced.ok) return { ok: false, error: `${line.label}: ${priced.error}` };
+    pricedLines.push({ ...line, ...priced.price });
     if (
       Number(line.unit_rate) === priced.price.unit_rate &&
       Number(line.amount) === priced.price.amount
@@ -212,6 +215,35 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
       .eq("id", line.id);
     if (lineError) return { ok: false, error: lineError.message };
   }
+
+  // What the work costs and what WUWF contributes, stored with the price (§19.1). A card recorded
+  // before costs were kept can't model them; the estimate still prices, and the panel says why.
+  const economics = computeEconomics(
+    pricedLines.map((line) => ({ ...line, labor_hours: line.labor_hours ?? {} })),
+    context.card,
+    treatment ?? "incremental",
+    context.assessmentShare,
+  );
+  const { error: economicsError } = await supabase
+    .from("bk_projects")
+    .update(
+      economics.ok
+        ? economicsColumns(economics.economics)
+        : {
+            labor_cost: null,
+            resource_cost: null,
+            direct_expense_cost: null,
+            full_economic_cost: null,
+            partner_recovery: null,
+            wuwf_contribution: null,
+            external_margin: null,
+            external_assessment: null,
+            market_benchmarks: [],
+            economics: { version: 1, lines: [], error: economics.error },
+          },
+    )
+    .eq("id", projectId);
+  if (economicsError) return { ok: false, error: economicsError.message };
 
   // A planned date is priced as the project is; a sent hold takes the treatment when re-sent.
   const { error: datesError } = await supabase

@@ -69,6 +69,7 @@ import {
 import { ActivityLog } from "./activity-log";
 import { AirtimeSection } from "./airtime-section";
 import { DatesSection, checkPlannedDates } from "./dates-section";
+import { CalculationPanel } from "./calculation-panel";
 import { EstimateSection } from "./estimate-section";
 
 type Params = {
@@ -231,7 +232,7 @@ export default async function ProjectPage({
       heldUntil:
         estimate.kind === "sent" ? formatDateShort(estimate.expiresAt.slice(0, 10)) : null,
     }),
-    contribution: null,
+    contribution: project.wuwf_contribution === null ? null : Number(project.wuwf_contribution),
     estimate,
     readyToSend: sendAction?.enabled === true && failingDates === 0 && planFailure === null,
   });
@@ -374,7 +375,11 @@ export default async function ProjectPage({
                 <summary className="cursor-pointer text-xs font-bold text-brand-link">
                   Show calculation
                 </summary>
-                <div className="mt-3 flex flex-col gap-3">
+                <div className="mt-3 flex flex-col gap-4">
+                  <CalculationPanel
+                    detail={detail}
+                    provisional={pricing ? pricing.version.status !== "adopted" : true}
+                  />
                   <EstimateSection
                     detail={detail}
                     pricing={pricing}

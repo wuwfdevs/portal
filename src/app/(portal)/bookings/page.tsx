@@ -295,8 +295,10 @@ export default async function BookingsDashboard() {
       </div>
 
       <p className="text-xs text-ink-500">
-        Stages: {Object.values(STAGE_LABEL).join(" → ")}. The term report arrives with hours and
-        settlement.
+        Stages: {Object.values(STAGE_LABEL).join(" → ")}.{" "}
+        <Link href="/bookings/report" className="font-bold text-brand-link hover:underline">
+          Term report
+        </Link>
       </p>
     </div>
   );

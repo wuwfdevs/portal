@@ -1288,3 +1288,28 @@ A rate card snapshot written before this migration has no exact costs; the Rates
 estimates" detects it as stale (`snapshotMatchesCard` compares costs too) and an estimate priced
 from one reports that its cost can't be modeled rather than guessing — no snapshot existed in
 either project when this was written.
+
+### 19.5 What slice B shipped (2026-10-06)
+
+- `20261007130000_bookings_cost_transparency.sql` (+ `…130100_resources_…`: the guide
+  `bookings-term-report` and a release note), applied to both projects.
+- `lib/bookings/economics.ts` (`computeEconomics`, the definitions in code; `economicsColumns`),
+  `report.ts` (`termReport`, `inTerm`), `PackageCosts.laborCost`/`resourceCost` and
+  `LaborLine.exactCost` in `rates.ts`, the exact cost columns in the card snapshot
+  (`version-card.ts`, with `snapshotMatchesCard` now comparing them).
+- `repriceProject()` writes the economics after every pricing write; an estimate priced from a
+  snapshot recorded before exact costs says so and still prices.
+- The summary line prints the contribution in dollars; **Show calculation** is now the cost
+  build-up (`calculation-panel.tsx`) above the estimate lines; `/bookings/report` is the term
+  report (a link at the foot of the Dashboard).
+
+Tests: `economics.test.ts` asserts the contribution definition on the workbook's Basic webcast
+under all three treatments (strategic $202.6375, incremental $0, external $0 with margin
+$295.1975 and assessment $77.165), an external price below cost (contribution, not negative
+margin), an expense counted at its typed cost, labor lines at the exact hourly, and a stale
+snapshot; `report.test.ts` totals three estimates by partner and by treatment, the $500 test,
+and the qualifying-but-priced-university-rate count.
+
+**Deferred.** The contribution of a *settled* project at actual cost (needs hours and settlement,
+slice 6 as reshaped in §20.9). The report's assumed-versus-observed view (§20.8). An overhead line
+in the report (§20.2 records overhead as a decision, not a figure).

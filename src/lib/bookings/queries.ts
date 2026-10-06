@@ -1,3 +1,5 @@
+import type { LineEconomics } from "./economics";
+import { inTerm, type ReportProject } from "./report";
 import type { ProjectDateFacts } from "./badges";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
@@ -1109,4 +1111,39 @@ export async function listProjectDateFacts(
     if (row.exception_reason) entry.bookingException = true;
   }
   return facts;
+}
+
+// The term report (docs/bookings-design.md §19.3) -------------------------------------------------
+
+/** Every priced project that belongs to the term, with its stored economics, partner name and per-line breakdown. */
+export async function listReportProjects(term: {
+  starts_on: string;
+  ends_on: string;
+}): Promise<ReportProject[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_projects")
+    .select("*")
+    .not("full_economic_cost", "is", null)
+    .order("created_at", { ascending: false });
+  const rows = (unwrapRead(result, "priced requests") ?? []).filter((row) =>
+    inTerm(row, term),
+  );
+  const partners = await partnersById(rows.map((row) => row.partner_id));
+  return rows.map((row) => ({
+    id: row.id,
+    partner_id: row.partner_id,
+    partner_name: partners.get(row.partner_id)?.name ?? "Partner",
+    priced_as: row.priced_as,
+    stage: row.stage,
+    closed: row.disposition !== null,
+    qualifies_strategic: row.qualifies_strategic,
+    reserve_depleted: row.reserve_depleted,
+    full_economic_cost: row.full_economic_cost === null ? null : Number(row.full_economic_cost),
+    partner_recovery: row.partner_recovery === null ? null : Number(row.partner_recovery),
+    wuwf_contribution: row.wuwf_contribution === null ? null : Number(row.wuwf_contribution),
+    external_margin: row.external_margin === null ? null : Number(row.external_margin),
+    external_assessment: row.external_assessment === null ? null : Number(row.external_assessment),
+    lines: (row.economics?.lines ?? []) as LineEconomics[],
+  }));
 }

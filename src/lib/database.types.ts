@@ -3153,6 +3153,10 @@ export interface Database {
           historical_reference: string | null;
           application_note: string | null;
           sort_order: number;
+          /** Exact (unrounded) costs the economics read (§19.1). */
+          labor_cost: number | null;
+          resource_cost: number | null;
+          exact_cost: number | null;
           snapshotted_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_rate_card_lines"]["Row"]> & {
@@ -3439,6 +3443,24 @@ export interface Database {
           dates_mode: "auto" | "manual";
           /** Qualifies as strategic but was priced at the university rate because the reserve ran out (§18.5). */
           reserve_depleted: boolean;
+          /** Slice B (§19.1): exact, stored when priced. */
+          labor_cost: number | null;
+          resource_cost: number | null;
+          direct_expense_cost: number | null;
+          full_economic_cost: number | null;
+          partner_recovery: number | null;
+          wuwf_contribution: number | null;
+          external_margin: number | null;
+          external_assessment: number | null;
+          market_benchmarks: {
+            packageId: string;
+            label: string;
+            floor: number;
+            ceiling: number | null;
+            reference: string | null;
+            rate: number;
+          }[];
+          economics: { version: number; lines: unknown[]; error?: string } | null;
           created_at: string;
           created_by: string | null;
           updated_at: string;

@@ -103,6 +103,9 @@ export interface PackageSpec {
 }
 
 export interface PackageCosts {
+  /** Exact (unrounded) cost per unit: every class's hours, and every pool's units. §19.1 stores these. */
+  laborCost: number;
+  resourceCost: number;
   strategicCost: number;
   incrementalCost: number;
   /** Incremental cost grossed up for margin and assessment, before the market floor and rounding. */
@@ -197,6 +200,8 @@ export function pricePackage(
   const externalGrossedCost = incrementalCost / externalNetShare(inputs);
 
   return {
+    laborCost: chargedLabor + baselineLabor,
+    resourceCost,
     strategicCost: roundCents(strategicCost),
     incrementalCost: roundCents(incrementalCost),
     externalGrossedCost: roundCents(externalGrossedCost),
@@ -212,6 +217,8 @@ export interface LaborLine {
   laborClassId: string;
   name: string;
   unitLabel: "hour";
+  /** The exact loaded hourly cost, unrounded (§19.1). */
+  exactCost: number;
   internalRate: number;
   externalRate: number;
   treatment: string;
@@ -233,6 +240,7 @@ export function buildRateCard(model: RateModelInputs, packages: readonly Package
       laborClassId: labor.id,
       name: labor.chargedInStrategic ? `${labor.name} labor` : `${labor.name} beyond the envelope`,
       unitLabel: "hour",
+      exactCost: labor.loadedHourly,
       internalRate: roundCents(labor.loadedHourly),
       externalRate: labor.externalRate,
       treatment: labor.chargedInStrategic

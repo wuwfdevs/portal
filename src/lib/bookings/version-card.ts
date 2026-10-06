@@ -1,6 +1,7 @@
 // Pure glue between a version's stored rows and the rate math: the pages and
 // the snapshot writer both need "the card this version computes to" and must
 // agree on it. No Supabase import, so it stays testable beside rates.ts.
+import { exactAmount } from "./economics";
 import {
   buildRateCard,
   modelFromRows,
@@ -61,6 +62,9 @@ export function snapshotLinesForCard(card: RateCard, versionId: string) {
     strategic_cost: line.strategicCost,
     incremental_cost: line.incrementalCost,
     external_grossed_cost: line.externalGrossedCost,
+    labor_cost: exactAmount(line.laborCost),
+    resource_cost: exactAmount(line.resourceCost),
+    exact_cost: null,
     market_floor: line.marketFloor,
     sort_order: index,
   }));
@@ -78,6 +82,9 @@ export function snapshotLinesForCard(card: RateCard, versionId: string) {
     strategic_cost: null,
     incremental_cost: null,
     external_grossed_cost: null,
+    labor_cost: null,
+    resource_cost: null,
+    exact_cost: exactAmount(line.exactCost),
     market_floor: null,
     sort_order: packageLines.length + index,
   }));
@@ -95,15 +102,25 @@ export function snapshotMatchesCard(
     strategic_rate: number | null;
     incremental_rate: number | null;
     external_rate: number;
+    labor_cost?: number | null;
+    resource_cost?: number | null;
+    exact_cost?: number | null;
   }[],
   card: RateCard,
 ): boolean {
-  const expected = new Map<string, [number | null, number, number]>();
+  const expected = new Map<string, [number | null, number, number, number | null, number | null, number | null]>();
   for (const line of card.packages) {
-    expected.set(line.key, [line.strategicRate, line.incrementalRate, line.externalRate]);
+    expected.set(line.key, [
+      line.strategicRate,
+      line.incrementalRate,
+      line.externalRate,
+      exactAmount(line.laborCost),
+      exactAmount(line.resourceCost),
+      null,
+    ]);
   }
   for (const line of card.labor) {
-    expected.set(line.key, [null, line.internalRate, line.externalRate]);
+    expected.set(line.key, [null, line.internalRate, line.externalRate, null, null, exactAmount(line.exactCost)]);
   }
   if (snapshot.length !== expected.size) return false;
   const same = (a: number | null, b: number | null) =>
@@ -114,7 +131,11 @@ export function snapshotMatchesCard(
       want !== undefined &&
       same(line.strategic_rate, want[0]) &&
       same(line.incremental_rate, want[1]) &&
-      same(line.external_rate, want[2])
+      same(line.external_rate, want[2]) &&
+      // A snapshot written before exact costs existed is stale (§19.4).
+      same(line.labor_cost ?? null, want[3]) &&
+      same(line.resource_cost ?? null, want[4]) &&
+      same(line.exact_cost ?? null, want[5])
     );
   });
 }
