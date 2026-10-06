@@ -3268,7 +3268,7 @@ twins; the window and day-segment logic is shared with `automated-hours.ts`
 planner, the bump planner and the dashboard counts; `automationBlockFor()` is
 deliberately unchanged, so rotation still swaps copy on a hand-placed credit
 in closed hours; the SQL check is in `log_place_underwriting_credit()`, **not**
-`uw_automation_block()`, so automation can still *clear* such a credit.
+`uw_automation_block()`, so automation can still _clear_ such a credit.
 Provisioning skips a day whose eligible breaks are all closed
 (`closedAirDates`), conflicts gain `hours_closed`, and the manual and
 makegood pickers label a closed break rather than refuse it. (4) **One
@@ -3284,6 +3284,104 @@ names only (`20261002180000`, applied to both projects): the registry rows'
 `underwriting`), routes (`/log`, `/underwriting`), directories, identifiers, and
 the older notes in this file keep the old names, the same precedent as
 Sourcework's `transcription` key. Write new user-facing copy with the new names.
+
+**Bookings: milestone 1, slice 1 (the rate model) has landed (2026-10-05) —
+the guardrail against building it is lifted for that slice.** Read
+`docs/bookings-design.md` before touching any of it; this is a pointer. The
+tool is university production work — capacity, rates, cost recovery — built
+from the reviewed "Bookings Tool" Design canvas and its two sources (the
+University Production Partnerships framework, revised, and
+`WUWF_Production_Rate_Model_v0.1.xlsx`). Registry key `bookings`, **route
+`/bookings`** (the public intake, slice 4, is `/book`), invite_only; roles
+**stack** like the broadcast roles (`production` · `director` · `finance` ·
+`executive`, `lib/bookings/roles.ts`, `private.is_bookings_<role>()` over
+`private.has_tool_role()` — `production` was `lead` until slice 2b, see
+below); a member with no role reads everything. Slice 1
+ships the Rates tab (`/bookings/rates`, with Assumptions · Labor · Resource
+pools · Service packages · Rate card · Assets · Setup · Change log under it;
+`/bookings` redirects there until the dashboard exists). Five things are
+load-bearing:
+
+1. **SQL never computes a price.** `lib/bookings/rates.ts` is the model, pure,
+   with the v0.1 workbook as its test fixture — every cost and card figure
+   must reproduce. The one rounding rule: every rate rounds **up** to the next
+   $25, and external is the higher of the grossed-up incremental cost
+   (÷ (1 − margin − assessment)) and the package's market floor. **Labor
+   classes and pools are data, not schema** (slice 2b, 2026-10-05,
+   `20261005160000_bookings_labor_and_pools.sql`, a clean rewrite —
+   `docs/bookings-design.md` §14): `bk_labor_classes`/`bk_pools` are
+   unversioned catalogs (kept on `/bookings/rates/setup`), their figures per
+   version live in `bk_labor_rates`/`bk_resource_pools`, and a package's
+   parts are `bk_package_labor`/`bk_package_resources` rows. A class says
+   whether its hours are `charged_in_strategic`; a pool is costed `allocated`
+   (a share of the shared pool) or from its `own_lines` (webcasting is just
+   such a pool, not a special case). Never add a column per pool or per
+   person again — a second producer or a third kit is a catalog row.
+2. **An adopted or superseded version is frozen** by `bk_guard_frozen_version()`
+   on its assumptions, labor rates, pools and packages; a correction is a new version
+   (`/bookings/rates/versions/new`, a copy). `bk_rate_card_lines` is a
+   snapshot TypeScript writes when a version is put in use or adopted, so an
+   estimate keeps the rate it was priced at.
+3. **"In use" and "adopted" are separate.** Exactly one version is in use
+   (partial unique index); v0.1 is seeded in use but not adopted, the
+   workbook's own provisional posture, and every figure from a non-adopted
+   version is labelled provisional on screen.
+4. **The adoption gate is enforced where the write happens.**
+   `bk_guard_version_transition()` refuses to submit a version with any
+   assumption or pool still `pending`, and refuses adoption (or superseding)
+   unless `private.is_bookings_executive()` — the `rd_guard_post_curation()`
+   shape. Changing a value on a draft sends that row back to `pending`.
+5. **Assets are an inventory, not a model**: unversioned, kept by finance or
+   the director, out of service rather than deleted; they change a rate only
+   through a later version.
+
+**Bookings slice 2 (the term plan and the calendar) has landed too
+(2026-10-05)** — `20261005150000_bookings_term_plan.sql`, the Calendar tab
+(`/bookings/calendar`, week or month, `?view=&date=&pool=`) and the term
+plan page (`/bookings/calendar/plan`). Read `docs/bookings-design.md` §6.4,
+§6.5 and §8 first; this is a pointer. Four things are load-bearing:
+
+1. **The booking rule runs in triggers, and the TypeScript is its twin.**
+   `bk_booking_allowed()` (before insert or update on `bk_bookings`) refuses,
+   in §6.4's order: blacked out or held, window taken (holds plus live
+   bookings against the resource's `concurrent_units`; a tentative booking
+   counts until `expires_at`); `bk_check_booking_labor()` (from a trigger on
+   `bk_booking_labor`, and again per class on a booking update) refuses a
+   class's day full (`headcount × hours_per_person_day`) or no capacity for
+   the treatment in that class (strategic draws the reserve; incremental and
+   external draw open = net − reserve − held − non-strategic). Write a
+   booking or hold through `bk_create_booking()`/`bk_create_hold()`, which
+   take the parent and its hours per class in one transaction.
+   `lib/bookings/scheduling.ts` explains the same refusals and proposes
+   alternatives — keep them in step. An update that leaves a booking where
+   it is (confirming, a label) is not re-checked, so a later hold never
+   blocks confirming an estimate's hold. An `exception_reason` skips the
+   rule, only for `is_bookings_executive()`, and is audited
+   (`bookings.booking.exception`). Step 2 (reserved blocks) waits for
+   slice 5.
+2. **Nothing deletes a booking; it is released.** `status = 'released'`
+   frees the window and stamps `released_at`. Blackouts and holds are the
+   director's and may be deleted.
+3. **Capacity is hours per labor class, never units.** `bk_term_resources.
+available_units`, `concurrent_units` and `windows` (jsonb, `parseWindows()`;
+   a new plan seeds them from each active pool's `default_windows`) are
+   calendar constraints; the guardrail reads `bk_term_capacity` (`net_hours`,
+   `headcount`, `hours_per_person_day` per class — a class with no row is
+   not checked that term), the plan's `reserve_share`, and each booking's
+   `bk_booking_labor` rows. The rate model carries no copy of capacity.
+4. **The airtime read is one security-definer function and places nothing.**
+   `bk_university_avails_per_week(plan)` counts marked opportunities whose
+   `permitted_content_types` include `university_announcement` across the
+   recurring schedule on the plan's reference date, plus pinned minutes;
+   `lib/bookings/airtime.ts` nets the plan's contributed minutes off it. The
+   second read the doc names, `bk_institutional_airtime_honored()`, keys off
+   project airtime commitments and ships with them in slice 3.
+
+Slices 3–6 (projects with derived pricing, `/book` intake, partners and
+agreements, hours/settlement/term report) are designed in the doc and
+**not authorized to start without their own instruction**. Airtime is read
+across the Traffic/On Air boundary and never placed from this tool, in
+every slice.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
@@ -3758,6 +3856,10 @@ src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas
                             route segment, gated by requireToolAccess("editorial-inquiry"),
                             with its own full-bleed layout.tsx (no page padding — the canvas
                             needs the space, unlike every other tool)
+src/app/(portal)/bookings/  Bookings (route: /bookings; key `bookings`) — its own route
+                            segment, gated by requireBookingsAccess() from lib/bookings/access.ts;
+                            the Rates section under bookings/rates/ and the Calendar under
+                            bookings/calendar/ (see "Bookings")
 src/app/(portal)/resources/  Resources (procedures, tool guides, what's new) — its own route
                             segment and nav tab, gated by requireResourcesAccess() from
                             lib/resources/access.ts; open to every active user
@@ -3821,6 +3923,10 @@ src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff
                            resolution (clock-versions.ts) and schedule-entry-active-on-a-date
                            logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
                            timing engine, content-eligibility filtering, etc. land here too
+src/lib/bookings/          Bookings' access gate + stacking roles (access.ts, roles.ts), data reads
+                           (queries.ts), the rate-card snapshot writer and change log (server-only),
+                           plus pure, tested modules — rates.ts (the rate math, the v0.1 workbook as
+                           its fixture), version-card.ts (rows → card), labels.ts, paths.ts
 src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and the reasoning
                            engine (ai.ts, "server-only" — web_search + a custom function tool,
                            streamed; see the tool's own CLAUDE.md entries) with its

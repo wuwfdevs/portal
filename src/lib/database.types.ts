@@ -562,6 +562,27 @@ export type RdPostStatus =
 // Resources (20260928140000_resources.sql)
 export type RcKind = "procedure" | "guide" | "release_note";
 export type RcSource = "editor" | "release";
+
+// Bookings (20261005140000_bookings_foundation.sql) — lib/bookings/rates.ts.
+export type BkVersionStatus = "draft" | "submitted" | "adopted" | "superseded";
+export type BkValidationState = "pending" | "validated" | "accepted_as_is";
+export type BkAssumptionSection = "sourced" | "working";
+// Slice 2b (20261005160000_bookings_labor_and_pools.sql): a budget line
+// belongs to the shared pool or to one own-lines pool; the two model inputs
+// the math still reads directly are external_margin_share and assessment_share.
+export type BkAssumptionKind = "pool_line" | "model_input";
+export type BkAssumptionOwner = "finance" | "director" | "executive";
+export type BkPayBasis = "salaried" | "hourly";
+export type BkPoolCosting = "allocated" | "own_lines";
+export type BkAssetFunding = "station" | "foundation_gift" | "grant_restricted" | "uwf";
+export type BkAssetBurden = "low" | "medium" | "high";
+export type BkAssetCondition = "good" | "fair" | "worn" | "out_of_service";
+export type BkRateCardLineKind = "package" | "labor";
+// Slice 2 (20261005150000_bookings_term_plan.sql).
+export type BkTermPlanStatus = "draft" | "active" | "closed";
+export type BkHoldKind = "core" | "maintenance";
+export type BkBookingStatus = "tentative" | "confirmed" | "released";
+export type BkPricingTreatment = "strategic" | "incremental" | "external";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -2896,9 +2917,485 @@ export interface Database {
           },
         ];
       };
+      /** Bookings rate model versions (20261005140000) — one in use at a time. */
+      // Bookings (docs/bookings-design.md §5), as rewritten by slice 2b
+      // (20261005160000_bookings_labor_and_pools.sql): labor classes and pools
+      // are catalogs, versioned figures hang off them, capacity is per class.
+      /** A class of production labor; unversioned, figures per version in bk_labor_rates. */
+      bk_labor_classes: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          pay_basis: BkPayBasis;
+          /** Whether this class's hours are charged in a strategic (baseline-funded) price. */
+          charged_in_strategic: boolean;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_labor_classes"]["Row"]> & {
+          key: string;
+          name: string;
+          pay_basis: BkPayBasis;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_labor_classes"]["Row"]>;
+        Relationships: [];
+      };
+      /** A production resource pool; unversioned, figures per version in bk_resource_pools. */
+      bk_pools: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          unit_label: string;
+          costing: BkPoolCosting;
+          /** [{ key, label, start: "HH:MM", end: "HH:MM" }] — lib/bookings/scheduling.ts's parseWindows. */
+          default_windows: unknown;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_pools"]["Row"]> & {
+          key: string;
+          name: string;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_pools"]["Row"]>;
+        Relationships: [];
+      };
+      bk_rate_model_versions: {
+        Row: {
+          id: string;
+          label: string;
+          status: BkVersionStatus;
+          in_use: boolean;
+          notes: string | null;
+          destination_index: string | null;
+          created_at: string;
+          created_by: string | null;
+          submitted_at: string | null;
+          submitted_by: string | null;
+          adopted_at: string | null;
+          adopted_by: string | null;
+          superseded_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_model_versions"]["Row"]> & {
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_rate_model_versions"]["Row"]>;
+        Relationships: [];
+      };
+      bk_assumptions: {
+        Row: {
+          id: string;
+          version_id: string;
+          section: BkAssumptionSection;
+          kind: BkAssumptionKind;
+          /** pool_line: null is a line in the shared production pool; set is that pool's own line. */
+          pool_id: string | null;
+          /** model_input: external_margin_share | assessment_share. */
+          key: string | null;
+          label: string;
+          value: number;
+          unit: string;
+          basis: string | null;
+          source_url: string | null;
+          notes: string | null;
+          owner: BkAssumptionOwner;
+          validation_state: BkValidationState;
+          validation_needed: string | null;
+          validation_note: string | null;
+          validated_at: string | null;
+          validated_by: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_assumptions"]["Row"]> & {
+          version_id: string;
+          section: BkAssumptionSection;
+          kind: BkAssumptionKind;
+          label: string;
+          value: number;
+          unit: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_assumptions"]["Row"]>;
+        Relationships: [];
+      };
+      /** A labor class's pay figures on one version. */
+      bk_labor_rates: {
+        Row: {
+          id: string;
+          version_id: string;
+          labor_class_id: string;
+          annual_salary: number | null;
+          hourly_wage: number | null;
+          load_share: number;
+          paid_hours: number | null;
+          external_rate: number;
+          basis: string | null;
+          validation_state: BkValidationState;
+          validation_needed: string | null;
+          validation_note: string | null;
+          validated_at: string | null;
+          validated_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_labor_rates"]["Row"]> & {
+          version_id: string;
+          labor_class_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_labor_rates"]["Row"]>;
+        Relationships: [];
+      };
+      bk_resource_pools: {
+        Row: {
+          id: string;
+          version_id: string;
+          pool_id: string;
+          /** Allocated pools only. */
+          allocation_share: number | null;
+          available_units: number;
+          basis: string | null;
+          validation_state: BkValidationState;
+          validation_needed: string | null;
+          validation_note: string | null;
+          validated_at: string | null;
+          validated_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_resource_pools"]["Row"]> & {
+          version_id: string;
+          pool_id: string;
+          available_units: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_resource_pools"]["Row"]>;
+        Relationships: [];
+      };
+      bk_service_packages: {
+        Row: {
+          id: string;
+          version_id: string;
+          name: string;
+          unit_label: string;
+          market_floor: number;
+          historical_reference: string | null;
+          application_note: string | null;
+          notes: string | null;
+          active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_service_packages"]["Row"]> & {
+          version_id: string;
+          name: string;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_service_packages"]["Row"]>;
+        Relationships: [];
+      };
+      bk_package_labor: {
+        Row: { package_id: string; labor_class_id: string; hours: number };
+        Insert: Database["public"]["Tables"]["bk_package_labor"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["bk_package_labor"]["Row"]>;
+        Relationships: [];
+      };
+      bk_package_resources: {
+        Row: { package_id: string; pool_id: string; units: number };
+        Insert: Database["public"]["Tables"]["bk_package_resources"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["bk_package_resources"]["Row"]>;
+        Relationships: [];
+      };
+      /** The card as computed when a version was put in use or adopted; written by TypeScript. */
+      bk_rate_card_lines: {
+        Row: {
+          id: string;
+          version_id: string;
+          kind: BkRateCardLineKind;
+          package_id: string | null;
+          labor_class_id: string | null;
+          line_key: string;
+          name: string;
+          unit_label: string;
+          strategic_rate: number | null;
+          incremental_rate: number | null;
+          external_rate: number;
+          strategic_cost: number | null;
+          incremental_cost: number | null;
+          external_grossed_cost: number | null;
+          market_floor: number | null;
+          historical_reference: string | null;
+          application_note: string | null;
+          sort_order: number;
+          snapshotted_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_card_lines"]["Row"]> & {
+          version_id: string;
+          kind: BkRateCardLineKind;
+          line_key: string;
+          name: string;
+          unit_label: string;
+          external_rate: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_rate_card_lines"]["Row"]>;
+        Relationships: [];
+      };
+      /** The asset inventory: unversioned, out of service rather than deleted. */
+      bk_assets: {
+        Row: {
+          id: string;
+          name: string;
+          tag: string | null;
+          pool_id: string;
+          acquired_on: string | null;
+          acquisition_cost: number | null;
+          annual_cost: number | null;
+          funding: BkAssetFunding;
+          useful_life_years: number | null;
+          restrictions: string | null;
+          maintenance_burden: BkAssetBurden;
+          condition: BkAssetCondition;
+          notes: string | null;
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_assets"]["Row"]> & {
+          name: string;
+          pool_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_assets"]["Row"]>;
+        Relationships: [];
+      };
+      /** Append-only change log for the Rates tab. */
+      bk_rate_model_events: {
+        Row: {
+          id: string;
+          version_id: string | null;
+          actor_id: string | null;
+          kind: string;
+          note: string;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_model_events"]["Row"]> & {
+          kind: string;
+          note: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      /** One term's envelopes; capacity per class is in bk_term_capacity. One plan is active at a time. */
+      bk_term_plans: {
+        Row: {
+          id: string;
+          label: string;
+          starts_on: string;
+          ends_on: string;
+          /** The station's contribution as a share of each tracked class's net hours (0..1). */
+          reserve_share: number;
+          /** University-eligible avail minutes a week the station contributes. */
+          airtime_contributed_minutes_per_week: number;
+          status: BkTermPlanStatus;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_term_plans"]["Row"]> & {
+          label: string;
+          starts_on: string;
+          ends_on: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_term_plans"]["Row"]>;
+        Relationships: [];
+      };
+      /** A labor class's capacity in one term; a class with no row is not capacity-checked. */
+      bk_term_capacity: {
+        Row: {
+          id: string;
+          plan_id: string;
+          labor_class_id: string;
+          net_hours: number;
+          headcount: number;
+          hours_per_person_day: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_term_capacity"]["Row"]> & {
+          plan_id: string;
+          labor_class_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_term_capacity"]["Row"]>;
+        Relationships: [];
+      };
+      /** A plan's schedulable pools: units for the term, concurrent units per window, windows. */
+      bk_term_resources: {
+        Row: {
+          id: string;
+          plan_id: string;
+          pool_id: string;
+          available_units: number;
+          concurrent_units: number;
+          windows: unknown;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_term_resources"]["Row"]> & {
+          plan_id: string;
+          pool_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_term_resources"]["Row"]>;
+        Relationships: [];
+      };
+      /** A policy: no partner work on these dates and pools (null pool_ids = every pool). */
+      bk_blackouts: {
+        Row: {
+          id: string;
+          plan_id: string;
+          starts_on: string;
+          ends_on: string;
+          pool_ids: string[] | null;
+          reason: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_blackouts"]["Row"]> & {
+          plan_id: string;
+          starts_on: string;
+          ends_on: string;
+          reason: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_blackouts"]["Row"]>;
+        Relationships: [];
+      };
+      /** WUWF's own use of one window; a null pool holds only labor. Hours per class in bk_hold_labor. */
+      bk_holds: {
+        Row: {
+          id: string;
+          plan_id: string;
+          pool_id: string | null;
+          date: string;
+          window_start: string;
+          window_end: string;
+          kind: BkHoldKind;
+          label: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_holds"]["Row"]> & {
+          plan_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_holds"]["Row"]>;
+        Relationships: [];
+      };
+      bk_hold_labor: {
+        Row: { hold_id: string; labor_class_id: string; hours: number };
+        Insert: Database["public"]["Tables"]["bk_hold_labor"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["bk_hold_labor"]["Row"]>;
+        Relationships: [];
+      };
+      /** A partner's hold on one window of one pool; hours per class in bk_booking_labor; bk_booking_allowed() is the rule. */
+      bk_bookings: {
+        Row: {
+          id: string;
+          plan_id: string;
+          /** A bare uuid until slice 3 adds bk_projects. */
+          project_id: string | null;
+          pool_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+          units: number;
+          treatment: BkPricingTreatment;
+          status: BkBookingStatus;
+          expires_at: string | null;
+          released_at: string | null;
+          label: string;
+          notes: string | null;
+          exception_by: string | null;
+          exception_reason: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_bookings"]["Row"]> & {
+          plan_id: string;
+          pool_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+          treatment: BkPricingTreatment;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_bookings"]["Row"]>;
+        Relationships: [];
+      };
+      bk_booking_labor: {
+        Row: { booking_id: string; labor_class_id: string; hours: number };
+        Insert: Database["public"]["Tables"]["bk_booking_labor"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["bk_booking_labor"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      /** Security invoker; finance's RLS applies. Puts one version in use for estimates. */
+      bk_set_version_in_use: {
+        Args: { p_version_id: string };
+        Returns: { ok: true; changed: boolean } | { error: string };
+      };
+      /** Security invoker; the guard trigger checks the executive. */
+      bk_adopt_version: {
+        Args: { p_version_id: string; p_destination_index?: string | null };
+        Returns: { ok: true } | { error: string };
+      };
+      /** Security invoker; finance's RLS applies. Writes a package and its labor/resource rows in one transaction. */
+      bk_save_package: {
+        Args: { p_package: Record<string, unknown>; p_labor: unknown[]; p_resources: unknown[] };
+        Returns: { ok: true; id: string } | { error: string };
+      };
+      /** Security invoker. A booking and its hours per class in one transaction; the rule's triggers raise on refusal. */
+      bk_create_booking: {
+        Args: { p_booking: Record<string, unknown>; p_labor: unknown[] };
+        Returns: { ok: true; id: string };
+      };
+      /** Security invoker. A hold and its hours per class in one transaction. */
+      bk_create_hold: {
+        Args: { p_hold: Record<string, unknown>; p_labor: unknown[] };
+        Returns: { ok: true; id: string };
+      };
+      /**
+       * Security definer read of On Air's clocks (docs/bookings-design.md §6.5):
+       * university-eligible avails and minutes a week per program, with the
+       * minutes their pinned content already takes. Parsed by
+       * lib/bookings/airtime.ts's parseAirtimeRead().
+       */
+      bk_university_avails_per_week: {
+        Args: { p_plan_id: string };
+        Returns:
+          | {
+              ok: true;
+              as_of: string;
+              programs: {
+                program_id: string;
+                name: string;
+                avails_per_week: number;
+                minutes_per_week: number;
+                pinned_minutes_per_week: number;
+              }[];
+            }
+          | { error: string };
+      };
       /**
        * The seven-function public surface of Audience Listening
        * (20260730170000_audience_listening.sql). al_* table RLS is staff-only;
@@ -3409,6 +3906,21 @@ export interface Database {
       ap_capacity: ApCapacity;
       ap_timing: ApTiming;
       ap_event_type: ApEventType;
+      bk_version_status: BkVersionStatus;
+      bk_validation_state: BkValidationState;
+      bk_assumption_section: BkAssumptionSection;
+      bk_assumption_kind: BkAssumptionKind;
+      bk_assumption_owner: BkAssumptionOwner;
+      bk_pay_basis: BkPayBasis;
+      bk_pool_costing: BkPoolCosting;
+      bk_asset_funding: BkAssetFunding;
+      bk_asset_burden: BkAssetBurden;
+      bk_asset_condition: BkAssetCondition;
+      bk_rate_card_line_kind: BkRateCardLineKind;
+      bk_term_plan_status: BkTermPlanStatus;
+      bk_hold_kind: BkHoldKind;
+      bk_booking_status: BkBookingStatus;
+      bk_pricing_treatment: BkPricingTreatment;
     };
     CompositeTypes: Record<string, never>;
   };

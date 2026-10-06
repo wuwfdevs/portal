@@ -195,13 +195,19 @@ repo and a project's history, not the version number.
 | `20261002140200_log_import_copy_kind_follows_script.sql`              | 2026-10-02 | 2026-10-02 |
 | `20261002150000_broadcast_roles_stackable.sql`                        | 2026-10-02 | 2026-10-02 |
 | `20261002150100_resources_broadcast_roles.sql`                        | 2026-10-02 | 2026-10-02 |
-| `20261002160000_underwriting_copy_dad_recorded.sql`                  | 2026-10-02 | 2026-10-02 |
-| `20261002160100_resources_underwriting_recorded_in_dad.sql`          | 2026-10-02 | 2026-10-02 |
+| `20261002160000_underwriting_copy_dad_recorded.sql`                   | 2026-10-02 | 2026-10-02 |
+| `20261002160100_resources_underwriting_recorded_in_dad.sql`           | 2026-10-02 | 2026-10-02 |
 | `20261002170000_resources_log_station_ids.sql`                        | 2026-10-02 | 2026-10-02 |
 | `20261002180000_on_air_and_traffic_names.sql`                         | 2026-10-02 | 2026-10-02 |
-| `20261005120000_resources_log_automation_tab_and_station_ids.sql`    | 2026-10-05 | 2026-10-05 |
+| `20261005120000_resources_log_automation_tab_and_station_ids.sql`     | 2026-10-05 | 2026-10-05 |
 | `20261005130000_log_underwriting_hours.sql`                           | 2026-10-05 | 2026-10-05 |
 | `20261005130100_resources_log_underwriting_hours.sql`                 | 2026-10-05 | 2026-10-05 |
+| `20261005140000_bookings_foundation.sql`                              | 2026-10-05 | 2026-10-05 |
+| `20261005140100_resources_bookings_rate_model.sql`                    | 2026-10-05 | 2026-10-05 |
+| `20261005150000_bookings_term_plan.sql`                               | 2026-10-05 | 2026-10-05 |
+| `20261005150100_resources_bookings_calendar.sql`                      | 2026-10-05 | 2026-10-05 |
+| `20261005160000_bookings_labor_and_pools.sql`                         | 2026-10-06 | 2026-10-06 |
+| `20261005160100_resources_bookings_labor_and_pools.sql`               | 2026-10-06 | 2026-10-06 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
