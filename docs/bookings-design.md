@@ -1215,3 +1215,76 @@ renders the form and asserts none of *pool, labor class, treatment, draw, reserv
 version* appears and that no field beyond the three is asked up front; `happy-path.test.ts` runs the
 workbook's Basic event webcast through the plan, the price and the summary line: $800 at the
 university rate, or $575 with WUWF contributing, "Ready to send".
+
+## 19. Slice B — cost transparency
+
+The pilot's question is "what does WUWF contribute, and how does the legacy $500 compare with
+modeled cost?" An estimate that records only what the partner pays can't answer it. Every
+estimate therefore computes and **stores** the figures in the Definitions above, and the term
+report totals them.
+
+### 19.1 What an estimate stores
+
+`lib/bookings/economics.ts` (pure, tested) computes, from the estimate's lines and the card
+snapshot, and `repriceProject()` writes onto the project after every pricing write:
+
+| Stored on `bk_projects`                                  | Meaning                                                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `labor_cost`, `resource_cost`, `direct_expense_cost`      | The three parts of full economic cost, **exact** (six decimals; never rounded to the card's $25 step, never to cents)         |
+| `full_economic_cost`                                      | Their sum — the cost of the work whatever the partner pays                                                                    |
+| `partner_recovery`                                        | Σ the lines' amounts — what the partner pays                                                                                  |
+| `wuwf_contribution`                                       | `max(0, full economic cost − partner recovery)`                                                                              |
+| `external_margin`, `external_assessment`                  | External only; zero otherwise. Assessment = the assessment share of what the partner pays (for an expense, of its cost); margin = `max(0, recovery − assessment − full cost)`, what is left after cost and the university's share |
+| `market_benchmarks` (jsonb)                               | One entry per package line: the floor, the ceiling (null until Slice C), the reference note and the rate charged, **as they stood when priced** |
+| `economics` (jsonb)                                       | The per-line breakdown the Show calculation panel prints (labor, resource, direct cost and amount per line)                   |
+
+A line's cost comes from the card snapshot, so it is the cost **as modeled when the estimate was
+first priced**, whatever treatment applies: a package line's `labor_cost` and `resource_cost` per
+unit (new, exact, on `bk_rate_card_lines`); a labor line's class's exact loaded hourly cost times its
+hours; an expense line's `direct_cost` times its quantity. Overhead is excluded (§20.2) unless a later
+adopted policy allocates it.
+
+**Rounding is a pricing policy, applied to the rate only.** The card rounds each rate up to the
+next $25; the cost is never rounded. The calculation panel prints both, so the gap between the
+rounded rate and the cost is visible (it is why an incremental estimate can recover slightly more
+than its cost — contribution then reads $0, never negative, and the excess is not "margin").
+
+The three cases the definition has to get right, on the v0.1 Basic event webcast
+(full economic cost $777.6375 = $210.9375 professional + $162.00 student + $79.70 live package +
+$325.00 webcast operations):
+
+- **Strategic** ($575): recovery $575, **contribution $202.6375** (the professional time WUWF
+  carries, less the card's rounding in the partner's favour).
+- **Incremental** ($800): recovery $800 ≥ cost, **contribution $0**.
+- **External** ($1,150, floored at market): recovery $1,150, assessment $77.165, margin $295.1975,
+  **contribution $0** — the margin and assessment are shown on their own lines and are never a
+  negative contribution.
+
+### 19.2 The summary line and the panel
+
+The summary line now prints the contribution in words and dollars — "WUWF contributes $202.64 (5
+staff hours)" — and "No WUWF contribution — the partner covers the full cost" when it is zero.
+Everything else sits in **Show calculation** (`calculation-panel.tsx`): the per-line cost
+build-up, full cost, recovery, contribution, margin and assessment for an outside partner, the
+market benchmark per package (floor, ceiling, reference, rate charged), why this rate, the version
+and the provisional-rate note, and the rounding note.
+
+### 19.3 The term report
+
+`/bookings/report` (under Dashboard; `lib/bookings/report.ts`, pure and tested) totals, for the
+projects of the active term that have been priced, **full cost, WUWF contribution and partner
+recovery by partner and by pricing treatment**, with external margin and assessment alongside, and
+counts qualifying strategic work by the judgment (`qualifies_strategic`), not by the rate it ended
+up priced at: a qualifying project the reserve could not cover is listed as "qualifying, priced at
+the university rate" so the reserve's depletion is a finding rather than an absence. It also
+carries the legacy comparison (§1): the modeled price per webcast event against $500. Slice C adds
+the assumed-versus-observed view (§20.8) to the same page.
+
+### 19.4 Migration
+
+`20261007130000_bookings_cost_transparency.sql`: the card snapshot's exact cost columns
+(`labor_cost`, `resource_cost`, `exact_cost`) and the project's economics columns above. Additive.
+A rate card snapshot written before this migration has no exact costs; the Rates tab's "Record for
+estimates" detects it as stale (`snapshotMatchesCard` compares costs too) and an estimate priced
+from one reports that its cost can't be modeled rather than guessing — no snapshot existed in
+either project when this was written.
