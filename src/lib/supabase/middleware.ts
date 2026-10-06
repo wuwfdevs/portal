@@ -27,6 +27,10 @@ const PUBLIC_PATHS = [
   // /join and /listen, there is no session here to establish, not even an
   // anonymous one (see docs/academic-partnerships-design.md §3).
   "/partner",
+  // Bookings' public request form and its iframe variant — the same shape as
+  // /partner: no session at all, one page load and one submit through two
+  // security-definer functions (docs/bookings-design.md §6.3).
+  "/book",
   // Log's service worker script (public/log-offline-sw.js). The browser
   // refuses a worker script that answers with a redirect, so a signed-out
   // update check must get the file, not /login; it holds no data.
@@ -49,7 +53,10 @@ function isPublicPath(pathname: string): boolean {
  * risks interfering with the code_verifier cookie the exchange depends on.
  */
 export async function updateSession(request: NextRequest) {
-  if (request.nextUrl.pathname === "/auth/callback" || request.nextUrl.pathname.startsWith("/auth/callback/")) {
+  if (
+    request.nextUrl.pathname === "/auth/callback" ||
+    request.nextUrl.pathname.startsWith("/auth/callback/")
+  ) {
     return NextResponse.next({ request });
   }
 

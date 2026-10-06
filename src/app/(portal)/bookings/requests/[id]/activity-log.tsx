@@ -2,6 +2,7 @@ import type { ProjectEvent } from "@/lib/bookings/queries";
 
 const EVENT_VERB: Record<string, string> = {
   created: "Created",
+  received: "Received from the public form",
   edited: "Scope edited",
   owner_changed: "Owner changed",
   note: "Note",

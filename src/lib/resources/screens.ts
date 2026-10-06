@@ -308,6 +308,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/bookings/requests/:id", "/bookings/requests/:id/edit"],
   },
   {
+    key: "bookings.intake",
+    name: "The public request form",
+    toolKey: "bookings",
+    paths: ["/bookings/intake"],
+  },
+  {
     key: "bookings.rates",
     name: "Rate model",
     toolKey: "bookings",

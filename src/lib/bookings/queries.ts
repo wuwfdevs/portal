@@ -336,6 +336,7 @@ export type BkProjectRow = Tables["bk_projects"]["Row"];
 export type BkEstimateLineRow = Tables["bk_estimate_lines"]["Row"];
 export type BkAirtimeCommitmentRow = Tables["bk_airtime_commitments"]["Row"];
 export type BkProjectEventRow = Tables["bk_project_events"]["Row"];
+export type BkSettingsRow = Tables["bk_settings"]["Row"];
 
 /** Every partner, by name. */
 export async function listPartners(): Promise<BkPartnerRow[]> {
@@ -619,4 +620,16 @@ export async function listBookingsMembers(
 export async function getActivePlan(): Promise<BkTermPlanRow | null> {
   const plans = await listPlans();
   return plans.find((plan) => plan.status === "active") ?? null;
+}
+
+/** The public intake form's settings (slice 4) — the singleton row; staff read it through RLS. */
+export async function getIntakeSettings(): Promise<BkSettingsRow> {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_settings").select("*").eq("id", true).maybeSingle();
+  const row = unwrapRead(result, "intake settings");
+  if (!row)
+    throw new Error(
+      "The intake settings row is missing — has 20261006130000_bookings_public_intake.sql been applied?",
+    );
+  return row;
 }

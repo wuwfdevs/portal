@@ -66,3 +66,7 @@ export function requestHref(
 export function requestEditHref(projectId: string): string {
   return `${REQUESTS_PATH}/${projectId}/edit`;
 }
+
+// The intake form's settings (slice 4) — under Requests, per docs/bookings-design.md §4.
+
+export const INTAKE_PATH = `${BOOKINGS_PATH}/intake`;

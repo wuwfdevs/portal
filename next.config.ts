@@ -52,6 +52,11 @@ const nextConfig: NextConfig = {
         source: "/partner/:path*",
         headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
       },
+      {
+        // Bookings' public request form, framed the same way (docs/bookings-design.md §6.3).
+        source: "/book/:path*",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
     ];
   },
 };

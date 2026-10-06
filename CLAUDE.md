@@ -3408,10 +3408,30 @@ estimate.ts`'s `repriceProject()` re-derives and rewrites every line after
    Traffic has scheduled and On Air pins for a commitment's `external_ref`.
    Nothing here places airtime.
 
-Slices 4–6 (`/book` intake, partners and agreements, hours/settlement/term
-report) are designed in the doc and **not authorized to start without their
-own instruction**. Airtime is read across the Traffic/On Air boundary and
-never placed from this tool, in every slice.
+**Bookings slice 4 (the public intake) has landed too (2026-10-06)** —
+`20261006130000_bookings_public_intake.sql`, `/book` and `/book/embed`
+(`src/app/book/`), and the settings page `/bookings/intake` (under Requests).
+Read `docs/bookings-design.md` §6.3 and §16 first; this is a pointer. The
+`/partner` shape exactly: in the middleware's `PUBLIC_PATHS`, framed by
+`next.config.ts`, **no session at all**, and the whole public surface is two
+security-definer functions — `bk_public_form_config()` and
+`bk_submit_request()` — never a participant-facing policy on a `bk_*` table.
+Three things are load-bearing: (1) **a public submission finds or creates
+its partner by name** and never changes an existing one; the submitter's
+details go on the project's `contact_*`. (2) **`bk_settings.offered_packages`
+and `bk_projects.requested_packages` are names, not package ids** — packages
+are versioned with the rate model; staff turn the names into estimate lines.
+(3) **An airtime commitment is written only when the form gave airings, a
+length and a first date**; otherwise the ask stays in the description.
+`lib/bookings/intake.ts` (pure, tested) is the wizard's steps, the
+client-side validation, the payload and the error sentences; the function
+re-checks everything. The settings are the director's or the executive's
+(`assertBookingsIntakeEditor()`, `bk_settings_update`).
+
+Slices 5–6 (partners and agreements, hours/settlement/term report) are
+designed in the doc and **not authorized to start without their own
+instruction**. Airtime is read across the Traffic/On Air boundary and never
+placed from this tool, in every slice.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
@@ -3901,6 +3921,11 @@ src/app/join/[token]/      Remote Interview's guest-facing join link — deliber
 src/app/listen/[publicId]/ Audience Listening's public participation page, and /embed for
                             the Grove iframe. Outside (portal)/(auth) for the same reason
                             as /join, and listed in the middleware's PUBLIC_PATHS
+src/app/book/              Bookings' public request form, and /embed for the Grove iframe.
+                            The /partner shape exactly: outside (portal)/(auth), in the
+                            middleware's PUBLIC_PATHS, no session at all, two security-
+                            definer functions as the whole surface (docs/bookings-design.md
+                            §6.3, §16)
 src/app/partner/           Academic Partnerships' public inquiry form, and /embed for the
                             Grove iframe. Outside (portal)/(auth) for the same reason as
                             /join and /listen, and listed in the middleware's

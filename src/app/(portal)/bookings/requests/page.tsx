@@ -7,7 +7,7 @@ import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
-import { REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
+import { INTAKE_PATH, REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
 import {
   DISPOSITION_BADGE,
   DISPOSITION_LABEL,
@@ -79,6 +79,9 @@ export default async function RequestsPage({
           },
         ]}
       >
+        <Link href={INTAKE_PATH} className="px-1 text-xs font-bold text-brand-link hover:underline">
+          Public form
+        </Link>
         {canCreate && (
           <PrimaryLink href={`${REQUESTS_PATH}/new`}>
             <span>

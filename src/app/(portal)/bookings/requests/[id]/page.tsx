@@ -327,6 +327,13 @@ export default async function ProjectPage({
               { label: "Partner", value: partner.name },
               { label: "Asks for", value: REQUESTED_LABEL[project.requested] },
               {
+                label: "Services asked for",
+                value:
+                  project.requested_packages.length > 0
+                    ? project.requested_packages.join(", ")
+                    : null,
+              },
+              {
                 label: "Event",
                 value: project.event_starts_on
                   ? `${formatDateShort(project.event_starts_on)}${

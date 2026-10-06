@@ -595,6 +595,13 @@ export type BkEditorialReview = "not_needed" | "needed" | "cleared";
 export type BkEstimateLineKind = "package" | "labor" | "expense";
 export type BkAirtimeTreatment = "contributed" | "paid";
 export type BkAirtimeHonoredIn = "pending" | "traffic" | "on_air";
+/** Exactly what bk_public_form_config() returns — the public view of bk_settings (slice 4). */
+export interface BkPublicFormConfig {
+  is_open: boolean;
+  intro_copy: string;
+  closed_copy: string;
+  offered_packages: string[];
+}
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -3416,6 +3423,10 @@ export interface Database {
           delivered_at: string | null;
           legacy_rate_delta: number | null;
           margin_foregone: number | null;
+          /** What a public submitter asked for, by the names the form offered (slice 4); empty for a staff request. */
+          requested_packages: string[];
+          /** Salted hash of a public submitter's address, for the rate limit; null for a staff request. */
+          submitted_ip_hash: string | null;
           created_at: string;
           created_by: string | null;
           updated_at: string;
@@ -3501,6 +3512,22 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["bk_project_events"]["Row"]>;
         Relationships: [];
       };
+      /** Singleton (id always true) behind the public request form at /book (slice 4, 20261006130000_bookings_public_intake.sql). */
+      bk_settings: {
+        Row: {
+          id: boolean;
+          is_open: boolean;
+          intro_copy: string;
+          confirmation_copy: string;
+          closed_copy: string;
+          offered_packages: string[];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["bk_settings"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -3555,6 +3582,19 @@ export interface Database {
        * commitments, by external_ref. Parsed by lib/bookings/airtime.ts's
        * parseHonoredRead().
        */
+      /**
+       * The public intake's two security-definer functions (slice 4,
+       * docs/bookings-design.md §6.3): execute granted to anon and
+       * authenticated; the whole of what a visitor with no session reaches.
+       */
+      bk_public_form_config: {
+        Args: Record<string, never>;
+        Returns: BkPublicFormConfig;
+      };
+      bk_submit_request: {
+        Args: { p_payload: Record<string, unknown>; p_ip_hash: string | null };
+        Returns: { ok: true; confirmation_copy: string } | { error: string };
+      };
       bk_institutional_airtime_honored: {
         Args: { p_plan_id: string };
         Returns: { ok: true; as_of: string; commitments: unknown[] } | { error: string };

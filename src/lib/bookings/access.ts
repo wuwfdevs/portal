@@ -93,3 +93,10 @@ export async function assertBookingsAssetWriter(): Promise<BookingsContext> {
   if (!context.isFinance && !context.isDirector) throw new ForbiddenError();
   return context;
 }
+
+/** The public intake form's settings: whether WUWF is taking requests and what it offers — the director's or the executive's. */
+export async function assertBookingsIntakeEditor(): Promise<BookingsContext> {
+  const context = await assertBookingsAccess();
+  if (!context.isDirector && !context.isExecutive) throw new ForbiddenError();
+  return context;
+}

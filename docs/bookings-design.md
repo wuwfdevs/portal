@@ -1,8 +1,9 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slices 1–3 built — the rate model (slice 1), the term plan and
+Status: **Milestone 1, slices 1–4 built — the rate model (slice 1), the term plan and
 calendar (slice 2, rebuilt the same day as slice 2b, labor classes and pools as data — §14),
-and projects (slice 3, 2026-10-06 — §15); slices 4–6 designed, not started — see §9.** Written 2026-10-05 from two
+projects (slice 3, 2026-10-06 — §15), and the public intake (slice 4, 2026-10-06 — §16);
+slices 5–6 designed, not started — see §9.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -464,7 +465,7 @@ Supabase projects and recorded in `APPLIED.md` before the next slice:
 2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab. **Built 2026-10-05 (§13); the second boundary read moved to slice 3, which has the commitments it reads for.**
    - **2b. Labor classes and pools as data** — a sanity check before slice 3 found slices 1 and 2 had fixed one professional and four pools into the schema; rebuilt the same day as a clean rewrite (§14). Not in the original plan.
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list. **Built 2026-10-06 (§15), with `bk_partners` brought forward from slice 5 because every project names one.**
-4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page.
+4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page. **Built 2026-10-06 (§16).**
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
 6. **Hours, settlement, the term report** — and Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
 
@@ -750,3 +751,85 @@ and the `planned` status checked in each. Not yet verified: a browser
 click-through, for the same magic-link reason as every earlier slice — the
 first real request is the first end-to-end test of the send → approve path
 against the triggers.
+
+## 16. What slice 4 shipped (2026-10-06) — the public intake
+
+- `20261006130000_bookings_public_intake.sql`: `bk_settings` (§5 "Settings" —
+  the singleton behind the form: open or closed, the introduction, the
+  confirmation, the copy shown while closed, and `offered_packages`, the
+  services the form offers **by name**, since packages are versioned with the
+  rate model and the form must keep working across versions; staff read it,
+  the director or the executive change it), `bk_projects.requested_packages`
+  (what the submitter chose, by those names — a request, not an estimate;
+  production staff add the real lines) and `bk_projects.submitted_ip_hash`
+  (for the rate limit; null for a staff request), and the two
+  security-definer functions §6.3 names: `bk_public_form_config()` (what
+  `/book` renders, never the confirmation copy) and `bk_submit_request()`
+  (every check in one transaction — open, required fields, email shape, the
+  offered packages, dates, the airtime numbers, three a day per email and
+  five an hour per address hash — then the partner found or created by name,
+  the project at stage `request` with source `public`, an airtime commitment
+  when the form gave airings, length and a first date, and the `received`
+  project event with no actor). Execute is granted to `anon` and
+  `authenticated`; no `bk_*` table has a participant-facing policy.
+- `20261006130100_resources_bookings_intake.sql`: the guide
+  `bookings-intake` (screen key `bookings.intake`) and the release note.
+- `src/app/book/` (`/book`, `/book/embed`): the `/partner` shape exactly — in
+  the middleware's `PUBLIC_PATHS`, `frame-ancestors *` for `/book/*` in
+  `next.config.ts`, no session at all, one shell for both routes. The form
+  (`book-form.tsx`) is a short wizard — About you · What you need · When and
+  where · The airtime (only when airtime is asked for) · Anything else —
+  following the partner form's two hard-won rules (steps shown or hidden by
+  one conditional className and never unmounted; a Next/Send button that is
+  always `type="button"`, with `requestSubmit()` on the last step). The
+  action (`actions.ts`) adds only what the server alone sees — the honeypot
+  and timing check and the salted address hash, reusing
+  `lib/academic-partnerships/rate-limit.ts` — and calls the function.
+- `lib/bookings/intake.ts` (+ test): the steps, the client-side validation,
+  the payload the function reads (fields of a track not asked for are
+  dropped), the sentence for each error code, and the offered-packages
+  parser the settings form uses. `lib/bookings/embed.ts` (+ test): the
+  public URL and the Grove snippet, in `lib/academic-partnerships/embed.ts`'s
+  shape. `lib/bookings/public.ts` (server-only): the one public read.
+- `/bookings/intake` (under Requests, reached from the Requests toolbar's
+  "Public form" link): the settings form for the director or the executive
+  (`assertBookingsIntakeEditor()`; `bk_settings_update` is the boundary;
+  audited as `bookings.intake.updated`), read-only for everyone else, with
+  the public link, the embed snippet and a same-origin live preview as the
+  right column. The project page lists a public request's "Services asked
+  for" in its Scope summary, and the activity log names the `received` event.
+
+Three decisions worth recording:
+
+1. **A public submission finds or creates its partner by name.** Every
+   project names a partner (§5), and a public submitter has no picker, so
+   `bk_submit_request()` matches `lower(name)` against `bk_partners` and
+   inserts a row — with the submitter as its contact and the kind the form
+   asked (UWF unit or outside organization) — only when none matches. An
+   existing partner is never changed by a public submission: its kind,
+   contact and funding index are staff's to keep, and the submitter's own
+   details go on the project's `contact_*` columns. The derivation (§2.2)
+   reads the kind, so an outside organization's request prices external
+   from the start.
+2. **Offered services are names, not package ids, and a request records the
+   names.** Packages belong to a rate model version; a form that referenced
+   `bk_service_packages.id` would break at every new version. The names are
+   what the submitter saw and chose; production staff translate them into
+   estimate lines against the version in use, which is the point at which a
+   price first exists. No rate appears on the form (§4).
+3. **Airtime from the public becomes a commitment only when the form gave
+   enough to record one** — airings a week, a length and a first date (the
+   event's first date stands in for the airing date when only that was
+   given). Anything less stays in the description for staff to read; the
+   commitment, when written, is `contributed` with `honored_in = 'pending'`,
+   the same state a staff-entered commitment starts in, so the envelope
+   check on the project page sees it at once.
+
+Verified: 1,903 tests, lint, typecheck, `db:check`; both migrations applied
+to both Supabase projects and the table, columns, functions and grants
+checked in each; `bk_submit_request()` exercised directly on preview in a
+live run (the grants to `anon` checked, then a closed form, a bad email, a package not
+offered, a complete request — partner created, project at `request` with
+source `public`, commitment and received event written, the rows then removed). Not yet verified: a
+browser click-through of the wizard, for the same reason as every earlier
+slice.
