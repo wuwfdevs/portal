@@ -16,7 +16,7 @@ export const LEGACY_WEBCAST_RATE = 500;
 
 export interface PricingFacts {
   partnerKind: "uwf_unit" | "external";
-  /** Slice 5 brings agreements; until then always false. */
+  /** The project is under an active agreement (slice 5): priced against its allocated reserve share, incremental beyond it. */
   underAgreement: boolean;
   /** The lead's recorded judgment; null until recorded. */
   qualifiesStrategic: boolean | null;

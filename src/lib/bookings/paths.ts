@@ -70,3 +70,34 @@ export function requestEditHref(projectId: string): string {
 // The intake form's settings (slice 4) — under Requests, per docs/bookings-design.md §4.
 
 export const INTAKE_PATH = `${BOOKINGS_PATH}/intake`;
+
+// Partners and agreements (slice 5) -------------------------------------------------------------------
+
+export const PARTNERS_PATH = `${BOOKINGS_PATH}/partners`;
+
+export function partnerHref(
+  partnerId: string,
+  query?: Record<string, string | undefined | null>,
+): string {
+  return withQuery(`${PARTNERS_PATH}/${partnerId}`, query ?? {});
+}
+
+export function partnerEditHref(partnerId: string): string {
+  return `${PARTNERS_PATH}/${partnerId}/edit`;
+}
+
+export function agreementNewHref(partnerId: string): string {
+  return `${PARTNERS_PATH}/${partnerId}/agreements/new`;
+}
+
+export function agreementHref(
+  partnerId: string,
+  agreementId: string,
+  query?: Record<string, string | undefined | null>,
+): string {
+  return withQuery(`${PARTNERS_PATH}/${partnerId}/agreements/${agreementId}`, query ?? {});
+}
+
+export function agreementEditHref(partnerId: string, agreementId: string): string {
+  return `${PARTNERS_PATH}/${partnerId}/agreements/${agreementId}/edit`;
+}

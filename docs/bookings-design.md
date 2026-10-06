@@ -1,9 +1,10 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slices 1–4 built — the rate model (slice 1), the term plan and
+Status: **Milestone 1, slices 1–5 built — the rate model (slice 1), the term plan and
 calendar (slice 2, rebuilt the same day as slice 2b, labor classes and pools as data — §14),
-projects (slice 3, 2026-10-06 — §15), and the public intake (slice 4, 2026-10-06 — §16);
-slices 5–6 designed, not started — see §9.** Written 2026-10-05 from two
+projects (slice 3, 2026-10-06 — §15), the public intake (slice 4, 2026-10-06 — §16), and
+partners and agreements (slice 5, 2026-10-06 — §17); slice 6 designed, not started — see
+§9.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -269,7 +270,7 @@ Two guard triggers and three functions hold the lifecycle: `bk_guard_frozen_vers
 
 - **`bk_partners`** — `name`, `kind` (`uwf_unit` | `external`), `contact_name`, `contact_email`, `contact_phone`, `default_funding_index`, `notes`.
 - **`bk_agreements`** — `partner_id`, `label`, `starts_on`, `ends_on`, `status` (`draft` | `active` | `ended`), `reserve_hours_allocated`, `funded_student_hours`, `expected_volume` (text), `booking_deadline_days` (14), `release_deadline_days` (7), `blackout_notes`, `direct_cost_treatment`, `capital_notes`, `beyond_envelope_note`, `airtime_minutes_per_week`, `approved_by`, `approved_at`, `document_path` (the signed agreement, in a private `bookings-documents` bucket, as `uw_contracts.agreement_document_path` is).
-- **`bk_reserved_blocks`** — `agreement_id`, `resource_key`, `date`, `window_start`, `window_end`, `project_id` (nullable until attached), `released_at`, `kept_by` (a director may keep an unbooked block past its deadline). A block past `date − release_deadline_days` with no project and no `kept_by` **reads as open at query time**; no scheduled job.
+- **`bk_reserved_blocks`** — `agreement_id`, `pool_id` (was `resource_key` before slice 2b made pools data), `date`, `window_start`, `window_end`, `project_id` and `booking_id` (nullable until attached — the booking `bk_attach_reserved_block()` wrote), `released_at`, `kept_by`/`kept_at` (a director may keep an unbooked block past its deadline). A block past `date − release_deadline_days` with no project and no `kept_by` **reads as open at query time** (`bk_reserved_block_reserves()`); no scheduled job.
 
 ### Work
 
@@ -466,7 +467,7 @@ Supabase projects and recorded in `APPLIED.md` before the next slice:
    - **2b. Labor classes and pools as data** — a sanity check before slice 3 found slices 1 and 2 had fixed one professional and four pools into the schema; rebuilt the same day as a clean rewrite (§14). Not in the original plan.
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list. **Built 2026-10-06 (§15), with `bk_partners` brought forward from slice 5 because every project names one.**
 4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page. **Built 2026-10-06 (§16).**
-5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
+5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview. **Built 2026-10-06 (§17).**
 6. **Hours, settlement, the term report** — and Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
 
 Capabilities for the in-portal agent (`lib/bookings/capabilities.ts`)
@@ -838,3 +839,106 @@ carries a subquery for a confirmation a non-interactive session cannot give
 clause runs. Not yet verified: a
 browser click-through of the wizard, for the same reason as every earlier
 slice.
+
+## 17. What slice 5 shipped (2026-10-06) — partners and agreements
+
+- `20261006140000_bookings_partners_agreements.sql`: `bk_agreements` (§5
+  "Partners" — the terms, `status` draft → active → ended, `approved_by`/
+  `approved_at`, `ended_at`, `document_path` in a new private
+  `bookings-documents` bucket in `underwriting-documents`' shape),
+  `bk_reserved_blocks` (`pool_id`, since pools are data; `project_id` and
+  `booking_id` once attached; `released_at`; `kept_by`/`kept_at`),
+  `bk_projects.agreement_id` and `bk_service_packages.agreement_id` (the
+  bespoke package §5 named — `bk_save_package()` writes it and the Rates
+  packages form offers the scope). `bk_reserved_block_reserves()` is the
+  one SQL reading of release-at-read (`bk_station_today()` is the station's
+  calendar date, Central); `lib/bookings/agreements.ts`'s
+  `reservedBlockState()`/`blockReservesWindow()` are its twins. Two guard
+  triggers in the `rd_guard_post_curation()` shape: `bk_guard_agreement()`
+  keeps draft → active for the executive (stamping who and when), ending
+  for the director or the executive, and freezes an approved agreement's
+  numeric terms to the executive; `bk_guard_reserved_block()` keeps
+  `kept_by` for the director or the executive, refuses a block outside its
+  agreement's dates or on an ended agreement, and refuses attaching another
+  partner's project. `bk_guard_project()` refuses an agreement of another
+  partner. `bk_booking_allowed()` gains **§6.4 step 2**: a block an active
+  agreement still holds on an overlapping window, for another partner,
+  counts as one of the window's concurrent units, and is the refusal named
+  — partner, agreement and release deadline — when the window is full; a
+  block whose own booking is live is counted once, as that booking.
+  `bk_attach_reserved_block()` (security invoker, §3E) takes a block for a
+  project and writes its booking — planned, tentative with the estimate's
+  expiry, or confirmed, to match the stage — in one transaction, and puts
+  the project under the agreement if it wasn't. `bk_set_project_disposition()`
+  now also detaches the project's blocks, releasing each block's own date
+  even while it is still planned (a lingering planned date would double up
+  on reopen). RLS: reads for members; agreements
+  written by production, the director or the executive (a draft may be
+  deleted); blocks added and removed by the director or the executive,
+  updated (attached) by production too.
+- `20261006140100_resources_bookings_partners.sql`: the `bookings-partners`
+  guide (screen keys `bookings.partners`, `bookings.partner`,
+  `bookings.agreement`), the `bookings-requests` and `bookings-calendar`
+  guides updated for what changed on their screens, and the release note.
+- `lib/bookings/agreements.ts` (+ test): block state and deadlines, the
+  reserving rule, consumption against the terms (`agreementConsumption` —
+  professional hours of strategic dates against the reserve share, student
+  hours against the funded hours, contributed commitments against the
+  allowance, blocks by state), `agreementReserveCovers()` for §2.2's
+  agreement row, the proposal draw (`proposalDraw`), the two forms'
+  validation, and the dashboard's agreement items. `scheduling.ts` gained
+  `reservedBlocks` on `CalendarState`, `partnerId` on a request, the
+  `reserved` refusal and `reservingBlocks()`; `estimate.ts`'s
+  `derivedPricingFor()` prices a project under an active agreement against
+  what its reserve share has left (its other projects' live strategic
+  holds excluded, and the project's own), incremental beyond it.
+- `src/app/(portal)/bookings/partners/`: the Partners tab (search, kind
+  chips, pagination, `/new`, `/[id]/edit` on one `partner-form.tsx`), a
+  partner's page (agreements, requests, details aside), and the agreement
+  page (`/[id]/agreements/[agreementId]`, with `/new` and `/edit` on one
+  `agreement-form.tsx`): the **proposal preview** on a draft — the share of
+  the term's reserve and what would be left, the airtime allowance against
+  the envelope's remainder, the windows its blocks take, each flagged when
+  the term cannot carry it — **consumption bars** once active, the reserved
+  blocks with their state and both deadlines (reserve one date or a weekday
+  to a date; keep, release, remove), the requests under it, bespoke
+  packages, the signed agreement (`agreement-document-upload.tsx`, the
+  Traffic contract document's shape), and the aside's approve / end / delete
+  draft. The project page gained an **Agreement** panel (the partner's
+  active agreements) and the dates section a **Use a reserved block** card;
+  the calendar draws a reserved block with a dotted frame until it is taken,
+  and the month view counts them; the dashboard's "Needs your action" names
+  a draft awaiting the executive and blocks past their booking deadline for
+  the director.
+
+Four decisions worth recording:
+
+1. **A reserving block takes a concurrent unit; it does not close the
+   pool.** The design's step 2 reads as a flat refusal, which is right for a
+   one-unit studio and wrong for a field pool with two kits — the same
+   correction slice 2b made for holds. Counting the block as one unit keeps
+   both cases right, and the refusal is still named as the reservation when
+   that unit is the last.
+2. **Only an active agreement's blocks reserve anything.** A draft's blocks
+   are part of the proposal the executive reads; they take effect on
+   approval. Approving an agreement therefore changes what the rule says
+   about windows that may already be planned on other requests — the
+   proposal preview shows the windows for that reason.
+3. **The agreement's reserve share is checked by the derivation, the term's
+   reserve by the triggers.** `derivePricing()` prices work under an
+   agreement strategic while the share has hours left; the hold is still
+   checked against the term's reserve when it is placed. An agreement whose
+   allocation exceeds the term's reserve is flagged on the preview, not
+   refused — that is the executive's call.
+4. **A block's booking carries the stage.** Attaching a block to a request
+   whose estimate is out writes a tentative hold with the same expiry; to a
+   booked request, a confirmed one. The block hands itself back when that
+   date is released or the request is closed.
+
+Verified: 1,939 tests, lint, typecheck, `db:check`. Both migrations were
+applied to both Supabase projects on 2026-10-06 through the MCP's
+`execute_sql` in chunks — `apply_migration` held the whole file, and the
+one statement it holds on its own (`bk_save_package()`, whose body contains
+a `delete`) ran as dynamic SQL from a string — and the migration rows were
+recorded by hand. Not yet verified: a browser click-through, for the same
+magic-link reason as every earlier slice.

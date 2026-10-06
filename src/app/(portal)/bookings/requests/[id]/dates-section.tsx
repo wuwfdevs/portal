@@ -7,7 +7,13 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { BOOKING_STATUS_LABEL } from "@/lib/bookings/labels";
 import { CALENDAR_PATH, requestHref } from "@/lib/bookings/paths";
-import type { BkLaborClassRow, PlanCalendar, ProjectDetail } from "@/lib/bookings/queries";
+import { BLOCK_STATE_LABEL } from "@/lib/bookings/agreements";
+import type {
+  BkLaborClassRow,
+  PlanCalendar,
+  ProjectDetail,
+  ReservedBlockDetail,
+} from "@/lib/bookings/queries";
 import {
   checkBooking,
   formatWindow,
@@ -19,7 +25,7 @@ import {
   type HoursByClass,
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
-import { addPlannedDate, removeDate } from "../actions";
+import { addPlannedDate, attachReservedBlock, removeDate } from "../actions";
 
 export interface DateCheck {
   bookingId: string;
@@ -47,6 +53,7 @@ export function checkPlannedDates(detail: ProjectDetail, state: CalendarState): 
                 hours: booking.hours,
                 treatment: detail.project.priced_as ?? booking.treatment,
                 excludeBookingId: booking.id,
+                partnerId: detail.project.partner_id,
               },
               state,
             )
@@ -67,6 +74,7 @@ export function DatesSection({
   draw,
   canEdit,
   openCard,
+  attachableBlocks,
 }: {
   detail: ProjectDetail;
   calendar: PlanCalendar | null;
@@ -75,7 +83,10 @@ export function DatesSection({
   /** The estimate's hours per class, prefilled into the first date. */
   draw: HoursByClass;
   canEdit: boolean;
-  openCard: boolean;
+  /** `?new=date` or `?new=block` */
+  openCard: "date" | "block" | null;
+  /** The agreement's blocks this project could still take (slice 5); empty without an agreement. */
+  attachableBlocks: ReservedBlockDetail[];
 }) {
   const { project } = detail;
   const here = requestHref(project.id);
@@ -256,10 +267,63 @@ export function DatesSection({
         </p>
       )}
 
+      {canAdd && calendar && state && openCard === "block" && attachableBlocks.length > 0 && (
+        <InlineCreateCard
+          title="Use a reserved block"
+          action={attachReservedBlock}
+          submitLabel="Take the block"
+          cancelHref={here}
+        >
+          <input type="hidden" name="project_id" value={project.id} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="rb_block">Reserved block</Label>
+              <Select
+                id="rb_block"
+                name="block_id"
+                defaultValue={attachableBlocks[0]?.id ?? ""}
+                autoFocus
+              >
+                {attachableBlocks.map((block) => (
+                  <option key={block.id} value={block.id}>
+                    {formatDateShort(block.date, true)} ·{" "}
+                    {formatWindow(toHHMM(block.window_start), toHHMM(block.window_end))} ·{" "}
+                    {block.pool_name}
+                    {block.state === "kept" ? ` (${BLOCK_STATE_LABEL.kept.toLowerCase()})` : ""}
+                  </option>
+                ))}
+              </Select>
+              <FieldHint>
+                A window the agreement holds for this partner. It becomes a date on this request —
+                planned, held or confirmed to match where the estimate stands.
+              </FieldHint>
+            </div>
+          </div>
+          <fieldset className="mt-4">
+            <legend className="text-xs font-bold text-ink-700">Hours this date takes</legend>
+            <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {classes.map((cls) => (
+                <div key={cls.id}>
+                  <Label htmlFor={`rb_hours_${cls.id}`}>{cls.name}</Label>
+                  <Input
+                    id={`rb_hours_${cls.id}`}
+                    name={`hours_${cls.id}`}
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    defaultValue={dates.length === 0 && draw[cls.id] ? String(draw[cls.id]) : ""}
+                  />
+                </div>
+              ))}
+            </div>
+          </fieldset>
+        </InlineCreateCard>
+      )}
+
       {canAdd &&
         calendar &&
         state &&
-        (openCard ? (
+        (openCard === "date" ? (
           <InlineCreateCard
             title="Plan a date"
             action={addPlannedDate}
@@ -348,13 +412,21 @@ export function DatesSection({
             </div>
           </InlineCreateCard>
         ) : (
-          <div>
+          <div className="flex flex-wrap gap-4">
             <Link
               href={requestHref(project.id, { new: "date" })}
               className="text-sm font-bold text-brand-link hover:underline"
             >
               + Plan a date
             </Link>
+            {attachableBlocks.length > 0 && openCard !== "block" && (
+              <Link
+                href={requestHref(project.id, { new: "block" })}
+                className="text-sm font-bold text-brand-link hover:underline"
+              >
+                + Use a reserved block ({attachableBlocks.length})
+              </Link>
+            )}
           </div>
         ))}
     </section>

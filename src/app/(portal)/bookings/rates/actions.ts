@@ -740,6 +740,9 @@ function readPackageForm(formData: FormData, path: string) {
       resources.push({ pool_id: id, units });
     }
   }
+  // A bespoke package scoped to one agreement (slice 5); blank is the ordinary card.
+  const agreementId = optionalField(formData, "agreement_id");
+  if (agreementId && !UUID.test(agreementId)) failWith(path, "Choose an agreement.");
   return {
     pkg: {
       name,
@@ -748,6 +751,7 @@ function readPackageForm(formData: FormData, path: string) {
       historical_reference: optionalField(formData, "historical_reference"),
       application_note: optionalField(formData, "application_note"),
       notes: optionalField(formData, "notes"),
+      agreement_id: agreementId,
     },
     labor,
     resources,

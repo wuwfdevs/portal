@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { blockReservesWindow } from "@/lib/bookings/agreements";
 import {
   bookingIsLive,
   blackoutOn,
@@ -7,11 +8,12 @@ import {
   formatWindow,
   type BlackoutLike,
   type BookingLike,
+  type CalendarReservedBlock,
   type CalendarState,
   type HoldLike,
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
-import { shiftDateISO } from "@/lib/log/timezone";
+import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { formatWeekRange, weekDates, weekStartISO } from "@/lib/log/week-layout";
 
 /**
@@ -49,6 +51,8 @@ export const BLOCK_TENTATIVE = "border border-dashed border-[#2E6DA4] bg-white t
 export const BLOCK_CORE = "border border-[#8A9099] bg-[#DCE1E6] text-ink-900";
 export const BLOCK_MAINTENANCE =
   "border border-dashed border-warning-border bg-warning-bg text-warning-fg";
+/** A window an agreement holds for its partner (slice 5): a dotted frame, no fill, until it is booked or released. */
+export const BLOCK_RESERVED = "border border-dotted border-[#5A6B7D] bg-[#F4F6F8] text-ink-700";
 
 export function Legend() {
   const items = [
@@ -56,6 +60,7 @@ export function Legend() {
     { label: "Tentative (an estimate's hold)", className: BLOCK_TENTATIVE },
     { label: "Core WUWF work", className: BLOCK_CORE },
     { label: "Maintenance", className: BLOCK_MAINTENANCE },
+    { label: "Reserved under an agreement", className: BLOCK_RESERVED },
     { label: "Blacked out", className: cn("border border-[#B45454]", BLACKOUT_HATCH) },
   ];
   return (
@@ -148,7 +153,20 @@ function dayItems(state: CalendarState, poolId: string, dateISO: string) {
   const bookings = state.bookings.filter(
     (b) => b.pool_id === poolId && b.date === dateISO && bookingIsLive(b, state.nowISO),
   );
-  return { blackout, holds, bookings };
+  // A reserved block still holding its window and not yet booked (a booked one shows as its booking).
+  const today = stationTodayISO(state.nowISO);
+  const reserved: CalendarReservedBlock[] = (state.reservedBlocks ?? []).filter(
+    (rb) =>
+      rb.pool_id === poolId &&
+      rb.date === dateISO &&
+      rb.project_id === null &&
+      blockReservesWindow(
+        rb,
+        { status: rb.agreement_status, release_deadline_days: rb.release_deadline_days },
+        today,
+      ),
+  );
+  return { blackout, holds, bookings, reserved };
 }
 
 function trim(value: number): string {
@@ -224,7 +242,7 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                     )}
                   </th>
                   {dates.map((d) => {
-                    const { blackout, holds, bookings } = dayItems(state, poolId, d);
+                    const { blackout, holds, bookings, reserved } = dayItems(state, poolId, d);
                     const outside = !inPlan(d);
                     return (
                       <td
@@ -260,9 +278,19 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                               }`}
                             />
                           ))}
-                          {!blackout && holds.length === 0 && bookings.length === 0 && !outside && (
-                            <span className="text-[11px] text-ink-400">Open</span>
-                          )}
+                          {reserved.map((rb) => (
+                            <Block
+                              key={rb.id}
+                              className={BLOCK_RESERVED}
+                              title={`Reserved: ${rb.partner_name}`}
+                              detail={`${formatWindow(rb.window_start, rb.window_end)} · ${rb.agreement_label}`}
+                            />
+                          ))}
+                          {!blackout &&
+                            holds.length === 0 &&
+                            bookings.length === 0 &&
+                            reserved.length === 0 &&
+                            !outside && <span className="text-[11px] text-ink-400">Open</span>}
                         </div>
                       </td>
                     );
@@ -359,16 +387,18 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
     let bookings = 0;
     let tentative = 0;
     let holds = 0;
+    let reserved = 0;
     let blackout: BlackoutLike | null = null;
     for (const poolId of poolIds) {
       const items = dayItems(state, poolId, d);
       bookings += items.bookings.filter((b) => b.status === "confirmed").length;
       tentative += items.bookings.filter((b) => b.status === "tentative").length;
       holds += items.holds.length;
+      reserved += items.reserved.length;
       blackout = blackout ?? items.blackout;
     }
     holds += state.holds.filter((h) => h.pool_id === null && h.date === d).length;
-    return { inPlan, bookings, tentative, holds, blackout };
+    return { inPlan, bookings, tentative, holds, reserved, blackout };
   };
 
   return (
@@ -446,6 +476,9 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
                   <span className="text-ink-700">{summary.tentative} tentative</span>
                 )}
                 {summary.holds > 0 && <span className="text-ink-500">{summary.holds} held</span>}
+                {summary.reserved > 0 && (
+                  <span className="text-ink-500">{summary.reserved} reserved</span>
+                )}
                 {summary.blackout && (
                   <span className="text-[10px] font-bold uppercase tracking-wide text-[#8F3A3A]">
                     Blacked out

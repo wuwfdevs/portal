@@ -1,5 +1,6 @@
 // The booking rule and the capacity arithmetic — pure, no Supabase, no React.
-// docs/bookings-design.md §6.4 and §8. `bk_booking_allowed()` and
+// docs/bookings-design.md §6.4 and §8. `bk_booking_allowed()` (last replaced
+// by 20261006140000_bookings_partners_agreements.sql, which added step 2) and
 // `bk_check_booking_labor()` in 20261005160000_bookings_labor_and_pools.sql
 // are this module's SQL twins: the triggers refuse, this module explains the
 // refusal and proposes alternatives. Keep them in step.
@@ -11,8 +12,14 @@
 // (`concurrent_units`). Dates are the station's calendar dates as ISO
 // strings; times are "HH:MM".
 
-import type { BkBookingStatus, BkHoldKind, BkPricingTreatment } from "@/lib/database.types";
-import { shiftDateISO } from "@/lib/log/timezone";
+import type {
+  BkAgreementStatus,
+  BkBookingStatus,
+  BkHoldKind,
+  BkPricingTreatment,
+} from "@/lib/database.types";
+import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { blockReservesWindow, type ReservedBlockLike } from "./agreements";
 
 export const HOURS_PER_PROJECT_DAY = 8;
 /** §6.4: a tentative hold placed by an estimate expires with it. */
@@ -94,6 +101,16 @@ export interface BookingLike {
   hours: HoursByClass;
 }
 
+/** A reserved block as the calendar sees it: the block plus the agreement facts the rule reads (slice 5). */
+export interface CalendarReservedBlock extends ReservedBlockLike {
+  agreement_id: string;
+  agreement_label: string;
+  agreement_status: BkAgreementStatus;
+  release_deadline_days: number;
+  partner_id: string;
+  partner_name: string;
+}
+
 /** What a request asks the rule about: one window of one pool on one date, with its hours per class. */
 export interface BookingRequest {
   pool_id: string;
@@ -104,6 +121,8 @@ export interface BookingRequest {
   treatment: BkPricingTreatment;
   /** The booking being moved, if any — excluded from every count. */
   excludeBookingId?: string;
+  /** The partner the booking is for; a reserved block of theirs never refuses them (§6.4 step 2). */
+  partnerId?: string | null;
 }
 
 export interface CalendarState {
@@ -115,6 +134,8 @@ export interface CalendarState {
   blackouts: BlackoutLike[];
   holds: HoldLike[];
   bookings: BookingLike[];
+  /** Agreements' reserved blocks (slice 5); absent means none. */
+  reservedBlocks?: CalendarReservedBlock[];
   /** "Now", for expiring tentative holds. */
   nowISO: string;
 }
@@ -339,6 +360,7 @@ export type BookingRefusal =
   | { reason: "no_resource"; message: string }
   | { reason: "blacked_out"; message: string; blackout: BlackoutLike }
   | { reason: "held"; message: string; hold: HoldLike }
+  | { reason: "reserved"; message: string; block: CalendarReservedBlock; until: string }
   | { reason: "window_taken"; message: string; taken: number; concurrentUnits: number }
   | { reason: "day_full"; message: string; classId: string; remaining: number }
   | { reason: "reserve_exhausted"; message: string; classId: string; remaining: number }
@@ -356,11 +378,11 @@ export type BookingCheck =
   | { ok: false; refusal: BookingRefusal; alternatives: OpenAlternative[] };
 
 /**
- * §6.4 for one date, in its order: blackout or hold; the window's concurrent
- * units free (tentative counted as taken); room in each class's day; each
- * class's capacity for the pricing treatment. Step 2 (a reserved block for
- * another partner) arrives with agreements in slice 5. The month-level
- * warning is TypeScript only.
+ * §6.4 for one date, in its order: blackout or hold; a reserved block another
+ * partner's agreement still holds; the window's concurrent units free
+ * (tentative counted as taken); room in each class's day; each class's
+ * capacity for the pricing treatment. The month-level warning is TypeScript
+ * only.
  */
 export function checkBooking(request: BookingRequest, state: CalendarState): BookingCheck {
   const refusal = findRefusal(request, state);
@@ -400,7 +422,10 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
     };
   }
 
-  // 1 and 3. The window's concurrent units: holds and live bookings on the pool that overlap.
+  // 1, 2 and 3. The window's concurrent units: holds, live bookings, and the
+  // reserved blocks another partner's active agreement still holds on the
+  // pool that overlap. A block whose own booking is live is counted once, as
+  // that booking.
   const holds = state.holds.filter(
     (h) => h.pool_id === request.pool_id && h.date === request.date && windowsOverlap(h, request),
   );
@@ -412,8 +437,23 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
       bookingIsLive(b, state.nowISO) &&
       windowsOverlap(b, request),
   );
-  const taken = holds.length + bookings.length;
+  const reserving = reservingBlocks(request, state);
+  const taken =
+    holds.length +
+    bookings.length +
+    reserving.filter((rb) => !rb.booking_id || !bookings.some((b) => b.id === rb.booking_id))
+      .length;
   if (taken >= resource.concurrent_units) {
+    const block = reserving[0];
+    if (block) {
+      const until = releaseDeadlineISO(block);
+      return {
+        reason: "reserved",
+        message: `Reserved for ${block.partner_name} under "${block.agreement_label}" until ${until} (its release deadline).`,
+        block,
+        until,
+      };
+    }
     const hold = holds[0];
     if (hold && resource.concurrent_units === 1) {
       return {
@@ -481,6 +521,41 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
     }
   }
   return null;
+}
+
+function releaseDeadlineISO(block: CalendarReservedBlock): string {
+  return shiftDateISO(block.date, -Math.max(0, Number(block.release_deadline_days)));
+}
+
+/**
+ * §6.4 step 2: the reserved blocks that still hold an overlapping window on
+ * this pool for a partner other than the request's — an active agreement's
+ * blocks, until their release deadline (or kept past it), never one the
+ * request's own partner holds or one already attached to this very booking.
+ */
+export function reservingBlocks(
+  request: Pick<
+    BookingRequest,
+    "pool_id" | "date" | "window_start" | "window_end" | "partnerId" | "excludeBookingId"
+  >,
+  state: Pick<CalendarState, "reservedBlocks" | "nowISO">,
+): CalendarReservedBlock[] {
+  const blocks = state.reservedBlocks ?? [];
+  if (blocks.length === 0) return [];
+  const today = stationTodayISO(state.nowISO);
+  return blocks.filter(
+    (rb) =>
+      rb.pool_id === request.pool_id &&
+      rb.date === request.date &&
+      windowsOverlap(rb, request) &&
+      (request.partnerId == null || rb.partner_id !== request.partnerId) &&
+      (!request.excludeBookingId || rb.booking_id !== request.excludeBookingId) &&
+      blockReservesWindow(
+        rb,
+        { status: rb.agreement_status, release_deadline_days: rb.release_deadline_days },
+        today,
+      ),
+  );
 }
 
 export function blackoutOn(

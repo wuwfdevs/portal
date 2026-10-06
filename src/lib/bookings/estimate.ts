@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { agreementReserveCovers } from "./agreements";
 import { parseAirtimeRead } from "./airtime";
 import {
   derivePricing,
@@ -9,9 +10,11 @@ import {
   type DerivedPricing,
 } from "./pricing";
 import {
+  agreementConsumptionFor,
   getActivePlan,
   getPlanCalendar,
   getPricingContext,
+  type BkAgreementRow,
   type BkEstimateLineRow,
   type BkPartnerRow,
   type BkProjectRow,
@@ -61,6 +64,11 @@ export function calendarStateFrom(calendar: PlanCalendar, nowISO: string): Calen
       window_start: toHHMM(b.window_start),
       window_end: toHHMM(b.window_end),
     })),
+    reservedBlocks: calendar.reservedBlocks.map((rb) => ({
+      ...rb,
+      window_start: toHHMM(rb.window_start),
+      window_end: toHHMM(rb.window_end),
+    })),
     nowISO,
   };
 }
@@ -90,17 +98,35 @@ export async function reserveCoversEstimate(
   return reserveCoversDraw(draw, context.classes, capacitySummary(state));
 }
 
+/**
+ * §2.2's agreement row (slice 5): a project under an active agreement is
+ * priced against the agreement's allocated reserve share — what it has left
+ * after its other projects' live strategic holds — and incremental beyond it.
+ * The term's own reserve is still checked when the holds are placed.
+ */
 export async function derivedPricingFor(
   project: BkProjectRow,
   partner: Pick<BkPartnerRow, "kind">,
   lines: readonly BkEstimateLineRow[],
   context: PricingContext,
+  agreement: BkAgreementRow | null,
 ): Promise<DerivedPricing> {
+  const underAgreement = agreement !== null && agreement.status === "active";
+  let reserveCovers: boolean | null;
+  if (underAgreement) {
+    const consumption = await agreementConsumptionFor(agreement, undefined, project.id);
+    const draw = estimateDraw(
+      lines.map((line) => ({ ...line, labor_hours: line.labor_hours ?? {} })),
+    );
+    reserveCovers = agreementReserveCovers(draw, context.classes, consumption);
+  } else {
+    reserveCovers = await reserveCoversEstimate(project, lines, context);
+  }
   return derivePricing({
     partnerKind: partner.kind,
-    underAgreement: false,
+    underAgreement,
     qualifiesStrategic: project.qualifies_strategic,
-    reserveCovers: await reserveCoversEstimate(project, lines, context),
+    reserveCovers,
   });
 }
 
@@ -121,9 +147,12 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     .maybeSingle();
   if (error || !project)
     return { ok: false, error: error?.message ?? "That request no longer exists." };
-  const [{ data: partner }, { data: lineRows }] = await Promise.all([
+  const [{ data: partner }, { data: lineRows }, { data: agreement }] = await Promise.all([
     supabase.from("bk_partners").select("kind").eq("id", project.partner_id).maybeSingle(),
     supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
+    project.agreement_id
+      ? supabase.from("bk_agreements").select("*").eq("id", project.agreement_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const context = await getPricingContext(project.rate_model_version_id);
   if (!context) {
@@ -143,6 +172,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
       partner ?? { kind: "uwf_unit" },
       lines,
       context,
+      agreement ?? null,
     );
     treatment = derived.treatment;
     reason = derived.reason;

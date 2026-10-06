@@ -2,12 +2,13 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { formatQuantity } from "@/lib/bookings/labels";
 import { ratesHref } from "@/lib/bookings/paths";
 import {
+  listAgreementOptions,
   getVersionDetail,
   listVersions,
   pickVersion,
@@ -26,10 +27,13 @@ function PackageFields({
   defaults,
   classes,
   pools,
+  agreements,
 }: {
   defaults?: PackageWithParts;
   classes: BkLaborClassRow[];
   pools: BkPoolRow[];
+  /** Agreements a bespoke package may be scoped to (slice 5): active and draft ones, by partner. */
+  agreements: AgreementOption[];
 }) {
   const hoursFor = (classId: string) =>
     defaults?.labor.find((row) => row.labor_class_id === classId)?.hours;
@@ -119,12 +123,39 @@ function PackageFields({
           />
         </div>
       </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="pkg-agreement">Scoped to an agreement</Label>
+          <Select
+            id="pkg-agreement"
+            name="agreement_id"
+            defaultValue={defaults?.agreement_id ?? ""}
+          >
+            <option value="">No — on the ordinary rate card</option>
+            {agreements.map((agreement) => (
+              <option key={agreement.id} value={agreement.id}>
+                {agreement.partner_name}: {agreement.label}
+              </option>
+            ))}
+          </Select>
+          <FieldHint>
+            A bespoke package (an episode under a standing agreement) is offered only to requests
+            under that agreement and stays off the public rate card.
+          </FieldHint>
+        </div>
+      </div>
       <div>
         <Label htmlFor="pkg-notes">Notes</Label>
         <Textarea id="pkg-notes" name="notes" rows={2} defaultValue={defaults?.notes ?? ""} />
       </div>
     </>
   );
+}
+
+interface AgreementOption {
+  id: string;
+  label: string;
+  partner_name: string;
 }
 
 export default async function ServicePackagesPage({
@@ -137,7 +168,10 @@ export default async function ServicePackagesPage({
   const versions = await listVersions();
   const version = pickVersion(versions, params.version);
   if (!version) return <NoVersions context={context} section="packages" />;
-  const detail = await getVersionDetail(version);
+  const [detail, agreements] = await Promise.all([
+    getVersionDetail(version),
+    listAgreementOptions(),
+  ]);
   const computed = cardForVersion(detail);
   const costs = new Map<string, PackageCosts>(
     computed.ok ? computed.card.packages.map((line) => [line.key, line]) : [],
@@ -178,7 +212,7 @@ export default async function ServicePackagesPage({
         >
           <input type="hidden" name="version_id" value={version.id} />
           <div className="flex flex-col gap-4">
-            <PackageFields classes={classes} pools={pools} />
+            <PackageFields classes={classes} pools={pools} agreements={agreements} />
           </div>
         </InlineCreateCard>
       )}
@@ -239,7 +273,12 @@ export default async function ServicePackagesPage({
                         <form action={updatePackage} className="flex flex-col gap-4">
                           <input type="hidden" name="id" value={pkg.id} />
                           <input type="hidden" name="version_id" value={version.id} />
-                          <PackageFields defaults={pkg} classes={classes} pools={pools} />
+                          <PackageFields
+                            defaults={pkg}
+                            classes={classes}
+                            pools={pools}
+                            agreements={agreements}
+                          />
                           <div className="flex items-center gap-4">
                             <Button type="submit">Save</Button>
                             <Link
@@ -264,6 +303,13 @@ export default async function ServicePackagesPage({
                         {!pkg.active && (
                           <Badge variant="muted" className="ml-2">
                             Retired
+                          </Badge>
+                        )}
+                        {pkg.agreement_id && (
+                          <Badge variant="accent" className="ml-2">
+                            {agreements.find((a) => a.id === pkg.agreement_id)?.partner_name ??
+                              "Agreement"}{" "}
+                            only
                           </Badge>
                         )}
                       </div>
