@@ -1241,7 +1241,7 @@ begin
     (v_version, 'sourced', 'pool_line', null, null, 'Adobe Creative Cloud', 1740, 'per year', 'Current station budget', v_src, 'The production share must be validated.', 'finance', 'pending', 'Validate the production share', 50),
     (v_version, 'sourced', 'pool_line', v_webcast, null, 'Webcasting operating pool', 6500, 'per year', 'FY26–27 budget: $1,000 livestream + $5,500 misc. webcasting/UBIT', v_src, null, 'finance', 'validated', 'Current budget', 60),
     (v_version, 'sourced', 'model_input', null, 'assessment_share', 'New Ventures administrative assessment', 0.0671, 'of revenue', 'FY26–27 auxiliary budget states a 6.71% admin fee', 'https://docs.google.com/spreadsheets/d/1-cNoWd4p9MhDnFEGASl5afnN1TiRVfpz/edit', null, 'finance', 'validated', 'Current budget', 70),
-    (v_version, 'working', 'model_input', null, 'external_margin_share', 'External target contribution margin', 0.25, 'of price', 'Management assumption', 'Used to calculate the cost-based external floor.', 'executive', 'pending', 'Set by WUWF', 10);
+    (v_version, 'working', 'model_input', null, 'external_margin_share', 'External target contribution margin', 0.25, 'of price', 'Management assumption', null, 'Used to calculate the cost-based external floor.', 'executive', 'pending', 'Set by WUWF', 10);
 
   insert into public.bk_labor_rates
     (version_id, labor_class_id, annual_salary, hourly_wage, load_share, paid_hours, external_rate, basis, validation_state, validation_needed)
