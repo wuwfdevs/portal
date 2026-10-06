@@ -1313,3 +1313,126 @@ and the qualifying-but-priced-university-rate count.
 **Deferred.** The contribution of a *settled* project at actual cost (needs hours and settlement,
 slice 6 as reshaped in §20.9). The report's assumed-versus-observed view (§20.8). An overhead line
 in the report (§20.2 records overhead as a decision, not a figure).
+
+## 20. Slice C — model corrections
+
+Rates tab and `lib/bookings/rates.ts`; production screens are unaffected except where a package
+line can now be adjusted (§20.6) and where the badges gain their last three facts. Every new
+cost input **defaults to zero or blank**, so the v0.1 workbook's rates come out unchanged —
+`rates.test.ts` still reproduces them — and none of the new fields adds a submission gate.
+
+### 20.1 Practical capacity
+
+"Available units" on a resource pool is redefined everywhere as **practical capacity**: the
+realistic units the resource can deliver in a year after normal downtime and constraints. It is
+**not** expected bookings, and **never** a utilization figure — a unit cost divides by it so that
+low demand can never raise a price, and unused capacity is a finding for the term report, not a
+price input. Every instruction that said "replace the units with a booking analysis" now says
+"replace the units with the practical capacity". The webcast pool's **20 events is a volume
+forecast, not a capacity**: the number is kept (nothing is invented), but the row is flagged
+(`bk_resource_pools.units_basis = 'volume_forecast'`, "Volume forecast — replace with the
+practical capacity") on the Pools tab and the rate card, as a review item that gates nothing.
+
+### 20.2 Overhead
+
+A budget line (`bk_assumptions`, kind `pool_line`) can be marked **general overhead**
+(`overhead`). An overhead line is kept **out of every pool's per-unit allocation** — it is not in
+the shared production pool and not in an own-lines pool — and the Rates tab shows overhead
+separately, with a total. Whether and how overhead is recovered is **a recorded decision, with no
+default math**: `bk_rate_model_versions.overhead_decision` holds Finance's words and nothing
+reads it. This gives the webcast pool's $6,500 operating line somewhere to go once Finance says
+what it buys; it is **not** moved by this pass (seeded figures are not changed), so the webcast
+rate is unchanged until Finance marks the line.
+
+### 20.3 Capital consumption and maintenance, from the asset register
+
+Assets gain `replacement_cost` and `annual_maintenance`. For each **active** asset a pool's annual
+cost adds `replacement_cost ÷ realistic useful life (useful_life_years) + annual_maintenance`;
+a blank field adds zero, and an asset with a replacement cost but no life adds nothing and is
+listed as needing one. This is **economic** capital consumption — the amount to set aside each
+year to replace the asset over its realistic life — not its accounting depreciation.
+(`lib/bookings/capital.ts`, pure and tested.)
+
+Assets are unversioned and a version freezes on adoption, so the amounts are **snapshotted onto
+the version's pool row** (`bk_resource_pools.capital_annual`, `maintenance_annual`,
+`asset_basis`) by an explicit "Refresh from the asset register" on a draft version; a copied
+version carries them; the Pools tab says when the register has changed since. The pool's cost
+build-up lists **capital set-aside** and **maintenance** as their own lines beside the budget
+lines. No depreciation switch for donated or grant-funded assets is built (see the standing
+rules): every asset is costed the same way.
+
+### 20.4 Double-count check (advisory)
+
+A budget line may say which pool's replacement it already funds (`funds_pool_id`) and, optionally,
+which assets (`bk_assumption_assets`). `lib/bookings/capital.ts`'s `overlapWarnings()` raises a
+**review warning** — never a block — when a pool's capital set-aside from the register and a
+budget line that funds that pool's replacement both exist ("both recover replacement for the studio
+pool — review for a double count"). **A cost is excluded only where the linkage is explicit**: an
+asset a budget line names is left out of the capital set-aside and listed as covered by that line;
+a line that names only the pool excludes nothing.
+
+### 20.5 Two-way market check
+
+A package gains an optional **market ceiling** (`market_ceiling`) beside the floor. The floor still
+feeds the external price. A modeled rate (strategic, incremental or external) **above the ceiling**
+raises a review flag on the rate card and the "Above market" badge on an estimate charging it; it
+never caps the price. (`rates.ts`'s `rateCeilingFlags`.) The estimate's benchmark snapshot (§19.1)
+carries the ceiling.
+
+### 20.6 Packages are default recipes
+
+A package line's hours and units are a **default recipe**. On a project, staff can adjust a line's
+hours per class, units per pool or crew, with a **required reason** (Show calculation → the line's
+"Adjust scope"). The adjustment is a **project-level override**: it never changes the package or
+the rate model version. The line keeps `recipe_labor_hours`/`recipe_resource_units` (the standard
+recipe it started from), shows the difference, and the project carries the **Adjusted scope**
+badge. (A package scoped to an agreement carries **Custom package**.) An adjusted line is priced
+from the same recipe math the card uses (`rates.ts`'s `priceRecipe`) over the version's unit costs,
+snapshotted in `bk_rate_card_unit_costs`; the **market floor and ceiling are scaled by the ratio of the adjusted
+full cost to the standard full cost** so a lighter scope is not held to a heavier scope's floor.
+That scaling is a judgment this pass makes and records here for Finance to confirm or replace.
+Its economics (§19.1) are computed from the adjusted recipe's costs. The booking plan reads the
+adjusted hours and units, so the dates follow the scope.
+
+### 20.7 Review status on package hours and market floors
+
+A package's hours and its market floor each carry a validation status (`hours_validation_state`,
+`floor_validation_state`: pending / validated / accepted as is), shown on the Rates tab with the
+same controls as other assumptions. **They add no submission gate**: the adoption gate
+(`adoptionGate`, `bk_guard_version_transition()`) is unchanged and does not read them.
+
+### 20.8 Assumed versus observed (term report)
+
+A read-only section on the term report, feeding nothing:
+
+- **Package hours versus confirmed hours** — per package, the hours the recipe assumed against the
+  hours confirmed on delivered projects.
+- **Resource units planned versus used** — per pool, what delivered projects planned against what
+  was confirmed used.
+- **Refused or displaced bookings by resource** — the plan's and the rule's refusals, and live dates
+  later released, per pool (`bk_booking_events`, written where they happen).
+
+This needs the observed side to exist, so a minimal **confirm hours and units** step (slice 6's
+§3F, reshaped in §20.9) is built here: a delivered project's page offers "Confirm as planned" (one
+click) or the figures to correct, stored in `bk_hours_used`.
+
+### 20.9 Slices 5–6, reshaped
+
+Slice 5 (partners and agreements) is built; this pass touches it twice. An agreement's priced
+work now stores contribution like any estimate, and the agreement page's consumption reads the
+contribution it has drawn (§19). Slice 6 (hours, settlement, the term report) is **reshaped**:
+
+- the **term report** is built (§19.3, §20.8) and no longer waits for settlement;
+- **hours confirmation** is built in its minimal form (§20.8): prefilled planned figures, one
+  click, correctable; it feeds the report and the next version, never the estimate's price;
+- **settlement** (the recharge or invoice record, Finance posting, the journal entry number) is
+  **still to build**, and now settles **at actual cost**: the settlement drafts itself from the
+  approved estimate's price plus direct expenses at actual cost, and its contribution is the full
+  cost *as confirmed* against what was recovered. That is the only part of slice 6 left, and it
+  stays unauthorized until its own instruction.
+
+### 20.10 Migration
+
+`20261007140000_bookings_model_corrections.sql`: the columns above, `bk_assumption_assets`,
+`bk_rate_card_unit_costs`, `bk_hours_used`, `bk_booking_events`, the v0.1 rows' validation wording
+and the webcast flag, with RLS. Additive.
