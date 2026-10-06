@@ -209,6 +209,7 @@ describe("actionItems", () => {
     project({ id: "f", title: "F", stage: "request", editorial_review: "needed" }),
     project({ id: "g", title: "G", stage: "request", disposition: "deferred" }),
     project({ id: "h", title: "H", stage: "settled" }),
+    project({ id: "i", title: "I", stage: "delivered" }),
   ];
 
   it("lists what each open project waits on", () => {
@@ -222,11 +223,12 @@ describe("actionItems", () => {
       "d:confirm_delivery",
       "f:editorial_review",
       "f:estimate_needed",
+      "i:settle",
     ]);
   });
   it("filters by the viewer's roles, keeping everyone's items", () => {
     const finance = actionItems(projects, ["finance"], NOW, TODAY);
-    expect(finance.map((item) => item.kind)).toEqual(["editorial_review"]);
+    expect(finance.map((item) => item.kind)).toEqual(["editorial_review", "settle"]);
     const production = actionItems(projects, ["production"], NOW, TODAY);
     expect(production).toHaveLength(6);
   });

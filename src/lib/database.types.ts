@@ -589,6 +589,8 @@ export type BkPricingTreatment = "strategic" | "incremental" | "external";
 export type BkPartnerKind = "uwf_unit" | "external";
 export type BkRequested = "production" | "airtime" | "both";
 export type BkProjectStage = "request" | "estimate" | "booked" | "delivered" | "settled";
+export type BkSettlementKind = "recharge" | "invoice";
+export type BkSettlementStatus = "drafted" | "posted";
 export type BkProjectDisposition = "deferred" | "declined" | "withdrawn";
 export type BkProjectSource = "public" | "staff";
 export type BkEditorialReview = "not_needed" | "needed" | "cleared";
@@ -3546,6 +3548,44 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["bk_hours_used"]["Row"]>;
         Relationships: [];
       };
+      /** Finance's record of a delivered project at actual cost; frozen once posted. bk_guard_settlement() holds the transitions. */
+      bk_settlements: {
+        Row: {
+          id: string;
+          project_id: string;
+          kind: BkSettlementKind;
+          status: BkSettlementStatus;
+          amount: number;
+          estimated_recovery: number;
+          estimated_full_cost: number | null;
+          estimated_contribution: number | null;
+          actual_labor_cost: number;
+          actual_resource_cost: number;
+          actual_direct_cost: number;
+          actual_full_cost: number;
+          wuwf_contribution: number;
+          assessment_amount: number;
+          external_margin: number;
+          expense_actuals: Record<string, number>;
+          rate_model_version_id: string | null;
+          funding_index: string | null;
+          journal_entry_number: string | null;
+          notes: string | null;
+          drafted_by: string | null;
+          drafted_at: string;
+          posted_by: string | null;
+          posted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_settlements"]["Row"]> & {
+          project_id: string;
+          kind: BkSettlementKind;
+          amount: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_settlements"]["Row"]>;
+        Relationships: [];
+      };
       bk_booking_events: {
         Row: {
           id: string;
@@ -3764,6 +3804,11 @@ export interface Database {
       bk_approve_estimate: {
         Args: { p_project_id: string; p_legacy_rate_delta?: number | null };
         Returns: { ok: true; confirmed: number } | { error: string };
+      };
+      /** Security invoker (slice 6). Posts a drafted settlement and settles its project together; Finance only. */
+      bk_post_settlement: {
+        Args: { p_settlement_id: string; p_journal_entry_number: string; p_funding_index?: string | null };
+        Returns: { ok: true } | { error: string };
       };
       /** Security invoker (slice 3). Releases the project's holds and records the disposition. */
       bk_set_project_disposition: {
@@ -4353,6 +4398,8 @@ export interface Database {
       bk_partner_kind: BkPartnerKind;
       bk_requested: BkRequested;
       bk_project_stage: BkProjectStage;
+      bk_settlement_kind: BkSettlementKind;
+      bk_settlement_status: BkSettlementStatus;
       bk_project_disposition: BkProjectDisposition;
       bk_project_source: BkProjectSource;
       bk_editorial_review: BkEditorialReview;

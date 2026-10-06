@@ -12,12 +12,7 @@ import { calendarStateFrom } from "@/lib/bookings/estimate";
 import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bookings/badges";
 import { buildBookingPlan, type PlanLine } from "@/lib/bookings/booking-plan";
 import { PRODUCTION_RATE_HINT, PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
-import {
-  buildSummary,
-  capacityStatusFor,
-  hourBuckets,
-  serviceName,
-} from "@/lib/bookings/summary";
+import { buildSummary, capacityStatusFor, hourBuckets, serviceName } from "@/lib/bookings/summary";
 import { formatWindow } from "@/lib/bookings/scheduling";
 import { REQUESTS_PATH, agreementHref, requestEditHref } from "@/lib/bookings/paths";
 import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
@@ -44,6 +39,7 @@ import {
   getPlanCalendar,
   getPricingContext,
   getProjectDetail,
+  getSettlement,
   listAgreementChoices,
   listAirtimeCommitments,
   listAttachableBlocks,
@@ -53,6 +49,8 @@ import {
   readAirtimeHonored,
 } from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
+import { draftSettlement, settlementState } from "@/lib/bookings/settlements";
+import { unitCostsFromRows } from "@/lib/bookings/pricing";
 import type { BkEstimateLineKind } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
 import {
@@ -70,6 +68,7 @@ import {
 } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { HoursUsed } from "./hours-used";
+import { SettlementSection } from "./settlement-section";
 import { AirtimeSection } from "./airtime-section";
 import { DatesSection, checkPlannedDates } from "./dates-section";
 import { CalculationPanel } from "./calculation-panel";
@@ -91,6 +90,8 @@ const SAVED_LABEL: Record<string, string> = {
   sent: "Estimate sent",
   booked: "Booked",
   delivered: "Delivered",
+  settlement: "Settlement saved",
+  settled: "Settled",
 };
 
 /**
@@ -118,19 +119,29 @@ export default async function ProjectPage({
   const nowISO = new Date().toISOString();
   const canEdit = context.isProduction || context.isDirector || context.isExecutive;
 
-  const [plan, pricing, members, allCommitments, agreementChoices, attachableBlocks, pools, hoursUsed] =
-    await Promise.all([
-      getActivePlan(),
-      getPricingContext(project.rate_model_version_id),
-      listBookingsMembers(context.tool.id),
-      listAirtimeCommitments(),
-      listAgreementChoices(partner.id, project.agreement_id),
-      detail.agreement && detail.agreement.status === "active" && project.disposition === null
-        ? listAttachableBlocks(detail.agreement)
-        : Promise.resolve([]),
-      listPools(),
-      listHoursUsed(id),
-    ]);
+  const [
+    plan,
+    pricing,
+    members,
+    allCommitments,
+    agreementChoices,
+    attachableBlocks,
+    pools,
+    hoursUsed,
+    settlement,
+  ] = await Promise.all([
+    getActivePlan(),
+    getPricingContext(project.rate_model_version_id),
+    listBookingsMembers(context.tool.id),
+    listAirtimeCommitments(),
+    listAgreementChoices(partner.id, project.agreement_id),
+    detail.agreement && detail.agreement.status === "active" && project.disposition === null
+      ? listAttachableBlocks(detail.agreement)
+      : Promise.resolve([]),
+    listPools(),
+    listHoursUsed(id),
+    getSettlement(id),
+  ]);
   const [calendar, honoredRead] = plan
     ? await Promise.all([getPlanCalendar(plan), readAirtimeHonored(plan.id)])
     : [null, null];
@@ -145,6 +156,45 @@ export default async function ProjectPage({
       )
     : null;
   const honored = parseHonoredRead(honoredRead?.payload ?? null);
+
+  // Settlement at actual cost (§21): the draft the confirmed hours give, recomputed live until it is posted.
+  const settlementLines = detail.lines.map((l) => ({
+    id: l.id,
+    kind: l.kind,
+    package_id: l.package_id,
+    label: l.label,
+    quantity: Number(l.quantity),
+    amount: Number(l.amount),
+    direct_cost: l.direct_cost === null ? null : Number(l.direct_cost),
+    labor_hours: l.labor_hours ?? {},
+    resource_units: l.resource_units ?? {},
+    recipe_labor_hours: l.recipe_labor_hours,
+    recipe_resource_units: l.recipe_resource_units,
+  }));
+  const confirmedFigures = hoursUsed.map((row) => ({
+    kind: row.kind,
+    id: (row.kind === "labor" ? row.labor_class_id : row.pool_id) ?? "",
+    planned: Number(row.planned),
+    used: Number(row.used),
+  }));
+  const settlementStatus = settlementState(settlementLines, confirmedFigures, settlement);
+  const settlementPreview =
+    (project.stage === "delivered" || project.stage === "settled") &&
+    settlement?.status !== "posted" &&
+    settlementStatus !== "awaiting_hours" &&
+    pricing
+      ? draftSettlement({
+          partnerKind: partner.kind,
+          treatment: project.priced_as,
+          lines: settlementLines,
+          confirmed: confirmedFigures,
+          unitCosts: unitCostsFromRows(pricing.unitCosts),
+          assessmentShare: pricing.assessmentShare,
+          expenseActuals: settlement?.expense_actuals ?? {},
+          estimatedFullCost:
+            project.full_economic_cost === null ? null : Number(project.full_economic_cost),
+        })
+      : null;
 
   const estimate = estimateState(project, nowISO);
   const failingDates = checks.filter((c) => c.result && !c.result.ok).length;
@@ -202,7 +252,11 @@ export default async function ProjectPage({
       bookingException: detail.bookings.some((b) => b.exception_reason),
       failingPlannedDates: failingDates,
       scopeAdjusted: detail.lines.some((l) =>
-        isAdjusted({ ...l, labor_hours: l.labor_hours ?? {}, resource_units: l.resource_units ?? {} }),
+        isAdjusted({
+          ...l,
+          labor_hours: l.labor_hours ?? {},
+          resource_units: l.resource_units ?? {},
+        }),
       ),
       customPackage: packageLines.some(
         (l) => pricing?.packages.find((p) => p.id === l.package_id)?.agreement_id != null,
@@ -241,8 +295,7 @@ export default async function ProjectPage({
       failingDates,
       warnings: warnings.length,
       estimate,
-      heldUntil:
-        estimate.kind === "sent" ? formatDateShort(estimate.expiresAt.slice(0, 10)) : null,
+      heldUntil: estimate.kind === "sent" ? formatDateShort(estimate.expiresAt.slice(0, 10)) : null,
     }),
     contribution: project.wuwf_contribution === null ? null : Number(project.wuwf_contribution),
     estimate,
@@ -338,7 +391,12 @@ export default async function ProjectPage({
                     time.
                   </span>
                   <span className="flex gap-2">
-                    <Button type="submit" name="qualifies_strategic" value="yes" variant="secondary">
+                    <Button
+                      type="submit"
+                      name="qualifies_strategic"
+                      value="yes"
+                      variant="secondary"
+                    >
                       Yes
                     </Button>
                     <Button type="submit" name="qualifies_strategic" value="no" variant="secondary">
@@ -462,6 +520,26 @@ export default async function ProjectPage({
             />
           )}
 
+          {(project.stage === "delivered" || project.stage === "settled" || settlement) &&
+            project.disposition === null && (
+              <SettlementSection
+                projectId={project.id}
+                state={settlementStatus}
+                settlement={settlement}
+                preview={settlementPreview}
+                fundingIndexDefault={project.funding_index ?? partner.default_funding_index}
+                expenseLines={settlementLines
+                  .filter((l) => l.kind === "expense")
+                  .map((l) => ({
+                    id: l.id,
+                    label: l.label,
+                    estimatedCost: Number(l.direct_cost ?? 0) * l.quantity,
+                    actualCost: settlement?.expense_actuals?.[l.id] ?? null,
+                  }))}
+                isFinance={context.isFinance}
+              />
+            )}
+
           {project.description && (
             <section className="rounded border border-line bg-panel-50 p-4">
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
@@ -525,8 +603,8 @@ export default async function ProjectPage({
               )}
               {project.stage === "delivered" && project.delivered_at && (
                 <p>
-                  Delivered on {formatDateShort(project.delivered_at.slice(0, 10))}. Settlement
-                  arrives in a later slice.
+                  Delivered on {formatDateShort(project.delivered_at.slice(0, 10))}. Confirm the
+                  hours used, then Finance settles it at actual cost.
                 </p>
               )}
               {actions.length === 0 &&

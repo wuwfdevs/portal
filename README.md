@@ -2,8 +2,8 @@
 
 Internal tools portal for WUWF Public Media — shared authentication, navigation, user
 approval/invitation, and access control for a small set of purpose-built internal tools
-(Editorial Planning, Sourcework, Remote Interview, Audience Listening, Roadmap, and
-Academic Partnerships).
+(Editorial Planning, Sourcework, Remote Interview, Audience Listening, Roadmap, Academic
+Partnerships, On Air, Traffic, Editorial Inquiry, Bookings, and Resources).
 
 This repository contains the **portal foundation** (application shell, auth, the tool
 registry, and admin screens) plus the tools built on it:
@@ -28,6 +28,24 @@ registry, and admin screens) plus the tools built on it:
   tool with a public, account-less write surface — a narrower one than Audience
   Listening's, with no session at all, not even an anonymous one; that document's §3
   explains why.
+- **On Air** (registry key `log`) — clocks, programs and schedules, the content library,
+  NPR and weather sources, daily rundowns with a live host screen that survives a
+  connectivity drop, and the program-log and DAD library imports
+  (`docs/log-design.md`, `docs/broadcast-operations-strategy.md`).
+- **Traffic** (registry key `underwriting`) — underwriters, contracts and schedule lines,
+  copy, automatic and manual credit placement into On Air rundowns, the exception queue,
+  makegoods, and signed-PDF affidavits (`docs/underwriting-design.md`,
+  `docs/underwriting-traffic-redesign.md`).
+- **Editorial Inquiry** — a question-tree canvas that turns an Editorial Planning coverage
+  pillar into reportable story questions with an AI model
+  (`docs/editorial-inquiry-design.md`).
+- **Bookings** — university production work: a versioned rate model, the term plan and
+  calendar with a capacity guardrail, requests priced and checked in one pass, a public
+  request form (`/book`, also embeddable in Grove), partners and agreements, confirmed
+  hours, the term report, and Finance's settlement of delivered work at actual cost
+  (`docs/bookings-design.md`). Airtime is read from Traffic and On Air, never placed.
+- **Resources** — station procedures, tool guides and release notes, with an in-tool Help
+  panel and an assistant search capability (`docs/resources-design.md`).
 
 It is not, and is not meant to become, a general-purpose newsroom platform — see
 `CLAUDE.md` for the scope and architecture rules this project follows.
@@ -74,7 +92,7 @@ supabase db reset
 | `npm run test:watch` | Vitest in watch mode                                                          |
 | `npm run format`     | Prettier, write mode                                                          |
 | `npm run db:types`   | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
-| `npm run db:check`   | Verify every migration is recorded as applied to both Supabase projects      |
+| `npm run db:check`   | Verify every migration is recorded as applied to both Supabase projects       |
 
 ## Database workflow
 

@@ -2,6 +2,7 @@ import type { LineEconomics } from "./economics";
 import type { BookingEventLike, ObservedProject } from "./observed";
 import { isAdjusted } from "./pricing";
 import { inTerm, type ReportProject } from "./report";
+import type { SettledProject } from "./settlements";
 import type { ProjectDateFacts } from "./badges";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
@@ -360,6 +361,7 @@ export type BkEstimateLineRow = Tables["bk_estimate_lines"]["Row"];
 export type BkAirtimeCommitmentRow = Tables["bk_airtime_commitments"]["Row"];
 export type BkProjectEventRow = Tables["bk_project_events"]["Row"];
 export type BkSettingsRow = Tables["bk_settings"]["Row"];
+export type BkSettlementRow = Tables["bk_settlements"]["Row"];
 
 /** Every partner, by name. */
 export async function listPartners(): Promise<BkPartnerRow[]> {
@@ -1086,7 +1088,6 @@ export async function listAgreementOptions(): Promise<
 
 // Badge facts for a page of projects (docs/bookings-design.md §18.7) ---------------------------------
 
-
 /** What the Requests list needs beyond the project rows to decide each row's badges. */
 export async function listProjectDateFacts(
   projectIds: readonly string[],
@@ -1109,7 +1110,9 @@ export async function listProjectDateFacts(
   ]);
   const lineRows = unwrapRead(lines, "estimate lines") ?? [];
   const bookingRows = unwrapRead(bookings, "dates") ?? [];
-  const packageIds = [...new Set(lineRows.map((row) => row.package_id).filter((id): id is string => !!id))];
+  const packageIds = [
+    ...new Set(lineRows.map((row) => row.package_id).filter((id): id is string => !!id)),
+  ];
   const scoped = new Set<string>();
   if (packageIds.length > 0) {
     const packages = await supabase
@@ -1131,7 +1134,13 @@ export async function listProjectDateFacts(
   for (const row of lineRows) {
     const entry = facts.get(row.project_id)!;
     entry.hasPackageLine = true;
-    if (isAdjusted({ ...row, labor_hours: row.labor_hours ?? {}, resource_units: row.resource_units ?? {} })) {
+    if (
+      isAdjusted({
+        ...row,
+        labor_hours: row.labor_hours ?? {},
+        resource_units: row.resource_units ?? {},
+      })
+    ) {
       entry.scopeAdjusted = true;
     }
     if (row.package_id && scoped.has(row.package_id)) entry.customPackage = true;
@@ -1159,9 +1168,7 @@ export async function listReportProjects(term: {
     .select("*")
     .not("full_economic_cost", "is", null)
     .order("created_at", { ascending: false });
-  const rows = (unwrapRead(result, "priced requests") ?? []).filter((row) =>
-    inTerm(row, term),
-  );
+  const rows = (unwrapRead(result, "priced requests") ?? []).filter((row) => inTerm(row, term));
   const partners = await partnersById(rows.map((row) => row.partner_id));
   return rows.map((row) => ({
     id: row.id,
@@ -1263,4 +1270,66 @@ export async function listHoursUsed(projectId: string) {
   const supabase = await createClient();
   const result = await supabase.from("bk_hours_used").select("*").eq("project_id", projectId);
   return unwrapRead(result, "confirmed hours") ?? [];
+}
+
+// Settlement (docs/bookings-design.md §21) -------------------------------------------------------------------
+
+/** A project's settlement, drafted or posted; null until one is drafted. */
+export async function getSettlement(projectId: string): Promise<BkSettlementRow | null> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_settlements")
+    .select("*")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  return unwrapRead(result, "settlement");
+}
+
+/** The term's posted settlements, for the report's actual-versus-estimated section. */
+export async function listSettledForReport(term: {
+  starts_on: string;
+  ends_on: string;
+}): Promise<SettledProject[]> {
+  const supabase = await createClient();
+  const settlements = unwrapRead(
+    await supabase.from("bk_settlements").select("*").eq("status", "posted"),
+    "settlements",
+  );
+  if (!settlements || settlements.length === 0) return [];
+  const projects = unwrapRead(
+    await supabase
+      .from("bk_projects")
+      .select("id, title, partner_id, event_starts_on, created_at")
+      .in(
+        "id",
+        settlements.map((s) => s.project_id),
+      ),
+    "settled requests",
+  );
+  const inTermProjects = (projects ?? []).filter((p) => inTerm(p, term));
+  const partners = await partnersById(inTermProjects.map((p) => p.partner_id));
+  return inTermProjects.flatMap((project) => {
+    const settlement = settlements.find((s) => s.project_id === project.id);
+    if (!settlement) return [];
+    return [
+      {
+        id: project.id,
+        title: project.title,
+        partner_name: partners.get(project.partner_id)?.name ?? "Partner",
+        kind: settlement.kind,
+        amount: Number(settlement.amount),
+        estimated_recovery: Number(settlement.estimated_recovery),
+        estimated_full_cost:
+          settlement.estimated_full_cost === null ? null : Number(settlement.estimated_full_cost),
+        estimated_contribution:
+          settlement.estimated_contribution === null
+            ? null
+            : Number(settlement.estimated_contribution),
+        actual_full_cost: Number(settlement.actual_full_cost),
+        wuwf_contribution: Number(settlement.wuwf_contribution),
+        assessment_amount: Number(settlement.assessment_amount),
+        external_margin: Number(settlement.external_margin),
+      },
+    ];
+  });
 }

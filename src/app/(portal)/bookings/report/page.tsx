@@ -12,8 +12,10 @@ import {
   listObservedInputs,
   listPools,
   listReportProjects,
+  listSettledForReport,
 } from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
+import { settledSummary } from "@/lib/bookings/settlements";
 import { termReport, type ReportScope, type Totals } from "@/lib/bookings/report";
 import type { BkPricingTreatment } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
@@ -95,12 +97,14 @@ export default async function TermReportPage({
       </div>
     );
   }
-  const [projects, observedInputs, classes, pools] = await Promise.all([
+  const [projects, observedInputs, classes, pools, settled] = await Promise.all([
     listReportProjects(plan),
     listObservedInputs(plan),
     listLaborClasses(),
     listPools(),
+    listSettledForReport(plan),
   ]);
+  const settledTotals = settledSummary(settled);
   const report = termReport(projects, scope);
   const observed = assumedVersusObserved(observedInputs.projects, observedInputs.events);
   const className = (id: string) => classes.find((c) => c.id === id)?.name ?? "Labor";
@@ -161,6 +165,45 @@ export default async function TermReportPage({
           No priced requests in this term yet. A request is priced when it is entered with a
           service.
         </Alert>
+      )}
+
+      {settledTotals.count > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+            Settled at actual cost
+          </h3>
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Tile
+              label="Charged"
+              value={money(settledTotals.amount)}
+              hint={`Estimated ${money(settledTotals.estimatedRecovery)} across ${settledTotals.count} settled request${settledTotals.count === 1 ? "" : "s"}`}
+            />
+            <Tile
+              label="Actual cost to WUWF"
+              value={money(settledTotals.actualFullCost)}
+              hint="Confirmed hours and equipment at the rate card's costs, plus actual expenses"
+            />
+            <Tile
+              label="Estimated cost, same requests"
+              value={money(settledTotals.estimatedFullCost)}
+              hint={
+                settledTotals.comparableCount === settledTotals.count
+                  ? `Actual ${money(settledTotals.comparableActualCost)}`
+                  : `${settledTotals.comparableCount} of ${settledTotals.count} had a modeled cost; actual ${money(settledTotals.comparableActualCost)}`
+              }
+            />
+            <Tile
+              label="WUWF contributed"
+              value={money(settledTotals.contribution)}
+              hint={`Estimated ${money(settledTotals.estimatedContribution)}`}
+            />
+          </section>
+          <p className="text-xs text-ink-500">
+            Settlement posts what each request actually cost: the hours production confirmed, costed
+            at the rate card it was priced on. Compare with the estimated cost to see whether the
+            recipes hold. It never changes a price.
+          </p>
+        </section>
       )}
 
       <section className="flex flex-col gap-2">
@@ -242,11 +285,11 @@ export default async function TermReportPage({
           </h3>
           <p className="mt-1 max-w-3xl text-xs text-ink-500">
             Read-only, and it feeds nothing: what the packages assumed against what delivered
-            projects confirmed they used, and the bookings WUWF refused or displaced. Utilization
-            is never a pricing input — unit costs divide by practical capacity — so this informs
-            the term report and a deliberate future capacity revision, and nothing else.{" "}
-            {observed.confirmedProjects} project{observed.confirmedProjects === 1 ? "" : "s"} confirmed
-            so far.
+            projects confirmed they used, and the bookings WUWF refused or displaced. Utilization is
+            never a pricing input — unit costs divide by practical capacity — so this informs the
+            term report and a deliberate future capacity revision, and nothing else.{" "}
+            {observed.confirmedProjects} project{observed.confirmedProjects === 1 ? "" : "s"}{" "}
+            confirmed so far.
           </p>
         </div>
 
@@ -293,7 +336,10 @@ export default async function TermReportPage({
               <p className="text-xs text-ink-500">
                 By package, from projects that had only that package:{" "}
                 {observed.packages
-                  .map((p) => `${p.label} — ${p.assumed} h assumed, ${p.confirmed} h confirmed (${p.projects})`)
+                  .map(
+                    (p) =>
+                      `${p.label} — ${p.assumed} h assumed, ${p.confirmed} h confirmed (${p.projects})`,
+                  )
                   .join("; ")}
                 .
               </p>
@@ -342,7 +388,9 @@ export default async function TermReportPage({
         </div>
 
         <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-bold text-ink-900">Refused or displaced bookings, by resource</h4>
+          <h4 className="text-sm font-bold text-ink-900">
+            Refused or displaced bookings, by resource
+          </h4>
           <TableFrame>
             <Table stack>
               <thead>

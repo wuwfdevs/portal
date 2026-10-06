@@ -167,7 +167,7 @@ function mayScheduleWith(roles: readonly BookingsRole[]): boolean {
 /**
  * The stage actions this project offers now (§2.3): send the estimate from
  * `request` (or send it again from `estimate`), approve it to `booked`, mark
- * `booked` work delivered. Settling arrives with settlements in slice 6. A
+ * `booked` work delivered. Settling is Finance's, on the settlement panel (§21). A
  * closed project (any disposition) offers none; reopen it first.
  */
 export function availableStageActions(
@@ -312,6 +312,7 @@ export interface ActionItem {
     | "estimate_expiring"
     | "estimate_expired"
     | "confirm_delivery"
+    | "settle"
     | "editorial_review";
   label: string;
 }
@@ -377,6 +378,13 @@ export function actionItems(
         role: "production",
         kind: "confirm_delivery",
         label: "The event has passed — mark it delivered",
+      });
+    } else if (project.stage === "delivered") {
+      items.push({
+        ...base,
+        role: "finance",
+        kind: "settle",
+        label: "Delivered — settle it at actual cost",
       });
     }
   }

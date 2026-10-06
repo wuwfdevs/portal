@@ -1,10 +1,10 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slices 1–5 built — the rate model (slice 1), the term plan and
+Status: **Milestone 1 complete — slice 6 (settlement at actual cost, §21) built 2026-10-07; slices 1–5 built — the rate model (slice 1), the term plan and
 calendar (slice 2, rebuilt the same day as slice 2b, labor classes and pools as data — §14),
 projects (slice 3, 2026-10-06 — §15), the public intake (slice 4, 2026-10-06 — §16), and
-partners and agreements (slice 5, 2026-10-06 — §17); slice 6 designed, not started — see
-§9.** Written 2026-10-05 from two
+partners and agreements (slice 5, 2026-10-06 — §17); the refinement pass (§18–§20) and
+settlement (§21) followed — see §9.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -468,7 +468,7 @@ Supabase projects and recorded in `APPLIED.md` before the next slice:
 3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list. **Built 2026-10-06 (§15), with `bk_partners` brought forward from slice 5 because every project names one.**
 4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page. **Built 2026-10-06 (§16).**
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview. **Built 2026-10-06 (§17).**
-6. **Hours, settlement, the term report** — and Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
+6. **Hours, settlement, the term report** — **built: the report and hours confirmation in the refinement pass (§19.3, §20.8), settlement at actual cost 2026-10-07 (§21).** And Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
 
 Capabilities for the in-portal agent (`lib/bookings/capabilities.ts`)
 follow after milestone 1, as every other tool's did: a read-only capacity
@@ -1041,8 +1041,8 @@ exception conditions. **Target: 60 seconds or less, no advanced-model surface
 opened, and none of the words pool, labor class, treatment, draw, reserve or
 rate model version shown along the way.**
 
-The path is: *New request → pick the partner → tick Basic event webcast → pick
-the date → Create* — one form, one submit, and the project page that follows
+The path is: _New request → pick the partner → tick Basic event webcast → pick
+the date → Create_ — one form, one submit, and the project page that follows
 is already priced, capacity-checked and ready to send.
 
 ### 18.1 One pass: a request that is also an estimate
@@ -1053,7 +1053,7 @@ the **event date**, and creating the request produces the priced estimate in
 the same submit: the project row, one estimate line per package (snapshotting
 the recipe as `addEstimateLine` does), the derived treatment and every rate
 (`repriceProject`), and the booking plan (§18.2). The title is optional when a
-package is chosen — it defaults to "*Package* for *Partner*". Everything else
+package is chosen — it defaults to "_Package_ for _Partner_". Everything else
 (description, contact, location, funding index, editorial review, "asks for",
 deliverables date, an end date) moves under "More details", prefilled from the
 partner where the partner has it. A request for airtime only, or with no
@@ -1067,13 +1067,13 @@ the estimate's package lines plus an event date into the full set of bookings
 and runs the booking rule (§6.4, `checkBooking`) on each:
 
 1. Pools the lines use are collected (units × quantity). A pool whose term
-   resource offers **more than one window** is a *choosing* pool; a pool whose
+   resource offers **more than one window** is a _choosing_ pool; a pool whose
    resource has no windows of its own (webcast operations, an own-lines pool
    whose unit is an event) has **no independent window choice** and attaches to
    the primary booking's window automatically. A pool with exactly one window
    needs no choice either.
 2. The **primary window** is the staff pick ("Time of day", optional, default
-   *first available*) or, when none was given, the first of the anchor pool's
+   _first available_) or, when none was given, the first of the anchor pool's
    windows that passes the whole rule. The anchor is the choosing pool with the
    most units (ties: the pool order).
 3. Every other choosing pool takes its window that overlaps the primary one
@@ -1096,20 +1096,20 @@ event date and re-plans. Planning dates by hand — today's "Dates" card — is
 the **Adjust scope** path: it sets `dates_mode = 'manual'` and the system then
 never regenerates the dates. The plan is regenerated (delete the project's
 planned bookings, build again) when the lines or the event date change while
-the project is at *Request* and in auto mode; once the estimate is out the
+the project is at _Request_ and in auto mode; once the estimate is out the
 dates are the holds and change only by hand.
 
 `bk_projects` gains `event_window_start`/`event_window_end` (the primary window
 the staff picked, kept so a re-plan honors it) and `dates_mode`
-(`auto` | `manual`). No SQL twin is needed: the plan only *chooses* what to
+(`auto` | `manual`). No SQL twin is needed: the plan only _chooses_ what to
 write, and every write still passes the SQL triggers.
 
 ### 18.3 One summary line
 
 The top of the project page is one sentence, built by
-`lib/bookings/summary.ts` (pure, tested): *"Basic event webcast · 5 staff
+`lib/bookings/summary.ts` (pure, tested): _"Basic event webcast · 5 staff
 hours, 10 student hours · $575 · Capacity available · WUWF contributes
-$202.64 · Estimate expires in 14 days."* — service(s), hours in two buckets
+$202.64 · Estimate expires in 14 days."_ — service(s), hours in two buckets
 (**staff** = a class not charged in a strategic price; **student** = one that
 is), the partner's price, the capacity status, the contribution in words, and
 where the estimate stands. (The brief's example reads "$800 … WUWF contributes
@@ -1137,7 +1137,7 @@ with a one-line explanation on the new-request form, **shown only when the
 partner is a UWF unit** (an outside organization is never asked). It stays
 **a separate judgment from whether the reserve can cover it**:
 `qualifies_strategic` is the person's answer and is never overwritten, and a
-new `bk_projects.reserve_depleted` records the *system's* finding that a
+new `bk_projects.reserve_depleted` records the _system's_ finding that a
 qualifying request was priced University rate (incremental) because the
 reserve had run out. Such a project stays recorded as qualifying, and the term
 report counts it that way. Unanswered stays valid (it prices University rate
@@ -1211,8 +1211,8 @@ environment signs in by magic link only, so the wall-clock figure is **not measu
 measured: the path is partner → tick service → date → Create, which is (counting the "+ New
 request" click) eight interactions for an existing partner — open, partner box, type, pick,
 service, date field, date, Create — with no advanced surface opened. `new-request-form.test.tsx`
-renders the form and asserts none of *pool, labor class, treatment, draw, reserve, rate model
-version* appears and that no field beyond the three is asked up front; `happy-path.test.ts` runs the
+renders the form and asserts none of _pool, labor class, treatment, draw, reserve, rate model
+version_ appears and that no field beyond the three is asked up front; `happy-path.test.ts` runs the
 workbook's Basic event webcast through the plan, the price and the summary line: $800 at the
 university rate, or $575 with WUWF contributing, "Ready to send".
 
@@ -1228,15 +1228,15 @@ report totals them.
 `lib/bookings/economics.ts` (pure, tested) computes, from the estimate's lines and the card
 snapshot, and `repriceProject()` writes onto the project after every pricing write:
 
-| Stored on `bk_projects`                                  | Meaning                                                                                                                      |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `labor_cost`, `resource_cost`, `direct_expense_cost`      | The three parts of full economic cost, **exact** (six decimals; never rounded to the card's $25 step, never to cents)         |
-| `full_economic_cost`                                      | Their sum — the cost of the work whatever the partner pays                                                                    |
-| `partner_recovery`                                        | Σ the lines' amounts — what the partner pays                                                                                  |
-| `wuwf_contribution`                                       | `max(0, full economic cost − partner recovery)`                                                                              |
-| `external_margin`, `external_assessment`                  | External only; zero otherwise. Assessment = the assessment share of what the partner pays (for an expense, of its cost); margin = `max(0, recovery − assessment − full cost)`, what is left after cost and the university's share |
-| `market_benchmarks` (jsonb)                               | One entry per package line: the floor, the ceiling (null until Slice C), the reference note and the rate charged, **as they stood when priced** |
-| `economics` (jsonb)                                       | The per-line breakdown the Show calculation panel prints (labor, resource, direct cost and amount per line)                   |
+| Stored on `bk_projects`                              | Meaning                                                                                                                                                                                                                           |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `labor_cost`, `resource_cost`, `direct_expense_cost` | The three parts of full economic cost, **exact** (six decimals; never rounded to the card's $25 step, never to cents)                                                                                                             |
+| `full_economic_cost`                                 | Their sum — the cost of the work whatever the partner pays                                                                                                                                                                        |
+| `partner_recovery`                                   | Σ the lines' amounts — what the partner pays                                                                                                                                                                                      |
+| `wuwf_contribution`                                  | `max(0, full economic cost − partner recovery)`                                                                                                                                                                                   |
+| `external_margin`, `external_assessment`             | External only; zero otherwise. Assessment = the assessment share of what the partner pays (for an expense, of its cost); margin = `max(0, recovery − assessment − full cost)`, what is left after cost and the university's share |
+| `market_benchmarks` (jsonb)                          | One entry per package line: the floor, the ceiling (null until Slice C), the reference note and the rate charged, **as they stood when priced**                                                                                   |
+| `economics` (jsonb)                                  | The per-line breakdown the Show calculation panel prints (labor, resource, direct cost and amount per line)                                                                                                                       |
 
 A line's cost comes from the card snapshot, so it is the cost **as modeled when the estimate was
 first priced**, whatever treatment applies: a package line's `labor_cost` and `resource_cost` per
@@ -1310,7 +1310,7 @@ margin), an expense counted at its typed cost, labor lines at the exact hourly, 
 snapshot; `report.test.ts` totals three estimates by partner and by treatment, the $500 test,
 and the qualifying-but-priced-university-rate count.
 
-**Deferred.** The contribution of a *settled* project at actual cost (needs hours and settlement,
+**Deferred.** The contribution of a _settled_ project at actual cost (needs hours and settlement,
 slice 6 as reshaped in §20.9). The report's assumed-versus-observed view (§20.8). An overhead line
 in the report (§20.2 records overhead as a decision, not a figure).
 
@@ -1428,7 +1428,7 @@ contribution it has drawn (§19). Slice 6 (hours, settlement, the term report) i
 - **settlement** (the recharge or invoice record, Finance posting, the journal entry number) is
   **still to build**, and now settles **at actual cost**: the settlement drafts itself from the
   approved estimate's price plus direct expenses at actual cost, and its contribution is the full
-  cost *as confirmed* against what was recovered. That is the only part of slice 6 left, and it
+  cost _as confirmed_ against what was recovered. That is the only part of slice 6 left, and it
   stays unauthorized until its own instruction.
 
 ### 20.10 Migration
@@ -1444,3 +1444,47 @@ and the webcast flag, with RLS. Additive.
 **Deferred.** Settlement at actual cost (slice 6 as reshaped in §20.9); per-line assessment rules and a depreciation switch for donated or grant-funded gear (both wait on UWF policy answers); Finance's confirmation that an adjusted line's market floor and ceiling should scale with its cost ratio (a recorded judgment, not a verified rule); `bk_save_package()` still does not write the ceiling — the Rates tab action writes it after the call.
 
 **Checked.** `rates.test.ts` still reproduces the v0.1 workbook figures (new cost inputs default to zero); every new pure function has colocated tests, including the contribution definition on a strategic, an incremental and an external estimate. Preview was reseeded with `[Test]` data exercising the happy path and each warning badge (pricing override, booking exception, depleted reserve, above-market, scope-adjusted, custom package, dates needing attention) plus a delivered project with confirmed hours; the preview database also carries a test 1100 market ceiling on Basic webcast and a bespoke `[Test] OUR Voices episode` package. Production carries no test data. Not exercised: a signed-in browser session, so the Slice A acceptance test's wall-clock time (§18.10) remains unmeasured.
+
+## 21. What slice 6 shipped (2026-10-07) — settlement at actual cost
+
+Slice 6 as §20.9 reshaped it: the term report and hours confirmation were already built,
+so what remained was Finance's settlement (workflow G, §3).
+
+- `20261007150000_bookings_settlement.sql` (+ `…150100_resources_…`: the guide
+  `bookings-settlement` and a release note), applied to both projects. `bk_settlements`
+  (one per project; `kind` recharge | invoice, `status` drafted | posted, the amount, the
+  estimate's recovery/cost/contribution kept for variance, actual labor/resource/direct
+  cost, contribution, assessment, margin, `expense_actuals`, funding index, journal entry
+  number), `bk_guard_settlement()` (insert only for a delivered project; a posted row is
+  final; posting is Finance's), `bk_guard_project_settled()` (a project becomes `settled`
+  only with a posted settlement) and `bk_post_settlement()` (posts and settles together).
+  SQL checks shape only; it never computes a cost.
+- `lib/bookings/settlements.ts` (pure, tested against the v0.1 Basic webcast): **amount**
+  is the approved estimate's lines with each direct expense at its actual cost (plus the
+  assessment when external); **actual cost** is confirmed hours per class and units per
+  pool at the card snapshot's exact unit costs, plus actual expenses; **contribution** is
+  `max(0, actual cost − amount)`, the estimate's own definition (§19.1); margin and
+  assessment are external only and apart. The hours never change the amount charged.
+  Drafting is refused until every planned class and pool is confirmed.
+- The project page's Settlement panel (`settlement-section.tsx`): the live draft,
+  per-expense actual cost, funding index (recharge), notes, "Update the draft", and "Post
+  the settlement" with the journal entry number. Others read it. The dashboard lists
+  delivered projects for Finance ("Delivered — settle it at actual cost").
+- The term report gained "Settled at actual cost": posted settlements' amount, actual cost
+  against the estimates' modeled cost for the same requests, and contribution.
+
+**Decisions.** Settlement is Finance's alone (§6.1), including drafting, because it is
+their record; a posted settlement is final and a correction is a note, not an edit;
+the journal entry number is typed by hand (§6.6); a recharge's index defaults from the
+project, then the partner.
+
+**Deferred.** PDF invoices, journal-entry or Banner integration, reversing a posted
+settlement, and per-line assessment rules (waiting on UWF policy, §17 standing rules).
+
+**Checked.** `settlements.test.ts` (as-planned settlement reproduces the estimate's
+$777.6375 / $202.6375 under strategic, incremental and external; extra hours raise cost
+not price; expenses at actual with and without the assessment; unconfirmed hours and a
+missing unit cost refuse; the report summary), the extended `projects.test.ts`, both
+migrations applied to preview and production with the table, triggers, policies and
+function confirmed on preview. Not exercised: a signed-in browser session, or a live
+post through `bk_post_settlement()` as a Finance user.
