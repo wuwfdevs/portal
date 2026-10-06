@@ -649,9 +649,18 @@ capacity-by-class table and `concurrent_units` per resource; the
 Calendar's hold, booking and Find-a-slot forms take hours per class, and
 the week grid shows one day row per class.
 
-Verified: lint, typecheck, 1,827 tests (the workbook fixture still
+Verified: lint, typecheck, 1,836 tests (the workbook fixture still
 reproduces under the generalized model; `scheduling.test.ts` covers
-per-class capacity and concurrent units). Migration status at the time of
-writing: see `APPLIED.md` — the MCP route this session applies migrations
-through waits for a user confirmation on any `drop` statement, which did
-not reach it.
+per-class capacity and concurrent units); the migration run end to end
+against a local PostgreSQL 16 built from preview's definitions of
+everything it references, which caught a short VALUES row in the seed;
+both migrations applied to both Supabase projects on 2026-10-06 (through
+the SQL editor — the MCP apply path holds every `drop` for a confirmation
+that never reached the session); and a rolled-back scenario on preview, as
+a production/director member and an executive, exercising every refusal in
+the rule (blackout, a taken window at 1 of 1 and 2 of 2 concurrent units, a
+class's day, the reserve, open capacity, a hold, a non-executive
+exception), release-then-rebook, confirm-in-place after a later hold, and
+the version lifecycle (pending rows block submit, finance cannot adopt, an
+adopted version is frozen). Not yet verified: a browser click-through, for
+the same magic-link reason as slices 1 and 2.
