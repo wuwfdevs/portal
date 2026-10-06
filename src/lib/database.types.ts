@@ -3432,6 +3432,13 @@ export interface Database {
           submitted_ip_hash: string | null;
           /** The agreement this project is priced and scheduled under (slice 5); must belong to its partner. */
           agreement_id: string | null;
+          /** The primary window staff picked when the request was created (§18.2); null means first available. */
+          event_window_start: string | null;
+          event_window_end: string | null;
+          /** auto: the system plans the dates; manual: "Adjust scope" — staff planned them by hand. */
+          dates_mode: "auto" | "manual";
+          /** Qualifies as strategic but was priced at the university rate because the reserve ran out (§18.5). */
+          reserve_depleted: boolean;
           created_at: string;
           created_by: string | null;
           updated_at: string;
@@ -3460,6 +3467,8 @@ export interface Database {
           labor_hours: Record<string, number>;
           /** Units per pool id, per unit of the line. */
           resource_units: Record<string, number>;
+          /** An expense line's cost each as typed, before any assessment (§18.8); null otherwise. */
+          direct_cost: number | null;
           notes: string | null;
           sort_order: number;
           created_at: string;

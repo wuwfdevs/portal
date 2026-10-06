@@ -2,27 +2,35 @@
 
 import { usePathname } from "next/navigation";
 import { TabNav } from "@/components/ui/tab-nav";
+import { visibleTabs } from "@/lib/bookings/nav";
+import type { BookingsRole } from "@/lib/bookings/roles";
 
-// The design's five tabs — Dashboard · Requests · Calendar · Partners ·
-// Rates (docs/bookings-design.md §4). Slice 1 shipped Rates, slice 2 the
-// Calendar, slice 3 the Dashboard and Requests, slice 5 Partners.
-const TABS = [
-  { href: "/bookings", label: "Dashboard", exact: true },
-  { href: "/bookings/requests", label: "Requests", exact: false },
-  { href: "/bookings/calendar", label: "Calendar", exact: false },
-  { href: "/bookings/partners", label: "Partners", exact: false },
-  { href: "/bookings/rates", label: "Rates", exact: false },
-] as const;
-
-export function NavTabs() {
+// Dashboard · Requests · Calendar · Partners, then Rates — inline for the people
+// who maintain the model, behind the "⋯" menu for everyone else
+// (docs/bookings-design.md §18.6). Nothing is removed; a member with no role
+// still reads everything.
+export function NavTabs({
+  roles,
+  isAdministrator,
+}: {
+  roles: BookingsRole[];
+  isAdministrator: boolean;
+}) {
   const pathname = usePathname();
+  const { primary, more } = visibleTabs(roles, isAdministrator);
+  const active = ({ href, exact }: { href: string; exact: boolean }) =>
+    exact ? pathname === href : pathname.startsWith(href);
   return (
     <TabNav
-      tabs={TABS.map(({ href, label, exact }) => ({
-        href,
-        label,
-        active: exact ? pathname === href : pathname.startsWith(href),
-      }))}
+      tabs={[
+        ...primary.map((tab) => ({ href: tab.href, label: tab.label, active: active(tab) })),
+        ...more.map((tab) => ({
+          href: tab.href,
+          label: tab.label,
+          active: active(tab),
+          forceMore: true,
+        })),
+      ]}
     />
   );
 }

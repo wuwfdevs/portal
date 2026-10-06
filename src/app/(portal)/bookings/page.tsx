@@ -10,7 +10,7 @@ import {
   parseAirtimeRead,
 } from "@/lib/bookings/airtime";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
-import { BOOKING_STATUS_LABEL, TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
+import { BOOKING_STATUS_LABEL, PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import {
   CALENDAR_PATH,
   PLAN_PATH,
@@ -276,7 +276,7 @@ export default async function BookingsDashboard() {
                           booking.label
                         )}
                         <span className="block text-xs text-ink-500">
-                          {TREATMENT_SHORT_LABEL[booking.treatment]}
+                          {PRODUCTION_RATE_LABEL[booking.treatment]}
                         </span>
                       </Cell>
                       <Cell label="Pool">{poolName(booking.pool_id)}</Cell>

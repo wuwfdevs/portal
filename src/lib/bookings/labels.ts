@@ -119,3 +119,21 @@ export const POOL_COSTING_LABEL: Record<BkPoolCosting, string> = {
   allocated: "A share of the shared production pool",
   own_lines: "Its own budget lines",
 };
+
+// Refinement pass, slice A (docs/bookings-design.md §18.4) — what production staff read.
+// The internal names (strategic, incremental, external) stay on the Rates tab, in
+// Finance views and in the "Show calculation" panel.
+
+export const PRODUCTION_RATE_LABEL: Record<BkPricingTreatment, string> = {
+  strategic: "University rate (WUWF contributing)",
+  incremental: "University rate",
+  external: "Outside rate",
+};
+
+/** One short sentence on what the rate means, for the hint under a price. */
+export const PRODUCTION_RATE_HINT: Record<BkPricingTreatment, string> = {
+  strategic:
+    "The partner pays for student crew, equipment and direct costs; WUWF contributes the staff time.",
+  incremental: "The partner pays the full cost of the work, staff time included.",
+  external: "An outside organization pays the full cost plus the university's fee and WUWF's margin.",
+};

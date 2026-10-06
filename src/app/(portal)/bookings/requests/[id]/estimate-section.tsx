@@ -6,7 +6,7 @@ import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { TREATMENT_LABEL, TREATMENT_SHORT_LABEL, formatQuantity } from "@/lib/bookings/labels";
+import { PRODUCTION_RATE_LABEL, formatQuantity } from "@/lib/bookings/labels";
 import { requestHref } from "@/lib/bookings/paths";
 import { estimateTotals, legacyRateDelta } from "@/lib/bookings/pricing";
 import { LINE_KIND_LABEL } from "@/lib/bookings/projects";
@@ -67,14 +67,14 @@ export function EstimateSection({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-line bg-panel-50 px-4 py-3 text-sm text-ink-700">
         {project.priced_as ? (
           <>
-            <Badge variant="accent">Priced as {TREATMENT_SHORT_LABEL[project.priced_as]}</Badge>
+            <Badge variant="accent">{PRODUCTION_RATE_LABEL[project.priced_as]}</Badge>
             {project.pricing_overridden_by && <Badge variant="warning">Changed by hand</Badge>}
             <span>{project.pricing_reason}</span>
           </>
         ) : (
           <span>
-            Not priced yet. The treatment is derived from the partner, the strategic judgment and
-            the reserve once a line is added.
+            Not priced yet. The rate is worked out from the partner and the strategic question once a
+            line is added.
           </span>
         )}
       </div>
@@ -92,7 +92,7 @@ export function EstimateSection({
             >
               <input type="hidden" name="project_id" value={project.id} />
               <div>
-                <Label htmlFor="treatment">Treatment</Label>
+                <Label htmlFor="treatment">Rate</Label>
                 <Select
                   id="treatment"
                   name="treatment"
@@ -100,10 +100,10 @@ export function EstimateSection({
                     project.pricing_overridden_by ? (project.priced_as ?? "derived") : "derived"
                   }
                 >
-                  <option value="derived">Derived from the facts</option>
+                  <option value="derived">Worked out from the facts</option>
                   {TREATMENTS.map((t) => (
                     <option key={t} value={t}>
-                      {TREATMENT_LABEL[t]}
+                      {PRODUCTION_RATE_LABEL[t]}
                     </option>
                   ))}
                 </Select>
@@ -114,11 +114,11 @@ export function EstimateSection({
                   id="pricing_reason"
                   name="reason"
                   maxLength={300}
-                  placeholder="Required when changing the derived treatment"
+                  placeholder="Required when changing the worked-out rate"
                 />
                 <FieldHint>
-                  Pricing strategic against the derived treatment draws the reserve and is the
-                  Executive Director&apos;s call
+                  Giving a rate that makes WUWF contribute staff time, against what the facts say,
+                  is the Executive Director&apos;s call
                   {isExecutive ? "" : " — it will be refused for anyone else"}; every change is
                   audited.
                 </FieldHint>
@@ -182,7 +182,7 @@ export function EstimateSection({
                                 step="0.01"
                                 min="0"
                                 required
-                                defaultValue={String(costOf(line, project.priced_as, pricing))}
+                                defaultValue={String(costOf(line))}
                               />
                             </div>
                           </>
@@ -334,7 +334,7 @@ export function EstimateSection({
                       ))}
                   </Select>
                   <FieldHint>
-                    Its hours per class and units per pool are snapshotted on the line.
+                    Its hours and equipment are copied onto the line.
                   </FieldHint>
                 </div>
               )}
@@ -421,12 +421,7 @@ function asLike(line: BkEstimateLineRow) {
   return { ...line, labor_hours: line.labor_hours ?? {} };
 }
 
-/** The cost typed for an expense line, which the stored rate grosses up for an external project. */
-function costOf(
-  line: BkEstimateLineRow,
-  treatment: BkPricingTreatment | null,
-  pricing: PricingContext | null,
-): number {
-  if (treatment !== "external" || !pricing) return Number(line.unit_rate);
-  return Math.round((Number(line.unit_rate) / (1 + pricing.assessmentShare)) * 100) / 100;
+/** The cost typed for an expense line, kept apart from the rate derived from it (§18.8). */
+function costOf(line: BkEstimateLineRow): number {
+  return Number(line.direct_cost ?? line.unit_rate);
 }

@@ -7,6 +7,14 @@ import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { assertBookingsAccess, assertBookingsScheduler } from "@/lib/bookings/access";
 import { repriceProject } from "@/lib/bookings/estimate";
+import {
+  type NewLineRow,
+  defaultRequestTitle,
+  isOfferable,
+  packageLineRow,
+  parsePackageSelections,
+} from "@/lib/bookings/estimate-lines";
+import { syncBookingPlan } from "@/lib/bookings/plan-sync";
 import { logProjectEvent } from "@/lib/bookings/events";
 import {
   BOOKINGS_PATH,
@@ -154,20 +162,78 @@ function projectColumns(values: RequestFormValues, actorId: string) {
   };
 }
 
+/**
+ * One pass (docs/bookings-design.md §18.1): the request, its package lines,
+ * the derived price and the booking plan, in a single submit. With no package
+ * chosen it is the plain request it always was.
+ */
 export async function createRequest(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsScheduler();
   const path = `${REQUESTS_PATH}/new`;
   const values = requestValues(formData);
+
+  const picked = parsePackageSelections(
+    [...formData.entries()].map(([key, value]) => [key, String(value)] as [string, string]),
+  );
+  if (!picked.ok) failWith(path, picked.error);
+  const supabase = await createClient();
+  const wantsPackages = picked.selections.length > 0;
+
+  // Everything a package needs, checked before anything is written.
+  let pricingContext: Awaited<ReturnType<typeof getPricingContext>> = null;
+  if (wantsPackages) {
+    if (!values.eventStartsOn) failWith(path, "Pick the event date so the dates can be held.");
+    pricingContext = await getPricingContext(null);
+    if (!pricingContext) {
+      failWith(
+        path,
+        "No rate card is recorded for estimates. Finance records one on the Rates tab (Rate card → Record for estimates).",
+      );
+    }
+    for (const selection of picked.selections) {
+      const pkg = pricingContext.packages.find((p) => p.id === selection.packageId);
+      if (!pkg || !isOfferable(pkg, null)) failWith(path, "Choose a service package from the list.");
+    }
+  }
+
+  // The partner's kind: the strategic question is only for a UWF unit.
+  let partnerName = values.newPartnerName.trim();
+  let partnerKind = values.newPartnerKind;
+  if (values.partnerId) {
+    if (!UUID.test(values.partnerId)) failWith(path, "Choose the partner.");
+    const { data: existing } = await supabase
+      .from("bk_partners")
+      .select("name, kind")
+      .eq("id", values.partnerId)
+      .maybeSingle();
+    if (!existing) failWith(path, "That partner is no longer on file.");
+    partnerName = existing.name;
+    partnerKind = existing.kind;
+  }
+  if (partnerKind !== "uwf_unit") values.qualifiesStrategic = "";
+
+  if (wantsPackages && values.title === "" && pricingContext) {
+    values.title = defaultRequestTitle(
+      picked.selections.map((s) => pricingContext!.packages.find((p) => p.id === s.packageId)!.name),
+      partnerName || "the partner",
+    );
+  }
   const problem = validateRequestForm(values);
   if (problem) failWith(path, problem);
   const partnerId = await resolvePartner(values, profile.id, path);
 
-  const supabase = await createClient();
+  const window = field(formData, "window");
+  const [windowStart, windowEnd] = /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(window)
+    ? window.split("-")
+    : [null, null];
+
   const { data, error } = await supabase
     .from("bk_projects")
     .insert({
       partner_id: partnerId,
       ...projectColumns(values, profile.id),
+      event_window_start: windowStart,
+      event_window_end: windowEnd,
       source: "staff",
       owner_id: profile.id,
       created_by: profile.id,
@@ -176,15 +242,34 @@ export async function createRequest(formData: FormData): Promise<void> {
     .single();
   failIfError(error, path, "Could not create the request");
   if (!data) failWith(path, "Could not create the request.");
+  const projectId = data.id;
 
   await logProjectEvent({
-    projectId: data.id,
+    projectId,
     actorId: profile.id,
     kind: "created",
     note: "Request entered by staff.",
   });
-  revalidateRequests(data.id);
-  redirect(requestHref(data.id, { saved: "created" }));
+
+  if (wantsPackages && pricingContext) {
+    const rows = picked.selections.map((selection, index) => {
+      const pkg = pricingContext!.packages.find((p) => p.id === selection.packageId)!;
+      const row = packageLineRow(pkg, selection.quantity);
+      return { project_id: projectId, ...row, sort_order: (index + 1) * 10 };
+    });
+    const { error: lineError } = await supabase.from("bk_estimate_lines").insert(rows);
+    failIfError(lineError, requestHref(projectId), "Could not add the estimate");
+    await repriceOrFail(projectId, requestHref(projectId));
+    await syncBookingPlan(projectId, profile.id);
+    await logProjectEvent({
+      projectId,
+      actorId: profile.id,
+      kind: "line_added",
+      note: `Estimate started with ${rows.map((r) => r.label).join(", ")}.`,
+    });
+  }
+  revalidateRequests(projectId);
+  redirect(requestHref(projectId, { saved: "created" }));
 }
 
 export async function updateRequest(formData: FormData): Promise<void> {
@@ -199,7 +284,7 @@ export async function updateRequest(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: before } = await supabase
     .from("bk_projects")
-    .select("qualifies_strategic, partner_id")
+    .select("qualifies_strategic, partner_id, event_starts_on")
     .eq("id", projectId)
     .maybeSingle();
   const columns = projectColumns(values, profile.id);
@@ -229,6 +314,10 @@ export async function updateRequest(formData: FormData): Promise<void> {
       .eq("id", projectId)
       .maybeSingle();
     if (priced?.priced_as) await repriceOrFail(projectId, requestHref(projectId));
+  }
+  // A moved event date moves the system-planned dates with it (§18.2).
+  if (before && before.event_starts_on !== (columns.event_starts_on ?? null)) {
+    await syncBookingPlan(projectId, profile.id);
   }
   revalidateRequests(projectId);
   redirect(requestHref(projectId, { saved: "1" }));
@@ -360,36 +449,16 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
     );
   }
 
-  let row: {
-    kind: BkEstimateLineKind;
-    package_id: string | null;
-    labor_class_id: string | null;
-    label: string;
-    unit_label: string;
-    quantity: number;
-    unit_rate: number;
-    labor_hours: Record<string, number>;
-    resource_units: Record<string, number>;
-  };
+  let row: NewLineRow;
   if (kind === "package") {
     const packageId = field(formData, "package_id");
     const pkg = context.packages.find((p) => p.id === packageId);
     if (!pkg) failWith(path, "Choose a service package.");
     // A bespoke package is offered only to requests under its agreement (slice 5).
-    if (pkg.agreement_id !== null && pkg.agreement_id !== project.agreement_id) {
+    if (!isOfferable(pkg, project.agreement_id)) {
       failWith(path, "That package is scoped to an agreement this request is not under.");
     }
-    row = {
-      kind,
-      package_id: pkg.id,
-      labor_class_id: null,
-      label: `${pkg.name} (${pkg.unit_label})`,
-      unit_label: pkg.unit_label,
-      quantity,
-      unit_rate: 0,
-      labor_hours: Object.fromEntries(pkg.labor.map((l) => [l.labor_class_id, l.hours])),
-      resource_units: Object.fromEntries(pkg.resources.map((r) => [r.pool_id, r.units])),
-    };
+    row = packageLineRow(pkg, quantity);
   } else if (kind === "labor") {
     const classId = field(formData, "labor_class_id");
     const cls = context.classes.find((c) => c.id === classId);
@@ -402,6 +471,7 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
       unit_label: "hour",
       quantity,
       unit_rate: 0,
+      direct_cost: null,
       labor_hours: { [cls.id]: 1 },
       resource_units: {},
     };
@@ -418,6 +488,7 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
       unit_label: "each",
       quantity,
       unit_rate: cost,
+      direct_cost: cost,
       labor_hours: {},
       resource_units: {},
     };
@@ -450,6 +521,7 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
   failIfError(error, path, "Could not add the line");
 
   await repriceOrFail(projectId, requestHref(projectId));
+  await syncBookingPlan(projectId, profile.id);
   await logProjectEvent({
     projectId,
     actorId: profile.id,
@@ -475,7 +547,13 @@ export async function updateEstimateLine(formData: FormData): Promise<void> {
     .eq("project_id", projectId)
     .maybeSingle();
   if (!line) failWith(path, "That line no longer exists.");
-  const update: { quantity: number; notes: string | null; label?: string; unit_rate?: number } = {
+  const update: {
+    quantity: number;
+    notes: string | null;
+    label?: string;
+    unit_rate?: number;
+    direct_cost?: number;
+  } = {
     quantity,
     notes: optionalField(formData, "notes"),
   };
@@ -485,12 +563,14 @@ export async function updateEstimateLine(formData: FormData): Promise<void> {
     const cost = numberField(formData, "unit_cost", path, "The cost");
     if (cost < 0) failWith(path, "The cost can't be negative.");
     update.label = label;
-    // The typed cost is the rate repriceProject() grosses up for an external project.
+    // The typed cost; the rate is derived from it (and grossed up for an external project).
+    update.direct_cost = cost;
     update.unit_rate = cost;
   }
   const { error } = await supabase.from("bk_estimate_lines").update(update).eq("id", lineId);
   failIfError(error, path, "Could not save the line");
   await repriceOrFail(projectId, requestHref(projectId));
+  await syncBookingPlan(projectId, profile.id);
   await logProjectEvent({
     projectId,
     actorId: profile.id,
@@ -519,6 +599,7 @@ export async function removeEstimateLine(formData: FormData): Promise<void> {
     .eq("project_id", projectId);
   failIfError(error, path, "Could not remove the line");
   await repriceOrFail(projectId, path);
+  await syncBookingPlan(projectId, profile.id);
   await logProjectEvent({
     projectId,
     actorId: profile.id,
@@ -610,6 +691,8 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
     p_labor: labor,
   });
   failIfError(error, path, "Could not add the date");
+  // A date planned by hand is the "Adjust scope" path: the system stops regenerating the dates.
+  await supabase.from("bk_projects").update({ dates_mode: "manual" }).eq("id", projectId);
   await logProjectEvent({
     projectId,
     actorId: profile.id,
@@ -656,12 +739,98 @@ export async function removeDate(formData: FormData): Promise<void> {
       note: `Released ${booking.date}.`,
     });
   }
+  // Taking a date out by hand is planning by hand: the system stops regenerating them (§18.2).
+  await supabase.from("bk_projects").update({ dates_mode: "manual" }).eq("id", projectId);
   // A reserved block the date came from is the partner's again (slice 5).
   const { error: detachError } = await supabase
     .from("bk_reserved_blocks")
     .update({ project_id: null, booking_id: null })
     .eq("booking_id", bookingId);
   failIfError(detachError, path, "Could not hand the reserved block back");
+  revalidateRequests(projectId);
+  redirect(path);
+}
+
+// The system's dates (docs/bookings-design.md §18.2) ----------------------------------------------------
+
+/** Take one of the offered alternatives: the event moves to that date and window, and the plan runs again. */
+export async function chooseAlternative(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId);
+  const date = field(formData, "date");
+  if (!isValidDateISO(date)) failWith(path, "Choose one of the dates offered.");
+  const window = field(formData, "window");
+  const [start, end] = /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(window) ? window.split("-") : [null, null];
+  const supabase = await createClient();
+  const { data: project } = await supabase
+    .from("bk_projects")
+    .select("event_starts_on, event_ends_on")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project) failWith(path, "That request no longer exists.");
+  const { error } = await supabase
+    .from("bk_projects")
+    .update({
+      event_starts_on: date,
+      event_ends_on:
+        project.event_ends_on && project.event_ends_on < date ? date : project.event_ends_on,
+      event_window_start: start,
+      event_window_end: end,
+      dates_mode: "auto",
+    })
+    .eq("id", projectId);
+  failIfError(error, path, "Could not move the event");
+  const result = await syncBookingPlan(projectId, profile.id);
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "date_changed",
+    note: `Event moved to ${date}.`,
+  });
+  revalidateRequests(projectId);
+  if (result.status === "exception") failWith(path, result.plan.message);
+  redirect(requestHref(projectId, { saved: "1" }));
+}
+
+/** Hand the dates back to the system: planned dates are replaced by the plan for the event date. */
+export async function resumeAutoPlan(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bk_projects")
+    .update({ dates_mode: "auto" })
+    .eq("id", projectId);
+  failIfError(error, path, "Could not hand the dates back");
+  const result = await syncBookingPlan(projectId, profile.id);
+  revalidateRequests(projectId);
+  if (result.status === "exception") failWith(path, result.plan.message);
+  redirect(requestHref(projectId, { saved: "1" }));
+}
+
+/** The strategic question, answered from the summary line (§18.5); the price is re-derived. */
+export async function answerStrategic(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId);
+  const answer = field(formData, "qualifies_strategic");
+  if (answer !== "yes" && answer !== "no") failWith(path, "Answer yes or no.");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bk_projects")
+    .update({ qualifies_strategic: answer === "yes", qualification_by: profile.id })
+    .eq("id", projectId);
+  failIfError(error, path, "Could not record the answer");
+  await repriceOrFail(projectId, path);
+  await syncBookingPlan(projectId, profile.id);
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "qualification",
+    note: answer === "yes" ? "Qualifies as strategic work." : "Does not qualify as strategic work.",
+  });
   revalidateRequests(projectId);
   redirect(path);
 }

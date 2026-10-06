@@ -94,6 +94,9 @@ describe("derivePricing", () => {
     });
     expect(notCovered.treatment).toBe("incremental");
     expect(notCovered.reason).toMatch(/does not cover/);
+    // The finding is recorded apart from the judgment, which is untouched.
+    expect(notCovered.reserveDepleted).toBe(true);
+    expect(covered.reserveDepleted).toBe(false);
     const noDraw = derivePricing({
       partnerKind: "uwf_unit",
       underAgreement: false,
@@ -225,6 +228,20 @@ describe("priceLine", () => {
     expect(priceLine(travel, "incremental", CARD, CLASSES, 0.0671)).toEqual({
       ok: true,
       price: { unit_rate: 100, amount: 100 },
+    });
+    expect(priceLine(travel, "external", CARD, CLASSES, 0.0671)).toEqual({
+      ok: true,
+      price: { unit_rate: 106.71, amount: 106.71 },
+    });
+  });
+  it("derives an expense's rate from its typed cost, so repricing never compounds the assessment", () => {
+    const travel = line({
+      kind: "expense",
+      package_id: null,
+      unit_label: "each",
+      quantity: 1,
+      unit_rate: 106.71, // a stored, already-grossed rate
+      direct_cost: 100,
     });
     expect(priceLine(travel, "external", CARD, CLASSES, 0.0671)).toEqual({
       ok: true,

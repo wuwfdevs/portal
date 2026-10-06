@@ -166,6 +166,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
 
   let treatment = project.priced_as;
   let reason = project.pricing_reason;
+  let reserveDepleted = project.reserve_depleted;
   if (!project.pricing_overridden_by || !treatment) {
     const derived = await derivedPricingFor(
       project,
@@ -176,6 +177,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     );
     treatment = derived.treatment;
     reason = derived.reason;
+    reserveDepleted = derived.reserveDepleted;
   }
 
   const { error: projectError } = await supabase
@@ -183,6 +185,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     .update({
       priced_as: treatment,
       pricing_reason: reason,
+      reserve_depleted: reserveDepleted,
       rate_model_version_id: project.rate_model_version_id ?? context.version.id,
     })
     .eq("id", projectId);

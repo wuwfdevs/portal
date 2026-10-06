@@ -97,6 +97,11 @@ describe("availableStageActions", () => {
       reason: "Price the estimate first.",
     });
   });
+  it("blocks sending while the system's dates are an exception, and says why", () => {
+    expect(
+      availableStageActions(project(), { ...base, datesBlockedReason: "Pick a date first." })[0],
+    ).toMatchObject({ enabled: false, reason: "Pick a date first." });
+  });
   it("lets an airtime-only request go out with a commitment and no lines", () => {
     const airtime = project({ requested: "airtime" });
     expect(

@@ -9,10 +9,19 @@ import { Steps } from "@/components/ui/steps";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { envelopeCheck, parseHonoredRead } from "@/lib/bookings/airtime";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
-import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
+import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bookings/badges";
+import { buildBookingPlan, type PlanLine } from "@/lib/bookings/booking-plan";
+import { PRODUCTION_RATE_HINT, PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
+import {
+  buildSummary,
+  capacityStatusFor,
+  hourBuckets,
+  serviceName,
+} from "@/lib/bookings/summary";
+import { formatWindow } from "@/lib/bookings/scheduling";
 import { REQUESTS_PATH, agreementHref, requestEditHref } from "@/lib/bookings/paths";
 import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
-import { estimateDraw } from "@/lib/bookings/pricing";
+import { estimateDraw, estimateTotals } from "@/lib/bookings/pricing";
 import {
   DISPOSITIONS,
   DISPOSITION_BADGE,
@@ -46,10 +55,13 @@ import type { BkEstimateLineKind } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
 import {
   addNote,
+  answerStrategic,
   approveEstimate,
   assignOwner,
+  chooseAlternative,
   markDelivered,
   reopenProject,
+  resumeAutoPlan,
   sendEstimate,
   setDisposition,
   setProjectAgreement,
@@ -128,14 +140,109 @@ export default async function ProjectPage({
   const honored = parseHonoredRead(honoredRead?.payload ?? null);
 
   const estimate = estimateState(project, nowISO);
+  const failingDates = checks.filter((c) => c.result && !c.result.ok).length;
+
+  // The system's plan for the dates (§18.2): shown as an exception when it can't be written.
+  const asksProduction = asksForProduction(project.requested);
+  const planLines: PlanLine[] = detail.lines.map((l) => ({
+    quantity: Number(l.quantity),
+    labor_hours: l.labor_hours ?? {},
+    resource_units: l.resource_units ?? {},
+  }));
+  const openBookings = detail.bookings.filter((b) => b.status !== "released");
+  const packageLines = detail.lines.filter((l) => l.kind === "package");
+  const planCheck =
+    state &&
+    asksProduction &&
+    project.disposition === null &&
+    project.stage === "request" &&
+    project.dates_mode === "auto" &&
+    project.event_starts_on &&
+    planLines.length > 0 &&
+    openBookings.length === 0
+      ? buildBookingPlan(
+          {
+            date: project.event_starts_on,
+            window:
+              project.event_window_start && project.event_window_end
+                ? {
+                    start: project.event_window_start.slice(0, 5),
+                    end: project.event_window_end.slice(0, 5),
+                  }
+                : null,
+            lines: planLines,
+            treatment: project.priced_as ?? "incremental",
+            partnerId: project.partner_id,
+          },
+          state,
+        )
+      : null;
+  const planFailure = planCheck && !planCheck.ok ? planCheck : null;
   const actions = availableStageActions(project, {
     roles: context.isAdministrator ? ["production"] : context.roles,
     hasLines: detail.lines.length > 0,
     hasCommitments: detail.commitments.length > 0,
     isPriced: project.priced_as !== null,
     nowISO,
+    datesBlockedReason: planFailure
+      ? "Pick a date that works first — see the dates above."
+      : undefined,
   });
-  const failingDates = checks.filter((c) => c.result && !c.result.ok).length;
+  const badgeKeys = badgesFor(
+    projectBadgeFacts(project, {
+      hasPackageLine: packageLines.length > 0,
+      openBookings: openBookings.length,
+      bookingException: detail.bookings.some((b) => b.exception_reason),
+      failingPlannedDates: failingDates,
+    }),
+  );
+  const totals = estimateTotals(
+    detail.lines.map((l) => ({ ...l, labor_hours: l.labor_hours ?? {} })),
+  );
+  const classFlags = (pricing?.classes ?? calendar?.classes ?? []).map((c) => ({
+    id: c.id,
+    charged_in_strategic: c.charged_in_strategic,
+  }));
+  const warnings = checks.flatMap((c) => (c.result?.ok ? c.result.warnings : []));
+  const sendAction = actions.find(
+    (a) => a.action === "send_estimate" || a.action === "resend_estimate",
+  );
+  const summary = buildSummary({
+    services: packageLines.map((l) => serviceName(l)),
+    hours: hourBuckets(
+      detail.lines.map((l) => ({ quantity: Number(l.quantity), labor_hours: l.labor_hours ?? {} })),
+      classFlags,
+    ),
+    priced: project.priced_as !== null && detail.lines.length > 0,
+    total: totals.total,
+    treatment: project.priced_as,
+    capacity: capacityStatusFor({
+      needsDates:
+        asksProduction &&
+        (planLines.some((l) => Object.keys(l.resource_units).length > 0) ||
+          openBookings.length > 0),
+      hasTerm: state !== null,
+      eventDate: project.event_starts_on,
+      openBookings: openBookings.length,
+      planFailed: planFailure !== null,
+      failingDates,
+      warnings: warnings.length,
+      estimate,
+      heldUntil:
+        estimate.kind === "sent" ? formatDateShort(estimate.expiresAt.slice(0, 10)) : null,
+    }),
+    contribution: null,
+    estimate,
+    readyToSend: sendAction?.enabled === true && failingDates === 0 && planFailure === null,
+  });
+  const askStrategic =
+    canEdit &&
+    partner.kind === "uwf_unit" &&
+    project.qualifies_strategic === null &&
+    project.disposition === null &&
+    (project.stage === "request" || project.stage === "estimate") &&
+    detail.lines.length > 0;
+  const editingEstimate = query.new === "line" || query.line !== undefined;
   const lineKind: BkEstimateLineKind =
     query.kind === "labor" || query.kind === "expense" ? query.kind : "package";
 
@@ -157,6 +264,11 @@ export default async function ProjectPage({
           {query.saved && SAVED_LABEL[query.saved] && (
             <Badge variant="success">{SAVED_LABEL[query.saved]}</Badge>
           )}
+          {badgeKeys.map((key) => (
+            <Badge key={key} variant="warning" title={BADGE_TITLE[key]}>
+              {BADGE_LABEL[key]}
+            </Badge>
+          ))}
         </div>
         <p className="text-xs text-ink-500">
           {partner.name} · {PARTNER_KIND_LABEL[partner.kind]} · {REQUESTED_LABEL[project.requested]}{" "}
@@ -186,27 +298,124 @@ export default async function ProjectPage({
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-          {(asksForProduction(project.requested) || detail.lines.length > 0) && (
-            <EstimateSection
-              detail={detail}
-              pricing={pricing}
-              canEdit={canEdit}
-              isExecutive={context.isExecutive}
-              openCard={query.new === "line" ? { kind: lineKind } : null}
-              editingLine={query.line ?? null}
-            />
+          {(asksProduction || detail.lines.length > 0) && (
+            <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+              <p className="text-sm leading-relaxed text-ink-900" data-testid="summary-line">
+                {summary.parts.map((part, index) => (
+                  <span key={part.key}>
+                    {index > 0 && <span className="text-ink-400"> · </span>}
+                    <span className={part.key === "price" ? "font-bold" : undefined}>
+                      {part.text}
+                    </span>
+                  </span>
+                ))}
+              </p>
+              {project.priced_as && (
+                <p className="text-xs text-ink-500">{PRODUCTION_RATE_HINT[project.priced_as]}</p>
+              )}
+              {askStrategic && (
+                <form
+                  action={answerStrategic}
+                  className="flex flex-wrap items-center gap-3 rounded border border-line bg-panel-50 px-3 py-2 text-sm"
+                >
+                  <input type="hidden" name="project_id" value={project.id} />
+                  <span className="text-ink-700">
+                    Is this strategic or applied-learning work? If yes, WUWF contributes the staff
+                    time.
+                  </span>
+                  <span className="flex gap-2">
+                    <Button type="submit" name="qualifies_strategic" value="yes" variant="secondary">
+                      Yes
+                    </Button>
+                    <Button type="submit" name="qualifies_strategic" value="no" variant="secondary">
+                      No
+                    </Button>
+                  </span>
+                </form>
+              )}
+              {planFailure && (
+                <div className="flex flex-col gap-3 rounded border border-warning-fg/30 bg-warning-bg px-4 py-3 text-sm text-warning-fg">
+                  <p className="font-semibold">The dates need attention.</p>
+                  <p>{planFailure.message}</p>
+                  {planFailure.alternatives.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs">Nearest that work:</span>
+                      {planFailure.alternatives.map((alt) => (
+                        <form key={`${alt.date}-${alt.window_start}`} action={chooseAlternative}>
+                          <input type="hidden" name="project_id" value={project.id} />
+                          <input type="hidden" name="date" value={alt.date} />
+                          <input
+                            type="hidden"
+                            name="window"
+                            value={`${alt.window_start}-${alt.window_end}`}
+                          />
+                          <Button type="submit" variant="secondary">
+                            {formatDateShort(alt.date)},{" "}
+                            {formatWindow(alt.window_start, alt.window_end)}
+                          </Button>
+                        </form>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs">
+                    Or plan the dates by hand under <strong>Adjust scope</strong> below.
+                  </p>
+                </div>
+              )}
+              {planCheck?.ok && canEdit && (
+                <form action={resumeAutoPlan} className="text-xs">
+                  <input type="hidden" name="project_id" value={project.id} />
+                  <Button type="submit" variant="secondary">
+                    Plan the dates now
+                  </Button>
+                </form>
+              )}
+              <details open={editingEstimate} className="text-sm">
+                <summary className="cursor-pointer text-xs font-bold text-brand-link">
+                  Show calculation
+                </summary>
+                <div className="mt-3 flex flex-col gap-3">
+                  <EstimateSection
+                    detail={detail}
+                    pricing={pricing}
+                    canEdit={canEdit}
+                    isExecutive={context.isExecutive}
+                    openCard={query.new === "line" ? { kind: lineKind } : null}
+                    editingLine={query.line ?? null}
+                  />
+                </div>
+              </details>
+            </section>
           )}
-          {(asksForProduction(project.requested) || detail.bookings.length > 0) && (
-            <DatesSection
-              detail={detail}
-              calendar={calendar}
-              state={state}
-              checks={checks}
-              draw={draw}
-              canEdit={canEdit}
-              openCard={query.new === "date" ? "date" : query.new === "block" ? "block" : null}
-              attachableBlocks={attachableBlocks}
-            />
+          {(asksProduction || detail.bookings.length > 0) && (
+            <details
+              open={
+                query.new === "date" ||
+                query.new === "block" ||
+                project.dates_mode === "manual" ||
+                failingDates > 0
+              }
+              className="rounded border border-line bg-white"
+            >
+              <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-ink-900">
+                Adjust scope
+                <span className="ml-2 text-xs font-normal text-ink-500">
+                  Plan the dates by hand, or change what is booked
+                </span>
+              </summary>
+              <div className="border-t border-line p-1">
+                <DatesSection
+                  detail={detail}
+                  calendar={calendar}
+                  state={state}
+                  checks={checks}
+                  draw={draw}
+                  canEdit={canEdit}
+                  openCard={query.new === "date" ? "date" : query.new === "block" ? "block" : null}
+                  attachableBlocks={attachableBlocks}
+                />
+              </div>
+            </details>
           )}
           {(asksForAirtime(project.requested) || detail.commitments.length > 0) && (
             <AirtimeSection
@@ -389,8 +598,8 @@ export default async function ProjectPage({
                       : "No",
               },
               {
-                label: "Priced as",
-                value: project.priced_as ? TREATMENT_SHORT_LABEL[project.priced_as] : null,
+                label: "Rate",
+                value: project.priced_as ? PRODUCTION_RATE_LABEL[project.priced_as] : null,
               },
               { label: "Editorial", value: EDITORIAL_REVIEW_LABEL[project.editorial_review] },
               { label: "Owner", value: detail.owner_name },

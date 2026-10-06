@@ -15,14 +15,18 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
 export function Badge({
   variant = "neutral",
   className,
+  title,
   children,
 }: {
   variant?: BadgeVariant;
   className?: string;
+  /** A tooltip: what the badge means. */
+  title?: string;
   children: ReactNode;
 }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
         VARIANT_CLASSES[variant],

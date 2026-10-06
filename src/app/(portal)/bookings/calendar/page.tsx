@@ -8,6 +8,7 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
+import { termPlanInline } from "@/lib/bookings/nav";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
 import { airtimeEnvelope, parseAirtimeRead } from "@/lib/bookings/airtime";
 import {
@@ -15,7 +16,7 @@ import {
   HOLD_KIND_LABEL,
   TERM_PLAN_STATUS_LABEL,
   TREATMENT_LABEL,
-  TREATMENT_SHORT_LABEL,
+  PRODUCTION_RATE_LABEL,
 } from "@/lib/bookings/labels";
 import { PLAN_PATH, calendarHref, withQuery } from "@/lib/bookings/paths";
 import {
@@ -213,13 +214,28 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           />
         )}
         <span className="flex-1" />
-        {canDirect && (
+        {termPlanInline(context.roles, context.isAdministrator) ? (
           <Link
             href={withQuery(PLAN_PATH, { plan: plan.id })}
             className="px-1 text-sm font-bold text-brand-link hover:underline"
           >
             Term plan
           </Link>
+        ) : (
+          // Production staff and role-less members still read the term plan (§6.1); it is one click further.
+          <details className="relative">
+            <summary className="cursor-pointer px-1 text-sm font-bold text-ink-500 hover:text-ink-700">
+              More
+            </summary>
+            <div className="absolute right-0 z-10 mt-1 min-w-[8rem] rounded border border-line bg-white py-1 shadow-md">
+              <Link
+                href={withQuery(PLAN_PATH, { plan: plan.id })}
+                className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-panel-50"
+              >
+                Term plan
+              </Link>
+            </div>
+          </details>
         )}
       </div>
 
@@ -360,7 +376,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   >
                     {TREATMENTS.map((t) => (
                       <option key={t} value={t}>
-                        {TREATMENT_SHORT_LABEL[t]}
+                        {PRODUCTION_RATE_LABEL[t]}
                       </option>
                     ))}
                   </Select>
@@ -742,7 +758,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <Cell label="What">
                       {booking.label}
                       <span className="block text-xs text-ink-500">
-                        {TREATMENT_SHORT_LABEL[booking.treatment]}
+                        {PRODUCTION_RATE_LABEL[booking.treatment]}
                       </span>
                     </Cell>
                     <Cell label="Pool">{poolName(booking.pool_id)}</Cell>

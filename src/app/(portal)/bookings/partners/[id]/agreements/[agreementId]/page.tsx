@@ -22,7 +22,7 @@ import {
 } from "@/lib/bookings/agreements";
 import { envelopeCheck, formatMinutes } from "@/lib/bookings/airtime";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
-import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
+import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import {
   agreementEditHref,
   agreementHref,
@@ -537,7 +537,7 @@ export default async function AgreementPage({
                     <HeaderRow>
                       <Th>Request</Th>
                       <Th>Event</Th>
-                      <Th>Priced as</Th>
+                      <Th>Rate</Th>
                       <Th>Stage</Th>
                     </HeaderRow>
                   </thead>
@@ -555,8 +555,8 @@ export default async function AgreementPage({
                         <Cell label="Event">
                           {project.event_starts_on ? formatDateShort(project.event_starts_on) : "—"}
                         </Cell>
-                        <Cell label="Priced as">
-                          {project.priced_as ? TREATMENT_SHORT_LABEL[project.priced_as] : "—"}
+                        <Cell label="Rate">
+                          {project.priced_as ? PRODUCTION_RATE_LABEL[project.priced_as] : "—"}
                         </Cell>
                         <Cell stack="aside">
                           {project.disposition ? (

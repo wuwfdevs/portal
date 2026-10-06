@@ -156,6 +156,8 @@ export interface StageActionContext {
   hasCommitments: boolean;
   isPriced: boolean;
   nowISO: string;
+  /** Why the dates can't be held yet (the system's plan is an exception); blocks sending. */
+  datesBlockedReason?: string;
 }
 
 function mayScheduleWith(roles: readonly BookingsRole[]): boolean {
@@ -182,7 +184,7 @@ export function availableStageActions(
       : "Add an airtime commitment first."
     : context.hasLines && !context.isPriced
       ? "Price the estimate first."
-      : undefined;
+      : context.datesBlockedReason;
   switch (project.stage) {
     case "request":
       return [

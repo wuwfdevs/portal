@@ -1,3 +1,4 @@
+import type { ProjectDateFacts } from "./badges";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
@@ -1071,4 +1072,41 @@ export async function listAgreementOptions(): Promise<
       partner_name: partners.get(a.partner_id)?.name ?? "Partner",
     }))
     .sort((a, b) => a.partner_name.localeCompare(b.partner_name) || a.label.localeCompare(b.label));
+}
+
+// Badge facts for a page of projects (docs/bookings-design.md §18.7) ---------------------------------
+
+
+/** What the Requests list needs beyond the project rows to decide each row's badges. */
+export async function listProjectDateFacts(
+  projectIds: readonly string[],
+): Promise<Map<string, ProjectDateFacts>> {
+  const facts = new Map<string, ProjectDateFacts>();
+  if (projectIds.length === 0) return facts;
+  const supabase = await createClient();
+  const [lines, bookings] = await Promise.all([
+    supabase
+      .from("bk_estimate_lines")
+      .select("project_id")
+      .eq("kind", "package")
+      .in("project_id", [...projectIds]),
+    supabase
+      .from("bk_bookings")
+      .select("project_id, status, exception_reason")
+      .in("project_id", [...projectIds]),
+  ]);
+  const lineRows = unwrapRead(lines, "estimate lines") ?? [];
+  const bookingRows = unwrapRead(bookings, "dates") ?? [];
+  for (const id of projectIds) {
+    facts.set(id, { hasPackageLine: false, openBookings: 0, bookingException: false });
+  }
+  for (const row of lineRows) facts.get(row.project_id)!.hasPackageLine = true;
+  for (const row of bookingRows) {
+    if (!row.project_id) continue;
+    const entry = facts.get(row.project_id);
+    if (!entry) continue;
+    if (row.status !== "released") entry.openBookings += 1;
+    if (row.exception_reason) entry.bookingException = true;
+  }
+  return facts;
 }

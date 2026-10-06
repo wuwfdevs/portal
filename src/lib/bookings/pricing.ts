@@ -27,6 +27,12 @@ export interface PricingFacts {
 export interface DerivedPricing {
   treatment: BkPricingTreatment;
   reason: string;
+  /**
+   * The request qualifies (or is under an agreement) but the reserve could not cover it,
+   * so it was priced at the university rate (§18.5). A finding of the system; the
+   * judgment itself (`qualifies_strategic`) is never changed by it.
+   */
+  reserveDepleted: boolean;
 }
 
 /** §2.2's table, top to bottom. */
@@ -36,6 +42,7 @@ export function derivePricing(facts: PricingFacts): DerivedPricing {
       treatment: "external",
       reason:
         "The partner is outside the university: full cost, the New Ventures assessment and the contribution margin, floored at market.",
+      reserveDepleted: false,
     };
   }
   if (facts.underAgreement) {
@@ -44,10 +51,12 @@ export function derivePricing(facts: PricingFacts): DerivedPricing {
           treatment: "incremental",
           reason:
             "Under an agreement whose allocated reserve share is used up: priced incremental beyond it.",
+          reserveDepleted: true,
         }
       : {
           treatment: "strategic",
           reason: "Under an agreement: priced against its allocated reserve share.",
+          reserveDepleted: false,
         };
   }
   if (facts.qualifiesStrategic === true) {
@@ -56,12 +65,14 @@ export function derivePricing(facts: PricingFacts): DerivedPricing {
         treatment: "incremental",
         reason:
           "Qualifies as strategic work, but the reserve's unused balance does not cover its professional hours: priced incremental.",
+        reserveDepleted: true,
       };
     }
     return {
       treatment: "strategic",
       reason:
         "Qualifies as strategic or applied-learning work and the reserve covers its professional hours: student labor, resources and direct costs; professional labor is WUWF's contribution.",
+      reserveDepleted: false,
     };
   }
   return {
@@ -70,6 +81,7 @@ export function derivePricing(facts: PricingFacts): DerivedPricing {
       facts.qualifiesStrategic === null
         ? "Not yet judged strategic: priced incremental — strategic components plus professional labor at the loaded rate."
         : "Does not qualify as strategic work: strategic components plus professional labor at the loaded rate.",
+    reserveDepleted: false,
   };
 }
 
@@ -112,6 +124,8 @@ export interface EstimateLineLike {
   quantity: number;
   unit_rate: number;
   amount: number;
+  /** An expense line's cost each as typed, before any assessment (§18.8); null otherwise. */
+  direct_cost?: number | null;
   /** Per unit of the line. */
   labor_hours: HoursByClass;
 }
@@ -154,7 +168,10 @@ export type PriceLineResult = { ok: true; price: LinePrice } | { ok: false; erro
  * project is external (§7, "Pass-through").
  */
 export function priceLine(
-  line: Pick<EstimateLineLike, "kind" | "package_id" | "labor_class_id" | "quantity" | "unit_rate">,
+  line: Pick<
+    EstimateLineLike,
+    "kind" | "package_id" | "labor_class_id" | "quantity" | "unit_rate" | "direct_cost"
+  >,
   treatment: BkPricingTreatment,
   card: readonly CardLineLike[],
   classes: readonly LaborClassFlag[],
@@ -191,7 +208,8 @@ export function priceLine(
       rate = Number(cardLine.incremental_rate ?? 0);
     }
   } else {
-    const cost = Number(line.unit_rate);
+    // The typed cost, never the stored rate: a rate derived from it must not feed back in.
+    const cost = Number(line.direct_cost ?? line.unit_rate);
     rate = treatment === "external" ? roundCents(cost * (1 + assessmentShare)) : roundCents(cost);
   }
   return { ok: true, price: { unit_rate: rate, amount: roundCents(rate * Number(line.quantity)) } };
