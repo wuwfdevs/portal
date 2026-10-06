@@ -7,14 +7,13 @@ import {
   formatDollars,
   formatShare,
   modelFromRows,
+  priceRecipe,
+  rateCeilingFlags,
+  unitCostsOf,
   packageSpecFromRow,
   roundCents,
   roundUpTo,
   sensitivity,
-  type LaborClassInput,
-  type PackageSpec,
-  type PoolInput,
-  type RateModelInputs,
 } from "./rates";
 
 // The fixture is WUWF_Production_Rate_Model_v0.1.xlsx, read from the
@@ -24,103 +23,7 @@ import {
 // pools. The same values are what
 // 20261005160000_bookings_labor_and_pools.sql seeds as version v0.1.
 
-const LEAD: LaborClassInput = {
-  id: "lead",
-  key: "production_lead",
-  name: "Production lead",
-  payBasis: "salaried",
-  annualSalary: 65000,
-  hourlyWage: null,
-  loadShare: 0.35,
-  paidHours: 2080,
-  externalRate: 65,
-  chargedInStrategic: false,
-};
-
-const STUDENT: LaborClassInput = {
-  id: "student",
-  key: "student",
-  name: "Student / OPS",
-  payBasis: "hourly",
-  annualSalary: null,
-  hourlyWage: 15,
-  loadShare: 0.08,
-  paidHours: null,
-  externalRate: 25,
-  chargedInStrategic: true,
-};
-
-function pool(
-  id: string,
-  name: string,
-  unitLabel: string,
-  share: number | null,
-  units: number,
-  ownLines: number[] = [],
-): PoolInput {
-  return {
-    id,
-    key: id,
-    name,
-    unitLabel,
-    costing: share === null ? "own_lines" : "allocated",
-    allocationShare: share,
-    availableUnits: units,
-    ownLines,
-  };
-}
-
-export const V01: RateModelInputs = {
-  externalMarginShare: 0.25,
-  assessmentShare: 0.0671,
-  // Broadcast/production equipment contingency, editing computer & accessories,
-  // software acquisitions & upgrades, hardware, Adobe Creative Cloud.
-  sharedPoolLines: [7000, 3200, 2000, 2000, 1740],
-  labor: [LEAD, STUDENT],
-  pools: [
-    pool("studio", "Studio / control room", "half-day", 0.35, 120),
-    pool("field", "Field video package", "day", 0.25, 80),
-    pool("live", "Live / multicamera package", "day", 0.3, 60),
-    pool("edit", "Edit suite / post-production", "hour", 0.1, 400),
-    // The webcasting operating pool, allocated over the planning volume.
-    pool("webcast", "Webcast operations", "event", null, 20, [6500]),
-  ],
-};
-
-function pkg(
-  key: string,
-  name: string,
-  unitLabel: string,
-  pro: number,
-  student: number,
-  units: [studio: number, field: number, live: number, edit: number, webcast: number],
-  floor: number,
-): PackageSpec {
-  return {
-    key,
-    name,
-    unitLabel,
-    labor: { lead: pro, student },
-    resources: {
-      studio: units[0],
-      field: units[1],
-      live: units[2],
-      edit: units[3],
-      webcast: units[4],
-    },
-    marketFloor: floor,
-  };
-}
-
-export const V01_PACKAGES: PackageSpec[] = [
-  pkg("studio_half", "Studio access", "half-day", 1, 2, [1, 0, 0, 0, 0], 250),
-  pkg("studio_full", "Studio access", "full day", 2, 3, [2, 0, 0, 0, 0], 450),
-  pkg("webcast_basic", "Basic event webcast", "event", 5, 10, [0, 0, 1, 0, 1], 1000),
-  pkg("webcast_enhanced", "Enhanced multicamera webcast", "event", 8, 32, [1, 0, 1.5, 0, 1], 1800),
-  pkg("field_half", "Field production", "half-day", 4, 8, [0, 0.5, 0, 0, 0], 500),
-  pkg("field_full", "Field production", "full day", 8, 16, [0, 1, 0, 0, 0], 900),
-  pkg("editing_hour", "Post-production / editing", "hour", 1, 0, [0, 0, 0, 1, 0], 75),
-];
+import { LEAD, STUDENT, V01, V01_PACKAGES } from "./rates.fixture";
 
 describe("derived labor and pool metrics (Inputs & Assumptions sheet)", () => {
   const derived = computeDerived(V01);
@@ -328,7 +231,8 @@ describe("modelFromRows", () => {
   it("rebuilds the model from stored rows", () => {
     const result = modelFromRows(rows);
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.model).toEqual(V01);
+    // V01 is the workbook; the stored rows add only zero-valued §20 fields (no overhead, no capital).
+    if (result.ok) expect(result.model).toMatchObject(V01);
   });
 
   it("names what a half-built draft is missing, in words", () => {
@@ -372,7 +276,7 @@ describe("modelFromRows", () => {
         ],
         resources: [{ pool_id: "field", units: 0.5 }],
       }),
-    ).toEqual({
+    ).toMatchObject({
       key: "p1",
       name: "Field production",
       unitLabel: "half-day",
@@ -394,5 +298,130 @@ describe("formatting", () => {
     expect(formatShare(0.35)).toBe("35%");
     expect(formatShare(0.0671)).toBe("6.71%");
     expect(formatShare(0.08)).toBe("8%");
+  });
+});
+
+describe("practical capacity, capital, maintenance and overhead (docs/bookings-design.md §20)", () => {
+  const baseline = computeDerived(V01);
+  const studioOf = (model: typeof V01) =>
+    computeDerived(model).pools.find((p) => p.id === "studio")!;
+
+  it("blank capital and maintenance add zero: the workbook's pools come out unchanged", () => {
+    const explicit = computeDerived({
+      ...V01,
+      pools: V01.pools.map((p) => ({ ...p, capitalAnnual: 0, maintenanceAnnual: 0 })),
+    });
+    expect(explicit.pools.map((p) => p.costPerUnit)).toEqual(baseline.pools.map((p) => p.costPerUnit));
+    expect(baseline.pools.every((p) => p.capitalCost === 0 && p.maintenanceCost === 0)).toBe(true);
+  });
+
+  it("adds capital set-aside and maintenance to a pool's annual cost as their own lines", () => {
+    const studio = studioOf({
+      ...V01,
+      pools: V01.pools.map((p) =>
+        p.id === "studio" ? { ...p, capitalAnnual: 1200, maintenanceAnnual: 300 } : p,
+      ),
+    });
+    expect(studio.baseCost).toBeCloseTo(5579, 2);
+    expect(studio.capitalCost).toBe(1200);
+    expect(studio.maintenanceCost).toBe(300);
+    expect(studio.annualCost).toBeCloseTo(7079, 2);
+    expect(studio.costPerUnit).toBeCloseTo(7079 / 120, 6);
+  });
+
+  it("divides by practical capacity, never by demand: a larger capacity lowers the unit cost, and there is no demand input", () => {
+    const more = studioOf({
+      ...V01,
+      pools: V01.pools.map((p) => (p.id === "studio" ? { ...p, availableUnits: 240 } : p)),
+    });
+    expect(more.costPerUnit).toBeCloseTo(baseline.pools.find((p) => p.id === "studio")!.costPerUnit / 2, 6);
+    // The pool's inputs carry capacity and a basis flag — nothing about bookings or utilization.
+    expect(Object.keys(V01.pools[0]!)).not.toContain("bookedUnits");
+  });
+
+  it("refuses a pool with no practical capacity", () => {
+    expect(() =>
+      computeDerived({
+        ...V01,
+        pools: V01.pools.map((p) => (p.id === "studio" ? { ...p, availableUnits: 0 } : p)),
+      }),
+    ).toThrow(/practical capacity/);
+  });
+
+  it("keeps general overhead out of every pool's allocation and totals it apart", () => {
+    const rows = {
+      assumptions: [
+        { kind: "pool_line" as const, key: null, pool_id: null, value: 7000 },
+        { kind: "pool_line" as const, key: null, pool_id: null, value: 3200 },
+        { kind: "pool_line" as const, key: null, pool_id: "webcast", value: 1000 },
+        // The webcast operating pool's $6,500, once Finance marks it general overhead.
+        { kind: "pool_line" as const, key: null, pool_id: "webcast", value: 6500, overhead: true },
+        { kind: "model_input" as const, key: "external_margin_share", pool_id: null, value: 0.25 },
+        { kind: "model_input" as const, key: "assessment_share", pool_id: null, value: 0.0671 },
+      ],
+      classes: [],
+      laborRates: [],
+      poolCatalog: [
+        { id: "webcast", key: "webcast", name: "Webcast", unit_label: "event", costing: "own_lines" as const, active: true },
+      ],
+      pools: [{ pool_id: "webcast", allocation_share: null, available_units: 20 }],
+    };
+    const result = modelFromRows(rows);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const derived = computeDerived(result.model);
+    expect(derived.overheadAnnual).toBe(6500);
+    expect(derived.sharedPoolAnnual).toBe(10200);
+    expect(derived.pools[0]!.annualCost).toBe(1000);
+    expect(derived.pools[0]!.costPerUnit).toBe(50);
+  });
+});
+
+describe("the recipe math and the market ceiling (§20.5, §20.6)", () => {
+  const derived = computeDerived(V01);
+  const inputs = { externalMarginShare: V01.externalMarginShare, assessmentShare: V01.assessmentShare };
+  const basic = V01_PACKAGES.find((p) => p.key === "webcast_basic")!;
+
+  it("prices the standard recipe exactly as the card does", () => {
+    const viaRecipe = priceRecipe(basic, unitCostsOf(derived), inputs, basic.marketFloor);
+    const card = buildRateCard(V01, V01_PACKAGES).packages.find((p) => p.key === "webcast_basic")!;
+    expect(viaRecipe).toMatchObject({
+      strategicRate: card.strategicRate,
+      incrementalRate: card.incrementalRate,
+      externalRate: card.externalRate,
+      laborCost: card.laborCost,
+      resourceCost: card.resourceCost,
+    });
+    expect(viaRecipe.strategicRate).toBe(575);
+    expect(viaRecipe.incrementalRate).toBe(800);
+    expect(viaRecipe.externalRate).toBe(1150);
+  });
+
+  it("prices an adjusted recipe from the same unit costs", () => {
+    // A heavier crew: 8 staff and 20 student hours.
+    const adjusted = priceRecipe(
+      { name: "Basic event webcast", labor: { lead: 8, student: 20 }, resources: basic.resources },
+      unitCostsOf(derived),
+      inputs,
+      basic.marketFloor,
+    );
+    expect(adjusted.incrementalCost).toBeCloseTo(79.7 + 325 + 8 * 42.1875 + 20 * 16.2, 2);
+    expect(adjusted.incrementalRate).toBeGreaterThan(800);
+  });
+
+  it("flags a modeled rate above the ceiling and never caps it", () => {
+    expect(rateCeilingFlags({ strategicRate: 575, incrementalRate: 800, externalRate: 1150 }, 900)).toEqual([
+      "external",
+    ]);
+    expect(rateCeilingFlags({ strategicRate: 575, incrementalRate: 800, externalRate: 1150 }, 500)).toEqual([
+      "strategic",
+      "incremental",
+      "external",
+    ]);
+    expect(rateCeilingFlags({ strategicRate: 575, incrementalRate: 800, externalRate: 1150 }, null)).toEqual([]);
+    // The card still carries the modeled rate: a ceiling is a flag, not an input.
+    expect(
+      buildRateCard(V01, [{ ...basic, marketCeiling: 900 }]).packages[0]!.externalRate,
+    ).toBe(1150);
   });
 });

@@ -123,13 +123,39 @@ export function AssetForm({
           />
         </div>
         <div>
-          <Label htmlFor="useful_life_years">Useful life (years)</Label>
+          <Label htmlFor="useful_life_years">Realistic useful life (years)</Label>
           <Input
             id="useful_life_years"
             name="useful_life_years"
             inputMode="decimal"
             defaultValue={num(defaults?.useful_life_years)}
           />
+          <FieldHint>How long it will really serve before it must be replaced.</FieldHint>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="replacement_cost">Replacement cost ($)</Label>
+          <Input
+            id="replacement_cost"
+            name="replacement_cost"
+            inputMode="decimal"
+            defaultValue={num(defaults?.replacement_cost)}
+          />
+          <FieldHint>
+            What replacing it would cost now. A pool sets aside this ÷ the useful life each year —
+            economic capital consumption, not an accounting depreciation schedule. Blank adds zero.
+          </FieldHint>
+        </div>
+        <div>
+          <Label htmlFor="annual_maintenance">Annual maintenance ($)</Label>
+          <Input
+            id="annual_maintenance"
+            name="annual_maintenance"
+            inputMode="decimal"
+            defaultValue={num(defaults?.annual_maintenance)}
+          />
+          <FieldHint>Blank adds zero.</FieldHint>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

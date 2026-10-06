@@ -6,7 +6,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
-import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
+import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bookings/badges";
+import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import { INTAKE_PATH, REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
 import {
   DISPOSITION_BADGE,
@@ -16,7 +17,12 @@ import {
   STAGE_LABEL,
   estimateState,
 } from "@/lib/bookings/projects";
-import { countProjects, listProjectsPage, type ProjectListView } from "@/lib/bookings/queries";
+import {
+  countProjects,
+  listProjectDateFacts,
+  listProjectsPage,
+  type ProjectListView,
+} from "@/lib/bookings/queries";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import { formatDateShort } from "@/lib/log/program-status";
 
@@ -43,6 +49,7 @@ export default async function RequestsPage({
     listProjectsPage({ view, q, page }),
     ...VIEWS.map((candidate) => countProjects(candidate, q)),
   ]);
+  const dateFacts = await listProjectDateFacts(rows.map((row) => row.id));
   const info = pageInfo(page, total);
   const listParams = { view: view === "open" ? null : view, q };
   if (isPastLastPage(info)) redirect(pageHref(REQUESTS_PATH, listParams, info.pageCount));
@@ -109,13 +116,20 @@ export default async function RequestsPage({
                 <Th>Request</Th>
                 <Th>Partner</Th>
                 <Th>Event</Th>
-                <Th>Priced as</Th>
+                <Th>Rate</Th>
                 <Th>Stage</Th>
               </HeaderRow>
             </thead>
             <tbody>
               {rows.map((project) => {
                 const estimate = estimateState(project, nowISO);
+                const badges = badgesFor(
+                  projectBadgeFacts(project, dateFacts.get(project.id) ?? {
+                    hasPackageLine: false,
+                    openBookings: 0,
+                    bookingException: false,
+                  }),
+                );
                 return (
                   <Row key={project.id}>
                     <Cell stack="title">
@@ -128,6 +142,15 @@ export default async function RequestsPage({
                       <span className="block text-xs text-ink-500">
                         {REQUESTED_LABEL[project.requested]}
                       </span>
+                      {badges.length > 0 && (
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {badges.map((key) => (
+                            <Badge key={key} variant="warning" title={BADGE_TITLE[key]}>
+                              {BADGE_LABEL[key]}
+                            </Badge>
+                          ))}
+                        </span>
+                      )}
                     </Cell>
                     <Cell label="Partner">{project.partner_name}</Cell>
                     <Cell label="Event">
@@ -140,8 +163,8 @@ export default async function RequestsPage({
                           }`
                         : "—"}
                     </Cell>
-                    <Cell label="Priced as">
-                      {project.priced_as ? TREATMENT_SHORT_LABEL[project.priced_as] : "—"}
+                    <Cell label="Rate">
+                      {project.priced_as ? PRODUCTION_RATE_LABEL[project.priced_as] : "—"}
                     </Cell>
                     <Cell stack="aside">
                       {project.disposition ? (

@@ -16,12 +16,24 @@ import {
   type BkPoolRow,
   type PackageWithParts,
 } from "@/lib/bookings/queries";
-import { formatDollars, formatShare, type PackageCosts } from "@/lib/bookings/rates";
+import {
+  formatDollars,
+  formatShare,
+  rateCeilingFlags,
+  type PackageCosts,
+} from "@/lib/bookings/rates";
 import { cardForVersion } from "@/lib/bookings/version-card";
-import { createPackage, setPackageActive, updatePackage } from "../actions";
+import { createPackage, setPackageActive, setPackageReview, updatePackage } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
+import { ValidationBadge, ValidationControls } from "../validation-controls";
 
-type Params = { version?: string; edit?: string; new?: string; error?: string };
+type Params = {
+  version?: string;
+  edit?: string;
+  new?: string;
+  accept?: string;
+  error?: string;
+};
 
 function PackageFields({
   defaults,
@@ -42,7 +54,7 @@ function PackageFields({
   const num = (value: number | undefined) => (value === undefined ? "" : String(value));
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <Label htmlFor="pkg-name">Service</Label>
           <Input id="pkg-name" name="name" defaultValue={defaults?.name ?? ""} required autoFocus />
@@ -65,6 +77,16 @@ function PackageFields({
             inputMode="decimal"
             defaultValue={num(defaults?.market_floor)}
           />
+        </div>
+        <div>
+          <Label htmlFor="pkg-ceiling">Market ceiling ($, optional)</Label>
+          <Input
+            id="pkg-ceiling"
+            name="market_ceiling"
+            inputMode="decimal"
+            defaultValue={defaults?.market_ceiling == null ? "" : String(defaults.market_ceiling)}
+          />
+          <FieldHint>A rate above it is flagged for review, never capped.</FieldHint>
         </div>
       </div>
       <fieldset>
@@ -177,6 +199,8 @@ export default async function ServicePackagesPage({
     computed.ok ? computed.card.packages.map((line) => [line.key, line]) : [],
   );
   const canEdit = context.isFinance && version.status === "draft";
+  const canValidate =
+    context.isFinance && (version.status === "draft" || version.status === "submitted");
   const here = (extra?: Record<string, string>) => ratesHref("packages", version.id, extra);
   const margin = detail.assumptions.find((row) => row.key === "external_margin_share");
   const assessment = detail.assumptions.find((row) => row.key === "assessment_share");
@@ -191,7 +215,7 @@ export default async function ServicePackagesPage({
       pool.active ||
       detail.packages.some((pkg) => pkg.resources.some((row) => row.pool_id === pool.id)),
   );
-  const columnCount = 1 + classes.length + pools.length + 3 + 1;
+  const columnCount = 1 + classes.length + pools.length + 4 + 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -229,7 +253,7 @@ export default async function ServicePackagesPage({
               External = the higher of incremental ÷ (1 −{" "}
               {margin ? formatShare(Number(margin.value)) : "margin"} −{" "}
               {assessment ? formatShare(Number(assessment.value)) : "assessment"}) and the market
-              floor. Everything rounds up to the next $25 on the card.
+              floor. Everything rounds up to the next $25 on the card. The review status of a package&apos;s hours and market floor is shown here like any assumption; it never holds up a submission.
             </p>
           </div>
           {canEdit && params.new !== "1" && (
@@ -258,7 +282,8 @@ export default async function ServicePackagesPage({
                 ))}
                 <Th className="text-right">Strategic cost</Th>
                 <Th className="text-right">Incremental cost</Th>
-                <Th className="text-right">Market floor</Th>
+                <Th className="text-right">Market floor · ceiling</Th>
+                <Th>Review</Th>
                 <Th>
                   <span className="sr-only">Actions</span>
                 </Th>
@@ -343,8 +368,53 @@ export default async function ServicePackagesPage({
                         ? formatDollars(cost.incrementalCost, { cents: true })
                         : "—"}
                     </Cell>
-                    <Cell label="Market floor" className="text-right tabular-nums">
+                    <Cell label="Market floor · ceiling" className="text-right tabular-nums">
                       {formatDollars(Number(pkg.market_floor))}
+                      <span className="text-ink-400">
+                        {" · "}
+                        {pkg.market_ceiling === null ? "no ceiling" : formatDollars(Number(pkg.market_ceiling))}
+                      </span>
+                      {cost && pkg.active
+                        ? rateCeilingFlags(cost, pkg.market_ceiling).map((treatment) => (
+                            <Badge key={treatment} variant="warning" className="mt-1 block text-right">
+                              {treatment} rate above the ceiling — review the scope or the model
+                            </Badge>
+                          ))
+                        : null}
+                    </Cell>
+                    <Cell label="Review">
+                      <div className="flex flex-col gap-2">
+                        {(["hours", "floor"] as const).map((which) => {
+                          const state =
+                            which === "hours" ? pkg.hours_validation_state : pkg.floor_validation_state;
+                          const note =
+                            which === "hours" ? pkg.hours_validation_note : pkg.floor_validation_note;
+                          const key = `${pkg.id}:${which}`;
+                          return (
+                            <div key={which} className="flex flex-col gap-1">
+                              <span className="text-xs font-semibold text-ink-700">
+                                {which === "hours" ? "Hours" : "Market floor"}
+                              </span>
+                              <ValidationBadge state={state} />
+                              {canValidate ? (
+                                <ValidationControls
+                                  action={setPackageReview}
+                                  id={pkg.id}
+                                  versionId={version.id}
+                                  state={state}
+                                  note={note}
+                                  acceptOpen={params.accept === key}
+                                  acceptHref={here({ accept: key })}
+                                  closeHref={here()}
+                                  extraFields={{ which }}
+                                />
+                              ) : (
+                                note && <span className="text-xs text-ink-500">{note}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </Cell>
                     <Cell stack="full" className="text-right">
                       {canEdit && (

@@ -2,7 +2,7 @@ import { requireBookingsAccess } from "@/lib/bookings/access";
 import { NavTabs } from "./nav-tabs";
 
 export default async function BookingsLayout({ children }: { children: React.ReactNode }) {
-  await requireBookingsAccess();
+  const context = await requireBookingsAccess();
 
   return (
     <div className="px-6 py-7 sm:px-8 sm:pb-12">
@@ -12,7 +12,7 @@ export default async function BookingsLayout({ children }: { children: React.Rea
           University production work: capacity, rates, recovery.
         </p>
       </div>
-      <NavTabs />
+      <NavTabs roles={context.roles} isAdministrator={context.isAdministrator} />
       {children}
     </div>
   );

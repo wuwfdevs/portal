@@ -270,8 +270,8 @@ export async function updateResource(formData: FormData): Promise<void> {
   const planId = field(formData, "plan_id");
   const poolId = uuidField(formData, "pool_id", withQuery(PLAN_PATH, { plan: planId }), "a pool");
   const path = withQuery(PLAN_PATH, { plan: planId, edit: poolId });
-  const units = numberField(formData, "available_units", path, "Available units");
-  if (units < 0) failWith(path, "Available units can't be negative.");
+  const units = numberField(formData, "available_units", path, "Practical capacity");
+  if (units < 0) failWith(path, "Practical capacity can't be negative.");
   const concurrent = numberField(formData, "concurrent_units", path, "Concurrent units");
   if (!Number.isInteger(concurrent) || concurrent < 1) {
     failWith(path, "Concurrent units is a whole number, at least 1.");

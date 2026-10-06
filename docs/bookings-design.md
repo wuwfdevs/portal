@@ -250,7 +250,7 @@ Two unversioned catalogs name what the model prices; the figures for each are ve
 - **`bk_rate_model_versions`** — `label`, `status` (`draft` | `submitted` | `adopted` | `superseded`), `in_use` (exactly one version is in use for estimates — a partial unique index; separate from `adopted`, so the provisional v0.1 can price estimates before anyone adopts it), `destination_index` (where recoveries go, a Budget / Controller decision, recorded at adoption), `notes`, and `submitted_at/by`, `adopted_at/by`, `superseded_at`.
 - **`bk_assumptions`** — `version_id`, `section` (`sourced` | `working`), `kind` (`pool_line` | `model_input`), `pool_id` (a pool line's own-lines pool; null means the shared production pool), `key` (a model input's `external_margin_share` or `assessment_share` — `lib/bookings/rates.ts`'s `MODEL_INPUT_KEYS`), `label`, `value numeric`, `unit`, `basis`, `source_url`, `notes`, `owner` (`finance` | `director` | `executive`), `validation_state` (`pending` | `validated` | `accepted_as_is` — a sourced budget line is seeded `validated` with "Current budget" as what validated it), `validation_needed`, `validation_note`, `validated_at/by`, `sort_order`. Budget lines and the two inputs the math reads directly; everything about a person or a pool moved to the two tables below.
 - **`bk_labor_rates`** — `version_id`, `labor_class_id`, `annual_salary` + `paid_hours` (salaried) or `hourly_wage` (hourly), `load_share`, `external_rate` (the planning rate an external estimate charges for this class), `basis`, and the same `validation_*` columns. One row per class per version; the loaded hourly cost is computed, never stored.
-- **`bk_resource_pools`** — `version_id`, `pool_id`, `allocation_share` (allocated pools only), `available_units`, `basis`, `validation_*`. Cost per unit is computed, never stored.
+- **`bk_resource_pools`** — `version_id`, `pool_id`, `allocation_share` (allocated pools only), `available_units` (the pool's **practical capacity**, §20.1), `units_basis`, `capital_annual`/`maintenance_annual`/`asset_basis` (§20.3), `basis`, `validation_*`. Cost per unit is computed, never stored.
 - **`bk_service_packages`** — `version_id`, `name`, `unit_label`, `market_floor`, `historical_reference`, `application_note`, `notes`, `active`, `sort_order`, with its parts in **`bk_package_labor`** (`package_id`, `labor_class_id`, `hours`) and **`bk_package_resources`** (`package_id`, `pool_id`, `units`). `agreement_id` (a bespoke package scoped to one agreement, e.g. an OUR Voices episode) arrives with `bk_agreements` in slice 5.
 - **`bk_rate_card_lines`** — `version_id`, `kind` (`package` | `labor`), `package_id`, `labor_class_id`, `line_key`, `name`, `unit_label`, `strategic_rate`, `incremental_rate`, `external_rate`, the three costs behind them, `market_floor`, `historical_reference`, `application_note`, `snapshotted_at`. A snapshot TypeScript writes when a version is **put in use or adopted** (and, for the version in use, on "Record for estimates" once its rows have moved), so an estimate keeps the rate it was priced at when a later version changes an input. A labor line carries its loaded internal cost in `incremental_rate`.
 - **`bk_assets`** — `name`, `tag`, `pool_id`, `acquired_on`, `acquisition_cost`, `annual_cost` (a subscription), `funding` (`station` | `foundation_gift` | `grant_restricted` | `uwf`), `useful_life_years`, `restrictions`, `maintenance_burden` (`low` | `medium` | `high`), `condition` (`good` | `fair` | `worn` | `out_of_service`), `notes`, `active`. Unversioned; feeds a future version's pool allocation; Foundation and restricted-grant assets are never assumed to be prepaid institutional capacity.
@@ -942,3 +942,505 @@ one statement it holds on its own (`bk_save_package()`, whose body contains
 a `delete`) ran as dynamic SQL from a string — and the migration rows were
 recorded by hand. Not yet verified: a browser click-through, for the same
 magic-link reason as every earlier slice.
+
+---
+
+# Refinement pass (2026-10-06)
+
+Two reviews of the built tool found the same thing: **the underlying model is
+stronger than the production workflow.** Slices 1–5 built a faithful, tested
+model, and put every part of it in front of the person who just wants to
+estimate a webcast. A few cost-model concepts are also missing or mislabeled.
+This pass has three slices, in this order, each designed here before it is
+built and tested after:
+
+- **Slice A — the happy path** (§18). Decides whether staff use the tool at all.
+- **Slice B — cost transparency** (§19). Changes what an estimate records and what the term report totals.
+- **Slice C — model corrections** (§20). Rates tab and `lib/bookings/rates.ts`; production screens unaffected.
+
+A and B change what staff see and record; C changes what the numbers mean.
+
+## Why (the reasoning this pass is held to)
+
+- **Complexity belongs under the hood.** Production staff move requests
+  through the workflow — request → package → adjust if needed → price and
+  capacity check → send → approve → deliver → settle. They see the answer
+  first (price, capacity status, WUWF's contribution) and the machinery only
+  on request or when something is unusual. Prepopulate from defaults; make
+  every exception explicit and visible; ask for a decision only when the
+  system can't derive it. Finance, director and executive surfaces can be as
+  detailed as their work needs. **On any screen this document does not name,
+  apply this rule.**
+- **The pilot exists to show what WUWF contributes to university work and to
+  test the legacy $500 webcast price against modeled cost.** Every estimate
+  and the term report must therefore show full cost and contribution, not
+  just what the partner pays.
+- **Unit costs divide by practical capacity, not demand.** Low demand must
+  never raise a unit cost; unused capacity is a finding for the term report,
+  not a price input. Utilization (actual bookings) is never a pricing input;
+  it informs the term report and a deliberate future capacity revision,
+  nothing else.
+- **Capital consumption is economic**: what must be set aside each year to
+  replace the asset over its realistic life, not its accounting depreciation
+  schedule.
+- **Costs with no real per-use limit are overhead.** Forcing them into a
+  per-unit allocation produces false precision.
+- **Market benchmarks are a sanity check in both directions.** A price far
+  above market signals a model or scope problem to review, not a price to
+  accept or to cap silently.
+- **Slice A comes first** because it decides whether staff use the tool at
+  all. Slices B and C change what the numbers mean, not what staff see.
+
+## Definitions
+
+- **Full economic cost** = modeled labor cost + modeled resource cost +
+  direct project expenses. It excludes contribution margin, university
+  assessments and general overhead, unless a later adopted policy explicitly
+  allocates overhead into project cost.
+- **Partner recovery** = what the partner pays.
+- **WUWF contribution** = `max(0, full economic cost − partner recovery)`.
+  External margin and assessment are shown separately and are never treated
+  as a negative contribution.
+- **Market benchmark snapshot** = the package's market floor, its ceiling if
+  present, and its historical/reference note, as they stood when the estimate
+  was priced.
+
+## Standing rules for the pass
+
+- **Schema.** There is no user data or production dependency to preserve, so
+  the Bookings schema could be destructively rebuilt. But every earlier
+  Bookings migration is applied to both Supabase projects (`APPLIED.md`), so
+  nothing applied is rewritten or squashed: every change, including any
+  rebuild, is a **new migration**, applied preview first and then production,
+  recorded in the ledger, with `npm run db:check` passing. This pass needed no
+  destructive rebuild; the changes are additive.
+- No backward compatibility, no data migration, no feature flags. Internal
+  terms are renamed in code where a clearer name helps.
+- **SQL never computes a price.** The SQL twins of the booking rule stay in
+  step with `scheduling.ts`.
+- `rates.test.ts` still reproduces the v0.1 workbook figures: new cost inputs
+  default to zero, so the workbook's rates come out unchanged.
+- Seeded figures are the workbook's provisional values; none is invented here.
+  Finance supplies new numbers.
+- **Validation gate.** The fields this pass introduces (capital/replacement
+  inputs, maintenance, market ceiling, package-recipe review status, overhead
+  classification) add **no** new submission gates. Existing validation
+  behavior is preserved except where a section below says so explicitly.
+- **Not built, waiting on UWF policy:** per-line assessment rules, and a
+  depreciation switch for donated or grant-funded gear. Both wait on UWF
+  policy answers (whether the assessment applies to each cost line, and
+  whether donated or grant-funded assets are costed at replacement or not at
+  all). Today every asset is costed the same way and the assessment is one
+  share of an external price.
+
+## 18. Slice A — the happy path
+
+**Acceptance test.** Time from opening "New request" to a send-ready standard
+Basic Webcast estimate for an existing UWF partner, with a valid date and no
+exception conditions. **Target: 60 seconds or less, no advanced-model surface
+opened, and none of the words pool, labor class, treatment, draw, reserve or
+rate model version shown along the way.**
+
+The path is: *New request → pick the partner → tick Basic event webcast → pick
+the date → Create* — one form, one submit, and the project page that follows
+is already priced, capacity-checked and ready to send.
+
+### 18.1 One pass: a request that is also an estimate
+
+The staff request form (`/bookings/requests/new`) takes the partner, one or
+more **packages** (a checkbox and a quantity each, from the card in use) and
+the **event date**, and creating the request produces the priced estimate in
+the same submit: the project row, one estimate line per package (snapshotting
+the recipe as `addEstimateLine` does), the derived treatment and every rate
+(`repriceProject`), and the booking plan (§18.2). The title is optional when a
+package is chosen — it defaults to "*Package* for *Partner*". Everything else
+(description, contact, location, funding index, editorial review, "asks for",
+deliverables date, an end date) moves under "More details", prefilled from the
+partner where the partner has it. A request for airtime only, or with no
+package, behaves as before. The separate add-line flow stays for later edits.
+
+### 18.2 A package books itself
+
+A package already says everything a booking needs: its hours per labor class
+and its units per pool. `lib/bookings/booking-plan.ts` (pure, tested) turns
+the estimate's package lines plus an event date into the full set of bookings
+and runs the booking rule (§6.4, `checkBooking`) on each:
+
+1. Pools the lines use are collected (units × quantity). A pool whose term
+   resource offers **more than one window** is a *choosing* pool; a pool whose
+   resource has no windows of its own (webcast operations, an own-lines pool
+   whose unit is an event) has **no independent window choice** and attaches to
+   the primary booking's window automatically. A pool with exactly one window
+   needs no choice either.
+2. The **primary window** is the staff pick ("Time of day", optional, default
+   *first available*) or, when none was given, the first of the anchor pool's
+   windows that passes the whole rule. The anchor is the choosing pool with the
+   most units (ties: the pool order).
+3. Every other choosing pool takes its window that overlaps the primary one
+   (the same window if it has it, else the greatest overlap). **If a pool has
+   no window that shares the primary timing, the plan is an exception** —
+   nothing is created.
+4. The lines' hours per class ride on the primary booking, so the class-day
+   and capacity checks see each hour once.
+5. The rule runs for every booking. **If any is refused, the whole plan is an
+   exception**, with the refusal in plain language and the **nearest
+   alternatives** (the next dates and windows where the whole plan passes,
+   nearest first). The system never creates mismatched or partial bookings;
+   it also never silently picks a different day than the one asked for.
+
+A passing plan is written as `planned` bookings (not live, take nothing);
+**tentative holds are still placed when the estimate is sent**, by the
+unchanged `bk_send_estimate()`. A failing plan writes no bookings; the project
+page shows the exception with the alternatives, each one a button that sets the
+event date and re-plans. Planning dates by hand — today's "Dates" card — is
+the **Adjust scope** path: it sets `dates_mode = 'manual'` and the system then
+never regenerates the dates. The plan is regenerated (delete the project's
+planned bookings, build again) when the lines or the event date change while
+the project is at *Request* and in auto mode; once the estimate is out the
+dates are the holds and change only by hand.
+
+`bk_projects` gains `event_window_start`/`event_window_end` (the primary window
+the staff picked, kept so a re-plan honors it) and `dates_mode`
+(`auto` | `manual`). No SQL twin is needed: the plan only *chooses* what to
+write, and every write still passes the SQL triggers.
+
+### 18.3 One summary line
+
+The top of the project page is one sentence, built by
+`lib/bookings/summary.ts` (pure, tested): *"Basic event webcast · 5 staff
+hours, 10 student hours · $575 · Capacity available · WUWF contributes
+$202.64 · Estimate expires in 14 days."* — service(s), hours in two buckets
+(**staff** = a class not charged in a strategic price; **student** = one that
+is), the partner's price, the capacity status, the contribution in words, and
+where the estimate stands. (The brief's example reads "$800 … WUWF contributes
+5 staff hours": at $800 the partner is paying the full cost, so there is no
+contribution; the figure that goes with contributing five staff hours is the
+$575 university rate. The summary prints whatever the math says.) The cost
+build-up, the pricing reason, the version and the provisional-rate note sit
+behind **Show calculation**, which is closed by default.
+
+### 18.4 Plain-language labels
+
+On production-facing screens the treatments are **University rate**
+(incremental internal: the partner pays full cost), **University rate (WUWF
+contributing)** (strategic: the partner pays students and resources; WUWF
+carries the professional time) and **Outside rate** (external).
+`lib/bookings/labels.ts`'s `PRODUCTION_RATE_LABEL` is the one table. The
+internal terms (strategic, incremental, external, pool, labor class, draw,
+reserve, treatment, rate model version) stay on the Rates tab, in Finance
+views and in the Show calculation panel.
+
+### 18.5 The strategic question moves to estimate time
+
+"Qualifies as strategic or applied-learning work?" becomes a single yes/no
+with a one-line explanation on the new-request form, **shown only when the
+partner is a UWF unit** (an outside organization is never asked). It stays
+**a separate judgment from whether the reserve can cover it**:
+`qualifies_strategic` is the person's answer and is never overwritten, and a
+new `bk_projects.reserve_depleted` records the *system's* finding that a
+qualifying request was priced University rate (incremental) because the
+reserve had run out. Such a project stays recorded as qualifying, and the term
+report counts it that way. Unanswered stays valid (it prices University rate
+and the summary line offers the question inline) — the existing
+"not decided" state is preserved, not made a gate.
+
+### 18.6 Tabs and sections by role
+
+`lib/bookings/nav.ts` (pure, tested) decides the tab row from the viewer's
+roles. Dashboard, Requests, Calendar and Partners are always shown. **Rates**
+is shown inline for finance, director and executive; for production staff and
+for a member with no role it sits under a **More** menu — reachable, never
+removed (a role-less member still reads everything, §6.1). The **term plan**
+link on the Calendar goes under the same More disclosure for the same people.
+
+### 18.7 Unusual cases stand out
+
+`lib/bookings/badges.ts` (pure, tested) derives the warning badges from facts
+already on the project and its dates: **Pricing changed by hand**,
+**Booking exception** (a date written with an exception reason),
+**Reserve used up**, **Dates need attention** (the plan is an exception),
+**Above market** (Slice C), **Adjusted scope** / **Custom package** (Slice C).
+They show on the project page and in the Requests list. **The routine case
+shows no badge.**
+
+### 18.8 Also fixed here
+
+`repriceProject` wrote an expense line's grossed-up rate into the same column
+that held the typed cost, so an external project's expense compounded the
+assessment on every reprice. Expense lines now keep the typed cost in
+`bk_estimate_lines.direct_cost` and the rate is derived from it (Slice B
+reads the same column as the line's cost).
+
+### 18.9 Migration
+
+`20261007120000_bookings_happy_path.sql` (additive): `bk_projects.event_window_start`,
+`event_window_end`, `dates_mode`, `reserve_depleted`; `bk_estimate_lines.direct_cost`
+(backfilled from `unit_rate` for expense lines; nothing is external yet).
+
+### 18.10 What slice A shipped (2026-10-06)
+
+- `20261007120000_bookings_happy_path.sql` (+ `20261007120100_resources_bookings_happy_path.sql`:
+  the guide `bookings-new-request` and a release note), applied to both projects.
+- `lib/bookings/booking-plan.ts` (the plan, `plainRefusal`, `timeOfDayOptions`),
+  `summary.ts` (the line, `hourBuckets`, `capacityStatusFor`), `badges.ts`, `nav.ts`,
+  `estimate-lines.ts`, `plan-sync.ts` (server-only: replaces a project's planned dates with the
+  plan), `PRODUCTION_RATE_LABEL`/`_HINT`, and `rates.fixture.ts` (the workbook fixture, now
+  shared by every test that needs real figures). `derivePricing` also returns `reserveDepleted`;
+  `priceLine` derives an expense's rate from `direct_cost`.
+- `/bookings/requests/new` is one form (`new-request-form.tsx`): partner, services with quantities,
+  event date, optional time of day, the strategic yes/no for a UWF unit, and "More details".
+  `createRequest` writes the project, its package lines, reprices and plans in one submit.
+- The project page opens with the summary line, the strategic question inline when unanswered, the
+  exception panel with one-click alternatives when the plan can't be written, **Show calculation**
+  (the estimate section, closed unless a line is being edited) and **Adjust scope** (the old
+  Dates card, closed unless it is in use). Sending is disabled while the dates are an exception.
+- Plain rate names everywhere production staff read a rate (list, project, partner and agreement
+  pages, dashboard, calendar); the internal names remain on the Rates tab.
+- `TabNav` takes `forceMore` tabs; Rates and the term plan link sit behind "⋯"/"More" for production
+  staff and role-less members.
+
+**Deferred.** Dollar contribution in the summary line (Slice B stores it; the line already prints
+dollars when it is given and staff hours until then). The three estimate-level badges (above
+market, adjusted scope, custom package) arrive with Slice C; the facts are already in
+`projectBadgeFacts`. A package's recipe can't be adjusted per project yet (Slice C item 6). A
+multi-day event (an end date later than the start) plans only its first date; the other days are
+added under Adjust scope.
+
+**Measured.** The acceptance test needs a person with a stopwatch and a signed-in session; this
+environment signs in by magic link only, so the wall-clock figure is **not measured**. What is
+measured: the path is partner → tick service → date → Create, which is (counting the "+ New
+request" click) eight interactions for an existing partner — open, partner box, type, pick,
+service, date field, date, Create — with no advanced surface opened. `new-request-form.test.tsx`
+renders the form and asserts none of *pool, labor class, treatment, draw, reserve, rate model
+version* appears and that no field beyond the three is asked up front; `happy-path.test.ts` runs the
+workbook's Basic event webcast through the plan, the price and the summary line: $800 at the
+university rate, or $575 with WUWF contributing, "Ready to send".
+
+## 19. Slice B — cost transparency
+
+The pilot's question is "what does WUWF contribute, and how does the legacy $500 compare with
+modeled cost?" An estimate that records only what the partner pays can't answer it. Every
+estimate therefore computes and **stores** the figures in the Definitions above, and the term
+report totals them.
+
+### 19.1 What an estimate stores
+
+`lib/bookings/economics.ts` (pure, tested) computes, from the estimate's lines and the card
+snapshot, and `repriceProject()` writes onto the project after every pricing write:
+
+| Stored on `bk_projects`                                  | Meaning                                                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `labor_cost`, `resource_cost`, `direct_expense_cost`      | The three parts of full economic cost, **exact** (six decimals; never rounded to the card's $25 step, never to cents)         |
+| `full_economic_cost`                                      | Their sum — the cost of the work whatever the partner pays                                                                    |
+| `partner_recovery`                                        | Σ the lines' amounts — what the partner pays                                                                                  |
+| `wuwf_contribution`                                       | `max(0, full economic cost − partner recovery)`                                                                              |
+| `external_margin`, `external_assessment`                  | External only; zero otherwise. Assessment = the assessment share of what the partner pays (for an expense, of its cost); margin = `max(0, recovery − assessment − full cost)`, what is left after cost and the university's share |
+| `market_benchmarks` (jsonb)                               | One entry per package line: the floor, the ceiling (null until Slice C), the reference note and the rate charged, **as they stood when priced** |
+| `economics` (jsonb)                                       | The per-line breakdown the Show calculation panel prints (labor, resource, direct cost and amount per line)                   |
+
+A line's cost comes from the card snapshot, so it is the cost **as modeled when the estimate was
+first priced**, whatever treatment applies: a package line's `labor_cost` and `resource_cost` per
+unit (new, exact, on `bk_rate_card_lines`); a labor line's class's exact loaded hourly cost times its
+hours; an expense line's `direct_cost` times its quantity. Overhead is excluded (§20.2) unless a later
+adopted policy allocates it.
+
+**Rounding is a pricing policy, applied to the rate only.** The card rounds each rate up to the
+next $25; the cost is never rounded. The calculation panel prints both, so the gap between the
+rounded rate and the cost is visible (it is why an incremental estimate can recover slightly more
+than its cost — contribution then reads $0, never negative, and the excess is not "margin").
+
+The three cases the definition has to get right, on the v0.1 Basic event webcast
+(full economic cost $777.6375 = $210.9375 professional + $162.00 student + $79.70 live package +
+$325.00 webcast operations):
+
+- **Strategic** ($575): recovery $575, **contribution $202.6375** (the professional time WUWF
+  carries, less the card's rounding in the partner's favour).
+- **Incremental** ($800): recovery $800 ≥ cost, **contribution $0**.
+- **External** ($1,150, floored at market): recovery $1,150, assessment $77.165, margin $295.1975,
+  **contribution $0** — the margin and assessment are shown on their own lines and are never a
+  negative contribution.
+
+### 19.2 The summary line and the panel
+
+The summary line now prints the contribution in words and dollars — "WUWF contributes $202.64 (5
+staff hours)" — and "No WUWF contribution — the partner covers the full cost" when it is zero.
+Everything else sits in **Show calculation** (`calculation-panel.tsx`): the per-line cost
+build-up, full cost, recovery, contribution, margin and assessment for an outside partner, the
+market benchmark per package (floor, ceiling, reference, rate charged), why this rate, the version
+and the provisional-rate note, and the rounding note.
+
+### 19.3 The term report
+
+`/bookings/report` (under Dashboard; `lib/bookings/report.ts`, pure and tested) totals, for the
+projects of the active term that have been priced, **full cost, WUWF contribution and partner
+recovery by partner and by pricing treatment**, with external margin and assessment alongside, and
+counts qualifying strategic work by the judgment (`qualifies_strategic`), not by the rate it ended
+up priced at: a qualifying project the reserve could not cover is listed as "qualifying, priced at
+the university rate" so the reserve's depletion is a finding rather than an absence. It also
+carries the legacy comparison (§1): the modeled price per webcast event against $500. Slice C adds
+the assumed-versus-observed view (§20.8) to the same page.
+
+### 19.4 Migration
+
+`20261007130000_bookings_cost_transparency.sql`: the card snapshot's exact cost columns
+(`labor_cost`, `resource_cost`, `exact_cost`) and the project's economics columns above. Additive.
+A rate card snapshot written before this migration has no exact costs; the Rates tab's "Record for
+estimates" detects it as stale (`snapshotMatchesCard` compares costs too) and an estimate priced
+from one reports that its cost can't be modeled rather than guessing — no snapshot existed in
+either project when this was written.
+
+### 19.5 What slice B shipped (2026-10-06)
+
+- `20261007130000_bookings_cost_transparency.sql` (+ `…130100_resources_…`: the guide
+  `bookings-term-report` and a release note), applied to both projects.
+- `lib/bookings/economics.ts` (`computeEconomics`, the definitions in code; `economicsColumns`),
+  `report.ts` (`termReport`, `inTerm`), `PackageCosts.laborCost`/`resourceCost` and
+  `LaborLine.exactCost` in `rates.ts`, the exact cost columns in the card snapshot
+  (`version-card.ts`, with `snapshotMatchesCard` now comparing them).
+- `repriceProject()` writes the economics after every pricing write; an estimate priced from a
+  snapshot recorded before exact costs says so and still prices.
+- The summary line prints the contribution in dollars; **Show calculation** is now the cost
+  build-up (`calculation-panel.tsx`) above the estimate lines; `/bookings/report` is the term
+  report (a link at the foot of the Dashboard).
+
+Tests: `economics.test.ts` asserts the contribution definition on the workbook's Basic webcast
+under all three treatments (strategic $202.6375, incremental $0, external $0 with margin
+$295.1975 and assessment $77.165), an external price below cost (contribution, not negative
+margin), an expense counted at its typed cost, labor lines at the exact hourly, and a stale
+snapshot; `report.test.ts` totals three estimates by partner and by treatment, the $500 test,
+and the qualifying-but-priced-university-rate count.
+
+**Deferred.** The contribution of a *settled* project at actual cost (needs hours and settlement,
+slice 6 as reshaped in §20.9). The report's assumed-versus-observed view (§20.8). An overhead line
+in the report (§20.2 records overhead as a decision, not a figure).
+
+## 20. Slice C — model corrections
+
+Rates tab and `lib/bookings/rates.ts`; production screens are unaffected except where a package
+line can now be adjusted (§20.6) and where the badges gain their last three facts. Every new
+cost input **defaults to zero or blank**, so the v0.1 workbook's rates come out unchanged —
+`rates.test.ts` still reproduces them — and none of the new fields adds a submission gate.
+
+### 20.1 Practical capacity
+
+"Available units" on a resource pool is redefined everywhere as **practical capacity**: the
+realistic units the resource can deliver in a year after normal downtime and constraints. It is
+**not** expected bookings, and **never** a utilization figure — a unit cost divides by it so that
+low demand can never raise a price, and unused capacity is a finding for the term report, not a
+price input. Every instruction that said "replace the units with a booking analysis" now says
+"replace the units with the practical capacity". The webcast pool's **20 events is a volume
+forecast, not a capacity**: the number is kept (nothing is invented), but the row is flagged
+(`bk_resource_pools.units_basis = 'volume_forecast'`, "Volume forecast — replace with the
+practical capacity") on the Pools tab and the rate card, as a review item that gates nothing.
+
+### 20.2 Overhead
+
+A budget line (`bk_assumptions`, kind `pool_line`) can be marked **general overhead**
+(`overhead`). An overhead line is kept **out of every pool's per-unit allocation** — it is not in
+the shared production pool and not in an own-lines pool — and the Rates tab shows overhead
+separately, with a total. Whether and how overhead is recovered is **a recorded decision, with no
+default math**: `bk_rate_model_versions.overhead_decision` holds Finance's words and nothing
+reads it. This gives the webcast pool's $6,500 operating line somewhere to go once Finance says
+what it buys; it is **not** moved by this pass (seeded figures are not changed), so the webcast
+rate is unchanged until Finance marks the line.
+
+### 20.3 Capital consumption and maintenance, from the asset register
+
+Assets gain `replacement_cost` and `annual_maintenance`. For each **active** asset a pool's annual
+cost adds `replacement_cost ÷ realistic useful life (useful_life_years) + annual_maintenance`;
+a blank field adds zero, and an asset with a replacement cost but no life adds nothing and is
+listed as needing one. This is **economic** capital consumption — the amount to set aside each
+year to replace the asset over its realistic life — not its accounting depreciation.
+(`lib/bookings/capital.ts`, pure and tested.)
+
+Assets are unversioned and a version freezes on adoption, so the amounts are **snapshotted onto
+the version's pool row** (`bk_resource_pools.capital_annual`, `maintenance_annual`,
+`asset_basis`) by an explicit "Refresh from the asset register" on a draft version; a copied
+version carries them; the Pools tab says when the register has changed since. The pool's cost
+build-up lists **capital set-aside** and **maintenance** as their own lines beside the budget
+lines. No depreciation switch for donated or grant-funded assets is built (see the standing
+rules): every asset is costed the same way.
+
+### 20.4 Double-count check (advisory)
+
+A budget line may say which pool's replacement it already funds (`funds_pool_id`) and, optionally,
+which assets (`bk_assumption_assets`). `lib/bookings/capital.ts`'s `overlapWarnings()` raises a
+**review warning** — never a block — when a pool's capital set-aside from the register and a
+budget line that funds that pool's replacement both exist ("both recover replacement for the studio
+pool — review for a double count"). **A cost is excluded only where the linkage is explicit**: an
+asset a budget line names is left out of the capital set-aside and listed as covered by that line;
+a line that names only the pool excludes nothing.
+
+### 20.5 Two-way market check
+
+A package gains an optional **market ceiling** (`market_ceiling`) beside the floor. The floor still
+feeds the external price. A modeled rate (strategic, incremental or external) **above the ceiling**
+raises a review flag on the rate card and the "Above market" badge on an estimate charging it; it
+never caps the price. (`rates.ts`'s `rateCeilingFlags`.) The estimate's benchmark snapshot (§19.1)
+carries the ceiling.
+
+### 20.6 Packages are default recipes
+
+A package line's hours and units are a **default recipe**. On a project, staff can adjust a line's
+hours per class, units per pool or crew, with a **required reason** (Show calculation → the line's
+"Adjust scope"). The adjustment is a **project-level override**: it never changes the package or
+the rate model version. The line keeps `recipe_labor_hours`/`recipe_resource_units` (the standard
+recipe it started from), shows the difference, and the project carries the **Adjusted scope**
+badge. (A package scoped to an agreement carries **Custom package**.) An adjusted line is priced
+from the same recipe math the card uses (`rates.ts`'s `priceRecipe`) over the version's unit costs,
+snapshotted in `bk_rate_card_unit_costs`; the **market floor and ceiling are scaled by the ratio of the adjusted
+full cost to the standard full cost** so a lighter scope is not held to a heavier scope's floor.
+That scaling is a judgment this pass makes and records here for Finance to confirm or replace.
+Its economics (§19.1) are computed from the adjusted recipe's costs. The booking plan reads the
+adjusted hours and units, so the dates follow the scope.
+
+### 20.7 Review status on package hours and market floors
+
+A package's hours and its market floor each carry a validation status (`hours_validation_state`,
+`floor_validation_state`: pending / validated / accepted as is), shown on the Rates tab with the
+same controls as other assumptions. **They add no submission gate**: the adoption gate
+(`adoptionGate`, `bk_guard_version_transition()`) is unchanged and does not read them.
+
+### 20.8 Assumed versus observed (term report)
+
+A read-only section on the term report, feeding nothing:
+
+- **Package hours versus confirmed hours** — per package, the hours the recipe assumed against the
+  hours confirmed on delivered projects.
+- **Resource units planned versus used** — per pool, what delivered projects planned against what
+  was confirmed used.
+- **Refused or displaced bookings by resource** — the plan's and the rule's refusals, and live dates
+  later released, per pool (`bk_booking_events`, written where they happen).
+
+This needs the observed side to exist, so a minimal **confirm hours and units** step (slice 6's
+§3F, reshaped in §20.9) is built here: a delivered project's page offers "Confirm as planned" (one
+click) or the figures to correct, stored in `bk_hours_used`.
+
+### 20.9 Slices 5–6, reshaped
+
+Slice 5 (partners and agreements) is built; this pass touches it twice. An agreement's priced
+work now stores contribution like any estimate, and the agreement page's consumption reads the
+contribution it has drawn (§19). Slice 6 (hours, settlement, the term report) is **reshaped**:
+
+- the **term report** is built (§19.3, §20.8) and no longer waits for settlement;
+- **hours confirmation** is built in its minimal form (§20.8): prefilled planned figures, one
+  click, correctable; it feeds the report and the next version, never the estimate's price;
+- **settlement** (the recharge or invoice record, Finance posting, the journal entry number) is
+  **still to build**, and now settles **at actual cost**: the settlement drafts itself from the
+  approved estimate's price plus direct expenses at actual cost, and its contribution is the full
+  cost *as confirmed* against what was recovered. That is the only part of slice 6 left, and it
+  stays unauthorized until its own instruction.
+
+### 20.10 Migration
+
+`20261007140000_bookings_model_corrections.sql`: the columns above, `bk_assumption_assets`,
+`bk_rate_card_unit_costs`, `bk_hours_used`, `bk_booking_events`, the v0.1 rows' validation wording
+and the webcast flag, with RLS. Additive.
+
+### 20.11 What slice C shipped, deferred, and how it was checked (2026-10-06)
+
+**Shipped.** Every item in §20.1–§20.8: practical capacity wording and the `units_basis` forecast flag (the webcast pool's 20 events kept, flagged); overhead kept out of per-unit allocation with a recorded decision and no default math; capital consumption plus maintenance from the asset register, snapshotted onto the version's pool rows by "Refresh from the asset register" (blank = zero, own line in the build-up); the advisory double-count check (explicit asset linkage only); an optional market ceiling per package with a review flag on the card and an Above market badge, never a cap; project-level Adjust scope with a required reason, the standard recipe kept and the difference shown, a Scope adjusted badge; review status on package hours and market floors with no submission gate; and the read-only assumed-versus-observed view in the term report (hours confirmed after delivery, units planned versus used, refusals and releases by resource). Migrations `20261007140000` (schema) and `20261007140100` (Resources content) are applied to preview and production and recorded in `APPLIED.md`.
+
+**Deferred.** Settlement at actual cost (slice 6 as reshaped in §20.9); per-line assessment rules and a depreciation switch for donated or grant-funded gear (both wait on UWF policy answers); Finance's confirmation that an adjusted line's market floor and ceiling should scale with its cost ratio (a recorded judgment, not a verified rule); `bk_save_package()` still does not write the ceiling — the Rates tab action writes it after the call.
+
+**Checked.** `rates.test.ts` still reproduces the v0.1 workbook figures (new cost inputs default to zero); every new pure function has colocated tests, including the contribution definition on a strategic, an incremental and an external estimate. Preview was reseeded with `[Test]` data exercising the happy path and each warning badge (pricing override, booking exception, depleted reserve, above-market, scope-adjusted, custom package, dates needing attention) plus a delivered project with confirmed hours; the preview database also carries a test 1100 market ceiling on Basic webcast and a bespoke `[Test] OUR Voices episode` package. Production carries no test data. Not exercised: a signed-in browser session, so the Slice A acceptance test's wall-clock time (§18.10) remains unmeasured.

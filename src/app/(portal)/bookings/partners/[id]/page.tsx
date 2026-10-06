@@ -7,7 +7,7 @@ import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { AGREEMENT_STATUS_BADGE, AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
-import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
+import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import {
   PARTNERS_PATH,
   agreementHref,
@@ -165,7 +165,7 @@ export default async function PartnerPage({
                     <HeaderRow>
                       <Th>Request</Th>
                       <Th>Event</Th>
-                      <Th>Priced as</Th>
+                      <Th>Rate</Th>
                       <Th>Stage</Th>
                     </HeaderRow>
                   </thead>
@@ -186,8 +186,8 @@ export default async function PartnerPage({
                         <Cell label="Event">
                           {project.event_starts_on ? formatDateShort(project.event_starts_on) : "—"}
                         </Cell>
-                        <Cell label="Priced as">
-                          {project.priced_as ? TREATMENT_SHORT_LABEL[project.priced_as] : "—"}
+                        <Cell label="Rate">
+                          {project.priced_as ? PRODUCTION_RATE_LABEL[project.priced_as] : "—"}
                         </Cell>
                         <Cell stack="aside">
                           {project.disposition ? (

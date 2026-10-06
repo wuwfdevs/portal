@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getVersionDetail, type BkVersionRow } from "./queries";
-import { cardForVersion, snapshotLinesForCard } from "./version-card";
+import { cardForVersion, snapshotLinesForCard, unitCostRowsForCard } from "./version-card";
 
 /**
  * Replace a version's bk_rate_card_lines with the card its rows compute to.
@@ -32,5 +32,16 @@ export async function writeRateCardSnapshot(version: BkVersionRow): Promise<stri
     console.error("Could not write the rate card snapshot", insertError);
     return `Could not record the rate card: ${insertError.message}`;
   }
+
+  // The unit costs an adjusted package line is priced from (§20.6).
+  const { error: clearCosts } = await supabase
+    .from("bk_rate_card_unit_costs")
+    .delete()
+    .eq("version_id", version.id);
+  if (clearCosts) return `Could not record the rate card's unit costs: ${clearCosts.message}`;
+  const { error: costsError } = await supabase
+    .from("bk_rate_card_unit_costs")
+    .insert(unitCostRowsForCard(computed.card, version.id));
+  if (costsError) return `Could not record the rate card's unit costs: ${costsError.message}`;
   return null;
 }

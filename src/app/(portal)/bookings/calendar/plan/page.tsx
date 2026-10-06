@@ -351,7 +351,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 <thead>
                   <HeaderRow>
                     <Th>Pool</Th>
-                    <Th className="text-right">Available units</Th>
+                    <Th className="text-right">Practical capacity</Th>
                     <Th className="text-right">At a time</Th>
                     <Th>Windows</Th>
                     <Th>
@@ -375,7 +375,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
                                 <div>
                                   <Label htmlFor="available_units">
-                                    Available {pool.unit_label}s this term
+                                    Practical capacity, {pool.unit_label}s this term
                                   </Label>
                                   <Input
                                     id="available_units"
@@ -387,6 +387,10 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     autoFocus
                                     defaultValue={resource ? String(resource.available_units) : "0"}
                                   />
+                                  <FieldHint>
+                                    What it can realistically deliver this term after downtime —
+                                    not expected bookings.
+                                  </FieldHint>
                                 </div>
                                 <div>
                                   <Label htmlFor="concurrent_units">Bookings at a time</Label>
@@ -455,7 +459,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                             </Badge>
                           )}
                         </Cell>
-                        <Cell label="Available units" className="text-right">
+                        <Cell label="Practical capacity" className="text-right">
                           {resource ? (
                             `${resource.available_units} ${pool.unit_label}s`
                           ) : (

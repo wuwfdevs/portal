@@ -296,6 +296,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/bookings"],
   },
   {
+    key: "bookings.report",
+    name: "Term report",
+    toolKey: "bookings",
+    paths: ["/bookings/report"],
+  },
+  {
     key: "bookings.requests",
     name: "Requests",
     toolKey: "bookings",

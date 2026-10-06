@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -8,8 +9,11 @@ import { OWNER_LABEL, formatAssumptionValue } from "@/lib/bookings/labels";
 import { ratesHref } from "@/lib/bookings/paths";
 import {
   getVersionDetail,
+  listAssets,
+  listFundedAssets,
   listVersions,
   pickVersion,
+  type BkAssetRow,
   type BkAssumptionRow,
   type BkPoolRow,
 } from "@/lib/bookings/queries";
@@ -25,6 +29,7 @@ import {
   createAssumption,
   deleteAssumption,
   setAssumptionValidation,
+  setOverheadDecision,
   updateAssumption,
 } from "./actions";
 import { NoVersions, RatesHeader } from "./rates-header";
@@ -34,14 +39,101 @@ type Params = { version?: string; edit?: string; new?: string; accept?: string; 
 
 const OWNER_OPTIONS = ["finance", "director", "executive"] as const;
 
+
+/**
+ * General overhead (§20.2) and the double-count linkage (§20.4) for a budget
+ * line: overhead is kept out of every pool's per-unit allocation; "funds the
+ * replacement of" names the pool — and, optionally, the specific assets — the
+ * line already funds, so the capital set-aside doesn't recover them twice.
+ */
+function OverheadAndFunding({
+  idPrefix,
+  overhead,
+  fundsPoolId,
+  fundedAssetIds,
+  pools,
+  assets,
+}: {
+  idPrefix: string;
+  overhead: boolean;
+  fundsPoolId: string | null;
+  fundedAssetIds: readonly string[];
+  pools: BkPoolRow[];
+  assets: BkAssetRow[];
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 rounded border border-line bg-panel-50 p-3 sm:grid-cols-2">
+      <div>
+        <label className="flex items-start gap-2 text-sm text-ink-800">
+          <input
+            type="checkbox"
+            name="overhead"
+            defaultChecked={overhead}
+            className="mt-0.5 size-4"
+          />
+          <span>
+            <span className="font-semibold">General overhead</span>
+            <span className="block text-xs text-ink-500">
+              Kept out of every pool&apos;s per-unit allocation and shown apart. Whether it is
+              recovered is a recorded decision, with no default math.
+            </span>
+          </span>
+        </label>
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-funds`}>This line already funds the replacement of</Label>
+        <Select id={`${idPrefix}-funds`} name="funds_pool_id" defaultValue={fundsPoolId ?? ""}>
+          <option value="">No pool</option>
+          {pools.map((pool) => (
+            <option key={pool.id} value={pool.id}>
+              {pool.name}
+            </option>
+          ))}
+        </Select>
+        <FieldHint>
+          Used to warn about recovering replacement twice. Nothing is left out unless you name the
+          assets below.
+        </FieldHint>
+      </div>
+      {assets.length > 0 && (
+        <details className="sm:col-span-2" open={fundedAssetIds.length > 0}>
+          <summary className="cursor-pointer text-xs font-bold text-brand-link">
+            Name the specific assets it funds (leaves them out of the capital set-aside)
+          </summary>
+          <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {assets.map((asset) => (
+              <label key={asset.id} className="flex items-center gap-2 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  name="funds_asset"
+                  value={asset.id}
+                  defaultChecked={fundedAssetIds.includes(asset.id)}
+                  className="size-4"
+                />
+                {asset.name}
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function AssumptionEditRow({
   row,
   versionId,
   cancelHref,
+  pools,
+  assets,
+  fundedAssetIds,
 }: {
   row: BkAssumptionRow;
   versionId: string;
   cancelHref: string;
+  pools: BkPoolRow[];
+  assets: BkAssetRow[];
+  fundedAssetIds: readonly string[];
 }) {
   return (
     <Row>
@@ -113,6 +205,16 @@ function AssumptionEditRow({
             <Label htmlFor={`notes-${row.id}`}>Notes</Label>
             <Textarea id={`notes-${row.id}`} name="notes" rows={2} defaultValue={row.notes ?? ""} />
           </div>
+          {row.kind === "pool_line" && (
+            <OverheadAndFunding
+              idPrefix={`edit-${row.id}`}
+              overhead={row.overhead}
+              fundsPoolId={row.funds_pool_id}
+              fundedAssetIds={fundedAssetIds}
+              pools={pools}
+              assets={assets}
+            />
+          )}
           <div className="flex items-center gap-4">
             <Button type="submit">Save</Button>
             <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
@@ -136,6 +238,9 @@ function AssumptionsTable({
   canEdit,
   canValidate,
   poolNames,
+  pools,
+  assets,
+  funded,
 }: {
   title: string;
   intro: string;
@@ -145,6 +250,9 @@ function AssumptionsTable({
   canEdit: boolean;
   canValidate: boolean;
   poolNames: Map<string, string>;
+  pools: BkPoolRow[];
+  assets: BkAssetRow[];
+  funded: Map<string, string[]>;
 }) {
   const here = (extra?: Record<string, string>) => ratesHref("assumptions", versionId, extra);
   const kindLabel = (row: BkAssumptionRow) =>
@@ -188,12 +296,30 @@ function AssumptionsTable({
                     row={row}
                     versionId={versionId}
                     cancelHref={here()}
+                    pools={pools}
+                    assets={assets}
+                    fundedAssetIds={funded.get(row.id) ?? []}
                   />
                 ) : (
                   <Row key={row.id}>
                     <Cell stack="title">
                       <div className="font-semibold text-ink-900">{row.label}</div>
                       <div className="text-xs text-ink-400">{kindLabel(row)}</div>
+                      {row.overhead && (
+                        <Badge variant="neutral" className="mt-1">
+                          General overhead
+                        </Badge>
+                      )}
+                      {row.funds_pool_id && (
+                        <div className="mt-1 text-xs text-ink-500">
+                          Funds the replacement of {poolNames.get(row.funds_pool_id) ?? "a pool"}
+                          {(funded.get(row.id) ?? []).length > 0
+                            ? ` (${(funded.get(row.id) ?? [])
+                                .map((id) => assets.find((a) => a.id === id)?.name ?? "an asset")
+                                .join(", ")})`
+                            : ""}
+                        </div>
+                      )}
                       {row.notes && <div className="mt-1 text-xs text-ink-500">{row.notes}</div>}
                     </Cell>
                     <Cell label="Value" className="text-right tabular-nums">
@@ -281,12 +407,17 @@ export default async function RatesAssumptionsPage({
   const version = pickVersion(versions, params.version);
   if (!version) return <NoVersions context={context} section="assumptions" />;
   const detail = await getVersionDetail(version);
+  const [assets, funded] = await Promise.all([
+    listAssets(),
+    listFundedAssets(detail.assumptions.map((row) => row.id)),
+  ]);
 
   const canEdit = context.isFinance && version.status === "draft";
   const canValidate =
     context.isFinance && (version.status === "draft" || version.status === "submitted");
-  const sourced = detail.assumptions.filter((row) => row.section === "sourced");
-  const working = detail.assumptions.filter((row) => row.section === "working");
+  const overheadRows = detail.assumptions.filter((row) => row.overhead);
+  const sourced = detail.assumptions.filter((row) => row.section === "sourced" && !row.overhead);
+  const working = detail.assumptions.filter((row) => row.section === "working" && !row.overhead);
   const gate = adoptionGate([
     ...detail.assumptions.map((row) => ({ validationState: row.validation_state })),
     ...detail.laborRates.map((row) => ({ validationState: row.validation_state })),
@@ -402,6 +533,17 @@ export default async function RatesAssumptionsPage({
               <Label htmlFor="new-needed">What validating it takes</Label>
               <Input id="new-needed" name="validation_needed" />
             </div>
+            <div className="sm:col-span-2">
+              <OverheadAndFunding
+                idPrefix="new"
+                overhead={false}
+                fundsPoolId={null}
+                fundedAssetIds={[]}
+                pools={detail.poolCatalog.filter((pool) => pool.active)}
+                assets={assets}
+              />
+              <FieldHint>For a budget line only.</FieldHint>
+            </div>
           </div>
           <div className="mt-4">
             <Label htmlFor="new-notes">Notes</Label>
@@ -419,6 +561,9 @@ export default async function RatesAssumptionsPage({
         canEdit={canEdit}
         canValidate={canValidate}
         poolNames={poolNames}
+        pools={detail.poolCatalog.filter((pool) => pool.active)}
+        assets={assets}
+        funded={funded}
       />
 
       <AssumptionsTable
@@ -430,7 +575,49 @@ export default async function RatesAssumptionsPage({
         canEdit={canEdit}
         canValidate={canValidate}
         poolNames={poolNames}
+        pools={detail.poolCatalog.filter((pool) => pool.active)}
+        assets={assets}
+        funded={funded}
       />
+
+      <section className="flex flex-col gap-3">
+        <AssumptionsTable
+          title="General overhead"
+          intro="Budget lines with no real per-use limit. They are kept out of every pool's per-unit allocation — forcing them in would be false precision — and out of a project's full cost. Whether and how overhead is recovered is a decision recorded here; nothing calculates it."
+          rows={overheadRows}
+          versionId={version.id}
+          params={params}
+          canEdit={canEdit}
+          canValidate={canValidate}
+          poolNames={poolNames}
+          pools={detail.poolCatalog.filter((pool) => pool.active)}
+          assets={assets}
+          funded={funded}
+        />
+        {computed.ok && (
+          <p className="text-xs text-ink-500">
+            Overhead total: {formatDollars(computed.card.derived.overheadAnnual)} a year, not
+            allocated.
+          </p>
+        )}
+        <form action={setOverheadDecision} className="flex max-w-2xl flex-col gap-2">
+          <input type="hidden" name="version_id" value={version.id} />
+          <Label htmlFor="overhead_decision">How overhead is recovered — the recorded decision</Label>
+          <Textarea
+            id="overhead_decision"
+            name="overhead_decision"
+            rows={2}
+            defaultValue={version.overhead_decision ?? ""}
+            placeholder="Not decided yet."
+            disabled={!context.isFinance}
+          />
+          {context.isFinance && (
+            <Button type="submit" variant="secondary" className="self-start">
+              Record the decision
+            </Button>
+          )}
+        </form>
+      </section>
 
       {canEdit && params.new !== "1" && (
         <div>
@@ -459,6 +646,10 @@ export default async function RatesAssumptionsPage({
               <dt className="text-ink-500">Shared production resource pool</dt>
               <dd className="text-right font-semibold tabular-nums">
                 {formatDollars(computed.card.derived.sharedPoolAnnual)} / yr
+              </dd>
+              <dt className="text-ink-500">General overhead (not allocated)</dt>
+              <dd className="text-right font-semibold tabular-nums">
+                {formatDollars(computed.card.derived.overheadAnnual)} / yr
               </dd>
               {computed.card.derived.pools.map((pool) => (
                 <div key={pool.id} className="contents">

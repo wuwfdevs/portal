@@ -10,9 +10,14 @@ import {
   assertBookingsExecutive,
   assertBookingsFinance,
 } from "@/lib/bookings/access";
+import {
+  assetAnnualCosts,
+  type AssetLike,
+  type FundingLineLike,
+} from "@/lib/bookings/capital";
 import { logRateModelEvent } from "@/lib/bookings/events";
 import { writeRateCardSnapshot } from "@/lib/bookings/rate-card-snapshot";
-import { isModelInputKey } from "@/lib/bookings/rates";
+import { isModelInputKey, type UnitsBasis } from "@/lib/bookings/rates";
 import { parseWindowLines } from "@/lib/bookings/scheduling";
 import type {
   BkAssetBurden,
@@ -117,6 +122,18 @@ export async function createVersion(formData: FormData): Promise<void> {
   const versionId = version!.id;
 
   if (copyFrom) {
+    // The recorded overhead decision (§20.2) travels with a copy.
+    const { data: source } = await supabase
+      .from("bk_rate_model_versions")
+      .select("overhead_decision")
+      .eq("id", copyFrom)
+      .maybeSingle();
+    if (source?.overhead_decision) {
+      await supabase
+        .from("bk_rate_model_versions")
+        .update({ overhead_decision: source.overhead_decision })
+        .eq("id", versionId);
+    }
     const [assumptions, laborRates, pools, packages] = await Promise.all([
       supabase.from("bk_assumptions").select("*").eq("version_id", copyFrom),
       supabase.from("bk_labor_rates").select("*").eq("version_id", copyFrom),
@@ -127,10 +144,31 @@ export async function createVersion(formData: FormData): Promise<void> {
       failIfError(read.error, path, "Could not read the version to copy");
     }
     if ((assumptions.data ?? []).length > 0) {
-      const { error: copyError } = await supabase
+      const { data: copied, error: copyError } = await supabase
         .from("bk_assumptions")
-        .insert((assumptions.data ?? []).map((row) => copyOf(row, versionId)));
+        .insert((assumptions.data ?? []).map((row) => copyOf(row, versionId)))
+        .select("id");
       failIfError(copyError, path, "Could not copy the assumptions");
+      // The assets a budget line funds (§20.4) follow the line to its copy, in the same order.
+      const { data: links, error: linkError } = await supabase
+        .from("bk_assumption_assets")
+        .select("*")
+        .in(
+          "assumption_id",
+          (assumptions.data ?? []).map((row) => row.id),
+        );
+      failIfError(linkError, path, "Could not read the funded assets");
+      const idMap = new Map(
+        (assumptions.data ?? []).map((row, index) => [row.id, copied?.[index]?.id] as const),
+      );
+      const linkRows = (links ?? []).flatMap((link) => {
+        const assumptionId = idMap.get(link.assumption_id);
+        return assumptionId ? [{ assumption_id: assumptionId, asset_id: link.asset_id }] : [];
+      });
+      if (linkRows.length > 0) {
+        const { error: insertError } = await supabase.from("bk_assumption_assets").insert(linkRows);
+        failIfError(insertError, path, "Could not copy the funded assets");
+      }
     }
     if ((laborRates.data ?? []).length > 0) {
       const { error: copyError } = await supabase
@@ -164,6 +202,20 @@ export async function createVersion(formData: FormData): Promise<void> {
         });
         failIfError(saveError, path, "Could not copy the service packages");
         if (data && "error" in data) failWith(path, "Could not copy the service packages.");
+        // The ceiling and the review status aren't written by bk_save_package().
+        if (data && "id" in data) {
+          const { error: extraError } = await supabase
+            .from("bk_service_packages")
+            .update({
+              market_ceiling: pkg.market_ceiling,
+              hours_validation_state: pkg.hours_validation_state,
+              hours_validation_note: pkg.hours_validation_note,
+              floor_validation_state: pkg.floor_validation_state,
+              floor_validation_note: pkg.floor_validation_note,
+            })
+            .eq("id", data.id);
+          failIfError(extraError, path, "Could not copy the service packages");
+        }
       }
     }
   }
@@ -353,6 +405,37 @@ function poolLineTarget(formData: FormData, path: string): string | null {
   return value;
 }
 
+
+/** General overhead (§20.2) and the pool a budget line already funds the replacement of (§20.4). */
+function readOverheadAndFunding(
+  formData: FormData,
+  path: string,
+): { overhead: boolean; fundsPoolId: string | null } {
+  const overhead = field(formData, "overhead") === "on";
+  const funds = optionalField(formData, "funds_pool_id");
+  if (funds && !UUID.test(funds)) failWith(path, "Choose a pool the line funds, or leave it blank.");
+  if (overhead && funds) {
+    failWith(path, "A general overhead line isn't allocated to any pool, so it can't fund one's replacement.");
+  }
+  return { overhead, fundsPoolId: funds };
+}
+
+/** The specific assets a budget line funds: replaced as a set. Naming an asset leaves its capital out of the pool's set-aside. */
+async function saveFundedAssets(assumptionId: string, assetIds: string[], path: string): Promise<void> {
+  const supabase = await createClient();
+  const ids = [...new Set(assetIds.filter((id) => UUID.test(id)))];
+  const { error: clearError } = await supabase
+    .from("bk_assumption_assets")
+    .delete()
+    .eq("assumption_id", assumptionId);
+  failIfError(clearError, path, "Could not save the funded assets");
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("bk_assumption_assets")
+    .insert(ids.map((asset_id) => ({ assumption_id: assumptionId, asset_id })));
+  failIfError(error, path, "Could not save the funded assets");
+}
+
 export async function createAssumption(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsFinance();
   const versionId = field(formData, "version_id");
@@ -370,21 +453,26 @@ export async function createAssumption(formData: FormData): Promise<void> {
   if (!OWNERS.includes(owner)) failWith(path, "Choose who validates this input.");
   let key: string | null = null;
   let poolId: string | null = null;
+  let overhead = false;
+  let fundsPoolId: string | null = null;
   if (kind === "model_input") {
     key = field(formData, "key");
     if (!isModelInputKey(key)) failWith(path, "Choose which model input this is.");
   } else {
     poolId = poolLineTarget(formData, path);
+    ({ overhead, fundsPoolId } = readOverheadAndFunding(formData, path));
   }
   const section = field(formData, "section") === "sourced" ? "sourced" : "working";
 
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_assumptions").insert({
+  const { data: created, error } = await supabase.from("bk_assumptions").insert({
     version_id: versionId,
     section,
     kind,
     key,
     pool_id: poolId,
+    overhead,
+    funds_pool_id: fundsPoolId,
     label,
     value,
     unit,
@@ -394,8 +482,11 @@ export async function createAssumption(formData: FormData): Promise<void> {
     owner,
     validation_needed: optionalField(formData, "validation_needed"),
     sort_order: 1000,
-  });
+  }).select("id").single();
   failIfError(error, path, "Could not add the input");
+  if (created && kind === "pool_line") {
+    await saveFundedAssets(created.id, formData.getAll("funds_asset").map(String), path);
+  }
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -422,11 +513,20 @@ export async function updateAssumption(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: before, error: readError } = await supabase
     .from("bk_assumptions")
-    .select("value, unit, validation_state")
+    .select("value, unit, validation_state, kind, overhead")
     .eq("id", id)
     .maybeSingle();
   failIfError(readError, path, "Could not read the input");
-  const valueChanged = !before || Number(before.value) !== value || before.unit !== unit;
+  const isPoolLine = before?.kind === "pool_line";
+  const { overhead, fundsPoolId } = isPoolLine
+    ? readOverheadAndFunding(formData, path)
+    : { overhead: false, fundsPoolId: null };
+  // Marking a line general overhead moves it out of every pool's allocation, which changes the figures.
+  const valueChanged =
+    !before ||
+    Number(before.value) !== value ||
+    before.unit !== unit ||
+    (isPoolLine && before.overhead !== overhead);
 
   const { error } = await supabase
     .from("bk_assumptions")
@@ -439,10 +539,14 @@ export async function updateAssumption(formData: FormData): Promise<void> {
       notes: optionalField(formData, "notes"),
       owner,
       validation_needed: optionalField(formData, "validation_needed"),
+      ...(isPoolLine ? { overhead, funds_pool_id: fundsPoolId } : {}),
       ...resetValidation(valueChanged),
     })
     .eq("id", id);
   failIfError(error, path, "Could not save the input");
+  if (isPoolLine) {
+    await saveFundedAssets(id, formData.getAll("funds_asset").map(String), path);
+  }
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -669,11 +773,14 @@ export async function savePoolFigures(formData: FormData): Promise<void> {
     }
     share = sharePercent / 100;
   }
-  const units = numberField(formData, "available_units", path, "Available units");
-  if (units <= 0) failWith(path, "Available units must be more than zero.");
+  const units = numberField(formData, "available_units", path, "Practical capacity");
+  if (units <= 0) failWith(path, "Practical capacity must be more than zero.");
+  const unitsBasis: UnitsBasis =
+    field(formData, "units_basis") === "volume_forecast" ? "volume_forecast" : "practical_capacity";
   const values = {
     allocation_share: share,
     available_units: units,
+    units_basis: unitsBasis,
     basis: optionalField(formData, "basis"),
     validation_needed: optionalField(formData, "validation_needed"),
   };
@@ -703,7 +810,7 @@ export async function savePoolFigures(formData: FormData): Promise<void> {
     versionId,
     actorId: profile.id,
     kind: "pool_changed",
-    note: `${pool.name}: ${share === null ? "own budget lines" : `${share * 100}% of the shared pool`}, ${units} ${pool.unit_label}s a year.`,
+    note: `${pool.name}: ${share === null ? "own budget lines" : `${share * 100}% of the shared pool`}, practical capacity ${units} ${pool.unit_label}s a year${unitsBasis === "volume_forecast" ? " (a volume forecast, still to replace)" : ""}.`,
   });
   revalidateRates();
   redirect(ratesHref("pools", versionId));
@@ -723,6 +830,10 @@ function readPackageForm(formData: FormData, path: string) {
   if (!unitLabel) failWith(path, "The package needs a unit, such as event or half-day.");
   const marketFloor = optionalNumberField(formData, "market_floor", path, "Market floor") ?? 0;
   if (marketFloor < 0) failWith(path, "The market floor can't be negative.");
+  const marketCeiling = optionalNumberField(formData, "market_ceiling", path, "Market ceiling");
+  if (marketCeiling !== null && marketCeiling < marketFloor) {
+    failWith(path, "The market ceiling can't be below the market floor.");
+  }
   const labor: { labor_class_id: string; hours: number }[] = [];
   const resources: { pool_id: string; units: number }[] = [];
   for (const key of formData.keys()) {
@@ -748,6 +859,7 @@ function readPackageForm(formData: FormData, path: string) {
       name,
       unit_label: unitLabel,
       market_floor: marketFloor,
+      market_ceiling: marketCeiling,
       historical_reference: optionalField(formData, "historical_reference"),
       application_note: optionalField(formData, "application_note"),
       notes: optionalField(formData, "notes"),
@@ -771,6 +883,14 @@ export async function createPackage(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not add the package");
   if (data && "error" in data) failWith(path, "Could not add the package.");
+  // The ceiling isn't written by bk_save_package() (a body with a `delete` can't be restated through the migration tooling).
+  if (data && "id" in data) {
+    const { error: ceilingError } = await supabase
+      .from("bk_service_packages")
+      .update({ market_ceiling: pkg.market_ceiling })
+      .eq("id", data.id);
+    failIfError(ceilingError, path, "Could not save the market ceiling");
+  }
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -795,6 +915,11 @@ export async function updatePackage(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not save the package");
   if (data && "error" in data) failWith(path, "That package no longer exists.");
+  const { error: ceilingError } = await supabase
+    .from("bk_service_packages")
+    .update({ market_ceiling: pkg.market_ceiling })
+    .eq("id", id);
+  failIfError(ceilingError, path, "Could not save the market ceiling");
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -1007,6 +1132,13 @@ function readAssetFields(formData: FormData, path: string) {
     annual_cost: optionalNumberField(formData, "annual_cost", path, "Annual cost"),
     funding,
     useful_life_years: optionalNumberField(formData, "useful_life_years", path, "Useful life"),
+    replacement_cost: optionalNumberField(formData, "replacement_cost", path, "Replacement cost"),
+    annual_maintenance: optionalNumberField(
+      formData,
+      "annual_maintenance",
+      path,
+      "Annual maintenance",
+    ),
     restrictions: optionalField(formData, "restrictions"),
     maintenance_burden: burden,
     condition,
@@ -1048,4 +1180,166 @@ export async function updateAsset(formData: FormData): Promise<void> {
   });
   revalidatePath(`${RATES_PATH}/assets`);
   redirect(`${RATES_PATH}/assets`);
+}
+
+// Capital from the asset register, the overhead decision, package review (docs/bookings-design.md §20) ----
+
+/**
+ * Snapshot what the asset register says is set aside each year onto a draft
+ * version's pool rows (§20.3): Σ replacement cost ÷ realistic useful life, and
+ * Σ maintenance, over the active assets on each pool — less any asset a budget
+ * line explicitly names as already funded (§20.4). Assets are unversioned and a
+ * version freezes on adoption, so this is explicit and recorded.
+ */
+export async function refreshFromAssetRegister(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsFinance();
+  const versionId = field(formData, "version_id");
+  const path = ratesHref("pools", versionId);
+  const supabase = await createClient();
+  const [assets, lines, rows] = await Promise.all([
+    supabase.from("bk_assets").select("*"),
+    supabase
+      .from("bk_assumptions")
+      .select("id, label, value, funds_pool_id, overhead, kind")
+      .eq("version_id", versionId)
+      .eq("kind", "pool_line"),
+    supabase.from("bk_resource_pools").select("*").eq("version_id", versionId),
+  ]);
+  failIfError(assets.error, path, "Could not read the asset register");
+  failIfError(lines.error, path, "Could not read the budget lines");
+  failIfError(rows.error, path, "Could not read the pool figures");
+  const lineIds = (lines.data ?? []).map((line) => line.id);
+  const links =
+    lineIds.length > 0
+      ? await supabase.from("bk_assumption_assets").select("*").in("assumption_id", lineIds)
+      : { data: [], error: null };
+  failIfError(links.error, path, "Could not read the funded assets");
+
+  const funding: FundingLineLike[] = (lines.data ?? [])
+    .filter((line) => !line.overhead)
+    .map((line) => ({
+      id: line.id,
+      label: line.label,
+      value: Number(line.value),
+      funds_pool_id: line.funds_pool_id,
+      asset_ids: (links.data ?? [])
+        .filter((link) => link.assumption_id === line.id)
+        .map((link) => link.asset_id),
+    }));
+  const pools = assetAnnualCosts(
+    (assets.data ?? []).map(
+      (asset): AssetLike => ({
+        id: asset.id,
+        name: asset.name,
+        pool_id: asset.pool_id,
+        active: asset.active,
+        replacement_cost: asset.replacement_cost === null ? null : Number(asset.replacement_cost),
+        useful_life_years: asset.useful_life_years === null ? null : Number(asset.useful_life_years),
+        annual_maintenance: asset.annual_maintenance === null ? null : Number(asset.annual_maintenance),
+      }),
+    ),
+    funding,
+  );
+
+  let changed = 0;
+  for (const row of rows.data ?? []) {
+    const live = pools[row.pool_id];
+    const capital = live?.capital ?? 0;
+    const maintenance = live?.maintenance ?? 0;
+    const differs =
+      Number(row.capital_annual) !== capital || Number(row.maintenance_annual) !== maintenance;
+    const { error } = await supabase
+      .from("bk_resource_pools")
+      .update({
+        capital_annual: capital,
+        maintenance_annual: maintenance,
+        asset_basis: (live?.assets ?? []).map((a) => ({
+          assetId: a.assetId,
+          name: a.name,
+          capital: a.capital,
+          maintenance: a.maintenance,
+          coveredBy: a.coveredBy,
+        })),
+        asset_refreshed_at: new Date().toISOString(),
+        // A changed cost changes the unit cost, so the figures are validated again.
+        ...resetValidation(differs),
+      })
+      .eq("id", row.id);
+    failIfError(error, path, "Could not refresh the pool from the asset register");
+    if (differs) changed += 1;
+  }
+  await logRateModelEvent({
+    versionId,
+    actorId: profile.id,
+    kind: "pools_refreshed_from_assets",
+    note: `Refreshed the pools' capital set-aside and maintenance from the asset register (${changed} changed).`,
+  });
+  revalidateRates();
+  redirect(ratesHref("pools", versionId, { saved: "refreshed" }));
+}
+
+/** Finance's recorded decision on whether and how general overhead is recovered (§20.2). Nothing reads it. */
+export async function setOverheadDecision(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsFinance();
+  const versionId = field(formData, "version_id");
+  const path = ratesHref("assumptions", versionId);
+  const decision = optionalField(formData, "overhead_decision");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bk_rate_model_versions")
+    .update({ overhead_decision: decision })
+    .eq("id", versionId);
+  failIfError(error, path, "Could not record the overhead decision");
+  await logRateModelEvent({
+    versionId,
+    actorId: profile.id,
+    kind: "overhead_decision",
+    note: decision ? `Recorded the overhead decision: ${decision}` : "Cleared the overhead decision.",
+  });
+  revalidateRates();
+  redirect(path);
+}
+
+/**
+ * Review status on a package's hours or market floor (§20.7): the same controls
+ * as other assumptions, and no submission gate — bk_guard_version_transition()
+ * does not read it.
+ */
+export async function setPackageReview(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsFinance();
+  const id = field(formData, "id");
+  const versionId = field(formData, "version_id");
+  const path = ratesHref("packages", versionId);
+  const which = field(formData, "which") === "floor" ? "floor" : "hours";
+  const state = field(formData, "state") as BkValidationState;
+  if (!VALIDATION_STATES.includes(state)) failWith(path, "Choose a review status.");
+  const note = optionalField(formData, "note");
+  if (state === "accepted_as_is" && !note) {
+    failWith(path, "Accepting as is needs a note saying why.");
+  }
+  const supabase = await createClient();
+  const { data: pkg } = await supabase
+    .from("bk_service_packages")
+    .select("name, unit_label")
+    .eq("id", id)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("bk_service_packages")
+    .update(
+      which === "hours"
+        ? { hours_validation_state: state, hours_validation_note: note }
+        : { floor_validation_state: state, floor_validation_note: note },
+    )
+    .eq("id", id);
+  failIfError(error, path, "Could not record the review");
+  await logRateModelEvent({
+    versionId,
+    actorId: profile.id,
+    kind: `package_${which}_review`,
+    note: `${pkg?.name ?? "A package"} (${pkg?.unit_label ?? ""}) ${which === "hours" ? "hours" : "market floor"}: ${
+      state === "pending" ? "reopened for review" : state === "validated" ? "validated" : "accepted as is"
+    }${note ? ` — ${note}` : "."}`,
+  });
+  revalidateRates();
+  redirect(path);
 }

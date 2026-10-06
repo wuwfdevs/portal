@@ -3,13 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
+import { createClient } from "@/lib/supabase/server";
 import {
   getVersionDetail,
   listRateCardLines,
   listVersions,
   pickVersion,
 } from "@/lib/bookings/queries";
-import { formatDollars, formatShare } from "@/lib/bookings/rates";
+import { formatDollars, formatShare, rateCeilingFlags } from "@/lib/bookings/rates";
 import { cardForVersion, snapshotMatchesCard } from "@/lib/bookings/version-card";
 import { snapshotRateCard } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
@@ -27,11 +28,19 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
     getVersionDetail(version),
     listRateCardLines(version.id),
   ]);
+  // A snapshot with no unit costs can't price an adjusted package line (§20.6): stale.
+  const unitCostCount = (
+    await (await createClient())
+      .from("bk_rate_card_unit_costs")
+      .select("id", { count: "exact", head: true })
+      .eq("version_id", version.id)
+  ).count;
   const computed = cardForVersion(detail);
   const provisional = version.status !== "adopted";
   const packagesById = new Map(detail.packages.map((pkg) => [pkg.id, pkg]));
   const snapshotStale =
-    computed.ok && (snapshot.length === 0 || !snapshotMatchesCard(snapshot, computed.card));
+    computed.ok &&
+    (snapshot.length === 0 || !unitCostCount || !snapshotMatchesCard(snapshot, computed.card));
   const margin = detail.assumptions.find((row) => row.key === "external_margin_share");
   const assessment = detail.assumptions.find((row) => row.key === "assessment_share");
 
@@ -89,6 +98,18 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
             <PrintButton />
           </div>
 
+          {detail.pools.some((row) => row.units_basis === "volume_forecast") && (
+            <Alert variant="note" className="print:hidden">
+              <strong>Review:</strong> the practical capacity of{" "}
+              {detail.pools
+                .filter((row) => row.units_basis === "volume_forecast")
+                .map((row) => detail.poolCatalog.find((p) => p.id === row.pool_id)?.name ?? "a pool")
+                .join(", ")}{" "}
+              is a volume forecast, not a capacity, so its unit cost — and every rate that uses it —
+              is provisional until it is replaced.
+            </Alert>
+          )}
+
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline gap-3">
               <h3 className="font-serif text-[17px] font-bold text-ink-900">
@@ -123,6 +144,12 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
                       <Row key={line.key}>
                         <Cell stack="title" className="font-semibold text-ink-900">
                           {line.name}
+                          {rateCeilingFlags(line, pkg?.market_ceiling).map((treatment) => (
+                            <Badge key={treatment} variant="warning" className="mt-1 block">
+                              Review: the {treatment} rate is above the market ceiling (
+                              {formatDollars(Number(pkg?.market_ceiling ?? 0))}) — a flag, not a cap
+                            </Badge>
+                          ))}
                         </Cell>
                         <Cell label="Unit">{line.unitLabel}</Cell>
                         <Cell

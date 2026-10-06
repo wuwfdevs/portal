@@ -131,6 +131,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
                 <Th>Acquired</Th>
                 <Th className="text-right">Cost</Th>
                 <Th>Funding</Th>
+                <Th className="text-right">Replacement · maintenance</Th>
                 <Th className="text-right">Useful life</Th>
                 <Th>Restrictions</Th>
                 <Th>Maintenance</Th>
@@ -183,6 +184,17 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
                     >
                       {ASSET_FUNDING_LABEL[asset.funding]}
                     </Badge>
+                  </Cell>
+                  <Cell label="Replacement · maintenance" className="text-right tabular-nums">
+                    {asset.replacement_cost !== null
+                      ? formatDollars(Number(asset.replacement_cost))
+                      : "—"}
+                    <span className="text-ink-400">
+                      {" · "}
+                      {asset.annual_maintenance !== null
+                        ? `${formatDollars(Number(asset.annual_maintenance))} / yr`
+                        : "—"}
+                    </span>
                   </Cell>
                   <Cell label="Useful life" className="text-right tabular-nums">
                     {asset.useful_life_years !== null

@@ -9,6 +9,8 @@ export interface TabNavItem {
   href: string;
   label: string;
   active: boolean;
+  /** Always sits behind the "⋯" menu, however much room there is (a tab few viewers need daily). */
+  forceMore?: boolean;
 }
 
 const TAB_CLASS =
@@ -26,7 +28,9 @@ const TAB_INACTIVE = "border-transparent text-ink-400 hover:border-line hover:te
  * varies per tool — see editorial's alsoMatch) rather than this component
  * guessing from the pathname itself.
  */
-export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: string }) {
+export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; className?: string }) {
+  const tabs = allTabs.filter((tab) => !tab.forceMore);
+  const forced = allTabs.filter((tab) => tab.forceMore);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -46,7 +50,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
       const available = container.clientWidth;
       const moreWidth = moreRef.current?.getBoundingClientRect().width ?? 40;
       const gap = 20; // matches gap-5
-      const isLastItem = (i: number) => i === itemEls.length - 1;
+      const isLastItem = (i: number) => i === itemEls.length - 1 && forced.length === 0;
 
       let used = 0;
       let count = 0;
@@ -67,7 +71,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
     const ro = new ResizeObserver(recompute);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [tabs]);
+  }, [tabs, forced.length]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -90,7 +94,7 @@ export function TabNav({ tabs, className }: { tabs: TabNavItem[]; className?: st
   }, [menuOpen]);
 
   const visible = tabs.slice(0, visibleCount);
-  const overflow = tabs.slice(visibleCount);
+  const overflow = [...tabs.slice(visibleCount), ...forced];
   const overflowHasActive = overflow.some((tab) => tab.active);
 
   return (
