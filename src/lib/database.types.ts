@@ -581,8 +581,20 @@ export type BkRateCardLineKind = "package" | "labor";
 // Slice 2 (20261005150000_bookings_term_plan.sql).
 export type BkTermPlanStatus = "draft" | "active" | "closed";
 export type BkHoldKind = "core" | "maintenance";
-export type BkBookingStatus = "tentative" | "confirmed" | "released";
+// Slice 3 (20261006120000_bookings_projects.sql) added 'planned': a project's
+// date before its estimate is sent — not a hold, not live, not checked.
+export type BkBookingStatus = "planned" | "tentative" | "confirmed" | "released";
 export type BkPricingTreatment = "strategic" | "incremental" | "external";
+// Slice 3 (20261006120000_bookings_projects.sql) — lib/bookings/projects.ts.
+export type BkPartnerKind = "uwf_unit" | "external";
+export type BkRequested = "production" | "airtime" | "both";
+export type BkProjectStage = "request" | "estimate" | "booked" | "delivered" | "settled";
+export type BkProjectDisposition = "deferred" | "declined" | "withdrawn";
+export type BkProjectSource = "public" | "staff";
+export type BkEditorialReview = "not_needed" | "needed" | "cleared";
+export type BkEstimateLineKind = "package" | "labor" | "expense";
+export type BkAirtimeTreatment = "contributed" | "paid";
+export type BkAirtimeHonoredIn = "pending" | "traffic" | "on_air";
 /** One question as the public sees it — no internal_context. */
 export interface PublicQuestionPayload {
   id: string;
@@ -3309,7 +3321,7 @@ export interface Database {
         Row: {
           id: string;
           plan_id: string;
-          /** A bare uuid until slice 3 adds bk_projects. */
+          /** The project this date belongs to (bk_projects, slice 3); null for a booking made from the calendar itself. */
           project_id: string | null;
           pool_id: string;
           date: string;
@@ -3346,6 +3358,149 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["bk_booking_labor"]["Row"]>;
         Relationships: [];
       };
+      // Slice 3 (20261006120000_bookings_projects.sql): partners, projects and
+      // what hangs off a project. docs/bookings-design.md §5 "Work".
+      /** A UWF unit or an outside organization; agreements arrive in slice 5. */
+      bk_partners: {
+        Row: {
+          id: string;
+          name: string;
+          kind: BkPartnerKind;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          default_funding_index: string | null;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_partners"]["Row"]> & { name: string };
+        Update: Partial<Database["public"]["Tables"]["bk_partners"]["Row"]>;
+        Relationships: [];
+      };
+      /** One request through five stages; a disposition keeps the stage reached. bk_guard_project() guards settled and a reserve-touching pricing override. */
+      bk_projects: {
+        Row: {
+          id: string;
+          partner_id: string;
+          title: string;
+          description: string | null;
+          requested: BkRequested;
+          qualifies_strategic: boolean | null;
+          qualification_by: string | null;
+          /** Derived by lib/bookings/pricing.ts; stored so the estimate shows what it was priced as. */
+          priced_as: BkPricingTreatment | null;
+          pricing_reason: string | null;
+          pricing_overridden_by: string | null;
+          stage: BkProjectStage;
+          disposition: BkProjectDisposition | null;
+          disposition_reason: string | null;
+          disposition_by: string | null;
+          disposition_at: string | null;
+          estimate_sent_at: string | null;
+          estimate_expires_at: string | null;
+          estimate_approved_at: string | null;
+          rate_model_version_id: string | null;
+          funding_index: string | null;
+          event_starts_on: string | null;
+          event_ends_on: string | null;
+          deliverables_due_on: string | null;
+          location: string | null;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          source: BkProjectSource;
+          editorial_review: BkEditorialReview;
+          owner_id: string | null;
+          delivered_at: string | null;
+          legacy_rate_delta: number | null;
+          margin_foregone: number | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_projects"]["Row"]> & {
+          partner_id: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_projects"]["Row"]>;
+        Relationships: [];
+      };
+      /** A package, a labor class's hours, or a direct expense. Rates written by TypeScript from the card snapshot; labor_hours/resource_units are per unit. */
+      bk_estimate_lines: {
+        Row: {
+          id: string;
+          project_id: string;
+          kind: BkEstimateLineKind;
+          package_id: string | null;
+          labor_class_id: string | null;
+          label: string;
+          unit_label: string;
+          quantity: number;
+          unit_rate: number;
+          amount: number;
+          /** Hours per labor class id, per unit of the line. */
+          labor_hours: Record<string, number>;
+          /** Units per pool id, per unit of the line. */
+          resource_units: Record<string, number>;
+          notes: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_estimate_lines"]["Row"]> & {
+          project_id: string;
+          kind: BkEstimateLineKind;
+          label: string;
+          unit_label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_estimate_lines"]["Row"]>;
+        Relationships: [];
+      };
+      /** Airtime a project asks for; placed in Traffic or On Air, never here (external_ref says where). */
+      bk_airtime_commitments: {
+        Row: {
+          id: string;
+          project_id: string;
+          airings_per_week: number;
+          seconds: number;
+          starts_on: string;
+          ends_on: string | null;
+          treatment: BkAirtimeTreatment;
+          honored_in: BkAirtimeHonoredIn;
+          external_ref: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_airtime_commitments"]["Row"]> & {
+          project_id: string;
+          airings_per_week: number;
+          seconds: number;
+          starts_on: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_airtime_commitments"]["Row"]>;
+        Relationships: [];
+      };
+      /** A project's staff-visible timeline (the ap_submission_events shape). */
+      bk_project_events: {
+        Row: {
+          id: string;
+          project_id: string;
+          kind: string;
+          actor_id: string | null;
+          note: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_project_events"]["Row"]> & {
+          project_id: string;
+          kind: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_project_events"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -3373,6 +3528,36 @@ export interface Database {
       bk_create_hold: {
         Args: { p_hold: Record<string, unknown>; p_labor: unknown[] };
         Returns: { ok: true; id: string };
+      };
+      /** Security invoker (slice 3). Planned dates become tentative holds until p_expires_at; the rule's triggers raise on a refusal and roll the send back. */
+      bk_send_estimate: {
+        Args: { p_project_id: string; p_expires_at: string };
+        Returns: { ok: true; held: number } | { error: string };
+      };
+      /** Security invoker (slice 3). Tentative holds are confirmed; the project is booked. */
+      bk_approve_estimate: {
+        Args: { p_project_id: string; p_legacy_rate_delta?: number | null };
+        Returns: { ok: true; confirmed: number } | { error: string };
+      };
+      /** Security invoker (slice 3). Releases the project's holds and records the disposition. */
+      bk_set_project_disposition: {
+        Args: {
+          p_project_id: string;
+          p_disposition: BkProjectDisposition;
+          p_reason: string;
+          p_margin_foregone?: number | null;
+        };
+        Returns: { ok: true; released: number } | { error: string };
+      };
+      /**
+       * Security definer read (slice 3, docs/bookings-design.md §6.5): what
+       * Traffic has scheduled and On Air pins for the plan's airtime
+       * commitments, by external_ref. Parsed by lib/bookings/airtime.ts's
+       * parseHonoredRead().
+       */
+      bk_institutional_airtime_honored: {
+        Args: { p_plan_id: string };
+        Returns: { ok: true; as_of: string; commitments: unknown[] } | { error: string };
       };
       /**
        * Security definer read of On Air's clocks (docs/bookings-design.md §6.5):
@@ -3921,6 +4106,15 @@ export interface Database {
       bk_hold_kind: BkHoldKind;
       bk_booking_status: BkBookingStatus;
       bk_pricing_treatment: BkPricingTreatment;
+      bk_partner_kind: BkPartnerKind;
+      bk_requested: BkRequested;
+      bk_project_stage: BkProjectStage;
+      bk_project_disposition: BkProjectDisposition;
+      bk_project_source: BkProjectSource;
+      bk_editorial_review: BkEditorialReview;
+      bk_estimate_line_kind: BkEstimateLineKind;
+      bk_airtime_treatment: BkAirtimeTreatment;
+      bk_airtime_honored_in: BkAirtimeHonoredIn;
     };
     CompositeTypes: Record<string, never>;
   };

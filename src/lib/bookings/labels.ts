@@ -90,6 +90,7 @@ export const HOLD_KIND_LABEL: Record<BkHoldKind, string> = {
 };
 
 export const BOOKING_STATUS_LABEL: Record<BkBookingStatus, string> = {
+  planned: "Planned",
   tentative: "Tentative",
   confirmed: "Confirmed",
   released: "Released",

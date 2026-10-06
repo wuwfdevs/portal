@@ -8,6 +8,7 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
+import { calendarStateFrom } from "@/lib/bookings/estimate";
 import { airtimeEnvelope, parseAirtimeRead } from "@/lib/bookings/airtime";
 import {
   BOOKING_STATUS_LABEL,
@@ -23,7 +24,6 @@ import {
   pickPlan,
   readUniversityAvails,
   type BkLaborClassRow,
-  type PlanCalendar,
 } from "@/lib/bookings/queries";
 import {
   bookingIsLive,
@@ -33,7 +33,6 @@ import {
   formatWindow,
   monthlyCapacity,
   parseWindows,
-  toHHMM,
   totalHours,
   windowsFor,
   type BookingRequest,
@@ -73,43 +72,6 @@ type Params = {
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** The database rows as the pure modules' shapes ("HH:MM" times, typed windows). */
-function stateFrom(calendar: PlanCalendar, nowISO: string): CalendarState {
-  return {
-    plan: calendar.plan,
-    capacity: calendar.capacity.map((row) => ({
-      labor_class_id: row.labor_class_id,
-      net_hours: Number(row.net_hours),
-      headcount: Number(row.headcount),
-      hours_per_person_day: Number(row.hours_per_person_day),
-    })),
-    classes: calendar.classes.map((cls) => ({ id: cls.id, name: cls.name })),
-    pools: calendar.pools.map((pool) => ({
-      id: pool.id,
-      name: pool.name,
-      unit_label: pool.unit_label,
-    })),
-    resources: calendar.resources.map((r) => ({
-      pool_id: r.pool_id,
-      available_units: Number(r.available_units),
-      concurrent_units: Number(r.concurrent_units),
-      windows: parseWindows(r.windows),
-    })),
-    blackouts: calendar.blackouts,
-    holds: calendar.holds.map((h) => ({
-      ...h,
-      window_start: toHHMM(h.window_start),
-      window_end: toHHMM(h.window_end),
-    })),
-    bookings: calendar.bookings.map((b) => ({
-      ...b,
-      window_start: toHHMM(b.window_start),
-      window_end: toHHMM(b.window_end),
-    })),
-    nowISO,
-  };
-}
 
 function describeHours(hours: HoursByClass, classes: BkLaborClassRow[]): string {
   const parts = Object.entries(hours)
@@ -171,7 +133,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     getPlanCalendar(plan),
     readUniversityAvails(plan.id),
   ]);
-  const state = stateFrom(calendar, nowISO);
+  const state = calendarStateFrom(calendar, nowISO);
   const classSummaries = capacitySummary(state);
   const months = monthlyCapacity(state);
   const read = parseAirtimeRead(avails.payload);

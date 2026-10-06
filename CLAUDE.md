@@ -3377,11 +3377,41 @@ available_units`, `concurrent_units` and `windows` (jsonb, `parseWindows()`;
    second read the doc names, `bk_institutional_airtime_honored()`, keys off
    project airtime commitments and ships with them in slice 3.
 
-Slices 3–6 (projects with derived pricing, `/book` intake, partners and
-agreements, hours/settlement/term report) are designed in the doc and
-**not authorized to start without their own instruction**. Airtime is read
-across the Traffic/On Air boundary and never placed from this tool, in
-every slice.
+**Bookings slice 3 (projects) has landed too (2026-10-06)** —
+`20261006120000_bookings_projects.sql`, the Dashboard (`/bookings`), the
+Requests tab (`/bookings/requests`, `/new`, `/[id]`, `/[id]/edit`). Read
+`docs/bookings-design.md` §2.2–§2.5 and §15 first; this is a pointer. A
+request is a `bk_projects` row through five stages with Academic
+Partnerships' stage + disposition shape; `bk_partners` came forward from
+slice 5 because every project names one (the Partners tab and agreements
+still wait). Four things are load-bearing:
+
+1. **Pricing is derived, never picked, and SQL never computes it.**
+   `lib/bookings/pricing.ts` is §2.2's table plus a line's rate from the
+   card snapshot (`bk_rate_card_lines`) by treatment; `lib/bookings/
+estimate.ts`'s `repriceProject()` re-derives and rewrites every line after
+   any write that can change either. A hand override records
+   `pricing_overridden_by`; `bk_guard_project()` refuses an override **to**
+   strategic for anyone but the executive, and every override is audited.
+2. **A project's date before its estimate is sent is a `planned` booking**
+   (`bk_booking_status` gained the value): not live, takes nothing, not
+   checked when written, deletable. `bk_send_estimate()` flips planned →
+   tentative and the rule's triggers check every date, all or none;
+   `bk_booking_allowed()` now re-checks any update unless the booking **was
+   live** and stays in place, so a lapsed hold is checked again when
+   re-sent or confirmed. `bookingIsLive()` and `bk_booking_is_live()` are
+   twins — keep them in step.
+3. **An estimate line snapshots its package's hours per class and units per
+   pool** (`labor_hours`/`resource_units`, jsonb, per unit) the way the card
+   snapshots the rate; the dates draw on them.
+4. **`bk_institutional_airtime_honored()`** is the second §6.5 read: what
+   Traffic has scheduled and On Air pins for a commitment's `external_ref`.
+   Nothing here places airtime.
+
+Slices 4–6 (`/book` intake, partners and agreements, hours/settlement/term
+report) are designed in the doc and **not authorized to start without their
+own instruction**. Airtime is read across the Traffic/On Air boundary and
+never placed from this tool, in every slice.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`

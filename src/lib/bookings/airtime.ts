@@ -98,3 +98,139 @@ function round1(value: number): number {
 function round4(value: number): number {
   return Math.round((value + Number.EPSILON) * 10_000) / 10_000;
 }
+
+// Commitments (slice 3) -------------------------------------------------------------------------------
+// A project's airtime commitment is airings a week × seconds over a date
+// range, contributed from the envelope or paid (§2.5). The envelope check
+// runs before the executive approves: contributed commitments active in the
+// term against the plan's contributed minutes a week.
+
+export interface CommitmentLike {
+  airings_per_week: number;
+  seconds: number;
+  treatment: "contributed" | "paid";
+  starts_on: string;
+  ends_on: string | null;
+}
+
+/** Airings × length, in minutes a week. */
+export function commitmentMinutesPerWeek(commitment: CommitmentLike): number {
+  return round1((Number(commitment.airings_per_week) * Number(commitment.seconds)) / 60);
+}
+
+/** Whether a commitment's dates overlap a term. */
+export function commitmentInTerm(
+  commitment: CommitmentLike,
+  term: { starts_on: string; ends_on: string },
+): boolean {
+  return (
+    commitment.starts_on <= term.ends_on &&
+    (commitment.ends_on === null || commitment.ends_on >= term.starts_on)
+  );
+}
+
+export interface EnvelopeCheck {
+  /** Contributed minutes a week already committed in the term. */
+  committedMinutesPerWeek: number;
+  /** The plan's contributed envelope. */
+  contributedMinutesPerWeek: number;
+  /** Envelope − committed. Negative means the envelope is over-committed. */
+  remainingMinutesPerWeek: number;
+  exceeded: boolean;
+}
+
+/** The contributed envelope against the term's contributed commitments (§2.5, §8). */
+export function envelopeCheck(
+  commitments: readonly CommitmentLike[],
+  term: { starts_on: string; ends_on: string },
+  contributedMinutesPerWeek: number,
+): EnvelopeCheck {
+  const committed = round1(
+    commitments
+      .filter((c) => c.treatment === "contributed" && commitmentInTerm(c, term))
+      .reduce((total, c) => total + commitmentMinutesPerWeek(c), 0),
+  );
+  const remaining = round1(contributedMinutesPerWeek - committed);
+  return {
+    committedMinutesPerWeek: committed,
+    contributedMinutesPerWeek,
+    remainingMinutesPerWeek: remaining,
+    exceeded: remaining < 0,
+  };
+}
+
+// The second boundary read: what Traffic has scheduled and On Air pins.
+
+export type HonoredCommitment =
+  | {
+      commitment_id: string;
+      honored_in: "traffic";
+      found: true;
+      label: string;
+      status: string;
+      placements_in_term: number;
+      seconds_in_term: number;
+    }
+  | {
+      commitment_id: string;
+      honored_in: "on_air";
+      found: true;
+      label: string;
+      status: string;
+      airings_per_week: number;
+      seconds: number;
+    }
+  | { commitment_id: string; honored_in: "traffic" | "on_air"; found: false };
+
+export interface HonoredRead {
+  as_of: string;
+  commitments: HonoredCommitment[];
+}
+
+/** bk_institutional_airtime_honored()'s payload as the typed read, or null for an error payload. */
+export function parseHonoredRead(payload: unknown): HonoredRead | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  if (
+    record.ok !== true ||
+    typeof record.as_of !== "string" ||
+    !Array.isArray(record.commitments)
+  ) {
+    return null;
+  }
+  const commitments: HonoredCommitment[] = [];
+  for (const entry of record.commitments) {
+    if (!entry || typeof entry !== "object") continue;
+    const c = entry as Record<string, unknown>;
+    if (typeof c.commitment_id !== "string") continue;
+    if (c.honored_in !== "traffic" && c.honored_in !== "on_air") continue;
+    if (c.found !== true) {
+      commitments.push({ commitment_id: c.commitment_id, honored_in: c.honored_in, found: false });
+      continue;
+    }
+    const label = typeof c.label === "string" ? c.label : "";
+    const status = typeof c.status === "string" ? c.status : "";
+    if (c.honored_in === "traffic") {
+      commitments.push({
+        commitment_id: c.commitment_id,
+        honored_in: "traffic",
+        found: true,
+        label,
+        status,
+        placements_in_term: Number(c.placements_in_term ?? 0),
+        seconds_in_term: Number(c.seconds_in_term ?? 0),
+      });
+    } else {
+      commitments.push({
+        commitment_id: c.commitment_id,
+        honored_in: "on_air",
+        found: true,
+        label,
+        status,
+        airings_per_week: Number(c.airings_per_week ?? 0),
+        seconds: Number(c.seconds ?? 0),
+      });
+    }
+  }
+  return { as_of: record.as_of, commitments };
+}
