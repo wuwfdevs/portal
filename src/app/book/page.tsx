@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BOOK_PAGE_TITLE, BookPageContent } from "./book-page-content";
+import { BookPageContent } from "./book-page-content";
+import { BOOK_PAGE_TITLE } from "./title";
 
 /**
  * The standalone public request form (docs/bookings-design.md §6.3).

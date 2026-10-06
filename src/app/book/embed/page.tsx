@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BOOK_PAGE_TITLE, BookPageContent } from "../book-page-content";
+import { BookPageContent } from "../book-page-content";
+import { BOOK_PAGE_TITLE } from "../title";
 
 /**
  * The iframe variant, for a Grove Responsive Embed. Identical flow, chrome

@@ -18,7 +18,7 @@ import {
   visibleIntakeSteps,
   type IntakeStepId,
 } from "@/lib/bookings/intake";
-import { BOOK_PAGE_TITLE } from "./book-page-content";
+import { BOOK_PAGE_TITLE } from "./title";
 import { submitRequest, type SubmitRequestState } from "./actions";
 
 const initialState: SubmitRequestState = { status: "idle" };
