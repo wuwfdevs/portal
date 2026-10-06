@@ -51,3 +51,18 @@ export function withQuery(base: string, query: Record<string, string | undefined
 export function calendarHref(query: Record<string, string | undefined | null>): string {
   return withQuery(CALENDAR_PATH, query);
 }
+
+// Requests and the project page (slice 3) -----------------------------------------------------
+
+export const REQUESTS_PATH = `${BOOKINGS_PATH}/requests`;
+
+export function requestHref(
+  projectId: string,
+  query?: Record<string, string | undefined | null>,
+): string {
+  return withQuery(`${REQUESTS_PATH}/${projectId}`, query ?? {});
+}
+
+export function requestEditHref(projectId: string): string {
+  return `${REQUESTS_PATH}/${projectId}/edit`;
+}

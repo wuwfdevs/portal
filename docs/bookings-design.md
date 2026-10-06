@@ -1,8 +1,8 @@
 # Bookings — Product & Engineering Design
 
-Status: **Milestone 1, slices 1–2 (the rate model; the term plan and calendar) built 2026-10-05 and
-rebuilt the same day as slice 2b (labor classes and pools as data — §14); slices 3–6
-designed, not started — see §9 and §12–§14.** Written 2026-10-05 from two
+Status: **Milestone 1, slices 1–3 built — the rate model (slice 1), the term plan and
+calendar (slice 2, rebuilt the same day as slice 2b, labor classes and pools as data — §14),
+and projects (slice 3, 2026-10-06 — §15); slices 4–6 designed, not started — see §9.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -463,7 +463,7 @@ Supabase projects and recorded in `APPLIED.md` before the next slice:
 1. **Rate model** — versions, assumptions, pools, packages, the snapshot card, assets; the Rates tab. Replaces the workbook; nothing else can be priced without it. **Built 2026-10-05 (§12).**
 2. **Term plan and calendar** — resources and windows, blackouts, holds, bookings, the guardrail, the airtime envelope and its two boundary reads; the Calendar tab. **Built 2026-10-05 (§13); the second boundary read moved to slice 3, which has the commitments it reads for.**
    - **2b. Labor classes and pools as data** — a sanity check before slice 3 found slices 1 and 2 had fixed one professional and four pools into the schema; rebuilt the same day as a clean rewrite (§14). Not in the original plan.
-3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list.
+3. **Projects** — five stages, derived pricing, estimate with the capacity check, tentative holds, bookings, airtime commitments; Requests and the project page; the dashboard's action list. **Built 2026-10-06 (§15), with `bk_partners` brought forward from slice 5 because every project names one.**
 4. **Public intake** — `/book`, `/book/embed`, the two functions, `bk_settings`, the settings page.
 5. **Partners and agreements** — reserved blocks, deadlines, release-at-read, the proposal preview.
 6. **Hours, settlement, the term report** — and Resources content (a release note and guides per screen, per the "Resources stay in step" rule).
@@ -664,3 +664,89 @@ exception), release-then-rebook, confirm-in-place after a later hold, and
 the version lifecycle (pending rows block submit, finance cannot adopt, an
 adopted version is frozen). Not yet verified: a browser click-through, for
 the same magic-link reason as slices 1 and 2.
+
+## 15. What slice 3 shipped (2026-10-06) — projects
+
+- `20261006120000_bookings_projects.sql`: `bk_partners` (brought forward
+  from slice 5 — every project names a partner and the derivation reads its
+  kind; the Partners tab and `bk_agreements` still arrive in slice 5, and so
+  does `bk_projects.agreement_id`), `bk_projects` (§5 "Work", without
+  `agreement_id`), `bk_estimate_lines`, `bk_airtime_commitments`,
+  `bk_project_events`, and `bk_bookings.project_id` as a real foreign key.
+  Three security-invoker functions give the lifecycle its atomicity:
+  `bk_send_estimate()` (every planned date → a tentative hold until the
+  expiry, all or none, since a date the rule refuses raises and rolls the
+  whole send back), `bk_approve_estimate()` (holds → confirmed, stage →
+  booked, the legacy-rate delta TypeScript computed), and
+  `bk_set_project_disposition()` (holds released, the stage reached kept).
+  `bk_guard_project()` (before update) keeps `settled` for finance and a
+  pricing override onto the reserve for the executive — the
+  `rd_guard_post_curation()` shape. `bk_institutional_airtime_honored()` is
+  the second §6.5 read: per commitment with an `external_ref`, what Traffic
+  has scheduled in the term (placements and seconds, through
+  `uw_contracts` → `uw_contract_schedule_lines` → `uw_scheduled_placements`)
+  or what On Air pins (the assignment's content and its airings a week on
+  the plan's reference date), or `found: false`.
+- `20261006120100_resources_bookings_projects.sql`: the release note and
+  two guides (`bookings-requests`, `bookings-dashboard`; screen keys
+  `bookings.dashboard`, `bookings.requests`, `bookings.project`).
+- `lib/bookings/projects.ts` (+ test): stages, dispositions, labels, the
+  estimate's state (none / sent with days left / expired / approved), the
+  stage actions a project offers, the request form's validation, and the
+  dashboard's action list by role. `lib/bookings/pricing.ts` (+ test):
+  §2.2's derivation (`derivePricing`), the reserve check
+  (`reserveCoversDraw`), a line's rate from the card snapshot by treatment
+  (`priceLine` — a baseline-funded class's hours are zero when strategic; an
+  expense is at cost, plus the assessment when external), totals, the
+  $500-a-webcast delta, and an external estimate's margin.
+  `lib/bookings/airtime.ts` gained commitments, the envelope check and the
+  honored read's parser. `lib/bookings/estimate.ts` (server-only) is the
+  glue: `repriceProject()` re-derives the treatment (unless overridden) and
+  writes every line's rate after any write that can change either.
+- `src/app/(portal)/bookings/`: the Dashboard (`/bookings`, replacing the
+  redirect — the capacity bar, the airtime envelope in one line, Needs your
+  action, This week, the stage tiles), Requests (`/bookings/requests`,
+  paginated with stage chips and search; `/new` and `/[id]/edit` share
+  `request-form.tsx`), and the project page (`/bookings/requests/[id]`): the
+  stage strip, the estimate (priced-as strip with reason, the pricing
+  control, lines, add-line card by kind), the dates with the capacity check
+  as one line and "show the check", airtime commitments with the envelope
+  check and what Traffic/On Air actually carry, notes and activity; an
+  aside with the stage actions, the Scope summary, the owner and the
+  dispositions.
+
+Four decisions worth recording:
+
+1. **A project's date before its estimate is sent is a `planned` booking.**
+   `bk_booking_status` gained `planned`: not live, takes no window and no
+   capacity, not checked when written (the screen runs the rule for it and
+   shows the refusal and alternatives), deletable. Sending flips planned →
+   tentative and the triggers check every date for real. The alternative —
+   a separate planned-dates table — would have duplicated the booking's
+   shape and the calendar's reads for one state. `bk_booking_allowed()` now
+   skips the re-check only when the booking **was live** and stays in
+   place, so an expired tentative hold is checked again when re-sent or
+   confirmed; slice 2's "not released and unchanged" skip would have revived
+   a lapsed hold onto a window someone else had since taken.
+2. **An estimate line snapshots its package's parts.** `labor_hours` and
+   `resource_units` (jsonb, per unit) are copied from the package when the
+   line is added, the way `bk_rate_card_lines` snapshots the rate — a later
+   draft version's package edit never changes what a sent estimate draws.
+   The design's single `professional_hours_draw` became hours per class,
+   following slice 2b.
+3. **The strategic judgment is the lead's; the override onto the reserve is
+   the executive's.** `qualifies_strategic` is recorded on the scope by
+   anyone who can edit it, and the derivation reads it. Changing the
+   derived treatment by hand records `pricing_overridden_by`; the guard
+   refuses an override **to** strategic for anyone but the executive. An
+   override away from strategic frees the reserve and is open to production
+   staff. Both are audited (`bookings.project.pricing_overridden`).
+4. **The reserve check excludes the project's own holds**, so re-deriving a
+   project whose estimate is already out does not count its draw twice.
+
+Verified: 1,878 tests, lint, typecheck, `db:check`; both migrations
+applied to both Supabase projects and the new tables, functions, policies
+and the `planned` status checked in each. Not yet verified: a browser
+click-through, for the same magic-link reason as every earlier slice — the
+first real request is the first end-to-end test of the send → approve path
+against the triggers.

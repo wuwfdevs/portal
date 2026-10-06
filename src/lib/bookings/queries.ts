@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { pageRange } from "@/lib/pagination";
 import { hoursByClass, type HoursByClass } from "./scheduling";
 
 type Tables = Database["public"]["Tables"];
@@ -326,4 +327,296 @@ export async function readUniversityAvails(
   if (error) return { payload: null, error: error.message };
   if (data && "error" in data) return { payload: null, error: String(data.error) };
   return { payload: data, error: null };
+}
+
+// Partners, projects and what hangs off a project (slice 3) ----------------------------------------
+
+export type BkPartnerRow = Tables["bk_partners"]["Row"];
+export type BkProjectRow = Tables["bk_projects"]["Row"];
+export type BkEstimateLineRow = Tables["bk_estimate_lines"]["Row"];
+export type BkAirtimeCommitmentRow = Tables["bk_airtime_commitments"]["Row"];
+export type BkProjectEventRow = Tables["bk_project_events"]["Row"];
+
+/** Every partner, by name. */
+export async function listPartners(): Promise<BkPartnerRow[]> {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_partners").select("*").order("name");
+  return unwrapRead(result, "partners") ?? [];
+}
+
+export interface ProjectListItem extends BkProjectRow {
+  partner_name: string;
+  partner_kind: BkPartnerRow["kind"];
+}
+
+async function partnersById(ids: string[]): Promise<Map<string, BkPartnerRow>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const supabase = await createClient();
+  const result = await supabase.from("bk_partners").select("*").in("id", unique);
+  return new Map((unwrapRead(result, "partners") ?? []).map((row) => [row.id, row]));
+}
+
+function withPartners(
+  rows: BkProjectRow[],
+  partners: Map<string, BkPartnerRow>,
+): ProjectListItem[] {
+  return rows.map((row) => ({
+    ...row,
+    partner_name: partners.get(row.partner_id)?.name ?? "Partner",
+    partner_kind: partners.get(row.partner_id)?.kind ?? "uwf_unit",
+  }));
+}
+
+/** The Requests list's view: a stage, every open project, or the closed ones. */
+export type ProjectListView = "open" | "closed" | BkProjectRow["stage"];
+
+/** The filter a view applies, as PostgREST filter triples. */
+function viewFilters(view: ProjectListView): [string, string, string][] {
+  if (view === "open")
+    return [
+      ["disposition", "is", "null"],
+      ["stage", "neq", "settled"],
+    ];
+  if (view === "closed") return [["disposition", "not.is", "null"]];
+  return [
+    ["stage", "eq", view],
+    ["disposition", "is", "null"],
+  ];
+}
+
+/**
+ * One page of projects, filtered and searched in the query
+ * (docs/ui-patterns.md, "Pagination"), newest first.
+ */
+export async function listProjectsPage(options: {
+  view: ProjectListView;
+  q: string | null;
+  page: number;
+}): Promise<{ rows: ProjectListItem[]; total: number }> {
+  const supabase = await createClient();
+  const { from, to } = pageRange(options.page);
+  let query = supabase.from("bk_projects").select("*", { count: "exact" });
+  for (const [column, operator, value] of viewFilters(options.view)) {
+    query = query.filter(column, operator, value);
+  }
+  if (options.q) query = query.ilike("title", `%${options.q.replace(/[%_]/g, "")}%`);
+  const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
+  if (result.error?.code === "PGRST103") {
+    return { rows: [], total: await countProjects(options.view, options.q) };
+  }
+  const rows = unwrapRead(result, "requests") ?? [];
+  return {
+    rows: withPartners(rows, await partnersById(rows.map((row) => row.partner_id))),
+    total: result.count ?? 0,
+  };
+}
+
+export async function countProjects(view: ProjectListView, q: string | null): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase.from("bk_projects").select("id", { count: "exact", head: true });
+  for (const [column, operator, value] of viewFilters(view)) {
+    query = query.filter(column, operator, value);
+  }
+  if (q) query = query.ilike("title", `%${q.replace(/[%_]/g, "")}%`);
+  const result = await query;
+  unwrapRead(result, "request count");
+  return result.count ?? 0;
+}
+
+/** Every open project (no disposition, not settled), for the dashboard's action list and tiles. */
+export async function listOpenProjects(): Promise<ProjectListItem[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_projects")
+    .select("*")
+    .is("disposition", null)
+    .neq("stage", "settled")
+    .order("created_at", { ascending: false });
+  const rows = unwrapRead(result, "open requests") ?? [];
+  return withPartners(rows, await partnersById(rows.map((row) => row.partner_id)));
+}
+
+export interface ProjectEvent extends BkProjectEventRow {
+  actor_name: string | null;
+}
+
+export interface ProjectDetail {
+  project: BkProjectRow;
+  partner: BkPartnerRow;
+  lines: BkEstimateLineRow[];
+  bookings: BookingWithHours[];
+  commitments: BkAirtimeCommitmentRow[];
+  events: ProjectEvent[];
+  version_label: string | null;
+  owner_name: string | null;
+}
+
+export async function getProjectDetail(id: string): Promise<ProjectDetail | null> {
+  const supabase = await createClient();
+  const projectResult = await supabase.from("bk_projects").select("*").eq("id", id).maybeSingle();
+  const project = unwrapRead(projectResult, "request");
+  if (!project) return null;
+  const [partner, lines, bookings, commitments, events, version] = await Promise.all([
+    supabase.from("bk_partners").select("*").eq("id", project.partner_id).maybeSingle(),
+    supabase
+      .from("bk_estimate_lines")
+      .select("*")
+      .eq("project_id", id)
+      .order("sort_order")
+      .order("created_at"),
+    supabase
+      .from("bk_bookings")
+      .select("*")
+      .eq("project_id", id)
+      .order("date")
+      .order("window_start"),
+    supabase.from("bk_airtime_commitments").select("*").eq("project_id", id).order("starts_on"),
+    supabase.from("bk_project_events").select("*").eq("project_id", id).order("created_at"),
+    project.rate_model_version_id
+      ? supabase
+          .from("bk_rate_model_versions")
+          .select("label")
+          .eq("id", project.rate_model_version_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const partnerRow = unwrapRead(partner, "partner");
+  if (!partnerRow) return null;
+  const bookingRows = unwrapRead(bookings, "the project's dates") ?? [];
+  const eventRows = unwrapRead(events, "the project's activity") ?? [];
+  const [labor, names] = await Promise.all([
+    bookingRows.length > 0
+      ? supabase
+          .from("bk_booking_labor")
+          .select("*")
+          .in(
+            "booking_id",
+            bookingRows.map((b) => b.id),
+          )
+      : Promise.resolve({ data: [], error: null }),
+    displayNames([...eventRows.map((e) => e.actor_id), project.owner_id]),
+  ]);
+  const laborRows = unwrapRead(labor, "the dates' hours") ?? [];
+  return {
+    project,
+    partner: partnerRow,
+    lines: unwrapRead(lines, "estimate lines") ?? [],
+    bookings: bookingRows.map((booking) => ({
+      ...booking,
+      hours: hoursByClass(laborRows.filter((row) => row.booking_id === booking.id)),
+    })),
+    commitments: unwrapRead(commitments, "airtime commitments") ?? [],
+    events: eventRows.map((event) => ({
+      ...event,
+      actor_name: event.actor_id ? (names.get(event.actor_id) ?? null) : null,
+    })),
+    version_label: unwrapRead(version, "rate model version")?.label ?? null,
+    owner_name: project.owner_id ? (names.get(project.owner_id) ?? null) : null,
+  };
+}
+
+async function displayNames(userIds: (string | null)[]): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+  if (unique.length === 0) return new Map();
+  const supabase = await createClient();
+  const result = await supabase.from("profiles").select("id, display_name").in("id", unique);
+  return new Map((unwrapRead(result, "names") ?? []).map((row) => [row.id, row.display_name]));
+}
+
+/** Every airtime commitment with its project's title, for the envelope check and the dashboard. */
+export async function listAirtimeCommitments(): Promise<
+  (BkAirtimeCommitmentRow & { project_title: string; project_disposition: string | null })[]
+> {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_airtime_commitments").select("*").order("starts_on");
+  const rows = unwrapRead(result, "airtime commitments") ?? [];
+  if (rows.length === 0) return [];
+  const projects = await supabase
+    .from("bk_projects")
+    .select("id, title, disposition")
+    .in("id", [...new Set(rows.map((row) => row.project_id))]);
+  const byId = new Map((unwrapRead(projects, "requests") ?? []).map((p) => [p.id, p]));
+  return rows.map((row) => ({
+    ...row,
+    project_title: byId.get(row.project_id)?.title ?? "Request",
+    project_disposition: byId.get(row.project_id)?.disposition ?? null,
+  }));
+}
+
+/**
+ * What an estimate is priced from: the version in use, its card snapshot,
+ * its packages (for the parts a package line snapshots) and the assessment
+ * share. Null when no version is in use or its card was never recorded.
+ */
+export interface PricingContext {
+  version: BkVersionRow;
+  card: BkRateCardLineRow[];
+  packages: PackageWithParts[];
+  classes: BkLaborClassRow[];
+  assessmentShare: number;
+  externalMarginShare: number;
+}
+
+export async function getPricingContext(versionId?: string | null): Promise<PricingContext | null> {
+  const versions = await listVersions();
+  const version = versionId
+    ? (versions.find((v) => v.id === versionId) ?? null)
+    : (versions.find((v) => v.in_use) ?? null);
+  if (!version) return null;
+  const [card, detail] = await Promise.all([
+    listRateCardLines(version.id),
+    getVersionDetail(version),
+  ]);
+  if (card.length === 0) return null;
+  const input = (key: string) =>
+    Number(detail.assumptions.find((a) => a.kind === "model_input" && a.key === key)?.value ?? 0);
+  return {
+    version,
+    card,
+    packages: detail.packages,
+    classes: detail.classes,
+    assessmentShare: input("assessment_share"),
+    externalMarginShare: input("external_margin_share"),
+  };
+}
+
+/** The second airtime boundary read (docs/bookings-design.md §6.5); a failed read is reported, not hidden. */
+export async function readAirtimeHonored(
+  planId: string,
+): Promise<{ payload: unknown; error: string | null }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bk_institutional_airtime_honored", {
+    p_plan_id: planId,
+  });
+  if (error) return { payload: null, error: error.message };
+  if (data && "error" in data) return { payload: null, error: String(data.error) };
+  return { payload: data, error: null };
+}
+
+/** Every member of the tool, by name — for the project's owner picker. */
+export async function listBookingsMembers(
+  toolId: string,
+): Promise<{ id: string; displayName: string }[]> {
+  const supabase = await createClient();
+  const grants =
+    unwrapRead(
+      await supabase
+        .from("tool_access")
+        .select("user_id")
+        .eq("tool_id", toolId)
+        .is("revoked_at", null),
+      "the list of tool members",
+    ) ?? [];
+  if (grants.length === 0) return [];
+  const names = await displayNames(grants.map((grant) => grant.user_id));
+  return grants
+    .map((grant) => ({ id: grant.user_id, displayName: names.get(grant.user_id) ?? "A colleague" }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/** The active term plan, or null. */
+export async function getActivePlan(): Promise<BkTermPlanRow | null> {
+  const plans = await listPlans();
+  return plans.find((plan) => plan.status === "active") ?? null;
 }

@@ -290,11 +290,28 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/editorial-inquiry"],
   },
   {
+    key: "bookings.dashboard",
+    name: "Dashboard",
+    toolKey: "bookings",
+    paths: ["/bookings"],
+  },
+  {
+    key: "bookings.requests",
+    name: "Requests",
+    toolKey: "bookings",
+    paths: ["/bookings/requests", "/bookings/requests/new"],
+  },
+  {
+    key: "bookings.project",
+    name: "A request's page",
+    toolKey: "bookings",
+    paths: ["/bookings/requests/:id", "/bookings/requests/:id/edit"],
+  },
+  {
     key: "bookings.rates",
     name: "Rate model",
     toolKey: "bookings",
     paths: [
-      "/bookings",
       "/bookings/rates",
       "/bookings/rates/labor",
       "/bookings/rates/pools",

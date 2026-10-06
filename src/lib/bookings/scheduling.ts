@@ -182,9 +182,13 @@ export function windowsOverlap(
 
 // Counting --------------------------------------------------------------------------------------------------
 
-/** A booking still occupies its window: not released, and not a tentative hold past its expiry. */
+/**
+ * A booking still occupies its window: not released, not a project's planned
+ * date (slice 3 — a plan before the estimate is sent takes nothing), and
+ * not a tentative hold past its expiry. bk_booking_is_live() is the twin.
+ */
 export function bookingIsLive(booking: BookingLike, nowISO: string): boolean {
-  if (booking.status === "released") return false;
+  if (booking.status === "released" || booking.status === "planned") return false;
   if (booking.status === "tentative" && booking.expires_at) {
     return Date.parse(booking.expires_at) > Date.parse(nowISO);
   }
