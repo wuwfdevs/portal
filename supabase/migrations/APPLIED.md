@@ -218,6 +218,8 @@ repo and a project's history, not the version number.
 | `20261007120100_resources_bookings_happy_path.sql`                    | 2026-10-06 | 2026-10-06 |
 | `20261007130000_bookings_cost_transparency.sql`                       | 2026-10-06 | 2026-10-06 |
 | `20261007130100_resources_bookings_cost_transparency.sql`             | 2026-10-06 | 2026-10-06 |
+| `20261007140000_bookings_model_corrections.sql`                        | 2026-10-06 | 2026-10-06 |
+| `20261007140100_resources_bookings_model_corrections.sql`              | 2026-10-06 | 2026-10-06 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
