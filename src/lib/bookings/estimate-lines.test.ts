@@ -34,6 +34,9 @@ describe("packageLineRow", () => {
       direct_cost: null,
       labor_hours: { lead: 5, student: 10 },
       resource_units: { live: 1, webcast: 1 },
+      // The standard recipe the line starts from (§20.6).
+      recipe_labor_hours: { lead: 5, student: 10 },
+      recipe_resource_units: { live: 1, webcast: 1 },
     });
   });
 });

@@ -8,12 +8,24 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { PRODUCTION_RATE_LABEL, formatQuantity } from "@/lib/bookings/labels";
 import { requestHref } from "@/lib/bookings/paths";
-import { estimateTotals, legacyRateDelta } from "@/lib/bookings/pricing";
+import { estimateTotals, isAdjusted, legacyRateDelta, recipeDifference } from "@/lib/bookings/pricing";
 import { LINE_KIND_LABEL } from "@/lib/bookings/projects";
-import type { BkEstimateLineRow, PricingContext, ProjectDetail } from "@/lib/bookings/queries";
+import type {
+  BkEstimateLineRow,
+  BkPoolRow,
+  PricingContext,
+  ProjectDetail,
+} from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
 import type { BkEstimateLineKind, BkPricingTreatment } from "@/lib/database.types";
-import { addEstimateLine, removeEstimateLine, setPricing, updateEstimateLine } from "../actions";
+import {
+  addEstimateLine,
+  adjustLineScope,
+  removeEstimateLine,
+  resetLineScope,
+  setPricing,
+  updateEstimateLine,
+} from "../actions";
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const LINE_KINDS: readonly BkEstimateLineKind[] = ["package", "labor", "expense"];
@@ -30,11 +42,16 @@ export function EstimateSection({
   isExecutive,
   openCard,
   editingLine,
+  adjustingLine,
+  pools,
 }: {
   detail: ProjectDetail;
   pricing: PricingContext | null;
   canEdit: boolean;
   isExecutive: boolean;
+  /** `?adjust=<lineId>` — the package line whose scope is being adjusted (§20.6). */
+  adjustingLine: string | null;
+  pools: BkPoolRow[];
   /** `?new=line&kind=` */
   openCard: { kind: BkEstimateLineKind } | null;
   /** `?line=<id>` */
@@ -234,6 +251,12 @@ export function EstimateSection({
                         {LINE_KIND_LABEL[line.kind]}
                         {line.notes ? ` · ${line.notes}` : ""}
                       </span>
+                      {isAdjusted(asLike(line)) && (
+                        <span className="mt-1 block text-xs text-warning-fg">
+                          <Badge variant="warning">Adjusted scope</Badge>{" "}
+                          {describeDifference(line, pricing, pools)} — {line.adjustment_reason}
+                        </span>
+                      )}
                     </Cell>
                     <Cell label="Quantity" className="text-right">
                       {formatQuantity(Number(line.quantity))} {line.unit_label}
@@ -254,6 +277,16 @@ export function EstimateSection({
                           >
                             Edit
                           </Link>
+                          {line.kind === "package" &&
+                            line.recipe_labor_hours &&
+                            (project.stage === "request" || project.stage === "estimate") && (
+                              <Link
+                                href={requestHref(project.id, { adjust: line.id })}
+                                className="text-sm font-bold text-brand-link hover:underline"
+                              >
+                                Adjust scope
+                              </Link>
+                            )}
                           <form action={removeEstimateLine} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="line_id" value={line.id} />
@@ -289,6 +322,16 @@ export function EstimateSection({
           {formatDollars(Math.abs(delta))}
           {project.legacy_rate_delta !== null ? " (recorded at approval)" : ""}.
         </p>
+      )}
+
+      {canEdit && pricing && adjustingLine && (
+        <ScopeCard
+          line={lines.find((l) => l.id === adjustingLine) ?? null}
+          projectId={project.id}
+          classes={pricing.classes}
+          pools={pools}
+          cancelHref={here}
+        />
       )}
 
       {canEdit &&
@@ -424,4 +467,124 @@ function asLike(line: BkEstimateLineRow) {
 /** The cost typed for an expense line, kept apart from the rate derived from it (§18.8). */
 function costOf(line: BkEstimateLineRow): number {
   return Number(line.direct_cost ?? line.unit_rate);
+}
+
+function nameOf<T extends { id: string; name: string }>(rows: readonly T[], id: string, fallback: string): string {
+  return rows.find((row) => row.id === id)?.name ?? fallback;
+}
+
+function describeDifference(
+  line: BkEstimateLineRow,
+  pricing: PricingContext | null,
+  pools: BkPoolRow[],
+): string {
+  const diff = recipeDifference(asLike(line));
+  const parts = [
+    ...diff.labor.map(
+      (row) =>
+        `${nameOf(pricing?.classes ?? [], row.classId, "Crew")}: ${formatQuantity(row.standard)} → ${formatQuantity(row.actual)} h`,
+    ),
+    ...diff.resources.map(
+      (row) =>
+        `${nameOf(pools, row.poolId, "Equipment")}: ${formatQuantity(row.standard)} → ${formatQuantity(row.actual)}`,
+    ),
+  ];
+  return parts.join("; ");
+}
+
+/**
+ * Adjust one package line's hours, units or crew for this project, with a
+ * required reason (docs/bookings-design.md §20.6): a project-level override that
+ * never changes the package or the rate model version.
+ */
+function ScopeCard({
+  line,
+  projectId,
+  classes,
+  pools,
+  cancelHref,
+}: {
+  line: BkEstimateLineRow | null;
+  projectId: string;
+  classes: PricingContext["classes"];
+  pools: BkPoolRow[];
+  cancelHref: string;
+}) {
+  if (!line || line.kind !== "package" || !line.recipe_labor_hours || !line.recipe_resource_units) {
+    return null;
+  }
+  const labor = line.labor_hours ?? {};
+  const units = line.resource_units ?? {};
+  const classIds = [...new Set([...Object.keys(line.recipe_labor_hours), ...Object.keys(labor)])];
+  const poolIds = [...new Set([...Object.keys(line.recipe_resource_units), ...Object.keys(units)])];
+  return (
+    <section className="flex flex-col gap-3 rounded border border-warning-fg/30 bg-warning-bg/40 p-4">
+      <h4 className="text-sm font-bold text-ink-900">Adjust the scope of {line.label}</h4>
+      <p className="text-xs text-ink-600">
+        The standard package is the starting point. What you change here applies to this request
+        only — the package and the rates are not touched — and the request is flagged as adjusted.
+        Hours and units are per {line.unit_label}.
+      </p>
+      <form action={adjustLineScope} className="flex flex-col gap-3">
+        <input type="hidden" name="project_id" value={projectId} />
+        <input type="hidden" name="line_id" value={line.id} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {classIds.map((id) => (
+            <div key={id}>
+              <Label htmlFor={`hours_${id}`}>{nameOf(classes, id, "Crew")} hours</Label>
+              <Input
+                id={`hours_${id}`}
+                name={`hours_${id}`}
+                type="number"
+                step="0.25"
+                min="0"
+                defaultValue={String(labor[id] ?? 0)}
+              />
+              <FieldHint>Standard: {formatQuantity(Number(line.recipe_labor_hours?.[id] ?? 0))}</FieldHint>
+            </div>
+          ))}
+          {poolIds.map((id) => (
+            <div key={id}>
+              <Label htmlFor={`units_${id}`}>{nameOf(pools, id, "Equipment")}</Label>
+              <Input
+                id={`units_${id}`}
+                name={`units_${id}`}
+                type="number"
+                step="0.25"
+                min="0"
+                defaultValue={String(units[id] ?? 0)}
+              />
+              <FieldHint>Standard: {formatQuantity(Number(line.recipe_resource_units?.[id] ?? 0))}</FieldHint>
+            </div>
+          ))}
+        </div>
+        <div>
+          <Label htmlFor="scope_reason">Why is this scope different?</Label>
+          <Input
+            id="scope_reason"
+            name="reason"
+            required
+            maxLength={300}
+            defaultValue={line.adjustment_reason ?? ""}
+            placeholder="Two stages, so a second crew"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <Button type="submit">Adjust the scope</Button>
+          <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
+            Cancel
+          </Link>
+        </div>
+      </form>
+      {line.adjustment_reason && (
+        <form action={resetLineScope}>
+          <input type="hidden" name="project_id" value={projectId} />
+          <input type="hidden" name="line_id" value={line.id} />
+          <Button type="submit" variant="secondary">
+            Back to the standard package
+          </Button>
+        </form>
+      )}
+    </section>
+  );
 }

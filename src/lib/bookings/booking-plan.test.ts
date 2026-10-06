@@ -186,6 +186,8 @@ describe("buildBookingPlan — refusals and alternatives", () => {
     expect(plan.ok).toBe(false);
     if (plan.ok) return;
     expect(plan.code).toBe("refused");
+    // The refusal names the resource it was about, for the term report's refusals by resource.
+    expect(plan.poolId).toBe(LIVE);
     expect(plan.message).toBe("WUWF isn't taking partner work then: Spring break.");
     expect(plan.alternatives.map((a) => a.date)).toEqual(["2027-02-03", "2027-02-04", "2027-01-29"]);
   });

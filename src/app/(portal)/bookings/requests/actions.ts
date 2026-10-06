@@ -31,6 +31,7 @@ import {
   validateRequestForm,
   type RequestFormValues,
 } from "@/lib/bookings/projects";
+import { plannedFigures } from "@/lib/bookings/observed";
 import { getPricingContext } from "@/lib/bookings/queries";
 import { tentativeExpiry } from "@/lib/bookings/scheduling";
 import type {
@@ -82,6 +83,46 @@ function revalidateRequests(projectId?: string): void {
 async function repriceOrFail(projectId: string, path: string): Promise<void> {
   const result = await repriceProject(projectId);
   if (!result.ok) failWith(path, result.error);
+}
+
+
+/**
+ * The live dates (held or confirmed) a write is about to release, read before it
+ * runs, and recorded by resource once it has — the "displaced" half of the term
+ * report's refusals-by-resource view (docs/bookings-design.md §20.8). Read-only
+ * input to the report; it feeds nothing.
+ */
+async function liveBookingsOf(projectId: string, onlyBookingId?: string) {
+  const supabase = await createClient();
+  let query = supabase
+    .from("bk_bookings")
+    .select("plan_id, pool_id, date")
+    .eq("project_id", projectId)
+    .in("status", ["tentative", "confirmed"]);
+  if (onlyBookingId) query = query.eq("id", onlyBookingId);
+  const { data } = await query;
+  return data ?? [];
+}
+
+async function recordReleased(
+  releasing: Awaited<ReturnType<typeof liveBookingsOf>>,
+  projectId: string,
+  actorId: string,
+  reason: string,
+): Promise<void> {
+  if (releasing.length === 0) return;
+  const supabase = await createClient();
+  await supabase.from("bk_booking_events").insert(
+    releasing.map((booking) => ({
+      plan_id: booking.plan_id,
+      project_id: projectId,
+      pool_id: booking.pool_id,
+      date: booking.date,
+      kind: "released" as const,
+      reason,
+      created_by: actorId,
+    })),
+  );
 }
 
 // The request --------------------------------------------------------------------------------------
@@ -474,6 +515,8 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
       direct_cost: null,
       labor_hours: { [cls.id]: 1 },
       resource_units: {},
+      recipe_labor_hours: null,
+      recipe_resource_units: null,
     };
   } else {
     const label = field(formData, "label");
@@ -491,6 +534,8 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
       direct_cost: cost,
       labor_hours: {},
       resource_units: {},
+      recipe_labor_hours: null,
+      recipe_resource_units: null,
     };
   }
 
@@ -605,6 +650,118 @@ export async function removeEstimateLine(formData: FormData): Promise<void> {
     actorId: profile.id,
     kind: "line_removed",
     note: `Removed ${line?.label ?? "a line"}.`,
+  });
+  revalidateRequests(projectId);
+  redirect(path);
+}
+
+// Packages are default recipes (docs/bookings-design.md §20.6) --------------------------------------------
+
+function recordField(
+  formData: FormData,
+  prefix: string,
+  path: string,
+  label: string,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key of formData.keys()) {
+    if (!key.startsWith(prefix)) continue;
+    const id = key.slice(prefix.length);
+    if (!UUID.test(id)) continue;
+    const raw = field(formData, key);
+    if (raw === "") continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) failWith(path, `${label} must be a number, zero or more.`);
+    if (value > 0) out[id] = value;
+  }
+  return out;
+}
+
+/**
+ * Adjust one package line's hours, units or crew for this project, with a
+ * required reason. A project-level override: the package and the rate model
+ * version are untouched, the line keeps its standard recipe, and the dates
+ * follow the new scope.
+ */
+export async function adjustLineScope(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const lineId = field(formData, "line_id");
+  const path = requestHref(projectId, { adjust: lineId });
+  const reason = field(formData, "reason");
+  if (!reason) failWith(path, "Say why this scope differs from the standard package.");
+  const labor = recordField(formData, "hours_", path, "Hours");
+  const units = recordField(formData, "units_", path, "Units");
+  if (Object.keys(labor).length === 0 && Object.keys(units).length === 0) {
+    failWith(path, "An adjusted package still needs hours or equipment; remove the line instead.");
+  }
+  const supabase = await createClient();
+  const { data: line } = await supabase
+    .from("bk_estimate_lines")
+    .select("kind, label, recipe_labor_hours, recipe_resource_units")
+    .eq("id", lineId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (!line || line.kind !== "package" || !line.recipe_labor_hours || !line.recipe_resource_units) {
+    failWith(path, "Only a package line can be adjusted.");
+  }
+  const { data: project } = await supabase
+    .from("bk_projects")
+    .select("stage, disposition")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project || project.disposition !== null || !["request", "estimate"].includes(project.stage)) {
+    failWith(path, "The scope can only be adjusted on an open request that hasn't been booked.");
+  }
+  const { error } = await supabase
+    .from("bk_estimate_lines")
+    .update({ labor_hours: labor, resource_units: units, adjustment_reason: reason })
+    .eq("id", lineId);
+  failIfError(error, path, "Could not adjust the scope");
+  await repriceOrFail(projectId, requestHref(projectId));
+  await syncBookingPlan(projectId, profile.id);
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "scope_adjusted",
+    note: `Adjusted the scope of ${line.label}: ${reason}`,
+  });
+  revalidateRequests(projectId);
+  redirect(requestHref(projectId, { saved: "1" }));
+}
+
+/** Put a line back on its package's standard recipe. */
+export async function resetLineScope(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const lineId = field(formData, "line_id");
+  const path = requestHref(projectId);
+  const supabase = await createClient();
+  const { data: line } = await supabase
+    .from("bk_estimate_lines")
+    .select("label, recipe_labor_hours, recipe_resource_units")
+    .eq("id", lineId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (!line || !line.recipe_labor_hours || !line.recipe_resource_units) {
+    failWith(path, "That line has no standard recipe to go back to.");
+  }
+  const { error } = await supabase
+    .from("bk_estimate_lines")
+    .update({
+      labor_hours: line.recipe_labor_hours,
+      resource_units: line.recipe_resource_units,
+      adjustment_reason: null,
+    })
+    .eq("id", lineId);
+  failIfError(error, path, "Could not restore the standard recipe");
+  await repriceOrFail(projectId, path);
+  await syncBookingPlan(projectId, profile.id);
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "scope_reset",
+    note: `${line.label} is back on the standard recipe.`,
   });
   revalidateRequests(projectId);
   redirect(path);
@@ -727,11 +884,13 @@ export async function removeDate(formData: FormData): Promise<void> {
       note: `Removed ${booking.date}.`,
     });
   } else {
+    const releasing = await liveBookingsOf(projectId, bookingId);
     const { error } = await supabase
       .from("bk_bookings")
       .update({ status: "released" })
       .eq("id", bookingId);
     failIfError(error, path, "Could not release the date");
+    await recordReleased(releasing, projectId, profile.id, "A held or confirmed date was released.");
     await logProjectEvent({
       projectId,
       actorId: profile.id,
@@ -1087,6 +1246,7 @@ export async function setDisposition(formData: FormData): Promise<void> {
     }
   }
 
+  const releasing = await liveBookingsOf(projectId);
   const { data, error } = await supabase.rpc("bk_set_project_disposition", {
     p_project_id: projectId,
     p_disposition: disposition as BkProjectDisposition,
@@ -1095,6 +1255,7 @@ export async function setDisposition(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not close the request");
   if (data && "error" in data) failWith(path, DISPOSITION_ERRORS[data.error] ?? data.error);
+  await recordReleased(releasing, projectId, profile.id, `The request was ${disposition}: ${reason}`);
   const released = data && "released" in data ? data.released : 0;
   await logProjectEvent({
     projectId,
@@ -1135,6 +1296,91 @@ export async function reopenProject(formData: FormData): Promise<void> {
   await logProjectEvent({ projectId, actorId: profile.id, kind: "reopened", note: "Reopened." });
   revalidateRequests(projectId);
   redirect(path);
+}
+
+// What a delivered project used (docs/bookings-design.md §3F, §20.8) ----------------------------------------
+
+/**
+ * Confirm what the project actually used: one click "as planned" — the estimate's
+ * hours and units, prefilled — or the figures corrected. Feeds the term report's
+ * assumed-versus-observed view and the next rate model version; it never
+ * reprices the estimate.
+ */
+export async function confirmHoursUsed(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId);
+  const supabase = await createClient();
+  const [{ data: project }, { data: lines }] = await Promise.all([
+    supabase.from("bk_projects").select("stage, disposition").eq("id", projectId).maybeSingle(),
+    supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
+  ]);
+  if (!project || project.disposition !== null || project.stage !== "delivered") {
+    failWith(path, "Hours and equipment used are confirmed once the work is delivered.");
+  }
+  const planned = plannedFigures(
+    (lines ?? []).map((l) => ({
+      kind: l.kind,
+      package_id: l.package_id,
+      label: l.label,
+      quantity: Number(l.quantity),
+      labor_hours: l.labor_hours ?? {},
+      resource_units: l.resource_units ?? {},
+      recipe_labor_hours: l.recipe_labor_hours,
+      recipe_resource_units: l.recipe_resource_units,
+    })),
+  );
+  const asPlanned = field(formData, "mode") !== "custom";
+  const readUsed = (prefix: string, plannedFor: Record<string, number>) => {
+    const used: Record<string, number> = {};
+    for (const id of Object.keys(plannedFor)) {
+      if (asPlanned) {
+        used[id] = plannedFor[id]!;
+        continue;
+      }
+      const raw = field(formData, `${prefix}${id}`);
+      const value = raw === "" ? 0 : Number(raw);
+      if (!Number.isFinite(value) || value < 0) failWith(path, "Used figures must be numbers, zero or more.");
+      used[id] = value;
+    }
+    return used;
+  };
+  const laborUsed = readUsed("hours_", planned.labor);
+  const unitsUsed = readUsed("units_", planned.resources);
+  const rows = [
+    ...Object.entries(planned.labor).map(([id, plannedValue]) => ({
+      project_id: projectId,
+      kind: "labor" as const,
+      labor_class_id: id,
+      pool_id: null,
+      planned: plannedValue,
+      used: laborUsed[id]!,
+      confirmed_by: profile.id,
+    })),
+    ...Object.entries(planned.resources).map(([id, plannedValue]) => ({
+      project_id: projectId,
+      kind: "units" as const,
+      labor_class_id: null,
+      pool_id: id,
+      planned: plannedValue,
+      used: unitsUsed[id]!,
+      confirmed_by: profile.id,
+    })),
+  ];
+  const { error: clearError } = await supabase.from("bk_hours_used").delete().eq("project_id", projectId);
+  failIfError(clearError, path, "Could not record what was used");
+  if (rows.length > 0) {
+    const { error } = await supabase.from("bk_hours_used").insert(rows);
+    failIfError(error, path, "Could not record what was used");
+  }
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "hours_confirmed",
+    note: asPlanned ? "Hours and equipment confirmed as planned." : "Hours and equipment used confirmed, corrected from the plan.",
+  });
+  revalidateRequests(projectId);
+  redirect(requestHref(projectId, { saved: "1" }));
 }
 
 // Airtime commitments --------------------------------------------------------------------------------

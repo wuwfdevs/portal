@@ -21,7 +21,7 @@ import {
 import { formatWindow } from "@/lib/bookings/scheduling";
 import { REQUESTS_PATH, agreementHref, requestEditHref } from "@/lib/bookings/paths";
 import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
-import { estimateDraw, estimateTotals } from "@/lib/bookings/pricing";
+import { estimateDraw, estimateTotals, isAdjusted } from "@/lib/bookings/pricing";
 import {
   DISPOSITIONS,
   DISPOSITION_BADGE,
@@ -48,6 +48,8 @@ import {
   listAirtimeCommitments,
   listAttachableBlocks,
   listBookingsMembers,
+  listHoursUsed,
+  listPools,
   readAirtimeHonored,
 } from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
@@ -67,6 +69,7 @@ import {
   setProjectAgreement,
 } from "../actions";
 import { ActivityLog } from "./activity-log";
+import { HoursUsed } from "./hours-used";
 import { AirtimeSection } from "./airtime-section";
 import { DatesSection, checkPlannedDates } from "./dates-section";
 import { CalculationPanel } from "./calculation-panel";
@@ -78,6 +81,7 @@ type Params = {
   new?: string;
   kind?: string;
   line?: string;
+  adjust?: string;
   airtime?: string;
 };
 
@@ -114,7 +118,7 @@ export default async function ProjectPage({
   const nowISO = new Date().toISOString();
   const canEdit = context.isProduction || context.isDirector || context.isExecutive;
 
-  const [plan, pricing, members, allCommitments, agreementChoices, attachableBlocks] =
+  const [plan, pricing, members, allCommitments, agreementChoices, attachableBlocks, pools, hoursUsed] =
     await Promise.all([
       getActivePlan(),
       getPricingContext(project.rate_model_version_id),
@@ -124,6 +128,8 @@ export default async function ProjectPage({
       detail.agreement && detail.agreement.status === "active" && project.disposition === null
         ? listAttachableBlocks(detail.agreement)
         : Promise.resolve([]),
+      listPools(),
+      listHoursUsed(id),
     ]);
   const [calendar, honoredRead] = plan
     ? await Promise.all([getPlanCalendar(plan), readAirtimeHonored(plan.id)])
@@ -195,6 +201,12 @@ export default async function ProjectPage({
       openBookings: openBookings.length,
       bookingException: detail.bookings.some((b) => b.exception_reason),
       failingPlannedDates: failingDates,
+      scopeAdjusted: detail.lines.some((l) =>
+        isAdjusted({ ...l, labor_hours: l.labor_hours ?? {}, resource_units: l.resource_units ?? {} }),
+      ),
+      customPackage: packageLines.some(
+        (l) => pricing?.packages.find((p) => p.id === l.package_id)?.agreement_id != null,
+      ),
     }),
   );
   const totals = estimateTotals(
@@ -243,7 +255,8 @@ export default async function ProjectPage({
     project.disposition === null &&
     (project.stage === "request" || project.stage === "estimate") &&
     detail.lines.length > 0;
-  const editingEstimate = query.new === "line" || query.line !== undefined;
+  const editingEstimate =
+    query.new === "line" || query.line !== undefined || query.adjust !== undefined;
   const lineKind: BkEstimateLineKind =
     query.kind === "labor" || query.kind === "expense" ? query.kind : "package";
 
@@ -387,6 +400,8 @@ export default async function ProjectPage({
                     isExecutive={context.isExecutive}
                     openCard={query.new === "line" ? { kind: lineKind } : null}
                     editingLine={query.line ?? null}
+                    adjustingLine={query.adjust ?? null}
+                    pools={pools}
                   />
                 </div>
               </details>
@@ -431,6 +446,19 @@ export default async function ProjectPage({
               canEdit={canEdit}
               openCard={query.new === "airtime"}
               editing={query.airtime ?? null}
+            />
+          )}
+
+          {(project.stage === "delivered" || hoursUsed.length > 0) && (
+            <HoursUsed
+              detail={detail}
+              classes={(pricing?.classes ?? calendar?.classes ?? []).map((c) => ({
+                id: c.id,
+                name: c.name,
+              }))}
+              pools={pools}
+              confirmed={hoursUsed}
+              canEdit={canEdit && project.stage === "delivered" && project.disposition === null}
             />
           )}
 

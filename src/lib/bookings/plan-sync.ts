@@ -91,6 +91,26 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
       kind: "dates_exception",
       note: result.message,
     });
+    // The refusal by resource, once per project, date, resource and reason (§20.8).
+    const { data: seen } = await supabase
+      .from("bk_booking_events")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("kind", "refused")
+      .eq("date", project.event_starts_on)
+      .eq("reason", result.message)
+      .limit(1);
+    if ((seen ?? []).length === 0) {
+      await supabase.from("bk_booking_events").insert({
+        plan_id: plan.id,
+        project_id: projectId,
+        pool_id: result.poolId,
+        date: project.event_starts_on,
+        kind: "refused",
+        reason: result.message,
+        created_by: actorId,
+      });
+    }
     return { status: "exception", plan: result };
   }
 

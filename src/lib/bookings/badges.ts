@@ -106,6 +106,8 @@ export interface ProjectBadgeSource {
   pricing_overridden_by: string | null;
   qualifies_strategic: boolean | null;
   reserve_depleted: boolean;
+  /** The benchmark snapshot stored when priced (§19.1): a rate above its ceiling is "above market". */
+  market_benchmarks?: readonly { rate: number; ceiling: number | null }[];
 }
 
 export interface ProjectDateFacts {
@@ -116,18 +118,21 @@ export interface ProjectDateFacts {
   bookingException: boolean;
   /** Hand-planned dates the rule would refuse today (the project page checks them). */
   failingPlannedDates?: number;
+  /** A package line's hours, units or crew were adjusted on this project (§20.6). */
+  scopeAdjusted?: boolean;
+  /** A package scoped to an agreement is on the estimate. */
+  customPackage?: boolean;
 }
 
 /**
  * The badge facts for one project, from its row and what its dates and lines
  * say — one function so the Requests list and the project page agree. The
- * slice C facts (above market, scope adjusted, custom package) come in through
- * `estimate`.
+ * estimate-level facts (above market, scope adjusted, custom package) come in through
+ * `dates` and the stored benchmark snapshot.
  */
 export function projectBadgeFacts(
   project: ProjectBadgeSource,
   dates: ProjectDateFacts,
-  estimate: { aboveMarket?: boolean; scopeAdjusted?: boolean; customPackage?: boolean } = {},
 ): ProjectBadgeFacts {
   return {
     pricingOverridden: project.pricing_overridden_by !== null,
@@ -144,8 +149,10 @@ export function projectBadgeFacts(
         eventStartsOn: project.event_starts_on,
         openBookings: dates.openBookings,
       }) || (dates.failingPlannedDates ?? 0) > 0,
-    aboveMarket: estimate.aboveMarket ?? false,
-    scopeAdjusted: estimate.scopeAdjusted ?? false,
-    customPackage: estimate.customPackage ?? false,
+    aboveMarket: (project.market_benchmarks ?? []).some(
+      (b) => b.ceiling !== null && Number(b.rate) > Number(b.ceiling),
+    ),
+    scopeAdjusted: dates.scopeAdjusted ?? false,
+    customPackage: dates.customPackage ?? false,
   };
 }

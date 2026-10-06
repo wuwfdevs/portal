@@ -188,3 +188,63 @@ describe("contributedStaffHours", () => {
     ).toBe(10);
   });
 });
+
+// Packages are default recipes (docs/bookings-design.md §20.6) -----------------------------------
+import { aboveMarket } from "./economics";
+import { unitCostRowsForCard } from "./version-card";
+
+describe("computeEconomics — an adjusted package line", () => {
+  const unitCosts = unitCostRowsForCard(card, "v");
+  const adjusted: EconomicsLine = {
+    ...webcastLine(1175),
+    labor_hours: { lead: 10, student: 20 },
+    resource_units: { live: 1, webcast: 1 },
+    recipe_labor_hours: { lead: 5, student: 10 },
+    recipe_resource_units: { live: 1, webcast: 1 },
+    adjustment_reason: "Two stages and a second crew",
+  };
+
+  it("costs the adjusted recipe from the version's unit costs, with scaled benchmarks", () => {
+    const result = computeEconomics(
+      [adjusted],
+      snapshot.map((line) => ({ ...line, market_ceiling: 1500 })),
+      "incremental",
+      V01.assessmentShare,
+      { unitCosts, externalMarginShare: V01.externalMarginShare },
+    );
+    if (!result.ok) throw new Error(result.error);
+    const e = result.economics;
+    expect(e.laborCost).toBe(exactAmount(10 * 42.1875 + 20 * 16.2));
+    expect(e.resourceCost).toBe(404.7);
+    expect(e.fullCost).toBe(exactAmount(10 * 42.1875 + 20 * 16.2 + 404.7));
+    expect(e.benchmarks[0]).toMatchObject({ scaled: true });
+    expect(e.benchmarks[0]!.floor).toBeGreaterThan(1000);
+    expect(e.benchmarks[0]!.ceiling!).toBeGreaterThan(1500);
+  });
+
+  it("says so when the card has no unit costs to cost an adjusted scope from", () => {
+    const result = computeEconomics([adjusted], snapshot, "incremental", V01.assessmentShare);
+    expect(result.ok).toBe(false);
+  });
+
+  it("an unadjusted line is costed from the card as before", () => {
+    const result = computeEconomics(
+      [{ ...webcastLine(800), recipe_labor_hours: { lead: 5, student: 10 }, recipe_resource_units: { live: 1, webcast: 1 }, resource_units: { live: 1, webcast: 1 } }],
+      snapshot,
+      "incremental",
+      V01.assessmentShare,
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.economics.fullCost).toBe(777.6375);
+    expect(result.economics.benchmarks[0]!.scaled).toBeUndefined();
+  });
+});
+
+describe("aboveMarket", () => {
+  it("is true only when a rate exceeds a ceiling that exists", () => {
+    expect(aboveMarket([{ rate: 1200, ceiling: 1000 }])).toBe(true);
+    expect(aboveMarket([{ rate: 1000, ceiling: 1000 }])).toBe(false);
+    expect(aboveMarket([{ rate: 5000, ceiling: null }])).toBe(false);
+    expect(aboveMarket([])).toBe(false);
+  });
+});

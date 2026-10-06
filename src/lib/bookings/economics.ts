@@ -15,6 +15,7 @@
 // rounding is a pricing policy applied to the rate only (§19.1).
 
 import type { BkEstimateLineKind, BkPricingTreatment } from "@/lib/database.types";
+import { adjustedLinePrice, isAdjusted, unitCostsFromRows, type UnitCostRowLike } from "./pricing";
 import type { HoursByClass } from "./scheduling";
 
 /** Six decimals: floating-point noise out, no rounding to cents or to the card's step. */
@@ -35,6 +36,11 @@ export interface EconomicsLine {
   /** An expense line's cost each, before any assessment. */
   direct_cost: number | null;
   labor_hours: HoursByClass;
+  resource_units?: Record<string, number>;
+  /** The standard recipe a package line started from, and why it was adjusted (§20.6). */
+  recipe_labor_hours?: HoursByClass | null;
+  recipe_resource_units?: Record<string, number> | null;
+  adjustment_reason?: string | null;
 }
 
 export interface EconomicsCardLine {
@@ -59,6 +65,8 @@ export interface MarketBenchmark {
   reference: string | null;
   /** The per-unit rate the partner is charged. */
   rate: number;
+  /** An adjusted scope's floor and ceiling are the standard ones scaled to its cost (§20.6). */
+  scaled?: boolean;
 }
 
 export interface LineEconomics {
@@ -101,6 +109,11 @@ export function computeEconomics(
   card: readonly EconomicsCardLine[],
   treatment: BkPricingTreatment,
   assessmentShare: number,
+  options: {
+    /** The card snapshot's unit costs: what an adjusted line is costed from. */
+    unitCosts?: readonly UnitCostRowLike[];
+    externalMarginShare?: number;
+  } = {},
 ): EconomicsResult {
   const out: LineEconomics[] = [];
   const benchmarks: MarketBenchmark[] = [];
@@ -126,15 +139,54 @@ export function computeEconomics(
           error: `The rate card in use was recorded before costs were kept; record it again on the Rates tab to model ${line.label}'s cost.`,
         };
       }
-      laborCost = Number(cardLine.labor_cost) * quantity;
-      resourceCost = Number(cardLine.resource_cost) * quantity;
+      let floor = Number(cardLine.market_floor ?? 0);
+      let ceiling =
+        cardLine.market_ceiling === null || cardLine.market_ceiling === undefined
+          ? null
+          : Number(cardLine.market_ceiling);
+      let scaled = false;
+      if (isAdjusted({ ...line, resource_units: line.resource_units ?? {} })) {
+        // An adjusted scope is costed from the version's unit costs and its benchmark scaled (§20.6).
+        const unitCosts = options.unitCosts ?? [];
+        if (unitCosts.length === 0) {
+          return {
+            ok: false,
+            error: `The rate card in use has no unit costs recorded; record it again on the Rates tab to model ${line.label}'s adjusted scope.`,
+          };
+        }
+        const costs = unitCostsFromRows(unitCosts);
+        for (const [classId, hours] of Object.entries(line.labor_hours)) {
+          const rate = costs.labor.find((l) => l.id === classId);
+          if (!rate) return { ok: false, error: `${line.label} uses a labor class the rate card has no cost for.` };
+          laborCost += Number(hours) * rate.hourly * quantity;
+        }
+        for (const [poolId, units] of Object.entries(line.resource_units ?? {})) {
+          const rate = costs.pools.find((p) => p.id === poolId);
+          if (!rate) return { ok: false, error: `${line.label} uses equipment or space the rate card has no cost for.` };
+          resourceCost += Number(units) * rate.perUnit * quantity;
+        }
+        const adjusted = adjustedLinePrice(
+          { ...line, resource_units: line.resource_units ?? {} },
+          cardLine,
+          unitCosts,
+          { externalMarginShare: options.externalMarginShare ?? 0, assessmentShare },
+          line.label,
+        );
+        floor = adjusted.floor;
+        ceiling = adjusted.ceiling;
+        scaled = true;
+      } else {
+        laborCost = Number(cardLine.labor_cost) * quantity;
+        resourceCost = Number(cardLine.resource_cost) * quantity;
+      }
       benchmarks.push({
         packageId: line.package_id!,
         label: line.label,
-        floor: Number(cardLine.market_floor ?? 0),
-        ceiling: cardLine.market_ceiling === null || cardLine.market_ceiling === undefined ? null : Number(cardLine.market_ceiling),
+        floor,
+        ceiling,
         reference: cardLine.historical_reference,
         rate: quantity > 0 ? exactAmount(amount / quantity) : 0,
+        ...(scaled ? { scaled: true } : {}),
       });
       assessmentBase += amount;
     } else if (line.kind === "labor") {
@@ -219,4 +271,11 @@ export function contributedStaffHours(
     }
   }
   return exactAmount(hours);
+}
+
+/** Whether any package on the estimate is charged above its market ceiling (never capped; flagged, §20.5). */
+export function aboveMarket(
+  benchmarks: readonly { rate: number; ceiling: number | null }[],
+): boolean {
+  return benchmarks.some((b) => b.ceiling !== null && Number(b.rate) > Number(b.ceiling));
 }

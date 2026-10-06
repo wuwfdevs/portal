@@ -1,4 +1,6 @@
 import type { LineEconomics } from "./economics";
+import type { BookingEventLike, ObservedProject } from "./observed";
+import { isAdjusted } from "./pricing";
 import { inTerm, type ReportProject } from "./report";
 import type { ProjectDateFacts } from "./badges";
 import "server-only";
@@ -22,6 +24,7 @@ import {
 
 type Tables = Database["public"]["Tables"];
 export type BkLaborClassRow = Tables["bk_labor_classes"]["Row"];
+export type BkHoursUsedRow = Tables["bk_hours_used"]["Row"];
 export type BkPoolRow = Tables["bk_pools"]["Row"];
 export type BkVersionRow = Tables["bk_rate_model_versions"]["Row"];
 export type BkAssumptionRow = Tables["bk_assumptions"]["Row"];
@@ -581,6 +584,8 @@ export interface PricingContext {
   card: BkRateCardLineRow[];
   packages: PackageWithParts[];
   classes: BkLaborClassRow[];
+  /** The card snapshot's unit costs — what a package line adjusted on a project is priced from (§20.6). */
+  unitCosts: Tables["bk_rate_card_unit_costs"]["Row"][];
   assessmentShare: number;
   externalMarginShare: number;
 }
@@ -591,9 +596,11 @@ export async function getPricingContext(versionId?: string | null): Promise<Pric
     ? (versions.find((v) => v.id === versionId) ?? null)
     : (versions.find((v) => v.in_use) ?? null);
   if (!version) return null;
-  const [card, detail] = await Promise.all([
+  const supabase = await createClient();
+  const [card, detail, unitCosts] = await Promise.all([
     listRateCardLines(version.id),
     getVersionDetail(version),
+    supabase.from("bk_rate_card_unit_costs").select("*").eq("version_id", version.id),
   ]);
   if (card.length === 0) return null;
   const input = (key: string) =>
@@ -603,6 +610,7 @@ export async function getPricingContext(versionId?: string | null): Promise<Pric
     card,
     packages: detail.packages,
     classes: detail.classes,
+    unitCosts: unwrapRead(unitCosts, "rate card unit costs") ?? [],
     assessmentShare: input("assessment_share"),
     externalMarginShare: input("external_margin_share"),
   };
@@ -1089,9 +1097,11 @@ export async function listProjectDateFacts(
   const [lines, bookings] = await Promise.all([
     supabase
       .from("bk_estimate_lines")
-      .select("project_id")
-      .eq("kind", "package")
-      .in("project_id", [...projectIds]),
+      .select(
+        "project_id, kind, package_id, labor_hours, resource_units, recipe_labor_hours, recipe_resource_units, adjustment_reason",
+      )
+      .in("project_id", [...projectIds])
+      .eq("kind", "package"),
     supabase
       .from("bk_bookings")
       .select("project_id, status, exception_reason")
@@ -1099,10 +1109,33 @@ export async function listProjectDateFacts(
   ]);
   const lineRows = unwrapRead(lines, "estimate lines") ?? [];
   const bookingRows = unwrapRead(bookings, "dates") ?? [];
-  for (const id of projectIds) {
-    facts.set(id, { hasPackageLine: false, openBookings: 0, bookingException: false });
+  const packageIds = [...new Set(lineRows.map((row) => row.package_id).filter((id): id is string => !!id))];
+  const scoped = new Set<string>();
+  if (packageIds.length > 0) {
+    const packages = await supabase
+      .from("bk_service_packages")
+      .select("id, agreement_id")
+      .in("id", packageIds)
+      .not("agreement_id", "is", null);
+    for (const row of unwrapRead(packages, "packages") ?? []) scoped.add(row.id);
   }
-  for (const row of lineRows) facts.get(row.project_id)!.hasPackageLine = true;
+  for (const id of projectIds) {
+    facts.set(id, {
+      hasPackageLine: false,
+      openBookings: 0,
+      bookingException: false,
+      scopeAdjusted: false,
+      customPackage: false,
+    });
+  }
+  for (const row of lineRows) {
+    const entry = facts.get(row.project_id)!;
+    entry.hasPackageLine = true;
+    if (isAdjusted({ ...row, labor_hours: row.labor_hours ?? {}, resource_units: row.resource_units ?? {} })) {
+      entry.scopeAdjusted = true;
+    }
+    if (row.package_id && scoped.has(row.package_id)) entry.customPackage = true;
+  }
   for (const row of bookingRows) {
     if (!row.project_id) continue;
     const entry = facts.get(row.project_id);
@@ -1146,4 +1179,88 @@ export async function listReportProjects(term: {
     external_assessment: row.external_assessment === null ? null : Number(row.external_assessment),
     lines: (row.economics?.lines ?? []) as LineEconomics[],
   }));
+}
+
+// Capital and the double-count check (docs/bookings-design.md §20.3, §20.4) ---------------------------------
+
+/** The specific assets each budget line (by assumption id) already funds for replacement. */
+export async function listFundedAssets(
+  assumptionIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const funded = new Map<string, string[]>();
+  if (assumptionIds.length === 0) return funded;
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_assumption_assets")
+    .select("*")
+    .in("assumption_id", [...assumptionIds]);
+  for (const row of unwrapRead(result, "funded assets") ?? []) {
+    funded.set(row.assumption_id, [...(funded.get(row.assumption_id) ?? []), row.asset_id]);
+  }
+  return funded;
+}
+
+// Assumed versus observed (docs/bookings-design.md §20.8) ----------------------------------------------------
+
+/** Delivered projects' confirmed figures with their lines, and the term's refusals and releases. */
+export async function listObservedInputs(plan: {
+  id: string;
+  starts_on: string;
+  ends_on: string;
+}): Promise<{ projects: ObservedProject[]; events: BookingEventLike[] }> {
+  const supabase = await createClient();
+  const [used, events] = await Promise.all([
+    supabase.from("bk_hours_used").select("*"),
+    supabase.from("bk_booking_events").select("pool_id, kind").eq("plan_id", plan.id),
+  ]);
+  const usedRows = unwrapRead(used, "confirmed hours") ?? [];
+  const projectIds = [...new Set(usedRows.map((row) => row.project_id))];
+  let projects: ObservedProject[] = [];
+  if (projectIds.length > 0) {
+    const [projectRows, lineRows] = await Promise.all([
+      supabase.from("bk_projects").select("id, event_starts_on, created_at").in("id", projectIds),
+      supabase.from("bk_estimate_lines").select("*").in("project_id", projectIds),
+    ]);
+    const inTermIds = new Set(
+      (unwrapRead(projectRows, "projects") ?? []).filter((p) => inTerm(p, plan)).map((p) => p.id),
+    );
+    const lines = unwrapRead(lineRows, "estimate lines") ?? [];
+    projects = [...inTermIds].map((id) => ({
+      id,
+      lines: lines
+        .filter((l) => l.project_id === id)
+        .map((l) => ({
+          kind: l.kind,
+          package_id: l.package_id,
+          label: l.label,
+          quantity: Number(l.quantity),
+          labor_hours: l.labor_hours ?? {},
+          resource_units: l.resource_units ?? {},
+          recipe_labor_hours: l.recipe_labor_hours,
+          recipe_resource_units: l.recipe_resource_units,
+        })),
+      confirmed: usedRows
+        .filter((row) => row.project_id === id)
+        .map((row) => ({
+          kind: row.kind,
+          id: (row.kind === "labor" ? row.labor_class_id : row.pool_id) ?? "",
+          planned: Number(row.planned),
+          used: Number(row.used),
+        })),
+    }));
+  }
+  return {
+    projects,
+    events: (unwrapRead(events, "booking events") ?? []).map((e) => ({
+      pool_id: e.pool_id,
+      kind: e.kind,
+    })),
+  };
+}
+
+/** What a delivered project has already had confirmed, for its page. */
+export async function listHoursUsed(projectId: string) {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_hours_used").select("*").eq("project_id", projectId);
+  return unwrapRead(result, "confirmed hours") ?? [];
 }

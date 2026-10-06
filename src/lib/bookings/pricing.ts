@@ -6,7 +6,7 @@
 // never computes a price; this module does, and the actions store the result.
 
 import type { BkEstimateLineKind, BkPricingTreatment } from "@/lib/database.types";
-import { roundCents } from "./rates";
+import { priceRecipe, roundCents, type PackageCosts } from "./rates";
 import type { ClassCapacitySummary, HoursByClass } from "./scheduling";
 
 /** The customary internal webcast charge the framework replaces (§1). */
@@ -249,4 +249,180 @@ export function legacyRateDelta(lines: readonly EstimateLineLike[]): number | nu
 /** An external estimate's contribution margin: the share of its price the margin input names. */
 export function estimateMargin(total: number, externalMarginShare: number): number {
   return roundCents(total * externalMarginShare);
+}
+
+// Packages are default recipes (docs/bookings-design.md §20.6) ------------------------------------------
+
+export interface RecipeLine {
+  kind: BkEstimateLineKind;
+  /** What this project uses. */
+  labor_hours: HoursByClass;
+  resource_units: Record<string, number>;
+  /** The standard recipe the line started from; null on a line that has none (labor, expense). */
+  recipe_labor_hours?: HoursByClass | null;
+  recipe_resource_units?: Record<string, number> | null;
+  adjustment_reason?: string | null;
+}
+
+function sameRecord(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if (Math.abs(Number(a[key] ?? 0) - Number(b[key] ?? 0)) > 1e-9) return false;
+  }
+  return true;
+}
+
+/** A package line whose hours or units differ from the recipe it started from. */
+export function isAdjusted(line: RecipeLine): boolean {
+  if (line.kind !== "package" || !line.recipe_labor_hours || !line.recipe_resource_units) {
+    return false;
+  }
+  return (
+    !sameRecord(line.labor_hours, line.recipe_labor_hours) ||
+    !sameRecord(line.resource_units, line.recipe_resource_units)
+  );
+}
+
+export interface RecipeDifference {
+  /** Each class or pool whose figure differs from the standard recipe. */
+  labor: { classId: string; standard: number; actual: number }[];
+  resources: { poolId: string; standard: number; actual: number }[];
+}
+
+/** How an adjusted line differs from its standard recipe, so the page can show the difference. */
+export function recipeDifference(line: RecipeLine): RecipeDifference {
+  const diff = (standard: Record<string, number>, actual: Record<string, number>) =>
+    [...new Set([...Object.keys(standard), ...Object.keys(actual)])]
+      .map((key) => ({
+        key,
+        standard: Number(standard[key] ?? 0),
+        actual: Number(actual[key] ?? 0),
+      }))
+      .filter((row) => Math.abs(row.standard - row.actual) > 1e-9);
+  return {
+    labor: diff(line.recipe_labor_hours ?? {}, line.labor_hours).map(({ key, ...rest }) => ({
+      classId: key,
+      ...rest,
+    })),
+    resources: diff(line.recipe_resource_units ?? {}, line.resource_units).map(({ key, ...rest }) => ({
+      poolId: key,
+      ...rest,
+    })),
+  };
+}
+
+export interface UnitCostRowLike {
+  kind: "labor" | "pool";
+  labor_class_id: string | null;
+  pool_id: string | null;
+  name: string;
+  unit_cost: number;
+  charged_in_strategic: boolean | null;
+}
+
+/** The snapshot's unit costs as the recipe math reads them. */
+export function unitCostsFromRows(rows: readonly UnitCostRowLike[]) {
+  return {
+    labor: rows
+      .filter((r) => r.kind === "labor" && r.labor_class_id)
+      .map((r) => ({
+        id: r.labor_class_id!,
+        name: r.name,
+        hourly: Number(r.unit_cost),
+        charged: r.charged_in_strategic === true,
+      })),
+    pools: rows
+      .filter((r) => r.kind === "pool" && r.pool_id)
+      .map((r) => ({ id: r.pool_id!, name: r.name, perUnit: Number(r.unit_cost) })),
+  };
+}
+
+export interface AdjustedLinePrice {
+  rates: Pick<PackageCosts, "strategicRate" | "incrementalRate" | "externalRate" | "laborCost" | "resourceCost">;
+  /** The adjusted scope's full cost over the standard recipe's: what the market floor and ceiling are scaled by. */
+  scale: number;
+  floor: number;
+  ceiling: number | null;
+}
+
+/**
+ * The rates of a package line adjusted on a project: the same recipe math the
+ * card uses, over the version's unit costs. The market floor and ceiling are
+ * scaled by the ratio of the adjusted full cost to the standard full cost, so a
+ * lighter scope isn't held to a heavier scope's floor (§20.6 — a judgment this
+ * pass records for Finance to confirm).
+ */
+export function adjustedLinePrice(
+  line: Pick<RecipeLine, "labor_hours" | "resource_units" | "recipe_labor_hours" | "recipe_resource_units">,
+  card: { market_floor: number | null; market_ceiling?: number | null },
+  unitCosts: readonly UnitCostRowLike[],
+  inputs: { externalMarginShare: number; assessmentShare: number },
+  name = "Package",
+): AdjustedLinePrice {
+  const costs = unitCostsFromRows(unitCosts);
+  const standard = priceRecipe(
+    {
+      name,
+      labor: line.recipe_labor_hours ?? {},
+      resources: line.recipe_resource_units ?? {},
+    },
+    costs,
+    inputs,
+    0,
+  );
+  const standardFull = standard.laborCost + standard.resourceCost;
+  const adjustedProbe = priceRecipe(
+    { name, labor: line.labor_hours, resources: line.resource_units },
+    costs,
+    inputs,
+    0,
+  );
+  const scale =
+    standardFull > 0 ? (adjustedProbe.laborCost + adjustedProbe.resourceCost) / standardFull : 1;
+  const floor = roundCents(Number(card.market_floor ?? 0) * scale);
+  const ceiling =
+    card.market_ceiling === null || card.market_ceiling === undefined
+      ? null
+      : roundCents(Number(card.market_ceiling) * scale);
+  const priced = priceRecipe(
+    { name, labor: line.labor_hours, resources: line.resource_units },
+    costs,
+    inputs,
+    floor,
+  );
+  return {
+    rates: {
+      strategicRate: priced.strategicRate,
+      incrementalRate: priced.incrementalRate,
+      externalRate: priced.externalRate,
+      laborCost: priced.laborCost,
+      resourceCost: priced.resourceCost,
+    },
+    scale,
+    floor,
+    ceiling,
+  };
+}
+
+/** A package line's price when its recipe has been adjusted: the rate for the treatment from the adjusted recipe. */
+export function priceAdjustedLine(
+  line: Pick<EstimateLineLike, "quantity"> & RecipeLine,
+  treatment: BkPricingTreatment,
+  card: { market_floor: number | null; market_ceiling?: number | null },
+  unitCosts: readonly UnitCostRowLike[],
+  inputs: { externalMarginShare: number; assessmentShare: number },
+  name?: string,
+): { unit_rate: number; amount: number; detail: AdjustedLinePrice } {
+  const detail = adjustedLinePrice(line, card, unitCosts, inputs, name);
+  const rate =
+    treatment === "strategic"
+      ? detail.rates.strategicRate
+      : treatment === "incremental"
+        ? detail.rates.incrementalRate
+        : detail.rates.externalRate;
+  return {
+    unit_rate: rate,
+    amount: roundCents(rate * Number(line.quantity)),
+    detail,
+  };
 }

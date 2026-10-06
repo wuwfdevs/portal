@@ -27,10 +27,15 @@ export interface NewLineRow {
   direct_cost: number | null;
   labor_hours: Record<string, number>;
   resource_units: Record<string, number>;
+  /** The standard recipe the line starts from (§20.6); a package line only. */
+  recipe_labor_hours: Record<string, number> | null;
+  recipe_resource_units: Record<string, number> | null;
 }
 
 /** A package line, its rate to be written by pricing; its parts as the package has them now. */
 export function packageLineRow(pkg: PackageLike, quantity: number): NewLineRow {
+  const labor = Object.fromEntries(pkg.labor.map((l) => [l.labor_class_id, l.hours]));
+  const resources = Object.fromEntries(pkg.resources.map((r) => [r.pool_id, r.units]));
   return {
     kind: "package",
     package_id: pkg.id,
@@ -40,8 +45,10 @@ export function packageLineRow(pkg: PackageLike, quantity: number): NewLineRow {
     quantity,
     unit_rate: 0,
     direct_cost: null,
-    labor_hours: Object.fromEntries(pkg.labor.map((l) => [l.labor_class_id, l.hours])),
-    resource_units: Object.fromEntries(pkg.resources.map((r) => [r.pool_id, r.units])),
+    labor_hours: { ...labor },
+    resource_units: { ...resources },
+    recipe_labor_hours: { ...labor },
+    recipe_resource_units: { ...resources },
   };
 }
 

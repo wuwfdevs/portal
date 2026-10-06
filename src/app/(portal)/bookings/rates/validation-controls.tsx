@@ -25,6 +25,7 @@ export function ValidationControls({
   acceptOpen,
   acceptHref,
   closeHref,
+  extraFields,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   id: string;
@@ -34,12 +35,18 @@ export function ValidationControls({
   acceptOpen: boolean;
   acceptHref: string;
   closeHref: string;
+  /** Extra hidden fields every form carries (a package's review says which of its two things it is about). */
+  extraFields?: Record<string, string>;
 }) {
+  const extras = Object.entries(extraFields ?? {}).map(([name, value]) => (
+    <input key={name} type="hidden" name={name} value={value} />
+  ));
   if (acceptOpen) {
     return (
       <form action={action} className="flex flex-col gap-2">
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="version_id" value={versionId} />
+        {extras}
         <input type="hidden" name="state" value="accepted_as_is" />
         <Input name="note" placeholder="Why it is accepted as it stands" required autoFocus />
         <div className="flex items-center gap-3">
@@ -61,6 +68,7 @@ export function ValidationControls({
         <form action={action}>
           <input type="hidden" name="id" value={id} />
           <input type="hidden" name="version_id" value={versionId} />
+          {extras}
           <input type="hidden" name="state" value="pending" />
           <Button type="submit" variant="ghost" className="text-xs">
             Reopen
@@ -75,6 +83,7 @@ export function ValidationControls({
       <form action={action}>
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="version_id" value={versionId} />
+        {extras}
         <input type="hidden" name="state" value="validated" />
         <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
           Validated

@@ -3001,6 +3001,8 @@ export interface Database {
           adopted_at: string | null;
           adopted_by: string | null;
           superseded_at: string | null;
+          /** §20.2: a recorded decision on whether and how overhead is recovered. */
+          overhead_decision: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_rate_model_versions"]["Row"]> & {
           label: string;
@@ -3032,6 +3034,10 @@ export interface Database {
           validated_by: string | null;
           sort_order: number;
           created_at: string;
+          /** §20.2: general overhead, kept out of every pool's per-unit allocation. */
+          overhead: boolean;
+          /** §20.4: the pool whose replacement this budget line already funds. */
+          funds_pool_id: string | null;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_assumptions"]["Row"]> & {
@@ -3085,6 +3091,19 @@ export interface Database {
           validation_note: string | null;
           validated_at: string | null;
           validated_by: string | null;
+          /** §20.1: practical_capacity, or volume_forecast for a pool whose units are a demand forecast to be replaced. */
+          units_basis: "practical_capacity" | "volume_forecast";
+          /** §20.3: snapshots from the asset register (exact). */
+          capital_annual: number;
+          maintenance_annual: number;
+          asset_basis: {
+            assetId: string;
+            name: string;
+            capital: number;
+            maintenance: number;
+            coveredBy: string | null;
+          }[];
+          asset_refreshed_at: string | null;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_resource_pools"]["Row"]> & {
@@ -3108,6 +3127,11 @@ export interface Database {
           active: boolean;
           sort_order: number;
           created_at: string;
+          market_ceiling: number | null;
+          hours_validation_state: BkValidationState;
+          hours_validation_note: string | null;
+          floor_validation_state: BkValidationState;
+          floor_validation_note: string | null;
           updated_at: string;
           /** A bespoke package scoped to one agreement (slice 5); null is the ordinary card. */
           agreement_id: string | null;
@@ -3150,6 +3174,7 @@ export interface Database {
           incremental_cost: number | null;
           external_grossed_cost: number | null;
           market_floor: number | null;
+          market_ceiling: number | null;
           historical_reference: string | null;
           application_note: string | null;
           sort_order: number;
@@ -3189,6 +3214,8 @@ export interface Database {
           active: boolean;
           created_at: string;
           created_by: string | null;
+          replacement_cost: number | null;
+          annual_maintenance: number | null;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_assets"]["Row"]> & {
@@ -3472,6 +3499,71 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["bk_projects"]["Row"]>;
         Relationships: [];
       };
+      bk_assumption_assets: {
+        Row: { assumption_id: string; asset_id: string };
+        Insert: { assumption_id: string; asset_id: string };
+        Update: Partial<{ assumption_id: string; asset_id: string }>;
+        Relationships: [];
+      };
+      bk_rate_card_unit_costs: {
+        Row: {
+          id: string;
+          version_id: string;
+          kind: "labor" | "pool";
+          labor_class_id: string | null;
+          pool_id: string | null;
+          name: string;
+          unit_cost: number;
+          charged_in_strategic: boolean | null;
+          snapshotted_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_rate_card_unit_costs"]["Row"]> & {
+          version_id: string;
+          kind: "labor" | "pool";
+          name: string;
+          unit_cost: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_rate_card_unit_costs"]["Row"]>;
+        Relationships: [];
+      };
+      bk_hours_used: {
+        Row: {
+          id: string;
+          project_id: string;
+          kind: "labor" | "units";
+          labor_class_id: string | null;
+          pool_id: string | null;
+          planned: number;
+          used: number;
+          confirmed_at: string;
+          confirmed_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_hours_used"]["Row"]> & {
+          project_id: string;
+          kind: "labor" | "units";
+          used: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_hours_used"]["Row"]>;
+        Relationships: [];
+      };
+      bk_booking_events: {
+        Row: {
+          id: string;
+          plan_id: string | null;
+          project_id: string | null;
+          pool_id: string | null;
+          date: string | null;
+          kind: "refused" | "released";
+          reason: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_booking_events"]["Row"]> & {
+          kind: "refused" | "released";
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_booking_events"]["Row"]>;
+        Relationships: [];
+      };
       /** A package, a labor class's hours, or a direct expense. Rates written by TypeScript from the card snapshot; labor_hours/resource_units are per unit. */
       bk_estimate_lines: {
         Row: {
@@ -3491,6 +3583,10 @@ export interface Database {
           resource_units: Record<string, number>;
           /** An expense line's cost each as typed, before any assessment (§18.8); null otherwise. */
           direct_cost: number | null;
+          /** §20.6: the standard recipe the line started from, and why it differs. */
+          recipe_labor_hours: Record<string, number> | null;
+          recipe_resource_units: Record<string, number> | null;
+          adjustment_reason: string | null;
           notes: string | null;
           sort_order: number;
           created_at: string;

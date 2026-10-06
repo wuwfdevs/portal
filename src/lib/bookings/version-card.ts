@@ -66,6 +66,7 @@ export function snapshotLinesForCard(card: RateCard, versionId: string) {
     resource_cost: exactAmount(line.resourceCost),
     exact_cost: null,
     market_floor: line.marketFloor,
+    market_ceiling: line.marketCeiling ?? null,
     sort_order: index,
   }));
   const laborLines = card.labor.map((line, index) => ({
@@ -86,6 +87,7 @@ export function snapshotLinesForCard(card: RateCard, versionId: string) {
     resource_cost: null,
     exact_cost: exactAmount(line.exactCost),
     market_floor: null,
+    market_ceiling: null,
     sort_order: packageLines.length + index,
   }));
   return [...packageLines, ...laborLines];
@@ -105,10 +107,14 @@ export function snapshotMatchesCard(
     labor_cost?: number | null;
     resource_cost?: number | null;
     exact_cost?: number | null;
+    market_ceiling?: number | null;
   }[],
   card: RateCard,
 ): boolean {
-  const expected = new Map<string, [number | null, number, number, number | null, number | null, number | null]>();
+  const expected = new Map<
+    string,
+    [number | null, number, number, number | null, number | null, number | null, number | null]
+  >();
   for (const line of card.packages) {
     expected.set(line.key, [
       line.strategicRate,
@@ -117,10 +123,19 @@ export function snapshotMatchesCard(
       exactAmount(line.laborCost),
       exactAmount(line.resourceCost),
       null,
+      line.marketCeiling ?? null,
     ]);
   }
   for (const line of card.labor) {
-    expected.set(line.key, [null, line.internalRate, line.externalRate, null, null, exactAmount(line.exactCost)]);
+    expected.set(line.key, [
+      null,
+      line.internalRate,
+      line.externalRate,
+      null,
+      null,
+      exactAmount(line.exactCost),
+      null,
+    ]);
   }
   if (snapshot.length !== expected.size) return false;
   const same = (a: number | null, b: number | null) =>
@@ -135,7 +150,35 @@ export function snapshotMatchesCard(
       // A snapshot written before exact costs existed is stale (§19.4).
       same(line.labor_cost ?? null, want[3]) &&
       same(line.resource_cost ?? null, want[4]) &&
-      same(line.exact_cost ?? null, want[5])
+      same(line.exact_cost ?? null, want[5]) &&
+      same(line.market_ceiling ?? null, want[6])
     );
   });
+}
+
+/**
+ * The unit costs a package line adjusted on a project is priced and costed from
+ * (§20.6): each labor class's exact loaded hourly cost and each pool's exact cost
+ * per unit. Rows for `bk_rate_card_unit_costs`.
+ */
+export function unitCostRowsForCard(card: RateCard, versionId: string) {
+  const labor = card.derived.labor.map((l) => ({
+    version_id: versionId,
+    kind: "labor" as const,
+    labor_class_id: l.id,
+    pool_id: null,
+    name: l.name,
+    unit_cost: exactAmount(l.loadedHourly),
+    charged_in_strategic: l.chargedInStrategic,
+  }));
+  const pools = card.derived.pools.map((p) => ({
+    version_id: versionId,
+    kind: "pool" as const,
+    labor_class_id: null,
+    pool_id: p.id,
+    name: p.name,
+    unit_cost: exactAmount(p.costPerUnit),
+    charged_in_strategic: null,
+  }));
+  return [...labor, ...pools];
 }

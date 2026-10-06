@@ -11,10 +11,16 @@
 //   labor       — a salaried class's loaded hourly = salary × (1 + load) ÷
 //                 paid hours; an hourly class's = wage × (1 + load)
 //   pools       — the shared production resource pool (the budget lines
-//                 flagged as part of it, summed) is split across the
-//                 `allocated` pools by allocation share; an `own_lines` pool
-//                 (webcasting) is costed from its own lines. Each pool's cost
-//                 per unit is its annual cost ÷ its available units
+//                 flagged as part of it, summed, general overhead left out) is
+//                 split across the `allocated` pools by allocation share; an
+//                 `own_lines` pool (webcasting) is costed from its own lines.
+//                 A pool's annual cost adds what the asset register says is
+//                 set aside each year to replace its assets (replacement cost
+//                 ÷ realistic useful life) plus their maintenance — blank adds
+//                 zero. Each pool's cost per unit is its annual cost ÷ its
+//                 PRACTICAL CAPACITY (the realistic units it can deliver in a
+//                 year, never expected bookings: low demand must not raise a
+//                 unit cost; docs/bookings-design.md §20)
 //   packages    — strategic cost = resource units + the hours of every class
 //                 charged in a strategic price (students); incremental cost
 //                 adds the hours of the classes that are not (professionals,
@@ -54,6 +60,8 @@ export interface LaborClassInput {
   chargedInStrategic: boolean;
 }
 
+export type UnitsBasis = "practical_capacity" | "volume_forecast";
+
 export interface PoolInput {
   id: string;
   key: string;
@@ -62,16 +70,25 @@ export interface PoolInput {
   costing: PoolCosting;
   /** Allocated pools: this pool's share of the shared production pool. */
   allocationShare: number | null;
+  /** The pool's practical capacity: realistic units a year after normal downtime and constraints. */
   availableUnits: number;
-  /** Own-lines pools: the annual dollars of each of their budget lines. */
+  /** A pool whose units are a forecast of demand rather than a capacity is flagged for review. */
+  unitsBasis?: UnitsBasis;
+  /** Own-lines pools: the annual dollars of each of their budget lines (general overhead excluded). */
   ownLines: number[];
+  /** Annual capital set-aside from the asset register: Σ replacement cost ÷ useful life. Blank is zero. */
+  capitalAnnual?: number;
+  /** Annual maintenance from the asset register. Blank is zero. */
+  maintenanceAnnual?: number;
 }
 
 export interface RateModelInputs {
   externalMarginShare: number;
   assessmentShare: number;
-  /** Annual dollars of each budget line in the shared production resource pool. */
+  /** Annual dollars of each budget line in the shared production resource pool (general overhead excluded). */
   sharedPoolLines: number[];
+  /** Annual dollars of each budget line marked general overhead: shown apart, never allocated per unit (§20.2). */
+  overheadLines?: number[];
   labor: LaborClassInput[];
   pools: PoolInput[];
 }
@@ -81,12 +98,19 @@ export interface LaborDerived extends LaborClassInput {
 }
 
 export interface PoolDerived extends PoolInput {
+  /** The pool's budget lines: its share of the shared pool, or its own lines. */
+  baseCost: number;
+  /** Capital set-aside and maintenance from the asset register, each its own line in the build-up. */
+  capitalCost: number;
+  maintenanceCost: number;
   annualCost: number;
   costPerUnit: number;
 }
 
 export interface DerivedMetrics {
   sharedPoolAnnual: number;
+  /** General overhead, kept out of every pool's per-unit allocation. */
+  overheadAnnual: number;
   labor: LaborDerived[];
   pools: PoolDerived[];
 }
@@ -100,6 +124,8 @@ export interface PackageSpec {
   /** Units per pool id. */
   resources: Record<string, number>;
   marketFloor: number;
+  /** An optional market ceiling: a rate above it raises a review flag and never caps the price (§20.5). */
+  marketCeiling?: number | null;
 }
 
 export interface PackageCosts {
@@ -151,15 +177,27 @@ export function loadedHourly(labor: LaborClassInput): number {
 export function computeDerived(model: RateModelInputs): DerivedMetrics {
   const sharedPoolAnnual = sum(model.sharedPoolLines);
   const pools = model.pools.map((pool) => {
-    if (pool.availableUnits <= 0) throw new Error(`${pool.name} must have available units`);
-    const annualCost =
+    if (pool.availableUnits <= 0) throw new Error(`${pool.name} must have practical capacity`);
+    const baseCost =
       pool.costing === "allocated"
         ? sharedPoolAnnual * (pool.allocationShare ?? 0)
         : sum(pool.ownLines);
-    return { ...pool, annualCost, costPerUnit: annualCost / pool.availableUnits };
+    const capitalCost = pool.capitalAnnual ?? 0;
+    const maintenanceCost = pool.maintenanceAnnual ?? 0;
+    const annualCost = baseCost + capitalCost + maintenanceCost;
+    // Divided by practical capacity, never by demand: unused capacity is a finding, not a price input.
+    return {
+      ...pool,
+      baseCost,
+      capitalCost,
+      maintenanceCost,
+      annualCost,
+      costPerUnit: annualCost / pool.availableUnits,
+    };
   });
   return {
     sharedPoolAnnual,
+    overheadAnnual: sum(model.overheadLines ?? []),
     labor: model.labor.map((labor) => ({ ...labor, loadedHourly: loadedHourly(labor) })),
     pools,
   };
@@ -174,26 +212,51 @@ export function externalNetShare(
   return share;
 }
 
-export function pricePackage(
-  spec: PackageSpec,
-  derived: DerivedMetrics,
+/** Each class's exact loaded hourly cost and each pool's exact cost per unit: what a recipe is costed from. */
+export interface UnitCosts {
+  labor: { id: string; name: string; hourly: number; charged: boolean }[];
+  pools: { id: string; name: string; perUnit: number }[];
+}
+
+export function unitCostsOf(derived: DerivedMetrics): UnitCosts {
+  return {
+    labor: derived.labor.map((l) => ({
+      id: l.id,
+      name: l.name,
+      hourly: l.loadedHourly,
+      charged: l.chargedInStrategic,
+    })),
+    pools: derived.pools.map((p) => ({ id: p.id, name: p.name, perUnit: p.costPerUnit })),
+  };
+}
+
+/**
+ * A recipe — hours per class and units per pool — priced from unit costs: the
+ * one calculation the standard card and a project's adjusted line share
+ * (§20.6). The market floor is the recipe's own (an adjusted line passes the
+ * standard floor scaled to its scope).
+ */
+export function priceRecipe(
+  recipe: { name: string; labor: Record<string, number>; resources: Record<string, number> },
+  costs: UnitCosts,
   inputs: Pick<RateModelInputs, "externalMarginShare" | "assessmentShare">,
+  marketFloor: number,
 ): PackageCosts {
   let resourceCost = 0;
-  for (const [poolId, units] of Object.entries(spec.resources)) {
+  for (const [poolId, units] of Object.entries(recipe.resources)) {
     if (units === 0) continue;
-    const pool = derived.pools.find((candidate) => candidate.id === poolId);
-    if (!pool) throw new Error(`${spec.name} uses a pool this version has no figures for`);
-    resourceCost += units * pool.costPerUnit;
+    const pool = costs.pools.find((candidate) => candidate.id === poolId);
+    if (!pool) throw new Error(`${recipe.name} uses a pool this version has no figures for`);
+    resourceCost += units * pool.perUnit;
   }
   let chargedLabor = 0;
   let baselineLabor = 0;
-  for (const [classId, hours] of Object.entries(spec.labor)) {
+  for (const [classId, hours] of Object.entries(recipe.labor)) {
     if (hours === 0) continue;
-    const labor = derived.labor.find((candidate) => candidate.id === classId);
-    if (!labor) throw new Error(`${spec.name} uses a labor class this version has no rate for`);
-    if (labor.chargedInStrategic) chargedLabor += hours * labor.loadedHourly;
-    else baselineLabor += hours * labor.loadedHourly;
+    const labor = costs.labor.find((candidate) => candidate.id === classId);
+    if (!labor) throw new Error(`${recipe.name} uses a labor class this version has no rate for`);
+    if (labor.charged) chargedLabor += hours * labor.hourly;
+    else baselineLabor += hours * labor.hourly;
   }
   const strategicCost = resourceCost + chargedLabor;
   const incrementalCost = strategicCost + baselineLabor;
@@ -207,8 +270,29 @@ export function pricePackage(
     externalGrossedCost: roundCents(externalGrossedCost),
     strategicRate: roundUpTo(strategicCost),
     incrementalRate: roundUpTo(incrementalCost),
-    externalRate: Math.max(roundUpTo(externalGrossedCost), spec.marketFloor),
+    externalRate: Math.max(roundUpTo(externalGrossedCost), marketFloor),
   };
+}
+
+export function pricePackage(
+  spec: PackageSpec,
+  derived: DerivedMetrics,
+  inputs: Pick<RateModelInputs, "externalMarginShare" | "assessmentShare">,
+): PackageCosts {
+  return priceRecipe(spec, unitCostsOf(derived), inputs, spec.marketFloor);
+}
+
+/** Which of a package's modeled rates sit above its market ceiling (never capped; only flagged, §20.5). */
+export function rateCeilingFlags(
+  costs: Pick<PackageCosts, "strategicRate" | "incrementalRate" | "externalRate">,
+  ceiling: number | null | undefined,
+): ("strategic" | "incremental" | "external")[] {
+  if (ceiling === null || ceiling === undefined) return [];
+  const flags: ("strategic" | "incremental" | "external")[] = [];
+  if (costs.strategicRate > ceiling) flags.push("strategic");
+  if (costs.incrementalRate > ceiling) flags.push("incremental");
+  if (costs.externalRate > ceiling) flags.push("external");
+  return flags;
 }
 
 export interface LaborLine {
@@ -386,6 +470,8 @@ export interface AssumptionLike {
   key: string | null;
   pool_id: string | null;
   value: number;
+  /** General overhead (§20.2): kept out of every pool's per-unit allocation. */
+  overhead?: boolean;
 }
 
 export interface LaborClassLike {
@@ -419,6 +505,10 @@ export interface PoolRowLike {
   pool_id: string;
   allocation_share: number | null;
   available_units: number;
+  units_basis?: UnitsBasis;
+  /** Snapshots from the asset register (§20.3); blank or absent is zero. */
+  capital_annual?: number | null;
+  maintenance_annual?: number | null;
 }
 
 export interface PackageLike {
@@ -426,6 +516,7 @@ export interface PackageLike {
   name: string;
   unit_label: string;
   market_floor: number;
+  market_ceiling?: number | null;
   active: boolean;
   labor: { labor_class_id: string; hours: number }[];
   resources: { pool_id: string; units: number }[];
@@ -449,10 +540,13 @@ export function modelFromRows(rows: {
   const missing: string[] = [];
   const inputs: Partial<Record<ModelInputKey, number>> = {};
   const sharedPoolLines: number[] = [];
+  const overheadLines: number[] = [];
   const ownLines = new Map<string, number[]>();
   for (const row of rows.assumptions) {
     if (row.kind === "pool_line") {
-      if (row.pool_id === null) sharedPoolLines.push(Number(row.value));
+      // General overhead is kept out of every pool's per-unit allocation (§20.2).
+      if (row.overhead) overheadLines.push(Number(row.value));
+      else if (row.pool_id === null) sharedPoolLines.push(Number(row.value));
       else ownLines.set(row.pool_id, [...(ownLines.get(row.pool_id) ?? []), Number(row.value)]);
     } else if (row.key && isModelInputKey(row.key)) {
       inputs[row.key] = Number(row.value);
@@ -507,7 +601,10 @@ export function modelFromRows(rows: {
       costing: pool.costing,
       allocationShare: row.allocation_share === null ? null : Number(row.allocation_share),
       availableUnits: Number(row.available_units),
+      unitsBasis: row.units_basis ?? "practical_capacity",
       ownLines: ownLines.get(pool.id) ?? [],
+      capitalAnnual: Number(row.capital_annual ?? 0),
+      maintenanceAnnual: Number(row.maintenance_annual ?? 0),
     });
   }
 
@@ -518,6 +615,7 @@ export function modelFromRows(rows: {
       externalMarginShare: inputs.external_margin_share!,
       assessmentShare: inputs.assessment_share!,
       sharedPoolLines,
+      overheadLines,
       labor,
       pools,
     },
@@ -532,6 +630,10 @@ export function packageSpecFromRow(row: PackageLike): PackageSpec {
     labor: Object.fromEntries(row.labor.map((line) => [line.labor_class_id, Number(line.hours)])),
     resources: Object.fromEntries(row.resources.map((line) => [line.pool_id, Number(line.units)])),
     marketFloor: Number(row.market_floor),
+    marketCeiling:
+      row.market_ceiling === null || row.market_ceiling === undefined
+        ? null
+        : Number(row.market_ceiling),
   };
 }
 

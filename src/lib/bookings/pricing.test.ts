@@ -299,3 +299,91 @@ describe("the estimate", () => {
     expect(estimateMargin(1150, 0.25)).toBe(287.5);
   });
 });
+
+// Packages are default recipes (docs/bookings-design.md §20.6) -----------------------------------
+import { buildRateCard as buildCard } from "./rates";
+import { V01 as WORKBOOK, V01_PACKAGES as WORKBOOK_PACKAGES } from "./rates.fixture";
+import { unitCostRowsForCard } from "./version-card";
+import {
+  adjustedLinePrice,
+  isAdjusted,
+  priceAdjustedLine,
+  recipeDifference,
+  type RecipeLine,
+} from "./pricing";
+
+describe("recipes: adjusted package lines", () => {
+  const workbookCard = buildCard(WORKBOOK, WORKBOOK_PACKAGES);
+  const unitCosts = unitCostRowsForCard(workbookCard, "v");
+  const inputs = {
+    externalMarginShare: WORKBOOK.externalMarginShare,
+    assessmentShare: WORKBOOK.assessmentShare,
+  };
+  const standard: RecipeLine = {
+    kind: "package",
+    labor_hours: { lead: 5, student: 10 },
+    resource_units: { live: 1, webcast: 1 },
+    recipe_labor_hours: { lead: 5, student: 10 },
+    recipe_resource_units: { live: 1, webcast: 1 },
+  };
+  const cardLine = { market_floor: 1000, market_ceiling: 1500 };
+
+  it("is not adjusted while it matches its recipe, whatever the key order", () => {
+    expect(isAdjusted(standard)).toBe(false);
+    expect(isAdjusted({ ...standard, labor_hours: { student: 10, lead: 5 } })).toBe(false);
+    expect(isAdjusted({ ...standard, kind: "labor" })).toBe(false);
+  });
+
+  it("is adjusted when hours, units or crew differ, and shows the difference", () => {
+    const heavier: RecipeLine = {
+      ...standard,
+      labor_hours: { lead: 8, student: 10 },
+      resource_units: { live: 1.5, webcast: 1 },
+      adjustment_reason: "Two stages",
+    };
+    expect(isAdjusted(heavier)).toBe(true);
+    expect(recipeDifference(heavier)).toEqual({
+      labor: [{ classId: "lead", standard: 5, actual: 8 }],
+      resources: [{ poolId: "live", standard: 1, actual: 1.5 }],
+    });
+  });
+
+  it("an unadjusted recipe priced from the unit costs matches the card", () => {
+    const priced = priceAdjustedLine({ ...standard, quantity: 1 }, "incremental", cardLine, unitCosts, inputs);
+    expect(priced.unit_rate).toBe(800);
+    expect(priced.detail.scale).toBe(1);
+    expect(priced.detail.floor).toBe(1000);
+  });
+
+  it("an adjusted scope is priced from the same unit costs, with the floor and ceiling scaled to its cost", () => {
+    const heavier: RecipeLine = { ...standard, labor_hours: { lead: 10, student: 20 } };
+    const price = adjustedLinePrice(heavier, cardLine, unitCosts, inputs);
+    // 79.70 + 325 + 10 × 42.1875 + 20 × 16.20 = 1150.575 against 777.6375 standard.
+    expect(price.scale).toBeCloseTo(1150.575 / 777.6375, 6);
+    expect(price.floor).toBeCloseTo(1000 * price.scale, 2);
+    expect(price.ceiling).toBeCloseTo(1500 * price.scale, 2);
+    expect(price.rates.incrementalRate).toBe(1175);
+    expect(price.rates.strategicRate).toBeLessThan(price.rates.incrementalRate);
+    // The package and its recipe are untouched: the standard card still says $800.
+    expect(workbookCard.packages.find((p) => p.key === "webcast_basic")!.incrementalRate).toBe(800);
+  });
+
+  it("a lighter scope isn't held to the heavier scope's floor", () => {
+    const lighter: RecipeLine = { ...standard, labor_hours: { lead: 2, student: 4 } };
+    const price = adjustedLinePrice(lighter, cardLine, unitCosts, inputs);
+    expect(price.scale).toBeLessThan(1);
+    expect(price.floor).toBeLessThan(1000);
+    expect(price.rates.externalRate).toBeLessThan(1150);
+  });
+
+  it("prices a quantity at the treatment's rate", () => {
+    const priced = priceAdjustedLine(
+      { ...standard, quantity: 2, labor_hours: { lead: 10, student: 20 } },
+      "strategic",
+      cardLine,
+      unitCosts,
+      inputs,
+    );
+    expect(priced.amount).toBe(priced.unit_rate * 2);
+  });
+});

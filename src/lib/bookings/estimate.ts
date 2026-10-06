@@ -6,6 +6,8 @@ import { parseAirtimeRead } from "./airtime";
 import {
   derivePricing,
   estimateDraw,
+  isAdjusted,
+  priceAdjustedLine,
   priceLine,
   reserveCoversDraw,
   type DerivedPricing,
@@ -194,13 +196,47 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
 
   const pricedLines: typeof lines = [];
   for (const line of lines) {
-    const priced = priceLine(
-      line,
-      treatment,
-      context.card,
-      context.classes,
-      context.assessmentShare,
-    );
+    const recipe = {
+      ...line,
+      labor_hours: line.labor_hours ?? {},
+      resource_units: line.resource_units ?? {},
+    };
+    let priced: ReturnType<typeof priceLine>;
+    if (isAdjusted(recipe)) {
+      // An adjusted scope is priced from the version's unit costs by the same recipe math (§20.6).
+      const cardLine = context.card.find(
+        (c) => c.kind === "package" && c.package_id === line.package_id,
+      );
+      if (!cardLine || context.unitCosts.length === 0) {
+        return {
+          ok: false,
+          error: `${line.label}: the rate card in use has no unit costs recorded to price an adjusted scope; Finance records it again on the Rates tab.`,
+        };
+      }
+      const adjusted = priceAdjustedLine(
+        recipe,
+        treatment ?? "incremental",
+        cardLine,
+        context.unitCosts,
+        {
+          externalMarginShare: context.externalMarginShare,
+          assessmentShare: context.assessmentShare,
+        },
+        line.label,
+      );
+      priced = {
+        ok: true,
+        price: { unit_rate: adjusted.unit_rate, amount: adjusted.amount },
+      };
+    } else {
+      priced = priceLine(
+        line,
+        treatment ?? "incremental",
+        context.card,
+        context.classes,
+        context.assessmentShare,
+      );
+    }
     if (!priced.ok) return { ok: false, error: `${line.label}: ${priced.error}` };
     pricedLines.push({ ...line, ...priced.price });
     if (
@@ -223,6 +259,7 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     context.card,
     treatment ?? "incremental",
     context.assessmentShare,
+    { unitCosts: context.unitCosts, externalMarginShare: context.externalMarginShare },
   );
   const { error: economicsError } = await supabase
     .from("bk_projects")

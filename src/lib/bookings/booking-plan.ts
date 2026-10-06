@@ -68,6 +68,8 @@ export type BookingPlan =
       code: PlanFailureCode;
       /** A sentence for the screen, with no model vocabulary. */
       message: string;
+      /** The resource that couldn't be booked, for the term report's refusals by resource. */
+      poolId: string | null;
       alternatives: PlanAlternative[];
     };
 
@@ -144,7 +146,7 @@ function trim(value: number): string {
 
 type Attempt =
   | { ok: true; bookings: PlannedBooking[]; warnings: string[] }
-  | { ok: false; code: PlanFailureCode; message: string };
+  | { ok: false; code: PlanFailureCode; message: string; poolId: string | null };
 
 interface PoolPlan {
   anchorId: string;
@@ -185,6 +187,7 @@ function attempt(
         ok: false,
         code: "no_resource",
         message: `${poolName(state, poolId)} isn't set up for this term.`,
+        poolId,
       };
     }
     let window: PlanWindow;
@@ -217,6 +220,7 @@ function attempt(
             state,
             poolId,
           )} is only available ${own.map((w) => formatWindow(w.start, w.end)).join(", ")}.`,
+          poolId,
         };
       }
       window = { start: best.window.start, end: best.window.end };
@@ -253,6 +257,7 @@ function attempt(
           date,
           asked: Object.values(booking.hours).reduce((total, h) => total + Number(h), 0),
         }),
+        poolId: booking.pool_id,
       };
     }
     warnings.push(...check.warnings);
@@ -296,11 +301,13 @@ export function buildBookingPlan(input: PlanInput, state: CalendarState): Bookin
     ok: false as const,
     code: "refused" as const,
     message: "That date can't be booked.",
+    poolId: null,
   };
   return {
     ok: false,
     code: failure.code,
     message: failure.message,
+    poolId: failure.poolId,
     alternatives: nearestAlternatives(input, state, pools),
   };
 }

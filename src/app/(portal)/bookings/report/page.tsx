@@ -5,7 +5,14 @@ import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/tab
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import { BOOKINGS_PATH, withQuery } from "@/lib/bookings/paths";
-import { getActivePlan, listReportProjects } from "@/lib/bookings/queries";
+import { assumedVersusObserved } from "@/lib/bookings/observed";
+import {
+  getActivePlan,
+  listLaborClasses,
+  listObservedInputs,
+  listPools,
+  listReportProjects,
+} from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
 import { termReport, type ReportScope, type Totals } from "@/lib/bookings/report";
 import type { BkPricingTreatment } from "@/lib/database.types";
@@ -88,8 +95,17 @@ export default async function TermReportPage({
       </div>
     );
   }
-  const projects = await listReportProjects(plan);
+  const [projects, observedInputs, classes, pools] = await Promise.all([
+    listReportProjects(plan),
+    listObservedInputs(plan),
+    listLaborClasses(),
+    listPools(),
+  ]);
   const report = termReport(projects, scope);
+  const observed = assumedVersusObserved(observedInputs.projects, observedInputs.events);
+  const className = (id: string) => classes.find((c) => c.id === id)?.name ?? "Labor";
+  const poolName = (id: string | null) =>
+    id ? (pools.find((p) => p.id === id)?.name ?? "A resource") : "Not tied to a resource";
   const treatments: BkPricingTreatment[] = ["strategic", "incremental", "external"];
 
   return (
@@ -217,6 +233,149 @@ export default async function TermReportPage({
         ) : (
           <p className="text-sm text-ink-500">No webcast has been priced this term.</p>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+            Assumed versus observed
+          </h3>
+          <p className="mt-1 max-w-3xl text-xs text-ink-500">
+            Read-only, and it feeds nothing: what the packages assumed against what delivered
+            projects confirmed they used, and the bookings WUWF refused or displaced. Utilization
+            is never a pricing input — unit costs divide by practical capacity — so this informs
+            the term report and a deliberate future capacity revision, and nothing else.{" "}
+            {observed.confirmedProjects} project{observed.confirmedProjects === 1 ? "" : "s"} confirmed
+            so far.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-bold text-ink-900">Package hours, assumed and confirmed</h4>
+            <TableFrame>
+              <Table stack>
+                <thead>
+                  <HeaderRow>
+                    <Th>Labor</Th>
+                    <Th className="text-right">Assumed</Th>
+                    <Th className="text-right">Confirmed</Th>
+                    <Th className="text-right">Projects</Th>
+                  </HeaderRow>
+                </thead>
+                <tbody>
+                  {observed.labor.length === 0 ? (
+                    <Row>
+                      <Cell stack="full" colSpan={4}>
+                        Nothing confirmed yet.
+                      </Cell>
+                    </Row>
+                  ) : (
+                    observed.labor.map((row) => (
+                      <Row key={row.classId}>
+                        <Cell stack="title">{className(row.classId)}</Cell>
+                        <Cell label="Assumed" className="text-right tabular-nums">
+                          {row.assumed} h
+                        </Cell>
+                        <Cell label="Confirmed" className="text-right tabular-nums">
+                          {row.confirmed} h
+                        </Cell>
+                        <Cell label="Projects" className="text-right">
+                          {row.projects}
+                        </Cell>
+                      </Row>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </TableFrame>
+            {observed.packages.length > 0 && (
+              <p className="text-xs text-ink-500">
+                By package, from projects that had only that package:{" "}
+                {observed.packages
+                  .map((p) => `${p.label} — ${p.assumed} h assumed, ${p.confirmed} h confirmed (${p.projects})`)
+                  .join("; ")}
+                .
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-bold text-ink-900">Resource units, planned and used</h4>
+            <TableFrame>
+              <Table stack>
+                <thead>
+                  <HeaderRow>
+                    <Th>Resource</Th>
+                    <Th className="text-right">Planned</Th>
+                    <Th className="text-right">Used</Th>
+                    <Th className="text-right">Projects</Th>
+                  </HeaderRow>
+                </thead>
+                <tbody>
+                  {observed.resources.length === 0 ? (
+                    <Row>
+                      <Cell stack="full" colSpan={4}>
+                        Nothing confirmed yet.
+                      </Cell>
+                    </Row>
+                  ) : (
+                    observed.resources.map((row) => (
+                      <Row key={row.poolId}>
+                        <Cell stack="title">{poolName(row.poolId)}</Cell>
+                        <Cell label="Planned" className="text-right tabular-nums">
+                          {row.planned}
+                        </Cell>
+                        <Cell label="Used" className="text-right tabular-nums">
+                          {row.used}
+                        </Cell>
+                        <Cell label="Projects" className="text-right">
+                          {row.projects}
+                        </Cell>
+                      </Row>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </TableFrame>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h4 className="text-sm font-bold text-ink-900">Refused or displaced bookings, by resource</h4>
+          <TableFrame>
+            <Table stack>
+              <thead>
+                <HeaderRow>
+                  <Th>Resource</Th>
+                  <Th className="text-right">Refused</Th>
+                  <Th className="text-right">Displaced (held or confirmed date released)</Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {observed.events.length === 0 ? (
+                  <Row>
+                    <Cell stack="full" colSpan={3}>
+                      None this term.
+                    </Cell>
+                  </Row>
+                ) : (
+                  observed.events.map((row) => (
+                    <Row key={row.poolId ?? "none"}>
+                      <Cell stack="title">{poolName(row.poolId)}</Cell>
+                      <Cell label="Refused" className="text-right tabular-nums">
+                        {row.refused}
+                      </Cell>
+                      <Cell label="Displaced" className="text-right tabular-nums">
+                        {row.released}
+                      </Cell>
+                    </Row>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableFrame>
+        </div>
       </section>
     </div>
   );

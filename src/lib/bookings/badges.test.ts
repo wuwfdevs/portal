@@ -102,9 +102,25 @@ describe("projectBadgeFacts", () => {
     ).toBe(true);
   });
 
-  it("carries the estimate-level facts through", () => {
+  it("carries the estimate-level facts through: above market from the stored benchmark, scope and package from the lines", () => {
     expect(
-      badgesFor(projectBadgeFacts(routine, dates, { aboveMarket: true, scopeAdjusted: true })),
-    ).toEqual(["above_market", "scope_adjusted"]);
+      badgesFor(
+        projectBadgeFacts(
+          { ...routine, market_benchmarks: [{ rate: 1200, ceiling: 1000 }] },
+          { ...dates, scopeAdjusted: true, customPackage: true },
+        ),
+      ),
+    ).toEqual(["above_market", "scope_adjusted", "custom_package"]);
+  });
+
+  it("never calls a rate above market without a ceiling, or at or under it", () => {
+    expect(
+      projectBadgeFacts({ ...routine, market_benchmarks: [{ rate: 1200, ceiling: null }] }, dates)
+        .aboveMarket,
+    ).toBe(false);
+    expect(
+      projectBadgeFacts({ ...routine, market_benchmarks: [{ rate: 1000, ceiling: 1000 }] }, dates)
+        .aboveMarket,
+    ).toBe(false);
   });
 });
