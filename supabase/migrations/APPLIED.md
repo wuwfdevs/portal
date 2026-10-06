@@ -206,6 +206,8 @@ repo and a project's history, not the version number.
 | `20261005140100_resources_bookings_rate_model.sql`                    | 2026-10-05 | 2026-10-05 |
 | `20261005150000_bookings_term_plan.sql`                               | 2026-10-05 | 2026-10-05 |
 | `20261005150100_resources_bookings_calendar.sql`                      | 2026-10-05 | 2026-10-05 |
+| `20261005160000_bookings_labor_and_pools.sql`                         | 2026-10-06 | 2026-10-06 |
+| `20261005160100_resources_bookings_labor_and_pools.sql`               | 2026-10-06 | 2026-10-06 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
