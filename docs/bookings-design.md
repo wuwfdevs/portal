@@ -830,6 +830,14 @@ to both Supabase projects and the table, columns, functions and grants
 checked in each; `bk_submit_request()` exercised directly on preview in a
 live run (the grants to `anon` checked, then a closed form, a bad email, a package not
 offered, a complete request — partner created, project at `request` with
-source `public`, commitment and received event written, the rows then removed). Not yet verified: a
+source `public`, commitment and received event written). The two test
+requests ("Finals-week hours", "Second") and their partner, "ZZ Intake Test
+Unit", are still on preview, untouched: the form was closed again (`is_open`
+back to false), but every `delete` or `update` aimed at those two
+`bk_projects` rows — by subquery or by primary key — timed out through the
+Supabase MCP's `execute_sql` while reads, the settings update and the
+function's own inserts went through, and `pg_locks`/`pg_stat_activity`
+showed no holder. Remove them from the dashboard or a psql session; they
+carry no bookings. Not yet verified: a
 browser click-through of the wizard, for the same reason as every earlier
 slice.
