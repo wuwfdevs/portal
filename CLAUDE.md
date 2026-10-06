@@ -3456,10 +3456,40 @@ a pointer. Four things are load-bearing:
    it; the term's reserve is still the triggers' check. A package with
    `agreement_id` is offered only to requests under that agreement.
 
-Slice 6 (hours, settlement, the term report) is designed in the doc and
-**not authorized to start without its own instruction**. Airtime is read
-across the Traffic/On Air boundary and never placed from this tool, in
-every slice.
+**Bookings refinement pass (2026-10-06, slices A–C) and slice 6 (settlement,
+2026-10-07) have landed — milestone 1 is complete.** Read
+`docs/bookings-design.md` §18–§21 before touching pricing, the project page, the
+term report, or settlement; this is a pointer. Slice A made a request and its
+estimate one pass (`/bookings/requests/new` takes partner, packages and date and
+produces the priced, capacity-checked estimate); slice B stores cost
+transparency on every estimate (`lib/bookings/economics.ts`: full economic cost,
+partner recovery, `WUWF contribution = max(0, cost − recovery)`, external
+margin/assessment apart) and added the term report (`/bookings/report`); slice C
+corrected the model (practical capacity, overhead, capital and maintenance from
+the asset register, market ceiling, project-level Adjust scope, review status on
+package hours and floors, and the assumed-versus-observed view fed by
+`bk_hours_used`). Slice 6 added the last piece, **settlement at actual cost**
+(`20261007150000_bookings_settlement.sql`, applied to both projects):
+`lib/bookings/settlements.ts` (pure, tested) drafts it from the approved
+estimate's price with each direct expense at its actual cost, and costs the hours
+and units production confirmed at the card snapshot's unit costs
+(`bk_rate_card_unit_costs`) — so the hours change what the work cost WUWF, never
+what the partner is charged, and a later rate version never rewrites a delivered
+project. A UWF unit is **recharged** to a funding index, an outside partner
+**invoiced**. Three things are load-bearing: (1) **only Finance drafts and posts**
+(`assertBookingsFinance()`, `bk_settlements` RLS), and posting is
+`bk_post_settlement()`, which records the journal entry number (keyed by hand —
+no Banner/journal integration) and sets the project `settled` in one
+transaction; (2) **a posted settlement is frozen** by `bk_guard_settlement()` and
+the stage can't reach `settled` without one (`bk_guard_project_settled()`, a
+separate trigger so `bk_guard_project()` isn't restated); (3) drafting needs
+every planned class and pool confirmed (`hoursConfirmed()`), and the term report
+totals only posted settlements, actual against estimated. Settlement actions live
+in `requests/settlement-actions.ts`; the panel is
+`requests/[id]/settlement-section.tsx`; Finance's dashboard action item is
+`settle`. Airtime is read across the Traffic/On Air boundary and never placed
+from this tool, in every slice. PDF invoices and journal-entry integration remain
+deliberately not built (§6.6).
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
@@ -4010,7 +4040,8 @@ src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff
 src/lib/bookings/          Bookings' access gate + stacking roles (access.ts, roles.ts), data reads
                            (queries.ts), the rate-card snapshot writer and change log (server-only),
                            plus pure, tested modules — rates.ts (the rate math, the v0.1 workbook as
-                           its fixture), version-card.ts (rows → card), labels.ts, paths.ts
+                           its fixture), version-card.ts (rows → card), economics.ts, settlements.ts
+                           (settlement at actual cost), labels.ts, paths.ts
 src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and the reasoning
                            engine (ai.ts, "server-only" — web_search + a custom function tool,
                            streamed; see the tool's own CLAUDE.md entries) with its
