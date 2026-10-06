@@ -2,8 +2,7 @@ import { getPublicFormConfig } from "@/lib/bookings/public";
 import { Alert } from "@/components/ui/alert";
 import { BookShell } from "./book-shell";
 import { BookForm } from "./book-form";
-
-export const BOOK_PAGE_TITLE = "Request production work from WUWF";
+import { BOOK_PAGE_TITLE } from "./title";
 
 /**
  * Both public routes render this — /book is the standalone page, /book/embed
