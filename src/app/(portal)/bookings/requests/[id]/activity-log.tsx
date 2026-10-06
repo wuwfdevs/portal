@@ -21,6 +21,8 @@ const EVENT_VERB: Record<string, string> = {
   commitment_added: "Airtime commitment added",
   commitment_changed: "Airtime commitment changed",
   commitment_removed: "Airtime commitment removed",
+  agreement: "Agreement",
+  block_attached: "Reserved block used",
 };
 
 /** The chronological, staff-visible timeline — bk_project_events, not audit_events. */

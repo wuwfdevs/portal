@@ -3428,10 +3428,38 @@ client-side validation, the payload and the error sentences; the function
 re-checks everything. The settings are the director's or the executive's
 (`assertBookingsIntakeEditor()`, `bk_settings_update`).
 
-Slices 5–6 (partners and agreements, hours/settlement/term report) are
-designed in the doc and **not authorized to start without their own
-instruction**. Airtime is read across the Traffic/On Air boundary and never
-placed from this tool, in every slice.
+**Bookings slice 5 (partners and agreements) has landed too (2026-10-06)** —
+`20261006140000_bookings_partners_agreements.sql`, the Partners tab
+(`/bookings/partners`, `/[id]`, `/[id]/agreements/[agreementId]`). Read
+`docs/bookings-design.md` §5 "Partners", §6.4 step 2 and §17 first; this is
+a pointer. Four things are load-bearing:
+
+1. **Release-at-read, no job.** A reserved block with no project past
+   `date − release_deadline_days` reads as released unless the director
+   kept it: `bk_reserved_block_reserves()` in SQL and
+   `lib/bookings/agreements.ts`'s `reservedBlockState()` are twins. Only an
+   **active** agreement's blocks reserve anything; a draft's are the
+   proposal.
+2. **Step 2 of the booking rule counts a reserving block as one concurrent
+   unit**, in `bk_booking_allowed()` and `scheduling.ts`'s `findRefusal()`
+   alike — keep them in step — and never against the partner it is held
+   for (`BookingRequest.partnerId`). Attach a block through
+   `bk_attach_reserved_block()`, which writes the booking in the stage's
+   state; releasing that date or closing the request hands the block back.
+3. **Approval is the executive's, in `bk_guard_agreement()`**, which also
+   freezes an approved agreement's numeric terms to the executive; ending
+   is the director's or the executive's; `kept_by` is the director's
+   (`bk_guard_reserved_block()`). A project's agreement must be its
+   partner's (`bk_guard_project()`).
+4. **Under an agreement, pricing reads the agreement's reserve share**
+   (`derivedPricingFor()` → `agreementReserveCovers()`), incremental beyond
+   it; the term's reserve is still the triggers' check. A package with
+   `agreement_id` is offered only to requests under that agreement.
+
+Slice 6 (hours, settlement, the term report) is designed in the doc and
+**not authorized to start without its own instruction**. Airtime is read
+across the Traffic/On Air boundary and never placed from this tool, in
+every slice.
 
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
@@ -3908,8 +3936,9 @@ src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas
                             needs the space, unlike every other tool)
 src/app/(portal)/bookings/  Bookings (route: /bookings; key `bookings`) — its own route
                             segment, gated by requireBookingsAccess() from lib/bookings/access.ts;
-                            the Rates section under bookings/rates/ and the Calendar under
-                            bookings/calendar/ (see "Bookings")
+                            the Rates section under bookings/rates/, the Calendar under
+                            bookings/calendar/, Requests under bookings/requests/ and Partners
+                            (agreements, reserved blocks) under bookings/partners/ (see "Bookings")
 src/app/(portal)/resources/  Resources (procedures, tool guides, what's new) — its own route
                             segment and nav tab, gated by requireResourcesAccess() from
                             lib/resources/access.ts; open to every active user

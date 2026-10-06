@@ -500,3 +500,124 @@ describe("windows and formatting", () => {
     expect(tentativeExpiry("2027-01-04T15:00:00.000Z")).toBe("2027-01-18T15:00:00.000Z");
   });
 });
+
+// §6.4 step 2 (slice 5): a reserved block another partner's active agreement
+// still holds on the window. bk_booking_allowed() is the twin.
+describe("checkBooking — reserved blocks", () => {
+  // NOW is 2027-01-04; the block is on Feb 1 with a 7-day release deadline (Jan 25).
+  const reserved = {
+    id: "rb1",
+    pool_id: STUDIO,
+    date: "2027-02-01",
+    window_start: "08:00",
+    window_end: "12:00",
+    project_id: null,
+    booking_id: null,
+    released_at: null,
+    kept_by: null,
+    agreement_id: "a1",
+    agreement_label: "OUR Voices",
+    agreement_status: "active" as const,
+    release_deadline_days: 7,
+    partner_id: "our",
+    partner_name: "Office of Undergraduate Research",
+  };
+
+  it("refuses another partner's booking on the window, naming the partner and the deadline", () => {
+    const result = checkBooking(
+      { ...REQUEST, partnerId: "libraries" },
+      state({ reservedBlocks: [reserved] }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.refusal.reason).toBe("reserved");
+      expect(result.refusal.message).toMatch(/Office of Undergraduate Research/);
+      expect(result.refusal.message).toMatch(/2027-01-25/);
+      // The alternatives skip the reserved window.
+      expect(
+        result.alternatives.every((a) => a.window_start !== "08:00" || a.date !== "2027-02-01"),
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a booking with no partner (the calendar's own) the same way", () => {
+    const result = checkBooking(REQUEST, state({ reservedBlocks: [reserved] }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusal.reason).toBe("reserved");
+  });
+
+  it("never refuses the partner the block is held for", () => {
+    expect(
+      checkBooking({ ...REQUEST, partnerId: "our" }, state({ reservedBlocks: [reserved] })).ok,
+    ).toBe(true);
+  });
+
+  it("stops reserving after the release deadline unless the director kept it", () => {
+    const later = "2027-01-26T15:00:00.000Z";
+    expect(
+      checkBooking(
+        { ...REQUEST, partnerId: "libraries" },
+        state({ reservedBlocks: [reserved], nowISO: later }),
+      ).ok,
+    ).toBe(true);
+    const kept = checkBooking(
+      { ...REQUEST, partnerId: "libraries" },
+      state({ reservedBlocks: [{ ...reserved, kept_by: "director" }], nowISO: later }),
+    );
+    expect(kept.ok).toBe(false);
+  });
+
+  it("ignores a draft agreement's blocks and a released block", () => {
+    expect(
+      checkBooking(
+        { ...REQUEST, partnerId: "libraries" },
+        state({ reservedBlocks: [{ ...reserved, agreement_status: "draft" }] }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      checkBooking(
+        { ...REQUEST, partnerId: "libraries" },
+        state({ reservedBlocks: [{ ...reserved, released_at: "2027-01-02T00:00:00Z" }] }),
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("takes one of several concurrent units rather than the whole window", () => {
+    const two = state({
+      resources: [
+        { pool_id: STUDIO, available_units: 60, concurrent_units: 2, windows: FALLBACK_WINDOWS },
+      ],
+      reservedBlocks: [reserved],
+    });
+    expect(checkBooking({ ...REQUEST, partnerId: "libraries" }, two).ok).toBe(true);
+    const full = checkBooking(
+      { ...REQUEST, partnerId: "libraries" },
+      { ...two, bookings: [booking({ id: "b1" })] },
+    );
+    expect(full.ok).toBe(false);
+    if (!full.ok) expect(full.refusal.reason).toBe("reserved");
+  });
+
+  it("counts a block whose own booking is live once, as that booking", () => {
+    const attached = { ...reserved, project_id: "p1", booking_id: "b1" };
+    const two = state({
+      resources: [
+        { pool_id: STUDIO, available_units: 60, concurrent_units: 2, windows: FALLBACK_WINDOWS },
+      ],
+      reservedBlocks: [attached],
+      // Two hours, so the lead's day still has room for the request's five.
+      bookings: [booking({ id: "b1", hours: { [LEAD]: 2 } })],
+    });
+    expect(checkBooking({ ...REQUEST, partnerId: "libraries" }, two).ok).toBe(true);
+  });
+
+  it("does not refuse the booking the block is attached to when it is re-checked", () => {
+    const attached = { ...reserved, project_id: "p1", booking_id: "b1" };
+    expect(
+      checkBooking(
+        { ...REQUEST, partnerId: "libraries", excludeBookingId: "b1" },
+        state({ reservedBlocks: [attached] }),
+      ).ok,
+    ).toBe(true);
+  });
+});

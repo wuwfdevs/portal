@@ -15,13 +15,16 @@ import {
   CALENDAR_PATH,
   PLAN_PATH,
   REQUESTS_PATH,
+  agreementHref,
   requestHref,
   withQuery,
 } from "@/lib/bookings/paths";
+import { agreementActionItems } from "@/lib/bookings/agreements";
 import { STAGE_LABEL, actionItems } from "@/lib/bookings/projects";
 import {
   getActivePlan,
   getPlanCalendar,
+  listAgreementsWithBlocks,
   listAirtimeCommitments,
   listOpenProjects,
   readUniversityAvails,
@@ -47,10 +50,11 @@ export default async function BookingsDashboard() {
   const context = await requireBookingsAccess();
   const today = stationTodayISO();
   const nowISO = new Date().toISOString();
-  const [plan, projects, commitments] = await Promise.all([
+  const [plan, projects, commitments, agreements] = await Promise.all([
     getActivePlan(),
     listOpenProjects(),
     listAirtimeCommitments(),
+    listAgreementsWithBlocks(),
   ]);
   const [calendar, avails] = plan
     ? await Promise.all([getPlanCalendar(plan), readUniversityAvails(plan.id)])
@@ -72,6 +76,7 @@ export default async function BookingsDashboard() {
     : null;
 
   const items = actionItems(projects, context.roles, nowISO, today);
+  const agreementItems = agreementActionItems(agreements, context.roles, today);
   const week = weekDates(today);
   const weekStart = week[0]!;
   const weekEnd = week[6]!;
@@ -196,7 +201,7 @@ export default async function BookingsDashboard() {
               {context.roles.length === 0 ? "everything open" : `for ${context.roles.join(", ")}`}
             </span>
           </h3>
-          {items.length === 0 ? (
+          {items.length === 0 && agreementItems.length === 0 ? (
             <p className="text-sm text-ink-500">Nothing is waiting on you.</p>
           ) : (
             <ul className="flex flex-col divide-y divide-line">
@@ -212,6 +217,20 @@ export default async function BookingsDashboard() {
                     {item.title}
                   </Link>
                   <span className="text-ink-700">{item.label}</span>
+                </li>
+              ))}
+              {agreementItems.map((item) => (
+                <li
+                  key={`${item.agreementId}-${item.kind}`}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm"
+                >
+                  <Link
+                    href={agreementHref(item.partnerId, item.agreementId)}
+                    className="font-semibold text-brand-link hover:underline"
+                  >
+                    {item.label}
+                  </Link>
+                  <span className="text-ink-700">{item.text}</span>
                 </li>
               ))}
             </ul>

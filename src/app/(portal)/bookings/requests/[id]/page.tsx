@@ -10,7 +10,8 @@ import { requireBookingsAccess } from "@/lib/bookings/access";
 import { envelopeCheck, parseHonoredRead } from "@/lib/bookings/airtime";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
 import { TREATMENT_SHORT_LABEL } from "@/lib/bookings/labels";
-import { REQUESTS_PATH, requestEditHref } from "@/lib/bookings/paths";
+import { REQUESTS_PATH, agreementHref, requestEditHref } from "@/lib/bookings/paths";
+import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
 import { estimateDraw } from "@/lib/bookings/pricing";
 import {
   DISPOSITIONS,
@@ -34,7 +35,9 @@ import {
   getPlanCalendar,
   getPricingContext,
   getProjectDetail,
+  listAgreementChoices,
   listAirtimeCommitments,
+  listAttachableBlocks,
   listBookingsMembers,
   readAirtimeHonored,
 } from "@/lib/bookings/queries";
@@ -49,6 +52,7 @@ import {
   reopenProject,
   sendEstimate,
   setDisposition,
+  setProjectAgreement,
 } from "../actions";
 import { ActivityLog } from "./activity-log";
 import { AirtimeSection } from "./airtime-section";
@@ -97,12 +101,17 @@ export default async function ProjectPage({
   const nowISO = new Date().toISOString();
   const canEdit = context.isProduction || context.isDirector || context.isExecutive;
 
-  const [plan, pricing, members, allCommitments] = await Promise.all([
-    getActivePlan(),
-    getPricingContext(project.rate_model_version_id),
-    listBookingsMembers(context.tool.id),
-    listAirtimeCommitments(),
-  ]);
+  const [plan, pricing, members, allCommitments, agreementChoices, attachableBlocks] =
+    await Promise.all([
+      getActivePlan(),
+      getPricingContext(project.rate_model_version_id),
+      listBookingsMembers(context.tool.id),
+      listAirtimeCommitments(),
+      listAgreementChoices(partner.id, project.agreement_id),
+      detail.agreement && detail.agreement.status === "active" && project.disposition === null
+        ? listAttachableBlocks(detail.agreement)
+        : Promise.resolve([]),
+    ]);
   const [calendar, honoredRead] = plan
     ? await Promise.all([getPlanCalendar(plan), readAirtimeHonored(plan.id)])
     : [null, null];
@@ -195,7 +204,8 @@ export default async function ProjectPage({
               checks={checks}
               draw={draw}
               canEdit={canEdit}
-              openCard={query.new === "date"}
+              openCard={query.new === "date" ? "date" : query.new === "block" ? "block" : null}
+              attachableBlocks={attachableBlocks}
             />
           )}
           {(asksForAirtime(project.requested) || detail.commitments.length > 0) && (
@@ -325,6 +335,17 @@ export default async function ProjectPage({
             editHref={canEdit ? requestEditHref(project.id) : undefined}
             items={[
               { label: "Partner", value: partner.name },
+              {
+                label: "Agreement",
+                value: detail.agreement ? (
+                  <Link
+                    href={agreementHref(partner.id, detail.agreement.id)}
+                    className="font-semibold text-brand-link hover:underline"
+                  >
+                    {detail.agreement.label}
+                  </Link>
+                ) : null,
+              },
               { label: "Asks for", value: REQUESTED_LABEL[project.requested] },
               {
                 label: "Services asked for",
@@ -375,6 +396,46 @@ export default async function ProjectPage({
               { label: "Owner", value: detail.owner_name },
             ]}
           />
+
+          {(agreementChoices.length > 0 || detail.agreement) && (
+            <section className="rounded border border-line bg-white">
+              <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+                Agreement
+              </div>
+              {canEdit && project.disposition === null && project.stage !== "settled" ? (
+                <form action={setProjectAgreement} className="flex flex-col gap-2 px-5 py-4">
+                  <input type="hidden" name="project_id" value={project.id} />
+                  <Label htmlFor="agreement_id">Under {partner.name}&apos;s agreement</Label>
+                  <Select
+                    id="agreement_id"
+                    name="agreement_id"
+                    defaultValue={project.agreement_id ?? ""}
+                  >
+                    <option value="">None — priced from the facts on the request</option>
+                    {agreementChoices.map((agreement) => (
+                      <option key={agreement.id} value={agreement.id}>
+                        {agreement.label}
+                        {agreement.status !== "active"
+                          ? ` (${AGREEMENT_STATUS_SHORT_LABEL[agreement.status].toLowerCase()})`
+                          : ""}
+                      </option>
+                    ))}
+                  </Select>
+                  <FieldHint>
+                    Work under an agreement is priced against its reserve share and may take one of
+                    its reserved blocks.
+                  </FieldHint>
+                  <Button type="submit" variant="secondary" className="self-start">
+                    Save
+                  </Button>
+                </form>
+              ) : (
+                <p className="px-5 py-4 text-sm text-ink-700">
+                  {detail.agreement ? detail.agreement.label : "None."}
+                </p>
+              )}
+            </section>
+          )}
 
           <section className="rounded border border-line bg-white">
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">

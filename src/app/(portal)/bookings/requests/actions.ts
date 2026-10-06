@@ -347,7 +347,7 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: project, error: projectError } = await supabase
     .from("bk_projects")
-    .select("rate_model_version_id, priced_as")
+    .select("rate_model_version_id, priced_as, agreement_id")
     .eq("id", projectId)
     .maybeSingle();
   failIfError(projectError, path, "Could not read the request");
@@ -375,6 +375,10 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
     const packageId = field(formData, "package_id");
     const pkg = context.packages.find((p) => p.id === packageId);
     if (!pkg) failWith(path, "Choose a service package.");
+    // A bespoke package is offered only to requests under its agreement (slice 5).
+    if (pkg.agreement_id !== null && pkg.agreement_id !== project.agreement_id) {
+      failWith(path, "That package is scoped to an agreement this request is not under.");
+    }
     row = {
       kind,
       package_id: pkg.id,
@@ -652,8 +656,110 @@ export async function removeDate(formData: FormData): Promise<void> {
       note: `Released ${booking.date}.`,
     });
   }
+  // A reserved block the date came from is the partner's again (slice 5).
+  const { error: detachError } = await supabase
+    .from("bk_reserved_blocks")
+    .update({ project_id: null, booking_id: null })
+    .eq("booking_id", bookingId);
+  failIfError(detachError, path, "Could not hand the reserved block back");
   revalidateRequests(projectId);
   redirect(path);
+}
+
+// Agreements and reserved blocks (slice 5) -----------------------------------------------------------
+
+/** Put the project under one of its partner's active agreements, or take it out; the treatment is re-derived (§2.2). */
+export async function setProjectAgreement(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId);
+  const agreementId = optionalField(formData, "agreement_id");
+  if (agreementId && !UUID.test(agreementId)) failWith(path, "Choose an agreement.");
+  const supabase = await createClient();
+  const { data: project } = await supabase
+    .from("bk_projects")
+    .select("partner_id, agreement_id, priced_as")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project) failWith(path, "That request no longer exists.");
+  let label: string | null = null;
+  if (agreementId) {
+    const { data: agreement } = await supabase
+      .from("bk_agreements")
+      .select("label, status, partner_id")
+      .eq("id", agreementId)
+      .maybeSingle();
+    if (!agreement || agreement.partner_id !== project.partner_id)
+      failWith(path, "That agreement belongs to another partner.");
+    if (agreement.status !== "active")
+      failWith(path, "Only an approved, active agreement prices a request.");
+    label = agreement.label;
+  }
+  if ((project.agreement_id ?? null) === agreementId) redirect(path);
+  // bk_guard_project() refuses another partner's agreement however this is written.
+  const { error } = await supabase
+    .from("bk_projects")
+    .update({ agreement_id: agreementId })
+    .eq("id", projectId);
+  failIfError(error, path, "Could not change the agreement");
+  if (project.priced_as) await repriceOrFail(projectId, path);
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "agreement",
+    note: label ? `Under the agreement "${label}".` : "No longer under an agreement.",
+    metadata: { agreement_id: agreementId },
+  });
+  revalidateRequests(projectId);
+  redirect(path);
+}
+
+const ATTACH_ERRORS: Record<string, string> = {
+  not_found: "That reserved block no longer exists.",
+  released: "That block was released.",
+  taken: "Another request already took that block.",
+  agreement_not_active: "The agreement is not active, so its blocks reserve nothing yet.",
+  past_deadline: "That block is past its release deadline and no longer held.",
+  project_not_found: "That request no longer exists.",
+  closed: "This request is closed; reopen it first.",
+  other_partner: "That block is held for another partner.",
+  wrong_stage: "A delivered or settled request takes no more dates.",
+  other_agreement: "This request is under a different agreement.",
+  no_plan: "No active term plan covers that date, so it can't be booked.",
+};
+
+/**
+ * Attach one of the agreement's reserved blocks to the project (§3E): the
+ * block takes the project and the project gets a date on the block's window
+ * — planned, held or confirmed to match where the estimate stands — in one
+ * transaction (bk_attach_reserved_block()).
+ */
+export async function attachReservedBlock(formData: FormData): Promise<void> {
+  const { profile } = await assertBookingsScheduler();
+  const projectId = projectIdField(formData);
+  const path = requestHref(projectId, { new: "block" });
+  const blockId = field(formData, "block_id");
+  if (!UUID.test(blockId)) failWith(path, "Choose a reserved block.");
+  const labor = laborFields(formData, path);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bk_attach_reserved_block", {
+    p_block_id: blockId,
+    p_project_id: projectId,
+    p_labor: labor,
+  });
+  failIfError(error, path, "Could not use the reserved block");
+  if (data && "error" in data) failWith(path, ATTACH_ERRORS[data.error] ?? data.error);
+  const status = data && "status" in data ? data.status : "planned";
+  await logProjectEvent({
+    projectId,
+    actorId: profile.id,
+    kind: "block_attached",
+    note: `Took a reserved block under the agreement (${status}).`,
+    metadata: { block_id: blockId, status },
+  });
+  revalidateRequests(projectId);
+  revalidatePath(CALENDAR_PATH);
+  redirect(requestHref(projectId));
 }
 
 // Stages --------------------------------------------------------------------------------------------------

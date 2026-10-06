@@ -100,3 +100,10 @@ export async function assertBookingsIntakeEditor(): Promise<BookingsContext> {
   if (!context.isDirector && !context.isExecutive) throw new ForbiddenError();
   return context;
 }
+
+/** Keeping or releasing a reserved block, and ending an agreement: the director's or the executive's (§6.1). */
+export async function assertBookingsBlockKeeper(): Promise<BookingsContext> {
+  const context = await assertBookingsAccess();
+  if (!context.isDirector && !context.isExecutive) throw new ForbiddenError();
+  return context;
+}

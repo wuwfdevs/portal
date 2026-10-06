@@ -3,7 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
 import { pageRange } from "@/lib/pagination";
-import { hoursByClass, type HoursByClass } from "./scheduling";
+import { stationTodayISO } from "@/lib/log/timezone";
+import {
+  agreementConsumption,
+  reservedBlockState,
+  type AgreementConsumption,
+  type ReservedBlockState,
+} from "./agreements";
+import {
+  bookingIsLive,
+  hoursByClass,
+  type CalendarReservedBlock,
+  type HoursByClass,
+} from "./scheduling";
 
 type Tables = Database["public"]["Tables"];
 export type BkLaborClassRow = Tables["bk_labor_classes"]["Row"];
@@ -241,32 +253,36 @@ export interface PlanCalendar {
   blackouts: BkBlackoutRow[];
   holds: HoldWithHours[];
   bookings: BookingWithHours[];
+  /** Agreements' reserved blocks inside the term, with the agreement facts the rule reads (slice 5). */
+  reservedBlocks: CalendarReservedBlock[];
   classes: BkLaborClassRow[];
   pools: BkPoolRow[];
 }
 
-/** Everything on a plan's calendar: its capacity, resources, and every blackout, hold and booking with their hours. */
+/** Everything on a plan's calendar: its capacity, resources, and every blackout, hold, booking and reserved block. */
 export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar> {
   const supabase = await createClient();
-  const [capacity, resources, blackouts, holds, bookings, classes, pools] = await Promise.all([
-    supabase.from("bk_term_capacity").select("*").eq("plan_id", plan.id),
-    supabase.from("bk_term_resources").select("*").eq("plan_id", plan.id),
-    supabase.from("bk_blackouts").select("*").eq("plan_id", plan.id).order("starts_on"),
-    supabase
-      .from("bk_holds")
-      .select("*")
-      .eq("plan_id", plan.id)
-      .order("date")
-      .order("window_start"),
-    supabase
-      .from("bk_bookings")
-      .select("*")
-      .eq("plan_id", plan.id)
-      .order("date")
-      .order("window_start"),
-    listLaborClasses(),
-    listPools(),
-  ]);
+  const [capacity, resources, blackouts, holds, bookings, classes, pools, reservedBlocks] =
+    await Promise.all([
+      supabase.from("bk_term_capacity").select("*").eq("plan_id", plan.id),
+      supabase.from("bk_term_resources").select("*").eq("plan_id", plan.id),
+      supabase.from("bk_blackouts").select("*").eq("plan_id", plan.id).order("starts_on"),
+      supabase
+        .from("bk_holds")
+        .select("*")
+        .eq("plan_id", plan.id)
+        .order("date")
+        .order("window_start"),
+      supabase
+        .from("bk_bookings")
+        .select("*")
+        .eq("plan_id", plan.id)
+        .order("date")
+        .order("window_start"),
+      listLaborClasses(),
+      listPools(),
+      listReservedBlocksBetween(plan.starts_on, plan.ends_on),
+    ]);
   const holdRows = unwrapRead(holds, "holds") ?? [];
   const bookingRows = unwrapRead(bookings, "bookings") ?? [];
   const [holdLabor, bookingLabor] = await Promise.all([
@@ -307,6 +323,7 @@ export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar
       ...booking,
       hours: hoursByClass(bookingLaborRows.filter((row) => row.booking_id === booking.id)),
     })),
+    reservedBlocks,
     classes,
     pools,
   };
@@ -445,6 +462,8 @@ export interface ProjectEvent extends BkProjectEventRow {
 export interface ProjectDetail {
   project: BkProjectRow;
   partner: BkPartnerRow;
+  /** The agreement the project is under (slice 5), or null. */
+  agreement: BkAgreementRow | null;
   lines: BkEstimateLineRow[];
   bookings: BookingWithHours[];
   commitments: BkAirtimeCommitmentRow[];
@@ -458,7 +477,7 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
   const projectResult = await supabase.from("bk_projects").select("*").eq("id", id).maybeSingle();
   const project = unwrapRead(projectResult, "request");
   if (!project) return null;
-  const [partner, lines, bookings, commitments, events, version] = await Promise.all([
+  const [partner, lines, bookings, commitments, events, version, agreement] = await Promise.all([
     supabase.from("bk_partners").select("*").eq("id", project.partner_id).maybeSingle(),
     supabase
       .from("bk_estimate_lines")
@@ -481,6 +500,9 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
           .eq("id", project.rate_model_version_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    project.agreement_id
+      ? supabase.from("bk_agreements").select("*").eq("id", project.agreement_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   const partnerRow = unwrapRead(partner, "partner");
   if (!partnerRow) return null;
@@ -502,6 +524,7 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
   return {
     project,
     partner: partnerRow,
+    agreement: unwrapRead(agreement, "agreement"),
     lines: unwrapRead(lines, "estimate lines") ?? [],
     bookings: bookingRows.map((booking) => ({
       ...booking,
@@ -632,4 +655,420 @@ export async function getIntakeSettings(): Promise<BkSettingsRow> {
       "The intake settings row is missing — has 20261006130000_bookings_public_intake.sql been applied?",
     );
   return row;
+}
+
+// Partners and agreements (slice 5) -------------------------------------------------------------------
+
+export type BkAgreementRow = Tables["bk_agreements"]["Row"];
+export type BkReservedBlockRow = Tables["bk_reserved_blocks"]["Row"];
+
+export type PartnerListView = "all" | BkPartnerRow["kind"];
+
+export interface PartnerListItem extends BkPartnerRow {
+  /** Agreements not ended. */
+  agreement_count: number;
+  active_agreement_count: number;
+  /** Projects with no disposition, not settled. */
+  open_project_count: number;
+}
+
+function partnerFilters(view: PartnerListView): [string, string, string][] {
+  return view === "all" ? [] : [["kind", "eq", view]];
+}
+
+function escapeLike(q: string): string {
+  return q.replace(/[%_]/g, "");
+}
+
+/** One page of partners, filtered and searched in the query (docs/ui-patterns.md, "Pagination"), by name. */
+export async function listPartnersPage(options: {
+  view: PartnerListView;
+  q: string | null;
+  page: number;
+}): Promise<{ rows: PartnerListItem[]; total: number }> {
+  const supabase = await createClient();
+  const { from, to } = pageRange(options.page);
+  let query = supabase.from("bk_partners").select("*", { count: "exact" });
+  for (const [column, operator, value] of partnerFilters(options.view)) {
+    query = query.filter(column, operator, value);
+  }
+  if (options.q) query = query.ilike("name", `%${escapeLike(options.q)}%`);
+  const result = await query.order("name").order("id").range(from, to);
+  if (result.error?.code === "PGRST103") {
+    return { rows: [], total: await countPartners(options.view, options.q) };
+  }
+  const rows = unwrapRead(result, "partners") ?? [];
+  if (rows.length === 0) return { rows: [], total: result.count ?? 0 };
+  const ids = rows.map((row) => row.id);
+  const [agreements, projects] = await Promise.all([
+    supabase.from("bk_agreements").select("partner_id, status").in("partner_id", ids),
+    supabase
+      .from("bk_projects")
+      .select("partner_id")
+      .in("partner_id", ids)
+      .is("disposition", null)
+      .neq("stage", "settled"),
+  ]);
+  const agreementRows = unwrapRead(agreements, "agreements") ?? [];
+  const projectRows = unwrapRead(projects, "open requests") ?? [];
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      agreement_count: agreementRows.filter((a) => a.partner_id === row.id && a.status !== "ended")
+        .length,
+      active_agreement_count: agreementRows.filter(
+        (a) => a.partner_id === row.id && a.status === "active",
+      ).length,
+      open_project_count: projectRows.filter((p) => p.partner_id === row.id).length,
+    })),
+    total: result.count ?? 0,
+  };
+}
+
+export async function countPartners(view: PartnerListView, q: string | null): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase.from("bk_partners").select("id", { count: "exact", head: true });
+  for (const [column, operator, value] of partnerFilters(view)) {
+    query = query.filter(column, operator, value);
+  }
+  if (q) query = query.ilike("name", `%${escapeLike(q)}%`);
+  const result = await query;
+  unwrapRead(result, "partner count");
+  return result.count ?? 0;
+}
+
+export async function getPartner(id: string): Promise<BkPartnerRow | null> {
+  const supabase = await createClient();
+  const result = await supabase.from("bk_partners").select("*").eq("id", id).maybeSingle();
+  return unwrapRead(result, "partner");
+}
+
+/** A partner's agreements, latest first. */
+export async function listAgreementsForPartner(partnerId: string): Promise<BkAgreementRow[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_agreements")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .order("starts_on", { ascending: false });
+  return unwrapRead(result, "agreements") ?? [];
+}
+
+/** A partner's projects, newest first, for the partner page. */
+export async function listProjectsForPartner(partnerId: string): Promise<BkProjectRow[]> {
+  const supabase = await createClient();
+  const result = await supabase
+    .from("bk_projects")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .order("created_at", { ascending: false });
+  return unwrapRead(result, "requests") ?? [];
+}
+
+/** Reserved blocks dated inside a range, with the agreement facts the booking rule reads. */
+export async function listReservedBlocksBetween(
+  startsOn: string,
+  endsOn: string,
+): Promise<CalendarReservedBlock[]> {
+  const supabase = await createClient();
+  const blocks =
+    unwrapRead(
+      await supabase
+        .from("bk_reserved_blocks")
+        .select("*")
+        .gte("date", startsOn)
+        .lte("date", endsOn)
+        .order("date")
+        .order("window_start"),
+      "reserved blocks",
+    ) ?? [];
+  return withAgreementFacts(blocks);
+}
+
+async function withAgreementFacts(blocks: BkReservedBlockRow[]): Promise<CalendarReservedBlock[]> {
+  if (blocks.length === 0) return [];
+  const supabase = await createClient();
+  const agreementIds = [...new Set(blocks.map((b) => b.agreement_id))];
+  const agreements =
+    unwrapRead(
+      await supabase
+        .from("bk_agreements")
+        .select("id, label, status, release_deadline_days, partner_id")
+        .in("id", agreementIds),
+      "agreements",
+    ) ?? [];
+  const partners = await partnersById(agreements.map((a) => a.partner_id));
+  const byId = new Map(agreements.map((a) => [a.id, a]));
+  return blocks.flatMap((block) => {
+    const agreement = byId.get(block.agreement_id);
+    if (!agreement) return [];
+    return [
+      {
+        ...block,
+        agreement_label: agreement.label,
+        agreement_status: agreement.status,
+        release_deadline_days: Number(agreement.release_deadline_days),
+        partner_id: agreement.partner_id,
+        partner_name: partners.get(agreement.partner_id)?.name ?? "Partner",
+      },
+    ];
+  });
+}
+
+export interface ReservedBlockDetail extends BkReservedBlockRow {
+  state: ReservedBlockState;
+  pool_name: string;
+  project_title: string | null;
+  kept_by_name: string | null;
+}
+
+export interface AgreementDetail {
+  agreement: BkAgreementRow;
+  partner: BkPartnerRow;
+  blocks: ReservedBlockDetail[];
+  /** Projects under the agreement, newest first. */
+  projects: BkProjectRow[];
+  consumption: AgreementConsumption;
+  /** Bespoke packages scoped to this agreement, on the version in use. */
+  packages: { id: string; name: string; unit_label: string; version_label: string }[];
+  approved_by_name: string | null;
+  pools: BkPoolRow[];
+  classes: BkLaborClassRow[];
+}
+
+export async function getAgreementDetail(id: string): Promise<AgreementDetail | null> {
+  const supabase = await createClient();
+  const agreement = unwrapRead(
+    await supabase.from("bk_agreements").select("*").eq("id", id).maybeSingle(),
+    "agreement",
+  );
+  if (!agreement) return null;
+  const today = stationTodayISO();
+  const [partner, blocks, projects, pools, classes, packages] = await Promise.all([
+    supabase.from("bk_partners").select("*").eq("id", agreement.partner_id).maybeSingle(),
+    supabase
+      .from("bk_reserved_blocks")
+      .select("*")
+      .eq("agreement_id", id)
+      .order("date")
+      .order("window_start"),
+    supabase
+      .from("bk_projects")
+      .select("*")
+      .eq("agreement_id", id)
+      .order("created_at", { ascending: false }),
+    listPools(),
+    listLaborClasses(),
+    supabase
+      .from("bk_service_packages")
+      .select("id, name, unit_label, version_id")
+      .eq("agreement_id", id)
+      .order("sort_order"),
+  ]);
+  const partnerRow = unwrapRead(partner, "partner");
+  if (!partnerRow) return null;
+  const blockRows = unwrapRead(blocks, "reserved blocks") ?? [];
+  const projectRows = unwrapRead(projects, "requests") ?? [];
+  const packageRows = unwrapRead(packages, "bespoke packages") ?? [];
+  const versionIds = [...new Set(packageRows.map((p) => p.version_id))];
+  const [consumption, names, versions] = await Promise.all([
+    agreementConsumptionFor(agreement, projectRows),
+    displayNames([agreement.approved_by, ...blockRows.map((b) => b.kept_by)]),
+    versionIds.length > 0
+      ? supabase.from("bk_rate_model_versions").select("id, label").in("id", versionIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const versionLabel = new Map(
+    (unwrapRead(versions, "rate model versions") ?? []).map((v) => [v.id, v.label]),
+  );
+  const projectTitle = new Map(projectRows.map((p) => [p.id, p.title]));
+  const poolName = new Map(pools.map((p) => [p.id, p.name]));
+  return {
+    agreement,
+    partner: partnerRow,
+    blocks: blockRows.map((block) => ({
+      ...block,
+      state: reservedBlockState(block, agreement, today),
+      pool_name: poolName.get(block.pool_id) ?? "Pool",
+      project_title: block.project_id ? (projectTitle.get(block.project_id) ?? null) : null,
+      kept_by_name: block.kept_by ? (names.get(block.kept_by) ?? null) : null,
+    })),
+    projects: projectRows,
+    consumption,
+    packages: packageRows.map((p) => ({
+      id: p.id,
+      name: p.name,
+      unit_label: p.unit_label,
+      version_label: versionLabel.get(p.version_id) ?? "",
+    })),
+    approved_by_name: agreement.approved_by ? (names.get(agreement.approved_by) ?? null) : null,
+    pools,
+    classes,
+  };
+}
+
+/**
+ * What an agreement's projects have drawn (lib/bookings/agreements.ts's
+ * agreementConsumption over the live rows): the live bookings of every
+ * project under it, the contributed commitments of its open projects, and
+ * its blocks. `excludeProjectId` leaves one project out, for re-pricing it.
+ */
+export async function agreementConsumptionFor(
+  agreement: BkAgreementRow,
+  projects?: BkProjectRow[],
+  excludeProjectId?: string,
+): Promise<AgreementConsumption> {
+  const supabase = await createClient();
+  const projectRows =
+    projects ??
+    unwrapRead(
+      await supabase.from("bk_projects").select("*").eq("agreement_id", agreement.id),
+      "requests",
+    ) ??
+    [];
+  const projectIds = projectRows.map((p) => p.id);
+  const openIds = projectRows.filter((p) => p.disposition === null).map((p) => p.id);
+  const nowISO = new Date().toISOString();
+  const [bookings, commitments, blocks, classes] = await Promise.all([
+    projectIds.length > 0
+      ? supabase
+          .from("bk_bookings")
+          .select("*")
+          .in("project_id", projectIds)
+          .in("status", ["tentative", "confirmed"])
+      : Promise.resolve({ data: [], error: null }),
+    openIds.length > 0
+      ? supabase.from("bk_airtime_commitments").select("*").in("project_id", openIds)
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from("bk_reserved_blocks").select("*").eq("agreement_id", agreement.id),
+    listLaborClasses(),
+  ]);
+  const bookingRows = (unwrapRead(bookings, "bookings") ?? []).filter((b) =>
+    bookingIsLive(
+      { ...b, hours: {}, window_start: b.window_start, window_end: b.window_end },
+      nowISO,
+    ),
+  );
+  const labor =
+    bookingRows.length > 0
+      ? (unwrapRead(
+          await supabase
+            .from("bk_booking_labor")
+            .select("*")
+            .in(
+              "booking_id",
+              bookingRows.map((b) => b.id),
+            ),
+          "booking labor",
+        ) ?? [])
+      : [];
+  return agreementConsumption({
+    agreement,
+    bookings: bookingRows.map((b) => ({
+      project_id: b.project_id,
+      treatment: b.treatment,
+      hours: hoursByClass(labor.filter((row) => row.booking_id === b.id)),
+    })),
+    classes,
+    commitments: unwrapRead(commitments, "airtime commitments") ?? [],
+    blocks: unwrapRead(blocks, "reserved blocks") ?? [],
+    todayISO: stationTodayISO(nowISO),
+    excludeProjectId,
+  });
+}
+
+/** Every agreement not ended, with its blocks — for the dashboard's action items. */
+export async function listAgreementsWithBlocks(): Promise<
+  (BkAgreementRow & { blocks: BkReservedBlockRow[] })[]
+> {
+  const supabase = await createClient();
+  const agreements =
+    unwrapRead(
+      await supabase
+        .from("bk_agreements")
+        .select("*")
+        .neq("status", "ended")
+        .order("starts_on", { ascending: false }),
+      "agreements",
+    ) ?? [];
+  if (agreements.length === 0) return [];
+  const blocks =
+    unwrapRead(
+      await supabase
+        .from("bk_reserved_blocks")
+        .select("*")
+        .in(
+          "agreement_id",
+          agreements.map((a) => a.id),
+        ),
+      "reserved blocks",
+    ) ?? [];
+  return agreements.map((agreement) => ({
+    ...agreement,
+    blocks: blocks.filter((b) => b.agreement_id === agreement.id),
+  }));
+}
+
+/** The active agreements a partner's project may be put under, plus the one it already names. */
+export async function listAgreementChoices(
+  partnerId: string,
+  currentId: string | null,
+): Promise<BkAgreementRow[]> {
+  const agreements = await listAgreementsForPartner(partnerId);
+  return agreements.filter((a) => a.status === "active" || a.id === currentId);
+}
+
+/** The blocks of a project's agreement it could still take: reserved or kept, not yet attached. */
+export async function listAttachableBlocks(
+  agreement: BkAgreementRow,
+): Promise<ReservedBlockDetail[]> {
+  const supabase = await createClient();
+  const today = stationTodayISO();
+  const [blocks, pools] = await Promise.all([
+    supabase
+      .from("bk_reserved_blocks")
+      .select("*")
+      .eq("agreement_id", agreement.id)
+      .is("project_id", null)
+      .is("released_at", null)
+      .gte("date", today)
+      .order("date")
+      .order("window_start"),
+    listPools(),
+  ]);
+  const poolName = new Map(pools.map((p) => [p.id, p.name]));
+  return (unwrapRead(blocks, "reserved blocks") ?? [])
+    .map((block) => ({
+      ...block,
+      state: reservedBlockState(block, agreement, today),
+      pool_name: poolName.get(block.pool_id) ?? "Pool",
+      project_title: null,
+      kept_by_name: null,
+    }))
+    .filter((block) => block.state === "reserved" || block.state === "kept");
+}
+
+/** Every agreement not ended, with its partner's name — the package form's scoping options (slice 5). */
+export async function listAgreementOptions(): Promise<
+  { id: string; label: string; partner_name: string; status: BkAgreementRow["status"] }[]
+> {
+  const supabase = await createClient();
+  const agreements =
+    unwrapRead(
+      await supabase
+        .from("bk_agreements")
+        .select("id, label, status, partner_id")
+        .neq("status", "ended")
+        .order("label"),
+      "agreements",
+    ) ?? [];
+  const partners = await partnersById(agreements.map((a) => a.partner_id));
+  return agreements
+    .map((a) => ({
+      id: a.id,
+      label: a.label,
+      status: a.status,
+      partner_name: partners.get(a.partner_id)?.name ?? "Partner",
+    }))
+    .sort((a, b) => a.partner_name.localeCompare(b.partner_name) || a.label.localeCompare(b.label));
 }

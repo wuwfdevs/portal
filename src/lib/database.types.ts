@@ -595,6 +595,7 @@ export type BkEditorialReview = "not_needed" | "needed" | "cleared";
 export type BkEstimateLineKind = "package" | "labor" | "expense";
 export type BkAirtimeTreatment = "contributed" | "paid";
 export type BkAirtimeHonoredIn = "pending" | "traffic" | "on_air";
+export type BkAgreementStatus = "draft" | "active" | "ended";
 /** Exactly what bk_public_form_config() returns — the public view of bk_settings (slice 4). */
 export interface BkPublicFormConfig {
   is_open: boolean;
@@ -3108,6 +3109,8 @@ export interface Database {
           sort_order: number;
           created_at: string;
           updated_at: string;
+          /** A bespoke package scoped to one agreement (slice 5); null is the ordinary card. */
+          agreement_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["bk_service_packages"]["Row"]> & {
           version_id: string;
@@ -3427,6 +3430,8 @@ export interface Database {
           requested_packages: string[];
           /** Salted hash of a public submitter's address, for the rate limit; null for a staff request. */
           submitted_ip_hash: string | null;
+          /** The agreement this project is priced and scheduled under (slice 5); must belong to its partner. */
+          agreement_id: string | null;
           created_at: string;
           created_by: string | null;
           updated_at: string;
@@ -3528,6 +3533,73 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["bk_settings"]["Row"]>;
         Relationships: [];
       };
+      /** A partner's standing arrangement (slice 5, 20261006140000_bookings_partners_agreements.sql). bk_guard_agreement() keeps approval for the executive. */
+      bk_agreements: {
+        Row: {
+          id: string;
+          partner_id: string;
+          label: string;
+          starts_on: string;
+          ends_on: string;
+          status: BkAgreementStatus;
+          /** Professional hours of the term's reserve this agreement may draw. */
+          reserve_hours_allocated: number;
+          funded_student_hours: number;
+          expected_volume: string | null;
+          booking_deadline_days: number;
+          release_deadline_days: number;
+          blackout_notes: string | null;
+          direct_cost_treatment: string | null;
+          capital_notes: string | null;
+          beyond_envelope_note: string | null;
+          airtime_minutes_per_week: number;
+          approved_by: string | null;
+          approved_at: string | null;
+          ended_at: string | null;
+          /** Object path in the private bookings-documents bucket. */
+          document_path: string | null;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_agreements"]["Row"]> & {
+          partner_id: string;
+          label: string;
+          starts_on: string;
+          ends_on: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_agreements"]["Row"]>;
+        Relationships: [];
+      };
+      /** A window held for an agreement's partner; reads as released past its deadline (bk_reserved_block_reserves()). */
+      bk_reserved_blocks: {
+        Row: {
+          id: string;
+          agreement_id: string;
+          pool_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+          project_id: string | null;
+          booking_id: string | null;
+          released_at: string | null;
+          kept_by: string | null;
+          kept_at: string | null;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bk_reserved_blocks"]["Row"]> & {
+          agreement_id: string;
+          pool_id: string;
+          date: string;
+          window_start: string;
+          window_end: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bk_reserved_blocks"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -3594,6 +3666,11 @@ export interface Database {
       bk_submit_request: {
         Args: { p_payload: Record<string, unknown>; p_ip_hash: string | null };
         Returns: { ok: true; confirmation_copy: string } | { error: string };
+      };
+      /** Security invoker (slice 5). The block takes the project and the project gets a booking on its window, in one transaction. */
+      bk_attach_reserved_block: {
+        Args: { p_block_id: string; p_project_id: string; p_labor: unknown[] };
+        Returns: { ok: true; booking_id: string; status: BkBookingStatus } | { error: string };
       };
       bk_institutional_airtime_honored: {
         Args: { p_plan_id: string };

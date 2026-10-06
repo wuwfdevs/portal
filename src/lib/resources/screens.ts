@@ -344,6 +344,28 @@ export const SCREENS: readonly ScreenDefinition[] = [
     toolKey: "bookings",
     paths: ["/bookings/calendar", "/bookings/calendar/plan"],
   },
+  {
+    key: "bookings.partners",
+    name: "Partners",
+    toolKey: "bookings",
+    paths: ["/bookings/partners", "/bookings/partners/new"],
+  },
+  {
+    key: "bookings.partner",
+    name: "A partner's page",
+    toolKey: "bookings",
+    paths: ["/bookings/partners/:id", "/bookings/partners/:id/edit"],
+  },
+  {
+    key: "bookings.agreement",
+    name: "An agreement",
+    toolKey: "bookings",
+    paths: [
+      "/bookings/partners/:id/agreements/new",
+      "/bookings/partners/:id/agreements/:agreementId",
+      "/bookings/partners/:id/agreements/:agreementId/edit",
+    ],
+  },
 ];
 
 /**

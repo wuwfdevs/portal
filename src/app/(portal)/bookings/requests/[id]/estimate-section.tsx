@@ -322,7 +322,11 @@ export function EstimateSection({
                       Choose a package
                     </option>
                     {pricing.packages
-                      .filter((pkg) => pkg.active)
+                      .filter(
+                        (pkg) =>
+                          pkg.active &&
+                          (pkg.agreement_id === null || pkg.agreement_id === project.agreement_id),
+                      )
                       .map((pkg) => (
                         <option key={pkg.id} value={pkg.id}>
                           {pkg.name} ({pkg.unit_label})
