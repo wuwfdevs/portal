@@ -17,6 +17,7 @@ import {
   listPlacementsWithOutcomes,
 } from "./queries";
 import {
+  historyInGroup,
   nextInRotation,
   previousInGroup,
   walkRotation,
@@ -79,7 +80,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
   if (!roomsResult.ok) throw new Error(roomsResult.message);
 
   const copies: RotationCopy[] = (linked.get(contractId) ?? []).map(
-    ({ copy, flightId, scheduleLineId }) => ({
+    ({ copy, flightId, scheduleLineId, weight }) => ({
       id: copy.id,
       approvalStatus: copy.approval_status,
       durationSeconds: copy.duration_seconds,
@@ -89,6 +90,7 @@ async function loadRotationContext(contractId: string): Promise<RotationContext 
       lineId: scheduleLineId,
       dadCut: copy.dad_cut,
       createdAt: copy.created_at,
+      weight,
     }),
   );
 
@@ -225,6 +227,8 @@ export async function suggestNextCopyForLine(
           lineId: line.id,
           roomSeconds: Number.MAX_SAFE_INTEGER,
         },
+    null,
+    historyInGroup(context.slots, line.id, context.copies, candidate?.scheduledAt),
   );
   return pick?.id ?? null;
 }
@@ -270,12 +274,18 @@ export async function suggestNextCopyForLines(
   if (!context) return result;
   for (const line of lines) {
     const previous = previousInGroup(context.slots, line.id, context.copies);
-    const pick = nextInRotation(context.copies, previous, {
-      airDate: "9999-12-31",
-      lineFlightId: line.flight_id,
-      lineId: line.id,
-      roomSeconds: Number.MAX_SAFE_INTEGER,
-    });
+    const pick = nextInRotation(
+      context.copies,
+      previous,
+      {
+        airDate: "9999-12-31",
+        lineFlightId: line.flight_id,
+        lineId: line.id,
+        roomSeconds: Number.MAX_SAFE_INTEGER,
+      },
+      null,
+      historyInGroup(context.slots, line.id, context.copies),
+    );
     result.set(line.id, pick?.id ?? null);
   }
   return result;

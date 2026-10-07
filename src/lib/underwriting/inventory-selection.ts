@@ -83,6 +83,8 @@ export interface CopyCandidate {
   dadCut?: string | null;
   /** uw_copy.created_at — the rotation's cycle order. */
   createdAt: string;
+  /** uw_contract_copy.weight — the message's share of its rotation group; absent means 1. */
+  weight?: number;
 }
 
 /** One of the contract's existing placements, any line, as the rotation sees it: fixed in the sequence the run's new units slot into. */
@@ -197,6 +199,7 @@ export function toRotationCopy(copy: CopyCandidate): RotationCopy {
     lineId: copy.lineId,
     ...(copy.dadCut !== undefined ? { dadCut: copy.dadCut } : {}),
     createdAt: copy.createdAt,
+    ...(copy.weight !== undefined ? { weight: copy.weight } : {}),
   };
 }
 

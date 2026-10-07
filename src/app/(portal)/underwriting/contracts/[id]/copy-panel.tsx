@@ -4,12 +4,13 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Label, Select } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 import { estimateReadSeconds, countWords } from "@/lib/log/read-time";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
+import { MAX_ROTATION_WEIGHT, weightShare } from "@/lib/underwriting/rotation";
 import {
   getContractCopyContext,
   listCopyUsageForContract,
@@ -22,6 +23,7 @@ import {
   linkCopyToContract,
   setCopyFlight,
   setCopyLine,
+  setCopyWeight,
   unlinkCopyFromContract,
 } from "../../contract-actions";
 import { createCopy, setCopyStatus, updateCopyDetails } from "../../copy-actions";
@@ -85,6 +87,15 @@ export async function ContractCopyPanel({
   );
   const currentLineIds = new Set(scopeLines.map((line) => line.id));
   const flightNameById = new Map(contract.flights.map((flight) => [flight.id, flight.name]));
+  const rotationLinks = contract.copy.map((item) => {
+    const link = contract.copyLinks.find((entry) => entry.copy_id === item.id);
+    return {
+      id: item.id,
+      approvalStatus: item.approval_status,
+      lineId: link?.schedule_line_id ?? null,
+      weight: link?.weight ?? 1,
+    };
+  });
   const approved = contract.copy.filter((item) => item.approval_status === "approved").length;
   const awaiting = contract.copy.filter((item) => item.approval_status === "draft").length;
 
@@ -316,6 +327,8 @@ export async function ContractCopyPanel({
             lineIsCurrent={currentLineIds.has(lineByCopy.get(item.id) ?? "")}
             scopeLines={scopeLines}
             usage={usage?.get(item.id) ?? null}
+            weight={rotationLinks.find((link) => link.id === item.id)?.weight ?? 1}
+            share={weightShare(item.id, rotationLinks)}
           />
         ),
       )}
@@ -350,6 +363,8 @@ function CopyCard({
   lineIsCurrent,
   scopeLines,
   usage,
+  weight,
+  share,
 }: {
   item: UwCopyRow;
   contract: ContractDetail;
@@ -362,6 +377,8 @@ function CopyCard({
   lineIsCurrent: boolean;
   scopeLines: { id: string; label: string }[];
   usage: CopyUsage | null;
+  weight: number;
+  share: ReturnType<typeof weightShare>;
 }) {
   const isDraft = item.approval_status === "draft";
   const meta = [
@@ -371,6 +388,7 @@ function CopyCard({
     item.dad_cut ? `DAD ${item.dad_cut}` : "no DAD cut",
     flightId ? `serves ${flightNameById.get(flightId) ?? "one flight"}` : null,
     lineId ? `only on ${lineLabel ?? "one line"}` : null,
+    share?.uneven ? `airs ${share.weight} of every ${share.total} spots` : null,
     usage
       ? `scheduled ${usage.scheduled} · aired ${usage.aired}${usage.nextScheduledAt ? ` · next ${formatPlacementTime(usage.nextScheduledAt)}` : ""}`
       : null,
@@ -410,6 +428,41 @@ function CopyCard({
         </form>
       ),
     },
+    ...(share
+      ? [
+          {
+            key: "weight",
+            label: "Rotation weight…",
+            content: (
+              <form action={setCopyWeight} className="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="copy_id" value={item.id} />
+                <input type="hidden" name="contract_id" value={contract.id} />
+                <input type="hidden" name="return_to" value={returnTo} />
+                <div className="w-full sm:w-40">
+                  <Label htmlFor={`weight_${item.id}`}>Weight</Label>
+                  <Input
+                    id={`weight_${item.id}`}
+                    name="weight"
+                    type="number"
+                    min={1}
+                    max={MAX_ROTATION_WEIGHT}
+                    step={1}
+                    defaultValue={weight}
+                    required
+                  />
+                  <FieldHint>
+                    Messages rotate in proportion to their weights: 2 against 1 airs the first twice
+                    as often. Leave every weight at 1 for an even rotation.
+                  </FieldHint>
+                </div>
+                <Button type="submit" variant="secondary">
+                  Set weight
+                </Button>
+              </form>
+            ),
+          },
+        ]
+      : []),
     ...(scopeLines.length > 1 || lineId
       ? [
           {

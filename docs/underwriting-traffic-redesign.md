@@ -1119,7 +1119,34 @@ Manual placement and the makegood slot form default to "Next in rotation";
 is a starting point the rotation may re-sequence; only an override pins.
 `underwriting.credit.schedule`'s `copyId` is optional the same way.
 
-Not built, deliberately: weights, fixed day assignments, per-line rotation
+**Weights (2026-10-08).** `uw_contract_copy.weight` (integer 1–20, default 1,
+`20261008120000`) lets an order say one message airs more often than another.
+It is on the link, not on `uw_copy`, because the same message serves other
+orders at its own ratio, and it compares only messages that rotate together
+(`rotationGroup()`: the general cycle, or one line's dedicated messages;
+approved ones only). **Equal weights are the plain cycle above, unchanged** —
+`rotation.ts` takes the old path whenever the eligible messages' weights are
+all equal. Otherwise a slot goes to whichever eligible message is _owed_ the
+most: `weight / Σweights × (airings so far + 1) − times aired`, ties in cycle
+order. That is deterministic and depends only on the earlier timeline, so
+the rebalance converges (a re-walk of its own result changes nothing); 2:1
+gives A B A A B A, evenly spread. Airings so far include fixed slots (aired,
+frozen, overridden) and are counted since the latest `effective_from` among
+the eligible messages, so a message that starts mid-run neither bursts nor
+is penalised for slots it was never eligible for. Under unequal weights the
+heavier message may air twice running — the ratio needs it — so only a fixed
+neighbour is avoided, not the previous slot. Callers pass the group's history
+(`historyInGroup()`) to `nextInRotation()`: the planner, manual placement's
+default and the rebalance all read the same rule. `setCopyWeight` writes it,
+audits `underwriting.contract.copy_weight_changed` and rebalances; the
+"Rotation weight…" item in a message's menu shows only when the message
+shares its group with another approved one, and the card says "airs N of
+every M spots" once the weights differ. No SQL function changed:
+`log_reassign_underwriting_credit_copy()` re-checks eligibility, not order.
+Not modelled: a quota per period ("40% this month") — a ratio over the
+broadcast sequence is what the orders ask for.
+
+Not built, deliberately: fixed day assignments, per-line rotation
 settings, a stored rotation position, lazy assignment at rundown read time,
 a "duplicate into this contract" action. A message for a period or an event
 is effective dates or a flight.
