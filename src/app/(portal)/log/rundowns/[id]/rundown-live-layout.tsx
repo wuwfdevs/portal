@@ -109,6 +109,12 @@ export function RundownLiveLayout({
             <div
               className={cn(
                 "w-full shrink-0 flex-col gap-4 lg:sticky lg:top-28 lg:order-2 lg:flex lg:w-80 lg:self-start",
+                // Scrolls on its own from lg up: the viewport minus the sticky
+                // offset (7rem; under the text-size zoom, 100vh is divided by
+                // the zoom to stay inside the visible window) — otherwise the
+                // bottom of a tall sidebar is reachable only once the main
+                // pane has scrolled to its end.
+                "lg:max-h-[calc(100vh_/_var(--text-zoom,1)_-_7rem)] lg:overflow-y-auto lg:overscroll-contain",
                 tab === "context" ? "flex" : "hidden",
               )}
             >
