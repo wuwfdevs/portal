@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -43,7 +44,7 @@ export function CapacityPanel({
 }) {
   const total = totalCapacity(classes);
   return (
-    <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Production capacity</h3>
         <span className="text-xs text-ink-500">
@@ -187,7 +188,7 @@ export function CapacityPanel({
           </p>
         </details>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -201,7 +202,7 @@ export function AirtimePanel({
   asOf: string | null;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Airtime envelope</h3>
         <span className="text-xs text-ink-500">
@@ -287,6 +288,6 @@ export function AirtimePanel({
           )}
         </>
       )}
-    </section>
+    </Card>
   );
 }

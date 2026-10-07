@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function RequestForm({
       {project && <input type="hidden" name="project_id" value={project.id} />}
       {error && <Alert>{error}</Alert>}
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           The request
         </div>
@@ -128,9 +129,9 @@ export function RequestForm({
             </FieldHint>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           The partner
         </div>
@@ -202,9 +203,9 @@ export function RequestForm({
             />
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           Judgments
         </div>
@@ -254,7 +255,7 @@ export function RequestForm({
             </FieldHint>
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="flex items-center gap-4">
         <Button type="submit">{project ? "Save the request" : "Create the request"}</Button>

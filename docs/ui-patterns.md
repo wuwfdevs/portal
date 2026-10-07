@@ -145,6 +145,55 @@ create form or a duplicate of an edit page.
 
 `log/library` moved onto `ListToolbar` with search and pagination on 2026-09-29.
 
+## Navigation shapes (2026-10-09)
+
+Four shapes, each with one meaning. Before this, a second row of tabs looked exactly like the
+first, pills did double duty as filters and view switches, and four tool pages hand-rolled their
+own underline tabs.
+
+| Shape | Component | Answers | Where it sits |
+| --- | --- | --- | --- |
+| Underline | `TabNav` | Where am I in this tool? | Top of a tool, one row per page |
+| Grey block (square corners, no rule) | `SubNav` | Which page inside this tab? | Directly under the tabs, only for a tab with several pages |
+| Bordered pill | `FilterChips` | Which rows of this list? | In the list's toolbar, with counts |
+| Joined bar | `Segmented` / `SegmentedLinks` | How is this same data drawn? | Beside a view's title; also form choices |
+
+Rules:
+
+1. A tab row that sits under another tab row is a `SubNav`, never a second `TabNav`. A tool's
+   own first row of tabs is a `TabNav`, including tools with no layout nav (Roadmap, Sourcework,
+   Admin).
+2. A view switch that lives in the URL (week or month, by line or by date, week or list) is
+   `SegmentedLinks`; `WeekMonthLinks` is the calendars' pair. Never `FilterChips`, and never a
+   hand-drawn copy.
+3. `TabNav` takes `badge` (a count shown only above zero), `end` (an always-visible utility tab at
+   the right edge, such as Setup) and `forceMore` (behind the "⋯" menu; use sparingly, because a tab
+   nobody can see is a tab nobody finds).
+4. A tab never hides behind a grouping tab just to save width. Group by job, and keep utilities
+   visible at the right edge.
+5. Bottom margins: `TabNav` leaves 24px under itself; with a `SubNav` beneath, pass `mb-3` so the
+   pair reads as one block. `SubNav` leaves 16px. A wrapper that composes one inside another
+   component must override the inner margin (`className="mb-0"`) rather than add to it.
+6. A padded content card is `<Card className="p-4">`, not a hand-written
+   `rounded border border-line bg-white p-4`.
+
+Traffic's row is the reference: Dashboard · Contracts · Needs attention (Exceptions, Affidavits) ·
+Library (Underwriters, Copy) · Setup (Overview, Pools, Industries, Migration), modelled in
+`lib/underwriting/nav.ts` (pure, tested).
+
+### Rollout
+
+- `TabNav`: Admin, Roadmap, Sourcework (their hand-rolled rows).
+- `SubNav`: Traffic's three grouped tabs, the contract page's sections, Migration, On Air's
+  Schedule row, Bookings' Rates row (Assets joins the row), Editorial Settings.
+- `SegmentedLinks`: On Air's Week | List, Traffic's By line | By date; `WeekMonthLinks`: Bookings'
+  calendar and On Air's two hours calendars.
+- Bookings: `RatesTabs` no longer stacks a default margin on its wrapper's (40px under the row
+  became 16px), the Rates header's gap is 12px, and its sections use `Card`.
+- Left as they are, on purpose: Sourcework's in-page tablist and its "Browse" button tabs (they
+  switch a panel on the page, not a route), Editorial Inquiry's panel switch, and Bookings'
+  role-dependent "More" for Rates.
+
 ## Filters (2026-09-30)
 
 A list's filters are groups of query-string link chips — one group per dimension (status,

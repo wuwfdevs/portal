@@ -226,6 +226,7 @@ repo and a project's history, not the version number.
 | `20261007160100_resources_bookings_capacity_rules.sql`                 | 2026-10-07 | 2026-10-07 |
 | `20261008120000_underwriting_copy_rotation_weights.sql`                | 2026-10-07 | 2026-10-07 |
 | `20261008120100_resources_underwriting_rotation_weights.sql`           | 2026-10-07 | 2026-10-07 |
+| `20261009120000_resources_navigation_shapes.sql`                       | 2026-10-07 | 2026-10-07 |
 | `20261007170000_resources_bookings_rates_navigation.sql`               | 2026-10-07 | 2026-10-07 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the

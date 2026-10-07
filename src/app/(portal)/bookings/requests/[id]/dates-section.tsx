@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +123,7 @@ export function DatesSection({
   );
 
   return (
-    <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Dates</h3>
         <span className="text-xs text-ink-500">
@@ -433,7 +434,7 @@ export function DatesSection({
             )}
           </div>
         ))}
-    </section>
+    </Card>
   );
 }
 

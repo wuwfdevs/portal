@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label } from "@/components/ui/input";
@@ -52,7 +53,7 @@ export function HoursUsed({
     rows.find((r) => r.id === id)?.name ?? "—";
 
   return (
-    <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Hours and equipment used</h3>
         {isConfirmed ? (
@@ -112,6 +113,6 @@ export function HoursUsed({
           </div>
         )}
       </form>
-    </section>
+    </Card>
   );
 }

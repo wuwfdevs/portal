@@ -1,3 +1,4 @@
+import { WeekMonthLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { blockReservesWindow } from "@/lib/bookings/agreements";
@@ -94,39 +95,6 @@ export function CalendarGrid(props: CalendarGridProps) {
   return props.view === "week" ? <WeekGrid {...props} /> : <MonthGrid {...props} />;
 }
 
-function ViewToggle({
-  active,
-  weekHref,
-  monthHref,
-}: {
-  active: CalendarView;
-  weekHref: string;
-  monthHref: string;
-}) {
-  const base =
-    "inline-flex h-9 items-center px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900";
-  const on = "bg-[#0F2235] text-white";
-  const off = "bg-white text-ink-900 hover:bg-panel-50";
-  return (
-    <nav aria-label="View" className="inline-flex overflow-hidden rounded border border-[#C9CED4]">
-      <Link
-        href={weekHref}
-        aria-current={active === "week" ? "page" : undefined}
-        className={cn(base, active === "week" ? on : off)}
-      >
-        Week
-      </Link>
-      <Link
-        href={monthHref}
-        aria-current={active === "month" ? "page" : undefined}
-        className={cn(base, "border-l border-[#C9CED4]", active === "month" ? on : off)}
-      >
-        Month
-      </Link>
-    </nav>
-  );
-}
-
 const navLink =
   "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
 
@@ -182,7 +150,7 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
   return (
     <section className="flex flex-col gap-3" aria-label="Week">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <ViewToggle active="week" weekHref={weekHref(today)} monthHref={monthHref(date)} />
+        <WeekMonthLinks active="week" weekHref={weekHref(today)} monthHref={monthHref(date)} />
         <h3 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {formatWeekRange(monday)}
         </h3>
@@ -404,7 +372,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
   return (
     <section className="flex flex-col gap-3" aria-label="Month">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <ViewToggle active="month" weekHref={weekHref(today)} monthHref={monthHref(date)} />
+        <WeekMonthLinks active="month" weekHref={weekHref(today)} monthHref={monthHref(date)} />
         <h3 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {MONTH_NAMES[month - 1]} {year}
         </h3>

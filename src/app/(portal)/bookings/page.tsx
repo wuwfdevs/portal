@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +105,7 @@ export default async function BookingsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+        <Card className="flex flex-col gap-3 p-4">
           <h3 className="text-sm font-bold text-ink-900">
             Needs your action
             <span className="ml-2 text-xs font-normal text-ink-500">
@@ -145,9 +146,9 @@ export default async function BookingsDashboard() {
               ))}
             </ul>
           )}
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+        <Card className="flex flex-col gap-3 p-4">
           <h3 className="text-sm font-bold text-ink-900">
             This week
             <span className="ml-2 text-xs font-normal text-ink-500">
@@ -201,7 +202,7 @@ export default async function BookingsDashboard() {
               </Table>
             </TableFrame>
           )}
-        </section>
+        </Card>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -246,7 +247,7 @@ export default async function BookingsDashboard() {
           )}
         </Alert>
       ) : (
-        <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+        <Card className="flex flex-col gap-3 p-4">
           <div className="flex flex-wrap items-baseline gap-2">
             <h3 className="text-sm font-bold text-ink-900">{plan.label}</h3>
             <span className="text-xs text-ink-500">
@@ -300,7 +301,7 @@ export default async function BookingsDashboard() {
               .
             </p>
           )}
-        </section>
+        </Card>
       )}
 
       <p className="text-xs text-ink-500">Stages: {Object.values(STAGE_LABEL).join(" → ")}.</p>

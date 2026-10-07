@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +56,7 @@ export default async function IntakeSettingsPage({
       )}
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <section className="min-w-0 flex-1 rounded border border-line bg-white">
+        <Card className="min-w-0 flex-1">
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Settings
           </div>
@@ -135,7 +136,7 @@ export default async function IntakeSettingsPage({
           <p className="border-t border-line px-5 py-3 text-xs text-ink-400">
             Last changed {formatDateShort(settings.updated_at.slice(0, 10))}.
           </p>
-        </section>
+        </Card>
 
         <aside className="w-full lg:w-96 lg:shrink-0">
           <SharePanel siteUrl={getSiteUrl()} />

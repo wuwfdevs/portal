@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -257,7 +258,7 @@ export default async function AgreementPage({
           )}
 
           {agreement.status !== "draft" && (
-            <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+            <Card className="flex flex-col gap-3 p-4">
               <div className="flex flex-wrap items-baseline gap-2">
                 <h3 className="text-sm font-bold text-ink-900">Consumption</h3>
                 <span className="text-xs text-ink-500">
@@ -285,10 +286,10 @@ export default async function AgreementPage({
                   hint="Contributed commitments of open requests"
                 />
               </div>
-            </section>
+            </Card>
           )}
 
-          <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+          <Card className="flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="text-sm font-bold text-ink-900">Reserved blocks</h3>
               <span className="text-xs text-ink-500">
@@ -516,9 +517,9 @@ export default async function AgreementPage({
                 </Table>
               </TableFrame>
             )}
-          </section>
+          </Card>
 
-          <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+          <Card className="flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="text-sm font-bold text-ink-900">Requests under this agreement</h3>
               <span className="text-xs text-ink-500">
@@ -573,7 +574,7 @@ export default async function AgreementPage({
                 </Table>
               </TableFrame>
             )}
-          </section>
+          </Card>
 
           {detail.packages.length > 0 && (
             <section className="flex flex-col gap-2 rounded border border-line bg-panel-50 p-4">
@@ -603,7 +604,7 @@ export default async function AgreementPage({
 
         <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-80">
           {(agreement.status === "draft" || (agreement.status === "active" && canKeep)) && (
-            <section className="rounded border border-line bg-white">
+            <Card>
               <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
                 {agreement.status === "draft" ? "Approval" : "Status"}
               </div>
@@ -656,7 +657,7 @@ export default async function AgreementPage({
                   </form>
                 )}
               </div>
-            </section>
+            </Card>
           )}
 
           <DetailSummary
@@ -698,7 +699,7 @@ export default async function AgreementPage({
             ]}
           />
 
-          <section className="rounded border border-line bg-white">
+          <Card>
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
               Signed agreement
             </div>
@@ -709,7 +710,7 @@ export default async function AgreementPage({
                 canUpload={canEdit && agreement.status !== "ended"}
               />
             </div>
-          </section>
+          </Card>
         </aside>
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
+import { getTrafficNavCounts } from "@/lib/underwriting/queries";
 import { NavTabs } from "./nav-tabs";
 
 export default async function UnderwritingLayout({ children }: { children: React.ReactNode }) {
-  await requireUnderwritingAccess();
+  const { isManager } = await requireUnderwritingAccess();
+  const counts = await getTrafficNavCounts(isManager);
 
   return (
     <div className="px-6 py-7 sm:px-8 sm:pb-12">
@@ -13,7 +15,7 @@ export default async function UnderwritingLayout({ children }: { children: React
           and affidavits.
         </p>
       </div>
-      <NavTabs />
+      <NavTabs counts={counts} />
       {children}
     </div>
   );

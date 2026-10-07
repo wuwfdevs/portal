@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -632,7 +633,7 @@ export default async function RatesAssumptionsPage({
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <section className="rounded border border-line bg-white p-4">
+        <Card className="p-4">
           <h3 className="text-sm font-bold text-ink-900">Derived — recomputed from the rows</h3>
           {computed.ok ? (
             <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 text-sm">
@@ -668,9 +669,9 @@ export default async function RatesAssumptionsPage({
               This version can&apos;t be priced yet. Missing: {computed.missing.join(", ")}.
             </p>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded border border-line bg-white p-4">
+        <Card className="p-4">
           <h3 className="text-sm font-bold text-ink-900">Adoption gate</h3>
           <p className="mt-3 text-sm text-ink-700">
             {gate.pending === 0 ? (
@@ -696,9 +697,9 @@ export default async function RatesAssumptionsPage({
               provisional.
             </p>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded border border-line bg-white p-4">
+        <Card className="p-4">
           <h3 className="text-sm font-bold text-ink-900">What moves the price most</h3>
           {computed.ok ? (
             <>
@@ -746,7 +747,7 @@ export default async function RatesAssumptionsPage({
           ) : (
             <p className="mt-3 text-sm text-ink-500">Available once the version can be priced.</p>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { requireBookingsAccess } from "@/lib/bookings/access";
@@ -40,7 +41,7 @@ export default async function InputsPage({
         error={params.error}
         gatePending={pending}
       />
-      <section className="max-w-3xl rounded border border-line bg-white">
+      <Card className="max-w-3xl">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
           <h3 className="text-sm font-bold text-ink-900">Build the rate model</h3>
           <span className="text-xs text-ink-500">
@@ -66,7 +67,7 @@ export default async function InputsPage({
             </li>
           ))}
         </ul>
-      </section>
+      </Card>
     </div>
   );
 }

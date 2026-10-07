@@ -52,7 +52,7 @@ export function RatesHeader({
     provisional || Boolean(version.notes) || canSubmit || canReopen || canUse || canAdopt;
 
   return (
-    <div className="mb-2 flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="font-serif text-[17px] font-bold text-ink-900">Rate model</h2>
         <FilterChips

@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
@@ -325,7 +326,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         </div>
 
         {params.check === "1" && (
-          <section className="rounded border border-line bg-white p-4">
+          <Card className="p-4">
             <h3 className="text-sm font-bold text-ink-900">Find a slot</h3>
             <p className="mt-0.5 text-xs text-ink-500">
               Runs the booking rule for one window without booking it: blackout or hold, the
@@ -444,7 +445,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 )}
               </div>
             )}
-          </section>
+          </Card>
         )}
 
         {params.new === "blackout" && canDirect && (
