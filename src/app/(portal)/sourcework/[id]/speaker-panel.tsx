@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { findFirstSegmentIndexForSpeaker } from "@/lib/transcription/transcript";
 import { formatDuration } from "@/lib/transcription/media";
@@ -32,14 +35,19 @@ export function SpeakerPanel({
 
   return (
     <div className="rounded border border-line bg-panel-50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">Speakers</h2>
-        {unnamedCount > 0 && (
-          <span className="text-xs text-ink-400">
-            {unnamedCount} unnamed speaker{unnamedCount === 1 ? "" : "s"}
-          </span>
-        )}
-      </div>
+      <SectionHeading
+        level="eyebrow"
+        className="mb-3 items-center"
+        action={
+          unnamedCount > 0 ? (
+            <span className="text-xs text-ink-400">
+              {unnamedCount} unnamed speaker{unnamedCount === 1 ? "" : "s"}
+            </span>
+          ) : undefined
+        }
+      >
+        Speakers
+      </SectionHeading>
       <div className="flex flex-col gap-2.5">
         {speakers.map((speaker) => {
           const snippetIndex = findFirstSegmentIndexForSpeaker(segments, speaker.id);
@@ -97,7 +105,7 @@ function SpeakerRow({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <input
+      <Input
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
@@ -105,16 +113,17 @@ function SpeakerRow({
         }}
         onBlur={handleBlur}
         placeholder={`Speaker ${speaker.diarizationLabel}`}
-        className="w-48 rounded border border-line bg-white px-2.5 py-1.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
+        className="w-48 px-2.5 py-1.5"
       />
       {snippet && (
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={() => onSeek(snippet.startMs)}
-          className="text-xs font-semibold text-brand-link hover:underline"
+          className="text-brand-link"
         >
           Hear an example ({formatDuration(snippet.startMs)})
-        </button>
+        </Button>
       )}
       {status === "saving" && <span className="text-xs text-ink-400">Saving…</span>}
       {status === "saved" && <span className="text-xs text-ink-400">Saved</span>}

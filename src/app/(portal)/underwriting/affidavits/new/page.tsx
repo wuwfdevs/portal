@@ -1,11 +1,12 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { listContracts } from "@/lib/underwriting/queries";
 import { generateAffidavit } from "../../affidavit-actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 /**
  * Workflow G's own generation form (docs/underwriting-design.md §4) — pick a
@@ -28,10 +29,10 @@ export default async function NewAffidavitPage({
 
   return (
     <div className="max-w-lg">
-      <Link href={backHref} className="text-xs font-semibold text-brand-link">
+      <TextLink href={backHref} className="text-xs">
         {prefilled ? `← ${prefilled.underwriter.name}` : "← Back to affidavits"}
-      </Link>
-      <div className="mt-3 rounded border border-line">
+      </TextLink>
+      <Card className="mt-3">
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           Generate an affidavit
         </div>
@@ -84,7 +85,7 @@ export default async function NewAffidavitPage({
             <Button type="submit">Generate</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

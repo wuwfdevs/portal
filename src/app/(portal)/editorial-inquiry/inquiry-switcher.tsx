@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { FloatingPanel } from "@/components/ui/floating-panel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
 import type { InquirySummary } from "@/lib/editorial-inquiry/queries";
@@ -33,9 +34,7 @@ export function InquirySwitcher({
         onClick={() => setOpen((v) => !v)}
         className="flex max-w-[560px] items-center gap-1.5 rounded px-1.5 py-1 text-[13px] text-ink-500 hover:bg-panel-50"
       >
-        <span className="rounded-full bg-brand-surface px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-link uppercase">
-          {active?.pillarName}
-        </span>
+        <Badge variant="accent">{active?.pillarName}</Badge>
         <span className="max-w-[420px] overflow-hidden text-ellipsis whitespace-nowrap">
           {active?.guidingQuestion}
         </span>

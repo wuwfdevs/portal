@@ -21,7 +21,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_email: "Enter a valid email address.",
   missing_required_field: "Fill in the required fields before submitting.",
   invalid_estimated_students_reached: "Enter a number for estimated students reached.",
-  rate_limited: "A number of inquiries have come from you recently — please wait a bit and try again.",
+  rate_limited:
+    "A number of inquiries have come from you recently — please wait a bit and try again.",
 };
 
 const DEFAULT_CONFIRMATION =
@@ -55,7 +56,9 @@ export async function submitInquiry(
   const partnershipTypes = formData
     .getAll("partnership_types")
     .map((value) => String(value))
-    .filter((value): value is ApPartnershipType => PARTNERSHIP_TYPE_VALUES.includes(value as ApPartnershipType));
+    .filter((value): value is ApPartnershipType =>
+      PARTNERSHIP_TYPE_VALUES.includes(value as ApPartnershipType),
+    );
   const renderedAtMs = Number(field(formData, "rendered_at")) || 0;
 
   const problem = validateInquiryInput({
@@ -124,13 +127,24 @@ export async function submitInquiry(
 
   if (error) {
     console.error("ap_submit_inquiry failed", error);
-    return { status: "error", message: "Something went wrong submitting your inquiry. Please try again." };
+    return {
+      status: "error",
+      message: "Something went wrong submitting your inquiry. Please try again.",
+    };
   }
 
   const result = data as { ok: true; confirmation_copy: string } | { error: string };
   if ("error" in result) {
-    return { status: "error", message: ERROR_MESSAGES[result.error] ?? "Something went wrong submitting your inquiry. Please try again." };
+    return {
+      status: "error",
+      message:
+        ERROR_MESSAGES[result.error] ??
+        "Something went wrong submitting your inquiry. Please try again.",
+    };
   }
 
-  return { status: "submitted", confirmationCopy: result.confirmation_copy || DEFAULT_CONFIRMATION };
+  return {
+    status: "submitted",
+    confirmationCopy: result.confirmation_copy || DEFAULT_CONFIRMATION,
+  };
 }

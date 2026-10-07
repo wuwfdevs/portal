@@ -5,10 +5,12 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
-import type { UwContractStatus } from "@/lib/database.types";
 import { autoFillAllAction } from "./auto-fill-actions";
 import {
   buildScheduleLineDemandViews,
@@ -40,18 +42,14 @@ import { formatStationTimestamp, shiftDateISO, stationTodayISO } from "@/lib/log
 import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
 import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
+import { TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTRACT_STATUS } from "@/lib/underwriting/status";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
 const LOOK_AHEAD_DAYS = 14;
 /** Open exceptions listed inline; the rest are one link away. */
 const EXCEPTIONS_SHOWN = 5;
-
-const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
-  draft: "neutral",
-  active: "success",
-  expired: "muted",
-  terminated: "danger",
-};
 
 /**
  * "The two queues that actually need daily attention: schedule lines that
@@ -302,7 +300,7 @@ export default async function UnderwritingDashboardPage({
       {notice && <Alert variant="info">{notice}</Alert>}
 
       <section aria-labelledby="attention">
-        <SectionHeading id="attention">Needs attention</SectionHeading>
+        <SectionTitle id="attention">Needs attention</SectionTitle>
         <div className="grid gap-4 lg:grid-cols-[3fr_2fr_2fr]">
           {attentionGroups.map((group) => (
             <div key={group.label} className="flex flex-col gap-2">
@@ -332,16 +330,18 @@ export default async function UnderwritingDashboardPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="flex min-w-0 flex-col gap-6">
           <section id="conflicts" aria-labelledby="conflicts-heading" className="scroll-mt-4">
-            <SectionHeading
+            <SectionTitle
               id="conflicts-heading"
               count={conflicts.length}
               countVariant="danger"
               hint={`Active schedule lines that can't be placed, looking ${LOOK_AHEAD_DAYS} days ahead`}
             >
               Pre-broadcast conflicts
-            </SectionHeading>
+            </SectionTitle>
             {conflicts.length === 0 ? (
-              <EmptyState>No active schedule line is currently blocked from placement.</EmptyState>
+              <EmptyState compact>
+                No active schedule line is currently blocked from placement.
+              </EmptyState>
             ) : (
               <TableFrame>
                 <Table>
@@ -380,12 +380,12 @@ export default async function UnderwritingDashboardPage({
                           </ul>
                         </Cell>
                         <Cell className="whitespace-nowrap text-right">
-                          <Link
+                          <TextLink
                             href={`/underwriting/contracts/${contract.id}`}
-                            className="text-xs font-semibold text-brand-link"
+                            className="text-xs"
                           >
                             Open contract →
-                          </Link>
+                          </TextLink>
                         </Cell>
                       </Row>
                     ))}
@@ -396,7 +396,7 @@ export default async function UnderwritingDashboardPage({
           </section>
 
           <section aria-labelledby="exceptions-heading">
-            <SectionHeading
+            <SectionTitle
               id="exceptions-heading"
               count={unresolvedExceptions.length}
               countVariant="warning"
@@ -411,9 +411,9 @@ export default async function UnderwritingDashboardPage({
               }
             >
               Open exceptions
-            </SectionHeading>
+            </SectionTitle>
             {unresolvedExceptions.length === 0 ? (
-              <EmptyState>Nothing awaiting resolution.</EmptyState>
+              <EmptyState compact>Nothing awaiting resolution.</EmptyState>
             ) : (
               <TableFrame>
                 <Table>
@@ -428,12 +428,9 @@ export default async function UnderwritingDashboardPage({
                     {unresolvedExceptions.slice(0, EXCEPTIONS_SHOWN).map((exception) => (
                       <Row key={exception.id}>
                         <Cell className="min-w-[12rem]">
-                          <Link
-                            href={`/underwriting/exceptions/${exception.id}`}
-                            className="font-semibold text-brand-link"
-                          >
+                          <TextLink href={`/underwriting/exceptions/${exception.id}`}>
                             {exception.contract.underwriter.name}
-                          </Link>
+                          </TextLink>
                           <div className="text-xs text-ink-500">
                             {exception.scheduleLine.label ||
                               describeScheduleLine(exception.scheduleLine)}
@@ -490,7 +487,7 @@ export default async function UnderwritingDashboardPage({
 
           {canOpenOnAir && (
             <section aria-labelledby="log-of-record-heading">
-              <SectionHeading id="log-of-record-heading">Log of record</SectionHeading>
+              <SectionTitle id="log-of-record-heading">Log of record</SectionTitle>
               <Card>
                 <ul className="divide-y divide-line text-sm">
                   {dadDays.map((day) => (
@@ -522,7 +519,7 @@ export default async function UnderwritingDashboardPage({
           )}
 
           <section aria-labelledby="glance-heading">
-            <SectionHeading id="glance-heading">At a glance</SectionHeading>
+            <SectionTitle id="glance-heading">At a glance</SectionTitle>
             <Card>
               <ul className="divide-y divide-line text-sm">
                 {[
@@ -563,12 +560,12 @@ export default async function UnderwritingDashboardPage({
 
           {contracts.length > 0 && (
             <section aria-labelledby="recent-heading">
-              <SectionHeading
+              <SectionTitle
                 id="recent-heading"
                 viewAll={{ href: "/underwriting/contracts", label: "All contracts" }}
               >
                 Recently added
-              </SectionHeading>
+              </SectionTitle>
               <Card>
                 <ul className="divide-y divide-line">
                   {contracts.slice(0, 5).map((contract) => (
@@ -585,9 +582,7 @@ export default async function UnderwritingDashboardPage({
                             {orderNumberLabel(contract.contract_identifier)}
                           </span>
                         </span>
-                        <Badge variant={CONTRACT_STATUS_VARIANT[contract.status]}>
-                          {contract.status}
-                        </Badge>
+                        <StatusBadge map={CONTRACT_STATUS} value={contract.status} />
                       </Link>
                     </li>
                   ))}
@@ -601,7 +596,7 @@ export default async function UnderwritingDashboardPage({
   );
 }
 
-function SectionHeading({
+function SectionTitle({
   id,
   children,
   count,
@@ -617,29 +612,24 @@ function SectionHeading({
   viewAll?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-      <div>
-        <div className="flex items-center gap-2">
-          <h2 id={id} className="text-xs font-bold uppercase tracking-wide text-ink-400">
-            {children}
-          </h2>
-          {count != null && count > 0 && <Badge variant={countVariant}>{count}</Badge>}
-        </div>
-        {hint && <p className="mt-0.5 text-xs text-ink-400">{hint}</p>}
-      </div>
-      {viewAll && (
-        <Link href={viewAll.href} className="text-xs font-semibold text-brand-link">
-          {viewAll.label} →
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function EmptyState({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded border border-dashed border-line px-4 py-5 text-sm text-ink-500">
-      {children}
+    <div className="mb-2">
+      <SectionHeading
+        level="eyebrow"
+        id={id}
+        count={
+          count != null && count > 0 ? <Badge variant={countVariant}>{count}</Badge> : undefined
+        }
+        action={
+          viewAll ? (
+            <TextLink href={viewAll.href} className="text-xs">
+              {viewAll.label} →
+            </TextLink>
+          ) : undefined
+        }
+      >
+        {children}
+      </SectionHeading>
+      {hint && <p className="mt-0.5 text-xs text-ink-400">{hint}</p>}
     </div>
   );
 }
@@ -654,37 +644,13 @@ interface AttentionItem {
 function AttentionTile({ item }: { item: AttentionItem }) {
   const flagged = item.count > 0 && item.tone !== "neutral";
   return (
-    <Link
+    <StatTile
       href={item.href}
-      className={cn(
-        "flex h-full flex-col gap-1 rounded border border-l-4 bg-white px-4 py-3 transition-colors hover:bg-panel-50",
-        !flagged
-          ? "border-line border-l-line"
-          : item.tone === "danger"
-            ? "border-danger/30 border-l-danger"
-            : item.tone === "accent"
-              ? "border-line border-l-brand-primary"
-              : "border-line border-l-warning-fg",
-      )}
-    >
-      <span
-        className={cn(
-          "text-2xl font-bold tabular-nums",
-          !flagged
-            ? item.count === 0
-              ? "text-ink-400"
-              : "text-ink-900"
-            : item.tone === "danger"
-              ? "text-danger"
-              : item.tone === "accent"
-                ? "text-brand-link"
-                : "text-warning-fg",
-        )}
-      >
-        {item.count}
-      </span>
-      <span className="text-xs leading-snug text-ink-500">{item.label}</span>
-    </Link>
+      label={item.label}
+      value={item.count}
+      tone={flagged ? item.tone : "neutral"}
+      className="h-full"
+    />
   );
 }
 

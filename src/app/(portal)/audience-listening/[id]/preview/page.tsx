@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TextLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getQueryById, listQuestions } from "@/lib/audience-listening/queries";
@@ -60,18 +61,13 @@ export default async function QueryPreviewPage({ params }: { params: Promise<{ i
   return (
     <div>
       <div className="border-b border-line px-6 py-3 sm:px-10">
-        <Link
-          href={`/audience-listening/${query.id}`}
-          className="text-xs font-semibold text-brand-link"
-        >
+        <TextLink href={`/audience-listening/${query.id}`} className="px-0 text-xs font-semibold">
           ← Back to {query.internal_title}
-        </Link>
+        </TextLink>
       </div>
       {questions.length === 0 ? (
         <div className="px-6 py-10 sm:px-10">
-          <p className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            Nothing to preview yet — add a question first.
-          </p>
+          <EmptyState>Nothing to preview yet — add a question first.</EmptyState>
         </div>
       ) : (
         <Participate

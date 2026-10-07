@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContractCopyContext, getContractDetail } from "@/lib/underwriting/queries";
 import { ContractCopyPanel, type CopyPanelParams } from "../copy-panel";
 import { WizardHeader } from "../wizard-header";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 /**
  * Setup step 3: the messages this contract will air (docs/underwriting-
@@ -43,19 +44,9 @@ export default async function ContractCopyPage({
           <ContractCopyPanel contract={contract} surface="step" params={query} />
 
           <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-            <Link
-              href={`${base}/schedule`}
-              className="px-1 text-sm font-bold text-brand-link hover:underline"
-            >
-              ← Back to schedule
-            </Link>
+            <TextLink href={`${base}/schedule`}>← Back to schedule</TextLink>
             <span className="flex-1" />
-            <Link
-              href={`${base}/policy`}
-              className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-            >
-              Continue to traffic policy
-            </Link>
+            <PrimaryLink href={`${base}/policy`}>Continue to traffic policy</PrimaryLink>
           </div>
         </div>
 
@@ -77,7 +68,7 @@ export default async function ContractCopyPage({
             </p>
           </div>
           {context.onFile.total > 0 && (
-            <div className="rounded border border-line bg-white px-5 py-4">
+            <Card className="px-5 py-4">
               <div className="text-[13px] font-bold text-ink-900">From previous orders</div>
               <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
                 {contract.underwriter.name} has {context.onFile.total} message
@@ -88,14 +79,11 @@ export default async function ContractCopyPage({
                 .
               </p>
               {context.linkablePrimary.length > 0 && (
-                <Link
-                  href={`${base}/copy?link=1`}
-                  className="mt-2 inline-block text-[13px] font-bold text-brand-link hover:underline"
-                >
+                <TextLink href={`${base}/copy?link=1`} className="mt-2 inline-block text-[13px]">
                   Link one of them →
-                </Link>
+                </TextLink>
               )}
-            </div>
+            </Card>
           )}
         </aside>
       </div>

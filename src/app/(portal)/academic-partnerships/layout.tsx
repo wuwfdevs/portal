@@ -1,4 +1,5 @@
 import { requireAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
+import { PageHeader } from "@/components/ui/page-header";
 import { NavTabs } from "./nav-tabs";
 
 export default async function AcademicPartnershipsLayout({
@@ -10,12 +11,12 @@ export default async function AcademicPartnershipsLayout({
 
   return (
     <div className="px-6 py-7 sm:px-8 sm:pb-12">
-      <div className="mb-5">
-        <h1 className="font-serif text-2xl font-bold text-ink-900">Academic Partnerships</h1>
-        <p className="mt-1 text-xs text-ink-400">
-          Faculty inquiries for the WUWF Applied Media Partnership Program.
-        </p>
-      </div>
+      <PageHeader
+        size="page"
+        className="mb-5"
+        title="Academic Partnerships"
+        description="Faculty inquiries for the WUWF Applied Media Partnership Program."
+      />
       <NavTabs showSettings={isCoordinator} />
       {children}
     </div>

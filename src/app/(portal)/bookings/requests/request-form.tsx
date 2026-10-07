@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -11,6 +10,7 @@ import {
   TITLE_MAX,
 } from "@/lib/bookings/projects";
 import type { BkPartnerRow, BkProjectRow } from "@/lib/bookings/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The request's scope, shared by `/requests/new` and `/requests/[id]/edit`
@@ -259,9 +259,7 @@ export function RequestForm({
 
       <div className="flex items-center gap-4">
         <Button type="submit">{project ? "Save the request" : "Create the request"}</Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VALIDATION_STATE_LABEL } from "@/lib/bookings/labels";
 import type { BkValidationState } from "@/lib/database.types";
+import { TextLink } from "@/components/ui/primary-link";
 
 export function ValidationBadge({ state }: { state: BkValidationState }) {
   const variant = state === "pending" ? "warning" : state === "validated" ? "success" : "accent";
@@ -53,9 +53,7 @@ export function ValidationControls({
           <Button type="submit" variant="secondary">
             Accept as is
           </Button>
-          <Link href={closeHref} className="text-sm font-bold text-brand-link hover:underline">
-            Cancel
-          </Link>
+          <TextLink href={closeHref}>Cancel</TextLink>
         </div>
       </form>
     );
@@ -89,9 +87,9 @@ export function ValidationControls({
           Validated
         </Button>
       </form>
-      <Link href={acceptHref} className="px-1 text-xs font-bold text-brand-link hover:underline">
+      <TextLink href={acceptHref} className="text-xs">
         Accept as is…
-      </Link>
+      </TextLink>
     </div>
   );
 }

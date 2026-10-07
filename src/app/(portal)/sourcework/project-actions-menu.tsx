@@ -55,12 +55,8 @@ function ConfirmButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded bg-danger px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:bg-panel-100 disabled:text-ink-400"
-    >
+    <Button type="submit" variant="danger" disabled={pending}>
       {pending ? "Deleting…" : "Yes, delete permanently"}
-    </button>
+    </Button>
   );
 }

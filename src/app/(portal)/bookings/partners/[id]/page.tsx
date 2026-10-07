@@ -1,13 +1,12 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { DetailSummary } from "@/components/ui/detail-summary";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
-import { AGREEMENT_STATUS_BADGE, AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
+import { AGREEMENT_STATUS_SHORT } from "@/lib/bookings/agreements";
 import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import {
   PARTNERS_PATH,
@@ -17,8 +16,7 @@ import {
   requestHref,
 } from "@/lib/bookings/paths";
 import {
-  DISPOSITION_BADGE,
-  DISPOSITION_LABEL,
+  DISPOSITION_STATUS,
   PARTNER_KIND_LABEL,
   REQUESTED_LABEL,
   STAGE_LABEL,
@@ -30,6 +28,8 @@ import {
 } from "@/lib/bookings/queries";
 import { formatHours } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const SAVED_LABEL: Record<string, string> = {
   created: "Created",
@@ -65,9 +65,9 @@ export default async function PartnerPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href={PARTNERS_PATH} className="inline-block text-xs font-semibold text-brand-link">
+      <TextLink href={PARTNERS_PATH} className="inline-block text-xs">
         ← Partners
-      </Link>
+      </TextLink>
       <header className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-serif text-xl font-bold text-ink-900">{partner.name}</h2>
@@ -99,9 +99,9 @@ export default async function PartnerPage({
               {canEdit && <PrimaryLink href={agreementNewHref(id)}>+ Agreement</PrimaryLink>}
             </div>
             {agreements.length === 0 ? (
-              <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
+              <EmptyState compact>
                 No agreement. Requests from this partner are priced from the facts on each one.
-              </p>
+              </EmptyState>
             ) : (
               <TableFrame>
                 <Table stack>
@@ -118,12 +118,9 @@ export default async function PartnerPage({
                     {agreements.map((agreement) => (
                       <Row key={agreement.id}>
                         <Cell stack="title">
-                          <Link
-                            href={agreementHref(id, agreement.id)}
-                            className="font-semibold text-brand-link hover:underline"
-                          >
+                          <TextLink href={agreementHref(id, agreement.id)}>
                             {agreement.label}
-                          </Link>
+                          </TextLink>
                         </Cell>
                         <Cell label="Dates">
                           {formatDateShort(agreement.starts_on)} –{" "}
@@ -138,9 +135,7 @@ export default async function PartnerPage({
                             : "—"}
                         </Cell>
                         <Cell stack="aside">
-                          <Badge variant={AGREEMENT_STATUS_BADGE[agreement.status]}>
-                            {AGREEMENT_STATUS_SHORT_LABEL[agreement.status]}
-                          </Badge>
+                          <StatusBadge map={AGREEMENT_STATUS_SHORT} value={agreement.status} />
                         </Cell>
                       </Row>
                     ))}
@@ -156,9 +151,7 @@ export default async function PartnerPage({
               <span className="text-xs text-ink-500">Every request from this partner.</span>
             </div>
             {projects.length === 0 ? (
-              <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
-                No requests yet.
-              </p>
+              <EmptyState compact>No requests yet.</EmptyState>
             ) : (
               <TableFrame>
                 <Table stack>
@@ -174,12 +167,7 @@ export default async function PartnerPage({
                     {projects.map((project) => (
                       <Row key={project.id}>
                         <Cell stack="title">
-                          <Link
-                            href={requestHref(project.id)}
-                            className="font-semibold text-brand-link hover:underline"
-                          >
-                            {project.title}
-                          </Link>
+                          <TextLink href={requestHref(project.id)}>{project.title}</TextLink>
                           <span className="block text-xs text-ink-500">
                             {REQUESTED_LABEL[project.requested]}
                           </span>
@@ -192,9 +180,7 @@ export default async function PartnerPage({
                         </Cell>
                         <Cell stack="aside">
                           {project.disposition ? (
-                            <Badge variant={DISPOSITION_BADGE[project.disposition]}>
-                              {DISPOSITION_LABEL[project.disposition]}
-                            </Badge>
+                            <StatusBadge map={DISPOSITION_STATUS} value={project.disposition} />
                           ) : (
                             <Badge variant="accent">{STAGE_LABEL[project.stage]}</Badge>
                           )}

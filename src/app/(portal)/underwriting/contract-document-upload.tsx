@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint } from "@/components/ui/input";
+import { FieldError, FieldHint, FileInput } from "@/components/ui/input";
 import { completeContractDocumentUpload, getContractDocumentDownloadUrl } from "./contract-actions";
 
 const CONTRACT_DOCUMENTS_BUCKET = "underwriting-documents";
@@ -86,21 +86,26 @@ export function ContractDocumentUpload({
             Get download link
           </Button>
           {downloadUrl && (
-            <a href={downloadUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand-link">
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-brand-link"
+            >
               Open document →
             </a>
           )}
         </div>
       )}
-      <input
-        type="file"
+      <FileInput
         accept="application/pdf,image/png,image/jpeg"
         onChange={handleChange}
         disabled={status === "uploading"}
-        className="text-xs text-ink-500"
       />
       <FieldHint>
-        {existingPath ? "Replaces the current attached document." : "PDF, PNG, or JPEG of the executed agreement."}
+        {existingPath
+          ? "Replaces the current attached document."
+          : "PDF, PNG, or JPEG of the executed agreement."}
       </FieldHint>
       {error && <FieldError>{error}</FieldError>}
     </div>

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
-import { MOBILE_SAFE_TEXT_SIZE, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import {
   EVIDENTIARY_STATUSES,
   labelForDepth,
@@ -231,11 +233,7 @@ function SelectedPanel(props: InspectorPanelProps & { selected: QuestionRecord }
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 px-5 pb-5">
-          {props.error && (
-            <div className="rounded border border-danger/30 bg-danger/[0.06] px-3 py-2 text-xs text-danger">
-              {props.error}
-            </div>
-          )}
+          {props.error && <Alert>{props.error}</Alert>}
 
           {view === "discussion" ? (
             <DiscussThread {...props} />
@@ -273,14 +271,9 @@ function ContextView(
   return (
     <>
       <div>
-        <div
-          className={cn(
-            "mb-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase",
-            isPromoted ? "bg-success-border text-ink-900" : "bg-brand-surface text-brand-link",
-          )}
-        >
+        <Badge variant={isPromoted ? "success" : "accent"} className="mb-2">
           {badgeLabel}
-        </div>
+        </Badge>
         <div className="font-serif text-base leading-snug text-ink-900">{selected.text}</div>
         {selected.diagnosisKind && (
           <div className="mt-2 rounded bg-success-bg px-2.5 py-2 text-xs leading-relaxed text-brand-link">
@@ -453,9 +446,9 @@ function ContextSection(props: InspectorPanelProps) {
           <span className="mr-1 text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
             {entry.kind}
           </span>
-          <span className="mr-1 rounded-full bg-panel-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-500 uppercase">
+          <Badge variant="neutral" className="mr-1 px-1.5 py-0.5">
             {labelForEvidentiaryStatus(entry.evidentiaryStatus)}
-          </span>
+          </Badge>
           <div className="mt-1">{entry.body}</div>
           {entry.sourceUrl && (
             <a
@@ -493,22 +486,19 @@ function ContextSection(props: InspectorPanelProps) {
             <div className="mb-1 text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
               How solid is this?
             </div>
-            <select
+            <Select
               value={props.contextEvidentiaryStatus}
               onChange={(e) =>
                 props.onContextEvidentiaryStatusChange(e.target.value as EvidentiaryStatus)
               }
-              className={cn(
-                "w-full rounded border border-line bg-white px-2 py-1.5 text-ink-900",
-                MOBILE_SAFE_TEXT_SIZE,
-              )}
+              className="px-2 py-1.5"
             >
               {EVIDENTIARY_STATUSES.map((status) => (
                 <option key={status} value={status}>
                   {labelForEvidentiaryStatus(status)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <Textarea
             rows={3}
@@ -695,9 +685,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
             disabled={props.applyingPromotionId === message.id}
             className="mt-1 rounded bg-success-border px-2.5 py-1.5 text-xs font-semibold text-ink-900 disabled:opacity-60"
           >
-            {props.applyingPromotionId === message.id
-              ? "Promoting…"
-              : "Promote to story question"}
+            {props.applyingPromotionId === message.id ? "Promoting…" : "Promote to story question"}
           </button>
         ) : (
           <div className="mt-1 text-[11px] text-ink-400">
@@ -742,7 +730,7 @@ function DiscussComposer(props: InspectorPanelProps) {
         </div>
       )}
       <div className="flex gap-1.5">
-        <input
+        <Input
           value={props.chatInput}
           onChange={(e) => props.onChatInputChange(e.target.value)}
           onKeyDown={(e) => {
@@ -752,10 +740,7 @@ function DiscussComposer(props: InspectorPanelProps) {
             }
           }}
           placeholder="Share what you've encountered, or ask what's developing…"
-          className={cn(
-            "min-w-0 flex-1 rounded border border-line px-2.5 py-2 focus:border-brand-primary focus:outline-none",
-            MOBILE_SAFE_TEXT_SIZE,
-          )}
+          className="min-w-0 flex-1 px-2.5 py-2"
         />
         <Button
           className={COMPACT_BUTTON}

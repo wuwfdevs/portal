@@ -1,11 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, CheckboxField } from "@/components/ui/input";
 import { getContractDetail } from "@/lib/underwriting/queries";
 import { updateContractPolicy } from "../../../contract-actions";
 import { WizardHeader } from "../wizard-header";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 /**
  * Setup step 4: the traffic policy the order states (docs/underwriting-
@@ -42,7 +43,7 @@ export default async function ContractPolicyPage({
 
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-6">
-          <section className="rounded border border-line">
+          <Card>
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
               Traffic policy
             </div>
@@ -74,24 +75,16 @@ export default async function ContractPolicyPage({
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 text-sm text-ink-700">
-                  <input
-                    type="checkbox"
-                    name="affidavit_required"
-                    className="h-4 w-4"
-                    defaultChecked={contract.affidavit_required}
-                  />
-                  Affidavit required
-                </label>
-                <label className="flex items-center gap-2 text-sm text-ink-700">
-                  <input
-                    type="checkbox"
-                    name="makegood_requires_agency_approval"
-                    className="h-4 w-4"
-                    defaultChecked={contract.makegood_requires_agency_approval}
-                  />
-                  Makegoods need agency approval
-                </label>
+                <CheckboxField
+                  name="affidavit_required"
+                  defaultChecked={contract.affidavit_required}
+                  label="Affidavit required"
+                />
+                <CheckboxField
+                  name="makegood_requires_agency_approval"
+                  defaultChecked={contract.makegood_requires_agency_approval}
+                  label="Makegoods need agency approval"
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
@@ -130,22 +123,16 @@ export default async function ContractPolicyPage({
                 <Button type="submit" variant="secondary">
                   Save policy
                 </Button>
-                <Link
-                  href={`/underwriting/contracts/${contract.id}/copy`}
-                  className="px-1 text-sm font-bold text-brand-link hover:underline"
-                >
+                <TextLink href={`/underwriting/contracts/${contract.id}/copy`}>
                   ← Back to copy
-                </Link>
+                </TextLink>
                 <span className="flex-1" />
-                <Link
-                  href={`/underwriting/contracts/${contract.id}`}
-                  className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-                >
+                <PrimaryLink href={`/underwriting/contracts/${contract.id}`}>
                   Continue to review
-                </Link>
+                </PrimaryLink>
               </div>
             </form>
-          </section>
+          </Card>
         </div>
 
         <aside

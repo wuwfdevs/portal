@@ -5,7 +5,7 @@ import { createPublicAudienceClient } from "@/lib/audience-listening/public-clie
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { CheckboxField, FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import {
   AUDIENCE_LISTENING_MEDIA_BUCKET,
   MAX_ANSWER_BYTES,
@@ -619,7 +619,12 @@ export function Participate({
             use or a reply.
           </Alert>
           {supported ? (
-            <Button type="button" className="w-full" onClick={handleBegin} disabled={busy || previewMode}>
+            <Button
+              type="button"
+              className="w-full"
+              onClick={handleBegin}
+              disabled={busy || previewMode}
+            >
               {busy ? "Starting…" : "Begin"}
             </Button>
           ) : (
@@ -692,10 +697,13 @@ export function Participate({
 
           {micState === "granted" && (
             <>
-              <p className="flex items-center gap-2.5 rounded border border-success-border bg-success-bg px-3.5 py-3 text-sm font-semibold text-success-fg">
+              <Alert
+                variant="success"
+                className="flex items-center gap-2.5 py-3 text-sm font-semibold"
+              >
                 <span className="h-2 w-2 shrink-0 rounded-full bg-success-fg" aria-hidden="true" />
                 Microphone ready
-              </p>
+              </Alert>
               <Button type="button" className="w-full" onClick={() => setScreen("question")}>
                 Continue to question 1
               </Button>
@@ -740,11 +748,7 @@ export function Participate({
                   />
                 ))}
               </div>
-              <p
-                role="timer"
-                aria-live="off"
-                className="font-mono text-[15px] text-ink-700"
-              >
+              <p role="timer" aria-live="off" className="font-mono text-[15px] text-ink-700">
                 {formatClock(elapsedMs / 1000)}
                 <span className="text-ink-400">
                   {" / "}
@@ -783,7 +787,12 @@ export function Participate({
                 >
                   Redo this answer
                 </Button>
-                <Button type="button" className="flex-1" onClick={handleSaveAndContinue} disabled={busy}>
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={handleSaveAndContinue}
+                  disabled={busy}
+                >
                   {busy
                     ? "Saving…"
                     : currentAnswer.take === "failed"
@@ -795,12 +804,12 @@ export function Participate({
               </div>
             </div>
           ) : currentAnswer.take === "uploading" ? (
-            <p className="rounded border border-line bg-panel-50 p-4 text-sm font-semibold text-ink-700">
+            <Alert variant="note" className="p-4 text-sm font-semibold text-ink-700">
               Saving your answer…
-            </p>
+            </Alert>
           ) : isSaved && !currentAnswer.retake ? (
-            <div className="flex flex-col gap-3 rounded border border-success-border bg-success-bg p-4">
-              <p className="text-sm font-bold text-success-fg">Saved — WUWF has this answer</p>
+            <Alert variant="success" className="flex flex-col gap-3 p-4 text-sm">
+              <p className="font-bold">Saved — WUWF has this answer</p>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -814,7 +823,7 @@ export function Participate({
                   {questionIndex === questions.length - 1 ? "Review answers" : "Next question"}
                 </Button>
               </div>
-            </div>
+            </Alert>
           ) : (
             <div className="flex flex-col gap-3">
               {isSaved && currentAnswer.retake && (
@@ -831,7 +840,13 @@ export function Participate({
                   aria-label="Start recording"
                   className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white transition-colors hover:bg-[#2278B8] disabled:bg-panel-100 disabled:text-ink-400"
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
                     <circle cx="12" cy="12" r="9" />
                   </svg>
                 </button>
@@ -862,22 +877,19 @@ export function Participate({
             </p>
             <div className="flex gap-3">
               {questionIndex > 0 && !isRecording && (
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   onClick={() => setQuestionIndex(questionIndex - 1)}
-                  className="text-xs font-semibold text-brand-link hover:underline"
+                  className="text-brand-link"
                 >
                   ← Previous question
-                </button>
+                </Button>
               )}
               {showRecorder && !isRecording && currentAnswer.take === "idle" && !isSaved && (
-                <button
-                  type="button"
-                  onClick={advance}
-                  className="text-xs font-semibold text-brand-link hover:underline"
-                >
+                <Button type="button" variant="link" onClick={advance} className="text-brand-link">
                   Come back to this later →
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -1003,9 +1015,9 @@ export function Participate({
         <div className="flex flex-col gap-4">
           {query.ask_contact_permission && (
             <>
-              <Checkbox
+              <CheckboxField
                 checked={consent.contact}
-                onChange={(checked) => setConsent({ ...consent, contact: checked })}
+                onChange={(event) => setConsent({ ...consent, contact: event.target.checked })}
                 label="WUWF may contact me about my responses."
               />
               {consent.contact && !values.email?.trim() && !values.phone?.trim() && (
@@ -1017,16 +1029,16 @@ export function Participate({
             </>
           )}
           {query.ask_attribution_permission && (
-            <Checkbox
+            <CheckboxField
               checked={consent.identify}
-              onChange={(checked) => setConsent({ ...consent, identify: checked })}
+              onChange={(event) => setConsent({ ...consent, identify: event.target.checked })}
               label="WUWF may identify me by name if one or more of my responses is used."
             />
           )}
           {query.allow_anonymous_request && (
-            <Checkbox
+            <CheckboxField
               checked={consent.anonymous}
-              onChange={(checked) => setConsent({ ...consent, anonymous: checked })}
+              onChange={(event) => setConsent({ ...consent, anonymous: event.target.checked })}
               label="Please consider my responses anonymously."
             />
           )}
@@ -1035,9 +1047,9 @@ export function Participate({
             {query.consent_text}
           </p>
 
-          <Checkbox
+          <CheckboxField
             checked={consent.agreed}
-            onChange={(checked) => setConsent({ ...consent, agreed: checked })}
+            onChange={(event) => setConsent({ ...consent, agreed: event.target.checked })}
             label="I have read and agree to these terms."
           />
 
@@ -1081,7 +1093,14 @@ export function Participate({
             className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-success-border bg-success-bg"
             aria-hidden="true"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5D7A16" strokeWidth="2.5">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#5D7A16"
+              strokeWidth="2.5"
+            >
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
@@ -1097,28 +1116,5 @@ export function Participate({
         </div>
       )}
     </ListenShell>
-  );
-}
-
-/** A real checkbox with a real label — no custom control, nothing dependent on hover. */
-function Checkbox({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="flex items-start gap-2.5 text-sm leading-relaxed text-ink-700">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-brand-primary focus:ring-brand-surface"
-      />
-      {label}
-    </label>
   );
 }

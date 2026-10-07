@@ -3,6 +3,7 @@ import { isValidPublicId } from "@/lib/audience-listening/public-id";
 import { publicQueryUrl } from "@/lib/audience-listening/embed";
 import { getSiteUrl } from "@/lib/site-url";
 import { Alert } from "@/components/ui/alert";
+import { PageHeader } from "@/components/ui/page-header";
 import { ListenShell } from "./listen-shell";
 import { Participate } from "./participate";
 
@@ -32,13 +33,11 @@ export async function ListenPageContent({
   if (!query) {
     return (
       <ListenShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">
-          This page isn&apos;t available
-        </h1>
-        <p className="text-[15px] leading-relaxed text-ink-700">
-          The link may be mistyped, or this question set may not have been published. Check the link
-          in the story you came from.
-        </p>
+        <PageHeader
+          size="public"
+          title="This page isn't available"
+          description="The link may be mistyped, or this question set may not have been published. Check the link in the story you came from."
+        />
       </ListenShell>
     );
   }
@@ -46,7 +45,7 @@ export async function ListenPageContent({
   if (query.questions.length === 0) {
     return (
       <ListenShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">{query.public_title}</h1>
+        <PageHeader size="public" title={query.public_title} className="mb-3" />
         <Alert variant="note">There are no questions here yet. Please check back shortly.</Alert>
       </ListenShell>
     );
@@ -55,7 +54,7 @@ export async function ListenPageContent({
   if (query.state === "not_yet_open") {
     return (
       <ListenShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">{query.public_title}</h1>
+        <PageHeader size="public" title={query.public_title} className="mb-3" />
         <p className="mb-4 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
           {query.public_intro}
         </p>
@@ -76,7 +75,7 @@ export async function ListenPageContent({
   if (query.state === "closed") {
     return (
       <ListenShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">{query.public_title}</h1>
+        <PageHeader size="public" title={query.public_title} className="mb-3" />
         <p className="mb-4 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
           {query.public_intro}
         </p>

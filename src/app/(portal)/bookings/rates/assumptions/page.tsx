@@ -1,9 +1,8 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { OWNER_LABEL, formatAssumptionValue } from "@/lib/bookings/labels";
@@ -35,6 +34,8 @@ import {
 } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Params = { version?: string; edit?: string; new?: string; accept?: string; error?: string };
 
@@ -64,21 +65,12 @@ function OverheadAndFunding({
   return (
     <div className="grid grid-cols-1 gap-3 rounded border border-line bg-panel-50 p-3 sm:grid-cols-2">
       <div>
-        <label className="flex items-start gap-2 text-sm text-ink-800">
-          <input
-            type="checkbox"
-            name="overhead"
-            defaultChecked={overhead}
-            className="mt-0.5 size-4"
-          />
-          <span>
-            <span className="font-semibold">General overhead</span>
-            <span className="block text-xs text-ink-500">
-              Kept out of every pool&apos;s per-unit allocation and shown apart. Whether it is
-              recovered is a recorded decision, with no default math.
-            </span>
-          </span>
-        </label>
+        <CheckboxField
+          name="overhead"
+          defaultChecked={overhead}
+          label={<span className="font-semibold">General overhead</span>}
+          hint="Kept out of every pool's per-unit allocation and shown apart. Whether it is recovered is a recorded decision, with no default math."
+        />
       </div>
       <div>
         <Label htmlFor={`${idPrefix}-funds`}>This line already funds the replacement of</Label>
@@ -102,16 +94,13 @@ function OverheadAndFunding({
           </summary>
           <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
             {assets.map((asset) => (
-              <label key={asset.id} className="flex items-center gap-2 text-sm text-ink-700">
-                <input
-                  type="checkbox"
-                  name="funds_asset"
-                  value={asset.id}
-                  defaultChecked={fundedAssetIds.includes(asset.id)}
-                  className="size-4"
-                />
-                {asset.name}
-              </label>
+              <CheckboxField
+                key={asset.id}
+                name="funds_asset"
+                value={asset.id}
+                defaultChecked={fundedAssetIds.includes(asset.id)}
+                label={asset.name}
+              />
             ))}
           </div>
         </details>
@@ -217,9 +206,7 @@ function AssumptionEditRow({
           )}
           <div className="flex items-center gap-4">
             <Button type="submit">Save</Button>
-            <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
-              Cancel
-            </Link>
+            <TextLink href={cancelHref}>Cancel</TextLink>
             <span className="flex-1" />
             <FieldHint>A changed value goes back to awaiting validation.</FieldHint>
           </div>
@@ -270,9 +257,7 @@ function AssumptionsTable({
         <p className="text-xs text-ink-500">{intro}</p>
       </div>
       {rows.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-4 text-sm text-ink-500">
-          Nothing here yet.
-        </div>
+        <EmptyState>Nothing here yet.</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -369,12 +354,7 @@ function AssumptionsTable({
                     <Cell stack="full" className="text-right">
                       {canEdit && (
                         <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={here({ edit: row.id })}
-                            className="text-sm font-bold text-brand-link hover:underline"
-                          >
-                            Edit
-                          </Link>
+                          <TextLink href={here({ edit: row.id })}>Edit</TextLink>
                           <form action={deleteAssumption}>
                             <input type="hidden" name="id" value={row.id} />
                             <input type="hidden" name="version_id" value={versionId} />
@@ -623,12 +603,7 @@ export default async function RatesAssumptionsPage({
 
       {canEdit && params.new !== "1" && (
         <div>
-          <Link
-            href={here({ new: "1" })}
-            className="text-sm font-bold text-brand-link hover:underline"
-          >
-            + Add an input
-          </Link>
+          <TextLink href={here({ new: "1" })}>+ Add an input</TextLink>
         </div>
       )}
 

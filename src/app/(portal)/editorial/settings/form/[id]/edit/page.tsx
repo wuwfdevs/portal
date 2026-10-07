@@ -1,11 +1,13 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/editorial/data";
 import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { updateFormField } from "../../../actions";
 
 export default async function EditFormFieldPage({
@@ -30,22 +32,18 @@ export default async function EditFormFieldPage({
 
   return (
     <div className="max-w-lg">
-      <div className="mb-4">
-        <Link
-          href="/editorial/settings/form"
-          className="text-xs font-semibold text-brand-link hover:underline"
-        >
-          ← Back to submission form
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4">
-          <div className="font-serif text-[17px] font-bold text-ink-900">{field.label}</div>
-          <p className="mt-1 text-xs text-ink-400">
+      <PageHeader
+        className="mb-4"
+        back={{ href: "/editorial/settings/form", label: "Back to submission form" }}
+        title={field.label}
+        description={
+          <>
             <code className="font-mono">{field.key}</code> ·{" "}
             {FIELD_TYPE_LABEL[field.field_type].toLowerCase()}
-          </p>
-        </div>
+          </>
+        }
+      />
+      <Card>
         <form action={updateFormField} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="field_id" value={field.id} />
           {error && <Alert>{error}</Alert>}
@@ -55,22 +53,23 @@ export default async function EditFormFieldPage({
             a new one — editing it in place would silently rewrite what past pitches were answering.
           </Alert>
 
-          <div>
-            <Label htmlFor="label">Label</Label>
+          <Field label="Label" htmlFor="label">
             <Input id="label" name="label" defaultValue={field.label} required maxLength={120} />
-          </div>
-          <div>
-            <Label htmlFor="help_text">Help text</Label>
+          </Field>
+          <Field label="Help text" htmlFor="help_text">
             <Input
               id="help_text"
               name="help_text"
               defaultValue={field.help_text ?? ""}
               maxLength={200}
             />
-          </div>
+          </Field>
           {hasOptions && (
-            <div>
-              <Label htmlFor="options">Options</Label>
+            <Field
+              label="Options"
+              htmlFor="options"
+              hint="One option per line. Removing an option doesn't change pitches that already selected it."
+            >
               <Textarea
                 id="options"
                 name="options"
@@ -78,31 +77,15 @@ export default async function EditFormFieldPage({
                 defaultValue={(field.options ?? []).join("\n")}
                 required
               />
-              <FieldHint>
-                One option per line. Removing an option doesn&apos;t change pitches that already
-                selected it.
-              </FieldHint>
-            </div>
+            </Field>
           )}
-          <label className="flex items-center gap-2 text-sm text-ink-700">
-            <input
-              type="checkbox"
-              name="required"
-              defaultChecked={field.required}
-              className="h-4 w-4"
-            />
-            Required
-          </label>
+          <CheckboxField name="required" defaultChecked={field.required} label="Required" />
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/editorial/settings/form">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/editorial/settings/form">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

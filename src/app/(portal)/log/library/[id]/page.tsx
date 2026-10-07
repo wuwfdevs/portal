@@ -1,8 +1,13 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { CardHeader, SectionHeading } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldHint, Label, Select } from "@/components/ui/input";
 import {
   COMPONENT_TYPE_LABEL,
@@ -10,16 +15,15 @@ import {
   computeTotalDurationSeconds,
 } from "@/lib/log/content-library";
 import { getContentItemDetail } from "@/lib/log/queries";
-import { addComponent, setApprovalStatus, updateComponent, updateContentItem } from "../../library-actions";
+import { APPROVAL_STATUS } from "@/lib/log/status-badges";
+import {
+  addComponent,
+  setApprovalStatus,
+  updateComponent,
+  updateContentItem,
+} from "../../library-actions";
 import { ComponentForm } from "../component-form";
 import { ContentItemForm } from "../content-item-form";
-import type { LogApprovalStatus } from "@/lib/database.types";
-
-const APPROVAL_STATUS_VARIANT: Record<LogApprovalStatus, BadgeVariant> = {
-  draft: "neutral",
-  approved: "success",
-  retired: "muted",
-};
 
 export default async function ContentItemDetailPage({
   params,
@@ -37,57 +41,65 @@ export default async function ContentItemDetailPage({
   const isEditingItem = edit === "item";
   const editingComponentId = editComponent ?? null;
 
-  const totalDuration = computeTotalDurationSeconds(item.components, item.expected_duration_seconds);
+  const totalDuration = computeTotalDurationSeconds(
+    item.components,
+    item.expected_duration_seconds,
+  );
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
-        <Link href="/log/library" className="text-xs font-semibold text-brand-link">
-          ← Back to library
-        </Link>
-        <div className="mt-2 mb-4 flex flex-wrap items-center gap-2.5">
-          <h2 className="font-serif text-xl font-bold text-ink-900">{item.title}</h2>
-          <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
-          <Link
-            href={isEditingItem ? detailPath : `${detailPath}?edit=item`}
-            className="ml-auto text-xs font-semibold text-brand-link hover:underline"
-          >
-            {isEditingItem ? "Cancel" : "Edit"}
-          </Link>
-        </div>
+        <PageHeader
+          as="h2"
+          back={{ href: "/log/library", label: "Back to library" }}
+          title={item.title}
+          badge={<StatusBadge map={APPROVAL_STATUS} value={item.approval_status} />}
+          actions={
+            <TextLink
+              href={isEditingItem ? detailPath : `${detailPath}?edit=item`}
+              className="text-xs hover:underline"
+            >
+              {isEditingItem ? "Cancel" : "Edit"}
+            </TextLink>
+          }
+          className="mb-4"
+        />
 
         {error && <Alert className="mb-4">{error}</Alert>}
 
         {isEditingItem ? (
-          <ContentItemForm action={updateContentItem} submitLabel="Save changes" item={item} cancelHref={detailPath} />
+          <ContentItemForm
+            action={updateContentItem}
+            submitLabel="Save changes"
+            item={item}
+            cancelHref={detailPath}
+          />
         ) : (
-          <div className="rounded border border-line">
-            <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-              {CONTENT_TYPE_LABEL[item.content_type]}
-            </div>
+          <Card>
+            <CardHeader>{CONTENT_TYPE_LABEL[item.content_type]}</CardHeader>
             <div className="flex flex-col gap-3 p-5 text-sm text-ink-700">
               {item.summary && <p>{item.summary}</p>}
               {item.script && (
                 <div>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Script</div>
+                  <SectionHeading level="eyebrow" as="h3" className="mb-1">
+                    Script
+                  </SectionHeading>
                   <p className="whitespace-pre-wrap">{item.script}</p>
                 </div>
               )}
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
-                <div>
-                  <dt className="text-ink-400">Total duration</dt>
-                  <dd className="font-semibold text-ink-900">
-                    {totalDuration ? `${totalDuration}s` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-ink-400">Effective</dt>
-                  <dd>
-                    {item.effective_from}
-                    {item.effective_to ? ` – ${item.effective_to}` : ""}
-                  </dd>
-                </div>
-              </dl>
+              <DescriptionList
+                columns={3}
+                items={[
+                  {
+                    label: "Total duration",
+                    value: totalDuration ? `${totalDuration}s` : "—",
+                  },
+                  {
+                    label: "Effective",
+                    value: `${item.effective_from}${item.effective_to ? ` – ${item.effective_to}` : ""}`,
+                  },
+                ]}
+              />
               {item.community_issue_tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {item.community_issue_tags.map((tag) => (
@@ -98,15 +110,15 @@ export default async function ContentItemDetailPage({
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         )}
 
-        <div className="mt-6 rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Components</div>
+        <Card className="mt-6">
+          <CardHeader>Components</CardHeader>
           {item.components.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">
-              No components yet. A simple single-file item doesn&apos;t need any — attach audio above
-              instead.
+              No components yet. A simple single-file item doesn&apos;t need any — attach audio
+              above instead.
             </p>
           ) : (
             <ul className="divide-y divide-line">
@@ -130,14 +142,16 @@ export default async function ContentItemDetailPage({
                           {component.required ? "required" : "optional"}
                         </Badge>
                         <span className="text-ink-500">{component.duration_seconds}s</span>
-                        <Link
+                        <TextLink
                           href={`${detailPath}?editComponent=${component.id}`}
-                          className="ml-auto text-xs font-semibold text-brand-link hover:underline"
+                          className="ml-auto text-xs hover:underline"
                         >
                           Edit
-                        </Link>
+                        </TextLink>
                       </div>
-                      {component.script && <p className="text-xs text-ink-700">{component.script}</p>}
+                      {component.script && (
+                        <p className="text-xs text-ink-700">{component.script}</p>
+                      )}
                     </>
                   )}
                 </li>
@@ -157,11 +171,11 @@ export default async function ContentItemDetailPage({
               />
             </div>
           </details>
-        </div>
+        </Card>
       </div>
 
-      <div className="w-full shrink-0 rounded border border-line lg:w-72">
-        <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">Status</div>
+      <Card className="w-full shrink-0 lg:w-72">
+        <CardHeader>Status</CardHeader>
         <form action={setApprovalStatus} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="content_item_id" value={item.id} />
           <div>
@@ -175,7 +189,7 @@ export default async function ContentItemDetailPage({
           </div>
           <Button type="submit">Update status</Button>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

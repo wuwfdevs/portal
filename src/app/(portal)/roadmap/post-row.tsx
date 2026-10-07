@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { POST_KIND_LABEL, POST_STATUS_BADGE } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
 import { VoteButton } from "./vote-button";
@@ -10,11 +11,10 @@ function excerpt(text: string): string {
 }
 
 export function PostRow({ post, returnTo }: { post: PostSummary; returnTo: string }) {
-  const badge = POST_STATUS_BADGE[post.status];
   const target = post.target?.name ?? post.proposedToolName;
 
   return (
-    <div className="flex items-start gap-4 rounded border border-line bg-white p-4">
+    <Card className="flex items-start gap-4 p-4">
       <VoteButton
         postId={post.id}
         voteCount={post.voteCount}
@@ -32,7 +32,7 @@ export function PostRow({ post, returnTo }: { post: PostSummary; returnTo: strin
           <p className="mt-1 text-[13px] leading-relaxed text-ink-500">{excerpt(post.body_text)}</p>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
-          <Badge variant={badge.variant}>{badge.label}</Badge>
+          <StatusBadge map={POST_STATUS_BADGE} value={post.status} />
           <span>{POST_KIND_LABEL[post.kind]}</span>
           {target && (
             <>
@@ -51,6 +51,6 @@ export function PostRow({ post, returnTo }: { post: PostSummary; returnTo: strin
           </span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

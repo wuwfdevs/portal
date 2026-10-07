@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireResourcesEditor } from "@/lib/resources/access";
 import { resolveFigures } from "@/lib/resources/media";
 import { getProcedure, listProcedureAreaCounts } from "@/lib/resources/queries";
@@ -27,10 +27,12 @@ export default async function EditProcedurePage({
 
   return (
     <>
-      <Link href={detailPath} className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to the procedure
-      </Link>
-      <h1 className="mb-6 font-serif text-2xl font-bold text-ink-900">Edit procedure</h1>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        back={{ href: detailPath, label: "Back to the procedure" }}
+        title="Edit procedure"
+      />
       <ArticleForm
         kind="procedure"
         defaults={procedure}

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { CardHeader } from "@/components/ui/section-heading";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { RichText } from "@/components/ui/rich-text";
 import { cn } from "@/lib/cn";
@@ -44,17 +47,18 @@ export default async function GuidePage({
 
   return (
     <>
-      <Link href="/resources" className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to resources
-      </Link>
       <div className="flex flex-wrap items-start gap-8">
         <article className="min-w-0 max-w-[720px] flex-[1_1_520px]">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-2xl font-bold leading-snug text-ink-900">
-              {shown.title}
-            </h1>
-            {saved && SAVED_LABELS[saved] && <Badge variant="success">{SAVED_LABELS[saved]}</Badge>}
-          </div>
+          <PageHeader
+            size="page"
+            back={{ href: "/resources", label: "Back to resources" }}
+            title={shown.title}
+            badge={
+              saved && SAVED_LABELS[saved] ? (
+                <Badge variant="success">{SAVED_LABELS[saved]}</Badge>
+              ) : undefined
+            }
+          />
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
             <Badge variant="accent">Guide</Badge>
             <span>{tool.name}</span>
@@ -117,42 +121,39 @@ export default async function GuidePage({
         </article>
 
         <aside className="flex min-w-[260px] flex-[0_1_320px] flex-col gap-4">
-          <nav
-            aria-label={`${tool.name} guides`}
-            className="rounded border border-line bg-white pb-2"
-          >
-            <p className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-              {tool.name} guides
-            </p>
-            <ul className="pt-2">
-              {siblings.map((sibling) => {
-                const current = sibling.slug === guide.slug;
-                return (
-                  <li key={sibling.slug}>
-                    <Link
-                      href={`/resources/tools/${tool.key}/${sibling.slug}`}
-                      aria-current={current ? "page" : undefined}
-                      className={cn(
-                        "block px-5 py-1.5 text-[13px]",
-                        current
-                          ? "border-l-2 border-brand-primary bg-panel-50 pl-[18px] font-semibold text-brand-link"
-                          : "text-ink-700 hover:text-brand-link",
-                      )}
-                    >
-                      {sibling.title}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-            {isEditor && (
-              <Link
-                href={`/resources/guides/new?tool=${encodeURIComponent(tool.key)}`}
-                className="mx-5 mt-2 block border-t border-line pt-2 text-xs font-semibold text-brand-link"
-              >
-                + New {tool.name} guide
-              </Link>
-            )}
+          <nav aria-label={`${tool.name} guides`}>
+            <Card className="pb-2">
+              <CardHeader>{tool.name} guides</CardHeader>
+              <ul className="pt-2">
+                {siblings.map((sibling) => {
+                  const current = sibling.slug === guide.slug;
+                  return (
+                    <li key={sibling.slug}>
+                      <Link
+                        href={`/resources/tools/${tool.key}/${sibling.slug}`}
+                        aria-current={current ? "page" : undefined}
+                        className={cn(
+                          "block px-5 py-1.5 text-[13px]",
+                          current
+                            ? "border-l-2 border-brand-primary bg-panel-50 pl-[18px] font-semibold text-brand-link"
+                            : "text-ink-700 hover:text-brand-link",
+                        )}
+                      >
+                        {sibling.title}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {isEditor && (
+                <Link
+                  href={`/resources/guides/new?tool=${encodeURIComponent(tool.key)}`}
+                  className="mx-5 mt-2 block border-t border-line pt-2 text-xs font-semibold text-brand-link"
+                >
+                  + New {tool.name} guide
+                </Link>
+              )}
+            </Card>
           </nav>
           <DetailSummary
             title="Details"

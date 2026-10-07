@@ -112,8 +112,6 @@ describe("validateInquiryInput", () => {
         }),
       ),
     ).toBeNull();
-    expect(
-      validateInquiryInput(baseInput({ partnershipTypes: ["classroom_visit"] })),
-    ).toBeNull();
+    expect(validateInquiryInput(baseInput({ partnershipTypes: ["classroom_visit"] }))).toBeNull();
   });
 });

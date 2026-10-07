@@ -5,6 +5,7 @@ import Daily, { type DailyCall, type DailyEventObjectAppMessage } from "@daily-c
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   localRecordingBadgeVariant,
   uploadBacklogBadgeVariant,
@@ -168,10 +169,11 @@ export function Call({
 
     return (
       <GuestShell>
-        <h1 className="mb-2 font-serif text-lg font-bold text-ink-900">You&apos;ve left</h1>
-        <p className="text-sm leading-relaxed text-ink-500">
-          {GUEST_COMPLETION_MESSAGES[completionState]}
-        </p>
+        <PageHeader
+          size="public"
+          title="You've left"
+          description={GUEST_COMPLETION_MESSAGES[completionState]}
+        />
         {!safeToClose && (
           <div className="mt-3">
             <Badge variant={completionState === "needs_reopen" ? "danger" : "warning"}>
@@ -185,10 +187,14 @@ export function Call({
 
   return (
     <GuestShell>
-      <h1 className="mb-1 font-serif text-lg font-bold text-ink-900">{displayName}</h1>
-      <p className="mb-4 text-sm text-ink-500">
-        {callState === "connecting" ? "Joining the call…" : "You're connected to the interview."}
-      </p>
+      <PageHeader
+        size="public"
+        title={displayName}
+        description={
+          callState === "connecting" ? "Joining the call…" : "You're connected to the interview."
+        }
+        className="mb-4"
+      />
 
       {localCapture.getStream() && (
         <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-panel-100">

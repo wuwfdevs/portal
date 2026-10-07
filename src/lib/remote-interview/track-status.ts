@@ -6,16 +6,12 @@
 // CLAUDE.md's testing expectations and the same pattern as call-status.ts.
 
 import type { BadgeVariant } from "@/components/ui/badge";
+import { defineStatusMap } from "@/components/ui/status-badge";
+import type { RiSessionStatus } from "@/lib/database.types";
 import type { LocalRecordingState } from "@/lib/remote-interview/call-status";
 
 export type RiTrackStatus =
-  | "recording"
-  | "uploading"
-  | "assembling"
-  | "complete"
-  | "partial"
-  | "missing"
-  | "failed";
+  "recording" | "uploading" | "assembling" | "complete" | "partial" | "missing" | "failed";
 export type RiTrackSource = "local" | "cloud";
 
 /**
@@ -147,3 +143,14 @@ export const GUEST_COMPLETION_MESSAGES: Record<GuestCompletionState, string> = {
 export function canGuestSafelyLeave(state: GuestCompletionState): boolean {
   return state === "safe";
 }
+
+/** The label and badge colour for a session's stored status, on the list and the detail page. */
+export const SESSION_STATUS = defineStatusMap<RiSessionStatus>({
+  scheduled: { label: "Scheduled", variant: "neutral" },
+  live: { label: "Live", variant: "accent" },
+  recording: { label: "Recording", variant: "accent" },
+  processing: { label: "Processing", variant: "neutral" },
+  ready: { label: "Ready", variant: "accent" },
+  needs_recovery: { label: "Needs recovery", variant: "danger" },
+  failed: { label: "Failed", variant: "danger" },
+});

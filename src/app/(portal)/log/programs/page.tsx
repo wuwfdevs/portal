@@ -3,12 +3,17 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CardHeader } from "@/components/ui/section-heading";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { PROGRAM_SCHEDULE_STATUS } from "@/lib/log/status-badges";
 import { ClockThumb } from "@/components/log/clock-thumb";
 import { requireLogAccess } from "@/lib/log/access";
 import { pageHref, pageInfo, pageRange, parsePage } from "@/lib/pagination";
@@ -72,12 +77,6 @@ const STATUS_PARAM: Record<string, ProgramScheduleStatus> = {
   "needs-clock": "needs_clock",
   unscheduled: "not_scheduled",
 };
-
-const STATUS_VARIANT = {
-  on_real_clock: "success",
-  needs_clock: "warning",
-  not_scheduled: "neutral",
-} as const;
 
 /**
  * The programs list (docs/ui-patterns.md) — Log's one entry point for
@@ -230,8 +229,7 @@ export default async function ProgramsPage({
           >
             {error && <Alert className="mb-4">{error}</Alert>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
-              <div>
-                <Label htmlFor="name">Name</Label>
+              <Field label="Name" htmlFor="name">
                 <Input
                   id="name"
                   name="name"
@@ -240,26 +238,24 @@ export default async function ProgramsPage({
                   placeholder="Morning Edition"
                   autoFocus
                 />
-              </div>
-              <div>
-                <Label htmlFor="kind">Kind</Label>
+              </Field>
+              <Field label="Kind" htmlFor="kind">
                 <Select id="kind" name="kind" defaultValue="recurring">
                   <option value="recurring">Recurring</option>
                   <option value="special">Special</option>
                 </Select>
-              </div>
+              </Field>
             </div>
-            <div className="mt-4">
-              <Label htmlFor="description">Description</Label>
+            <Field label="Description" htmlFor="description" className="mt-4">
               <Textarea id="description" name="description" rows={2} />
-            </div>
+            </Field>
           </InlineCreateCard>
         )}
 
         {shown.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+          <EmptyState>
             {programs.length === 0 ? "No programs yet." : "No programs match."}
-          </div>
+          </EmptyState>
         ) : (
           <TableFrame>
             <Table stack>
@@ -356,7 +352,7 @@ export default async function ProgramsPage({
                         )}
                       </Cell>
                       <Cell stack="aside">
-                        <Badge variant={STATUS_VARIANT[rowStatus]}>{STATUS_LABEL[rowStatus]}</Badge>
+                        <StatusBadge map={PROGRAM_SCHEDULE_STATUS} value={rowStatus} />
                       </Cell>
                     </Row>
                   );
@@ -370,25 +366,23 @@ export default async function ProgramsPage({
 
         {unused.length > 0 && (
           <div className="text-xs text-ink-500">
-            <Link
+            <TextLink
               href={pageHref(
                 PROGRAMS_PATH,
                 { ...listParams, unusedClocks: unusedClocks ? null : "1" },
                 1,
               )}
-              className="font-bold text-brand-link hover:underline"
+              className="px-0 text-xs hover:underline"
             >
               Unused clocks ({unused.length})
-            </Link>
+            </TextLink>
             <span> — clocks no program is scheduled on.</span>
           </div>
         )}
 
         {unusedClocks === "1" && unused.length > 0 && (
-          <div className="rounded border border-line">
-            <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-              Unused clocks
-            </div>
+          <Card>
+            <CardHeader>Unused clocks</CardHeader>
             <ul className="divide-y divide-line">
               {unused.map((template) => (
                 <li key={template.id} className="px-5 py-3 text-sm">
@@ -404,7 +398,7 @@ export default async function ProgramsPage({
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
       </div>
     </>
@@ -500,7 +494,7 @@ async function WeekView({
 
   const weekHref = (dateISO: string) => `${PROGRAMS_PATH}?view=week&week=${dateISO}`;
   const navLink =
-    "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
+    "rounded border border-line px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
 
   return (
     <div className="flex flex-col gap-4">
@@ -623,9 +617,9 @@ function WeekAgenda({
               <p className="mb-1.5 text-xs text-ink-500">{describeBands(day.bands, startHour)}</p>
             )}
             {blocks.length === 0 ? (
-              <p className="rounded border border-dashed border-line px-3 py-2 text-sm text-ink-500">
+              <EmptyState compact className="max-w-none px-3 py-2">
                 Nothing scheduled.
-              </p>
+              </EmptyState>
             ) : (
               <ul className="divide-y divide-line rounded border border-line">
                 {blocks.map((block) => (
@@ -650,12 +644,12 @@ function WeekAgenda({
                       </span>
                     </div>
                     {canEdit && (
-                      <Link
+                      <TextLink
                         href={`${PROGRAMS_PATH}/${block.programId}/schedule/${block.entryId}/edit`}
-                        className="shrink-0 text-sm font-semibold text-brand-link hover:underline"
+                        className="shrink-0 hover:underline"
                       >
                         Edit<span className="sr-only"> {block.programName} schedule</span>
-                      </Link>
+                      </TextLink>
                     )}
                   </li>
                 ))}

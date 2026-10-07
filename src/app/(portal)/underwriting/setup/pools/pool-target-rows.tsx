@@ -80,13 +80,9 @@ export function PoolTargetRows({ programs }: { programs: ProgramOption[] }) {
           With no targets, this pool can be chosen on a line but will never find a break.
         </p>
       )}
-      <button
-        type="button"
-        onClick={addRow}
-        className="self-start text-xs font-semibold text-brand-link hover:underline"
-      >
+      <Button variant="link" type="button" onClick={addRow} className="self-start text-brand-link">
         + Another target
-      </button>
+      </Button>
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import {
   DEFAULT_MAX_DURATION_SECONDS,
@@ -51,9 +52,7 @@ export function QuestionsTab({
         <Card key={question.id} className="p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="font-serif text-[17px] font-bold text-ink-900">
-                Question {question.position}
-              </h2>
+              <SectionHeading>Question {question.position}</SectionHeading>
               <Badge variant={question.required ? "accent" : "muted"}>
                 {question.required ? "Required" : "Optional"}
               </Badge>
@@ -102,7 +101,7 @@ export function QuestionsTab({
               <form action={deleteQuestion}>
                 <input type="hidden" name="query_id" value={query.id} />
                 <input type="hidden" name="question_id" value={question.id} />
-                <Button type="submit" variant="ghost" className="text-danger hover:underline">
+                <Button type="submit" variant="danger-link">
                   Remove
                 </Button>
               </form>
@@ -113,9 +112,7 @@ export function QuestionsTab({
 
       {editability.canAdd ? (
         <Card className="border-dashed p-5">
-          <h2 className="mb-1 font-serif text-[17px] font-bold text-ink-900">
-            Add question {questions.length + 1}
-          </h2>
+          <SectionHeading className="mb-1">Add question {questions.length + 1}</SectionHeading>
           <p className="mb-4 text-xs text-ink-400">
             {MAX_QUESTIONS - questions.length} of {MAX_QUESTIONS} slots left.
           </p>
@@ -158,8 +155,11 @@ function QuestionFields({
 }) {
   return (
     <>
-      <div>
-        <Label htmlFor={`${idPrefix}-prompt`}>Prompt</Label>
+      <Field
+        label="Prompt"
+        htmlFor={`${idPrefix}-prompt`}
+        hint="The question read aloud in the participant's head. Keep it to one idea."
+      >
         <Textarea
           id={`${idPrefix}-prompt`}
           name="prompt"
@@ -168,12 +168,12 @@ function QuestionFields({
           defaultValue={defaults.prompt}
           placeholder="How has the rising cost of housing affected you or your family?"
         />
-        <FieldHint>
-          The question read aloud in the participant&apos;s head. Keep it to one idea.
-        </FieldHint>
-      </div>
-      <div>
-        <Label htmlFor={`${idPrefix}-guidance`}>Public guidance (optional)</Label>
+      </Field>
+      <Field
+        label="Public guidance (optional)"
+        htmlFor={`${idPrefix}-guidance`}
+        hint="Shown under the prompt, to help someone who isn't sure what to say."
+      >
         <Textarea
           id={`${idPrefix}-guidance`}
           name="guidance"
@@ -181,22 +181,21 @@ function QuestionFields({
           defaultValue={defaults.guidance}
           placeholder="You might describe changes in rent or mortgage costs, difficulty finding housing, moving, or other personal effects."
         />
-        <FieldHint>
-          Shown under the prompt, to help someone who isn&apos;t sure what to say.
-        </FieldHint>
-      </div>
-      <div>
-        <Label htmlFor={`${idPrefix}-internal_context`}>Internal context (optional)</Label>
+      </Field>
+      <Field label="Internal context (optional)" htmlFor={`${idPrefix}-internal_context`}>
         <Input
           id={`${idPrefix}-internal_context`}
           name="internal_context"
           defaultValue={defaults.internalContext}
           placeholder="Why we're asking — for the desk, not for participants"
         />
-      </div>
+      </Field>
       <div className="flex flex-wrap items-end gap-6">
-        <div className="w-44">
-          <Label htmlFor={`${idPrefix}-max_duration_seconds`}>Maximum length (seconds)</Label>
+        <Field
+          label="Maximum length (seconds)"
+          htmlFor={`${idPrefix}-max_duration_seconds`}
+          className="w-44"
+        >
           <Input
             id={`${idPrefix}-max_duration_seconds`}
             name="max_duration_seconds"
@@ -206,16 +205,13 @@ function QuestionFields({
             step={15}
             defaultValue={defaults.maxDurationSeconds}
           />
-        </div>
-        <label className="mb-2.5 flex items-center gap-2 text-sm text-ink-700">
-          <input
-            type="checkbox"
-            name="required"
-            defaultChecked={defaults.required}
-            className="h-4 w-4 rounded border-line text-brand-primary focus:ring-brand-surface"
-          />
-          Required — a participant can&apos;t submit without answering this
-        </label>
+        </Field>
+        <CheckboxField
+          name="required"
+          defaultChecked={defaults.required}
+          className="mb-2.5 items-center"
+          label="Required — a participant can't submit without answering this"
+        />
       </div>
     </>
   );

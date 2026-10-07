@@ -10,7 +10,10 @@ import { archiveSelectedPitches } from "./pitches/actions";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { cn } from "@/lib/cn";
 
 type BacklogView = "open" | "stale" | "assigned" | "archived";
@@ -65,31 +68,18 @@ export default async function BacklogPage({
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="w-full min-w-0 sm:w-auto">
-          <div className="flex gap-1 overflow-x-auto rounded-full bg-panel-50 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {VIEWS.map((v) => (
-              <Link
-                key={v.key}
-                href={v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`}
-                aria-current={v.key === view ? "page" : undefined}
-                className={cn(
-                  "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
-                  v.key === view
-                    ? "bg-white text-brand-link shadow-sm"
-                    : "text-ink-500 hover:text-ink-900",
-                )}
-              >
-                {v.label} <span className="font-normal opacity-60">{countFor(v.key)}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1" />
-        <Link href="/editorial/pitches/new">
-          <Button>New pitch</Button>
-        </Link>
-      </div>
+      <ListToolbar
+        className="mb-5"
+        chipsLabel="Backlog view"
+        chips={VIEWS.map((v) => ({
+          label: v.label,
+          href: v.key === "open" ? "/editorial" : `/editorial?view=${v.key}`,
+          active: v.key === view,
+          count: countFor(v.key),
+        }))}
+      >
+        <PrimaryLink href="/editorial/pitches/new">New pitch</PrimaryLink>
+      </ListToolbar>
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
@@ -111,9 +101,7 @@ export default async function BacklogPage({
       )}
 
       {entries.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
-          {EMPTY_MESSAGE[view]}
-        </div>
+        <EmptyState className="leading-relaxed">{EMPTY_MESSAGE[view]}</EmptyState>
       ) : canBulkArchive ? (
         <form action={archiveSelectedPitches}>
           {list}

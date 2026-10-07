@@ -1,9 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { DetailSummary } from "@/components/ui/detail-summary";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { RichText } from "@/components/ui/rich-text";
 import { requireResourcesAccess } from "@/lib/resources/access";
 import { formatUpdatedDate, guideLinksInBody } from "@/lib/resources/articles";
@@ -54,17 +57,18 @@ export default async function ProcedurePage({
 
   return (
     <>
-      <Link href="/resources" className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to resources
-      </Link>
       <div className="flex flex-wrap items-start gap-8">
         <article className="min-w-0 max-w-[720px] flex-[1_1_520px]">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-2xl font-bold leading-snug text-ink-900">
-              {shown.title}
-            </h1>
-            {saved && SAVED_LABELS[saved] && <Badge variant="success">{SAVED_LABELS[saved]}</Badge>}
-          </div>
+          <PageHeader
+            size="page"
+            back={{ href: "/resources", label: "Back to resources" }}
+            title={shown.title}
+            badge={
+              saved && SAVED_LABELS[saved] ? (
+                <Badge variant="success">{SAVED_LABELS[saved]}</Badge>
+              ) : undefined
+            }
+          />
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
             <Badge variant="accent">Procedure</Badge>
             <span>{procedure.area}</span>
@@ -85,9 +89,9 @@ export default async function ProcedurePage({
           {past && (
             <Alert variant="note" className="mt-4">
               You&apos;re reading version {past.version}, from {formatUpdatedDate(past.created_at)}.{" "}
-              <Link href={basePath} className="font-semibold text-brand-link">
+              <TextLink href={basePath} className="px-0 text-xs font-semibold">
                 Read the current version
-              </Link>
+              </TextLink>
             </Alert>
           )}
           <RichText
@@ -110,12 +114,12 @@ export default async function ProcedurePage({
                 value: (
                   <>
                     {procedure.version} ·{" "}
-                    <Link
+                    <TextLink
                       href={showHistory ? basePath : `${basePath}?history=1#history`}
-                      className="font-semibold text-brand-link"
+                      className="px-0 text-[13px] font-semibold"
                     >
                       {showHistory ? "Hide history" : "History"}
-                    </Link>
+                    </TextLink>
                   </>
                 ),
               },
@@ -127,9 +131,7 @@ export default async function ProcedurePage({
               action={setProcedurePinned}
               className="flex flex-col gap-2 rounded border border-line bg-white p-5"
             >
-              <p className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
-                Resources home
-              </p>
+              <SectionHeading level="eyebrow">Resources home</SectionHeading>
               <p className="text-[13px] text-ink-700">
                 {pinned
                   ? "Pinned under \u201cWhen something breaks on air\u201d."
@@ -144,20 +146,20 @@ export default async function ProcedurePage({
             </form>
           )}
           {guides.length > 0 && (
-            <div className="rounded border border-line bg-white p-5">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-400">
+            <Card className="p-5">
+              <SectionHeading level="eyebrow" className="mb-2">
                 Tools this uses
-              </p>
+              </SectionHeading>
               <ul className="flex flex-col gap-1.5">
                 {guides.map((guide) => (
                   <li key={guide.href}>
-                    <Link href={guide.href} className="text-[13px] font-semibold text-brand-link">
+                    <TextLink href={guide.href} className="px-0 text-[13px] font-semibold">
                       {guide.label}
-                    </Link>
+                    </TextLink>
                   </li>
                 ))}
               </ul>
-            </div>
+            </Card>
           )}
           {showHistory && (
             <HistoryCard

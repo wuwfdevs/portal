@@ -26,7 +26,9 @@ export async function inviteUser(formData: FormData): Promise<void> {
   const toolGrants = parseToolGrants(formData);
 
   if (!isValidEmail(email) || !displayName) {
-    redirect("/admin/users/invite?error=" + encodeURIComponent("Enter a name and a valid email address."));
+    redirect(
+      "/admin/users/invite?error=" + encodeURIComponent("Enter a name and a valid email address."),
+    );
   }
 
   const adminClient = createAdminClient();
@@ -36,7 +38,10 @@ export async function inviteUser(formData: FormData): Promise<void> {
   });
 
   if (error || !data.user) {
-    redirect("/admin/users/invite?error=" + encodeURIComponent(error?.message ?? "Could not send invitation."));
+    redirect(
+      "/admin/users/invite?error=" +
+        encodeURIComponent(error?.message ?? "Could not send invitation."),
+    );
   }
 
   const supabase = await createClient();
@@ -75,12 +80,20 @@ export async function resendInvite(formData: FormData): Promise<void> {
   const userId = String(formData.get("user_id") ?? "");
   const supabase = await createClient();
 
-  const { data: profile } = await supabase.from("profiles").select("email, display_name, platform_role").eq("id", userId).single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email, display_name, platform_role")
+    .eq("id", userId)
+    .single();
   if (!profile) redirect("/admin/users");
 
   const adminClient = createAdminClient();
   await adminClient.auth.admin.inviteUserByEmail(profile.email, {
-    data: { display_name: profile.display_name, platform_role: profile.platform_role, invited_by: admin.id },
+    data: {
+      display_name: profile.display_name,
+      platform_role: profile.platform_role,
+      invited_by: admin.id,
+    },
     redirectTo: `${getSiteUrl()}/auth/callback`,
   });
 
@@ -127,7 +140,10 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
 
-  const title = String(formData.get("title") ?? "").trim().slice(0, 120) || null;
+  const title =
+    String(formData.get("title") ?? "")
+      .trim()
+      .slice(0, 120) || null;
   await supabase.from("profiles").update({ platform_role: platformRole, title }).eq("id", userId);
 
   const { data: existingGrants } = await supabase
@@ -155,11 +171,17 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
   for (const grant of toolGrants) {
     const existing = existingByToolId.get(grant.toolId);
     if (!existing) {
+      await supabase.from("tool_access").insert({
+        user_id: userId,
+        tool_id: grant.toolId,
+        tool_roles: grant.toolRoles,
+        granted_by: admin.id,
+      });
+    } else if (!sameRoles(existing.tool_roles, grant.toolRoles)) {
       await supabase
         .from("tool_access")
-        .insert({ user_id: userId, tool_id: grant.toolId, tool_roles: grant.toolRoles, granted_by: admin.id });
-    } else if (!sameRoles(existing.tool_roles, grant.toolRoles)) {
-      await supabase.from("tool_access").update({ tool_roles: grant.toolRoles }).eq("id", existing.id);
+        .update({ tool_roles: grant.toolRoles })
+        .eq("id", existing.id);
     }
   }
 

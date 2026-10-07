@@ -3,7 +3,7 @@ import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -24,7 +24,7 @@ import { defaultAffidavitPeriod, newAffidavitHref } from "@/lib/underwriting/aff
 import { stationTodayISO } from "@/lib/log/timezone";
 import { setContractStatus } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
-import { AgreementTab, REVISION_STATUS_VARIANT, separationSummary } from "./agreement-tab";
+import { AgreementTab, separationSummary } from "./agreement-tab";
 import { ContractCopyPanel, type CopyPanelParams } from "./copy-panel";
 import { DeleteContractControl } from "./delete-contract-control";
 import { FlightsSection } from "./flights-section";
@@ -32,14 +32,12 @@ import { FULFILLMENT_VARIANT, LineCard } from "./line-card";
 import { PlacementsByDate } from "./placements-by-date";
 import { DraftRevisionBanner, ReviseScheduleForm, revisionName } from "./revision-panels";
 import { ViewToggle, type ScheduleView } from "./view-toggle";
-import type { UwContractStatus } from "@/lib/database.types";
-
-const CONTRACT_STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
-  draft: "neutral",
-  active: "success",
-  expired: "muted",
-  terminated: "danger",
-};
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card } from "@/components/ui/card";
+import { DetailSummary } from "@/components/ui/detail-summary";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTRACT_STATUS, REVISION_STATUS } from "@/lib/underwriting/status";
 
 const TABS = ["schedule", "copy", "agreement"] as const;
 type Tab = (typeof TABS)[number];
@@ -213,9 +211,9 @@ export default async function ContractDetailPage({
 
   return (
     <div>
-      <Link href="/underwriting/contracts" className="text-xs font-semibold text-brand-link">
+      <TextLink href="/underwriting/contracts" className="text-xs">
         ← Contracts
-      </Link>
+      </TextLink>
       <div className="mt-2 mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -227,7 +225,7 @@ export default async function ContractDetailPage({
                 {contract.underwriter.name}
               </Link>
             </h2>
-            <Badge variant={CONTRACT_STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
+            <StatusBadge map={CONTRACT_STATUS} value={contract.status} />
             {!isDraft && (
               <Badge variant={FULFILLMENT_VARIANT[contractStatus]}>
                 {FULFILLMENT_STATUS_LABEL[contractStatus]}
@@ -245,12 +243,7 @@ export default async function ContractDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`${base}/order`}
-            className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface"
-          >
-            Edit order details
-          </Link>
+          <SecondaryLink href={`${base}/order`}>Edit order details</SecondaryLink>
           {isDraft && (
             <form action={setContractStatus}>
               <input type="hidden" name="contract_id" value={contract.id} />
@@ -278,12 +271,9 @@ export default async function ContractDetailPage({
         <Alert variant="note" className="mb-4">
           The order states a separation rule (&ldquo;{contract.separation_source_text}&rdquo;) with
           no unit. Auto-fill won&apos;t schedule this contract until a policy is chosen under{" "}
-          <Link
-            href={`${base}?tab=agreement&edit=policy#traffic-policy`}
-            className="font-semibold text-brand-link"
-          >
+          <TextLink href={`${base}?tab=agreement&edit=policy#traffic-policy`}>
             Traffic policy
-          </Link>
+          </TextLink>
           .
         </Alert>
       )}
@@ -321,12 +311,9 @@ export default async function ContractDetailPage({
                       <div className="text-sm font-semibold text-ink-900">{item.title}</div>
                       <div className="text-[13px] text-ink-500">{item.detail}</div>
                     </div>
-                    <Link
-                      href={readinessHref[item.key]!}
-                      className="text-[13px] font-bold text-brand-link hover:underline"
-                    >
+                    <TextLink href={readinessHref[item.key]!} className="text-[13px]">
                       {item.state === "ok" ? "Edit" : "Fix"}
-                    </Link>
+                    </TextLink>
                   </li>
                 ))}
               </ol>
@@ -364,19 +351,13 @@ export default async function ContractDetailPage({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <ViewToggle base={base} view={scheduleView} />
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`${base}/schedule`}
-                    className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                  >
+                  <SecondaryLink size="sm" href={`${base}/schedule`}>
                     Add a line
-                  </Link>
+                  </SecondaryLink>
                   {canRevise && (
-                    <Link
-                      href={`${base}?revise=1`}
-                      className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                    >
+                    <SecondaryLink size="sm" href={`${base}?revise=1`}>
                       Revise the schedule
-                    </Link>
+                    </SecondaryLink>
                   )}
                   {contract.currentRevision && currentViews.length > 0 && (
                     <form action={autoFillContractAction}>
@@ -425,10 +406,10 @@ export default async function ContractDetailPage({
                           </h3>
                         )}
                         {revisionViews.length === 0 ? (
-                          <p className="rounded border border-dashed border-line px-5 py-4 text-sm text-ink-500">
+                          <EmptyState compact>
                             No schedule lines yet — enter the order&apos;s schedule on the schedule
                             step.
-                          </p>
+                          </EmptyState>
                         ) : (
                           <ul className="divide-y divide-line rounded border border-line">
                             {revisionViews.map((view) => (
@@ -461,9 +442,7 @@ export default async function ContractDetailPage({
                           <div key={revision.id} className="border-t border-line">
                             <div className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-ink-700">
                               {revisionName(revision, index)}
-                              <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
-                                {revision.status}
-                              </Badge>
+                              <StatusBadge map={REVISION_STATUS} value={revision.status} />
                             </div>
                             <ul className="divide-y divide-line border-t border-line">
                               {revisionViews.map((view) => (
@@ -509,38 +488,26 @@ export default async function ContractDetailPage({
         </div>
 
         <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
-          <div className="rounded border border-line px-5 py-4">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
-              At a glance
-            </div>
-            <dl className="text-[13px]">
-              {[
-                ["Underwriter", contract.underwriter.name],
-                ["Contact", contract.underwriter.contact_name ?? "—"],
-                ["Order", orderNumberLabel(contract.contract_identifier)],
-                [
-                  "Runs",
-                  `${contract.effective_from}${contract.effective_to ? ` – ${contract.effective_to}` : " (open-ended)"}`,
-                ],
-                [
-                  "Sponsorship",
-                  `${contract.sponsorship_total != null ? `$${contract.sponsorship_total.toLocaleString()}` : "—"}${contract.stated_total_spots != null ? ` · ${contract.stated_total_spots} spots` : ""}`,
-                ],
-                ["Agreement", contract.agreement_document_path ? "Attached" : "Not attached"],
-              ].map(([term, value]) => (
-                <div
-                  key={term}
-                  className="flex justify-between gap-3 border-b border-line py-2 last:border-b-0"
-                >
-                  <dt className="text-ink-500">{term}</dt>
-                  <dd className="text-right font-semibold text-ink-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+          <DetailSummary
+            title="At a glance"
+            items={[
+              ["Underwriter", contract.underwriter.name],
+              ["Contact", contract.underwriter.contact_name ?? "—"],
+              ["Order", orderNumberLabel(contract.contract_identifier)],
+              [
+                "Runs",
+                `${contract.effective_from}${contract.effective_to ? ` – ${contract.effective_to}` : " (open-ended)"}`,
+              ],
+              [
+                "Sponsorship",
+                `${contract.sponsorship_total != null ? `$${contract.sponsorship_total.toLocaleString()}` : "—"}${contract.stated_total_spots != null ? ` · ${contract.stated_total_spots} spots` : ""}`,
+              ],
+              ["Agreement", contract.agreement_document_path ? "Attached" : "Not attached"],
+            ].map(([label = "", value]) => ({ label, value }))}
+          />
 
           {!isDraft && expectedTotal > 0 && (
-            <div className="rounded border border-line px-5 py-4">
+            <Card className="px-5 py-4">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
                 Delivery
               </div>
@@ -554,11 +521,11 @@ export default async function ContractDetailPage({
               <p className="mt-2 text-[13px] text-ink-700">
                 {deliveredTotal} aired · {scheduledTotal} scheduled of {expectedTotal}
               </p>
-            </div>
+            </Card>
           )}
 
           {!isDraft && (
-            <div className="rounded border border-line px-5 py-4">
+            <Card className="px-5 py-4">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
                 Missed credits
               </div>
@@ -569,52 +536,33 @@ export default async function ContractDetailPage({
               ) : (
                 <p className="text-[13px] text-ink-700">
                   {openExceptionCount} open exception{openExceptionCount === 1 ? "" : "s"}.{" "}
-                  <Link
+                  <TextLink
                     href={`/underwriting/exceptions?q=${encodeURIComponent(contract.underwriter.name)}`}
-                    className="font-semibold text-brand-link"
                   >
                     Review
-                  </Link>
+                  </TextLink>
                 </p>
               )}
-            </div>
+            </Card>
           )}
 
-          <div className="rounded border border-line px-5 py-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
-                Traffic policy
-              </span>
-              <Link
-                href={`${base}?tab=agreement#traffic-policy`}
-                className="text-xs font-semibold text-brand-link"
-              >
-                Agreement
-              </Link>
-            </div>
-            <dl className="text-[13px]">
-              {[
-                ["Affidavit", contract.affidavit_required ? "Required" : "Not required"],
-                [
-                  "Makegoods",
-                  contract.makegood_requires_agency_approval
-                    ? "Agency approval needed"
-                    : "Station's discretion",
-                ],
-                ["Separation", separationSummary(contract)],
-              ].map(([term, value]) => (
-                <div
-                  key={term}
-                  className="flex justify-between gap-3 border-b border-line py-2 last:border-b-0"
-                >
-                  <dt className="text-ink-500">{term}</dt>
-                  <dd className="max-w-[170px] text-right font-semibold text-ink-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+          <DetailSummary
+            title="Traffic policy"
+            editHref={`${base}?tab=agreement#traffic-policy`}
+            editLabel="Agreement"
+            items={[
+              ["Affidavit", contract.affidavit_required ? "Required" : "Not required"],
+              [
+                "Makegoods",
+                contract.makegood_requires_agency_approval
+                  ? "Agency approval needed"
+                  : "Station's discretion",
+              ],
+              ["Separation", separationSummary(contract)],
+            ].map(([label = "", value]) => ({ label, value }))}
+          />
 
-          <div className="rounded border border-line px-5 py-4">
+          <Card className="px-5 py-4">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
               Status
             </div>
@@ -646,7 +594,7 @@ export default async function ContractDetailPage({
                 </Button>
               </form>
             )}
-          </div>
+          </Card>
 
           {isDraft && (
             <DeleteContractControl

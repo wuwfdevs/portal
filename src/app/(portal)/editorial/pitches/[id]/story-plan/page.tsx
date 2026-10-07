@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
@@ -20,7 +19,8 @@ import { formatDate } from "@/lib/editorial/format";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   addMilestone,
   createStoryPlan,
@@ -52,25 +52,17 @@ export default async function StoryPlanPage({
   const isEditor = role === "editor";
   const isReporter = pitch.assigned_to === profile.id;
 
-  const backLink = (
-    <div className="mb-4">
-      <Link
-        href={`/editorial/pitches/${pitchId}`}
-        className="text-xs font-semibold text-brand-link hover:underline"
-      >
-        ← Back to pitch
-      </Link>
-    </div>
-  );
-
   if (!plan) {
     const canStart = pitch.status === "assigned" && (isEditor || isReporter);
     return (
       <div className="max-w-2xl">
-        {backLink}
+        <PageHeader
+          className="mb-4"
+          back={{ href: `/editorial/pitches/${pitchId}`, label: "Back to pitch" }}
+          title={pitch.title}
+          description="No story plan yet."
+        />
         {error && <Alert className="mb-4">{error}</Alert>}
-        <h2 className="mb-1 font-serif text-[19px] font-bold text-ink-900">{pitch.title}</h2>
-        <p className="mb-4 text-xs text-ink-400">No story plan yet.</p>
         {pitch.status !== "assigned" ? (
           <Alert variant="note">
             Story planning starts once a pitch is assigned to a reporter. This pitch is currently{" "}
@@ -83,8 +75,9 @@ export default async function StoryPlanPage({
               Confirm the central question if it&apos;s changed since the pitch, then start
               planning. Everything else can be filled in afterward.
             </p>
-            <Label htmlFor="seed_question">Confirmed central reporting question</Label>
-            <Textarea id="seed_question" name="seed_question" rows={2} />
+            <Field label="Confirmed central reporting question" htmlFor="seed_question">
+              <Textarea id="seed_question" name="seed_question" rows={2} />
+            </Field>
             <div className="mt-3 flex justify-end">
               <Button type="submit">Start story plan</Button>
             </div>
@@ -104,17 +97,25 @@ export default async function StoryPlanPage({
 
   return (
     <div className="max-w-2xl">
-      {backLink}
+      <PageHeader
+        className="mb-4"
+        back={{ href: `/editorial/pitches/${pitchId}`, label: "Back to pitch" }}
+        title={pitch.title}
+        badge={
+          <Badge variant={plan.status === "approved" ? "accent" : "neutral"}>
+            {STORY_PLAN_STATUS_LABEL[plan.status]}
+          </Badge>
+        }
+        actions={
+          <StatusControls
+            pitchId={pitchId}
+            plan={plan}
+            isEditor={isEditor}
+            isReporter={isReporter}
+          />
+        }
+      />
       {error && <Alert className="mb-4">{error}</Alert>}
-
-      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="font-serif text-[19px] font-bold text-ink-900">{pitch.title}</h2>
-        <Badge variant={plan.status === "approved" ? "accent" : "neutral"}>
-          {STORY_PLAN_STATUS_LABEL[plan.status]}
-        </Badge>
-        <div className="flex-1" />
-        <StatusControls pitchId={pitchId} plan={plan} isEditor={isEditor} isReporter={isReporter} />
-      </div>
 
       <Alert variant="note" className="mb-5">
         Breadth of perspective here does not mean equal treatment of unequal evidence or artificial
@@ -127,50 +128,49 @@ export default async function StoryPlanPage({
           <input type="hidden" name="story_plan_id" value={plan.id} />
 
           <Section title="Question, value, and frame">
-            <Field
+            <PlanField
               label="Confirmed central reporting question"
               name="central_question"
               defaultValue={plan.central_question}
             />
-            <Field
+            <PlanField
               label="Intended public-service value"
               name="public_service_value"
               defaultValue={plan.public_service_value}
             />
-            <Field
+            <PlanField
               label="Working frame and scope"
               name="frame_scope"
               defaultValue={plan.frame_scope}
             />
-            <Field
+            <PlanField
               label="Deliverables / format"
               name="deliverables"
               defaultValue={plan.deliverables}
               rows={2}
             />
-            <div>
-              <Label htmlFor="target_window">Target publication window</Label>
+            <Field label="Target publication window" htmlFor="target_window">
               <Input
                 id="target_window"
                 name="target_window"
                 defaultValue={plan.target_window ?? ""}
                 maxLength={200}
               />
-            </div>
+            </Field>
           </Section>
 
           <Section title="Reporting and evidence">
-            <Field
+            <PlanField
               label="Reporting and evidence map"
               name="reporting_evidence_map"
               defaultValue={plan.reporting_evidence_map}
             />
-            <Field
+            <PlanField
               label="Records / data needed"
               name="records_data_needed"
               defaultValue={plan.records_data_needed}
             />
-            <Field
+            <PlanField
               label="Key claims requiring verification"
               name="key_claims_to_verify"
               defaultValue={plan.key_claims_to_verify}
@@ -178,48 +178,51 @@ export default async function StoryPlanPage({
           </Section>
 
           <Section title="People and perspectives">
-            <Field
+            <PlanField
               label="People directly affected"
               name="people_affected"
               defaultValue={plan.people_affected}
             />
-            <Field
+            <PlanField
               label="Decision-makers / power holders"
               name="decision_makers"
               defaultValue={plan.decision_makers}
             />
-            <Field
+            <PlanField
               label="Relevant expert and experiential sources"
               name="expert_experiential_sources"
               defaultValue={plan.expert_experiential_sources}
             />
-            <Field
+            <PlanField
               label="Main credible interpretations or competing interests"
               name="main_interpretations"
               defaultValue={plan.main_interpretations}
             />
-            <Field
+            <PlanField
               label="Missing-perspective assessment"
               name="missing_perspective_assessment"
               defaultValue={plan.missing_perspective_assessment}
             />
-            <Field
+            <PlanField
               label="Source-concentration risks"
               name="source_concentration_risks"
               defaultValue={plan.source_concentration_risks}
             />
-            <Field label="Framing risks" name="framing_risks" defaultValue={plan.framing_risks} />
+            <PlanField
+              label="Framing risks"
+              name="framing_risks"
+              defaultValue={plan.framing_risks}
+            />
           </Section>
 
           <Section title="Opportunity to respond">
-            <Field
+            <PlanField
               label="Requirements and status detail"
               name="otr_requirements"
               defaultValue={plan.otr_requirements}
               rows={2}
             />
-            <div>
-              <Label htmlFor="otr_status">Status</Label>
+            <Field label="Status" htmlFor="otr_status">
               <Select
                 id="otr_status"
                 name="otr_status"
@@ -232,30 +235,26 @@ export default async function StoryPlanPage({
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
           </Section>
 
           <Section title="Standards and independence">
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
               {STANDARDS_FLAGS.map((flag) => (
-                <label key={flag} className="flex items-center gap-1.5 text-sm text-ink-700">
-                  <input
-                    type="checkbox"
-                    name="standards_flags"
-                    value={flag}
-                    defaultChecked={plan.standards_flags.includes(flag)}
-                    className="h-4 w-4"
-                  />
-                  {STANDARDS_FLAG_LABEL[flag]}
-                </label>
+                <CheckboxField
+                  key={flag}
+                  name="standards_flags"
+                  value={flag}
+                  defaultChecked={plan.standards_flags.includes(flag)}
+                  label={STANDARDS_FLAG_LABEL[flag]}
+                />
               ))}
             </div>
           </Section>
 
           <Section title="Assignment">
             <div className="flex flex-wrap gap-4">
-              <div>
-                <Label htmlFor="reporter_id">Reporter</Label>
+              <Field label="Reporter" htmlFor="reporter_id">
                 <Select
                   id="reporter_id"
                   name="reporter_id"
@@ -269,9 +268,8 @@ export default async function StoryPlanPage({
                     </option>
                   ))}
                 </Select>
-              </div>
-              <div>
-                <Label htmlFor="editor_id">Editor</Label>
+              </Field>
+              <Field label="Editor" htmlFor="editor_id">
                 <Select
                   id="editor_id"
                   name="editor_id"
@@ -285,7 +283,7 @@ export default async function StoryPlanPage({
                     </option>
                   ))}
                 </Select>
-              </div>
+              </Field>
             </div>
           </Section>
 
@@ -343,12 +341,9 @@ export default async function StoryPlanPage({
                   <form action={deleteMilestone}>
                     <input type="hidden" name="pitch_id" value={pitchId} />
                     <input type="hidden" name="milestone_id" value={milestone.id} />
-                    <button
-                      type="submit"
-                      className="text-xs font-semibold text-danger hover:underline"
-                    >
+                    <Button type="submit" variant="danger-link">
                       Remove
-                    </button>
+                    </Button>
                   </form>
                 )}
               </li>
@@ -359,19 +354,17 @@ export default async function StoryPlanPage({
           <form action={addMilestone} className="flex flex-wrap items-end gap-2.5">
             <input type="hidden" name="pitch_id" value={pitchId} />
             <input type="hidden" name="story_plan_id" value={plan.id} />
-            <div className="flex-1">
-              <Label htmlFor="label">New milestone</Label>
+            <Field label="New milestone" htmlFor="label" className="flex-1">
               <Input
                 id="label"
                 name="label"
                 maxLength={200}
                 placeholder="e.g. First interview scheduled"
               />
-            </div>
-            <div>
-              <Label htmlFor="target_date">Target date</Label>
+            </Field>
+            <Field label="Target date" htmlFor="target_date">
               <Input id="target_date" name="target_date" type="date" className="w-40" />
-            </div>
+            </Field>
             <Button type="submit" variant="secondary">
               Add
             </Button>
@@ -391,7 +384,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({
+function PlanField({
   label,
   name,
   defaultValue,
@@ -403,10 +396,9 @@ function Field({
   rows?: number;
 }) {
   return (
-    <div>
-      <Label htmlFor={name}>{label}</Label>
+    <Field label={label} htmlFor={name}>
       <Textarea id={name} name={name} rows={rows} defaultValue={defaultValue ?? ""} />
-    </div>
+    </Field>
   );
 }
 

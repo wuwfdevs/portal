@@ -1,12 +1,13 @@
-import Link from "next/link";
 import { getSettings, listCriteria, listRubricProfiles } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { Input, Label } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { CardHeader } from "@/components/ui/section-heading";
+import { Field, Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import type { CriterionRow, RubricProfileRow } from "@/lib/editorial/data";
@@ -89,13 +90,10 @@ export default async function RubricSettingsPage({
         ))}
 
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <div className="rounded border border-line">
-            <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink-900">
-              Scoring scale
-            </div>
+          <Card>
+            <CardHeader className="px-4 py-3">Scoring scale</CardHeader>
             <form action={updateScale} className="flex flex-wrap items-end gap-3 px-4 py-4">
-              <div>
-                <Label htmlFor="scale_min">Lowest</Label>
+              <Field label="Lowest" htmlFor="scale_min">
                 <Input
                   id="scale_min"
                   name="scale_min"
@@ -105,10 +103,9 @@ export default async function RubricSettingsPage({
                   defaultValue={settings.scale_min}
                   className="w-24"
                 />
-              </div>
+              </Field>
               <span className="pb-2.5 text-sm text-ink-400">to</span>
-              <div>
-                <Label htmlFor="scale_max">Highest</Label>
+              <Field label="Highest" htmlFor="scale_max">
                 <Input
                   id="scale_max"
                   name="scale_max"
@@ -118,7 +115,7 @@ export default async function RubricSettingsPage({
                   defaultValue={settings.scale_max}
                   className="w-24"
                 />
-              </div>
+              </Field>
               <Button type="submit" variant="secondary">
                 Save scale
               </Button>
@@ -127,18 +124,15 @@ export default async function RubricSettingsPage({
                 affects future scoring only — past scores keep the scale they were given on.
               </p>
             </form>
-          </div>
+          </Card>
 
-          <div className="rounded border border-line">
-            <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink-900">
-              Modifier threshold
-            </div>
+          <Card>
+            <CardHeader className="px-4 py-3">Modifier threshold</CardHeader>
             <form
               action={updateModifierThreshold}
               className="flex flex-wrap items-end gap-3 px-4 py-4"
             >
-              <div>
-                <Label htmlFor="modifier_min_core_score">Minimum core score</Label>
+              <Field label="Minimum core score" htmlFor="modifier_min_core_score">
                 <Input
                   id="modifier_min_core_score"
                   name="modifier_min_core_score"
@@ -148,7 +142,7 @@ export default async function RubricSettingsPage({
                   defaultValue={settings.modifier_min_core_score}
                   className="w-28"
                 />
-              </div>
+              </Field>
               <Button type="submit" variant="secondary">
                 Save threshold
               </Button>
@@ -158,7 +152,7 @@ export default async function RubricSettingsPage({
                 editorially weak on its own.
               </p>
             </form>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -241,7 +235,7 @@ function CriterionTable({
   }
   return (
     <TableFrame>
-      <Table className="min-w-[640px]">
+      <Table stack className="md:min-w-[640px]">
         <thead>
           <HeaderRow>
             <Th>Criterion</Th>
@@ -256,7 +250,7 @@ function CriterionTable({
         <tbody>
           {criteria.map((criterion, index) => (
             <Row key={criterion.id} className={criterion.active ? undefined : "bg-panel-50/40"}>
-              <Cell>
+              <Cell stack="title">
                 <div className="font-semibold text-ink-900">{criterion.name}</div>
                 <div className="mt-0.5 text-xs leading-snug text-ink-500">
                   {criterion.description}
@@ -281,14 +275,14 @@ function CriterionTable({
                   </details>
                 )}
               </Cell>
-              <Cell className="tabular-nums text-ink-500">
+              <Cell label="Weight" className="tabular-nums text-ink-500">
                 {criterion.criterion_type === "modifier" ? "—" : `×${criterion.weight}`}
               </Cell>
-              <Cell className="whitespace-nowrap tabular-nums text-ink-500">
+              <Cell label="Scale" className="whitespace-nowrap tabular-nums text-ink-500">
                 {criterion.scale_min ?? "tool"}–{criterion.scale_max ?? "tool"}
               </Cell>
               {view === "active" && (
-                <Cell>
+                <Cell stack="full">
                   <ReorderButtons
                     action={moveCriterion}
                     idName="criterion_id"
@@ -299,14 +293,14 @@ function CriterionTable({
                   />
                 </Cell>
               )}
-              <Cell>
+              <Cell stack="full">
                 <div className="flex items-center gap-3 whitespace-nowrap">
-                  <Link
+                  <TextLink
                     href={`/editorial/settings/rubric/${criterion.id}/edit`}
-                    className="text-xs font-semibold text-brand-link hover:underline"
+                    className="px-0 text-xs font-semibold"
                   >
                     Edit
-                  </Link>
+                  </TextLink>
                   <form action={toggleCriterionActive}>
                     <input type="hidden" name="criterion_id" value={criterion.id} />
                     <input
@@ -314,12 +308,9 @@ function CriterionTable({
                       name="next_active"
                       value={(!criterion.active).toString()}
                     />
-                    <button
-                      type="submit"
-                      className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-                    >
+                    <Button type="submit" variant="link">
                       {criterion.active ? "Retire" : "Restore"}
-                    </button>
+                    </Button>
                   </form>
                 </div>
               </Cell>

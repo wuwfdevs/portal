@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
@@ -26,6 +25,7 @@ import { cardForVersion } from "@/lib/bookings/version-card";
 import { createPackage, setPackageActive, setPackageReview, updatePackage } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
+import { TextLink } from "@/components/ui/primary-link";
 
 type Params = {
   version?: string;
@@ -259,12 +259,7 @@ export default async function ServicePackagesPage({
             </p>
           </div>
           {canEdit && params.new !== "1" && (
-            <Link
-              href={here({ new: "1" })}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              + Add a package
-            </Link>
+            <TextLink href={here({ new: "1" })}>+ Add a package</TextLink>
           )}
         </div>
         <TableFrame>
@@ -308,12 +303,7 @@ export default async function ServicePackagesPage({
                           />
                           <div className="flex items-center gap-4">
                             <Button type="submit">Save</Button>
-                            <Link
-                              href={here()}
-                              className="text-sm font-bold text-brand-link hover:underline"
-                            >
-                              Cancel
-                            </Link>
+                            <TextLink href={here()}>Cancel</TextLink>
                           </div>
                         </form>
                       </Cell>
@@ -431,12 +421,7 @@ export default async function ServicePackagesPage({
                     <Cell stack="full" className="text-right">
                       {canEdit && (
                         <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={here({ edit: pkg.id })}
-                            className="text-sm font-bold text-brand-link hover:underline"
-                          >
-                            Edit
-                          </Link>
+                          <TextLink href={here({ edit: pkg.id })}>Edit</TextLink>
                           <form action={setPackageActive}>
                             <input type="hidden" name="id" value={pkg.id} />
                             <input type="hidden" name="version_id" value={version.id} />

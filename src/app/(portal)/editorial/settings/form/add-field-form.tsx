@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { FIELD_TYPE_LABEL } from "@/lib/editorial/form";
 import type { EpFieldType } from "@/lib/database.types";
 
@@ -18,8 +18,11 @@ export function AddFieldFields() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="label">Label</Label>
+        <Field
+          label="Label"
+          htmlFor="label"
+          hint="Writers see this above the input. Its key is generated from the label."
+        >
           <Input
             id="label"
             name="label"
@@ -28,12 +31,8 @@ export function AddFieldFields() {
             placeholder="e.g. Why now?"
             autoFocus
           />
-          <FieldHint>
-            Writers see this above the input. Its key is generated from the label.
-          </FieldHint>
-        </div>
-        <div>
-          <Label htmlFor="field_type">Type</Label>
+        </Field>
+        <Field label="Type" htmlFor="field_type" hint="Type is fixed once the field exists.">
           <Select
             id="field_type"
             name="field_type"
@@ -46,32 +45,25 @@ export function AddFieldFields() {
               </option>
             ))}
           </Select>
-          <FieldHint>Type is fixed once the field exists.</FieldHint>
-        </div>
+        </Field>
       </div>
 
       {takesOptions && (
-        <div>
-          <Label htmlFor="options">Options</Label>
+        <Field label="Options" htmlFor="options" hint="One option per line.">
           <Textarea
             id="options"
             name="options"
             rows={4}
             placeholder={"Feature\nInterview\nSeries"}
           />
-          <FieldHint>One option per line.</FieldHint>
-        </div>
+        </Field>
       )}
 
-      <div>
-        <Label htmlFor="help_text">Help text</Label>
+      <Field label="Help text" htmlFor="help_text">
         <Input id="help_text" name="help_text" maxLength={200} />
-      </div>
+      </Field>
 
-      <label className="flex items-center gap-2 text-sm text-ink-700">
-        <input type="checkbox" name="required" className="h-4 w-4" />
-        Required
-      </label>
+      <CheckboxField name="required" label="Required" />
     </div>
   );
 }

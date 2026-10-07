@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireResourcesEditor } from "@/lib/resources/access";
 import { resolveFigures } from "@/lib/resources/media";
 import { getGuide } from "@/lib/resources/queries";
@@ -26,10 +26,12 @@ export default async function EditGuidePage({
 
   return (
     <>
-      <Link href={detailPath} className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to the guide
-      </Link>
-      <h1 className="mb-6 font-serif text-2xl font-bold text-ink-900">Edit {tool.name} guide</h1>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        back={{ href: detailPath, label: "Back to the guide" }}
+        title={`Edit ${tool.name} guide`}
+      />
       {guide.needs_review && (
         <Alert variant="note" className="mb-5 max-w-3xl">
           A release changed this screen after the last edit here. Check the text against the release

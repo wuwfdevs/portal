@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { formatStationClockTime } from "@/lib/log/timezone";
 
 /**
@@ -27,7 +28,9 @@ export function StationClock() {
 
   return (
     <div className="rounded border-2 border-brand-primary bg-brand-surface/30 p-4">
-      <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">Current time</div>
+      <SectionHeading level="eyebrow" as="h3" className="mb-1">
+        Current time
+      </SectionHeading>
       <p className="font-mono text-4xl font-extrabold tabular-nums text-ink-900" aria-live="off">
         {nowISO ? formatStationClockTime(nowISO) : "--:--:--"}
       </p>

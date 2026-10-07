@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireProgramDirector } from "@/lib/log/access";
 import {
   getProgram,
@@ -37,13 +37,13 @@ export default async function EditScheduleEntryPage({
 
   return (
     <div>
-      <Link href={programPath} className="text-xs font-semibold text-brand-link">
-        ← Back to {program.name}
-      </Link>
-      <h2 className="mt-2 font-serif text-xl font-bold text-ink-900">Edit schedule</h2>
-      <p className="mt-1 mb-5 text-sm text-ink-500">
-        Change when {program.name} airs. The preview on the right updates as you go.
-      </p>
+      <PageHeader
+        as="h2"
+        back={{ href: programPath, label: `Back to ${program.name}` }}
+        title="Edit schedule"
+        description={`Change when ${program.name} airs. The preview on the right updates as you go.`}
+        className="mb-5"
+      />
       <ScheduleEditor
         action={updateScheduleEntry}
         programId={program.id}

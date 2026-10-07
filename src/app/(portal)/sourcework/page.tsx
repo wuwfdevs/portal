@@ -1,5 +1,4 @@
 import { TabNav } from "@/components/ui/tab-nav";
-import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { listProjects, listSources } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
@@ -8,8 +7,9 @@ import { SearchResults } from "@/components/transcription/search-results";
 import { ClipLibrary } from "@/components/transcription/clip-library";
 import { SourceLibrary } from "@/components/transcription/source-library";
 import { ProjectTable } from "@/components/transcription/project-table";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 
 type Tab = "projects" | "sources" | "clips";
 
@@ -36,18 +36,13 @@ export default async function TranscriptionListPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1.5 font-serif text-[28px] font-bold text-ink-900">Sourcework</h1>
-          <p className="max-w-xl text-[15px] text-ink-500">
-            Every interview here is shared with the rest of the team — search past projects to reuse
-            a quote, or start a new one.
-          </p>
-        </div>
-        <Link href="/sourcework/new">
-          <Button>New project</Button>
-        </Link>
-      </div>
+      <PageHeader
+        size="page"
+        title="Sourcework"
+        description="Every interview here is shared with the rest of the team — search past projects to reuse a quote, or start a new one."
+        actions={<PrimaryLink href="/sourcework/new">New project</PrimaryLink>}
+        className="mb-8"
+      />
 
       <form method="get" className="mb-6 max-w-xl">
         <Input
@@ -69,9 +64,7 @@ export default async function TranscriptionListPage({
             <span>
               {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
             </span>
-            <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
-              Clear search
-            </Link>
+            <TextLink href="/sourcework">Clear search</TextLink>
           </div>
           <SearchResults results={results} query={query} />
         </>

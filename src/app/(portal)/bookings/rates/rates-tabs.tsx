@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { SubNav } from "@/components/ui/sub-nav";
 import { INPUT_SECTIONS, ratesHref, ratesTabFor, type RatesSection } from "@/lib/bookings/paths";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The Rates section's second-level row (a `SubNav`): Rate card · Inputs ·
@@ -33,12 +33,9 @@ export function RatesTabs({
         ]}
       />
       {isEditor && (
-        <Link
-          href={ratesHref("inputs", versionId)}
-          className="self-start text-xs font-semibold text-brand-link hover:underline"
-        >
+        <TextLink href={ratesHref("inputs", versionId)} className="self-start text-xs">
           ← Inputs
-        </Link>
+        </TextLink>
       )}
     </div>
   );

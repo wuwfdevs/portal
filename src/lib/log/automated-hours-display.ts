@@ -11,6 +11,13 @@ export function formatWindowHours(startTime: string, endTime: string): string {
   return `${formatAirTime(startTime)} – ${formatAirTime(endTime)}`;
 }
 
+/** "Oct 7 – Nov 2", or just "Oct 7" for hours with no end date. */
+export function formatEffectiveRange(effectiveFrom: string, effectiveTo: string | null): string {
+  return effectiveTo
+    ? `${formatDateShort(effectiveFrom)} – ${formatDateShort(effectiveTo)}`
+    : formatDateShort(effectiveFrom);
+}
+
 /** A change's local start and end as form values: a date and an "HH:MM" time. */
 export function localFormValues(instantISO: string): { date: string; time: string } {
   const parts = stationLocalParts(instantISO);

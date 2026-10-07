@@ -15,6 +15,7 @@ import { cardForVersion, snapshotMatchesCard } from "@/lib/bookings/version-card
 import { snapshotRateCard } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { PrintButton } from "./print-button";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 type Params = { version?: string; error?: string };
 
@@ -116,9 +117,7 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
 
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline gap-3">
-              <h3 className="font-serif text-[17px] font-bold text-ink-900">
-                WUWF production rate card — {version.label}
-              </h3>
+              <SectionHeading as="h3">WUWF production rate card — {version.label}</SectionHeading>
               <Badge variant={provisional ? "warning" : "success"}>
                 {provisional ? "Provisional" : "Adopted"}
               </Badge>

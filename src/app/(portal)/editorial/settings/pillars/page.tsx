@@ -1,11 +1,11 @@
-import Link from "next/link";
 import { listPillars } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import type { PillarRow } from "@/lib/editorial/data";
@@ -66,8 +66,7 @@ export default async function PillarsSettingsPage({
         >
           {error && <Alert className="mb-4">{error}</Alert>}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[280px_minmax(0,1fr)]">
-            <div>
-              <Label htmlFor="name">Name</Label>
+            <Field label="Name" htmlFor="name">
               <Input
                 id="name"
                 name="name"
@@ -76,17 +75,19 @@ export default async function PillarsSettingsPage({
                 placeholder="e.g. Growth and Resilience"
                 autoFocus
               />
-            </div>
-            <div>
-              <Label htmlFor="guiding_question">Guiding question</Label>
+            </Field>
+            <Field
+              label="Guiding question"
+              htmlFor="guiding_question"
+              hint="Shown to writers on the pitch form."
+            >
               <Textarea
                 id="guiding_question"
                 name="guiding_question"
                 rows={2}
                 placeholder="What enduring tension does this pillar organize coverage around?"
               />
-              <FieldHint>Shown to writers on the pitch form.</FieldHint>
-            </div>
+            </Field>
           </div>
         </InlineCreateCard>
       )}
@@ -94,7 +95,7 @@ export default async function PillarsSettingsPage({
       <div>
         <h2 className="mb-2.5 text-sm font-bold text-ink-900">Coverage pillars</h2>
         <TableFrame>
-          <Table className="min-w-[640px]">
+          <Table stack className="md:min-w-[640px]">
             <thead>
               <HeaderRow>
                 <Th>Pillar</Th>
@@ -143,7 +144,7 @@ function PillarRowItem({
 }) {
   return (
     <Row className={pillar.active ? undefined : "bg-panel-50/40"}>
-      <Cell>
+      <Cell stack="title">
         <div className="font-semibold text-ink-900">{pillar.name}</div>
         {pillar.guiding_question && (
           <div className="mt-0.5 text-xs leading-snug text-ink-500">{pillar.guiding_question}</div>
@@ -155,7 +156,7 @@ function PillarRowItem({
         )}
       </Cell>
       {view === "active" && (
-        <Cell>
+        <Cell stack="full">
           <ReorderButtons
             action={movePillar}
             idName="pillar_id"
@@ -166,33 +167,27 @@ function PillarRowItem({
           />
         </Cell>
       )}
-      <Cell>
+      <Cell stack="full">
         <div className="flex items-center gap-3 whitespace-nowrap">
-          <Link
+          <TextLink
             href={`/editorial/settings/pillars/${pillar.id}/edit`}
-            className="text-xs font-semibold text-brand-link hover:underline"
+            className="px-0 text-xs font-semibold"
           >
             Edit
-          </Link>
+          </TextLink>
           <form action={togglePillarActive}>
             <input type="hidden" name="pillar_id" value={pillar.id} />
             <input type="hidden" name="next_active" value={(!pillar.active).toString()} />
-            <button
-              type="submit"
-              className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-            >
+            <Button type="submit" variant="link">
               {pillar.active ? "Retire" : "Restore"}
-            </button>
+            </Button>
           </form>
           {!pillar.active && (
             <form action={deletePillar}>
               <input type="hidden" name="pillar_id" value={pillar.id} />
-              <button
-                type="submit"
-                className="rounded text-xs font-semibold text-danger hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-              >
+              <Button type="submit" variant="danger-link">
                 Delete
-              </button>
+              </Button>
             </form>
           )}
         </div>

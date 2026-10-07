@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -8,6 +7,7 @@ import {
   ASSET_FUNDING_LABEL,
 } from "@/lib/bookings/labels";
 import type { BkAssetRow, BkPoolRow } from "@/lib/bookings/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 const FUNDINGS = ["station", "foundation_gift", "grant_restricted", "uwf"] as const;
 const BURDENS = ["low", "medium", "high"] as const;
@@ -202,9 +202,7 @@ export function AssetForm({
       </div>
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>
-        <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

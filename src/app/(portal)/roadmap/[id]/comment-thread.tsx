@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { RichText } from "@/components/ui/rich-text";
 import { RichTextField } from "@/components/ui/rich-text-field";
 import type { PostComment } from "@/lib/roadmap/queries";
@@ -28,18 +31,18 @@ export function CommentThread({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-[15px] font-bold text-ink-900">
+      <SectionHeading>
         {comments.length === 0
           ? "Discussion"
           : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
-      </h2>
+      </SectionHeading>
 
       {comments.map((comment) => {
         const mine = comment.author_id === viewerId;
         const editing = editingCommentId === comment.id && mine;
 
         return (
-          <article key={comment.id} className="rounded border border-line bg-white p-4">
+          <Card key={comment.id} className="p-4">
             <div className="mb-2 flex flex-wrap items-baseline gap-2 text-[11px] text-ink-400">
               <span className="font-semibold text-ink-700">{comment.authorName}</span>
               <span>{when(comment.created_at)}</span>
@@ -58,11 +61,7 @@ export function CommentThread({
                 />
                 <div className="flex gap-2">
                   <Button type="submit">Save comment</Button>
-                  <a href={`/roadmap/${postId}`}>
-                    <Button type="button" variant="secondary">
-                      Cancel
-                    </Button>
-                  </a>
+                  <SecondaryLink href={`/roadmap/${postId}`}>Cancel</SecondaryLink>
                 </div>
               </form>
             ) : (
@@ -71,25 +70,25 @@ export function CommentThread({
                 {(mine || isCurator) && (
                   <div className="mt-2 flex flex-wrap gap-2 border-t border-line pt-2">
                     {mine && (
-                      <a
+                      <TextLink
                         href={`/roadmap/${postId}?comment=${comment.id}`}
-                        className="text-xs font-semibold text-brand-link"
+                        className="px-0 text-xs font-semibold"
                       >
                         Edit
-                      </a>
+                      </TextLink>
                     )}
                     <form action={deleteComment}>
                       <input type="hidden" name="post_id" value={postId} />
                       <input type="hidden" name="comment_id" value={comment.id} />
-                      <button type="submit" className="text-xs font-semibold text-danger">
+                      <Button type="submit" variant="danger-link">
                         Delete
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 )}
               </>
             )}
-          </article>
+          </Card>
         );
       })}
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEditorialAccess } from "@/lib/editorial/access";
 import {
@@ -18,7 +17,9 @@ import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { closeScoring, concludeMeeting, updateMeetingNotes } from "../actions";
 import { ScoringSection } from "./scoring-section";
 import { AgendaSection, type AgendaItem } from "./agenda-section";
@@ -103,37 +104,36 @@ export default async function MeetingPage({
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-4">
-        <Link
-          href="/editorial/meetings"
-          className="text-xs font-semibold text-brand-link hover:underline"
-        >
-          ← Back to meetings
-        </Link>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="font-serif text-[19px] font-bold text-ink-900">
-          {formatDate(meeting.meeting_date)}
-        </h2>
-        <MeetingStatusBadge status={meeting.status} />
-        {rubricProfile && <Badge variant="neutral">{rubricProfile.name}</Badge>}
-        <div className="flex-1" />
-        {isEditor && meeting.status === "open" && slate.length > 0 && (
-          <form action={closeScoring}>
-            <input type="hidden" name="meeting_id" value={meeting.id} />
-            <Button type="submit">Close scoring &amp; build agenda</Button>
-          </form>
-        )}
-        {isEditor && meeting.status === "agenda" && (
-          <form action={concludeMeeting}>
-            <input type="hidden" name="meeting_id" value={meeting.id} />
-            <Button type="submit">
-              Conclude meeting{undecidedCount > 0 ? ` (defers ${undecidedCount} undecided)` : ""}
-            </Button>
-          </form>
-        )}
-      </div>
+      <PageHeader
+        className="mb-4"
+        back={{ href: "/editorial/meetings", label: "Back to meetings" }}
+        title={formatDate(meeting.meeting_date)}
+        badge={
+          <>
+            <MeetingStatusBadge status={meeting.status} />
+            {rubricProfile && <Badge variant="neutral">{rubricProfile.name}</Badge>}
+          </>
+        }
+        actions={
+          <>
+            {isEditor && meeting.status === "open" && slate.length > 0 && (
+              <form action={closeScoring}>
+                <input type="hidden" name="meeting_id" value={meeting.id} />
+                <Button type="submit">Close scoring &amp; build agenda</Button>
+              </form>
+            )}
+            {isEditor && meeting.status === "agenda" && (
+              <form action={concludeMeeting}>
+                <input type="hidden" name="meeting_id" value={meeting.id} />
+                <Button type="submit">
+                  Conclude meeting
+                  {undecidedCount > 0 ? ` (defers ${undecidedCount} undecided)` : ""}
+                </Button>
+              </form>
+            )}
+          </>
+        }
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
@@ -202,9 +202,9 @@ export default async function MeetingPage({
             </Button>
           </form>
         ) : meeting.notes ? (
-          <p className="whitespace-pre-wrap rounded border border-line px-4 py-3 text-sm leading-relaxed text-ink-700">
+          <Card className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-ink-700">
             {meeting.notes}
-          </p>
+          </Card>
         ) : (
           <p className="text-sm text-ink-400">No notes.</p>
         )}

@@ -1,9 +1,11 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { PageHeader } from "@/components/ui/page-header";
+import { CardHeader } from "@/components/ui/section-heading";
 import { ChoiceCards, type ChoiceCardOption } from "@/components/ui/choice-cards";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -19,13 +21,8 @@ import { describeScheduleLine } from "@/lib/underwriting/demand";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
 import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
-import { describeMakegoodState, type MakegoodDisplayState } from "@/lib/underwriting/makegoods";
-import {
-  EXCEPTION_FILTER_LABEL,
-  exceptionStep,
-  RESOLUTION_ACTION_LABEL,
-  type ExceptionStep,
-} from "@/lib/underwriting/exception-filters";
+import { describeMakegoodState } from "@/lib/underwriting/makegoods";
+import { exceptionStep, RESOLUTION_ACTION_LABEL } from "@/lib/underwriting/exception-filters";
 import { recordMakegoodApproval, resolveException } from "../../exception-actions";
 import {
   cancelMakegoodAction,
@@ -33,21 +30,9 @@ import {
   scheduleMakegoodAction,
 } from "../../makegood-actions";
 import type { UwResolutionAction } from "@/lib/database.types";
-
-const STEP_VARIANT: Record<ExceptionStep, BadgeVariant> = {
-  decision: "warning",
-  agency: "accent",
-  awaiting_break: "warning",
-  makegood_scheduled: "accent",
-  resolved: "success",
-};
-
-const MAKEGOOD_STATE: Record<MakegoodDisplayState, { label: string; variant: BadgeVariant }> = {
-  awaiting_slot: { label: "Awaiting a break", variant: "warning" },
-  slot_scheduled: { label: "Scheduled", variant: "accent" },
-  aired: { label: "Aired", variant: "success" },
-  cancelled: { label: "Cancelled", variant: "muted" },
-};
+import { TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EXCEPTION_STEP_STATUS, MAKEGOOD_STATUS } from "@/lib/underwriting/status";
 
 const COMMON_DECISIONS: UwResolutionAction[] = [
   "schedule_makegood",
@@ -125,60 +110,56 @@ export default async function ExceptionDetailPage({
 
   return (
     <div className="flex max-w-4xl flex-col gap-5">
-      <div>
-        <Link href="/underwriting/exceptions" className="text-xs font-semibold text-brand-link">
-          ← Exceptions
-        </Link>
-        <div className="mt-2 mb-1 flex flex-wrap items-center gap-2.5">
-          <h2 className="font-serif text-xl font-bold text-ink-900">
-            {exception.contract.underwriter.name}
-          </h2>
-          <Badge variant={STEP_VARIANT[step]}>
-            {step === "decision" ? "Needs a decision" : EXCEPTION_FILTER_LABEL[step]}
-          </Badge>
-        </div>
-        <p className="text-xs text-ink-500">
-          <Link
-            href={`/underwriting/contracts/${exception.contract.id}`}
-            className="font-semibold text-brand-link"
-          >
-            {orderNumberLabel(exception.contract.contract_identifier)}
-          </Link>{" "}
-          · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
-        </p>
-      </div>
+      <PageHeader
+        back={{ href: "/underwriting/exceptions", label: "Exceptions" }}
+        title={exception.contract.underwriter.name}
+        badge={<StatusBadge map={EXCEPTION_STEP_STATUS} value={step} />}
+        description={
+          <>
+            <TextLink href={`/underwriting/contracts/${exception.contract.id}`}>
+              {orderNumberLabel(exception.contract.contract_identifier)}
+            </TextLink>{" "}
+            · {exception.scheduleLine.label || describeScheduleLine(exception.scheduleLine)}
+          </>
+        }
+      />
 
       <Steps steps={steps} current={current} label="Where this exception stands" />
 
       {error && <Alert>{error}</Alert>}
 
-      <section className="rounded border border-line">
-        <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-          What happened
-        </h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-5 text-sm sm:grid-cols-3">
-          <Fact label="Scheduled">{formatPlacementTime(exception.original_scheduled_at)}</Fact>
-          <Fact label="Host recorded">
-            {exception.host_action.replace(/_/g, " ")}
-            {exception.host_reason ? ` · ${exception.host_reason.replace(/_/g, " ")}` : ""}
-          </Fact>
-          {exception.placement && (
-            <Fact label="Break">
-              {exception.placement.program_name}
-              {exception.placement.break_label ? ` · ${exception.placement.break_label}` : ""}
-            </Fact>
-          )}
-          {exception.broadcastEvent?.notes && (
-            <div className="col-span-full">
-              <dt className="text-xs text-ink-400">Host notes</dt>
-              <dd className="text-ink-900">{exception.broadcastEvent.notes}</dd>
-            </div>
-          )}
-        </dl>
-      </section>
+      <Card>
+        <CardHeader>What happened</CardHeader>
+        <DescriptionList
+          columns={3}
+          className="p-5"
+          items={[
+            { label: "Scheduled", value: formatPlacementTime(exception.original_scheduled_at) },
+            {
+              label: "Host recorded",
+              value: `${exception.host_action.replace(/_/g, " ")}${
+                exception.host_reason ? ` · ${exception.host_reason.replace(/_/g, " ")}` : ""
+              }`,
+            },
+            ...(exception.placement
+              ? [
+                  {
+                    label: "Break",
+                    value: `${exception.placement.program_name}${
+                      exception.placement.break_label ? ` · ${exception.placement.break_label}` : ""
+                    }`,
+                  },
+                ]
+              : []),
+            ...(exception.broadcastEvent?.notes
+              ? [{ label: "Host notes", value: exception.broadcastEvent.notes }]
+              : []),
+          ]}
+        />
+      </Card>
 
       {needsAgency && (
-        <section id="agency" className="scroll-mt-4 rounded border border-line">
+        <Card id="agency" className="scroll-mt-4">
           <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Agency&apos;s answer
           </h3>
@@ -216,10 +197,10 @@ export default async function ExceptionDetailPage({
               </Button>
             </div>
           </form>
-        </section>
+        </Card>
       )}
 
-      <section id="makegood" className="scroll-mt-4 rounded border border-line">
+      <Card id="makegood" className="scroll-mt-4">
         <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           Makegood
         </h3>
@@ -261,9 +242,9 @@ export default async function ExceptionDetailPage({
         {makegoods.length === 0 && !open && (
           <p className="px-5 py-4 text-sm text-ink-500">No makegood was needed.</p>
         )}
-      </section>
+      </Card>
 
-      <section id="resolve" className="scroll-mt-4 rounded border border-line">
+      <Card id="resolve" className="scroll-mt-4">
         <h3 className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           {open ? "Decide" : "Decision"}
         </h3>
@@ -357,16 +338,7 @@ export default async function ExceptionDetailPage({
             )}
           </div>
         </form>
-      </section>
-    </div>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-400">{label}</dt>
-      <dd className="text-ink-900">{children}</dd>
+      </Card>
     </div>
   );
 }
@@ -385,14 +357,13 @@ function MakegoodItem({
   linkedCopy: UwCopyRow[];
 }) {
   const state = describeMakegoodState(makegood);
-  const shown = MAKEGOOD_STATE[state];
   const awaiting = state === "awaiting_slot";
   const blockedByAgency = approval === "pending" || approval === "declined";
 
   return (
     <li className="flex flex-col gap-3 px-5 py-4 text-sm">
       <div className="flex flex-wrap items-center gap-2.5">
-        <Badge variant={shown.variant}>{shown.label}</Badge>
+        <StatusBadge map={MAKEGOOD_STATUS} value={state} />
         {makegood.placement ? (
           <span className="text-ink-700">
             {makegood.placement.program_name} —{" "}
@@ -479,12 +450,7 @@ async function PickBreak({
     return (
       <p className="mt-3 text-xs text-ink-500">
         Link copy to{" "}
-        <Link
-          href={`/underwriting/contracts/${contractId}?tab=copy`}
-          className="font-semibold text-brand-link"
-        >
-          this contract
-        </Link>{" "}
+        <TextLink href={`/underwriting/contracts/${contractId}?tab=copy`}>this contract</TextLink>{" "}
         before scheduling a makegood.
       </p>
     );

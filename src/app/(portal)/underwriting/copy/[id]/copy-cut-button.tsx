@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 /** Copies a DAD cut number to the clipboard, so it can be pasted into DAD when recording. */
 export function CopyCutButton({ cut }: { cut: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
+      size="sm"
       aria-label={`Copy cut ${cut}`}
       onClick={async () => {
         try {
@@ -18,7 +21,6 @@ export function CopyCutButton({ cut }: { cut: string }) {
           setCopied(false);
         }
       }}
-      className="inline-flex h-9 items-center gap-1.5 rounded border border-line bg-white px-3 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
     >
       <svg
         width="14"
@@ -35,6 +37,6 @@ export function CopyCutButton({ cut }: { cut: string }) {
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
       </svg>
       {copied ? "Copied" : "Copy"}
-    </button>
+    </Button>
   );
 }

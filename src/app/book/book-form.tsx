@@ -3,7 +3,9 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import {
   AIRTIME_LENGTH_OPTIONS,
@@ -54,7 +56,7 @@ export function BookForm({
   if (state.status === "submitted") {
     return (
       <div>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">Request received</h1>
+        <PageHeader size="public" title="Request received" className="mb-3" />
         <p className="text-[15px] leading-relaxed text-ink-700">{state.confirmationCopy}</p>
       </div>
     );
@@ -84,14 +86,16 @@ export function BookForm({
 
   return (
     <div>
-      <h1 className="mb-2 font-serif text-[20px] font-bold text-ink-900">{BOOK_PAGE_TITLE}</h1>
+      <PageHeader size="public" title={BOOK_PAGE_TITLE} className="mb-2" />
 
-      <div aria-hidden="true" className="mb-1 h-1 w-full overflow-hidden rounded-full bg-panel-100">
-        <div
-          className="h-full rounded-full bg-brand-primary transition-[width] duration-300 ease-out"
-          style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }}
-        />
-      </div>
+      <ProgressBar
+        size="sm"
+        label="Form progress"
+        done={currentIndex + 1}
+        total={steps.length}
+        valueText={`Step ${currentIndex + 1} of ${steps.length}`}
+        className="mb-1"
+      />
       <p className="mb-5 text-xs font-semibold uppercase tracking-wide text-ink-400">
         Step {currentIndex + 1} of {steps.length} — {INTAKE_STEP_TITLE[current]}
       </p>
@@ -135,7 +139,7 @@ export function BookForm({
                 autoComplete="email"
               />
             </Field>
-            <Field label="Phone" htmlFor="contact_phone" optional>
+            <Field label="Phone (optional)" htmlFor="contact_phone">
               <Input id="contact_phone" name="contact_phone" type="tel" autoComplete="tel" />
             </Field>
           </div>
@@ -206,10 +210,7 @@ export function BookForm({
                 Which services? (choose any that apply)
               </legend>
               {offeredPackages.map((name) => (
-                <label key={name} className="flex items-center gap-2 text-sm text-ink-800">
-                  <input type="checkbox" name="packages" value={name} />
-                  {name}
-                </label>
+                <CheckboxField key={name} name="packages" value={name} label={name} />
               ))}
             </fieldset>
           )}
@@ -235,17 +236,17 @@ export function BookForm({
           className={stepClass("when")}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Event or recording starts" htmlFor="event_starts_on" optional>
+            <Field label="Event or recording starts (optional)" htmlFor="event_starts_on">
               <Input id="event_starts_on" name="event_starts_on" type="date" />
             </Field>
-            <Field label="Ends" htmlFor="event_ends_on" optional>
+            <Field label="Ends (optional)" htmlFor="event_ends_on">
               <Input id="event_ends_on" name="event_ends_on" type="date" />
             </Field>
           </div>
-          <Field label="When you need the finished work" htmlFor="deliverables_due_on" optional>
+          <Field label="When you need the finished work (optional)" htmlFor="deliverables_due_on">
             <Input id="deliverables_due_on" name="deliverables_due_on" type="date" />
           </Field>
-          <Field label="Location" htmlFor="location" optional>
+          <Field label="Location (optional)" htmlFor="location">
             <Input
               id="location"
               name="location"
@@ -266,10 +267,10 @@ export function BookForm({
           className={stepClass("airtime")}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Airings a week" htmlFor="airings_per_week" optional>
+            <Field label="Airings a week (optional)" htmlFor="airings_per_week">
               <Input id="airings_per_week" name="airings_per_week" type="number" min="1" max="99" />
             </Field>
-            <Field label="Length of each airing" htmlFor="seconds" optional>
+            <Field label="Length of each airing (optional)" htmlFor="seconds">
               <Select id="seconds" name="seconds" defaultValue="">
                 <option value="">Not sure yet</option>
                 {AIRTIME_LENGTH_OPTIONS.map((option) => (
@@ -281,10 +282,10 @@ export function BookForm({
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="First airing" htmlFor="airtime_starts_on" optional>
+            <Field label="First airing (optional)" htmlFor="airtime_starts_on">
               <Input id="airtime_starts_on" name="airtime_starts_on" type="date" />
             </Field>
-            <Field label="Last airing" htmlFor="airtime_ends_on" optional>
+            <Field label="Last airing (optional)" htmlFor="airtime_ends_on">
               <Input id="airtime_ends_on" name="airtime_ends_on" type="date" />
             </Field>
           </div>
@@ -322,28 +323,6 @@ export function BookForm({
           </Button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  optional,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  optional?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label htmlFor={htmlFor}>
-        {label}
-        {optional ? " (optional)" : ""}
-      </Label>
-      {children}
     </div>
   );
 }

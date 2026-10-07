@@ -1,18 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bookings/badges";
 import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import { INTAKE_PATH, REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
 import {
-  DISPOSITION_BADGE,
-  DISPOSITION_LABEL,
+  DISPOSITION_STATUS,
   REQUESTED_LABEL,
   STAGES,
   STAGE_LABEL,
@@ -26,6 +24,9 @@ import {
 } from "@/lib/bookings/queries";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import { formatDateShort } from "@/lib/log/program-status";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const VIEWS: readonly ProjectListView[] = ["open", ...STAGES, "closed"];
 
@@ -58,7 +59,7 @@ export default async function RequestsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Requests</h2>
+      <SectionHeading>Requests</SectionHeading>
       <ListToolbar
         search={{
           placeholder: "Search by title",
@@ -101,15 +102,12 @@ export default async function RequestsPage({
       </ListToolbar>
 
       {rows.length === 0 ? (
-        <div className="rounded border border-dashed border-line bg-white px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-ink-900">
-            {q ? "No requests match." : view === "open" ? "No open requests." : "Nothing here."}
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-            A request arrives from a partner or is entered by production staff, gets an estimate,
-            and is booked once the partner approves.
-          </p>
-        </div>
+        <EmptyState
+          title={q ? "No requests match." : view === "open" ? "No open requests." : "Nothing here."}
+        >
+          A request arrives from a partner or is entered by production staff, gets an estimate, and
+          is booked once the partner approves.
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -138,12 +136,7 @@ export default async function RequestsPage({
                 return (
                   <Row key={project.id}>
                     <Cell stack="title">
-                      <Link
-                        href={requestHref(project.id)}
-                        className="font-semibold text-brand-link hover:underline"
-                      >
-                        {project.title}
-                      </Link>
+                      <TextLink href={requestHref(project.id)}>{project.title}</TextLink>
                       <span className="block text-xs text-ink-500">
                         {REQUESTED_LABEL[project.requested]}
                       </span>
@@ -173,9 +166,7 @@ export default async function RequestsPage({
                     </Cell>
                     <Cell stack="aside">
                       {project.disposition ? (
-                        <Badge variant={DISPOSITION_BADGE[project.disposition]}>
-                          {DISPOSITION_LABEL[project.disposition]}
-                        </Badge>
+                        <StatusBadge map={DISPOSITION_STATUS} value={project.disposition} />
                       ) : (
                         <Badge variant={estimate.kind === "expired" ? "warning" : "accent"}>
                           {estimate.kind === "expired"

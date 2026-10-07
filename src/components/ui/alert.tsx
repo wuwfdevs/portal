@@ -22,21 +22,26 @@ export function Alert({
   variant = "danger",
   children,
   className,
+  action,
 }: {
   variant?: AlertVariant;
   children: ReactNode;
   className?: string;
+  /** A control that sits beside the message (a "Fix it" link or button). */
+  action?: ReactNode;
 }) {
   return (
     <div
       role={variant === "danger" ? "alert" : undefined}
       className={cn(
         "rounded border px-3.5 py-2.5 text-xs leading-relaxed",
+        !!action && "flex flex-wrap items-center justify-between gap-3",
         VARIANT_CLASSES[variant],
         className,
       )}
     >
-      {children}
+      {action ? <div className="min-w-0 flex-1">{children}</div> : children}
+      {action}
     </div>
   );
 }

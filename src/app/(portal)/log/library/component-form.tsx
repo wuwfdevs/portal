@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { CheckboxField, Field, Input, Select } from "@/components/ui/input";
+import { TextLink } from "@/components/ui/primary-link";
 import { COMPONENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { LogContentComponentRow } from "@/lib/log/queries";
 
@@ -30,8 +30,7 @@ export function ComponentForm({
       <input type="hidden" name="content_item_id" value={contentItemId} />
       {component && <input type="hidden" name="component_id" value={component.id} />}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div>
-          <Label htmlFor={`component_type-${idSuffix}`}>Type</Label>
+        <Field label="Type" htmlFor={`component_type-${idSuffix}`}>
           <Select
             id={`component_type-${idSuffix}`}
             name="component_type"
@@ -43,9 +42,8 @@ export function ComponentForm({
               </option>
             ))}
           </Select>
-        </div>
-        <div>
-          <Label htmlFor={`sequence-${idSuffix}`}>Sequence</Label>
+        </Field>
+        <Field label="Sequence" htmlFor={`sequence-${idSuffix}`}>
           <Input
             id={`sequence-${idSuffix}`}
             name="sequence"
@@ -54,9 +52,8 @@ export function ComponentForm({
             min={1}
             defaultValue={component?.sequence ?? defaultSequence}
           />
-        </div>
-        <div>
-          <Label htmlFor={`duration_seconds-${idSuffix}`}>Duration (s)</Label>
+        </Field>
+        <Field label="Duration (s)" htmlFor={`duration_seconds-${idSuffix}`}>
           <Input
             id={`duration_seconds-${idSuffix}`}
             name="duration_seconds"
@@ -65,27 +62,23 @@ export function ComponentForm({
             min={1}
             defaultValue={component?.duration_seconds}
           />
-        </div>
+        </Field>
       </div>
-      <div>
-        <Label htmlFor={`component_script-${idSuffix}`}>Script</Label>
-        <Input id={`component_script-${idSuffix}`} name="script" defaultValue={component?.script ?? ""} />
-      </div>
-      <label className="flex items-center gap-2 text-sm text-ink-700">
-        <input
-          type="checkbox"
-          name="required"
-          defaultChecked={component ? component.required : true}
-          className="h-4 w-4"
+      <Field label="Script" htmlFor={`component_script-${idSuffix}`}>
+        <Input
+          id={`component_script-${idSuffix}`}
+          name="script"
+          defaultValue={component?.script ?? ""}
         />
-        Required (counts toward total occupied time)
-      </label>
+      </Field>
+      <CheckboxField
+        name="required"
+        defaultChecked={component ? component.required : true}
+        label="Required (counts toward total occupied time)"
+        className="items-center"
+      />
       <div className="flex items-center justify-end gap-3">
-        {cancelHref && (
-          <Link href={cancelHref} className="text-xs font-semibold text-ink-500 hover:underline">
-            Cancel
-          </Link>
-        )}
+        {cancelHref && <TextLink href={cancelHref}>Cancel</TextLink>}
         <Button type="submit">{submitLabel}</Button>
       </div>
     </form>

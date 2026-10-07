@@ -1,10 +1,10 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { AGREEMENT_LABEL_MAX } from "@/lib/bookings/agreements";
 import type { BkAgreementRow } from "@/lib/bookings/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The one agreement form, shared by `/agreements/new` and `/agreements/[id]/edit`
@@ -224,9 +224,7 @@ export function AgreementForm({
 
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

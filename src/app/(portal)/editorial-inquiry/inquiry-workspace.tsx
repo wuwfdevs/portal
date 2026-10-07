@@ -396,9 +396,7 @@ export function InquiryWorkspace({
     const result = await applyPromotion(message.id, targetId);
     setApplyingPromotionId(null);
     if (result.ok) {
-      setQuestions((qs) =>
-        qs.map((q) => (q.id === targetId ? { ...q, status: "promoted" } : q)),
-      );
+      setQuestions((qs) => qs.map((q) => (q.id === targetId ? { ...q, status: "promoted" } : q)));
       setChatThreads((t) => ({
         ...t,
         [message.questionId]: (t[message.questionId] ?? []).map((m) =>

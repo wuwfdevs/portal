@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
   listIndustryCategories,
@@ -8,6 +7,7 @@ import {
   listUnderwriters,
   type UnderwriterContractCounts,
 } from "@/lib/underwriting/queries";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const FILTERS = ["all", "active", "none"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -92,12 +92,7 @@ export default async function UnderwritersPage({
           },
         ]}
       >
-        <Link
-          href="/underwriting/setup/industries"
-          className="px-1 text-sm font-bold text-brand-link hover:underline"
-        >
-          Industries
-        </Link>
+        <TextLink href="/underwriting/setup/industries">Industries</TextLink>
         <PrimaryLink href="/underwriting/underwriters/new">
           <span>
             + New<span className="max-sm:sr-only"> underwriter</span>
@@ -106,9 +101,9 @@ export default async function UnderwritersPage({
       </ListToolbar>
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {underwriters.length === 0 ? "No underwriters yet." : "No underwriters match."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -124,12 +119,9 @@ export default async function UnderwritersPage({
               {shown.map((underwriter) => (
                 <Row key={underwriter.id}>
                   <Cell stack="title">
-                    <Link
-                      href={`/underwriting/underwriters/${underwriter.id}`}
-                      className="font-bold text-brand-link"
-                    >
+                    <TextLink href={`/underwriting/underwriters/${underwriter.id}`}>
                       {underwriter.name}
-                    </Link>
+                    </TextLink>
                   </Cell>
                   <Cell label="Industry" className="text-ink-500">
                     {underwriter.category_id

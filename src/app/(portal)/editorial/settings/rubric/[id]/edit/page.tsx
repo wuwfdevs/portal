@@ -1,11 +1,13 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead, listRubricProfiles } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Field, FieldHint, Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { updateCriterion } from "../../../actions";
 
 export default async function EditCriterionPage({
@@ -32,24 +34,20 @@ export default async function EditCriterionPage({
 
   return (
     <div className="max-w-lg">
-      <div className="mb-4">
-        <Link
-          href="/editorial/settings/rubric"
-          className="text-xs font-semibold text-brand-link hover:underline"
-        >
-          ← Back to rubric
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4">
-          <div className="font-serif text-[17px] font-bold text-ink-900">{criterion.name}</div>
-          <div className="mt-1.5 flex items-center gap-2">
+      <PageHeader
+        className="mb-4"
+        back={{ href: "/editorial/settings/rubric", label: "Back to rubric" }}
+        title={criterion.name}
+        badge={
+          <>
             <Badge variant={criterion.criterion_type === "modifier" ? "danger" : "neutral"}>
               {criterion.criterion_type === "modifier" ? "Modifier" : "Core"}
             </Badge>
             {profile && <span className="text-xs text-ink-400">{profile.name}</span>}
-          </div>
-        </div>
+          </>
+        }
+      />
+      <Card>
         <form action={updateCriterion} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="criterion_id" value={criterion.id} />
           {error && <Alert>{error}</Alert>}
@@ -60,12 +58,10 @@ export default async function EditCriterionPage({
             creation.
           </Alert>
 
-          <div>
-            <Label htmlFor="name">Name</Label>
+          <Field label="Name" htmlFor="name">
             <Input id="name" name="name" defaultValue={criterion.name} required maxLength={80} />
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
+          </Field>
+          <Field label="Description" htmlFor="description">
             <Input
               id="description"
               name="description"
@@ -73,20 +69,25 @@ export default async function EditCriterionPage({
               required
               maxLength={240}
             />
-          </div>
-          <div>
-            <Label htmlFor="guidance">Guidance for reviewers</Label>
+          </Field>
+          <Field
+            label="Guidance for reviewers"
+            htmlFor="guidance"
+            hint="Shown inline while scoring."
+          >
             <Textarea
               id="guidance"
               name="guidance"
               rows={3}
               defaultValue={criterion.guidance ?? ""}
             />
-            <FieldHint>Shown inline while scoring.</FieldHint>
-          </div>
+          </Field>
           {criterion.criterion_type === "core" && (
-            <div>
-              <Label htmlFor="weight">Weight</Label>
+            <Field
+              label="Weight"
+              htmlFor="weight"
+              hint="Weight changes apply to future scoring only; existing scores keep the weight they were given under."
+            >
               <Input
                 id="weight"
                 name="weight"
@@ -97,15 +98,10 @@ export default async function EditCriterionPage({
                 defaultValue={criterion.weight}
                 className="w-24"
               />
-              <FieldHint>
-                Weight changes apply to future scoring only; existing scores keep the weight they
-                were given under.
-              </FieldHint>
-            </div>
+            </Field>
           )}
           <div className="flex gap-3">
-            <div>
-              <Label htmlFor="scale_min">Scale override — low</Label>
+            <Field label="Scale override — low" htmlFor="scale_min">
               <Input
                 id="scale_min"
                 name="scale_min"
@@ -113,9 +109,8 @@ export default async function EditCriterionPage({
                 defaultValue={criterion.scale_min ?? ""}
                 className="w-24"
               />
-            </div>
-            <div>
-              <Label htmlFor="scale_max">Scale override — high</Label>
+            </Field>
+            <Field label="Scale override — high" htmlFor="scale_max">
               <Input
                 id="scale_max"
                 name="scale_max"
@@ -123,26 +118,22 @@ export default async function EditCriterionPage({
                 defaultValue={criterion.scale_max ?? ""}
                 className="w-24"
               />
-            </div>
+            </Field>
           </div>
           <FieldHint>Leave both blank to use the tool-wide scale.</FieldHint>
-          <div>
-            <Label htmlFor="anchors">Anchored scale descriptions</Label>
+          <Field
+            label="Anchored scale descriptions"
+            htmlFor="anchors"
+            hint={'One per line, formatted as "score: description". Optional.'}
+          >
             <Textarea id="anchors" name="anchors" rows={6} defaultValue={anchorsText} />
-            <FieldHint>
-              One per line, formatted as &quot;score: description&quot;. Optional.
-            </FieldHint>
-          </div>
+          </Field>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/editorial/settings/rubric">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/editorial/settings/rubric">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

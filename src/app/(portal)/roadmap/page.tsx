@@ -1,8 +1,10 @@
 import { TabNav } from "@/components/ui/tab-nav";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/input";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { listPosts, listTargetTools } from "@/lib/roadmap/queries";
 import {
@@ -13,7 +15,7 @@ import {
 } from "@/lib/roadmap/posts";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 import { PostRow } from "./post-row";
-import { RoadmapKanbanField } from "./kanban-board-field";
+import { RoadmapKanban } from "./kanban-board";
 
 const TABS = ["requests", "roadmap"] as const;
 type Tab = (typeof TABS)[number];
@@ -116,9 +118,9 @@ export default async function RoadmapPage({
               Apply
             </Button>
             {(status || kind || params.tool) && (
-              <Link href="/roadmap" className="pb-2.5 text-xs font-semibold text-brand-link">
+              <TextLink href="/roadmap" className="pb-2.5 text-xs font-semibold">
                 Clear
-              </Link>
+              </TextLink>
             )}
           </form>
 
@@ -141,7 +143,7 @@ export default async function RoadmapPage({
             Every request, grouped by where it stands. Drag a card between columns to change its
             status, or use its “Move to…” menu.
           </p>
-          <RoadmapKanbanField posts={posts} />
+          <RoadmapKanban posts={posts} />
         </div>
       ) : (
         <div className="flex flex-col gap-6">
@@ -151,14 +153,13 @@ export default async function RoadmapPage({
           </p>
           {groupForRoadmap(posts).map((column) => (
             <section key={column.status}>
-              <h2 className="mb-2.5 font-serif text-[15px] font-bold text-ink-900">
+              <SectionHeading className="mb-2.5" count={column.posts.length}>
                 {POST_STATUS_BADGE[column.status].label}
-                <span className="ml-2 text-xs font-normal text-ink-400">{column.posts.length}</span>
-              </h2>
+              </SectionHeading>
               {column.posts.length === 0 ? (
-                <p className="rounded border border-dashed border-line px-4 py-3 text-xs text-ink-400">
+                <EmptyState compact>
                   Nothing {POST_STATUS_BADGE[column.status].label.toLowerCase()} right now.
-                </p>
+                </EmptyState>
               ) : (
                 <div className="flex flex-col gap-2.5">
                   {column.posts.map((post) => (
@@ -195,13 +196,5 @@ function FilterSelect({
         {children}
       </Select>
     </label>
-  );
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-      {children}
-    </div>
   );
 }

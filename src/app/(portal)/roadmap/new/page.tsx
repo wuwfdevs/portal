@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Field, Input, Select } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { RichTextField } from "@/components/ui/rich-text-field";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { listTargetTools } from "@/lib/roadmap/queries";
@@ -24,20 +26,16 @@ export default async function NewRequestPage({
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-5">
-        <Link href="/roadmap" className="text-xs font-semibold text-brand-link">
-          ← Back to the roadmap
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4 font-serif text-[17px] font-bold text-ink-900">
-          New request
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: "/roadmap", label: "Back to the roadmap" }}
+        title="New request"
+      />
+      <Card>
         <form action={createPost} className="flex flex-col gap-4 p-5">
           {error && <Alert>{error}</Alert>}
 
-          <div>
-            <Label htmlFor="title">Title</Label>
+          <Field label="Title" htmlFor="title">
             <Input
               id="title"
               name="title"
@@ -45,10 +43,9 @@ export default async function NewRequestPage({
               maxLength={160}
               placeholder="One sentence: what should be different?"
             />
-          </div>
+          </Field>
 
-          <div>
-            <Label htmlFor="kind">Kind</Label>
+          <Field label="Kind" htmlFor="kind">
             <Select id="kind" name="kind" defaultValue="improvement">
               {KINDS.map((kind) => (
                 <option key={kind} value={kind}>
@@ -56,10 +53,9 @@ export default async function NewRequestPage({
                 </option>
               ))}
             </Select>
-          </div>
+          </Field>
 
-          <div>
-            <Label htmlFor="tool_id">What is it about?</Label>
+          <Field label="What is it about?" htmlFor="tool_id">
             <Select id="tool_id" name="tool_id" defaultValue="">
               <option value="">Nothing in particular / the portal itself</option>
               <optgroup label="Tools">
@@ -79,41 +75,34 @@ export default async function NewRequestPage({
                 </optgroup>
               )}
             </Select>
-          </div>
+          </Field>
 
-          <div>
-            <Label htmlFor="proposed_tool_name">Or, a tool that doesn&apos;t exist yet</Label>
+          <Field
+            label="Or, a tool that doesn't exist yet"
+            htmlFor="proposed_tool_name"
+            hint="Only used for a whole-new-tool request with nothing above to point at. An administrator can turn the name into a real proposal later, so other requests can gather under it."
+          >
             <Input
               id="proposed_tool_name"
               name="proposed_tool_name"
               placeholder="Newsletter Builder"
             />
-            <FieldHint>
-              Only used for a whole-new-tool request with nothing above to point at. An
-              administrator can turn the name into a real proposal later, so other requests can
-              gather under it.
-            </FieldHint>
-          </div>
+          </Field>
 
-          <div>
-            <Label htmlFor="body">Description</Label>
+          <Field
+            label="Description"
+            htmlFor="body"
+            hint="What you are trying to do, what gets in the way, and what would be good enough. A concrete example beats a general principle."
+          >
             <RichTextField name="body" ariaLabel="Request description" />
-            <FieldHint>
-              What you are trying to do, what gets in the way, and what would be good enough. A
-              concrete example beats a general principle.
-            </FieldHint>
-          </div>
+          </Field>
 
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/roadmap">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/roadmap">Cancel</SecondaryLink>
             <Button type="submit">File request</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { RichText } from "@/components/ui/rich-text";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { getPostDetail, listTargetTools } from "@/lib/roadmap/queries";
@@ -34,21 +37,20 @@ export default async function RoadmapPostPage({
   if (!post) notFound();
 
   const tools = isCurator ? await listTargetTools() : [];
-  const badge = POST_STATUS_BADGE[post.status];
   const mine = post.author_id === profile.id;
   const target = post.target?.name ?? post.proposedToolName;
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
       <div>
-        <Link href="/roadmap" className="text-xs font-semibold text-brand-link">
+        <TextLink href="/roadmap" className="px-0 text-xs font-semibold">
           ← Back to the roadmap
-        </Link>
+        </TextLink>
       </div>
 
       {error && <Alert>{error}</Alert>}
 
-      <article className="flex items-start gap-4 rounded border border-line bg-white p-5">
+      <Card className="flex items-start gap-4 p-5">
         <VoteButton
           postId={post.id}
           voteCount={post.voteCount}
@@ -56,11 +58,9 @@ export default async function RoadmapPostPage({
           returnTo={`/roadmap/${post.id}`}
         />
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[22px] font-bold leading-snug text-ink-900">
-            {post.title}
-          </h1>
+          <PageHeader title={post.title} />
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
-            <Badge variant={badge.variant}>{badge.label}</Badge>
+            <StatusBadge map={POST_STATUS_BADGE} value={post.status} />
             <span>{POST_KIND_LABEL[post.kind]}</span>
             {target && (
               <>
@@ -98,22 +98,19 @@ export default async function RoadmapPostPage({
 
           {mine && (
             <div className="mt-4 flex flex-wrap gap-3 border-t border-line pt-3">
-              <Link
-                href={`/roadmap/${post.id}/edit`}
-                className="text-xs font-semibold text-brand-link"
-              >
+              <TextLink href={`/roadmap/${post.id}/edit`} className="px-0 text-xs font-semibold">
                 Edit
-              </Link>
+              </TextLink>
               <form action={deletePost}>
                 <input type="hidden" name="post_id" value={post.id} />
-                <button type="submit" className="text-xs font-semibold text-danger">
+                <Button type="submit" variant="danger-link">
                   Delete
-                </button>
+                </Button>
               </form>
             </div>
           )}
         </div>
-      </article>
+      </Card>
 
       {isCurator && <CurationPanel post={post} tools={tools} isAdministrator={isAdministrator} />}
 

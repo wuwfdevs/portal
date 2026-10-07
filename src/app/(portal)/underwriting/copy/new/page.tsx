@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { FieldHint } from "@/components/ui/input";
 import { createCopy } from "../../copy-actions";
 import { CopyForm } from "../copy-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Standalone copy creation (docs/ui-patterns.md rule 2). Copy is more often created from a contract's own setup, which links it in the same step. */
 export default async function NewCopyPage({
@@ -13,10 +13,10 @@ export default async function NewCopyPage({
 
   return (
     <div>
-      <Link href="/underwriting/copy" className="text-xs font-semibold text-brand-link">
-        ← Back to copy library
-      </Link>
-      <h2 className="mt-2 font-serif text-xl font-bold text-ink-900">New copy</h2>
+      <PageHeader
+        back={{ href: "/underwriting/copy", label: "Back to copy library" }}
+        title="New copy"
+      />
       <div className="mb-5">
         <FieldHint>
           Not linked to a contract from here — copy is usually created from the contract&apos;s own

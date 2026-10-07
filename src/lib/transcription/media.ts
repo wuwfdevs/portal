@@ -125,27 +125,10 @@ export function buildClipsZipFilename(dateIso: string, projectTitle: string): st
   return `${dateIso.slice(0, 10)}_${slugify(projectTitle)}_clips.zip`;
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
+import { formatClockMs } from "@/lib/format";
+export { formatBytes } from "@/lib/format";
 
 /** mm:ss for under an hour, h:mm:ss beyond that. */
 export function formatDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return formatClockMs(durationMs);
 }

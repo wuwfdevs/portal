@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatMinutes, type AirtimeEnvelope } from "@/lib/bookings/airtime";
@@ -12,6 +11,7 @@ import {
   type MonthCapacity,
 } from "@/lib/bookings/scheduling";
 import type { BkTermPlanRow } from "@/lib/bookings/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The two envelopes (docs/bookings-design.md §8), side by side above the
@@ -53,12 +53,9 @@ export function CapacityPanel({
         </span>
         <span className="flex-1" />
         {canEdit && (
-          <Link
-            href={withQuery(PLAN_PATH, { plan: plan.id })}
-            className="text-xs font-bold text-brand-link hover:underline"
-          >
+          <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })} className="text-xs">
             Edit the term plan
-          </Link>
+          </TextLink>
         )}
       </div>
       {classes.length === 0 ? (

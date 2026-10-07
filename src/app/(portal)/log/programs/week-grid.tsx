@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { PrimaryLink, SecondaryLink } from "@/components/ui/primary-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatHourLabel, type WeekBand } from "@/lib/log/week-layout";
@@ -281,19 +281,19 @@ export function WeekGrid({
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {canEdit && (
-                  <Link
+                  <PrimaryLink
                     href={`/log/programs/${selectedBlock.programId}/schedule/${selectedBlock.entryId}/edit`}
-                    className="inline-flex h-9 items-center rounded bg-brand-link px-3.5 text-sm font-bold text-white hover:bg-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2"
+                    className="h-9 py-0"
                   >
                     Edit schedule
-                  </Link>
+                  </PrimaryLink>
                 )}
-                <Link
+                <SecondaryLink
                   href={`/log/programs/${selectedBlock.programId}`}
-                  className="inline-flex h-9 items-center rounded border border-brand-link px-3 text-sm font-bold text-brand-link hover:bg-brand-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2"
+                  className="h-9 py-0"
                 >
                   Open program
-                </Link>
+                </SecondaryLink>
               </div>
             </div>
           )}

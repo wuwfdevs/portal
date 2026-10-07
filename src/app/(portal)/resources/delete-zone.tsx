@@ -31,7 +31,7 @@ export function DeleteZone({
             can&apos;t be undone.
           </p>
           <div className="flex items-center gap-3">
-            <Button type="submit" className="bg-danger text-white hover:bg-danger/90">
+            <Button type="submit" variant="danger">
               Delete {kindLabel}
             </Button>
             <Link href={editPath} className="text-xs font-semibold text-ink-500 hover:underline">

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import {
@@ -15,14 +14,21 @@ import { trackDownloadFilename } from "@/lib/remote-interview/media";
 import { getSignedTrackUrl } from "@/lib/remote-interview/storage";
 import {
   deriveTrackProvenance,
+  SESSION_STATUS,
   TRACK_PROVENANCE_LABELS,
   trackStatusBadgeVariant,
 } from "@/lib/remote-interview/track-status";
-import { formatBytes, formatDuration } from "@/lib/transcription/media";
+import { formatBytes } from "@/lib/format";
+import { formatDuration } from "@/lib/transcription/media";
 import { getSiteUrl } from "@/lib/site-url";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryLink } from "@/components/ui/primary-link";
+import { CardHeader } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Input, Label } from "@/components/ui/input";
 import { addParticipant, admitParticipant, assembleTrack } from "../actions";
 import { CopyLinkButton } from "./copy-link-button";
@@ -70,36 +76,26 @@ export default async function RemoteInterviewSessionPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-5">
-        <Link href="/remote-interview" className="text-xs font-semibold text-brand-link">
-          ← Back to sessions
-        </Link>
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{session.title}</h1>
-          {session.notes && <p className="max-w-xl text-sm text-ink-500">{session.notes}</p>}
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="neutral">{session.status.replace("_", " ")}</Badge>
-          {isHost && (
-            <Link href={`/remote-interview/${session.id}/studio`}>
-              <Button type="button" variant="primary">
-                Open studio
-              </Button>
-            </Link>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        className="mb-6"
+        back={{ href: "/remote-interview", label: "Back to sessions" }}
+        title={session.title}
+        badge={<StatusBadge map={SESSION_STATUS} value={session.status} />}
+        description={session.notes}
+        actions={
+          isHost && (
+            <PrimaryLink href={`/remote-interview/${session.id}/studio`}>Open studio</PrimaryLink>
+          )
+        }
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
       {isHost && waitingParticipants.length > 0 && (
-        <div className="mb-6 max-w-xl rounded border border-line bg-white">
-          <div className="border-b border-line px-4 py-3">
-            <h2 className="font-serif text-[15px] font-bold text-ink-900">Waiting room</h2>
-          </div>
+        <Card className="mb-6 max-w-xl">
+          <CardHeader>
+            <h2>Waiting room</h2>
+          </CardHeader>
           <ul>
             {waitingParticipants.map((participant) => {
               const preflight = preflightResults[participant.id];
@@ -143,13 +139,13 @@ export default async function RemoteInterviewSessionPage({
               );
             })}
           </ul>
-        </div>
+        </Card>
       )}
 
-      <div className="max-w-xl rounded border border-line bg-white">
-        <div className="border-b border-line px-4 py-3">
-          <h2 className="font-serif text-[15px] font-bold text-ink-900">Participants</h2>
-        </div>
+      <Card className="max-w-xl">
+        <CardHeader>
+          <h2>Participants</h2>
+        </CardHeader>
         <ul>
           {participants.map((participant) => {
             const active = isJoinLinkActive({
@@ -213,12 +209,12 @@ export default async function RemoteInterviewSessionPage({
             </Button>
           </form>
         )}
-      </div>
+      </Card>
 
       {tracks.length > 0 && (
-        <div className="mt-6 max-w-xl rounded border border-line bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <h2 className="font-serif text-[15px] font-bold text-ink-900">Recordings</h2>
+        <Card className="mt-6 max-w-xl">
+          <CardHeader>
+            <h2>Recordings</h2>
             {anyDownloadableTrack && (
               <a
                 href={`/api/remote-interview/sessions/${session.id}/tracks.zip`}
@@ -227,7 +223,7 @@ export default async function RemoteInterviewSessionPage({
                 Download all
               </a>
             )}
-          </div>
+          </CardHeader>
           <ul>
             {participants
               .filter((participant) => tracks.some((t) => t.participant_id === participant.id))
@@ -253,7 +249,7 @@ export default async function RemoteInterviewSessionPage({
                 </li>
               ))}
           </ul>
-        </div>
+        </Card>
       )}
     </div>
   );

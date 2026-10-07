@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { Input, Textarea, Label, FieldError, FieldHint } from "@/components/ui/input";
 import { updateProjectDetails } from "../actions";
 
 /**
@@ -55,13 +55,14 @@ export function ProjectDetails({
 
   if (!isOpen) {
     return (
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => setIsOpen(true)}
-        className="text-xs font-semibold text-brand-link"
+        className="text-brand-link"
       >
         {description ? "Edit details" : "Add background"}
-      </button>
+      </Button>
     );
   }
 
@@ -73,19 +74,18 @@ export function ProjectDetails({
       </div>
       <div>
         <Label htmlFor="description">Background</Label>
-        <textarea
+        <Textarea
           id="description"
           name="description"
           rows={4}
           defaultValue={description ?? ""}
           placeholder="What was this recording — whose meeting, what was on the agenda, who the voices are, why we were there."
           disabled={isSaving}
-          className="w-full rounded border border-line px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50 sm:text-sm"
         />
         <FieldHint>
-          Shown on every excerpt and search result from this recording, and used to find them — someone
-          searching &ldquo;county commission&rdquo; in two years reaches this audio because of what
-          you write here.
+          Shown on every excerpt and search result from this recording, and used to find them —
+          someone searching &ldquo;county commission&rdquo; in two years reaches this audio because
+          of what you write here.
         </FieldHint>
       </div>
 

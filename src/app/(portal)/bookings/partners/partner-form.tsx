@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { PARTNER_NAME_MAX } from "@/lib/bookings/agreements";
 import { PARTNER_KIND_LABEL } from "@/lib/bookings/projects";
 import type { BkPartnerRow } from "@/lib/bookings/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The one partner form, shared by /partners/new and /partners/[id]/edit
@@ -100,9 +100,7 @@ export function PartnerForm({
       </div>
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

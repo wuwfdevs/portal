@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
@@ -20,6 +20,7 @@ import {
 import { formatDateRange } from "@/lib/underwriting/line-details";
 import { CATEGORY_META } from "../batch-progress";
 import { batchDocumentsPath, batchPath, MIGRATION_PATH, NEW_BATCH_PATH } from "../paths";
+import { Card } from "@/components/ui/card";
 
 type Show = MigrationItemCategory | "all";
 const SHOWS: Show[] = ["needs_look", "failed", "ready", "not_run", "importing", "all"];
@@ -31,9 +32,6 @@ const SHOW_LABEL: Record<Show, string> = {
   importing: "Importing",
   all: "All",
 };
-
-const SECONDARY_LINK =
-  "inline-flex h-9 items-center whitespace-nowrap rounded border border-brand-link px-3 text-sm font-bold text-brand-link hover:bg-brand-surface";
 
 function formatDay(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -132,9 +130,7 @@ export default async function MigrationBatchPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Link href={MIGRATION_PATH} className="text-sm font-bold text-brand-link">
-            ← Migrations
-          </Link>
+          <TextLink href={MIGRATION_PATH}>← Migrations</TextLink>
           <h2 className="mt-2 text-xl font-bold text-ink-900">{batchLabel ?? "Every batch"}</h2>
           <p className="mt-1 text-sm text-ink-500">
             {items.length} {items.length === 1 ? "entry" : "entries"}
@@ -144,12 +140,12 @@ export default async function MigrationBatchPage({
         {batchLabel && (
           <div className="flex flex-wrap gap-2">
             {!documentsOnly && (
-              <Link
+              <SecondaryLink
+                size="sm"
                 href={`${NEW_BATCH_PATH}?b=${encodeURIComponent(batchLabel)}`}
-                className={SECONDARY_LINK}
               >
                 Reload manifest
-              </Link>
+              </SecondaryLink>
             )}
             {counts.not_run + counts.failed > 0 ? (
               <PrimaryLink
@@ -158,12 +154,12 @@ export default async function MigrationBatchPage({
                 Run {counts.not_run + counts.failed} not imported
               </PrimaryLink>
             ) : (
-              <Link
+              <SecondaryLink
+                size="sm"
                 href={batchDocumentsPath(batchLabel, documentsOnly ? { mode: "documents" } : {})}
-                className={SECONDARY_LINK}
               >
                 Add documents
-              </Link>
+              </SecondaryLink>
             )}
           </div>
         )}
@@ -239,12 +235,7 @@ export default async function MigrationBatchPage({
                     </Cell>
                     {!batchLabel && (
                       <Cell>
-                        <Link
-                          href={batchPath(item.batch_label)}
-                          className="font-bold text-brand-link"
-                        >
-                          {item.batch_label}
-                        </Link>
+                        <TextLink href={batchPath(item.batch_label)}>{item.batch_label}</TextLink>
                       </Cell>
                     )}
                     <Cell>{contract?.contract_identifier ?? item.contract_identifier ?? "—"}</Cell>
@@ -278,26 +269,26 @@ export default async function MigrationBatchPage({
                     <Cell className="text-right">
                       {contract ? (
                         <div className="flex flex-col items-end gap-1">
-                          <Link
+                          <TextLink
                             href={`/underwriting/contracts/${contract.id}/schedule`}
-                            className="whitespace-nowrap font-bold text-brand-link"
+                            className="whitespace-nowrap"
                           >
                             Open draft
-                          </Link>
+                          </TextLink>
                           {contract.status !== "draft" && (
                             <Badge variant="neutral">{contract.status}</Badge>
                           )}
                         </div>
                       ) : category === "failed" || category === "not_run" ? (
-                        <Link
+                        <TextLink
                           href={batchDocumentsPath(
                             item.batch_label,
                             item.underwriter_name === null ? { mode: "documents" } : {},
                           )}
-                          className="whitespace-nowrap font-bold text-brand-link"
+                          className="whitespace-nowrap"
                         >
                           {category === "failed" ? "Run again" : "Add document"}
-                        </Link>
+                        </TextLink>
                       ) : null}
                     </Cell>
                   </Row>,
@@ -358,28 +349,30 @@ function EntryDetails({
           <h4 className="mb-2 text-sm font-bold text-ink-900">
             Where the document and the manifest disagree
           </h4>
-          <table className="w-full rounded border border-line bg-white text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-ink-500">
-                <th className="px-3 py-2 font-bold">Field</th>
-                <th className="px-3 py-2 font-bold">Manifest (used)</th>
-                <th className="px-3 py-2 font-bold">Document says</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.differences.map((difference, index) => (
-                <tr key={index} className="border-b border-line last:border-b-0">
-                  <td className="px-3 py-2">{difference.label}</td>
-                  <td className="px-3 py-2 font-bold text-ink-900">
-                    {formatDifferenceValue(difference, difference.manifest)}
-                  </td>
-                  <td className="px-3 py-2 font-bold text-warning-fg">
-                    {formatDifferenceValue(difference, difference.document)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TableFrame>
+            <Table stack>
+              <thead>
+                <HeaderRow>
+                  <Th>Field</Th>
+                  <Th>Manifest (used)</Th>
+                  <Th>Document says</Th>
+                </HeaderRow>
+              </thead>
+              <tbody>
+                {result.differences.map((difference, index) => (
+                  <Row key={index}>
+                    <Cell stack="title">{difference.label}</Cell>
+                    <Cell label="Manifest (used)" className="font-bold text-ink-900">
+                      {formatDifferenceValue(difference, difference.manifest)}
+                    </Cell>
+                    <Cell label="Document says" className="font-bold text-warning-fg">
+                      {formatDifferenceValue(difference, difference.document)}
+                    </Cell>
+                  </Row>
+                ))}
+              </tbody>
+            </Table>
+          </TableFrame>
           <p className="mt-2 text-[13px] text-ink-500">
             If the spreadsheet is wrong, correct the draft’s order details. If the document is
             wrong, there’s nothing to do.
@@ -389,7 +382,7 @@ function EntryDetails({
       {(result.unresolved > 0 || result.warnings.length > 0) && (
         <div className="flex flex-col gap-3">
           {result.unresolved > 0 && (
-            <div className="rounded border border-line bg-white px-4 py-3 text-sm">
+            <Card className="px-4 py-3 text-sm">
               <div className="font-bold text-ink-900">
                 {result.unresolved} {result.unresolved === 1 ? "instruction" : "instructions"}{" "}
                 couldn’t be saved as a line
@@ -398,14 +391,11 @@ function EntryDetails({
                 The schedule step lists each one with what the document says, ready to enter.
               </p>
               {scheduleHref && (
-                <Link
-                  href={scheduleHref}
-                  className="mt-2 inline-flex h-8 items-center rounded border border-brand-link px-3 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-                >
+                <SecondaryLink size="sm" href={scheduleHref} className="mt-2">
                   Enter on the schedule
-                </Link>
+                </SecondaryLink>
               )}
-            </div>
+            </Card>
           )}
           {result.warnings.length > 0 && (
             <div>

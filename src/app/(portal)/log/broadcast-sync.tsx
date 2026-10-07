@@ -12,8 +12,8 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
 import {
   describeQueuedAction,
   isDeployMismatchError,
@@ -529,48 +529,41 @@ export function BroadcastSyncStatus() {
   return (
     <div className="flex w-full basis-full flex-col gap-1.5" aria-live="polite">
       {banner && (
-        <div
-          role={tone === "danger" ? "alert" : "status"}
-          className={cn(
-            "rounded border px-3 py-2 text-xs leading-relaxed",
-            tone === "warning" && "border-warning-fg/30 bg-warning-bg text-ink-900",
-            tone === "danger" && "border-danger/30 bg-danger/[0.06] text-danger",
-            tone === "info" && "border-brand-primary/25 bg-brand-surface/40 text-ink-700",
-          )}
-        >
-          {banner}
-          {!connected && count > 0 && (
-            <ul className="mt-1 list-disc pl-5 text-ink-700">
-              {pendingEntries.map((entry) => (
-                <li key={entry.action.id}>
-                  {describeQueuedAction(entry.action, itemLabels[entry.action.itemId])}{" "}
-                  <span className="text-ink-400">
-                    ({formatStationClockTime(entry.action.occurredAt)})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div role={tone === "danger" ? undefined : "status"}>
+          <Alert variant={tone}>
+            {banner}
+            {!connected && count > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-ink-700">
+                {pendingEntries.map((entry) => (
+                  <li key={entry.action.id}>
+                    {describeQueuedAction(entry.action, itemLabels[entry.action.itemId])}{" "}
+                    <span className="text-ink-400">
+                      ({formatStationClockTime(entry.action.occurredAt)})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Alert>
         </div>
       )}
       {rejections.map((rejection) => (
-        <div
+        <Alert
           key={rejection.id}
-          role="alert"
-          className="flex items-start justify-between gap-2 rounded border border-danger/30 bg-danger/[0.06] px-3 py-2 text-xs text-danger"
+          variant="danger"
+          action={
+            <Button
+              type="button"
+              variant="danger-link"
+              onClick={() => dismissRejection(rejection.id)}
+              className="shrink-0"
+            >
+              Dismiss
+            </Button>
+          }
         >
-          <span>
-            <span className="font-semibold">Not recorded: {rejection.text}.</span>{" "}
-            {rejection.message}
-          </span>
-          <button
-            type="button"
-            onClick={() => dismissRejection(rejection.id)}
-            className="shrink-0 font-semibold underline"
-          >
-            Dismiss
-          </button>
-        </div>
+          <span className="font-semibold">Not recorded: {rejection.text}.</span> {rejection.message}
+        </Alert>
       ))}
     </div>
   );

@@ -1,6 +1,7 @@
 import { getPublicFormConfig } from "@/lib/bookings/public";
 import { Alert } from "@/components/ui/alert";
-import { BookShell } from "./book-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { PublicShell } from "@/components/ui/public-shell";
 import { BookForm } from "./book-form";
 import { BOOK_PAGE_TITLE } from "./title";
 
@@ -15,29 +16,27 @@ export async function BookPageContent({ embedded }: { embedded: boolean }) {
 
   if (!config) {
     return (
-      <BookShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">
-          This page isn&apos;t available
-        </h1>
+      <PublicShell embedded={embedded}>
+        <PageHeader size="public" className="mb-3" title="This page isn't available" />
         <p className="text-[15px] leading-relaxed text-ink-700">
           Something went wrong loading this form. Please try again shortly.
         </p>
-      </BookShell>
+      </PublicShell>
     );
   }
 
   if (!config.is_open) {
     return (
-      <BookShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">{BOOK_PAGE_TITLE}</h1>
+      <PublicShell embedded={embedded}>
+        <PageHeader size="public" className="mb-3" title={BOOK_PAGE_TITLE} />
         <Alert variant="note">{config.closed_copy}</Alert>
-      </BookShell>
+      </PublicShell>
     );
   }
 
   return (
-    <BookShell embedded={embedded}>
+    <PublicShell embedded={embedded}>
       <BookForm introCopy={config.intro_copy} offeredPackages={config.offered_packages} />
-    </BookShell>
+    </PublicShell>
   );
 }

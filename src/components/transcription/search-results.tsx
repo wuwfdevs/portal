@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge, defineStatusMap } from "@/components/ui/status-badge";
+import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import type { SearchResult, SearchResultKind } from "@/lib/transcription/search";
 
@@ -8,15 +11,12 @@ import type { SearchResult, SearchResultKind } from "@/lib/transcription/search"
 // have someone saying this?" — so they compete in one list rather than
 // sitting in separate panes the reporter has to check twice.
 
-const KIND_BADGE: Record<
-  SearchResultKind,
-  { label: string; variant: "accent" | "neutral" | "muted" }
-> = {
+const KIND_BADGE = defineStatusMap<SearchResultKind>({
   clip: { label: "Excerpt", variant: "accent" },
   transcript: { label: "In transcript", variant: "neutral" },
   document: { label: "In document", variant: "neutral" },
   project: { label: "Project", variant: "muted" },
-};
+});
 
 /**
  * A result's link into the workspace. `source` picks the right pill for a
@@ -50,10 +50,10 @@ export function resultHref(result: {
 export function SearchResults({ results, query }: { results: SearchResult[]; query: string }) {
   if (results.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         Nothing matches &ldquo;{query}&rdquo; yet. Try fewer words, or a phrase someone would
         actually have said.
-      </div>
+      </EmptyState>
     );
   }
 
@@ -69,13 +69,12 @@ export function SearchResults({ results, query }: { results: SearchResult[]; que
 }
 
 function ResultCard({ result }: { result: SearchResult }) {
-  const badge = KIND_BADGE[result.kind];
   const heading = result.kind === "clip" ? result.title : result.projectTitle;
 
   return (
-    <div className="rounded border border-line bg-white p-4 hover:border-ink-300">
+    <Card className="p-4 hover:border-ink-300">
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <StatusBadge map={KIND_BADGE} value={result.kind} />
         <Link href={resultHref(result)} className="font-semibold text-brand-link">
           {heading || "Untitled"}
         </Link>
@@ -110,15 +109,11 @@ function ResultCard({ result }: { result: SearchResult }) {
           {result.projectDescription}
         </p>
       )}
-    </div>
+    </Card>
   );
 }
 
 function formatResultDate(value: string | null): string | null {
   if (!value) return null;
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(value, { year: true });
 }

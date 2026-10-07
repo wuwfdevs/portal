@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
 import { ToolIcon } from "@/components/tool-icon";
 import { requireResourcesEditor } from "@/lib/resources/access";
 import { listGuideableTools } from "@/lib/resources/queries";
@@ -20,19 +22,23 @@ export default async function NewGuidePage({
 
   return (
     <>
-      <Link href="/resources" className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to resources
-      </Link>
-      <h1 className="font-serif text-2xl font-bold text-ink-900">
-        {tool ? `New ${tool.name} guide` : "New tool guide"}
-      </h1>
+      <PageHeader
+        size="page"
+        back={{ href: "/resources", label: "Back to resources" }}
+        title={tool ? `New ${tool.name} guide` : "New tool guide"}
+        description={
+          tool ? (
+            <TextLink href="/resources/guides/new" className="px-0 text-xs font-semibold">
+              Choose a different tool
+            </TextLink>
+          ) : (
+            "Which tool is it for?"
+          )
+        }
+        className="mb-6"
+      />
       {tool ? (
         <>
-          <p className="mb-6 mt-1 text-xs text-ink-400">
-            <Link href="/resources/guides/new" className="font-semibold text-brand-link">
-              Choose a different tool
-            </Link>
-          </p>
           <ArticleForm
             kind="guide"
             tool={tool}
@@ -43,7 +49,6 @@ export default async function NewGuidePage({
         </>
       ) : (
         <>
-          <p className="mb-5 mt-1 text-xs text-ink-400">Which tool is it for?</p>
           <div className="grid max-w-3xl gap-3 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]">
             {tools.map((entry) => (
               <Link

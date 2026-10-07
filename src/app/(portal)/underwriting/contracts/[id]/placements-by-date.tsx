@@ -16,6 +16,7 @@ import {
 } from "@/lib/underwriting/placement-list";
 import type { PlacementWithOutcome, ScheduleLineDemandView } from "@/lib/underwriting/queries";
 import { clearCreditAction } from "../../placement-actions";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const PAGE_SIZE = 25;
 
@@ -77,9 +78,7 @@ export function PlacementsByDate({
         }))}
       />
       {shown.length === 0 ? (
-        <p className="rounded border border-dashed border-line px-5 py-4 text-sm text-ink-500">
-          {EMPTY_MESSAGE[filter]}
-        </p>
+        <EmptyState compact>{EMPTY_MESSAGE[filter]}</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>

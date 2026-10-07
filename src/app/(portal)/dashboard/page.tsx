@@ -1,6 +1,8 @@
 import { requireActiveProfile } from "@/lib/auth/authz";
 import { listToolsForCurrentUser } from "@/lib/tools";
 import { ToolCard } from "@/components/tool-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 function greetingFor(date: Date): string {
   const hour = date.getHours();
@@ -16,18 +18,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <h1 className="mb-1.5 font-serif text-[28px] font-bold text-ink-900">
-        {greetingFor(new Date())}, {firstName}
-      </h1>
-      <p className="mb-8 text-[15px] text-ink-500">
-        Your tools are listed below. Reach out to an administrator if you need access to something
-        else.
-      </p>
+      <PageHeader
+        size="page"
+        className="mb-8"
+        title={`${greetingFor(new Date())}, ${firstName}`}
+        description="Your tools are listed below. Reach out to an administrator if you need access to something else."
+      />
 
       {tools.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           No tools are available yet. Check back soon, or contact an administrator.
-        </div>
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           {tools.map((entry) => (

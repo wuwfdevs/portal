@@ -3,6 +3,7 @@ import { OutcomeBadge } from "@/components/editorial/outcome-badge";
 import { ScoreStats } from "@/components/editorial/score-stats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { formatScore } from "@/lib/editorial/format";
 import { weightedReviewScore, type PitchAggregate } from "@/lib/editorial/scoring";
@@ -69,7 +70,7 @@ export function AgendaSection({
         ) : null;
 
         return (
-          <div key={entry.id} className="rounded border border-line">
+          <Card key={entry.id}>
             <div className="flex gap-3.5 px-4 py-4">
               <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-panel-100 font-serif text-sm font-bold text-ink-500">
                 {index + 1}
@@ -210,7 +211,7 @@ export function AgendaSection({
                 </div>
               ))
             )}
-          </div>
+          </Card>
         );
       })}
     </section>
@@ -277,25 +278,13 @@ function DecisionForm({
           className="min-w-40 flex-1 py-2"
         />
         <div className="flex gap-2">
-          <Button type="submit" name="outcome" value="assigned" className="px-3.5 py-2 text-xs">
+          <Button type="submit" name="outcome" value="assigned" size="sm">
             Assign
           </Button>
-          <Button
-            type="submit"
-            name="outcome"
-            value="deferred"
-            variant="secondary"
-            className="px-3.5 py-2 text-xs"
-          >
+          <Button type="submit" name="outcome" value="deferred" variant="secondary" size="sm">
             Defer
           </Button>
-          <Button
-            type="submit"
-            name="outcome"
-            value="archived"
-            variant="secondary"
-            className="px-3.5 py-2 text-xs"
-          >
+          <Button type="submit" name="outcome" value="archived" variant="secondary" size="sm">
             Archive
           </Button>
         </div>

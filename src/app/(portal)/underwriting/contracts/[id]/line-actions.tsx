@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { Button } from "@/components/ui/button";
 
 export interface LinePanel {
   key: string;
@@ -37,13 +38,14 @@ export function LineActions({ label, panels }: { label: string; panels: LinePane
               <span className="text-xs font-bold uppercase tracking-wider text-ink-500">
                 {active.label}
               </span>
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => setOpen(null)}
-                className="text-xs font-semibold text-brand-link hover:underline"
+                className="text-brand-link"
               >
                 Close
-              </button>
+              </Button>
             </div>
             {active.content}
           </div>

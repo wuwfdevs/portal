@@ -1,21 +1,17 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
 import { computeEndTime, formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { RUNDOWN_STATUS } from "@/lib/log/status-badges";
 import { formatStationDateLong, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { generateRundown } from "./rundown-actions";
-import type { LogRundownStatus } from "@/lib/database.types";
-
-const STATUS_VARIANT: Record<LogRundownStatus, BadgeVariant> = {
-  draft: "neutral",
-  generated: "accent",
-  in_progress: "warning",
-  submitted: "success",
-};
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,13 +38,13 @@ export default async function LogTodayPage({
 
   if (programs.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         No programs yet. Add and{" "}
         <Link href="/log/programs" className="font-semibold text-brand-link">
           schedule a program
         </Link>{" "}
         to see today&apos;s lineup here.
-      </div>
+      </EmptyState>
     );
   }
 
@@ -93,10 +89,7 @@ export default async function LogTodayPage({
             </Button>
           </form>
           <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
-          <Link
-            href={importHref}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded border border-brand-primary px-3 py-2 text-xs font-bold text-brand-link hover:bg-brand-surface/40"
-          >
+          <SecondaryLink href={importHref} size="sm" className="shrink-0">
             <svg
               width="14"
               height="14"
@@ -113,7 +106,7 @@ export default async function LogTodayPage({
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
             Import program log
-          </Link>
+          </SecondaryLink>
           <Link href={`/log/dad-log?date=${selectedDate}`} className={NAV_LINK_CLASSES}>
             DAD log
           </Link>
@@ -134,7 +127,12 @@ export default async function LogTodayPage({
       {missingRundowns.length > 0 && (
         <Alert
           variant="note"
-          className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1"
+          className="mb-4"
+          action={
+            <TextLink href={importHref} className="shrink-0 text-xs">
+              Import the log →
+            </TextLink>
+          }
         >
           <span>
             <strong className="text-ink-900">
@@ -145,15 +143,12 @@ export default async function LogTodayPage({
             Generate each one from its clock, or import the traffic system&apos;s log to build them
             all at once.
           </span>
-          <Link href={importHref} className="shrink-0 font-bold text-brand-link">
-            Import the log →
-          </Link>
         </Alert>
       )}
       {activeOnDate.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           No program is scheduled for {selectedDate === today ? "today" : "this date"}.
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -181,15 +176,13 @@ export default async function LogTodayPage({
                     <Cell stack="aside">
                       {rundown ? (
                         <Link href={`/log/rundowns/${rundown.id}`}>
-                          <Badge variant={STATUS_VARIANT[rundown.status]}>
-                            {rundown.status.replace("_", " ")}
-                          </Badge>
+                          <StatusBadge map={RUNDOWN_STATUS} value={rundown.status} />
                         </Link>
                       ) : (
                         <form action={generateRundown}>
                           <input type="hidden" name="schedule_entry_id" value={entry.id} />
                           <input type="hidden" name="air_date" value={selectedDate} />
-                          <Button type="submit" variant="secondary" className="px-2.5 py-1 text-xs">
+                          <Button type="submit" variant="secondary" size="sm">
                             Generate
                           </Button>
                         </form>

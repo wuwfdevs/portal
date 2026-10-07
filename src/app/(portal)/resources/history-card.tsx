@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { CardHeader } from "@/components/ui/section-heading";
 import { cn } from "@/lib/cn";
 import { formatUpdatedDate } from "@/lib/resources/articles";
 import type { RcArticleVersion } from "@/lib/resources/queries";
@@ -19,8 +21,8 @@ export function HistoryCard({
 }) {
   const newest = versions[0]?.version;
   return (
-    <div id="history" className="rounded border border-line bg-white">
-      <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">History</div>
+    <Card id="history">
+      <CardHeader>History</CardHeader>
       {versions.length === 0 ? (
         <p className="px-5 py-4 text-[13px] text-ink-500">No history recorded.</p>
       ) : (
@@ -52,6 +54,6 @@ export function HistoryCard({
           })}
         </ol>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,6 +1,8 @@
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { DescriptionList } from "@/components/ui/description-list";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
 import { requireAcademicPartnershipsAccess } from "@/lib/academic-partnerships/access";
 import { getSettings, listEmailTemplates } from "@/lib/academic-partnerships/queries";
 import {
@@ -32,29 +34,33 @@ export default async function AcademicPartnershipsSettingsPage({
       <SharePanel siteUrl={getSiteUrl()} />
 
       <section>
-        <h2 className="mb-3 font-serif text-[17px] font-bold text-ink-900">Public form</h2>
+        <SectionHeading className="mb-3">Public form</SectionHeading>
         {isCoordinator ? (
           <form action={updateSettings} className="flex max-w-2xl flex-col gap-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-ink-800">
-              <input type="checkbox" name="is_open" defaultChecked={settings.is_open} />
-              Accepting submissions
-            </label>
+            <CheckboxField
+              name="is_open"
+              defaultChecked={settings.is_open}
+              label="Accepting submissions"
+              className="font-semibold"
+            />
 
-            <div>
-              <Label htmlFor="intro_copy">Introductory copy</Label>
-              <Textarea id="intro_copy" name="intro_copy" rows={4} defaultValue={settings.intro_copy} />
-            </div>
-            <div>
-              <Label htmlFor="confirmation_copy">Confirmation copy</Label>
+            <Field label="Introductory copy" htmlFor="intro_copy">
+              <Textarea
+                id="intro_copy"
+                name="intro_copy"
+                rows={4}
+                defaultValue={settings.intro_copy}
+              />
+            </Field>
+            <Field label="Confirmation copy" htmlFor="confirmation_copy">
               <Textarea
                 id="confirmation_copy"
                 name="confirmation_copy"
                 rows={4}
                 defaultValue={settings.confirmation_copy}
               />
-            </div>
-            <div>
-              <Label htmlFor="google_appointments_url">Google Appointments URL</Label>
+            </Field>
+            <Field label="Google Appointments URL" htmlFor="google_appointments_url">
               <Input
                 id="google_appointments_url"
                 name="google_appointments_url"
@@ -62,22 +68,20 @@ export default async function AcademicPartnershipsSettingsPage({
                 defaultValue={settings.google_appointments_url ?? ""}
                 placeholder="https://calendar.app.google/…"
               />
-            </div>
+            </Field>
             <fieldset>
               <legend className="mb-1.5 text-xs font-semibold text-ink-700">
                 Enabled partnership types
               </legend>
               <div className="flex flex-col gap-1.5">
                 {PARTNERSHIP_TYPES.map((type) => (
-                  <label key={type} className="flex items-center gap-2 text-sm text-ink-800">
-                    <input
-                      type="checkbox"
-                      name="enabled_partnership_types"
-                      value={type}
-                      defaultChecked={settings.enabled_partnership_types.includes(type)}
-                    />
-                    {PARTNERSHIP_TYPE_LABEL[type]}
-                  </label>
+                  <CheckboxField
+                    key={type}
+                    name="enabled_partnership_types"
+                    value={type}
+                    defaultChecked={settings.enabled_partnership_types.includes(type)}
+                    label={PARTNERSHIP_TYPE_LABEL[type]}
+                  />
                 ))}
               </div>
             </fieldset>
@@ -86,19 +90,23 @@ export default async function AcademicPartnershipsSettingsPage({
             </Button>
           </form>
         ) : (
-          <dl className="max-w-2xl text-sm text-ink-700">
-            <dt className="font-semibold">Status</dt>
-            <dd className="mb-2">{settings.is_open ? "Accepting submissions" : "Closed"}</dd>
-            <dt className="font-semibold">Enabled types</dt>
-            <dd>
-              {settings.enabled_partnership_types.map((type) => PARTNERSHIP_TYPE_LABEL[type]).join(", ")}
-            </dd>
-          </dl>
+          <DescriptionList
+            className="max-w-2xl"
+            items={[
+              { label: "Status", value: settings.is_open ? "Accepting submissions" : "Closed" },
+              {
+                label: "Enabled types",
+                value: settings.enabled_partnership_types
+                  .map((type) => PARTNERSHIP_TYPE_LABEL[type])
+                  .join(", "),
+              },
+            ]}
+          />
         )}
       </section>
 
       <section>
-        <h2 className="mb-3 font-serif text-[17px] font-bold text-ink-900">Email templates</h2>
+        <SectionHeading className="mb-3">Email templates</SectionHeading>
         <div className="flex max-w-2xl flex-col gap-4">
           {templates.map((template) => (
             <details key={template.key} className="rounded border border-line p-3">
@@ -108,19 +116,21 @@ export default async function AcademicPartnershipsSettingsPage({
               {isCoordinator ? (
                 <form action={updateEmailTemplate} className="mt-3 flex flex-col gap-3">
                   <input type="hidden" name="key" value={template.key} />
-                  <div>
-                    <Label htmlFor={`subject-${template.key}`}>Subject</Label>
-                    <Input id={`subject-${template.key}`} name="subject" defaultValue={template.subject} />
-                  </div>
-                  <div>
-                    <Label htmlFor={`body-${template.key}`}>Body</Label>
+                  <Field label="Subject" htmlFor={`subject-${template.key}`}>
+                    <Input
+                      id={`subject-${template.key}`}
+                      name="subject"
+                      defaultValue={template.subject}
+                    />
+                  </Field>
+                  <Field label="Body" htmlFor={`body-${template.key}`}>
                     <Textarea
                       id={`body-${template.key}`}
                       name="body"
                       rows={8}
                       defaultValue={template.body}
                     />
-                  </div>
+                  </Field>
                   <p className="text-xs text-ink-400">
                     Available tokens: {"{{faculty_name}}"}, {"{{appointments_url}}"},{" "}
                     {"{{staff_context}}"}

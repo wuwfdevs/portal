@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import {
   DISPOSITION_LABEL,
   DISPOSITIONS,
@@ -16,6 +16,7 @@ import {
   setStageForm,
   updateAssessment,
 } from "../actions";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 const FIT_OPTIONS = ["strong", "possible", "weak"] as const;
 const CAPACITY_OPTIONS = ["available", "uncertain", "unavailable"] as const;
@@ -47,7 +48,9 @@ export function InternalPanel({
   return (
     <div className="flex flex-col gap-5">
       <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Stage</h2>
+        <SectionHeading level="eyebrow" className="mb-2">
+          Stage
+        </SectionHeading>
         <form action={setStageForm} className="flex items-end gap-2">
           <input type="hidden" name="submission_id" value={submission.id} />
           <Select name="stage" defaultValue={submission.stage} className="w-auto">
@@ -64,7 +67,9 @@ export function InternalPanel({
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Owner</h2>
+        <SectionHeading level="eyebrow" className="mb-2">
+          Owner
+        </SectionHeading>
         <form action={assignOwner} className="flex items-end gap-2">
           <input type="hidden" name="submission_id" value={submission.id} />
           <Select name="owner_id" defaultValue={submission.owner_id ?? ""} className="w-auto">
@@ -82,12 +87,13 @@ export function InternalPanel({
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Assessment</h2>
+        <SectionHeading level="eyebrow" className="mb-2">
+          Assessment
+        </SectionHeading>
         <form action={updateAssessment} className="flex flex-col gap-3">
           <input type="hidden" name="submission_id" value={submission.id} />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <Label htmlFor="fit">Overall fit</Label>
+            <Field label="Overall fit" htmlFor="fit">
               <Select id="fit" name="fit" defaultValue={submission.fit ?? ""}>
                 <option value="">—</option>
                 {FIT_OPTIONS.map((value) => (
@@ -96,9 +102,8 @@ export function InternalPanel({
                   </option>
                 ))}
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="capacity">Capacity</Label>
+            </Field>
+            <Field label="Capacity" htmlFor="capacity">
               <Select id="capacity" name="capacity" defaultValue={submission.capacity ?? ""}>
                 <option value="">—</option>
                 {CAPACITY_OPTIONS.map((value) => (
@@ -107,9 +112,8 @@ export function InternalPanel({
                   </option>
                 ))}
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="timing">Timing</Label>
+            </Field>
+            <Field label="Timing" htmlFor="timing">
               <Select id="timing" name="timing" defaultValue={submission.timing ?? ""}>
                 <option value="">—</option>
                 {TIMING_OPTIONS.map((value) => (
@@ -118,34 +122,31 @@ export function InternalPanel({
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
           </div>
-          <div>
-            <Label htmlFor="primary_function">Primary WUWF function involved</Label>
+          <Field label="Primary WUWF function involved" htmlFor="primary_function">
             <Input
               id="primary_function"
               name="primary_function"
               defaultValue={submission.primary_function ?? ""}
               placeholder="e.g. News, Music, Production"
             />
-          </div>
-          <div>
-            <Label htmlFor="potential_staff_lead">Potential staff lead</Label>
+          </Field>
+          <Field label="Potential staff lead" htmlFor="potential_staff_lead">
             <Input
               id="potential_staff_lead"
               name="potential_staff_lead"
               defaultValue={submission.potential_staff_lead ?? ""}
             />
-          </div>
-          <div>
-            <Label htmlFor="key_considerations">Key considerations</Label>
+          </Field>
+          <Field label="Key considerations" htmlFor="key_considerations">
             <Textarea
               id="key_considerations"
               name="key_considerations"
               rows={3}
               defaultValue={submission.key_considerations ?? ""}
             />
-          </div>
+          </Field>
           <Button type="submit" variant="secondary" className="self-start">
             Save assessment
           </Button>
@@ -153,22 +154,26 @@ export function InternalPanel({
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Next action</h2>
+        <SectionHeading level="eyebrow" className="mb-2">
+          Next action
+        </SectionHeading>
         <form action={setNextAction} className="flex flex-col gap-3">
           <input type="hidden" name="submission_id" value={submission.id} />
-          <div>
-            <Label htmlFor="next_action">Next action</Label>
-            <Input id="next_action" name="next_action" defaultValue={submission.next_action ?? ""} />
-          </div>
-          <div>
-            <Label htmlFor="next_action_date">Next-action date</Label>
+          <Field label="Next action" htmlFor="next_action">
+            <Input
+              id="next_action"
+              name="next_action"
+              defaultValue={submission.next_action ?? ""}
+            />
+          </Field>
+          <Field label="Next-action date" htmlFor="next_action_date">
             <Input
               id="next_action_date"
               name="next_action_date"
               type="date"
               defaultValue={submission.next_action_date ?? ""}
             />
-          </div>
+          </Field>
           <Button type="submit" variant="secondary" className="self-start">
             Save
           </Button>
@@ -176,9 +181,9 @@ export function InternalPanel({
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
+        <SectionHeading level="eyebrow" className="mb-2">
           Disposition
-        </h2>
+        </SectionHeading>
         {submission.disposition ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-ink-700">
@@ -195,8 +200,7 @@ export function InternalPanel({
         ) : (
           <form action={setDisposition} className="flex flex-col gap-3">
             <input type="hidden" name="submission_id" value={submission.id} />
-            <div>
-              <Label htmlFor="disposition">Set disposition</Label>
+            <Field label="Set disposition" htmlFor="disposition">
               <Select id="disposition" name="disposition" defaultValue="">
                 <option value="" disabled>
                   Choose one
@@ -208,11 +212,10 @@ export function InternalPanel({
                   </option>
                 ))}
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="reason">Reason</Label>
+            </Field>
+            <Field label="Reason" htmlFor="reason">
               <Textarea id="reason" name="reason" rows={2} />
-            </div>
+            </Field>
             <Button type="submit" variant="secondary" className="self-start">
               Apply
             </Button>

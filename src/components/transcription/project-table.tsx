@@ -2,38 +2,24 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { formatBytes, formatDuration } from "@/lib/transcription/media";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { formatBytes, formatShortDate } from "@/lib/format";
+import { formatDuration } from "@/lib/transcription/media";
 import type { ProjectListRow } from "@/lib/transcription/projects";
-import { processingLabel } from "@/lib/transcription/status";
-
-function statusBadge(
-  project: ProjectListRow,
-): { label: string; variant: "accent" | "neutral" | "muted" | "danger" } {
-  switch (project.status) {
-    case "ready":
-      return { label: "Ready", variant: "accent" };
-    case "uploading":
-      return { label: "Uploading", variant: "neutral" };
-    case "processing":
-      return { label: processingLabel(project.sourceKind ?? "audio_video"), variant: "neutral" };
-    case "failed":
-      return { label: "Failed", variant: "danger" };
-  }
-}
+import { projectStatusMap } from "@/lib/transcription/status";
 
 function formatInterviewDate(project: ProjectListRow): string {
-  return new Date(project.interviewDate ?? project.createdAt).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(project.interviewDate ?? project.createdAt, { year: true });
 }
 
 function formatSize(project: ProjectListRow): string {
   if (project.sourceKind === "document") {
-    return project.pageCount ? `${project.pageCount} page${project.pageCount === 1 ? "" : "s"}` : "—";
+    return project.pageCount
+      ? `${project.pageCount} page${project.pageCount === 1 ? "" : "s"}`
+      : "—";
   }
   return project.durationMs ? formatDuration(project.durationMs) : "—";
 }
@@ -59,11 +45,7 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
   }, [projects, query]);
 
   if (projects.length === 0) {
-    return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No interviews yet. Upload one to get started.
-      </div>
-    );
+    return <EmptyState>No interviews yet. Upload one to get started.</EmptyState>;
   }
 
   return (
@@ -79,54 +61,53 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
       {filtered.length === 0 ? (
         <p className="text-sm text-ink-500">No projects match &ldquo;{query}&rdquo;.</p>
       ) : (
-        <div className="overflow-x-auto rounded border border-line">
-          <table className="w-full min-w-[720px] text-sm">
+        <TableFrame>
+          <Table stack className="md:min-w-[720px]">
             <thead>
-              <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-                <th className="px-4 py-2.5">Title</th>
-                <th className="px-4 py-2.5">Date</th>
-                <th className="px-4 py-2.5">Duration / pages</th>
-                <th className="px-4 py-2.5">Size</th>
-                <th className="px-4 py-2.5">Status</th>
-              </tr>
+              <HeaderRow>
+                <Th>Title</Th>
+                <Th>Date</Th>
+                <Th>Duration / pages</Th>
+                <Th>Size</Th>
+                <Th>Status</Th>
+              </HeaderRow>
             </thead>
             <tbody>
-              {filtered.map((project) => {
-                const badge = statusBadge(project);
-                return (
-                  <tr
-                    key={project.id}
-                    className="border-b border-line last:border-b-0 hover:bg-panel-50"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/sourcework/${project.id}`}
-                        className="font-semibold text-brand-link"
-                      >
-                        {project.title}
-                      </Link>
-                      {project.description && (
-                        <p className="mt-0.5 max-w-md truncate text-xs text-ink-400">
-                          {project.description}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-ink-500">
-                      {project.sourceKind === "document" ? "—" : formatInterviewDate(project)}
-                    </td>
-                    <td className="px-4 py-3 text-ink-500">{formatSize(project)}</td>
-                    <td className="px-4 py-3 text-ink-500">
-                      {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map((project) => (
+                <Row key={project.id} className="hover:bg-panel-50">
+                  <Cell stack="title">
+                    <Link
+                      href={`/sourcework/${project.id}`}
+                      className="font-semibold text-brand-link"
+                    >
+                      {project.title}
+                    </Link>
+                    {project.description && (
+                      <p className="mt-0.5 max-w-md truncate text-xs text-ink-400 max-md:max-w-none max-md:whitespace-normal">
+                        {project.description}
+                      </p>
+                    )}
+                  </Cell>
+                  <Cell label="Date" className="text-ink-500">
+                    {project.sourceKind === "document" ? "—" : formatInterviewDate(project)}
+                  </Cell>
+                  <Cell label="Duration / pages" className="text-ink-500">
+                    {formatSize(project)}
+                  </Cell>
+                  <Cell label="Size" className="text-ink-500">
+                    {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
+                  </Cell>
+                  <Cell stack="aside">
+                    <StatusBadge
+                      map={projectStatusMap(project.sourceKind ?? "audio_video")}
+                      value={project.status}
+                    />
+                  </Cell>
+                </Row>
+              ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableFrame>
       )}
     </div>
   );

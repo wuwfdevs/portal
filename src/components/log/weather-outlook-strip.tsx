@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/cn";
 import type { DailyOutlookEntry, ForecastPeriodSummary } from "@/lib/log/weather-outlook";
 import { ForecastSummary } from "./forecast-summary";
@@ -41,7 +43,13 @@ export function WeatherOutlookStrip({
 }) {
   const [selected, setSelected] = useState(0);
   if (days.length === 0) {
-    return <ForecastSummary periods={liveRead.periods} fallbackText={liveRead.fallbackText} textClassName={textClassName} />;
+    return (
+      <ForecastSummary
+        periods={liveRead.periods}
+        fallbackText={liveRead.fallbackText}
+        textClassName={textClassName}
+      />
+    );
   }
 
   const selectedDay = days[Math.min(selected, days.length - 1)]!;
@@ -68,7 +76,9 @@ export function WeatherOutlookStrip({
                     : "border-transparent hover:bg-panel-100",
                 )}
               >
-                <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">{day.day_label}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+                  {day.day_label}
+                </span>
                 <WeatherIcon code={day.icon} className="h-6 w-6 text-ink-700" />
                 <span className="font-mono text-xs font-semibold tabular-nums text-ink-900">
                   {day.high ?? "—"}°<span className="text-ink-400">/{day.low ?? "—"}°</span>
@@ -89,15 +99,9 @@ export function WeatherOutlookStrip({
           <span className="text-xs font-bold uppercase tracking-wide text-ink-500">
             {isToday ? "Today" : selectedDay.day_label}
           </span>
-          {isToday && liveRead.onAir && (
-            <span className="rounded-full bg-brand-surface px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-link">
-              On-air copy
-            </span>
-          )}
+          {isToday && liveRead.onAir && <Badge variant="accent">On-air copy</Badge>}
           {isToday && liveRead.overrideText && (
-            <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[11px] font-bold text-warning-fg">
-              Edited for this airing
-            </span>
+            <Badge variant="warning">Edited for this airing</Badge>
           )}
         </div>
         {isToday ? (
@@ -106,15 +110,23 @@ export function WeatherOutlookStrip({
               {liveRead.overrideText}
             </p>
           ) : (
-            <ForecastSummary periods={liveRead.periods} fallbackText={liveRead.fallbackText} textClassName={textClassName} />
+            <ForecastSummary
+              periods={liveRead.periods}
+              fallbackText={liveRead.fallbackText}
+              textClassName={textClassName}
+            />
           )
         ) : (
           <>
-            <p className="text-xs text-ink-400">Reference only. The live read covers today and tonight.</p>
+            <p className="text-xs text-ink-400">
+              Reference only. The live read covers today and tonight.
+            </p>
             <div className="flex flex-col gap-2.5">
               {details.map((period) => (
                 <div key={period.label}>
-                  <div className="mb-0.5 text-xs font-bold uppercase tracking-wide text-ink-400">{period.label}</div>
+                  <SectionHeading level="eyebrow" as="h3" className="mb-0.5">
+                    {period.label}
+                  </SectionHeading>
                   <p className={cn("leading-relaxed text-ink-700", textClassName)}>{period.text}</p>
                 </div>
               ))}

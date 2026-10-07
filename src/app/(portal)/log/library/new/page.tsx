@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
+import { PageHeader } from "@/components/ui/page-header";
 import { createContentItem } from "../../library-actions";
 import { ContentItemForm } from "../content-item-form";
 
@@ -12,10 +12,12 @@ export default async function NewContentItemPage({
 
   return (
     <div className="max-w-2xl">
-      <Link href="/log/library" className="text-xs font-semibold text-brand-link">
-        ← Back to library
-      </Link>
-      <h2 className="mt-2 mb-4 font-serif text-xl font-bold text-ink-900">New content item</h2>
+      <PageHeader
+        as="h2"
+        back={{ href: "/log/library", label: "Back to library" }}
+        title="New content item"
+        className="mb-4"
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 

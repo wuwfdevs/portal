@@ -24,7 +24,10 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
-import { controlClasses } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { FileInput } from "@/components/ui/input";
+import { TextLink } from "@/components/ui/primary-link";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
 import { formatStationDateLong } from "@/lib/log/timezone";
@@ -40,21 +43,10 @@ import {
   parseProgramLogUpload,
   type ExecuteImportResult,
 } from "../import-actions";
-
-function formatSeconds(total: number): string {
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
+import { formatBytes as formatFileSize, formatClock as formatSeconds } from "@/lib/format";
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatFileSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];
@@ -149,11 +141,10 @@ export function ImportClient({ fromDate }: { fromDate: string | null }) {
             reading && "hidden",
           )}
         >
-          <input
+          <FileInput
             ref={fileInputRef}
-            type="file"
             accept=".pdf,application/pdf"
-            className={cn(controlClasses, "max-w-md")}
+            className="max-w-md"
             aria-label="Program-log export file"
           />
           <Button type="button" onClick={upload} disabled={pending}>
@@ -213,7 +204,7 @@ function ImportOutcome({
 }) {
   const created = result.rundowns.filter((rundown) => rundown.skippedReason === null).length;
   return (
-    <div className="rounded border border-line bg-panel-50 p-4">
+    <Card className="bg-panel-50 p-4">
       <h2 className="text-sm font-bold text-ink-900">Import complete</h2>
       <p className="mt-1 text-sm text-ink-700">
         {plural(created, "rundown")} created · {plural(result.copyCreated, "new copy record")} (
@@ -247,14 +238,11 @@ function ImportOutcome({
         ))}
       </ul>
       <p className="mt-3 text-sm">
-        <Link
-          href={fromDate ? `/log?date=${fromDate}` : "/log"}
-          className="font-semibold text-brand-link"
-        >
+        <TextLink href={fromDate ? `/log?date=${fromDate}` : "/log"} className="px-0">
           Back to Today →
-        </Link>
+        </TextLink>
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -313,34 +301,34 @@ function PlanPreview({
       </div>
 
       {/* The whole review at a glance; each figure is expanded below. */}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded border border-line bg-panel-50 px-4 py-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
-        <Stat
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <StatTile
           label="Rundowns"
           value={creatable.length}
-          note={skipped > 0 ? `${skipped} already exist` : null}
+          hint={skipped > 0 ? `${skipped} already exist` : null}
         />
-        <Stat label="Items placed" value={itemCount} />
-        <Stat
+        <StatTile label="Items placed" value={itemCount} />
+        <StatTile
           label="New underwriters"
           value={newUnderwriters.length}
-          tone={newUnderwriters.length > 0 ? "success" : null}
+          tone={newUnderwriters.length > 0 ? "success" : "neutral"}
         />
-        <Stat
+        <StatTile
           label="New copy"
           value={newCopy.length - newUnderwriters.length}
-          tone={newCopy.length > newUnderwriters.length ? "success" : null}
+          tone={newCopy.length > newUnderwriters.length ? "success" : "neutral"}
         />
-        <Stat
+        <StatTile
           label="Library scripts updated"
           value={updatedCopy.length}
-          tone={updatedCopy.length > 0 ? "warning" : null}
+          tone={updatedCopy.length > 0 ? "warning" : "neutral"}
         />
-        <Stat
+        <StatTile
           label="Unresolved"
           value={plan.unresolved.length}
-          tone={plan.unresolved.length > 0 ? "danger" : null}
+          tone={plan.unresolved.length > 0 ? "danger" : "neutral"}
         />
-      </dl>
+      </div>
 
       {plan.warnings.length > 0 && (
         <Alert variant="note">
@@ -353,7 +341,7 @@ function PlanPreview({
       )}
 
       {plan.unresolved.length > 0 && (
-        <section className="rounded border border-line">
+        <Card>
           <h3 className={SECTION_HEADING}>Not imported</h3>
           <ul className="divide-y divide-line">
             {plan.unresolved.map((row) => (
@@ -364,10 +352,10 @@ function PlanPreview({
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
-      <section className="rounded border border-line">
+      <Card>
         <h3 className={SECTION_HEADING}>Rundowns</h3>
         <ul className="divide-y divide-line">
           {plan.rundowns.map((rundown) => (
@@ -377,9 +365,9 @@ function PlanPreview({
             <li className="px-4 py-2.5 text-sm text-ink-500">No rundowns could be planned.</li>
           )}
         </ul>
-      </section>
+      </Card>
 
-      <section className="rounded border border-line">
+      <Card>
         <h3 className={SECTION_HEADING}>Underwriting credits</h3>
         <ul className="divide-y divide-line">
           {newCopy.map((copy) => (
@@ -436,7 +424,7 @@ function PlanPreview({
             </li>
           )}
         </ul>
-      </section>
+      </Card>
 
       {plan.notes.length > 0 && (
         <details className="rounded border border-line px-4 py-2.5">
@@ -453,36 +441,6 @@ function PlanPreview({
         </details>
       )}
     </>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  note,
-  tone,
-}: {
-  label: string;
-  value: number;
-  note?: string | null;
-  tone?: "success" | "warning" | "danger" | null;
-}) {
-  const valueClass =
-    tone === "danger"
-      ? "text-danger"
-      : tone === "warning"
-        ? "text-warning-fg"
-        : tone === "success"
-          ? "text-success-fg"
-          : "text-ink-900";
-  return (
-    <div>
-      <dt className="text-xs text-ink-500">{label}</dt>
-      <dd className={cn("text-lg font-bold", valueClass)}>
-        {value}
-        {note && <span className="ml-1.5 text-xs font-normal text-ink-500">{note}</span>}
-      </dd>
-    </div>
   );
 }
 

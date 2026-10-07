@@ -1,28 +1,19 @@
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
 import { PrimaryLink } from "@/components/ui/primary-link";
-import {
-  DATA_SOURCES,
-  DATA_SOURCE_STATE_LABELS,
-  formatStaleAfter,
-  type DataSourceState,
-} from "@/lib/log/data-sources";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { DATA_SOURCES, formatStaleAfter } from "@/lib/log/data-sources";
 import { loadDataSourceStatuses } from "@/lib/log/data-source-status";
+import { DATA_SOURCE_STATE } from "@/lib/log/status-badges";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
 
 // Weather's own page polls at this rate for the same reason — see log-poller.tsx.
 const POLL_INTERVAL_MS = 5 * 60_000;
-
-const STATE_BADGE: Record<DataSourceState, BadgeVariant> = {
-  fresh: "success",
-  stale: "warning",
-  never_fetched: "muted",
-  not_configured: "neutral",
-};
 
 const NOT_CONFIGURED_NOTE: Record<string, string> = {
   npr: "Set NPR_CDS_TOKEN to turn this on.",
@@ -52,10 +43,11 @@ export default async function SourcesPage({
         {DATA_SOURCES.map((source) => {
           const status = statuses[source.key];
           return (
-            <section
+            <Card
               key={source.key}
+              role="region"
               aria-labelledby={`source-${source.key}`}
-              className="flex flex-col gap-4 rounded border border-line bg-white p-5"
+              className="flex flex-col gap-4 p-5"
             >
               <div className="flex items-center justify-between gap-3">
                 <h2 id={`source-${source.key}`} className="text-base font-bold text-ink-900">
@@ -63,9 +55,7 @@ export default async function SourcesPage({
                     {source.label}
                   </Link>
                 </h2>
-                <Badge variant={STATE_BADGE[status.state]}>
-                  {DATA_SOURCE_STATE_LABELS[status.state]}
-                </Badge>
+                <StatusBadge map={DATA_SOURCE_STATE} value={status.state} />
               </div>
 
               <p className="text-sm text-ink-500">{source.description}</p>
@@ -80,16 +70,18 @@ export default async function SourcesPage({
                 <p className="text-sm text-ink-500">{NOT_CONFIGURED_NOTE[source.key]}</p>
               )}
 
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-                <dt className="text-ink-400">Last updated</dt>
-                <dd className="text-ink-900">
-                  {status.lastUpdatedAt ? formatStationTimestamp(status.lastUpdatedAt) : "—"}
-                </dd>
-                <dt className="text-ink-400">Latest</dt>
-                <dd className="text-ink-900">{status.latest ?? "—"}</dd>
-                <dt className="text-ink-400">Refreshes after</dt>
-                <dd className="text-ink-900">{formatStaleAfter(source.staleAfterMs)}</dd>
-              </dl>
+              <DescriptionList
+                items={[
+                  {
+                    label: "Last updated",
+                    value: status.lastUpdatedAt
+                      ? formatStationTimestamp(status.lastUpdatedAt)
+                      : "—",
+                  },
+                  { label: "Latest", value: status.latest },
+                  { label: "Refreshes after", value: formatStaleAfter(source.staleAfterMs) },
+                ]}
+              />
 
               <div className="mt-auto flex flex-wrap items-center gap-3">
                 <PrimaryLink href={source.href}>Open {source.label}</PrimaryLink>
@@ -102,7 +94,7 @@ export default async function SourcesPage({
                   </form>
                 )}
               </div>
-            </section>
+            </Card>
           );
         })}
       </div>

@@ -2,39 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import type { SourceLibraryRow } from "@/lib/transcription/projects";
-import { processingLabel, type ProjectStatus } from "@/lib/transcription/status";
+import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
 import type { SwSourceKind } from "@/lib/database.types";
-
-const KIND_LABEL: Record<SwSourceKind, string> = {
-  audio_video: "Audio",
-  document: "PDF",
-};
 
 const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "audio_video", label: "Audio" },
   { value: "document", label: "PDF" },
 ];
-
-function statusBadge(
-  status: ProjectStatus,
-  kind: SwSourceKind,
-): { label: string; variant: "accent" | "neutral" | "muted" | "danger" } {
-  switch (status) {
-    case "ready":
-      return { label: "Ready", variant: "accent" };
-    case "uploading":
-      return { label: "Uploading", variant: "neutral" };
-    case "processing":
-      return { label: processingLabel(kind), variant: "neutral" };
-    case "failed":
-      return { label: "Failed", variant: "danger" };
-  }
-}
 
 /**
  * Card grid of every source visible to the caller, independent of any one
@@ -64,9 +45,9 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
 
   if (sources.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         No sources yet. Upload an interview or a PDF from a project to get started.
-      </div>
+      </EmptyState>
     );
   }
 
@@ -85,6 +66,7 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
             <button
               key={filter.value}
               type="button"
+              aria-pressed={kindFilter === filter.value}
               onClick={() => setKindFilter(filter.value)}
               className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                 kindFilter === filter.value
@@ -105,7 +87,6 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((source) => {
-            const badge = statusBadge(source.status, source.kind);
             return (
               <Link
                 key={source.id}
@@ -114,17 +95,13 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                    {KIND_LABEL[source.kind] ?? source.kind}
+                    {SOURCE_KIND_LABEL[source.kind] ?? source.kind}
                   </span>
-                  <Badge variant={badge.variant}>{badge.label}</Badge>
+                  <StatusBadge map={projectStatusMap(source.kind)} value={source.status} />
                 </div>
                 <p className="font-semibold text-ink-900">{source.title}</p>
                 <p className="text-xs text-ink-500">
-                  {new Date(source.interviewDate ?? source.createdAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {formatShortDate(source.interviewDate ?? source.createdAt, { year: true })}
                   {source.kind === "document"
                     ? source.pageCount
                       ? ` · ${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`

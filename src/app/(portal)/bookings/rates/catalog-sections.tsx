@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { PAY_BASIS_LABEL, POOL_COSTING_LABEL } from "@/lib/bookings/labels";
 import type { BkLaborClassRow, BkPoolRow } from "@/lib/bookings/queries";
 import { formatWindow, formatWindowLines, parseWindows } from "@/lib/bookings/scheduling";
 import { createLaborClass, createPool, updateLaborClass, updatePoolCatalog } from "./actions";
+import { TextLink } from "@/components/ui/primary-link";
 
 export type CatalogParams = { new?: string; edit_class?: string; edit_pool?: string };
 
@@ -40,12 +40,7 @@ export function ClassCatalog({
           </p>
         </div>
         {canEdit && params.new !== "class" && (
-          <Link
-            href={href({ new: "class" })}
-            className="text-sm font-bold text-brand-link hover:underline"
-          >
-            + Labor class
-          </Link>
+          <TextLink href={href({ new: "class" })}>+ Labor class</TextLink>
         )}
       </div>
       {canEdit && params.new === "class" && (
@@ -68,10 +63,11 @@ export function ClassCatalog({
                 <option value="hourly">{PAY_BASIS_LABEL.hourly}</option>
               </Select>
             </div>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-900">
-              <input type="checkbox" name="charged_in_strategic" className="size-4" />
-              Charged in a strategic price
-            </label>
+            <CheckboxField
+              name="charged_in_strategic"
+              label="Charged in a strategic price"
+              className="self-end pb-2"
+            />
           </div>
           <FieldHint>
             Leave the box clear for a baseline-funded professional; tick it for student or OPS
@@ -121,33 +117,22 @@ export function ClassCatalog({
                             Changing it needs new figures on each draft version.
                           </FieldHint>
                         </div>
-                        <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-900">
-                          <input
-                            type="checkbox"
-                            name="charged_in_strategic"
-                            className="size-4"
-                            defaultChecked={cls.charged_in_strategic}
-                          />
-                          Charged in a strategic price
-                        </label>
-                        <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-900">
-                          <input
-                            type="checkbox"
-                            name="active"
-                            className="size-4"
-                            defaultChecked={cls.active}
-                          />
-                          Active
-                        </label>
+                        <CheckboxField
+                          name="charged_in_strategic"
+                          defaultChecked={cls.charged_in_strategic}
+                          label="Charged in a strategic price"
+                          className="self-end pb-2"
+                        />
+                        <CheckboxField
+                          name="active"
+                          defaultChecked={cls.active}
+                          label="Active"
+                          className="self-end pb-2"
+                        />
                       </div>
                       <div className="flex items-center gap-4">
                         <Button type="submit">Save</Button>
-                        <Link
-                          href={href({})}
-                          className="text-sm font-bold text-brand-link hover:underline"
-                        >
-                          Cancel
-                        </Link>
+                        <TextLink href={href({})}>Cancel</TextLink>
                       </div>
                     </form>
                   </Cell>
@@ -168,14 +153,7 @@ export function ClassCatalog({
                     </Badge>
                   </Cell>
                   <Cell stack="aside" className="text-right">
-                    {canEdit && (
-                      <Link
-                        href={href({ edit_class: cls.id })}
-                        className="text-sm font-bold text-brand-link hover:underline"
-                      >
-                        Edit
-                      </Link>
-                    )}
+                    {canEdit && <TextLink href={href({ edit_class: cls.id })}>Edit</TextLink>}
                   </Cell>
                 </Row>
               ),
@@ -209,12 +187,7 @@ export function PoolCatalog({
           </p>
         </div>
         {canEdit && params.new !== "pool" && (
-          <Link
-            href={href({ new: "pool" })}
-            className="text-sm font-bold text-brand-link hover:underline"
-          >
-            + Pool
-          </Link>
+          <TextLink href={href({ new: "pool" })}>+ Pool</TextLink>
         )}
       </div>
       {canEdit && params.new === "pool" && (
@@ -254,12 +227,7 @@ export function PoolCatalog({
                       <PoolFields defaults={pool} windows={windows} />
                       <div className="flex items-center gap-4">
                         <Button type="submit">Save</Button>
-                        <Link
-                          href={href({})}
-                          className="text-sm font-bold text-brand-link hover:underline"
-                        >
-                          Cancel
-                        </Link>
+                        <TextLink href={href({})}>Cancel</TextLink>
                       </div>
                     </form>
                   </Cell>
@@ -283,14 +251,7 @@ export function PoolCatalog({
                     </Badge>
                   </Cell>
                   <Cell stack="aside" className="text-right">
-                    {canEdit && (
-                      <Link
-                        href={href({ edit_pool: pool.id })}
-                        className="text-sm font-bold text-brand-link hover:underline"
-                      >
-                        Edit
-                      </Link>
-                    )}
+                    {canEdit && <TextLink href={href({ edit_pool: pool.id })}>Edit</TextLink>}
                   </Cell>
                 </Row>
               );
@@ -346,15 +307,12 @@ function PoolFields({
           </Select>
         </div>
         {defaults && (
-          <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink-900">
-            <input
-              type="checkbox"
-              name="active"
-              className="size-4"
-              defaultChecked={defaults.active}
-            />
-            Active
-          </label>
+          <CheckboxField
+            name="active"
+            defaultChecked={defaults.active}
+            label="Active"
+            className="self-end pb-2"
+          />
         )}
       </div>
       <div>

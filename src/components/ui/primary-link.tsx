@@ -18,3 +18,31 @@ export function PrimaryLink({ className, ...props }: ComponentProps<typeof Link>
     />
   );
 }
+
+/** A bordered secondary <Link> — Button's secondary variant, for navigation. */
+export function SecondaryLink({
+  className,
+  size = "md",
+  ...props
+}: ComponentProps<typeof Link> & { size?: "md" | "sm" }) {
+  return (
+    <Link
+      className={cn(
+        "inline-flex items-center justify-center gap-1.5 rounded border border-brand-link bg-transparent font-bold text-brand-link hover:bg-brand-surface",
+        size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** An inline text link in the brand colour — "Back to schedule", "Edit", "Cancel". */
+export function TextLink({ className, ...props }: ComponentProps<typeof Link>) {
+  return (
+    <Link
+      className={cn("px-1 text-sm font-bold text-brand-link hover:underline", className)}
+      {...props}
+    />
+  );
+}

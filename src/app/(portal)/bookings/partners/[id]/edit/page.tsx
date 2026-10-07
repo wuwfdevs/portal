@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { partnerHref } from "@/lib/bookings/paths";
 import { getPartner } from "@/lib/bookings/queries";
 import { updatePartner } from "../../actions";
 import { PartnerForm } from "../../partner-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Edit a partner: the same form as `/partners/new`. */
 export default async function EditPartnerPage({
@@ -25,10 +25,7 @@ export default async function EditPartnerPage({
   if (!partner) notFound();
   return (
     <div className="flex flex-col gap-4">
-      <Link href={partnerHref(id)} className="inline-block text-xs font-semibold text-brand-link">
-        ← {partner.name}
-      </Link>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Edit the partner</h2>
+      <PageHeader back={{ href: partnerHref(id), label: partner.name }} title="Edit the partner" />
       <PartnerForm
         action={updatePartner}
         partner={partner}

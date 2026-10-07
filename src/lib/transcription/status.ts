@@ -6,6 +6,7 @@
 // via a supposedly-just-a-value import). See docs/sourcework-design.md §8.9.
 
 import type { SwSourceKind } from "@/lib/database.types";
+import { defineStatusMap } from "@/components/ui/status-badge";
 
 /** The same four states tw_projects.status used to carry, now derived from a source + its primary representation (a transcript, or a document_text — see docs/sourcework-design.md §8.9). */
 export type ProjectStatus = "uploading" | "processing" | "ready" | "failed";
@@ -49,4 +50,24 @@ export function computeProjectStatus(
  */
 export function processingLabel(kind: SwSourceKind): string {
   return kind === "document" ? "Extracting text" : "Transcribing";
+}
+
+/** The short kind label every source card, row and heading shows. */
+export const SOURCE_KIND_LABEL: Record<SwSourceKind, string> = {
+  audio_video: "Audio",
+  document: "PDF",
+};
+
+/**
+ * The status → label/variant map the source and project screens render with
+ * `<StatusBadge map={…} value={status} />`. A function of `kind` only because
+ * the `processing` label is kind-aware (see processingLabel).
+ */
+export function projectStatusMap(kind: SwSourceKind) {
+  return defineStatusMap<ProjectStatus>({
+    ready: { label: "Ready", variant: "accent" },
+    uploading: { label: "Uploading", variant: "neutral" },
+    processing: { label: processingLabel(kind), variant: "neutral" },
+    failed: { label: "Failed", variant: "danger" },
+  });
 }

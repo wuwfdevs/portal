@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   derivePreflightWarnings,
   estimateSessionBytes,
@@ -73,7 +74,8 @@ export function PreflightForm({
   useEffect(() => {
     const hasGetUserMedia = Boolean(navigator.mediaDevices?.getUserMedia);
     const hasMediaRecorder = typeof MediaRecorder !== "undefined";
-    const hasOPFS = typeof (navigator.storage as { getDirectory?: unknown })?.getDirectory === "function";
+    const hasOPFS =
+      typeof (navigator.storage as { getDirectory?: unknown })?.getDirectory === "function";
     const hasIndexedDB = typeof indexedDB !== "undefined";
 
     const nav = navigator as Navigator & {
@@ -84,7 +86,10 @@ export function PreflightForm({
     setUserAgent(navigator.userAgent);
     setBrowserSupported(hasGetUserMedia && hasMediaRecorder && (hasOPFS || hasIndexedDB));
     if (nav.connection) {
-      setConnection({ saveData: nav.connection.saveData, effectiveType: nav.connection.effectiveType });
+      setConnection({
+        saveData: nav.connection.saveData,
+        effectiveType: nav.connection.effectiveType,
+      });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -169,7 +174,9 @@ export function PreflightForm({
       const audioInputs = allDevices.filter((device) => device.kind === "audioinput");
       setDevices(audioInputs);
       const activeTrackSettings = stream.getAudioTracks()[0]?.getSettings();
-      setSelectedDeviceId(activeTrackSettings?.deviceId ?? deviceId ?? audioInputs[0]?.deviceId ?? "");
+      setSelectedDeviceId(
+        activeTrackSettings?.deviceId ?? deviceId ?? audioInputs[0]?.deviceId ?? "",
+      );
 
       startLevelMeter(stream);
     } catch (err) {
@@ -214,17 +221,27 @@ export function PreflightForm({
     () =>
       derivePreflightWarnings({
         browserSupported,
-        permissionState: micState === "denied" ? "denied" : micState === "granted" ? "granted" : "unknown",
+        permissionState:
+          micState === "denied" ? "denied" : micState === "granted" ? "granted" : "unknown",
         micDevicesDetected,
         signalDetected,
         storage,
         userAgent,
         connection,
       }),
-    [browserSupported, micState, micDevicesDetected, signalDetected, storage, userAgent, connection],
+    [
+      browserSupported,
+      micState,
+      micDevicesDetected,
+      signalDetected,
+      storage,
+      userAgent,
+      connection,
+    ],
   );
 
-  const selectedDeviceLabel = devices.find((device) => device.deviceId === selectedDeviceId)?.label ?? null;
+  const selectedDeviceLabel =
+    devices.find((device) => device.deviceId === selectedDeviceId)?.label ?? null;
   const canContinue = displayName.trim().length > 0 && !submitting;
 
   async function handleContinue() {
@@ -253,11 +270,12 @@ export function PreflightForm({
 
   return (
     <GuestShell>
-      <h1 className="mb-1 font-serif text-lg font-bold text-ink-900">Get ready</h1>
-      <p className="mb-5 text-sm leading-relaxed text-ink-500">
-        A high-quality recording will be made on your own device. Wear headphones if you can, and
-        keep this tab open until your recording finishes uploading.
-      </p>
+      <PageHeader
+        size="public"
+        title="Get ready"
+        description="A high-quality recording will be made on your own device. Wear headphones if you can, and keep this tab open until your recording finishes uploading."
+        className="mb-5"
+      />
 
       <div className="mb-4">
         <Label htmlFor="display_name">Your name</Label>
@@ -308,7 +326,12 @@ export function PreflightForm({
             </div>
 
             <div>
-              <Button type="button" variant="secondary" onClick={startTestRecording} disabled={isRecordingTest}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={startTestRecording}
+                disabled={isRecordingTest}
+              >
                 {isRecordingTest ? "Recording…" : "Record a 3-second test"}
               </Button>
               {testRecording && (
@@ -345,8 +368,8 @@ export function PreflightForm({
       </Button>
 
       <p className="mt-3 text-xs leading-relaxed text-ink-400">
-        Expected recording budget: about {Math.round(estimateSessionBytes() / 1_000_000)} MB of local
-        storage for a typical session.
+        Expected recording budget: about {Math.round(estimateSessionBytes() / 1_000_000)} MB of
+        local storage for a typical session.
       </p>
     </GuestShell>
   );

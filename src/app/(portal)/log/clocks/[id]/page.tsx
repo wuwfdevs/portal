@@ -1,8 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { CheckboxField, Field, FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SecondaryLink } from "@/components/ui/primary-link";
+import { CardHeader } from "@/components/ui/section-heading";
 import { ClockViewer, type ClockViewerForm } from "@/components/log/clock-viewer";
 import { VersionSelect } from "@/components/log/version-select";
 import { requireLogAccess } from "@/lib/log/access";
@@ -220,39 +224,35 @@ export default async function ClockTemplateDetailPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={fromProgram ? `/log/programs/${fromProgram.id}` : "/log/programs"}
-            className="text-xs font-semibold text-brand-link"
-          >
-            ← {fromProgram ? fromProgram.name : "Programs"}
-          </Link>
-          <h2 className="mt-1.5 font-serif text-xl font-bold text-ink-900">{template.name}</h2>
-          {template.description && (
-            <p className="mt-1 text-sm text-ink-500">{template.description}</p>
-          )}
-        </div>
-        {version && (
-          <VersionSelect
-            options={template.versions.map((candidate) => ({
-              id: candidate.id,
-              label: versionLabel(candidate),
-            }))}
-            currentId={version.id}
-            basePath={basePath}
-            keepParams={fromProgram ? { from: fromProgram.id } : {}}
-          />
-        )}
-        {isProgramDirector && (
-          <a
-            href="#new-version"
-            className="inline-flex h-[38px] items-center rounded border border-brand-link px-3.5 text-sm font-bold text-brand-link hover:bg-brand-surface"
-          >
-            + New version
-          </a>
-        )}
-      </div>
+      <PageHeader
+        as="h2"
+        back={{
+          href: fromProgram ? `/log/programs/${fromProgram.id}` : "/log/programs",
+          label: fromProgram ? fromProgram.name : "Programs",
+        }}
+        title={template.name}
+        description={template.description}
+        actions={
+          <>
+            {version && (
+              <VersionSelect
+                options={template.versions.map((candidate) => ({
+                  id: candidate.id,
+                  label: versionLabel(candidate),
+                }))}
+                currentId={version.id}
+                basePath={basePath}
+                keepParams={fromProgram ? { from: fromProgram.id } : {}}
+              />
+            )}
+            {isProgramDirector && (
+              <SecondaryLink href="#new-version" className="h-[38px] px-3.5 py-0">
+                + New version
+              </SecondaryLink>
+            )}
+          </>
+        }
+      />
 
       {query.error && <Alert>{query.error}</Alert>}
 
@@ -274,9 +274,7 @@ export default async function ClockTemplateDetailPage({
       )}
 
       {template.versions.length === 0 && (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No versions yet.{isProgramDirector && " Start one below."}
-        </div>
+        <EmptyState>No versions yet.{isProgramDirector && " Start one below."}</EmptyState>
       )}
 
       {version && (
@@ -329,33 +327,27 @@ export default async function ClockTemplateDetailPage({
             <input type="hidden" name="clock_version_id" value={version.id} />
             <input type="hidden" name="return_query" value={returnQuery} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="slot-position">Position</Label>
+              <Field label="Position" htmlFor="slot-position">
                 <Input id="slot-position" name="position" type="number" required min={1} />
-              </div>
-              <div>
-                <Label htmlFor="slot-duration">Duration (s)</Label>
+              </Field>
+              <Field label="Duration (s)" htmlFor="slot-duration">
                 <Input id="slot-duration" name="duration_seconds" type="number" required min={1} />
-              </div>
-              <div>
-                <Label htmlFor="slot-offset">Start offset (s)</Label>
+              </Field>
+              <Field label="Start offset (s)" htmlFor="slot-offset">
                 <Input id="slot-offset" name="start_offset_seconds" type="number" />
-              </div>
-              <div>
-                <Label htmlFor="slot-label">Label</Label>
+              </Field>
+              <Field label="Label" htmlFor="slot-label">
                 <Input id="slot-label" name="label" maxLength={120} />
-              </div>
-              <div>
-                <Label htmlFor="slot-segment">Segment letter</Label>
+              </Field>
+              <Field label="Segment letter" htmlFor="slot-segment">
                 <Input id="slot-segment" name="segment_label" maxLength={4} />
-              </div>
-              <div>
-                <Label htmlFor="slot-timing">Timing</Label>
+              </Field>
+              <Field label="Timing" htmlFor="slot-timing">
                 <Select id="slot-timing" name="timing_mode" defaultValue="fixed">
                   <option value="fixed">Fixed</option>
                   <option value="float">Float</option>
                 </Select>
-              </div>
+              </Field>
             </div>
             <FieldHint>
               This describes only the network&apos;s own structure. Mark a slot eligible for local
@@ -369,14 +361,11 @@ export default async function ClockTemplateDetailPage({
       )}
 
       {isProgramDirector && (
-        <div id="new-version" className="max-w-md scroll-mt-24 rounded border border-line">
-          <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
-            Start a new version
-          </div>
+        <Card id="new-version" className="max-w-md scroll-mt-24">
+          <CardHeader>Start a new version</CardHeader>
           <form action={createClockVersion} className="flex flex-col gap-4 p-5">
             <input type="hidden" name="clock_template_id" value={template.id} />
-            <div>
-              <Label htmlFor="variant">Variant</Label>
+            <Field label="Variant" htmlFor="variant">
               <Select id="variant" name="variant" defaultValue="weekday">
                 <option value="weekday">Weekday</option>
                 <option value="weekend">Weekend</option>
@@ -384,16 +373,14 @@ export default async function ClockTemplateDetailPage({
                 <option value="holiday">Holiday</option>
                 <option value="special_event">Special event</option>
               </Select>
-            </div>
+            </Field>
             <div className="flex gap-3">
-              <div>
-                <Label htmlFor="effective_from">Effective from</Label>
+              <Field label="Effective from" htmlFor="effective_from">
                 <Input id="effective_from" name="effective_from" type="date" required />
-              </div>
-              <div>
-                <Label htmlFor="effective_to">Effective to</Label>
+              </Field>
+              <Field label="Effective to" htmlFor="effective_to">
                 <Input id="effective_to" name="effective_to" type="date" />
-              </div>
+              </Field>
             </div>
             <FieldHint>
               A version is immutable once created — a correction is a new version, not an edit.
@@ -403,7 +390,7 @@ export default async function ClockTemplateDetailPage({
               <Button type="submit">Start version</Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -440,8 +427,7 @@ function OpportunityForm({
       {opportunityId && <input type="hidden" name="opportunity_id" value={opportunityId} />}
       {versionId && <input type="hidden" name="clock_version_id" value={versionId} />}
       {slotId && <input type="hidden" name="slot_id" value={slotId} />}
-      <div>
-        <Label htmlFor={`opp-requirement-${idPrefix}`}>Requirement</Label>
+      <Field label="Requirement" htmlFor={`opp-requirement-${idPrefix}`}>
         <Select
           id={`opp-requirement-${idPrefix}`}
           name="requirement"
@@ -450,34 +436,31 @@ function OpportunityForm({
           <option value="optional">Optional — network continues if unused</option>
           <option value="required">Required — a genuine local obligation</option>
         </Select>
-      </div>
+      </Field>
       <div>
         <Label>Permitted content types</Label>
         <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
           {PERMITTED_CONTENT_TYPE_OPTIONS.map((option) => (
-            <label key={option.value} className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="permitted_content_types"
-                value={option.value}
-                defaultChecked={defaultPermittedTypes.includes(option.value)}
-                className="h-4 w-4"
-              />
-              {option.label}
-            </label>
+            <CheckboxField
+              key={option.value}
+              name="permitted_content_types"
+              value={option.value}
+              defaultChecked={defaultPermittedTypes.includes(option.value)}
+              label={option.label}
+              className="items-center"
+            />
           ))}
         </div>
         <FieldHint>Leave every box unchecked to permit anything.</FieldHint>
       </div>
-      <div>
-        <Label htmlFor={`opp-notes-${idPrefix}`}>Notes</Label>
+      <Field label="Notes" htmlFor={`opp-notes-${idPrefix}`}>
         <Input
           id={`opp-notes-${idPrefix}`}
           name="notes"
           maxLength={280}
           defaultValue={defaultNotes ?? undefined}
         />
-      </div>
+      </Field>
       <div className="flex justify-end">
         <Button type="submit">{submitLabel}</Button>
       </div>
@@ -503,8 +486,7 @@ function AssignmentForm({
       <input type="hidden" name="clock_template_id" value={templateId} />
       <input type="hidden" name="return_query" value={returnQuery} />
       <input type="hidden" name="opportunity_id" value={opportunityId} />
-      <div>
-        <Label htmlFor={`assign-content-${opportunityId}`}>Content item</Label>
+      <Field label="Content item" htmlFor={`assign-content-${opportunityId}`}>
         <Select
           id={`assign-content-${opportunityId}`}
           name="content_item_id"
@@ -520,9 +502,12 @@ function AssignmentForm({
             </option>
           ))}
         </Select>
-      </div>
-      <div>
-        <Label htmlFor={`assign-hour-${opportunityId}`}>Hour of the shift</Label>
+      </Field>
+      <Field
+        label="Hour of the shift"
+        htmlFor={`assign-hour-${opportunityId}`}
+        hint="Every hour is right for the station ID."
+      >
         <Select id={`assign-hour-${opportunityId}`} name="hour_index" defaultValue="">
           <option value="">Every hour</option>
           {Array.from({ length: Math.max(1, shiftHours) }, (_, index) => (
@@ -531,24 +516,25 @@ function AssignmentForm({
             </option>
           ))}
         </Select>
-        <FieldHint>Every hour is right for the station ID.</FieldHint>
-      </div>
+      </Field>
       <div>
         <Label>Days</Label>
         <div className="mt-1 grid grid-cols-4 gap-x-4 gap-y-1.5 sm:grid-cols-7">
           {DAY_LABELS.map((label, day) => (
-            <label key={day} className="flex items-center gap-2 text-sm text-ink-700">
-              <input type="checkbox" name="days_of_week" value={day} className="h-4 w-4" />
-              {label}
-            </label>
+            <CheckboxField
+              key={day}
+              name="days_of_week"
+              value={day}
+              label={label}
+              className="items-center"
+            />
           ))}
         </div>
         <FieldHint>Leave every box unchecked for every day.</FieldHint>
       </div>
-      <div>
-        <Label htmlFor={`assign-notes-${opportunityId}`}>Notes</Label>
+      <Field label="Notes" htmlFor={`assign-notes-${opportunityId}`}>
         <Input id={`assign-notes-${opportunityId}`} name="notes" maxLength={280} />
-      </div>
+      </Field>
       <div className="flex justify-end">
         <Button type="submit">Pin content</Button>
       </div>

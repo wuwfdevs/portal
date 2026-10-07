@@ -3,7 +3,9 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 import {
   PARTNERSHIP_TYPE_DESCRIPTION,
@@ -29,7 +31,11 @@ const ALL_STEPS: StepDef[] = [
   { id: "reach", title: "Reach & timing", visible: () => true },
   { id: "tracks", title: "Choose your track(s)", visible: () => true },
   { id: "details", title: "About the partnership", visible: () => true },
-  { id: "engagement", title: "What this could look like", visible: (types) => types.some((t) => t !== "faculty_research") },
+  {
+    id: "engagement",
+    title: "What this could look like",
+    visible: (types) => types.some((t) => t !== "faculty_research"),
+  },
   { id: "research", title: "Research & expertise", visible: hasResearchTrack },
   { id: "wrapup", title: "A few more details", visible: () => true },
 ];
@@ -60,7 +66,7 @@ export function PartnerForm({
   if (state.status === "submitted") {
     return (
       <div>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">Inquiry received</h1>
+        <PageHeader size="public" title="Inquiry received" className="mb-3" />
         <p className="text-[15px] leading-relaxed text-ink-700">{state.confirmationCopy}</p>
       </div>
     );
@@ -102,22 +108,24 @@ export function PartnerForm({
 
   return (
     <div>
-      <h1 className="mb-2 font-serif text-[20px] font-bold text-ink-900">
-        WUWF Applied Media Partnership Program
-      </h1>
+      <PageHeader size="public" title="WUWF Applied Media Partnership Program" className="mb-2" />
 
-      <div aria-hidden="true" className="mb-1 h-1 w-full overflow-hidden rounded-full bg-panel-100">
-        <div
-          className="h-full rounded-full bg-brand-primary transition-[width] duration-300 ease-out"
-          style={{ width: `${((currentIndex + 1) / visibleSteps.length) * 100}%` }}
-        />
-      </div>
+      <ProgressBar
+        size="sm"
+        label="Form progress"
+        done={currentIndex + 1}
+        total={visibleSteps.length}
+        valueText={`Step ${currentIndex + 1} of ${visibleSteps.length}`}
+        className="mb-1"
+      />
       <p className="mb-5 text-xs font-semibold uppercase tracking-wide text-ink-400">
         Step {currentIndex + 1} of {visibleSteps.length} — {current.title}
       </p>
 
       {current.id === "about" && (
-        <p className="mb-5 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">{introCopy}</p>
+        <p className="mb-5 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+          {introCopy}
+        </p>
       )}
 
       <form ref={formRef} action={formAction} className="flex flex-col gap-5">
@@ -158,10 +166,10 @@ export function PartnerForm({
           }}
           className={cn("flex-col gap-4", stepId === "reach" ? "flex" : "hidden")}
         >
-          <Field label="Semester or anticipated timeframe" htmlFor="timeframe" optional>
+          <Field label="Semester or anticipated timeframe (optional)" htmlFor="timeframe">
             <Input id="timeframe" name="timeframe" placeholder="e.g. Spring 2027" />
           </Field>
-          <Field label="Estimated students reached" htmlFor="estimated_students_reached" optional>
+          <Field label="Estimated students reached (optional)" htmlFor="estimated_students_reached">
             <Input
               id="estimated_students_reached"
               name="estimated_students_reached"
@@ -221,15 +229,18 @@ export function PartnerForm({
           </Field>
           {hasCourseBasedTrack(selectedTypes) && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Course title" htmlFor="course_title" optional>
+              <Field label="Course title (optional)" htmlFor="course_title">
                 <Input id="course_title" name="course_title" />
               </Field>
-              <Field label="Course number" htmlFor="course_number" optional>
+              <Field label="Course number (optional)" htmlFor="course_number">
                 <Input id="course_number" name="course_number" />
               </Field>
             </div>
           )}
-          <Field label="Relevant dates, deadlines, or embargoes" htmlFor="relevant_dates" optional>
+          <Field
+            label="Relevant dates, deadlines, or embargoes (optional)"
+            htmlFor="relevant_dates"
+          >
             <Input id="relevant_dates" name="relevant_dates" />
           </Field>
         </div>
@@ -241,16 +252,18 @@ export function PartnerForm({
           className={cn("flex-col gap-4", stepId === "engagement" ? "flex" : "hidden")}
         >
           <Field
-            label="What do you want students to experience, practice, or produce?"
+            label="What do you want students to experience, practice, or produce? (optional)"
             htmlFor="student_experience"
-            optional
           >
             <Textarea id="student_experience" name="student_experience" rows={3} />
           </Field>
-          <Field label="What support are you seeking from WUWF?" htmlFor="support_requested" optional>
+          <Field
+            label="What support are you seeking from WUWF? (optional)"
+            htmlFor="support_requested"
+          >
             <Textarea id="support_requested" name="support_requested" rows={2} />
           </Field>
-          <Field label="Anticipated deliverables" htmlFor="deliverables" optional>
+          <Field label="Anticipated deliverables (optional)" htmlFor="deliverables">
             <Textarea id="deliverables" name="deliverables" rows={2} />
           </Field>
         </div>
@@ -262,12 +275,16 @@ export function PartnerForm({
           className={cn("flex-col gap-4", stepId === "research" ? "flex" : "hidden")}
         >
           <Field label="Topic or area of expertise" htmlFor="research_topic">
-            <Input id="research_topic" name="research_topic" required={hasResearchTrack(selectedTypes)} />
+            <Input
+              id="research_topic"
+              name="research_topic"
+              required={hasResearchTrack(selectedTypes)}
+            />
           </Field>
-          <Field label="Regional or public relevance" htmlFor="research_relevance" optional>
+          <Field label="Regional or public relevance (optional)" htmlFor="research_relevance">
             <Textarea id="research_relevance" name="research_relevance" rows={2} />
           </Field>
-          <Field label="Status of the work" htmlFor="research_status" optional>
+          <Field label="Status of the work (optional)" htmlFor="research_status">
             <Input
               id="research_status"
               name="research_status"
@@ -275,9 +292,8 @@ export function PartnerForm({
             />
           </Field>
           <Field
-            label="Your availability for interviews, consultation, or public programs"
+            label="Your availability for interviews, consultation, or public programs (optional)"
             htmlFor="research_availability"
-            optional
           >
             <Textarea id="research_availability" name="research_availability" rows={2} />
           </Field>
@@ -289,17 +305,16 @@ export function PartnerForm({
           }}
           className={cn("flex-col gap-4", stepId === "wrapup" ? "flex" : "hidden")}
         >
-          <Field label="Additional context" htmlFor="additional_context" optional>
+          <Field label="Additional context (optional)" htmlFor="additional_context">
             <Textarea id="additional_context" name="additional_context" rows={3} />
           </Field>
-          <label className="flex items-start gap-2.5 text-[13px] leading-snug text-ink-700">
-            <input type="checkbox" name="may_publish" className="mt-0.5" />
-            I would be comfortable with WUWF publishing or distributing work that comes out of this
-            partnership.
-          </label>
+          <CheckboxField
+            name="may_publish"
+            label="I would be comfortable with WUWF publishing or distributing work that comes out of this partnership."
+          />
           <Alert variant="note">
-            Submitting this form does not guarantee a partnership, publication, distribution, or news
-            coverage. WUWF will review your inquiry and follow up by email.
+            Submitting this form does not guarantee a partnership, publication, distribution, or
+            news coverage. WUWF will review your inquiry and follow up by email.
           </Alert>
         </div>
 
@@ -331,28 +346,6 @@ export function PartnerForm({
           </Button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  optional,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  optional?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label htmlFor={htmlFor}>
-        {label}
-        {optional ? " (optional)" : ""}
-      </Label>
-      {children}
     </div>
   );
 }

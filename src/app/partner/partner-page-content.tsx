@@ -1,6 +1,7 @@
 import { getPublicFormConfig } from "@/lib/academic-partnerships/public";
 import { Alert } from "@/components/ui/alert";
-import { PartnerShell } from "./partner-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { PublicShell } from "@/components/ui/public-shell";
 import { PartnerForm } from "./partner-form";
 
 /**
@@ -15,36 +16,32 @@ export async function PartnerPageContent({ embedded }: { embedded: boolean }) {
 
   if (!config) {
     return (
-      <PartnerShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">
-          This page isn&apos;t available
-        </h1>
+      <PublicShell embedded={embedded}>
+        <PageHeader size="public" className="mb-3" title="This page isn't available" />
         <p className="text-[15px] leading-relaxed text-ink-700">
           Something went wrong loading this form. Please try again shortly.
         </p>
-      </PartnerShell>
+      </PublicShell>
     );
   }
 
   if (!config.is_open) {
     return (
-      <PartnerShell embedded={embedded}>
-        <h1 className="mb-3 font-serif text-[20px] font-bold text-ink-900">
-          WUWF Applied Media Partnership Program
-        </h1>
+      <PublicShell embedded={embedded}>
+        <PageHeader size="public" className="mb-3" title="WUWF Applied Media Partnership Program" />
         <Alert variant="note">
           WUWF is not currently accepting new partnership inquiries. Please check back later.
         </Alert>
-      </PartnerShell>
+      </PublicShell>
     );
   }
 
   return (
-    <PartnerShell embedded={embedded}>
+    <PublicShell embedded={embedded}>
       <PartnerForm
         introCopy={config.intro_copy}
         enabledPartnershipTypes={config.enabled_partnership_types}
       />
-    </PartnerShell>
+    </PublicShell>
   );
 }

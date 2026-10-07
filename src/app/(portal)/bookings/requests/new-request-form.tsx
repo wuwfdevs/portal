@@ -1,13 +1,13 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { TITLE_MAX } from "@/lib/bookings/projects";
+import { TextLink } from "@/components/ui/primary-link";
 
 export interface FormPartner {
   id: string;
@@ -202,16 +202,16 @@ export function NewRequestForm({
                 Is this strategic or applied-learning work?
               </legend>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-ink-800">
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" name="qualifies_strategic" value="yes" /> Yes
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" name="qualifies_strategic" value="no" /> No
-                </label>
-                <label className="flex items-center gap-1.5 text-ink-500">
-                  <input type="radio" name="qualifies_strategic" value="" defaultChecked /> Not sure
-                  yet
-                </label>
+                <CheckboxField type="radio" name="qualifies_strategic" value="yes" label="Yes" />
+                <CheckboxField type="radio" name="qualifies_strategic" value="no" label="No" />
+                <CheckboxField
+                  type="radio"
+                  name="qualifies_strategic"
+                  value=""
+                  defaultChecked
+                  label="Not sure
+                  yet"
+                />
               </div>
               <FieldHint>
                 If yes, WUWF contributes the staff time and the partner pays for students and
@@ -315,9 +315,7 @@ export function NewRequestForm({
         <Button type="submit">
           {anyTicked ? "Create and price the estimate" : "Create the request"}
         </Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

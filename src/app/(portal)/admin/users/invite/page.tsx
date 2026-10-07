@@ -1,7 +1,10 @@
-import Link from "next/link";
+import { Alert } from "@/components/ui/alert";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Field, Input, Label, Select } from "@/components/ui/input";
 import { inviteUser } from "../actions";
 import { ToolGrantRow } from "../tool-grant-row";
 
@@ -21,34 +24,41 @@ export default async function InviteUserPage({
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/admin/users" className="text-xs font-semibold text-brand-link">
-          ← Back to users
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4 font-serif text-[17px] font-bold text-ink-900">
-          Invite user
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: "/admin/users", label: "Back to users" }}
+        title="Invite user"
+      />
+      <Card>
         <form action={inviteUser} className="flex flex-col gap-4 p-5">
-          {error && <p className="text-xs text-danger">{error}</p>}
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={email} placeholder="name@wuwf.org" required />
-          </div>
-          <div>
-            <Label htmlFor="display_name">Display name</Label>
-            <Input id="display_name" name="display_name" defaultValue={name} placeholder="Jordan Mays" required />
-          </div>
-          <div>
-            <Label htmlFor="platform_role">Platform role</Label>
+          {error && <Alert>{error}</Alert>}
+          <Field label="Email" htmlFor="email">
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={email}
+              placeholder="name@wuwf.org"
+              required
+            />
+          </Field>
+          <Field label="Display name" htmlFor="display_name">
+            <Input
+              id="display_name"
+              name="display_name"
+              defaultValue={name}
+              placeholder="Jordan Mays"
+              required
+            />
+          </Field>
+          <Field label="Platform role" htmlFor="platform_role">
             <Select id="platform_role" name="platform_role" defaultValue="staff">
               <option value="staff">Staff</option>
               <option value="student">Student</option>
               <option value="faculty_partner">Faculty / partner</option>
               <option value="administrator">Administrator</option>
             </Select>
-          </div>
+          </Field>
           <div>
             <Label>Authorized tools</Label>
             <div className="flex flex-col gap-2.5">
@@ -58,15 +68,11 @@ export default async function InviteUserPage({
             </div>
           </div>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/admin/users">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/admin/users">Cancel</SecondaryLink>
             <Button type="submit">Send invitation</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

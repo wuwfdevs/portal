@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea, FieldHint } from "@/components/ui/input";
+import { Field, FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { availableStatusActions, POST_KIND_LABEL, STATUS_ACTION_LABEL } from "@/lib/roadmap/posts";
 import type { PostDetail, PostTarget } from "@/lib/roadmap/queries";
 import type { RdPostKind } from "@/lib/database.types";
@@ -56,18 +56,19 @@ export function CurationPanel({
         <form action={setPostStatus} className="flex flex-col gap-2 border-t border-line pt-3">
           <input type="hidden" name="post_id" value={post.id} />
           <input type="hidden" name="status" value="declined" />
-          <Label htmlFor="status_note">Decline, with a reason</Label>
-          <Textarea
-            id="status_note"
-            name="status_note"
-            rows={2}
-            required
-            placeholder="Why not — and what to do instead, if there is something."
-          />
-          <FieldHint>
-            The reason is shown on the request. A decision with no reason is why people stop filing
-            them.
-          </FieldHint>
+          <Field
+            label="Decline, with a reason"
+            htmlFor="status_note"
+            hint="The reason is shown on the request. A decision with no reason is why people stop filing them."
+          >
+            <Textarea
+              id="status_note"
+              name="status_note"
+              rows={2}
+              required
+              placeholder="Why not — and what to do instead, if there is something."
+            />
+          </Field>
           <div>
             <Button type="submit" variant="secondary" className="text-danger">
               Decline

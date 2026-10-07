@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { listIndustryCategories } from "@/lib/underwriting/queries";
 import { createIndustryCategory, setIndustryCategoryActive } from "../../contract-actions";
+import { Card } from "@/components/ui/card";
 
 const INDUSTRIES_PATH = "/underwriting/setup/industries";
 
@@ -25,9 +25,9 @@ export default async function IndustriesPage({
 
   return (
     <div>
-      <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+      <TextLink href="/underwriting/setup" className="text-xs">
         ← Setup
-      </Link>
+      </TextLink>
       <div className="mt-2 mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-xl font-bold text-ink-900">Industries</h2>
         {!creating && <PrimaryLink href={`${INDUSTRIES_PATH}?new=1`}>+ New industry</PrimaryLink>}
@@ -38,7 +38,7 @@ export default async function IndustriesPage({
         about. Deactivate an industry rather than deleting it.
       </p>
 
-      <div className="rounded border border-line">
+      <Card>
         {creating && (
           <form
             action={createIndustryCategory}
@@ -61,12 +61,9 @@ export default async function IndustriesPage({
                 <Input id="industry_description" name="description" maxLength={200} />
               </div>
               <Button type="submit">Add industry</Button>
-              <Link
-                href={INDUSTRIES_PATH}
-                className="px-1 py-2.5 text-sm font-bold text-brand-link hover:underline"
-              >
+              <TextLink href={INDUSTRIES_PATH} className="py-2.5">
                 Cancel
-              </Link>
+              </TextLink>
             </div>
             {error && <FieldError>{error}</FieldError>}
           </form>
@@ -109,7 +106,7 @@ export default async function IndustriesPage({
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

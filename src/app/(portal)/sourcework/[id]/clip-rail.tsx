@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import { buildClipsZipFilename, formatDuration } from "@/lib/transcription/media";
 import {
@@ -111,22 +113,26 @@ export function ClipRail({
       onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
     >
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-500">
-            Excerpts{clips.length > 0 && ` (${clips.length})`}
-          </h2>
-          {clips.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExportAll}
-              disabled={status === "preparing"}
-              title="Download every excerpt in this project as a zip"
-              className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
-            >
-              {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
-            </button>
-          )}
-        </div>
+        <SectionHeading
+          level="eyebrow"
+          className="items-center"
+          action={
+            clips.length > 0 ? (
+              <Button
+                type="button"
+                variant="link"
+                onClick={handleExportAll}
+                disabled={status === "preparing"}
+                title="Download every excerpt in this project as a zip"
+                className="text-brand-link"
+              >
+                {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
+              </Button>
+            ) : undefined
+          }
+        >
+          Excerpts{clips.length > 0 && ` (${clips.length})`}
+        </SectionHeading>
 
         {status === "preparing" && pendingCount > 0 && (
           <p className="text-xs text-ink-400">
@@ -137,9 +143,7 @@ export function ClipRail({
         {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
 
         {clips.length === 0 ? (
-          <p className="rounded border border-dashed border-line p-3 text-xs leading-relaxed text-ink-400">
-            Select some transcript text to make your first excerpt.
-          </p>
+          <EmptyState compact>Select some transcript text to make your first excerpt.</EmptyState>
         ) : (
           clips.map((clip) => (
             <ClipCard
@@ -370,21 +374,22 @@ function ClipCard({
         <Button
           type="button"
           variant="secondary"
+          size="sm"
           onClick={handleExport}
           disabled={status !== "idle"}
-          className="px-2.5 py-1.5 text-xs"
         >
           {status === "exporting" ? "Exporting…" : hasExport ? "Re-export" : "Export WAV"}
         </Button>
         {hasExport && (
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={handleDownload}
             disabled={status !== "idle"}
-            className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400"
+            className="text-brand-link"
           >
             {status === "downloading" ? "Preparing…" : "Download"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -392,30 +397,27 @@ function ClipCard({
         {confirmDelete ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-ink-700">Delete this excerpt?</span>
-            <button
+            <Button
               type="button"
+              variant="danger-link"
               onClick={handleDelete}
               disabled={status === "deleting"}
-              className="font-semibold text-danger hover:underline disabled:text-ink-400"
             >
               {status === "deleting" ? "Deleting…" : "Delete"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              className="text-ink-500 hover:underline"
-            >
+            </Button>
+            <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
               Keep
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => setConfirmDelete(true)}
-            className="text-xs text-ink-400 hover:text-danger hover:underline"
+            className="font-normal text-ink-400 hover:text-danger"
           >
             Delete
-          </button>
+          </Button>
         )}
       </div>
 

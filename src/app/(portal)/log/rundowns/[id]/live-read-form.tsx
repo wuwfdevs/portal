@@ -20,7 +20,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import { estimateReadSeconds } from "@/lib/log/read-time";
 import type { LogContentType } from "@/lib/database.types";
@@ -69,11 +69,12 @@ export function LiveReadForm({
           </span>
           <div className="flex flex-wrap gap-1.5">
             {nprItems.map((item) => (
-              <button
+              <Button
                 key={item.npr_item_id}
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => applyLookahead(item)}
-                className="rounded border border-line px-2 py-1 text-xs font-semibold text-brand-link hover:bg-panel-50"
               >
                 {item.estimatedTimeLabel && (
                   <span className="mr-1 font-mono font-normal text-ink-400 tabular-nums">
@@ -81,7 +82,7 @@ export function LiveReadForm({
                   </span>
                 )}
                 {item.title}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -92,8 +93,7 @@ export function LiveReadForm({
         <input type="hidden" name="before_item_id" value={beforeItemId ?? ""} />
         <input type="hidden" name="source_npr_item_id" value={sourceNprItemId} />
         <input type="hidden" name="source_npr_item_title" value={sourceNprItemTitle} />
-        <div>
-          <Label htmlFor={`live-title-${breakId}`}>Title</Label>
+        <Field label="Title" htmlFor={`live-title-${breakId}`}>
           <Input
             id={`live-title-${breakId}`}
             name="title"
@@ -102,9 +102,8 @@ export function LiveReadForm({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-        </div>
-        <div>
-          <Label htmlFor={`live-script-${breakId}`}>Script</Label>
+        </Field>
+        <Field label="Script" htmlFor={`live-script-${breakId}`}>
           <Textarea
             id={`live-script-${breakId}`}
             name="script"
@@ -112,9 +111,8 @@ export function LiveReadForm({
             value={script}
             onChange={(event) => setScript(event.target.value)}
           />
-        </div>
-        <div>
-          <Label htmlFor={`live-duration-${breakId}`}>Duration (s)</Label>
+        </Field>
+        <Field label="Duration (s)" htmlFor={`live-duration-${breakId}`}>
           <Input
             id={`live-duration-${breakId}`}
             name="duration_seconds"
@@ -125,21 +123,18 @@ export function LiveReadForm({
             required={estimatedSeconds === null}
             className="w-24"
           />
-        </div>
+        </Field>
         {!isLookahead && (
           <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="keep_in_library"
-                checked={keepInLibrary}
-                onChange={(event) => setKeepInLibrary(event.target.checked)}
-              />
-              Keep in the library for future rundowns
-            </label>
+            <CheckboxField
+              name="keep_in_library"
+              checked={keepInLibrary}
+              onChange={(event) => setKeepInLibrary(event.target.checked)}
+              label="Keep in the library for future rundowns"
+              className="items-center"
+            />
             {keepInLibrary && (
-              <div>
-                <Label htmlFor={`live-library-type-${breakId}`}>File it as</Label>
+              <Field label="File it as" htmlFor={`live-library-type-${breakId}`}>
                 <Select
                   id={`live-library-type-${breakId}`}
                   name="library_content_type"
@@ -152,7 +147,7 @@ export function LiveReadForm({
                     </option>
                   ))}
                 </Select>
-              </div>
+              </Field>
             )}
           </div>
         )}
@@ -168,7 +163,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" variant="secondary" disabled={pending} className="px-2.5 py-1.5 text-xs">
+    <Button type="submit" variant="secondary" disabled={pending} size="sm">
       {pending ? "Adding…" : "Add live read"}
     </Button>
   );

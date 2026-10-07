@@ -3,6 +3,8 @@
 import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/button";
+import { Select, Textarea } from "@/components/ui/input";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
@@ -230,7 +232,7 @@ export function SegmentRow({
         <div className="min-w-0 flex-1">
           {isEditing ? (
             <div>
-              <textarea
+              <Textarea
                 ref={textareaRef}
                 value={text}
                 onChange={(e) => {
@@ -245,30 +247,32 @@ export function SegmentRow({
                 }}
                 autoFocus
                 rows={3}
-                className="w-full rounded border border-brand-primary px-2 py-1.5 text-base leading-relaxed text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
+                className="border-brand-primary px-2 py-1.5"
               />
 
               {canSplit && <SplitPreview text={text} caret={caret} />}
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSave}
-                  className="rounded bg-brand-primary px-2.5 py-1 text-xs font-bold text-white hover:bg-[#2278B8]"
                 >
                   Save
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="secondary"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={cancelEditing}
-                  className="rounded border border-line px-2.5 py-1 text-xs font-semibold text-ink-700 hover:bg-panel-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="link"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSplit}
                   disabled={!canSplit}
@@ -277,10 +281,10 @@ export function SegmentRow({
                       ? "Split this line at the cursor"
                       : "Put the cursor inside the text to split there"
                   }
-                  className="text-xs font-semibold text-brand-link hover:underline disabled:text-ink-400 disabled:no-underline"
+                  className="text-brand-link"
                 >
                   Split here
-                </button>
+                </Button>
                 <span className="text-[11px] text-ink-400">⌘↵ to save · Esc to cancel</span>
               </div>
             </div>
@@ -316,12 +320,13 @@ export function SegmentRow({
           <div className="hidden shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 sm:flex">
             {status === "saving" && <span className="text-[11px] text-ink-400">Saving…</span>}
             {status === "saved" && <span className="text-[11px] text-ink-400">Saved</span>}
-            <select
+            <Select
+              compact
               value={speakerId}
               onChange={handleSpeakerChange}
               aria-label="Who is speaking on this line"
               title="Reassign this line to another speaker"
-              className="max-w-[9rem] rounded border border-line bg-white px-1 py-0.5 text-[11px] text-ink-700 focus:border-brand-primary focus:outline-none"
+              className="max-w-[9rem]"
             >
               <option value="">Unknown speaker</option>
               {speakers.map((option) => (
@@ -329,23 +334,20 @@ export function SegmentRow({
                   {speakerDisplayLabel(option.diarizationLabel, option.displayName)}
                 </option>
               ))}
-            </select>
-            <button
-              type="button"
-              onClick={beginEditing}
-              className="text-[11px] font-semibold text-brand-link hover:underline"
-            >
+            </Select>
+            <Button type="button" variant="link" onClick={beginEditing} className="text-brand-link">
               Edit
-            </button>
+            </Button>
             {!isLast && (
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={handleMerge}
                 title="Join this line with the one below"
-                className="text-[11px] font-semibold text-brand-link hover:underline"
+                className="text-brand-link"
               >
                 Merge ↓
-              </button>
+              </Button>
             )}
           </div>
         )}

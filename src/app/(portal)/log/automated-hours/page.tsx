@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -7,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { DayPicker } from "@/components/ui/day-picker";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { Input, Label } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Segmented } from "@/components/ui/segmented";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
@@ -21,6 +23,7 @@ import {
 import { requireLogAccess } from "@/lib/log/access";
 import {
   formatChangeWhen,
+  formatEffectiveRange,
   formatWindowHours,
   localFormValues,
   programsInWindow,
@@ -36,7 +39,7 @@ import {
   type LogOnAirChangeRow,
 } from "@/lib/log/automated-hours-queries";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
-import { formatDateShort, formatDaysOfWeek } from "@/lib/log/program-status";
+import { formatDaysOfWeek } from "@/lib/log/program-status";
 import { listScheduleEntries, type ScheduleEntryWithNames } from "@/lib/log/queries";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { isValidDateISO } from "@/lib/log/week-layout";
@@ -130,12 +133,15 @@ export default async function AutomatedHoursPage({
     <>
       <ScheduleTabs active="automation" />
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold text-ink-900">Automation</h1>
-          <p className="text-sm text-ink-500">
-            Every hour is hosted unless it&apos;s listed here. Credits in automated hours go to DAD.
-          </p>
-        </div>
+        <PageHeader
+          title="Automation"
+          description={
+            <>
+              Every hour is hosted unless it&apos;s listed here. Credits in automated hours go to
+              DAD.
+            </>
+          }
+        />
 
         {error && !cardOpen && <Alert>{error}</Alert>}
 
@@ -152,7 +158,7 @@ export default async function AutomatedHoursPage({
 
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-ink-900">Every week</h2>
+            <SectionHeading>Every week</SectionHeading>
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
               <PrimaryLink href={href({ new: "weekly" })}>+ Weekly hours</PrimaryLink>
@@ -177,7 +183,7 @@ export default async function AutomatedHoursPage({
 
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-base font-bold text-ink-900">One-time changes</h2>
+            <SectionHeading>One-time changes</SectionHeading>
             <FilterChips
               label="When"
               chips={[
@@ -236,12 +242,6 @@ export default async function AutomatedHoursPage({
   );
 }
 
-function formatSince(row: LogAutomatedWeeklyRow): string {
-  return row.effective_to
-    ? `${formatDateShort(row.effective_from)} – ${formatDateShort(row.effective_to)}`
-    : formatDateShort(row.effective_from);
-}
-
 function WeeklyTable({
   rows,
   entries,
@@ -254,11 +254,7 @@ function WeeklyTable({
   editHref: ((id: string) => string) | null;
 }) {
   if (rows.length === 0) {
-    return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No weekly automated hours. Every week is hosted.
-      </div>
-    );
+    return <EmptyState>No weekly automated hours. Every week is hosted.</EmptyState>;
   }
   return (
     <TableFrame>
@@ -292,16 +288,13 @@ function WeeklyTable({
                 </Cell>
                 <Cell label="Programs">{programs.length > 0 ? programs.join(", ") : "—"}</Cell>
                 <Cell label="Since" className="whitespace-nowrap">
-                  {formatSince(row)}
+                  {formatEffectiveRange(row.effective_from, row.effective_to)}
                 </Cell>
                 {editHref && (
                   <Cell stack="aside">
-                    <Link
-                      href={editHref(row.id)}
-                      className="text-sm font-semibold text-brand-link hover:underline"
-                    >
+                    <TextLink href={editHref(row.id)} className="hover:underline">
                       Edit
-                    </Link>
+                    </TextLink>
                   </Cell>
                 )}
               </Row>
@@ -324,9 +317,9 @@ function ChangesTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         {scope === "upcoming" ? "No one-time changes coming up." : "No past one-time changes."}
-      </div>
+      </EmptyState>
     );
   }
   return (
@@ -356,12 +349,9 @@ function ChangesTable({
               <Cell label="Reason">{row.reason ?? "—"}</Cell>
               {editHref && (
                 <Cell stack="aside">
-                  <Link
-                    href={editHref(row.id)}
-                    className="text-sm font-semibold text-brand-link hover:underline"
-                  >
+                  <TextLink href={editHref(row.id)} className="hover:underline">
                     Edit
-                  </Link>
+                  </TextLink>
                 </Cell>
               )}
             </Row>
@@ -410,8 +400,7 @@ function WeeklyCard({
           <DayPicker name="day" defaultValue={row?.days_of_week ?? [0, 1, 2, 3, 4, 5, 6]} />
         </div>
         <div className="grid grid-cols-2 gap-4 sm:max-w-sm">
-          <div>
-            <Label htmlFor="start_time">From</Label>
+          <Field label="From" htmlFor="start_time">
             <Input
               id="start_time"
               name="start_time"
@@ -419,9 +408,8 @@ function WeeklyCard({
               required
               defaultValue={row?.start_time.slice(0, 5) ?? "20:00"}
             />
-          </div>
-          <div>
-            <Label htmlFor="end_time">Until</Label>
+          </Field>
+          <Field label="Until" htmlFor="end_time">
             <Input
               id="end_time"
               name="end_time"
@@ -429,14 +417,13 @@ function WeeklyCard({
               required
               defaultValue={row?.end_time.slice(0, 5) ?? "05:00"}
             />
-          </div>
+          </Field>
         </div>
         <p className="-mt-2 text-[13px] text-ink-500">
           An end at or before the start runs past midnight into the next morning.
         </p>
         <div className="grid grid-cols-2 gap-4 sm:max-w-sm">
-          <div>
-            <Label htmlFor="effective_from">Starting</Label>
+          <Field label="Starting" htmlFor="effective_from">
             <Input
               id="effective_from"
               name="effective_from"
@@ -444,19 +431,17 @@ function WeeklyCard({
               required
               defaultValue={row?.effective_from ?? today}
             />
-          </div>
-          <div>
-            <Label htmlFor="effective_to">Ending (optional)</Label>
+          </Field>
+          <Field label="Ending (optional)" htmlFor="effective_to">
             <Input
               id="effective_to"
               name="effective_to"
               type="date"
               defaultValue={row?.effective_to ?? ""}
             />
-          </div>
+          </Field>
         </div>
-        <div className="sm:max-w-md">
-          <Label htmlFor="reason">Note (optional)</Label>
+        <Field className="sm:max-w-md" label="Note (optional)" htmlFor="reason">
           <Input
             id="reason"
             name="reason"
@@ -464,7 +449,7 @@ function WeeklyCard({
             placeholder="Overnights"
             defaultValue={row?.reason ?? ""}
           />
-        </div>
+        </Field>
       </div>
     </InlineCreateCard>
   );
@@ -517,16 +502,13 @@ function ChangeCard({
           />
         </div>
         <div className="grid grid-cols-2 gap-4 sm:max-w-md">
-          <div>
-            <Label htmlFor="from_date">From</Label>
+          <Field label="From" htmlFor="from_date">
             <Input id="from_date" name="from_date" type="date" required defaultValue={from.date} />
-          </div>
-          <div>
-            <Label htmlFor="from_time">Time</Label>
+          </Field>
+          <Field label="Time" htmlFor="from_time">
             <Input id="from_time" name="from_time" type="time" required defaultValue={from.time} />
-          </div>
-          <div>
-            <Label htmlFor="until_date">Until</Label>
+          </Field>
+          <Field label="Until" htmlFor="until_date">
             <Input
               id="until_date"
               name="until_date"
@@ -534,9 +516,8 @@ function ChangeCard({
               required
               defaultValue={until.date}
             />
-          </div>
-          <div>
-            <Label htmlFor="until_time">Time</Label>
+          </Field>
+          <Field label="Time" htmlFor="until_time">
             <Input
               id="until_time"
               name="until_time"
@@ -544,13 +525,12 @@ function ChangeCard({
               required
               defaultValue={until.time}
             />
-          </div>
+          </Field>
         </div>
         <p className="-mt-2 text-[13px] text-ink-500">
           Midnight to midnight covers whole days. The change ends at the &ldquo;Until&rdquo; time.
         </p>
-        <div className="sm:max-w-md">
-          <Label htmlFor="reason">Reason (optional)</Label>
+        <Field className="sm:max-w-md" label="Reason (optional)" htmlFor="reason">
           <Input
             id="reason"
             name="reason"
@@ -558,7 +538,7 @@ function ChangeCard({
             placeholder="Thanksgiving"
             defaultValue={row?.reason ?? ""}
           />
-        </div>
+        </Field>
       </div>
     </InlineCreateCard>
   );

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { UwIndustryCategoryRow, UwUnderwriterRow } from "@/lib/underwriting/queries";
+import { TextLink } from "@/components/ui/primary-link";
 
 export type UnderwriterFormDefaults = Pick<
   UwUnderwriterRow,
@@ -93,10 +93,7 @@ export function UnderwriterForm({
         </Select>
         <FieldHint>
           Used for the competitive-adjacency rule when scheduling credits. Missing one?{" "}
-          <Link href="/underwriting/setup/industries" className="font-semibold text-brand-link">
-            Manage industries
-          </Link>
-          .
+          <TextLink href="/underwriting/setup/industries">Manage industries</TextLink>.
         </FieldHint>
       </div>
       <div>
@@ -105,9 +102,7 @@ export function UnderwriterForm({
       </div>
       <div className="flex items-center gap-4 border-t border-line pt-5">
         <Button type="submit">{submitLabel}</Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

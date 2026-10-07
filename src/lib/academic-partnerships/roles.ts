@@ -14,7 +14,11 @@ export function normalizeToolRole(toolRole: string | null): AcademicPartnerships
 }
 
 /** What each recognized tool_role value means, for the admin grant UI's dropdown. */
-export const ROLE_OPTIONS: { value: AcademicPartnershipsRole; label: string; description: string }[] = [
+export const ROLE_OPTIONS: {
+  value: AcademicPartnershipsRole;
+  label: string;
+  description: string;
+}[] = [
   {
     value: "member",
     label: "Member",

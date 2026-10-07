@@ -363,3 +363,33 @@ the words carry the meaning. A busy region that hides its input (the import's up
 it mounted and only toggles `hidden`, so a failed run leaves the chosen file in place.
 `Alert` has `warning` (asks for a decision — a date that doesn't match) and `success` (confirms
 a finished action on the screen it lands on) beside the older variants.
+
+## Shared building blocks (2026-10-07)
+
+An audit found the same handful of patterns hand-typed dozens of times. Reach for these before
+writing the class string again; all live in `src/components/ui` unless noted.
+
+- **Actions**: `Button` (`primary` · `secondary` · `ghost` · `danger`, plus the inline `link` and
+  `danger-link` for a row's "Retire"/"Remove"; `size="sm"`). For navigation use `PrimaryLink`,
+  `SecondaryLink` (bordered; `size="sm"`) and `TextLink` ("← Back", "Edit", "Cancel").
+- **Two-step destructive action**: `ConfirmAction` (client; `onConfirm` may be async and return
+  `{ error }`). Give it a `title` for a "Danger zone" panel. It does not cover an `ActionMenu` item
+  that posts a server-action form — those keep their own confirm panel.
+- **Messages**: `Alert` (`action` puts a button or link beside the text). `EmptyState` for "nothing
+  here yet" (`compact` inside a kanban column or card). `RouteError` is the body of every route
+  segment's `error.tsx`.
+- **Headings**: `PageHeader` (title, back link, badge, description, actions; `size` page · form ·
+  public), `SectionHeading` (`level="title"` serif or `"eyebrow"` uppercase), `CardHeader`.
+- **Forms**: `Field` (label + control + hint + error), `CheckboxField` (checkbox or radio),
+  `FileInput`, `Select compact` for a control squeezed into a row (still 16px on a phone).
+- **Read-only data**: `DescriptionList` (`columns` 1–4), `StatTile`, `DetailSummary` (aside card).
+  A status → badge mapping is a `defineStatusMap()` record next to the domain's types, rendered
+  with `StatusBadge` — never a local `STATUS_BADGE` in a page.
+- **Boards**: `KanbanBoardField` (the generic drag-between-columns board; the parent owns the
+  items, optimistic update and rollback). **Public screens**: `PublicShell`.
+- **Plumbing**: `src/lib/format.ts` (`formatBytes`, `formatClock`, `formatShortDate`,
+  `formatShortDateTime`, `formatUsd`) before a local formatter; `useRefreshPoller` and `useNow` in
+  `src/lib`. Station time stays in `lib/log/timezone.ts`.
+
+Not yet covered, deliberately: a multi-segment or tone-aware `ProgressBar`, a button-style
+`FilterChips`, and a `ConfirmAction` that wraps a server-action form.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { formatClock as formatDuration } from "@/lib/format";
 
 // A live-ticking "how long until X" countdown — the sidebar's rejoin/next-
 // break widget's companion to StationClock's "what time is it right now",
@@ -10,15 +11,6 @@ import { cn } from "@/lib/cn";
 // stale. Starts blank and fills in on mount rather than rendering the
 // server's render-time instant, same hydration-mismatch avoidance as
 // StationClock.
-
-function formatDuration(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
-  const ss = String(seconds).padStart(2, "0");
-  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
-}
 
 export function Countdown({
   targetISO,

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Steps } from "@/components/ui/steps";
@@ -7,6 +6,7 @@ import { listUnderwriters } from "@/lib/underwriting/queries";
 import { MIGRATION_PATH } from "../paths";
 import { ManifestForm } from "./manifest-form";
 import { MIGRATION_STEPS } from "../steps";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * A new migration batch, step 1 (docs/underwriting-traffic-redesign.md
@@ -26,9 +26,7 @@ export default async function NewMigrationBatchPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href={MIGRATION_PATH} className="text-sm font-bold text-brand-link">
-          ← Migrations
-        </Link>
+        <TextLink href={MIGRATION_PATH}>← Migrations</TextLink>
         <h2 className="mt-2 text-xl font-bold text-ink-900">New batch</h2>
       </div>
       <Steps steps={MIGRATION_STEPS} current={0} label="Migration steps" />

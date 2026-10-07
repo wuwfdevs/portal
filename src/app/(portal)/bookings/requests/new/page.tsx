@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
@@ -15,6 +14,7 @@ import {
 import { hoursPhrase, hourBuckets } from "@/lib/bookings/summary";
 import { createRequest } from "../actions";
 import { NewRequestForm } from "../new-request-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /**
  * A request entered by staff, priced in the same pass (docs/bookings-design.md
@@ -57,10 +57,7 @@ export default async function NewRequestPage({
     }));
   return (
     <div className="flex flex-col gap-4">
-      <Link href={REQUESTS_PATH} className="inline-block text-xs font-semibold text-brand-link">
-        ← Requests
-      </Link>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">New request</h2>
+      <PageHeader back={{ href: REQUESTS_PATH, label: "Requests" }} title="New request" />
       <NewRequestForm
         action={createRequest}
         partners={partners.map((partner) => ({

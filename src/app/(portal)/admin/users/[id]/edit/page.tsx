@@ -1,8 +1,10 @@
-import Link from "next/link";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Field, Input, Label, Select } from "@/components/ui/input";
 import { updateUserAccess } from "../../actions";
 import { ToolGrantRow } from "../../tool-grant-row";
 
@@ -14,7 +16,11 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
     supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
     // Proposed tools are ideas on the Roadmap, not software — nothing to grant.
     supabase.from("tools").select("*").neq("status", "proposed").order("sort_order"),
-    supabase.from("tool_access").select("tool_id, tool_roles").eq("user_id", id).is("revoked_at", null),
+    supabase
+      .from("tool_access")
+      .select("tool_id, tool_roles")
+      .eq("user_id", id)
+      .is("revoked_at", null),
   ]);
 
   if (!profile) notFound();
@@ -23,32 +29,30 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/admin/users" className="text-xs font-semibold text-brand-link">
-          ← Back to users
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4">
-          <div className="font-serif text-[17px] font-bold text-ink-900">{profile.display_name}</div>
-          <div className="text-xs text-ink-500">{profile.email}</div>
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: "/admin/users", label: "Back to users" }}
+        title={profile.display_name}
+        description={profile.email}
+      />
+      <Card>
         <form action={updateUserAccess} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="user_id" value={profile.id} />
-          <div>
-            <Label htmlFor="platform_role">Platform role</Label>
+          <Field label="Platform role" htmlFor="platform_role">
             <Select id="platform_role" name="platform_role" defaultValue={profile.platform_role}>
               <option value="staff">Staff</option>
               <option value="student">Student</option>
               <option value="faculty_partner">Faculty / partner</option>
               <option value="administrator">Administrator</option>
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="title">Title</Label>
+          </Field>
+          <Field
+            label="Title"
+            htmlFor="title"
+            hint="Prints on the signature line of an affidavit this person signs."
+          >
             <Input id="title" name="title" maxLength={120} defaultValue={profile.title ?? ""} />
-            <FieldHint>Prints on the signature line of an affidavit this person signs.</FieldHint>
-          </div>
+          </Field>
           <div>
             <Label>Authorized tools</Label>
             <div className="flex flex-col gap-2.5">
@@ -63,15 +67,11 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
             </div>
           </div>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/admin/users">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/admin/users">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

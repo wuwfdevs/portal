@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
@@ -7,6 +6,7 @@ import { canRunMigrationItem } from "@/lib/underwriting/agreement-migration";
 import { formatDateRange } from "@/lib/underwriting/line-details";
 import { batchPath, MIGRATION_PATH } from "../../paths";
 import { DocumentsRun, type RunEntry } from "./documents-run";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * A batch's documents step (docs/underwriting-traffic-redesign.md §14.5):
@@ -55,18 +55,12 @@ export default async function MigrationDocumentsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href={MIGRATION_PATH} className="text-sm font-bold text-brand-link">
-          ← Migrations
-        </Link>
+        <TextLink href={MIGRATION_PATH}>← Migrations</TextLink>
         <h2 className="mt-2 text-xl font-bold text-ink-900">{batchLabel}</h2>
         {items.length > runnable.length && (
           <p className="mt-1 text-sm text-ink-500">
             {items.length - runnable.length} of {items.length} entries are already imported or
-            importing —{" "}
-            <Link href={batchPath(batchLabel)} className="font-bold text-brand-link">
-              see the batch
-            </Link>
-            .
+            importing — <TextLink href={batchPath(batchLabel)}>see the batch</TextLink>.
           </p>
         )}
       </div>

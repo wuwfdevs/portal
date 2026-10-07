@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { buildGroveEmbedCode, embedFormUrl, publicFormUrl } from "@/lib/academic-partnerships/embed";
+import { SectionHeading } from "@/components/ui/section-heading";
+import {
+  buildGroveEmbedCode,
+  embedFormUrl,
+  publicFormUrl,
+} from "@/lib/academic-partnerships/embed";
 
 /** The public URL, the Grove embed snippet, and a live preview of it. Mirrors Audience Listening's Share tab. */
 export function SharePanel({ siteUrl }: { siteUrl: string }) {
@@ -13,20 +19,21 @@ export function SharePanel({ siteUrl }: { siteUrl: string }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <Card className="p-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">Public link</h2>
-          <CopyButton value={url} label="Copy link" />
-        </div>
+        <SectionHeading className="mb-2" action={<CopyButton value={url} label="Copy link" />}>
+          Public link
+        </SectionHeading>
         <p className="break-all rounded border border-line bg-panel-50 px-3 py-2.5 font-mono text-xs text-ink-700">
           {url}
         </p>
       </Card>
 
       <Card className="p-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">Grove embed code</h2>
-          <CopyButton value={embedCode} label="Copy embed code" />
-        </div>
+        <SectionHeading
+          className="mb-2"
+          action={<CopyButton value={embedCode} label="Copy embed code" />}
+        >
+          Grove embed code
+        </SectionHeading>
         <p className="mb-3 text-xs leading-relaxed text-ink-400">
           Paste this into a Grove Responsive Embed element, unchanged.
         </p>
@@ -36,10 +43,10 @@ export function SharePanel({ siteUrl }: { siteUrl: string }) {
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-2 font-serif text-[17px] font-bold text-ink-900">Embed preview</h2>
+        <SectionHeading className="mb-2">Embed preview</SectionHeading>
         <p className="mb-3 text-xs leading-relaxed text-ink-400">
-          What appears inside the iframe, sized to its actual content — not the fixed height in
-          the snippet above. A Grove embed is cross-origin and has no way to read its own content
+          What appears inside the iframe, sized to its actual content — not the fixed height in the
+          snippet above. A Grove embed is cross-origin and has no way to read its own content
           height, so that snippet uses a fixed guess; this preview can measure it exactly because
           it&apos;s served from this same site.
         </p>
@@ -114,12 +121,8 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="shrink-0 text-xs font-semibold text-brand-link hover:underline"
-    >
+    <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={handleCopy}>
       {status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : label}
-    </button>
+    </Button>
   );
 }

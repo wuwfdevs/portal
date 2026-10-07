@@ -25,6 +25,10 @@ import { suggestNextCopyForLine } from "@/lib/underwriting/rotation-rebalance";
 import { placeCreditAction } from "../../../../../placement-actions";
 import { BreakPicker, type BreakPickerGroup } from "./break-picker";
 import { MessageChoice, type MessageOption } from "./message-choice";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 
 /**
  * Place a credit by hand (docs/underwriting-traffic-redesign.md §11.7) —
@@ -144,10 +148,11 @@ export default async function PlaceCreditPage({
 
   return (
     <div>
-      <Link href={backHref} className="text-xs font-semibold text-brand-link">
-        ← Back to the contract
-      </Link>
-      <h2 className="mt-2 mb-1 font-serif text-xl font-bold text-ink-900">Place a credit</h2>
+      <PageHeader
+        back={{ href: backHref, label: "Back to the contract" }}
+        title="Place a credit"
+        className="mb-1"
+      />
       <p className="mb-5 text-sm text-ink-700">
         <span className="font-semibold text-ink-900">{title}</span>
         {line.label ? ` · ${view.description}` : ""} · {line.duration_seconds}s
@@ -169,10 +174,7 @@ export default async function PlaceCreditPage({
           ) : lineCopy.length === 0 ? (
             <Alert variant="note">
               Create or link a message to this contract first —{" "}
-              <Link href={`${base}?tab=copy`} className="font-semibold text-brand-link">
-                the Copy tab
-              </Link>
-              .
+              <TextLink href={`${base}?tab=copy`}>the Copy tab</TextLink>.
             </Alert>
           ) : placeable && !placeable.ok ? (
             <Alert>{placeable.message}</Alert>
@@ -193,12 +195,7 @@ export default async function PlaceCreditPage({
                     {weekRow ? (
                       <>
                         Breaks in {weekRow.label.toLowerCase()} ·{" "}
-                        <Link
-                          href={`${base}/lines/${line.id}/place`}
-                          className="font-semibold text-brand-link"
-                        >
-                          Show every date
-                        </Link>
+                        <TextLink href={`${base}/lines/${line.id}/place`}>Show every date</TextLink>
                       </>
                     ) : (
                       "Open breaks on dates this line still owes a credit"
@@ -212,11 +209,11 @@ export default async function PlaceCreditPage({
                   </p>
                 )}
                 {groups.length === 0 ? (
-                  <p className="rounded border border-dashed border-line px-4 py-3 text-xs text-ink-500">
+                  <EmptyState compact>
                     {weekRow
                       ? "No open break in this period right now. A rundown must exist on one of its dates, on a program this line's pool maps to, with a marked opportunity that satisfies the line's time rule."
                       : "No eligible open break right now. A rundown must exist on a date with open demand, on a program this line's pool maps to, with a marked opportunity that satisfies the line's time rule."}
-                  </p>
+                  </EmptyState>
                 ) : (
                   <BreakPicker groups={groups} />
                 )}
@@ -228,9 +225,9 @@ export default async function PlaceCreditPage({
               </section>
 
               <div className="flex items-center justify-end gap-4">
-                <Link href={backHref} className="text-[13px] font-semibold text-brand-link">
+                <TextLink href={backHref} className="text-[13px]">
                   Cancel
-                </Link>
+                </TextLink>
                 <Button type="submit" disabled={groups.length === 0}>
                   Place credit
                 </Button>
@@ -240,7 +237,7 @@ export default async function PlaceCreditPage({
         </div>
 
         <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-72">
-          <div className="rounded border border-line px-5 py-4">
+          <Card className="px-5 py-4">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
               This line
             </div>
@@ -255,17 +252,17 @@ export default async function PlaceCreditPage({
               {summary.delivered} aired · {summary.scheduled} scheduled · {summary.freshShortfall}{" "}
               needed
             </p>
-          </div>
+          </Card>
 
           {stillNeeded.length > 0 && (
-            <div className="rounded border border-line px-5 py-4">
+            <Card className="px-5 py-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
                   Still needed
                 </span>
-                <Link href={backHref} className="text-xs font-semibold text-brand-link">
+                <TextLink href={backHref} className="text-xs">
                   All {rows.length} periods
-                </Link>
+                </TextLink>
               </div>
               <ul className="flex flex-col text-[13px]">
                 {stillNeeded.slice(0, 6).map((row) => (
@@ -295,11 +292,11 @@ export default async function PlaceCreditPage({
                   </li>
                 )}
               </ul>
-            </div>
+            </Card>
           )}
 
           {lineCopy.length > 0 && (
-            <div className="rounded border border-line px-5 py-4">
+            <Card className="px-5 py-4">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
                 Rotation
               </div>
@@ -323,7 +320,7 @@ export default async function PlaceCreditPage({
                   </li>
                 ))}
               </ol>
-            </div>
+            </Card>
           )}
         </aside>
       </div>

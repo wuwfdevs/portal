@@ -12,7 +12,6 @@
 // is, and a closed tab leaves finished drafts in place and the rest to run.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +35,10 @@ import type { MigrationRunResult } from "@/lib/underwriting/migration-import";
 import { registerDocumentOnlyEntries } from "../../actions";
 import { batchPath } from "../../paths";
 import { MIGRATION_STEPS } from "../../steps";
+import { formatBytes as formatMB } from "@/lib/format";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { CheckboxField } from "@/components/ui/input";
 
 export interface RunEntry {
   id: string;
@@ -73,10 +76,6 @@ type Filter = "attention" | "matched" | "extras" | "all";
 
 function fileKey(file: File): string {
   return `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
-}
-
-function formatMB(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 async function sha256Hex(file: File): Promise<string> {
@@ -374,12 +373,7 @@ export function DocumentsRun({
                 {stopping ? "Stopping after these…" : "Stop after the ones reading"}
               </Button>
             ) : (
-              <Link
-                href={batchPath(batchLabel)}
-                className="inline-flex h-10 items-center rounded bg-brand-primary px-4 text-sm font-bold text-white hover:bg-[#2278B8]"
-              >
-                Review the batch
-              </Link>
+              <PrimaryLink href={batchPath(batchLabel)}>Review the batch</PrimaryLink>
             )}
           </div>
           <ProgressBar
@@ -428,7 +422,7 @@ export function DocumentsRun({
         )}
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <section className="overflow-hidden rounded border border-line">
+          <Card className="overflow-hidden">
             <h3 className="border-b border-line bg-panel-50 px-4 py-2.5 text-sm font-bold text-ink-900">
               Done · {finished.length}
             </h3>
@@ -462,20 +456,20 @@ export function DocumentsRun({
                         </span>
                       </span>
                       {result.ok && (
-                        <Link
+                        <TextLink
                           href={`/underwriting/contracts/${result.contractId}/schedule`}
-                          className="whitespace-nowrap text-[13px] font-bold text-brand-link"
+                          className="whitespace-nowrap text-[13px]"
                         >
                           Open draft
-                        </Link>
+                        </TextLink>
                       )}
                     </li>
                   );
                 })}
               </ul>
             )}
-          </section>
-          <section className="overflow-hidden rounded border border-line">
+          </Card>
+          <Card className="overflow-hidden">
             <h3 className="border-b border-line bg-panel-50 px-4 py-2.5 text-sm font-bold text-ink-900">
               {phase === "done" ? "Not started" : "Up next"} · {queued.length}
             </h3>
@@ -501,7 +495,7 @@ export function DocumentsRun({
                 )}
               </ul>
             )}
-          </section>
+          </Card>
         </div>
 
         {notes.length > 0 && <Alert variant="note">Skipped: {notes.join(" ")}</Alert>}
@@ -638,7 +632,7 @@ export function DocumentsRun({
 
       {(documentsOnly || filter === "extras" || filter === "attention") &&
         matching.extras.length > 0 && (
-          <section className="flex flex-col gap-2.5 rounded border border-line px-5 py-4">
+          <Card className="flex flex-col gap-2.5 px-5 py-4">
             <h3 className="text-[15px] font-bold text-ink-900">
               {documentsOnly
                 ? `${matching.extras.length} ${matching.extras.length === 1 ? "document" : "documents"} to import`
@@ -653,23 +647,14 @@ export function DocumentsRun({
               </p>
             )}
             {!documentsOnly && (
-              <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink-900">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4"
-                  checked={importExtras}
-                  onChange={(event) => setImportExtras(event.target.checked)}
-                />
-                <span>
-                  Import them too, reading every fact from the document.{" "}
-                  <span className="text-ink-500">
-                    Prefer adding them to the manifest when you can — a document-only draft needs a
-                    closer check. Its sponsor must already be on file.
-                  </span>
-                </span>
-              </label>
+              <CheckboxField
+                checked={importExtras}
+                onChange={(event) => setImportExtras(event.target.checked)}
+                label="Import them too, reading every fact from the document."
+                hint="Prefer adding them to the manifest when you can — a document-only draft needs a closer check. Its sponsor must already be on file."
+              />
             )}
-          </section>
+          </Card>
         )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
@@ -678,12 +663,9 @@ export function DocumentsRun({
             ? "Import"
             : `Import ${runCount} ${runCount === 1 ? (documentsOnly ? "document" : "entry") : documentsOnly ? "documents" : "entries"}`}
         </Button>
-        <Link
-          href={batchPath(batchLabel)}
-          className="inline-flex h-10 items-center rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface"
-        >
+        <SecondaryLink href={batchPath(batchLabel)}>
           {entries.length === 0 && documentsOnly ? "Cancel" : "Go to the batch"}
-        </Link>
+        </SecondaryLink>
         {!documentsOnly && matching.attention.length > 0 && runCount > 0 && (
           <span className="text-[13px] text-ink-500">
             {matching.attention.length} {matching.attention.length === 1 ? "entry" : "entries"}{" "}

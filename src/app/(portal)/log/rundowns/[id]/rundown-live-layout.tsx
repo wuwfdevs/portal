@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { Segmented } from "@/components/ui/segmented";
 import { TextScaleControl, TextScaleProvider, TextScaleZoom } from "@/components/log/text-scale";
@@ -74,13 +75,14 @@ export function RundownLiveLayout({
               {programName}
             </h1>
             {hasCurrentBreak && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={jumpToNow}
-                className="shrink-0 whitespace-nowrap text-xs font-semibold text-brand-link"
+                className="shrink-0 whitespace-nowrap px-0 py-0 text-xs font-semibold"
               >
                 Jump to now →
-              </button>
+              </Button>
             )}
           </div>
           <div className="flex w-full items-center justify-between gap-2 lg:w-auto">

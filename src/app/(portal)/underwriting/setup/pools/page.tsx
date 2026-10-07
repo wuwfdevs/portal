@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { DayPicker } from "@/components/ui/day-picker";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { listInventoryPools } from "@/lib/underwriting/queries";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { describeDays } from "@/lib/underwriting/demand";
@@ -18,6 +17,8 @@ import {
   setInventoryPoolActive,
 } from "../../pool-actions";
 import { PoolTargetRows } from "./pool-target-rows";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 const POOLS_PATH = "/underwriting/setup/pools";
 
@@ -70,10 +71,10 @@ export default async function InventoryPoolsPage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
-          ← Setup
-        </Link>
-        <h2 className="mt-2 font-serif text-xl font-bold text-ink-900">Inventory pools</h2>
+        <PageHeader
+          back={{ href: "/underwriting/setup", label: "Setup" }}
+          title="Inventory pools"
+        />
       </div>
       <ListToolbar
         search={{
@@ -132,9 +133,7 @@ export default async function InventoryPoolsPage({
       )}
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          {pools.length === 0 ? "No pools yet." : "No pools match."}
-        </div>
+        <EmptyState>{pools.length === 0 ? "No pools yet." : "No pools match."}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-4">
           {shown.map((pool) => (
@@ -237,10 +236,7 @@ export default async function InventoryPoolsPage({
       <p className="text-xs text-ink-500">
         Windows are station-local (Central). A marked opportunity qualifies when its start falls
         inside the window. Program clocks and marked opportunities are managed in{" "}
-        <Link href="/log/programs" className="font-semibold text-brand-link">
-          On Air
-        </Link>
-        .
+        <TextLink href="/log/programs">On Air</TextLink>.
       </p>
     </div>
   );

@@ -1,17 +1,19 @@
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import {
-  getProjectById,
-  getTranscriptForRepresentation,
-  processingLabel,
-} from "@/lib/transcription/projects";
+import { getProjectById, getTranscriptForRepresentation } from "@/lib/transcription/projects";
 import { listExcerptsForSource } from "@/lib/transcription/clips";
 import { listDocumentExcerptsForSource } from "@/lib/transcription/document-excerpts";
 import { getDocumentContentForRepresentation } from "@/lib/transcription/document-content";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
-import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
-import { Badge } from "@/components/ui/badge";
+import { isVideoContentType, formatDuration } from "@/lib/transcription/media";
+import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
+import { formatBytes, formatShortDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { retryTranscription } from "../actions";
 import { ProjectActionsMenu } from "../project-actions-menu";
 import { TranscriptWorkspace } from "./transcript-workspace";
@@ -107,9 +109,26 @@ export default async function TranscriptionProjectPage({
   // comment on why this and sourceHeader below are two separate slots rather
   // than one header that's always the project's.
   const projectHeader = (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{project.title}</h1>
+    <div className="mb-6">
+      <PageHeader
+        title={project.title}
+        actions={
+          <>
+            <StatusBadge
+              map={projectStatusMap(source?.kind ?? "audio_video")}
+              value={project.status}
+            />
+            {canDelete && (
+              <ProjectActionsMenu
+                projectId={project.id}
+                label={deleteLabel}
+                warning={deleteWarning}
+              />
+            )}
+          </>
+        }
+      />
+      <div className="mt-1.5">
         {project.description ? (
           <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
         ) : (
@@ -124,12 +143,6 @@ export default async function TranscriptionProjectPage({
           description={project.description}
         />
       </div>
-      <div className="flex items-start gap-3">
-        <StatusBadge status={project.status} kind={source?.kind ?? "audio_video"} />
-        {canDelete && (
-          <ProjectActionsMenu projectId={project.id} label={deleteLabel} warning={deleteWarning} />
-        )}
-      </div>
     </div>
   );
 
@@ -140,39 +153,38 @@ export default async function TranscriptionProjectPage({
   // case SourceCardGrid's grid would render empty.
   const sourceHeader =
     activeSourceSummary && source ? (
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
-            {isDocument ? "PDF" : "Audio"}
-          </span>
-          <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{source.title}</h1>
-          <p className="text-xs text-ink-500">
+      <PageHeader
+        className="mb-6"
+        eyebrow={SOURCE_KIND_LABEL[source.kind]}
+        title={source.title}
+        description={
+          <>
             {isDocument
               ? source.page_count
                 ? `${source.page_count} page${source.page_count === 1 ? "" : "s"}`
                 : ""
-              : source.interview_date &&
-                new Date(source.interview_date).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+              : source.interview_date && formatShortDate(source.interview_date, { year: true })}
             {!isDocument && source.original_duration_ms
               ? ` · ${formatDuration(source.original_duration_ms)}`
               : ""}
             {source.original_size_bytes ? ` · ${formatBytes(source.original_size_bytes)}` : ""}
-          </p>
-        </div>
-        <div className="flex items-start gap-3">
-          <StatusBadge status={activeStatus} kind={isDocument ? "document" : "audio_video"} />
-          <SourceActionsMenu
-            projectId={project.id}
-            sourceId={activeSourceSummary.sourceId}
-            sourceTitle={source.title}
-            otherProjectCount={otherProjectCount}
-          />
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <StatusBadge
+              map={projectStatusMap(isDocument ? "document" : "audio_video")}
+              value={activeStatus}
+            />
+            <SourceActionsMenu
+              projectId={project.id}
+              sourceId={activeSourceSummary.sourceId}
+              sourceTitle={source.title}
+              otherProjectCount={otherProjectCount}
+            />
+          </>
+        }
+      />
     ) : null;
 
   return (
@@ -186,7 +198,7 @@ export default async function TranscriptionProjectPage({
         sourceHeader={sourceHeader}
       >
         {fileReady && isDocument && (
-          <div className="rounded border border-line bg-white p-5">
+          <Card className="p-5">
             <RepresentationStatusBanner
               status={representationStatus}
               kind="document"
@@ -219,24 +231,22 @@ export default async function TranscriptionProjectPage({
               </p>
             )}
             {source?.page_count && (
-              <dl className="mt-4 flex gap-6 text-xs text-ink-500">
-                <div>
-                  <dt className="font-semibold text-ink-700">Pages</dt>
-                  <dd>{source.page_count}</dd>
-                </div>
-                {source.original_size_bytes && (
-                  <div>
-                    <dt className="font-semibold text-ink-700">File size</dt>
-                    <dd>{formatBytes(source.original_size_bytes)}</dd>
-                  </div>
-                )}
-              </dl>
+              <DescriptionList
+                columns={4}
+                className="mt-4"
+                items={[
+                  { label: "Pages", value: source.page_count },
+                  ...(source.original_size_bytes
+                    ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
+                    : []),
+                ]}
+              />
             )}
-          </div>
+          </Card>
         )}
 
         {fileReady && !isDocument && (
-          <div className="rounded border border-line bg-white p-5">
+          <Card className="p-5">
             <RepresentationStatusBanner
               status={representationStatus}
               kind="audio_video"
@@ -273,21 +283,19 @@ export default async function TranscriptionProjectPage({
                 Couldn&apos;t load the media right now. Reload the page to try again.
               </p>
             )}
-            <dl className="mt-4 flex gap-6 text-xs text-ink-500">
-              {source?.original_duration_ms && (
-                <div>
-                  <dt className="font-semibold text-ink-700">Duration</dt>
-                  <dd>{formatDuration(source.original_duration_ms)}</dd>
-                </div>
-              )}
-              {source?.original_size_bytes && (
-                <div>
-                  <dt className="font-semibold text-ink-700">File size</dt>
-                  <dd>{formatBytes(source.original_size_bytes)}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
+            <DescriptionList
+              columns={4}
+              className="mt-4"
+              items={[
+                ...(source?.original_duration_ms
+                  ? [{ label: "Duration", value: formatDuration(source.original_duration_ms) }]
+                  : []),
+                ...(source?.original_size_bytes
+                  ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
+                  : []),
+              ]}
+            />
+          </Card>
         )}
 
         {/* Below here the *file* isn't available, so there is no workspace to
@@ -297,14 +305,14 @@ export default async function TranscriptionProjectPage({
             still shows above this (Remove… covers a stuck source too); only
             the retry itself is repeated inline here. */}
         {!fileReady && activeStatus === "uploading" && (
-          <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
+          <EmptyState className="max-w-lg p-5">
             This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
             upload is still running in another tab, or it was interrupted.
-          </div>
+          </EmptyState>
         )}
 
         {!fileReady && activeStatus !== "uploading" && (
-          <div className="max-w-lg rounded border border-line bg-white p-5">
+          <Card className="max-w-lg p-5">
             <p className="text-sm text-ink-700">
               {source?.error_message ??
                 transcriptRepresentation?.error_message ??
@@ -313,28 +321,11 @@ export default async function TranscriptionProjectPage({
             {hasMedia && (
               <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
             )}
-          </div>
+          </Card>
         )}
       </SourceCardGrid>
     </div>
   );
-}
-
-function StatusBadge({
-  status,
-  kind,
-}: {
-  status: "uploading" | "processing" | "ready" | "failed";
-  kind: "audio_video" | "document";
-}) {
-  const map = {
-    ready: { label: "Ready", variant: "accent" as const },
-    uploading: { label: "Uploading", variant: "neutral" as const },
-    processing: { label: processingLabel(kind), variant: "neutral" as const },
-    failed: { label: "Failed", variant: "danger" as const },
-  };
-  const { label, variant } = map[status];
-  return <Badge variant={variant}>{label}</Badge>;
 }
 
 function RetryForm({ projectId, sourceId }: { projectId: string; sourceId: string | null }) {

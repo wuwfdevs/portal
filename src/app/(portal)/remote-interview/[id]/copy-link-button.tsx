@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 /** Copies a guest join link. Mirrors the transcript export's copy affordance. */
 export function CopyLinkButton({ link }: { link: string }) {
@@ -17,12 +18,8 @@ export function CopyLinkButton({ link }: { link: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="text-xs font-semibold text-brand-link hover:underline"
-    >
+    <Button type="button" variant="link" onClick={handleCopy} className="text-brand-link">
       {status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : "Copy link"}
-    </button>
+    </Button>
   );
 }

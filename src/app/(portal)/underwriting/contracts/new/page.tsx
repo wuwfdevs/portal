@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { listIndustryCategories, listUnderwriters } from "@/lib/underwriting/que
 import { createContract } from "../../contract-actions";
 import { createContractFromAgreement } from "../../agreement-import-actions";
 import { WizardHeader } from "../[id]/wizard-header";
+import { TextLink } from "@/components/ui/primary-link";
 
 // Creating from the agreement (§12) sends the upload through the model,
 // which can run past a Server Action's default budget; raised here, on the
@@ -53,13 +53,7 @@ export default async function NewContractPage({
             {underwriters.length === 0 ? (
               <p className="text-xs text-ink-500">
                 No underwriters yet —{" "}
-                <Link
-                  href="/underwriting/underwriters/new"
-                  className="font-semibold text-brand-link"
-                >
-                  add one first
-                </Link>
-                .
+                <TextLink href="/underwriting/underwriters/new">add one first</TextLink>.
               </p>
             ) : (
               <SearchableSelect
@@ -85,10 +79,8 @@ export default async function NewContractPage({
             )}
             <FieldHint>
               Not listed?{" "}
-              <Link href="/underwriting/underwriters/new" className="font-semibold text-brand-link">
-                Add an underwriter
-              </Link>{" "}
-              and come back — the industry on the underwriter is what the adjacency rule reads.
+              <TextLink href="/underwriting/underwriters/new">Add an underwriter</TextLink> and come
+              back — the industry on the underwriter is what the adjacency rule reads.
             </FieldHint>
           </div>
 

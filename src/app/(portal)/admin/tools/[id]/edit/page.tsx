@@ -1,8 +1,11 @@
-import Link from "next/link";
+import { Alert } from "@/components/ui/alert";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Field, Input, Select } from "@/components/ui/input";
 import { updateTool } from "../../actions";
 
 export default async function EditToolPage({
@@ -21,61 +24,49 @@ export default async function EditToolPage({
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/admin/tools" className="text-xs font-semibold text-brand-link">
-          ← Back to tools
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4 font-serif text-[17px] font-bold text-ink-900">
-          {tool.name}
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: "/admin/tools", label: "Back to tools" }}
+        title={tool.name}
+      />
+      <Card>
         <form action={updateTool} className="flex flex-col gap-4 p-5">
           <input type="hidden" name="tool_id" value={tool.id} />
-          {error && <p className="text-xs text-danger">{error}</p>}
-          <div>
-            <Label htmlFor="name">Name</Label>
+          {error && <Alert>{error}</Alert>}
+          <Field label="Name" htmlFor="name">
             <Input id="name" name="name" defaultValue={tool.name} required />
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
+          </Field>
+          <Field label="Description" htmlFor="description">
             <Input id="description" name="description" defaultValue={tool.description} required />
-          </div>
-          <div>
-            <Label htmlFor="route">Route</Label>
+          </Field>
+          <Field label="Route" htmlFor="route">
             <Input id="route" name="route" defaultValue={tool.route} required />
-          </div>
-          <div>
-            <Label htmlFor="status">Status</Label>
+          </Field>
+          <Field
+            label="Status"
+            htmlFor="status"
+            hint="Moving a proposed tool off Proposed is how an idea becomes a real registry entry. Roadmap posts already pointing at it keep pointing at it."
+          >
             <Select id="status" name="status" defaultValue={tool.status}>
               <option value="proposed">Proposed (an idea, not on the dashboard)</option>
               <option value="planned">Planned</option>
               <option value="in_development">In development</option>
               <option value="available">Available</option>
             </Select>
-            <p className="mt-1 text-xs text-ink-400">
-              Moving a proposed tool off Proposed is how an idea becomes a real registry entry.
-              Roadmap posts already pointing at it keep pointing at it.
-            </p>
-          </div>
-          <div>
-            <Label htmlFor="default_access">Default access</Label>
+          </Field>
+          <Field label="Default access" htmlFor="default_access">
             <Select id="default_access" name="default_access" defaultValue={tool.default_access}>
               <option value="invite_only">Invite only</option>
               <option value="approved_staff">Open to approved staff</option>
               <option value="open">Open</option>
             </Select>
-          </div>
+          </Field>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/admin/tools">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/admin/tools">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }
