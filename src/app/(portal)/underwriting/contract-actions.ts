@@ -22,6 +22,7 @@ import {
 import { isValidDateISO } from "@/lib/underwriting/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
 import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
+import { MAX_ROTATION_WEIGHT } from "@/lib/underwriting/rotation";
 import { stationTodayISO } from "@/lib/log/timezone";
 import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types";
 
@@ -1066,6 +1067,54 @@ export async function setCopyLine(formData: FormData): Promise<void> {
     .eq("copy_id", copyId);
   failIfError(error, path, "Could not change which line that copy serves");
   await rebalanceContractRotation(contractId, profile.id);
+
+  revalidatePath(contractPath(contractId));
+  redirect(path);
+}
+
+/**
+ * Sets how often a linked message airs relative to the others in its
+ * rotation group (docs/underwriting-traffic-redesign.md §13.2): equal
+ * weights are the plain cycle, 2 against 1 airs it twice as often. Weights
+ * are per contract — the same message on another order keeps its own.
+ */
+export async function setCopyWeight(formData: FormData): Promise<void> {
+  const { profile } = await assertUnderwritingAccess();
+  const contractId = field(formData, "contract_id");
+  const copyId = field(formData, "copy_id");
+  const path = copyReturnPath(formData, contractId);
+
+  const weight = Number(field(formData, "weight"));
+  if (!Number.isInteger(weight) || weight < 1 || weight > MAX_ROTATION_WEIGHT)
+    failWith(path, `A weight is a whole number from 1 to ${MAX_ROTATION_WEIGHT}.`);
+
+  const supabase = await createClient();
+  const { data: before, error: readError } = await supabase
+    .from("uw_contract_copy")
+    .select("weight")
+    .eq("contract_id", contractId)
+    .eq("copy_id", copyId)
+    .maybeSingle();
+  failIfError(readError, path, "Could not read that copy's weight");
+  if (!before) failWith(path, "That message isn't linked to this contract.");
+
+  const { error } = await supabase
+    .from("uw_contract_copy")
+    .update({ weight })
+    .eq("contract_id", contractId)
+    .eq("copy_id", copyId);
+  failIfError(error, path, "Could not change that copy's weight");
+
+  if (before.weight !== weight) {
+    await logAuditEvent({
+      actorId: profile.id,
+      action: "underwriting.contract.copy_weight_changed",
+      targetType: "uw_contract",
+      targetId: contractId,
+      metadata: { copy_id: copyId, from: before.weight, to: weight },
+    });
+    await rebalanceContractRotation(contractId, profile.id);
+  }
 
   revalidatePath(contractPath(contractId));
   redirect(path);

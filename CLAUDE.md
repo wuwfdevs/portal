@@ -1290,6 +1290,15 @@ automation-system export/reconciliation, and scheduled proof-of-performance
 delivery remain deferred, not authorized to start without their own
 instruction.
 
+**Underwriting & Traffic: weighted copy rotation (2026-10-08).** Read
+`docs/underwriting-traffic-redesign.md` §13.2, "Weights", before touching
+`rotation.ts`; this is a pointer. `uw_contract_copy.weight` (1–20, default 1,
+`20261008120000`) sets a message's share of its rotation group; equal weights
+are the unchanged plain cycle, unequal ones pick the message most owed
+(`weight/Σweights × (airings+1) − aired`), deterministically, so the rebalance
+still converges. Callers pass `historyInGroup()` to `nextInRotation()`, and
+`setCopyWeight` (the "Rotation weight…" menu item) audits and rebalances.
+
 **Underwriting & Traffic: fewer tabs (2026-10-01).** Read
 `docs/underwriting-traffic-redesign.md` §17 before touching the tab row,
 Exceptions, makegoods, Affidavits, the dashboard's tiles, or the contract

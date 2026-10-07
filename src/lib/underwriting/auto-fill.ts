@@ -36,7 +36,7 @@ import {
   type ExistingSequenceEntry,
   type UnplaceableUnit,
 } from "./inventory-selection";
-import { nextInRotation, previousInGroup } from "./rotation";
+import { historyInGroup, nextInRotation, previousInGroup } from "./rotation";
 import { describePoolReachability, poolReachability } from "./pool-targets";
 import { rebalanceContractRotation } from "./rotation-rebalance";
 
@@ -303,7 +303,7 @@ export async function autoFillScheduleLine(
   // placement of the contract's revision, all lines — and the caller
   // re-walks the whole contract once the run has written.
   const copyCandidates: CopyCandidate[] = (copyByContract.get(scheduleLine.contract_id) ?? []).map(
-    ({ copy, flightId, scheduleLineId }) => ({
+    ({ copy, flightId, scheduleLineId, weight }) => ({
       id: copy.id,
       approvalStatus: copy.approval_status,
       durationSeconds: copy.duration_seconds,
@@ -313,6 +313,7 @@ export async function autoFillScheduleLine(
       lineId: scheduleLineId,
       dadCut: copy.dad_cut,
       createdAt: copy.created_at,
+      weight,
     }),
   );
 
@@ -487,13 +488,19 @@ async function bumpToSeat(
     automated: boolean | undefined,
   ) => {
     const previous = previousInGroup(sequence, scheduleLine.id, rotationCopies, seatScheduledAt);
-    return nextInRotation(rotationCopies, previous, {
-      airDate,
-      lineFlightId: scheduleLine.flight_id,
-      lineId: scheduleLine.id,
-      roomSeconds,
-      automated,
-    });
+    return nextInRotation(
+      rotationCopies,
+      previous,
+      {
+        airDate,
+        lineFlightId: scheduleLine.flight_id,
+        lineId: scheduleLine.id,
+        roomSeconds,
+        automated,
+      },
+      null,
+      historyInGroup(sequence, scheduleLine.id, rotationCopies, seatScheduledAt),
+    );
   };
 
   for (const unit of unplaceable) {
