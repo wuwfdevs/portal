@@ -25,8 +25,16 @@ const CARD: CardLineLike[] = [
 ];
 
 const state: CalendarState = {
-  plan: { starts_on: "2027-01-11", ends_on: "2027-05-07", reserve_share: 0.15 },
-  capacity: [{ labor_class_id: "lead", net_hours: 800, headcount: 1, hours_per_person_day: 8 }],
+  plan: { starts_on: "2027-01-11", ends_on: "2027-05-07" },
+  capacity: [
+    {
+      labor_class_id: "lead",
+      net_hours: 800,
+      reserve_share: 0.15,
+      headcount: 1,
+      hours_per_person_day: 8,
+    },
+  ],
   classes: [
     { id: "lead", name: LEAD.name },
     { id: "student", name: STUDENT.name },

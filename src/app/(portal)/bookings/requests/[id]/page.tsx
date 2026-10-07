@@ -13,7 +13,7 @@ import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bo
 import { buildBookingPlan, type PlanLine } from "@/lib/bookings/booking-plan";
 import { PRODUCTION_RATE_HINT, PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import { buildSummary, capacityStatusFor, hourBuckets, serviceName } from "@/lib/bookings/summary";
-import { formatWindow } from "@/lib/bookings/scheduling";
+import { formatWindow, type CalendarState } from "@/lib/bookings/scheduling";
 import { REQUESTS_PATH, agreementHref, requestEditHref } from "@/lib/bookings/paths";
 import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
 import { estimateDraw, estimateTotals, isAdjusted } from "@/lib/bookings/pricing";
@@ -34,8 +34,8 @@ import {
   estimateState,
   stageIndex,
 } from "@/lib/bookings/projects";
+import { currentPlan, planForDate } from "@/lib/bookings/plans";
 import {
-  getActivePlan,
   getPlanCalendar,
   getPricingContext,
   getProjectDetail,
@@ -45,6 +45,7 @@ import {
   listAttachableBlocks,
   listBookingsMembers,
   listHoursUsed,
+  listPlans,
   listPools,
   readAirtimeHonored,
 } from "@/lib/bookings/queries";
@@ -53,6 +54,7 @@ import { draftSettlement, settlementState } from "@/lib/bookings/settlements";
 import { unitCostsFromRows } from "@/lib/bookings/pricing";
 import type { BkEstimateLineKind } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
+import { stationTodayISO } from "@/lib/log/timezone";
 import {
   addNote,
   answerStrategic,
@@ -120,7 +122,7 @@ export default async function ProjectPage({
   const canEdit = context.isProduction || context.isDirector || context.isExecutive;
 
   const [
-    plan,
+    plans,
     pricing,
     members,
     allCommitments,
@@ -130,7 +132,7 @@ export default async function ProjectPage({
     hoursUsed,
     settlement,
   ] = await Promise.all([
-    getActivePlan(),
+    listPlans(),
     getPricingContext(project.rate_model_version_id),
     listBookingsMembers(context.tool.id),
     listAirtimeCommitments(),
@@ -142,11 +144,37 @@ export default async function ProjectPage({
     listHoursUsed(id),
     getSettlement(id),
   ]);
+  // The plan is the active one whose dates contain the event (§22.3); without an event
+  // date, the current term's. A project whose dates reach into another term has each of
+  // those dates checked against that term's calendar.
+  const plan =
+    (project.event_starts_on ? planForDate(plans, project.event_starts_on) : null) ??
+    currentPlan(plans, stationTodayISO(nowISO));
   const [calendar, honoredRead] = plan
     ? await Promise.all([getPlanCalendar(plan), readAirtimeHonored(plan.id)])
     : [null, null];
   const state = calendar ? calendarStateFrom(calendar, nowISO) : null;
-  const checks = state ? checkPlannedDates(detail, state) : [];
+  const otherPlans = [
+    ...new Map(
+      detail.bookings
+        .filter((b) => b.status !== "released")
+        .map((b) => planForDate(plans, b.date))
+        .filter((p): p is NonNullable<typeof p> => p !== null && p.id !== plan?.id)
+        .map((p) => [p.id, p] as const),
+    ).values(),
+  ];
+  const otherStates = new Map(
+    await Promise.all(
+      otherPlans.map(
+        async (p) => [p.id, calendarStateFrom(await getPlanCalendar(p), nowISO)] as const,
+      ),
+    ),
+  );
+  const stateFor = (date: string): CalendarState | null => {
+    const covering = planForDate(plans, date);
+    return (covering ? otherStates.get(covering.id) : undefined) ?? state;
+  };
+  const checks = state ? checkPlannedDates(detail, stateFor) : [];
   const draw = estimateDraw(detail.lines.map((l) => ({ ...l, labor_hours: l.labor_hours ?? {} })));
   const envelope = plan
     ? envelopeCheck(

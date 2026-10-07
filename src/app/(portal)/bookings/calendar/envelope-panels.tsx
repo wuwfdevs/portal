@@ -41,15 +41,14 @@ export function CapacityPanel({
   months: MonthCapacity[];
   canEdit: boolean;
 }) {
-  const reservePercent = Math.round(Number(plan.reserve_share) * 1000) / 10;
   const total = totalCapacity(classes);
   return (
     <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Production capacity</h3>
         <span className="text-xs text-ink-500">
-          Hours per labor class; a project day is 8. The reserve ({reservePercent}%) is the
-          station&apos;s contribution.
+          Hours per labor class; a project day is 8. A class&apos;s reserve is the share of its
+          hours WUWF contributes to strategic work; a class with none draws open capacity.
         </span>
         <span className="flex-1" />
         {canEdit && (
@@ -64,13 +63,14 @@ export function CapacityPanel({
       {classes.length === 0 ? (
         <Alert variant="note">
           No labor class has capacity on this term plan yet, so bookings are not capacity-checked.
-          The director sets each class&apos;s net hours, headcount and hours a day on the term plan.
+          The director sets each class&apos;s hours, reserve share, headcount and hours a day on the
+          term plan.
         </Alert>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Figure
-              label="Net capacity"
+              label="Hours available"
               value={formatHours(total.net)}
               hint="Across tracked classes"
             />
@@ -87,7 +87,7 @@ export function CapacityPanel({
             <Figure
               label="Open capacity"
               value={formatHours(total.open)}
-              hint="Net − reserve − held − incremental and external bookings"
+              hint="Hours available − reserve − held − other bookings"
             />
           </div>
           <TableFrame>
@@ -116,7 +116,11 @@ export function CapacityPanel({
                       {formatHours(row.net)}
                     </Cell>
                     <Cell label="Reserve left" className="text-right">
-                      {formatHours(row.reserveRemaining)}
+                      {row.hasReserve ? (
+                        formatHours(row.reserveRemaining)
+                      ) : (
+                        <span className="text-ink-400">None</span>
+                      )}
                     </Cell>
                     <Cell label="Held" className="text-right">
                       {formatHours(row.held)}

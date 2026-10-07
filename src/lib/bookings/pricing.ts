@@ -93,7 +93,8 @@ export interface LaborClassFlag {
 /**
  * Whether the reserve's unused balance covers the estimate's professional
  * draw — for every class not charged in a strategic price that the term
- * tracks. A class with no capacity row that term is not checked (§6.4).
+ * tracks. A class with no capacity row that term is not checked (§6.4); a
+ * tracked class with no reserve share covers nothing.
  * Null when the estimate draws no professional hours at all.
  */
 export function reserveCoversDraw(
@@ -109,7 +110,9 @@ export function reserveCoversDraw(
     const summary = summaries.find((row) => row.labor_class_id === cls.id);
     if (!summary) continue;
     checked = true;
-    if (hours > summary.reserveRemaining) return false;
+    // A class that is not charged in strategic work but has no share has no
+    // reserve, so nothing of it can be comped (§22.2).
+    if (!summary.hasReserve || hours > summary.reserveRemaining) return false;
   }
   return checked ? true : null;
 }

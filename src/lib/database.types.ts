@@ -3252,8 +3252,6 @@ export interface Database {
           label: string;
           starts_on: string;
           ends_on: string;
-          /** The station's contribution as a share of each tracked class's net hours (0..1). */
-          reserve_share: number;
           /** University-eligible avail minutes a week the station contributes. */
           airtime_contributed_minutes_per_week: number;
           status: BkTermPlanStatus;
@@ -3277,6 +3275,8 @@ export interface Database {
           plan_id: string;
           labor_class_id: string;
           net_hours: number;
+          /** The class's reserve share of its net hours (0..1), or null for none: every booking of it then draws open capacity. */
+          reserve_share: number | null;
           headcount: number;
           hours_per_person_day: number;
           created_at: string;

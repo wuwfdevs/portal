@@ -34,31 +34,38 @@ export interface DateCheck {
 
 /**
  * The capacity check for each of a project's planned dates (§6.4): a
- * planned date is checked against the term as it stands now, excluding
- * itself; a sent or confirmed hold has already passed and is not re-run.
+ * planned date is checked against the calendar of the term it falls in as it
+ * stands now, excluding itself; a sent or confirmed hold has already passed
+ * and is not re-run.
  */
-export function checkPlannedDates(detail: ProjectDetail, state: CalendarState): DateCheck[] {
+export function checkPlannedDates(
+  detail: ProjectDetail,
+  stateFor: (date: string) => CalendarState | null,
+): DateCheck[] {
   return detail.bookings
     .filter((b) => b.status !== "released")
-    .map((booking) => ({
-      bookingId: booking.id,
-      result:
-        booking.status === "planned"
-          ? checkBooking(
-              {
-                pool_id: booking.pool_id,
-                date: booking.date,
-                window_start: toHHMM(booking.window_start),
-                window_end: toHHMM(booking.window_end),
-                hours: booking.hours,
-                treatment: detail.project.priced_as ?? booking.treatment,
-                excludeBookingId: booking.id,
-                partnerId: detail.project.partner_id,
-              },
-              state,
-            )
-          : null,
-    }));
+    .map((booking) => {
+      const state = booking.status === "planned" ? stateFor(booking.date) : null;
+      return {
+        bookingId: booking.id,
+        result:
+          state !== null
+            ? checkBooking(
+                {
+                  pool_id: booking.pool_id,
+                  date: booking.date,
+                  window_start: toHHMM(booking.window_start),
+                  window_end: toHHMM(booking.window_end),
+                  hours: booking.hours,
+                  treatment: detail.project.priced_as ?? booking.treatment,
+                  excludeBookingId: booking.id,
+                  partnerId: detail.project.partner_id,
+                },
+                state,
+              )
+            : null,
+      };
+    });
 }
 
 /**
@@ -331,7 +338,6 @@ export function DatesSection({
             cancelHref={here}
           >
             <input type="hidden" name="project_id" value={project.id} />
-            <input type="hidden" name="plan_id" value={calendar.plan.id} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="d_pool">Pool</Label>
@@ -351,8 +357,6 @@ export function DatesSection({
                   type="date"
                   required
                   defaultValue={project.event_starts_on ?? ""}
-                  min={calendar.plan.starts_on}
-                  max={calendar.plan.ends_on}
                 />
               </div>
               <div>

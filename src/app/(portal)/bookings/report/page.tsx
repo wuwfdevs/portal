@@ -7,7 +7,7 @@ import { PRODUCTION_RATE_LABEL } from "@/lib/bookings/labels";
 import { BOOKINGS_PATH, withQuery } from "@/lib/bookings/paths";
 import { assumedVersusObserved } from "@/lib/bookings/observed";
 import {
-  getActivePlan,
+  getCurrentPlan,
   listLaborClasses,
   listObservedInputs,
   listPools,
@@ -88,7 +88,7 @@ export default async function TermReportPage({
 }) {
   const [{ scope: rawScope }] = await Promise.all([searchParams, requireBookingsAccess()]);
   const scope: ReportScope = rawScope === "booked" ? "booked" : "priced";
-  const plan = await getActivePlan();
+  const plan = await getCurrentPlan();
   if (!plan) {
     return (
       <div className="flex flex-col gap-4">

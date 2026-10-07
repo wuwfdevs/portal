@@ -55,6 +55,7 @@ function summary(classId: string, reserveRemaining: number): ClassCapacitySummar
     labor_class_id: classId,
     name: classId,
     net: 800,
+    hasReserve: true,
     reserve: 120,
     strategicBooked: 120 - reserveRemaining,
     reserveRemaining,
@@ -157,6 +158,11 @@ describe("reserveCoversDraw", () => {
     ).toBeNull();
     // A class with no capacity row that term is not checked.
     expect(reserveCoversDraw({ [LEAD]: 500 }, CLASSES, [])).toBeNull();
+  });
+
+  it("covers nothing for a tracked class that has no reserve share (§22.2)", () => {
+    const noShare = { ...summary(LEAD, 0), hasReserve: false, reserve: 0 };
+    expect(reserveCoversDraw({ [LEAD]: 1 }, CLASSES, [noShare])).toBe(false);
   });
 });
 

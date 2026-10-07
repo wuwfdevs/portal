@@ -14,7 +14,8 @@ import {
 } from "./pricing";
 import {
   agreementConsumptionFor,
-  getActivePlan,
+  getCurrentPlan,
+  getPlanForDate,
   getPlanCalendar,
   getPricingContext,
   type BkAgreementRow,
@@ -41,6 +42,7 @@ export function calendarStateFrom(calendar: PlanCalendar, nowISO: string): Calen
     capacity: calendar.capacity.map((row) => ({
       labor_class_id: row.labor_class_id,
       net_hours: Number(row.net_hours),
+      reserve_share: row.reserve_share === null ? null : Number(row.reserve_share),
       headcount: Number(row.headcount),
       hours_per_person_day: Number(row.hours_per_person_day),
     })),
@@ -83,11 +85,15 @@ export function calendarStateFrom(calendar: PlanCalendar, nowISO: string): Calen
  * reserve only where there is one to check).
  */
 export async function reserveCoversEstimate(
-  project: Pick<BkProjectRow, "id">,
+  project: Pick<BkProjectRow, "id" | "event_starts_on">,
   lines: readonly BkEstimateLineRow[],
   context: PricingContext,
 ): Promise<boolean | null> {
-  const plan = await getActivePlan();
+  // The reserve that matters is the one of the term the work happens in (§22.3);
+  // without an event date, the current term's.
+  const plan = project.event_starts_on
+    ? await getPlanForDate(project.event_starts_on)
+    : await getCurrentPlan();
   if (!plan) return null;
   const calendar = await getPlanCalendar(plan);
   // This project's own live holds already draw the reserve; don't count them twice.

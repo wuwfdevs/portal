@@ -32,7 +32,7 @@ import {
   type RequestFormValues,
 } from "@/lib/bookings/projects";
 import { plannedFigures } from "@/lib/bookings/observed";
-import { getPricingContext } from "@/lib/bookings/queries";
+import { getPlanForDate, getPricingContext } from "@/lib/bookings/queries";
 import { tentativeExpiry } from "@/lib/bookings/scheduling";
 import type {
   BkAirtimeHonoredIn,
@@ -798,12 +798,18 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsScheduler();
   const projectId = projectIdField(formData);
   const path = requestHref(projectId, { new: "date" });
-  const planId = field(formData, "plan_id");
-  if (!UUID.test(planId)) failWith(path, "There is no active term plan to book into.");
   const poolId = field(formData, "pool_id");
   if (!UUID.test(poolId)) failWith(path, "Choose a pool.");
   const date = field(formData, "date");
   if (!isValidDateISO(date)) failWith(path, "The date must be a date.");
+  // The booking's plan is the active one whose dates contain the date (§22.3).
+  const plan = await getPlanForDate(date);
+  if (!plan) {
+    failWith(
+      path,
+      "No active term plan covers that date. Ask the director to add or activate the term it falls in.",
+    );
+  }
   const listed = field(formData, "window");
   let start: string;
   let end: string;
@@ -834,7 +840,7 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
 
   const { error } = await supabase.rpc("bk_create_booking", {
     p_booking: {
-      plan_id: planId,
+      plan_id: plan.id,
       project_id: projectId,
       pool_id: poolId,
       date,

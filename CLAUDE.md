@@ -3491,6 +3491,21 @@ in `requests/settlement-actions.ts`; the panel is
 from this tool, in every slice. PDF invoices and journal-entry integration remain
 deliberately not built (§6.6).
 
+**Bookings capacity corrections (2026-10-07) — read `docs/bookings-design.md` §22 before
+touching the reserve, the term plan, or `scheduling.ts`'s capacity rule; this is a pointer.**
+A review of the capacity model kept it and fixed three things: the **reserve share is per
+labor class** (`bk_term_capacity.reserve_share`, nullable — a class with none, such as the
+student crew, has no reserve and every booking of it draws open capacity; none is not 0%);
+**plans are resolved by date** (several may be active if their dates don't overlap, a booking
+uses the active plan containing its date — `lib/bookings/plans.ts`, `getCurrentPlan()`/
+`getPlanForDate()`, never "the one active plan"; a blackout across two terms is stored once
+per term); and **a closed plan is final** (`bk_guard_term_plan()` and the closed-plan
+guards). `net_hours` means hours available before dated holds, with undated core work
+already left out. A larger redesign (effective-dated capacity revisions, an explicit core
+percentage) was set aside — §22.5. `20261007160000` adds a column and drops a column and an
+index, so the Supabase tool holds it for a confirmation that never arrives: run it in the SQL
+editor, preview first, then record both dates in `APPLIED.md`.
+
 **FCC Reporting: design is done, not yet authorized to build.** The third of
 the three tools, depending on a real backlog of tagged `log_broadcast_events`
 existing before quarterly aggregation is worth building against, so it stays

@@ -121,10 +121,10 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
             </Badge>
             <span>
               {plan.status === "active"
-                ? "The term's plan of record; the calendar books against it."
+                ? "The term's plan of record; dates inside it book against it. Terms may be active together if their dates do not overlap."
                 : plan.status === "closed"
-                  ? "Closed. Kept for the term report; nothing new books against it."
-                  : "A draft. Activate it when the figures are agreed; only one plan is active at a time."}
+                  ? "Closed and final. Kept for the term report; nothing new books against it and its figures cannot change. A correction is a new term plan."
+                  : "A draft. Activate it when the figures are agreed."}
             </span>
             {canEdit && (
               <span className="flex basis-full flex-wrap items-center gap-2 pt-1">
@@ -141,15 +141,6 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                     <input type="hidden" name="status" value="closed" />
                     <Button type="submit" variant="secondary">
                       Close the term
-                    </Button>
-                  </form>
-                )}
-                {plan.status === "closed" && (
-                  <form action={setPlanStatus}>
-                    <input type="hidden" name="plan_id" value={plan.id} />
-                    <input type="hidden" name="status" value="draft" />
-                    <Button type="submit" variant="secondary">
-                      Reopen as a draft
                     </Button>
                   </form>
                 )}
@@ -173,10 +164,11 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
               <div>
                 <h3 className="text-sm font-bold text-ink-900">Capacity by labor class</h3>
                 <p className="text-xs text-ink-500">
-                  Each class the term tracks: its net schedulable hours for the term (a project day
-                  is {HOURS_PER_PROJECT_DAY}), how many people, and each person&apos;s hours a day.
-                  The reserve is the plan&apos;s share of each class&apos;s net. A class with no row
-                  is not capacity-checked.
+                  Each class the term tracks: the hours it has available for production work (a
+                  project day is {HOURS_PER_PROJECT_DAY}), an optional reserve share of them, how
+                  many people, and each person&apos;s hours a day. Strategic work draws the reserve;
+                  everything else draws what is left after the reserve and any dated holds. A class
+                  with no row is not capacity-checked.
                 </p>
               </div>
               <Link
@@ -191,7 +183,8 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 <thead>
                   <HeaderRow>
                     <Th>Class</Th>
-                    <Th className="text-right">Net hours</Th>
+                    <Th className="text-right">Hours available</Th>
+                    <Th className="text-right">Reserve</Th>
                     <Th className="text-right">People</Th>
                     <Th className="text-right">Hours a day each</Th>
                     <Th className="text-right">Day capacity</Th>
@@ -206,14 +199,14 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                     if (canEdit && params.capacity === cls.id) {
                       return (
                         <Row key={cls.id}>
-                          <Cell stack="full" colSpan={6}>
+                          <Cell stack="full" colSpan={7}>
                             <form action={saveCapacity} className="flex flex-col gap-3 py-1">
                               <input type="hidden" name="plan_id" value={plan.id} />
                               <input type="hidden" name="labor_class_id" value={cls.id} />
                               <div className="text-sm font-semibold text-ink-900">{cls.name}</div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
-                                  <Label htmlFor="net_hours">Net hours for the term</Label>
+                                  <Label htmlFor="net_hours">Hours available this term</Label>
                                   <Input
                                     id="net_hours"
                                     name="net_hours"
@@ -225,7 +218,34 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     defaultValue={row ? String(row.net_hours) : "800"}
                                   />
                                   <FieldHint>
-                                    The framework&apos;s placeholder is 100 days = 800 hours.
+                                    Hours this class can give production work in the term, with
+                                    undated core WUWF work already left out. Dated holds come off
+                                    this number, so do not leave those out too. The workbook&apos;s
+                                    100 days is a year (800 hours); a term takes its share.
+                                  </FieldHint>
+                                </div>
+                                <div>
+                                  <Label htmlFor="reserve_percent">Reserve share (%)</Label>
+                                  <Input
+                                    id="reserve_percent"
+                                    name="reserve_percent"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="100"
+                                    defaultValue={
+                                      row && row.reserve_share !== null
+                                        ? String(Math.round(Number(row.reserve_share) * 1000) / 10)
+                                        : ""
+                                    }
+                                  />
+                                  <FieldHint>
+                                    The share of those hours WUWF contributes to strategic
+                                    university work; strategic work inside it is comped. Leave blank
+                                    for none (student and OPS crews, which partners pay for).
+                                    {cls.charged_in_strategic
+                                      ? " This class is charged in a strategic price, so a share here is rarely right."
+                                      : ""}
                                   </FieldHint>
                                 </div>
                                 <div>
@@ -278,11 +298,23 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                             </Badge>
                           )}
                         </Cell>
-                        <Cell label="Net hours" className="text-right">
+                        <Cell label="Hours available" className="text-right">
                           {row ? (
                             formatHours(Number(row.net_hours))
                           ) : (
                             <span className="text-ink-400">Not tracked</span>
+                          )}
+                        </Cell>
+                        <Cell label="Reserve" className="text-right">
+                          {row && row.reserve_share !== null ? (
+                            `${Math.round(Number(row.reserve_share) * 1000) / 10}% · ${formatHours(
+                              Math.round(Number(row.net_hours) * Number(row.reserve_share) * 100) /
+                                100,
+                            )}`
+                          ) : row ? (
+                            <span className="text-ink-400">None</span>
+                          ) : (
+                            "—"
                           )}
                         </Cell>
                         <Cell label="People" className="text-right">
@@ -519,7 +551,6 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
 function PlanSummary({ plan }: { plan: BkTermPlanRow }) {
   const items: [string, string][] = [
     ["Term", `${formatDateShort(plan.starts_on)} – ${formatDateShort(plan.ends_on)}`],
-    ["Reserve share", `${Math.round(Number(plan.reserve_share) * 1000) / 10}%`],
     ["Contributed airtime", `${plan.airtime_contributed_minutes_per_week} min a week`],
   ];
   return (
@@ -583,23 +614,6 @@ function PlanForm({
             required
             defaultValue={plan?.ends_on ?? ""}
           />
-        </div>
-        <div>
-          <Label htmlFor="reserve_percent">Reserve share</Label>
-          <Input
-            id="reserve_percent"
-            name="reserve_percent"
-            type="number"
-            step="0.5"
-            min="0"
-            max="100"
-            required
-            defaultValue={plan ? String(Math.round(Number(plan.reserve_share) * 1000) / 10) : "15"}
-          />
-          <FieldHint>
-            Percent of each tracked class&apos;s net hours kept for strategic work: the
-            station&apos;s contribution.
-          </FieldHint>
         </div>
         <div>
           <Label htmlFor="airtime_contributed_minutes_per_week">
