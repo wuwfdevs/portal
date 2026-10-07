@@ -2638,12 +2638,18 @@ export interface Database {
            * (20260930150000, uw_copy_serves_line()).
            */
           schedule_line_id: string | null;
+          /**
+           * Added by 20261008120000 — the message's share of its rotation group, an integer
+           * from 1 to 20. Equal weights are the plain cycle; unequal ones rotate by ratio.
+           */
+          weight: number;
         };
         Insert: {
           contract_id: string;
           copy_id: string;
           flight_id?: string | null;
           schedule_line_id?: string | null;
+          weight?: number;
         };
         Update: Partial<Database["public"]["Tables"]["uw_contract_copy"]["Row"]>;
         Relationships: [];

@@ -13,6 +13,13 @@
 // or placed with a manager override) is never changed but still advances
 // the cycle for whatever follows it.
 //
+// Weights (docs/underwriting-traffic-redesign.md §13.2): each link carries
+// an integer weight, default 1. Equal weights are the plain cycle above.
+// When the eligible messages' weights differ, a slot goes to whichever is
+// owed the most — its weighted share of the slots so far, plus this one,
+// less the times it has aired — ties broken in cycle order. Deterministic
+// and a function of the preceding timeline only, so a rebalance converges.
+//
 // Both callers use the same walk: the planner (inventory-selection.ts)
 // sequences a run's new units against the contract's existing timeline,
 // and the rebalance (rotation-rebalance.ts) re-sequences every future,
@@ -44,6 +51,14 @@ export interface RotationCopy {
    */
   dadCut?: string | null;
   createdAt: string;
+  /** The link's weight: how often the message airs relative to its group's others. Absent means 1. */
+  weight?: number;
+}
+
+/** One earlier airing in a rotation group, in air order — what the weighted pick counts. */
+export interface RotationHistoryEntry {
+  copyId: string | null;
+  scheduledAt: string;
 }
 
 export interface RotationSlot {
@@ -133,6 +148,7 @@ export function nextInRotation(
   previousCopyId: string | null,
   slot: Pick<RotationSlot, "airDate" | "lineFlightId" | "lineId" | "roomSeconds" | "automated">,
   avoidCopyId: string | null = null,
+  history: RotationHistoryEntry[] = [],
 ): RotationCopy | null {
   const cycle = cycleOrder(copies);
   if (cycle.length === 0) return null;
@@ -144,11 +160,87 @@ export function nextInRotation(
     if (eligibleFor(copy, slot, cycle)) eligible.push(copy);
   }
   if (eligible.length === 0) return null;
+  const weighted = !allEqualWeights(eligible);
+  const ranked = weighted ? rankByOwed(eligible, history) : eligible;
   // Repeating the previous message is worse than matching the fixed one
-  // after it, so the alternative must differ from both.
+  // after it, so the alternative must differ from both. Unequal weights are
+  // the exception: a 2:1 ratio can't be kept without the heavier message
+  // sometimes airing twice running, so only the fixed neighbour is avoided.
   return (
-    eligible.find((copy) => copy.id !== avoidCopyId && copy.id !== previousCopyId) ?? eligible[0]!
+    ranked.find((copy) => copy.id !== avoidCopyId && (weighted || copy.id !== previousCopyId)) ??
+    ranked[0]!
   );
+}
+
+/** The most a link's weight can be — a ratio past this is a different kind of order. */
+export const MAX_ROTATION_WEIGHT = 20;
+
+/**
+ * A message's share of its rotation group: its weight over the total of the
+ * group's approved messages (the ones that actually rotate). Null when it
+ * isn't approved or is alone in its group, and — `uneven` — whether the
+ * group's weights differ at all, so a screen can stay quiet for the usual
+ * equal rotation. Group membership is rotationGroup()'s: a message
+ * dedicated to a line rotates with that line's others, the rest together.
+ */
+export function weightShare(
+  copyId: string,
+  links: Pick<RotationCopy, "id" | "lineId" | "weight" | "approvalStatus">[],
+): { weight: number; total: number; uneven: boolean } | null {
+  const self = links.find((link) => link.id === copyId);
+  if (!self || self.approvalStatus !== "approved") return null;
+  const group = links.filter(
+    (link) => link.approvalStatus === "approved" && (link.lineId ?? null) === (self.lineId ?? null),
+  );
+  if (group.length < 2) return null;
+  const weights = group.map(weightOf);
+  return {
+    weight: weightOf(self),
+    total: weights.reduce((sum, weight) => sum + weight, 0),
+    uneven: weights.some((weight) => weight !== weights[0]),
+  };
+}
+
+/** A link's weight as a usable positive integer; anything else counts as 1. */
+export function weightOf(copy: Pick<RotationCopy, "weight">): number {
+  const weight = copy.weight;
+  return weight !== undefined && Number.isInteger(weight) && weight >= 1 ? weight : 1;
+}
+
+/**
+ * Orders the eligible messages (already in cycle order after the previous
+ * one) by how much each is owed, most first; equal weights leave the cycle
+ * order untouched. Shares are counted over the airings since the latest
+ * effective date among the eligible messages.
+ */
+function allEqualWeights(copies: RotationCopy[]): boolean {
+  return copies.every((copy) => weightOf(copy) === weightOf(copies[0]!));
+}
+
+function rankByOwed(eligible: RotationCopy[], history: RotationHistoryEntry[]): RotationCopy[] {
+  const weights = eligible.map(weightOf);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const aired = history.filter(
+    (entry): entry is RotationHistoryEntry & { copyId: string } => entry.copyId !== null,
+  );
+  // One window for the whole comparison — since the latest start among the
+  // eligible messages — so a message that begins mid-run neither bursts nor
+  // is held back by airings it was never eligible for.
+  const since = eligible.reduce(
+    (latest, copy) => (copy.effectiveFrom > latest ? copy.effectiveFrom : latest),
+    "",
+  );
+  const window = aired.filter((entry) => entry.scheduledAt >= since);
+  const owed = new Map(
+    eligible.map((copy, index) => {
+      const used = window.filter((entry) => entry.copyId === copy.id).length;
+      return [copy.id, (weights[index]! / total) * (window.length + 1) - used] as const;
+    }),
+  );
+  return [...eligible].sort((a, b) => {
+    const gap = owed.get(b.id)! - owed.get(a.id)!;
+    return Math.abs(gap) < 1e-9 ? 0 : gap;
+  });
 }
 
 /**
@@ -190,6 +282,24 @@ export function previousInGroup(
   return before.length > 0 ? (before[before.length - 1]!.copyId ?? null) : null;
 }
 
+/**
+ * Every airing before `beforeISO` in the same cycle as `lineId`, in air
+ * order — the weighted pick's record of what each message has had.
+ */
+export function historyInGroup(
+  entries: { scheduledAt: string; copyId: string | null; lineId?: string | null }[],
+  lineId: string | null | undefined,
+  copies: Pick<RotationCopy, "id" | "lineId">[],
+  beforeISO?: string,
+): RotationHistoryEntry[] {
+  const group = rotationGroup({ lineId }, copies);
+  return entries
+    .filter((entry) => beforeISO === undefined || entry.scheduledAt < beforeISO)
+    .filter((entry) => rotationGroup(entry, copies) === group)
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+    .map((entry) => ({ copyId: entry.copyId, scheduledAt: entry.scheduledAt }));
+}
+
 export function walkRotation(copies: RotationCopy[], slots: RotationSlot[]): RotationChange[] {
   const ordered = [...slots].sort(
     (a, b) => a.scheduledAt.localeCompare(b.scheduledAt) || a.id.localeCompare(b.id),
@@ -208,10 +318,17 @@ export function walkRotation(copies: RotationCopy[], slots: RotationSlot[]): Rot
 
   const changes: RotationChange[] = [];
   const previous = new Map<string, string | null>();
+  const history = new Map<string, RotationHistoryEntry[]>();
+  const record = (group: string, slot: RotationSlot, copyId: string | null) => {
+    previous.set(group, copyId);
+    const list = history.get(group) ?? [];
+    list.push({ copyId, scheduledAt: slot.scheduledAt });
+    history.set(group, list);
+  };
   ordered.forEach((slot, index) => {
     const group = groups[index]!;
     if (slot.fixed) {
-      previous.set(group, slot.copyId);
+      record(group, slot, slot.copyId);
       return;
     }
     const pick = nextInRotation(
@@ -219,13 +336,14 @@ export function walkRotation(copies: RotationCopy[], slots: RotationSlot[]): Rot
       previous.get(group) ?? null,
       slot,
       nextFixedCopy[index] ?? null,
+      history.get(group) ?? [],
     );
     if (pick === null) {
-      previous.set(group, slot.copyId);
+      record(group, slot, slot.copyId);
       return;
     }
     if (pick.id !== slot.copyId) changes.push({ id: slot.id, copyId: pick.id });
-    previous.set(group, pick.id);
+    record(group, slot, pick.id);
   });
   return changes;
 }

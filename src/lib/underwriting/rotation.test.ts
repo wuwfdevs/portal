@@ -5,6 +5,7 @@ import {
   servesBreak,
   servesLine,
   walkRotation,
+  weightShare,
   type RotationCopy,
   type RotationSlot,
 } from "./rotation";
@@ -277,5 +278,137 @@ describe("automated hours", () => {
       "b",
     );
     expect(nextInRotation([uncut], null, { ...anySlot, automated: true })).toBeNull();
+  });
+});
+
+describe("weighted rotation", () => {
+  const run = (copies: RotationCopy[], count: number, fixedFirst: string[] = []) => {
+    const slots = [
+      ...fixedFirst.map((copyId, index) =>
+        slot(`2026-03-01T0${index}:00:00Z`, { id: `fixed-${index}`, copyId, fixed: true }),
+      ),
+      ...Array.from({ length: count }, (_, index) =>
+        slot(`2026-03-02T${String(index).padStart(2, "0")}:00:00Z`, { id: `s${index}` }),
+      ),
+    ];
+    const byId = new Map(walkRotation(copies, slots).map((c) => [c.id, c.copyId]));
+    return slots.filter((s) => !s.fixed).map((s) => byId.get(s.id) ?? s.copyId);
+  };
+
+  it("keeps equal weights as the plain cycle, explicit or not", () => {
+    expect(run([A, B, C], 6)).toEqual(["a", "b", "c", "a", "b", "c"]);
+    expect(run([copy("a", { weight: 3 }), copy("b", { weight: 3 })], 4)).toEqual([
+      "a",
+      "b",
+      "a",
+      "b",
+    ]);
+  });
+
+  it("airs a 2:1 pair twice as often, spread rather than clumped", () => {
+    const picks = run([copy("a", { weight: 2 }), B], 6);
+    expect(picks).toEqual(["a", "b", "a", "a", "b", "a"]);
+  });
+
+  it("follows a 3:1:1 ratio over a full period", () => {
+    const picks = run([copy("a", { weight: 3 }), B, C], 10);
+    const count = (id: string) => picks.filter((pick) => pick === id).length;
+    expect([count("a"), count("b"), count("c")]).toEqual([6, 2, 2]);
+  });
+
+  it("counts airings already fixed in the timeline", () => {
+    // a has already aired twice against b's none, so b is owed.
+    const picks = run([copy("a", { weight: 2 }), B], 3, ["a", "a"]);
+    expect(picks[0]).toBe("b");
+  });
+
+  it("lets the heavier message repeat when the ratio calls for it, but still avoids a fixed neighbour", () => {
+    expect(run([copy("a", { weight: 3 }), B], 8).join("")).toBe("abaaabaa");
+    const heavy = copy("a", { weight: 3 });
+    const slots = [
+      slot("2026-03-02T00:00:00Z", { id: "x" }),
+      slot("2026-03-02T01:00:00Z", { id: "y", copyId: "a", fixed: true }),
+    ];
+    expect(walkRotation([heavy, B], slots)).toEqual([{ id: "x", copyId: "b" }]);
+  });
+
+  it("does not burst a late-starting message to catch up", () => {
+    const late = copy("b", { effectiveFrom: "2026-03-02" });
+    const picks = run(
+      [copy("a", { weight: 2 }), late],
+      3,
+      ["a", "a", "a", "a"].map(() => "a"),
+    );
+    // b counts only slots from its own start, so it takes at most one of three.
+    expect(picks.filter((pick) => pick === "b").length).toBeLessThanOrEqual(1);
+  });
+
+  it("is stable: walking the result again changes nothing", () => {
+    const copies = [copy("a", { weight: 2 }), B];
+    const first = run(copies, 6);
+    const rewalked = first.map((copyId, index) =>
+      slot(`2026-03-02T${String(index).padStart(2, "0")}:00:00Z`, { id: `r${index}`, copyId }),
+    );
+    expect(walkRotation(copies, rewalked)).toEqual([]);
+  });
+
+  it("treats a missing or invalid weight as 1", () => {
+    expect(run([copy("a", { weight: 0 }), copy("b", { weight: 1.5 })], 4)).toEqual([
+      "a",
+      "b",
+      "a",
+      "b",
+    ]);
+  });
+});
+
+describe("weightShare", () => {
+  const links = (weights: [string, number, string?][]) =>
+    weights.map(([id, weight, lineId]) => ({
+      id,
+      weight,
+      lineId: lineId ?? null,
+      approvalStatus: "approved" as const,
+    }));
+
+  it("reports a message's weight over its approved group's total", () => {
+    expect(
+      weightShare(
+        "a",
+        links([
+          ["a", 2],
+          ["b", 1],
+        ]),
+      ),
+    ).toEqual({
+      weight: 2,
+      total: 3,
+      uneven: true,
+    });
+  });
+
+  it("is not uneven for equal weights, and null for a lone or unapproved message", () => {
+    expect(
+      weightShare(
+        "a",
+        links([
+          ["a", 1],
+          ["b", 1],
+        ]),
+      )?.uneven,
+    ).toBe(false);
+    expect(weightShare("a", links([["a", 1]]))).toBeNull();
+    const draft = [{ id: "a", weight: 1, lineId: null, approvalStatus: "draft" as const }];
+    expect(weightShare("a", draft)).toBeNull();
+  });
+
+  it("groups a line-dedicated message apart from the general cycle", () => {
+    const grouped = links([
+      ["a", 2],
+      ["b", 1],
+      ["c", 5, "line-1"],
+    ]);
+    expect(weightShare("a", grouped)?.total).toBe(3);
+    expect(weightShare("c", grouped)).toBeNull();
   });
 });

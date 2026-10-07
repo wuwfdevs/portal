@@ -458,7 +458,10 @@ export async function getCopyDetail(id: string): Promise<CopyDetail | null> {
 export async function listCopyLinkedToContracts(
   contractIds: string[],
 ): Promise<
-  Map<string, { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null }[]>
+  Map<
+    string,
+    { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null; weight: number }[]
+  >
 > {
   if (contractIds.length === 0) return new Map();
   const supabase = await createClient();
@@ -466,7 +469,7 @@ export async function listCopyLinkedToContracts(
     unwrapRead(
       await supabase
         .from("uw_contract_copy")
-        .select("contract_id, copy_id, flight_id, schedule_line_id")
+        .select("contract_id, copy_id, flight_id, schedule_line_id, weight")
         .in("contract_id", contractIds),
       "linked copy",
     ) ?? [];
@@ -480,13 +483,18 @@ export async function listCopyLinkedToContracts(
 
   const result = new Map<
     string,
-    { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null }[]
+    { copy: UwCopyRow; flightId: string | null; scheduleLineId: string | null; weight: number }[]
   >();
   for (const link of links) {
     const copy = copyById.get(link.copy_id);
     if (!copy) continue;
     const list = result.get(link.contract_id) ?? [];
-    list.push({ copy, flightId: link.flight_id, scheduleLineId: link.schedule_line_id });
+    list.push({
+      copy,
+      flightId: link.flight_id,
+      scheduleLineId: link.schedule_line_id,
+      weight: link.weight,
+    });
     result.set(link.contract_id, list);
   }
   return result;
