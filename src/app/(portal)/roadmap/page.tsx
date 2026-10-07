@@ -1,3 +1,4 @@
+import { TabNav } from "@/components/ui/tab-nav";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -71,10 +72,13 @@ export default async function RoadmapPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <nav className="flex gap-5 border-b border-line text-[13px]">
-        <TabLink label="Requests" tab="requests" active={activeTab === "requests"} />
-        <TabLink label="Roadmap" tab="roadmap" active={activeTab === "roadmap"} />
-      </nav>
+      <TabNav
+        className="mb-0"
+        tabs={[
+          { href: "/roadmap?tab=requests", label: "Requests", active: activeTab === "requests" },
+          { href: "/roadmap?tab=roadmap", label: "Roadmap", active: activeTab === "roadmap" },
+        ]}
+      />
 
       {params.error && <Alert>{params.error}</Alert>}
 
@@ -167,22 +171,6 @@ export default async function RoadmapPage({
         </div>
       )}
     </div>
-  );
-}
-
-function TabLink({ label, tab, active }: { label: string; tab: Tab; active: boolean }) {
-  return (
-    <Link
-      href={`/roadmap?tab=${tab}`}
-      aria-current={active ? "page" : undefined}
-      className={
-        active
-          ? "-mb-px border-b-2 border-brand-primary pb-2 font-semibold text-brand-link"
-          : "-mb-px border-b-2 border-transparent pb-2 font-semibold text-ink-400 hover:border-line hover:text-ink-700"
-      }
-    >
-      {label}
-    </Link>
   );
 }
 

@@ -1357,6 +1357,16 @@ the form). The four detail asides the handoff named were reviewed and kept —
 each holds an action, which rule 5 allows. The doc's "Rollout" section is the
 record.
 
+**Navigation shapes — one meaning each (2026-10-09).** Read `docs/ui-patterns.md`
+"Navigation shapes" before adding a tab row, a view switch, or a second row under tabs; this is
+a pointer. Underline = `TabNav` (where in the tool), grey block = new `SubNav` (which page inside
+a tab), bordered pill = `FilterChips` (which rows), joined bar = `Segmented`/`SegmentedLinks`
+(how the data is drawn). A row under another tab row is always a `SubNav`. `TabNav` gained
+`badge`, `end`, and kept `forceMore`. Traffic is five tabs — Dashboard · Contracts · Needs
+attention (Exceptions, Affidavits, badged with decisions waiting plus unsigned affidavits) ·
+Library (Underwriters, Copy) · Setup, at the right edge — modelled in `lib/underwriting/nav.ts`;
+routes did not move. `20261009120000` is Resources content only.
+
 **Filters and tables on a phone — one approach for every list (2026-09-30).** Read
 `docs/ui-patterns.md` "Filters" and "Tables on narrow screens" before adding a list page or
 a filter; this is a pointer. `ListToolbar` takes filter groups (`filters`); one short group

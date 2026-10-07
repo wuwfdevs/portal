@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -366,7 +367,7 @@ export default async function ResourcePoolsPage({
         </TableFrame>
       </section>
 
-      <section className="flex flex-col gap-2 rounded border border-line bg-white p-4">
+      <Card className="flex flex-col gap-2 p-4">
         <h3 className="text-sm font-bold text-ink-900">Capital set-aside and maintenance</h3>
         <p className="text-xs text-ink-500">
           Each pool adds what must be set aside a year to replace its assets over their realistic
@@ -403,7 +404,7 @@ export default async function ResourcePoolsPage({
             </Button>
           </form>
         )}
-      </section>
+      </Card>
       {canManage && (
         <details
           open={Boolean(params.new === "pool" || params.edit_pool)}

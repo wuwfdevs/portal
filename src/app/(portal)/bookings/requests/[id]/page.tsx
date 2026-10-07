@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -394,7 +395,7 @@ export default async function ProjectPage({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           {(asksProduction || detail.lines.length > 0) && (
-            <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+            <Card className="flex flex-col gap-3 p-4">
               <p className="text-sm leading-relaxed text-ink-900" data-testid="summary-line">
                 {summary.parts.map((part, index) => (
                   <span key={part.key}>
@@ -491,7 +492,7 @@ export default async function ProjectPage({
                   />
                 </div>
               </details>
-            </section>
+            </Card>
           )}
           {(asksProduction || detail.bookings.length > 0) && (
             <details
@@ -605,7 +606,7 @@ export default async function ProjectPage({
         </div>
 
         <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-80">
-          <section className="rounded border border-line bg-white">
+          <Card>
             <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
               Stage
             </div>
@@ -676,7 +677,7 @@ export default async function ProjectPage({
                 );
               })}
             </div>
-          </section>
+          </Card>
 
           <DetailSummary
             title="Scope"
@@ -817,7 +818,7 @@ export default async function ProjectPage({
           </details>
 
           {canEdit && canSetDisposition(project) && (
-            <section className="rounded border border-line bg-white">
+            <Card>
               <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
                 Close the request
               </div>
@@ -851,7 +852,7 @@ export default async function ProjectPage({
                   Close
                 </Button>
               </form>
-            </section>
+            </Card>
           )}
           {canEdit && project.disposition !== null && (
             <form action={reopenProject}>

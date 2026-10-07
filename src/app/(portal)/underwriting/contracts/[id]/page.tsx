@@ -1,3 +1,4 @@
+import { SubNav } from "@/components/ui/sub-nav";
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -332,27 +333,16 @@ export default async function ContractDetailPage({
             </section>
           )}
 
-          <nav aria-label="Contract sections" className="flex gap-5 border-b border-line">
-            {tabs.map((item) => (
-              <Link
-                key={item.key}
-                href={item.key === "schedule" ? base : `${base}?tab=${item.key}`}
-                aria-current={tab === item.key ? "page" : undefined}
-                className={`-mb-px flex h-9 items-center gap-1.5 border-b-2 px-0.5 text-[13px] font-semibold ${
-                  tab === item.key
-                    ? "border-ink-900 text-ink-900"
-                    : "border-transparent text-ink-500 hover:text-ink-700"
-                }`}
-              >
-                {item.label}
-                {item.count !== undefined && (
-                  <span className="rounded-full bg-panel-100 px-1.5 text-[11px] font-bold text-ink-500">
-                    {item.count}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </nav>
+          <SubNav
+            label="Contract sections"
+            className="mb-0"
+            items={tabs.map((item) => ({
+              href: item.key === "schedule" ? base : `${base}?tab=${item.key}`,
+              label: item.label,
+              active: tab === item.key,
+              count: item.count,
+            }))}
+          />
 
           {tab === "schedule" && (
             <div className="flex flex-col gap-4">

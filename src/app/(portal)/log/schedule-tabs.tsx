@@ -1,4 +1,4 @@
-import { TabNav } from "@/components/ui/tab-nav";
+import { SubNav } from "@/components/ui/sub-nav";
 
 /**
  * The Schedule section's second-level row (the shape of Setup's
@@ -10,9 +10,9 @@ import { TabNav } from "@/components/ui/tab-nav";
  */
 export function ScheduleTabs({ active }: { active: "programs" | "automation" | "underwriting" }) {
   return (
-    <TabNav
-      className="mb-4"
-      tabs={[
+    <SubNav
+      label="Schedule sections"
+      items={[
         { href: "/log/programs", label: "Programs", active: active === "programs" },
         { href: "/log/automated-hours", label: "Automation", active: active === "automation" },
         {

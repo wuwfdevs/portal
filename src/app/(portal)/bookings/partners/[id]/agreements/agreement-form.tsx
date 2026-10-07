@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export function AgreementForm({
       <input type="hidden" name="partner_id" value={partnerId} />
       {agreement && <input type="hidden" name="agreement_id" value={agreement.id} />}
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           The terms
         </div>
@@ -168,9 +169,9 @@ export function AgreementForm({
             />
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
           What the agreement says
         </div>
@@ -219,7 +220,7 @@ export function AgreementForm({
             <Textarea id="notes" name="notes" rows={3} defaultValue={agreement?.notes ?? ""} />
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>

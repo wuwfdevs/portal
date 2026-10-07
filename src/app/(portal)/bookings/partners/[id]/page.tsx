@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -87,7 +88,7 @@ export default async function PartnerPage({
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
-          <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+          <Card className="flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="text-sm font-bold text-ink-900">Agreements</h3>
               <span className="text-xs text-ink-500">
@@ -147,9 +148,9 @@ export default async function PartnerPage({
                 </Table>
               </TableFrame>
             )}
-          </section>
+          </Card>
 
-          <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+          <Card className="flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="text-sm font-bold text-ink-900">Requests</h3>
               <span className="text-xs text-ink-500">Every request from this partner.</span>
@@ -204,7 +205,7 @@ export default async function PartnerPage({
                 </Table>
               </TableFrame>
             )}
-          </section>
+          </Card>
         </div>
 
         <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-80">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -75,7 +76,7 @@ export function NewRequestForm({
         </Alert>
       )}
 
-      <section className="rounded border border-line bg-white">
+      <Card>
         <div className="grid grid-cols-1 gap-4 px-5 py-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label htmlFor="partner_id">Who is it for?</Label>
@@ -234,7 +235,7 @@ export function NewRequestForm({
             />
           </div>
         </div>
-      </section>
+      </Card>
 
       <details className="rounded border border-line bg-white">
         <summary className="cursor-pointer px-5 py-3.5 text-sm font-bold text-ink-900">

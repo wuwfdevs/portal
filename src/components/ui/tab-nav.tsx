@@ -11,6 +11,23 @@ export interface TabNavItem {
   active: boolean;
   /** Always sits behind the "⋯" menu, however much room there is (a tab few viewers need daily). */
   forceMore?: boolean;
+  /** Always visible, set apart at the right edge — a utility tab (Setup) rather than a daily destination. */
+  end?: boolean;
+  /** A count of what is waiting in this tab, shown after the label only when above zero. */
+  badge?: number;
+}
+
+function TabLabel({ tab }: { tab: TabNavItem }) {
+  if (!tab.badge) return <>{tab.label}</>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {tab.label}
+      <span className="rounded-full bg-[#0F2235] px-1.5 text-[11px] font-bold leading-4 text-white">
+        {tab.badge}
+        <span className="sr-only"> waiting</span>
+      </span>
+    </span>
+  );
 }
 
 const TAB_CLASS =
@@ -29,11 +46,13 @@ const TAB_INACTIVE = "border-transparent text-ink-400 hover:border-line hover:te
  * guessing from the pathname itself.
  */
 export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; className?: string }) {
-  const tabs = allTabs.filter((tab) => !tab.forceMore);
+  const endTabs = allTabs.filter((tab) => tab.end && !tab.forceMore);
+  const tabs = allTabs.filter((tab) => !tab.forceMore && !tab.end);
   const forced = allTabs.filter((tab) => tab.forceMore);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(tabs.length);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -47,7 +66,9 @@ export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; class
 
     function recompute() {
       if (!container) return;
-      const available = container.clientWidth;
+      // The right-edge group (end tabs) is always shown, so its width is not available to the rest.
+      const endWidth = endRef.current?.getBoundingClientRect().width ?? 0;
+      const available = container.clientWidth - (endWidth > 0 ? endWidth + 20 : 0);
       const moreWidth = moreRef.current?.getBoundingClientRect().width ?? 40;
       const gap = 20; // matches gap-5
       const isLastItem = (i: number) => i === itemEls.length - 1 && forced.length === 0;
@@ -71,7 +92,7 @@ export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; class
     const ro = new ResizeObserver(recompute);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [tabs, forced.length]);
+  }, [tabs, forced.length, endTabs.length]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -109,54 +130,68 @@ export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; class
           aria-current={tab.active ? "page" : undefined}
           className={cn(TAB_CLASS, tab.active ? TAB_ACTIVE : TAB_INACTIVE)}
         >
-          {tab.label}
+          <TabLabel tab={tab} />
         </Link>
       ))}
 
-      {overflow.length > 0 && (
-        <div className="relative ml-auto shrink-0">
-          <button
-            ref={moreRef}
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label="More tabs"
-            onClick={() => setMenuOpen((open) => !open)}
-            className={cn(
-              TAB_CLASS,
-              "flex items-center px-1",
-              overflowHasActive ? TAB_ACTIVE : TAB_INACTIVE,
-            )}
-          >
-            <span aria-hidden="true" className="text-base leading-none">
-              ⋯
-            </span>
-          </button>
-          <FloatingPanel
-            anchorRef={moreRef}
-            open={menuOpen}
-            ref={menuRef}
-            role="menu"
-            className="min-w-[10rem] rounded border border-line bg-white py-1 shadow-md"
-          >
-            {overflow.map((tab) => (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                role="menuitem"
-                aria-current={tab.active ? "page" : undefined}
-                onClick={() => setMenuOpen(false)}
-                className={cn(
-                  "block px-3 py-1.5 text-sm hover:bg-panel-50",
-                  tab.active ? "font-semibold text-brand-link" : "text-ink-700",
-                )}
-              >
-                {tab.label}
-              </Link>
-            ))}
-          </FloatingPanel>
+      <div className="ml-auto flex shrink-0 items-center gap-5">
+        {overflow.length > 0 && (
+          <div className="relative shrink-0">
+            <button
+              ref={moreRef}
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="More tabs"
+              onClick={() => setMenuOpen((open) => !open)}
+              className={cn(
+                TAB_CLASS,
+                "flex items-center px-1",
+                overflowHasActive ? TAB_ACTIVE : TAB_INACTIVE,
+              )}
+            >
+              <span aria-hidden="true" className="text-base leading-none">
+                ⋯
+              </span>
+            </button>
+            <FloatingPanel
+              anchorRef={moreRef}
+              open={menuOpen}
+              ref={menuRef}
+              role="menu"
+              className="min-w-[10rem] rounded border border-line bg-white py-1 shadow-md"
+            >
+              {overflow.map((tab) => (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  role="menuitem"
+                  aria-current={tab.active ? "page" : undefined}
+                  onClick={() => setMenuOpen(false)}
+                  className={cn(
+                    "block px-3 py-1.5 text-sm hover:bg-panel-50",
+                    tab.active ? "font-semibold text-brand-link" : "text-ink-700",
+                  )}
+                >
+                  <TabLabel tab={tab} />
+                </Link>
+              ))}
+            </FloatingPanel>
+          </div>
+        )}
+        <div ref={endRef} className="flex items-center gap-5">
+          {endTabs.map((tab) => (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
+              className={cn(TAB_CLASS, tab.active ? TAB_ACTIVE : TAB_INACTIVE)}
+            >
+              <TabLabel tab={tab} />
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Off-screen clone of every tab, used only to measure natural label widths. */}
       <div
@@ -167,7 +202,7 @@ export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; class
       >
         {tabs.map((tab) => (
           <span key={tab.href} className={cn(TAB_CLASS, "border-transparent")}>
-            {tab.label}
+            <TabLabel tab={tab} />
           </span>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { SegmentedLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
@@ -53,34 +54,16 @@ const PROGRAMS_PATH = "/log/programs";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** "Week | List", real links — the active side is filled navy. */
+/** "Week | List", real links. */
 function ViewToggle({ active }: { active: "week" | "list" }) {
-  const base =
-    "inline-flex h-9 items-center px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900";
   return (
-    <nav aria-label="View" className="inline-flex overflow-hidden rounded border border-[#C9CED4]">
-      <Link
-        href={`${PROGRAMS_PATH}?view=week`}
-        aria-current={active === "week" ? "page" : undefined}
-        className={cn(
-          base,
-          active === "week" ? "bg-[#0F2235] text-white" : "bg-white text-ink-900 hover:bg-panel-50",
-        )}
-      >
-        Week
-      </Link>
-      <Link
-        href={PROGRAMS_PATH}
-        aria-current={active === "list" ? "page" : undefined}
-        className={cn(
-          base,
-          "border-l border-[#C9CED4]",
-          active === "list" ? "bg-[#0F2235] text-white" : "bg-white text-ink-900 hover:bg-panel-50",
-        )}
-      >
-        List
-      </Link>
-    </nav>
+    <SegmentedLinks
+      label="View"
+      options={[
+        { label: "Week", href: `${PROGRAMS_PATH}?view=week`, active: active === "week" },
+        { label: "List", href: PROGRAMS_PATH, active: active === "list" },
+      ]}
+    />
   );
 }
 

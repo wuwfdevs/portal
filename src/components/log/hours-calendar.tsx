@@ -1,3 +1,4 @@
+import { WeekMonthLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import {
@@ -229,46 +230,6 @@ export function underwritingLayer(hours: {
   };
 }
 
-function ViewToggle({
-  active,
-  weekHref,
-  monthHref,
-}: {
-  active: CalendarView;
-  weekHref: string;
-  monthHref: string;
-}) {
-  const base =
-    "inline-flex h-9 items-center px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-900";
-  return (
-    <nav aria-label="View" className="inline-flex overflow-hidden rounded border border-[#C9CED4]">
-      <Link
-        href={weekHref}
-        aria-current={active === "week" ? "page" : undefined}
-        className={cn(
-          base,
-          active === "week" ? "bg-[#0F2235] text-white" : "bg-white text-ink-900 hover:bg-panel-50",
-        )}
-      >
-        Week
-      </Link>
-      <Link
-        href={monthHref}
-        aria-current={active === "month" ? "page" : undefined}
-        className={cn(
-          base,
-          "border-l border-[#C9CED4]",
-          active === "month"
-            ? "bg-[#0F2235] text-white"
-            : "bg-white text-ink-900 hover:bg-panel-50",
-        )}
-      >
-        Month
-      </Link>
-    </nav>
-  );
-}
-
 const navLink =
   "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
 
@@ -349,7 +310,7 @@ function WeekView({
   return (
     <section className="flex flex-col gap-3" aria-label="Week">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <ViewToggle active="week" weekHref={weekHref(null)} monthHref={monthHref(date)} />
+        <WeekMonthLinks active="week" weekHref={weekHref(null)} monthHref={monthHref(date)} />
         <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {formatWeekRange(monday)}
         </h2>
@@ -531,7 +492,7 @@ function MonthView({ date, today, primary, context, weekHref, monthHref }: Hours
   return (
     <section className="flex flex-col gap-3" aria-label="Month">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <ViewToggle active="month" weekHref={weekHref(date)} monthHref={monthHref(date)} />
+        <WeekMonthLinks active="month" weekHref={weekHref(date)} monthHref={monthHref(date)} />
         <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {MONTH_NAMES[month - 1]} {year}
         </h2>

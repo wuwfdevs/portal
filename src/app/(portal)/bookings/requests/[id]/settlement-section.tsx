@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export function SettlementSection({
   const kind = settlement?.kind ?? figures?.kind ?? null;
 
   return (
-    <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-bold text-ink-900">Settlement</h3>
         <Badge variant={posted ? "success" : state === "drafted" ? "accent" : "neutral"}>
@@ -239,6 +240,6 @@ export function SettlementSection({
       {!posted && !isFinance && state !== "awaiting_hours" && (
         <FieldHint>Finance drafts and posts the settlement.</FieldHint>
       )}
-    </section>
+    </Card>
   );
 }

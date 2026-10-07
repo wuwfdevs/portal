@@ -32,6 +32,8 @@ import {
   type AffidavitDocument,
 } from "./affidavits";
 import type { SelectionDemand } from "./inventory-selection";
+import { exceptionStep, type ExceptionStepInput } from "./exception-filters";
+import type { TrafficNavCounts } from "./nav";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -1871,6 +1873,42 @@ export async function getAffidavitMonth(month: string): Promise<AffidavitMonth> 
 }
 
 /** How many affidavits are generated and waiting for a signature — the dashboard's tile for signers. */
+/**
+ * What the Traffic tab row badges: open exceptions at the "decision" step (the
+ * one step that waits on a person — see exception-filters.ts) and unsigned
+ * affidavits, which only a manager can sign (the dashboard shows that tile to
+ * managers alone), so `includeAffidavits` is the viewer's manager flag. Three small reads on every Traffic page, so it selects only the
+ * columns the step derivation needs and never builds a `.in()` list.
+ */
+export async function getTrafficNavCounts(includeAffidavits: boolean): Promise<TrafficNavCounts> {
+  const supabase = await createClient();
+  const [openResult, scheduledResult, affidavits] = await Promise.all([
+    supabase
+      .from("uw_exceptions")
+      .select("id, resolution_status, makegood_approval")
+      .neq("resolution_status", "resolved"),
+    supabase
+      .from("uw_makegoods")
+      .select("exception_id, status, scheduled_placement_id")
+      .eq("status", "scheduled"),
+    includeAffidavits ? countAffidavitsAwaitingSignature() : Promise.resolve(0),
+  ]);
+  const open = unwrapRead(openResult, "the open exceptions") ?? [];
+  const scheduled = unwrapRead(scheduledResult, "the scheduled makegoods") ?? [];
+  const makegoodsByException = new Map<string, ExceptionStepInput["makegoods"][number][]>();
+  for (const makegood of scheduled) {
+    const list = makegoodsByException.get(makegood.exception_id) ?? [];
+    list.push(makegood);
+    makegoodsByException.set(makegood.exception_id, list);
+  }
+  const exceptionsNeedingDecision = open.filter(
+    (exception) =>
+      exceptionStep({ ...exception, makegoods: makegoodsByException.get(exception.id) ?? [] }) ===
+      "decision",
+  ).length;
+  return { exceptionsNeedingDecision, affidavitsAwaitingSignature: affidavits };
+}
+
 export async function countAffidavitsAwaitingSignature(): Promise<number> {
   const supabase = await createClient();
   const result = await supabase
