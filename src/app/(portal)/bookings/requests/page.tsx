@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
@@ -86,9 +87,10 @@ export default async function RequestsPage({
           },
         ]}
       >
-        <Link href={INTAKE_PATH} className="px-1 text-xs font-bold text-brand-link hover:underline">
-          Public form
-        </Link>
+        <ActionMenu
+          label="More"
+          items={[{ label: "Public request form settings", href: INTAKE_PATH }]}
+        />
         {canCreate && (
           <PrimaryLink href={`${REQUESTS_PATH}/new`}>
             <span>
@@ -124,11 +126,14 @@ export default async function RequestsPage({
               {rows.map((project) => {
                 const estimate = estimateState(project, nowISO);
                 const badges = badgesFor(
-                  projectBadgeFacts(project, dateFacts.get(project.id) ?? {
-                    hasPackageLine: false,
-                    openBookings: 0,
-                    bookingException: false,
-                  }),
+                  projectBadgeFacts(
+                    project,
+                    dateFacts.get(project.id) ?? {
+                      hasPackageLine: false,
+                      openBookings: 0,
+                      bookingException: false,
+                    },
+                  ),
                 );
                 return (
                   <Row key={project.id}>

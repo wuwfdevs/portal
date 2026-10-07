@@ -746,65 +746,75 @@ export default async function ProjectPage({
           />
 
           {(agreementChoices.length > 0 || detail.agreement) && (
-            <section className="rounded border border-line bg-white">
-              <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+            <details className="rounded border border-line bg-white">
+              <summary className="cursor-pointer px-5 py-3.5 text-sm font-bold text-ink-900">
                 Agreement
+                <span className="ml-2 text-xs font-normal text-ink-500">
+                  {detail.agreement ? detail.agreement.label : "None"}
+                </span>
+              </summary>
+              <div className="border-t border-line">
+                {canEdit && project.disposition === null && project.stage !== "settled" ? (
+                  <form action={setProjectAgreement} className="flex flex-col gap-2 px-5 py-4">
+                    <input type="hidden" name="project_id" value={project.id} />
+                    <Label htmlFor="agreement_id">Under {partner.name}&apos;s agreement</Label>
+                    <Select
+                      id="agreement_id"
+                      name="agreement_id"
+                      defaultValue={project.agreement_id ?? ""}
+                    >
+                      <option value="">None — priced from the facts on the request</option>
+                      {agreementChoices.map((agreement) => (
+                        <option key={agreement.id} value={agreement.id}>
+                          {agreement.label}
+                          {agreement.status !== "active"
+                            ? ` (${AGREEMENT_STATUS_SHORT_LABEL[agreement.status].toLowerCase()})`
+                            : ""}
+                        </option>
+                      ))}
+                    </Select>
+                    <FieldHint>
+                      Work under an agreement is priced against its reserve share and may take one
+                      of its reserved blocks.
+                    </FieldHint>
+                    <Button type="submit" variant="secondary" className="self-start">
+                      Save
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="px-5 py-4 text-sm text-ink-700">
+                    {detail.agreement ? detail.agreement.label : "None."}
+                  </p>
+                )}
               </div>
-              {canEdit && project.disposition === null && project.stage !== "settled" ? (
-                <form action={setProjectAgreement} className="flex flex-col gap-2 px-5 py-4">
-                  <input type="hidden" name="project_id" value={project.id} />
-                  <Label htmlFor="agreement_id">Under {partner.name}&apos;s agreement</Label>
-                  <Select
-                    id="agreement_id"
-                    name="agreement_id"
-                    defaultValue={project.agreement_id ?? ""}
-                  >
-                    <option value="">None — priced from the facts on the request</option>
-                    {agreementChoices.map((agreement) => (
-                      <option key={agreement.id} value={agreement.id}>
-                        {agreement.label}
-                        {agreement.status !== "active"
-                          ? ` (${AGREEMENT_STATUS_SHORT_LABEL[agreement.status].toLowerCase()})`
-                          : ""}
-                      </option>
-                    ))}
-                  </Select>
-                  <FieldHint>
-                    Work under an agreement is priced against its reserve share and may take one of
-                    its reserved blocks.
-                  </FieldHint>
-                  <Button type="submit" variant="secondary" className="self-start">
-                    Save
-                  </Button>
-                </form>
-              ) : (
-                <p className="px-5 py-4 text-sm text-ink-700">
-                  {detail.agreement ? detail.agreement.label : "None."}
-                </p>
-              )}
-            </section>
+            </details>
           )}
 
-          <section className="rounded border border-line bg-white">
-            <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
+          <details className="rounded border border-line bg-white">
+            <summary className="cursor-pointer px-5 py-3.5 text-sm font-bold text-ink-900">
               Owner
+              <span className="ml-2 text-xs font-normal text-ink-500">
+                {members.find((m) => m.id === project.owner_id)?.displayName ?? "Unassigned"}
+              </span>
+            </summary>
+            <div className="border-t border-line">
+              <form action={assignOwner} className="flex flex-col gap-2 px-5 py-4">
+                <input type="hidden" name="project_id" value={project.id} />
+                <Label htmlFor="owner_id">Who is working this</Label>
+                <Select id="owner_id" name="owner_id" defaultValue={project.owner_id ?? ""}>
+                  <option value="">Unassigned</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </Select>
+                <Button type="submit" variant="secondary" className="self-start">
+                  Save
+                </Button>
+              </form>
             </div>
-            <form action={assignOwner} className="flex flex-col gap-2 px-5 py-4">
-              <input type="hidden" name="project_id" value={project.id} />
-              <Label htmlFor="owner_id">Who is working this</Label>
-              <Select id="owner_id" name="owner_id" defaultValue={project.owner_id ?? ""}>
-                <option value="">Unassigned</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.displayName}
-                  </option>
-                ))}
-              </Select>
-              <Button type="submit" variant="secondary" className="self-start">
-                Save
-              </Button>
-            </form>
-          </section>
+          </details>
 
           {canEdit && canSetDisposition(project) && (
             <section className="rounded border border-line bg-white">

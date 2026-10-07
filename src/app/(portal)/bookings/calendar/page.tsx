@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
-import { termPlanInline } from "@/lib/bookings/nav";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
 import { airtimeEnvelope, parseAirtimeRead } from "@/lib/bookings/airtime";
 import {
@@ -31,9 +31,11 @@ import {
   capacitySummary,
   checkBooking,
   formatClock,
+  formatHours,
   formatWindow,
   monthlyCapacity,
   parseWindows,
+  totalCapacity,
   totalHours,
   windowsFor,
   type BookingRequest,
@@ -64,6 +66,7 @@ type Params = {
   new?: string;
   error?: string;
   check?: string;
+  envelopes?: string;
   c_pool?: string;
   c_date?: string;
   c_window?: string;
@@ -214,57 +217,65 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           />
         )}
         <span className="flex-1" />
-        {termPlanInline(context.roles, context.isAdministrator) ? (
-          <Link
-            href={withQuery(PLAN_PATH, { plan: plan.id })}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            Term plan
-          </Link>
-        ) : (
-          // Production staff and role-less members still read the term plan (§6.1); it is one click further.
-          <details className="relative">
-            <summary className="cursor-pointer px-1 text-sm font-bold text-ink-500 hover:text-ink-700">
-              More
-            </summary>
-            <div className="absolute right-0 z-10 mt-1 min-w-[8rem] rounded border border-line bg-white py-1 shadow-md">
-              <Link
-                href={withQuery(PLAN_PATH, { plan: plan.id })}
-                className="block px-3 py-1.5 text-sm text-ink-700 hover:bg-panel-50"
-              >
-                Term plan
-              </Link>
-            </div>
-          </details>
-        )}
+        <Link
+          href={withQuery(PLAN_PATH, { plan: plan.id })}
+          className="px-1 text-sm font-bold text-brand-link hover:underline"
+        >
+          {canDirect ? "Edit term plan" : "Term plan"}
+        </Link>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-line bg-panel-50 px-4 py-3 text-sm text-ink-700">
-        <Badge
-          variant={
-            plan.status === "active" ? "success" : plan.status === "closed" ? "muted" : "neutral"
-          }
-        >
-          {TERM_PLAN_STATUS_LABEL[plan.status]}
-        </Badge>
-        <span className="font-semibold text-ink-900">{plan.label}</span>
-        <span>
-          {formatDateShort(plan.starts_on)} – {formatDateShort(plan.ends_on)}
-        </span>
-        {plan.status === "draft" && (
-          <span className="text-xs text-ink-500">
-            A draft: bookings can be placed, but the plan is not yet the term&apos;s plan of record.
+      <details
+        open={params.envelopes === "1"}
+        className="group rounded border border-line bg-white"
+      >
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm text-ink-700">
+          <Badge
+            variant={
+              plan.status === "active" ? "success" : plan.status === "closed" ? "muted" : "neutral"
+            }
+          >
+            {TERM_PLAN_STATUS_LABEL[plan.status]}
+          </Badge>
+          <span className="font-semibold text-ink-900">{plan.label}</span>
+          <span>
+            {formatDateShort(plan.starts_on)} – {formatDateShort(plan.ends_on)}
           </span>
-        )}
-        {plan.notes && <span className="basis-full text-xs text-ink-500">{plan.notes}</span>}
-      </div>
+          {classSummaries.length > 0 && (
+            <span className="text-ink-500">
+              · Open capacity {formatHours(totalCapacity(classSummaries).open)}
+            </span>
+          )}
+          <span className="text-ink-500">
+            · Airtime {envelope.availsPerWeek} avail{envelope.availsPerWeek === 1 ? "" : "s"} a week
+          </span>
+          <span className="flex-1" />
+          <span className="text-xs font-bold text-brand-link group-open:hidden">
+            Capacity and airtime ▾
+          </span>
+          <span className="hidden text-xs font-bold text-brand-link group-open:inline">Hide ▴</span>
+        </summary>
+        <div className="flex flex-col gap-3 border-t border-line p-4">
+          {plan.status === "draft" && (
+            <p className="text-xs text-ink-500">
+              A draft: bookings can be placed, but the plan is not yet the term&apos;s plan of
+              record.
+            </p>
+          )}
+          {plan.notes && <p className="text-xs text-ink-500">{plan.notes}</p>}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <CapacityPanel
+              plan={plan}
+              classes={classSummaries}
+              months={months}
+              canEdit={canDirect}
+            />
+            <AirtimePanel envelope={envelope} error={avails.error} asOf={read?.as_of ?? null} />
+          </div>
+        </div>
+      </details>
 
       {params.error && <Alert>{params.error}</Alert>}
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <CapacityPanel plan={plan} classes={classSummaries} months={months} canEdit={canDirect} />
-        <AirtimePanel envelope={envelope} error={avails.error} asOf={read?.as_of ?? null} />
-      </div>
 
       {resourcedPools.length === 0 && (
         <Alert variant="note">
@@ -296,28 +307,18 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             ]}
           />
           <span className="flex-1" />
-          <Link
-            href={here({ check: "1" })}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            Find a slot
-          </Link>
-          {canDirect && (
-            <>
-              <Link
-                href={here({ new: "blackout" })}
-                className="px-1 text-sm font-bold text-brand-link hover:underline"
-              >
-                + Blackout
-              </Link>
-              <Link
-                href={here({ new: "hold" })}
-                className="px-1 text-sm font-bold text-brand-link hover:underline"
-              >
-                + Hold
-              </Link>
-            </>
-          )}
+          <ActionMenu
+            label="More"
+            items={[
+              { label: "Find a slot", href: here({ check: "1" }) },
+              ...(canDirect
+                ? [
+                    { label: "Add a blackout", href: here({ new: "blackout" }) },
+                    { label: "Add a hold", href: here({ new: "hold" }) },
+                  ]
+                : []),
+            ]}
+          />
           {canSchedule && resourcedPools.length > 0 && (
             <PrimaryLink href={here({ new: "booking" })}>+ Booking</PrimaryLink>
           )}

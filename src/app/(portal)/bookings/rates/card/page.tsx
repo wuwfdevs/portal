@@ -30,7 +30,9 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
   ]);
   // A snapshot with no unit costs can't price an adjusted package line (§20.6): stale.
   const unitCostCount = (
-    await (await createClient())
+    await (
+      await createClient()
+    )
       .from("bk_rate_card_unit_costs")
       .select("id", { count: "exact", head: true })
       .eq("version_id", version.id)
@@ -103,7 +105,9 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
               <strong>Review:</strong> the practical capacity of{" "}
               {detail.pools
                 .filter((row) => row.units_basis === "volume_forecast")
-                .map((row) => detail.poolCatalog.find((p) => p.id === row.pool_id)?.name ?? "a pool")
+                .map(
+                  (row) => detail.poolCatalog.find((p) => p.id === row.pool_id)?.name ?? "a pool",
+                )
                 .join(", ")}{" "}
               is a volume forecast, not a capacity, so its unit cost — and every rate that uses it —
               is provisional until it is replaced.

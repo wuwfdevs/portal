@@ -30,8 +30,3 @@ export function visibleTabs(
   if (isAdministrator || isModelRole(roles)) return { primary: [...base, RATES], more: [] };
   return { primary: base, more: [RATES] };
 }
-
-/** Whether the term plan link on the Calendar sits inline (the director, the executive) or under More. */
-export function termPlanInline(roles: readonly BookingsRole[], isAdministrator = false): boolean {
-  return isAdministrator || roles.includes("director") || roles.includes("executive");
-}

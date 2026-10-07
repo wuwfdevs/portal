@@ -325,6 +325,8 @@ export const SCREENS: readonly ScreenDefinition[] = [
     toolKey: "bookings",
     paths: [
       "/bookings/rates",
+      "/bookings/rates/inputs",
+      "/bookings/rates/assumptions",
       "/bookings/rates/labor",
       "/bookings/rates/pools",
       "/bookings/rates/packages",

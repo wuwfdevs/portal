@@ -5,21 +5,27 @@ import { FieldHint, Input, Label } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { PAY_BASIS_LABEL } from "@/lib/bookings/labels";
-import { RATES_PATH, ratesHref } from "@/lib/bookings/paths";
+import { ratesHref } from "@/lib/bookings/paths";
 import { getVersionDetail, listVersions, pickVersion } from "@/lib/bookings/queries";
 import { formatDollars, formatShare } from "@/lib/bookings/rates";
 import { cardForVersion } from "@/lib/bookings/version-card";
 import { saveLaborRate, setLaborRateValidation } from "../actions";
+import { ClassCatalog, type CatalogParams } from "../catalog-sections";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
 
-type Params = { version?: string; edit?: string; accept?: string; error?: string };
+type Params = {
+  version?: string;
+  edit?: string;
+  accept?: string;
+  error?: string;
+} & CatalogParams;
 
 /**
  * Labor: one row per labor class with this version's pay figures and the
  * loaded hourly cost they produce. A class with no figures on this version
  * is listed with "Add figures" — the version can't be priced until every
- * active class has them. The classes themselves are kept under Setup.
+ * active class has them. The classes themselves are kept under Classes and pools.
  */
 export default async function LaborPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
@@ -30,6 +36,7 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
   const detail = await getVersionDetail(version);
   const computed = cardForVersion(detail);
   const canEdit = context.isFinance && version.status === "draft";
+  const canManage = context.isFinance || context.isDirector;
   const canValidate =
     context.isFinance && (version.status === "draft" || version.status === "submitted");
   const here = (extra?: Record<string, string>) => ratesHref("labor", version.id, extra);
@@ -58,12 +65,6 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
               baseline-funded) adds only to the incremental cost.
             </p>
           </div>
-          <Link
-            href={`${RATES_PATH}/setup`}
-            className="text-sm font-bold text-brand-link hover:underline"
-          >
-            Add or retire a class under Setup
-          </Link>
         </div>
         <TableFrame>
           <Table stack>
@@ -282,6 +283,24 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
           </Table>
         </TableFrame>
       </section>
+      {canManage && (
+        <details
+          open={Boolean(params.new === "class" || params.edit_class)}
+          className="rounded border border-line bg-white"
+        >
+          <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-ink-900">
+            Manage labor classes
+          </summary>
+          <div className="border-t border-line p-4">
+            <ClassCatalog
+              classes={detail.classes}
+              canEdit={canManage}
+              params={params}
+              href={(extra) => ratesHref("labor", version.id, extra)}
+            />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

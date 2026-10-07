@@ -6,7 +6,12 @@ import { isOfferable } from "@/lib/bookings/estimate-lines";
 import { timeOfDayOptions } from "@/lib/bookings/booking-plan";
 import { PARTNER_KIND_LABEL } from "@/lib/bookings/projects";
 import { REQUESTS_PATH } from "@/lib/bookings/paths";
-import { getCurrentPlan, getPlanCalendar, getPricingContext, listPartners } from "@/lib/bookings/queries";
+import {
+  getCurrentPlan,
+  getPlanCalendar,
+  getPricingContext,
+  listPartners,
+} from "@/lib/bookings/queries";
 import { hoursPhrase, hourBuckets } from "@/lib/bookings/summary";
 import { createRequest } from "../actions";
 import { NewRequestForm } from "../new-request-form";
@@ -28,7 +33,9 @@ export default async function NewRequestPage({
     getPricingContext(null),
     getCurrentPlan(),
   ]);
-  const state = plan ? calendarStateFrom(await getPlanCalendar(plan), new Date().toISOString()) : null;
+  const state = plan
+    ? calendarStateFrom(await getPlanCalendar(plan), new Date().toISOString())
+    : null;
   const packages = (pricing?.packages ?? [])
     .filter((pkg) => isOfferable(pkg, null))
     .map((pkg) => ({
@@ -66,7 +73,9 @@ export default async function NewRequestPage({
           defaultFundingIndex: partner.default_funding_index,
         }))}
         packages={packages}
-        timesOfDay={state ? timeOfDayOptions(state).map((o) => ({ key: o.key, label: o.label })) : []}
+        timesOfDay={
+          state ? timeOfDayOptions(state).map((o) => ({ key: o.key, label: o.label })) : []
+        }
         error={error}
         cancelHref={REQUESTS_PATH}
         noRateCard={pricing === null}

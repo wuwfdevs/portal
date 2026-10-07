@@ -95,8 +95,11 @@ export function CalculationPanel({
       {project.full_economic_cost !== null && (
         <p className="text-xs text-ink-500">
           Cost is exact. Each rate is rounded up to the next ${RATE_CARD_STEP} — a pricing policy
-          applied to the rate only{external ? "; the margin and the assessment are shown apart and are never a negative contribution" : ""}.
-          Overhead is not part of a project&apos;s cost.
+          applied to the rate only
+          {external
+            ? "; the margin and the assessment are shown apart and are never a negative contribution"
+            : ""}
+          . Overhead is not part of a project&apos;s cost.
         </p>
       )}
 

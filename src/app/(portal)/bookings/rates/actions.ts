@@ -10,11 +10,7 @@ import {
   assertBookingsExecutive,
   assertBookingsFinance,
 } from "@/lib/bookings/access";
-import {
-  assetAnnualCosts,
-  type AssetLike,
-  type FundingLineLike,
-} from "@/lib/bookings/capital";
+import { assetAnnualCosts, type AssetLike, type FundingLineLike } from "@/lib/bookings/capital";
 import { logRateModelEvent } from "@/lib/bookings/events";
 import { writeRateCardSnapshot } from "@/lib/bookings/rate-card-snapshot";
 import { isModelInputKey, type UnitsBasis } from "@/lib/bookings/rates";
@@ -405,7 +401,6 @@ function poolLineTarget(formData: FormData, path: string): string | null {
   return value;
 }
 
-
 /** General overhead (§20.2) and the pool a budget line already funds the replacement of (§20.4). */
 function readOverheadAndFunding(
   formData: FormData,
@@ -413,15 +408,23 @@ function readOverheadAndFunding(
 ): { overhead: boolean; fundsPoolId: string | null } {
   const overhead = field(formData, "overhead") === "on";
   const funds = optionalField(formData, "funds_pool_id");
-  if (funds && !UUID.test(funds)) failWith(path, "Choose a pool the line funds, or leave it blank.");
+  if (funds && !UUID.test(funds))
+    failWith(path, "Choose a pool the line funds, or leave it blank.");
   if (overhead && funds) {
-    failWith(path, "A general overhead line isn't allocated to any pool, so it can't fund one's replacement.");
+    failWith(
+      path,
+      "A general overhead line isn't allocated to any pool, so it can't fund one's replacement.",
+    );
   }
   return { overhead, fundsPoolId: funds };
 }
 
 /** The specific assets a budget line funds: replaced as a set. Naming an asset leaves its capital out of the pool's set-aside. */
-async function saveFundedAssets(assumptionId: string, assetIds: string[], path: string): Promise<void> {
+async function saveFundedAssets(
+  assumptionId: string,
+  assetIds: string[],
+  path: string,
+): Promise<void> {
   const supabase = await createClient();
   const ids = [...new Set(assetIds.filter((id) => UUID.test(id)))];
   const { error: clearError } = await supabase
@@ -465,24 +468,28 @@ export async function createAssumption(formData: FormData): Promise<void> {
   const section = field(formData, "section") === "sourced" ? "sourced" : "working";
 
   const supabase = await createClient();
-  const { data: created, error } = await supabase.from("bk_assumptions").insert({
-    version_id: versionId,
-    section,
-    kind,
-    key,
-    pool_id: poolId,
-    overhead,
-    funds_pool_id: fundsPoolId,
-    label,
-    value,
-    unit,
-    basis: optionalField(formData, "basis"),
-    source_url: optionalField(formData, "source_url"),
-    notes: optionalField(formData, "notes"),
-    owner,
-    validation_needed: optionalField(formData, "validation_needed"),
-    sort_order: 1000,
-  }).select("id").single();
+  const { data: created, error } = await supabase
+    .from("bk_assumptions")
+    .insert({
+      version_id: versionId,
+      section,
+      kind,
+      key,
+      pool_id: poolId,
+      overhead,
+      funds_pool_id: fundsPoolId,
+      label,
+      value,
+      unit,
+      basis: optionalField(formData, "basis"),
+      source_url: optionalField(formData, "source_url"),
+      notes: optionalField(formData, "notes"),
+      owner,
+      validation_needed: optionalField(formData, "validation_needed"),
+      sort_order: 1000,
+    })
+    .select("id")
+    .single();
   failIfError(error, path, "Could not add the input");
   if (created && kind === "pool_line") {
     await saveFundedAssets(created.id, formData.getAll("funds_asset").map(String), path);
@@ -971,9 +978,23 @@ function keyFrom(name: string): string {
     .replace(/^(\d)/, "k$1");
 }
 
+/**
+ * Where a catalog action returns to: the page that raised it (Setup, Labor or Resource
+ * pools, which all render the catalogs) via a `return_to` field, else the Setup page.
+ * Only a path under the Rates section is honoured. `extra` adds catalog query fields.
+ */
+function catalogReturn(formData: FormData, extra?: Record<string, string>): string {
+  const raw = field(formData, "return_to");
+  const base =
+    raw.startsWith(`${RATES_PATH}/`) && !raw.startsWith("//") ? raw : `${RATES_PATH}/setup`;
+  if (!extra) return base;
+  const query = new URLSearchParams(extra).toString();
+  return `${base}${base.includes("?") ? "&" : "?"}${query}`;
+}
+
 export async function createLaborClass(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
-  const path = `${RATES_PATH}/setup?new=class`;
+  const path = catalogReturn(formData, { new: "class" });
   const name = field(formData, "name");
   if (!name) failWith(path, "The labor class needs a name.");
   const payBasis = field(formData, "pay_basis") as BkPayBasis;
@@ -997,13 +1018,13 @@ export async function createLaborClass(formData: FormData): Promise<void> {
     note: `Added labor class "${name}" (${payBasis}). Each version needs its pay figures.`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function updateLaborClass(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
   const id = field(formData, "id");
-  const path = `${RATES_PATH}/setup?edit_class=${id}`;
+  const path = catalogReturn(formData, { edit_class: id });
   const name = field(formData, "name");
   if (!name) failWith(path, "The labor class needs a name.");
   const payBasis = field(formData, "pay_basis") as BkPayBasis;
@@ -1026,12 +1047,12 @@ export async function updateLaborClass(formData: FormData): Promise<void> {
     note: `Edited labor class "${name}".`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function createPool(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
-  const path = `${RATES_PATH}/setup?new=pool`;
+  const path = catalogReturn(formData, { new: "pool" });
   const name = field(formData, "name");
   if (!name) failWith(path, "The pool needs a name.");
   const unitLabel = field(formData, "unit_label");
@@ -1061,13 +1082,13 @@ export async function createPool(formData: FormData): Promise<void> {
     note: `Added pool "${name}" (${unitLabel}s, ${costing === "allocated" ? "a share of the shared pool" : "its own budget lines"}). Each version needs its figures.`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function updatePoolCatalog(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
   const id = field(formData, "id");
-  const path = `${RATES_PATH}/setup?edit_pool=${id}`;
+  const path = catalogReturn(formData, { edit_pool: id });
   const name = field(formData, "name");
   if (!name) failWith(path, "The pool needs a name.");
   const unitLabel = field(formData, "unit_label");
@@ -1096,7 +1117,7 @@ export async function updatePoolCatalog(formData: FormData): Promise<void> {
     note: `Edited pool "${name}".`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 // Assets ----------------------------------------------------------------------------------
@@ -1227,17 +1248,16 @@ export async function refreshFromAssetRegister(formData: FormData): Promise<void
         .map((link) => link.asset_id),
     }));
   const pools = assetAnnualCosts(
-    (assets.data ?? []).map(
-      (asset): AssetLike => ({
-        id: asset.id,
-        name: asset.name,
-        pool_id: asset.pool_id,
-        active: asset.active,
-        replacement_cost: asset.replacement_cost === null ? null : Number(asset.replacement_cost),
-        useful_life_years: asset.useful_life_years === null ? null : Number(asset.useful_life_years),
-        annual_maintenance: asset.annual_maintenance === null ? null : Number(asset.annual_maintenance),
-      }),
-    ),
+    (assets.data ?? []).map((asset): AssetLike => ({
+      id: asset.id,
+      name: asset.name,
+      pool_id: asset.pool_id,
+      active: asset.active,
+      replacement_cost: asset.replacement_cost === null ? null : Number(asset.replacement_cost),
+      useful_life_years: asset.useful_life_years === null ? null : Number(asset.useful_life_years),
+      annual_maintenance:
+        asset.annual_maintenance === null ? null : Number(asset.annual_maintenance),
+    })),
     funding,
   );
 
@@ -1294,7 +1314,9 @@ export async function setOverheadDecision(formData: FormData): Promise<void> {
     versionId,
     actorId: profile.id,
     kind: "overhead_decision",
-    note: decision ? `Recorded the overhead decision: ${decision}` : "Cleared the overhead decision.",
+    note: decision
+      ? `Recorded the overhead decision: ${decision}`
+      : "Cleared the overhead decision.",
   });
   revalidateRates();
   redirect(path);
@@ -1337,7 +1359,11 @@ export async function setPackageReview(formData: FormData): Promise<void> {
     actorId: profile.id,
     kind: `package_${which}_review`,
     note: `${pkg?.name ?? "A package"} (${pkg?.unit_label ?? ""}) ${which === "hours" ? "hours" : "market floor"}: ${
-      state === "pending" ? "reopened for review" : state === "validated" ? "validated" : "accepted as is"
+      state === "pending"
+        ? "reopened for review"
+        : state === "validated"
+          ? "validated"
+          : "accepted as is"
     }${note ? ` — ${note}` : "."}`,
   });
   revalidateRates();
