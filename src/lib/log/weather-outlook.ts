@@ -28,6 +28,8 @@ export interface DailyOutlookEntry {
   short_forecast: string;
   precipitation_chance: number | null;
   icon: WeatherIconCode;
+  /** NWS's own detailedForecast paragraph per period of the day, for the strip's hover tooltip. Optional: readings cached before this existed lack it (daily_outlook is plain jsonb, no migration). */
+  details?: ForecastPeriodSummary[];
 }
 
 /** One NWS period's own label ("Today"/"This Afternoon"/"Tonight"/…) paired with its full detailedForecast paragraph — what lets the UI set today and tonight visually apart instead of running them together as one string (see providers/weather.ts's live_read_text, which stays a flat string for the editable-script textarea's defaultValue). */
@@ -42,6 +44,8 @@ export interface OutlookSourcePeriod {
   isDaytime: boolean;
   temperature: number;
   shortForecast: string;
+  detailedForecast?: string;
+  name?: string;
   icon: string | null;
   probabilityOfPrecipitation: { value: number | null } | null;
 }
@@ -166,8 +170,13 @@ export function buildDailyOutlook(
       .map((period) => period?.probabilityOfPrecipitation?.value ?? null)
       .filter((value): value is number => value !== null);
 
+    const details = group
+      .filter((period) => period.name && period.detailedForecast)
+      .map((period) => ({ label: period.name!, text: period.detailedForecast! }));
+
     return {
       date,
+      details,
       day_label: index === 0 ? "Today" : weekdayLabel(date),
       high: dayPeriod?.temperature ?? null,
       low: nightPeriod?.temperature ?? null,

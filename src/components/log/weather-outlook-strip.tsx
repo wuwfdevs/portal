@@ -16,7 +16,17 @@ export function WeatherOutlookStrip({ days }: { days: DailyOutlookEntry[] }) {
   return (
     <ul className="flex gap-3 overflow-x-auto pb-0.5">
       {days.map((day) => (
-        <li key={day.date} className="flex shrink-0 flex-col items-center gap-0.5 text-center">
+        <li
+          key={day.date}
+          className="flex shrink-0 flex-col items-center gap-0.5 text-center"
+          // Native tooltip, not a positioned popover: the strip scrolls
+          // horizontally, which would clip an absolutely-positioned one.
+          title={
+            day.details && day.details.length > 0
+              ? day.details.map((period) => `${period.label}: ${period.text}`).join("\n\n")
+              : undefined
+          }
+        >
           <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{day.day_label}</span>
           <WeatherIcon code={day.icon} className="h-6 w-6 text-ink-700" />
           <span className="font-mono text-xs font-semibold tabular-nums text-ink-900">
