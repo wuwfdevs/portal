@@ -14,7 +14,11 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
     supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
     // Proposed tools are ideas on the Roadmap, not software — nothing to grant.
     supabase.from("tools").select("*").neq("status", "proposed").order("sort_order"),
-    supabase.from("tool_access").select("tool_id, tool_roles").eq("user_id", id).is("revoked_at", null),
+    supabase
+      .from("tool_access")
+      .select("tool_id, tool_roles")
+      .eq("user_id", id)
+      .is("revoked_at", null),
   ]);
 
   if (!profile) notFound();
@@ -30,7 +34,9 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
       </div>
       <div className="rounded border border-line">
         <div className="border-b border-line px-5 py-4">
-          <div className="font-serif text-[17px] font-bold text-ink-900">{profile.display_name}</div>
+          <div className="font-serif text-[17px] font-bold text-ink-900">
+            {profile.display_name}
+          </div>
           <div className="text-xs text-ink-500">{profile.email}</div>
         </div>
         <form action={updateUserAccess} className="flex flex-col gap-4 p-5">

@@ -18,6 +18,7 @@ import {
 import { monthLabel, shortDate } from "@/lib/underwriting/dates";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { generateAffidavitsForMonth } from "../affidavit-actions";
+import { PrimaryLink } from "@/components/ui/primary-link";
 
 /**
  * Workflow G as one list per month (docs/underwriting-traffic-redesign.md
@@ -100,12 +101,9 @@ export default async function AffidavitsPage({
           </form>
         )}
         {isManager && queue.length > 0 && (
-          <Link
-            href={`/underwriting/affidavits/${queue[0]}?signing=1`}
-            className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-          >
+          <PrimaryLink href={`/underwriting/affidavits/${queue[0]}?signing=1`}>
             Sign {queue.length} in order
-          </Link>
+          </PrimaryLink>
         )}
       </div>
 

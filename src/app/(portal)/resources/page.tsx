@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Input } from "@/components/ui/input";
 import { PrimaryLink } from "@/components/ui/primary-link";
@@ -90,12 +91,9 @@ export default async function ResourcesHomePage({
                 className="h-[52px] pl-11 sm:text-base"
               />
             </label>
-            <button
-              type="submit"
-              className="h-[52px] shrink-0 rounded bg-brand-primary px-5 text-base font-bold text-white hover:bg-[#2278B8] sm:px-6"
-            >
+            <Button type="submit" className="h-[52px] shrink-0 px-5 text-base sm:px-6">
               Search
-            </button>
+            </Button>
           </div>
           <fieldset className="mt-3 flex flex-wrap items-center gap-1.5">
             <legend className="sr-only">Search in</legend>

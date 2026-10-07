@@ -40,21 +40,10 @@ import {
   parseProgramLogUpload,
   type ExecuteImportResult,
 } from "../import-actions";
-
-function formatSeconds(total: number): string {
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
+import { formatBytes as formatFileSize, formatClock as formatSeconds } from "@/lib/format";
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatFileSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];

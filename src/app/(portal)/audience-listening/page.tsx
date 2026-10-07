@@ -6,14 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatShortDate } from "@/lib/format";
 
 export default async function AudienceListeningPage({
   searchParams,
@@ -99,7 +92,7 @@ export default async function AudienceListeningPage({
                         {ownerName ?? "—"}
                       </Cell>
                       <Cell label="Updated" className="whitespace-nowrap text-ink-500">
-                        {formatDate(query.updated_at)}
+                        {formatShortDate(query.updated_at, { year: true })}
                       </Cell>
                     </Row>
                   );

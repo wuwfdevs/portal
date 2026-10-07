@@ -37,8 +37,85 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(controlClasses, className)} {...props} />;
 }
 
-export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(controlClasses, className)} {...props} />;
+// `compact` is for a select squeezed into a toolbar or a row (a playback-speed
+// picker): tighter padding and width, but still MOBILE_SAFE_TEXT_SIZE.
+export function Select({
+  className,
+  compact,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { compact?: boolean }) {
+  return (
+    <select className={cn(controlClasses, compact && "w-auto px-2 py-1", className)} {...props} />
+  );
+}
+
+/** A checkbox or radio with its label: the `flex items-center gap-2` row used across forms. */
+export function CheckboxField({
+  label,
+  hint,
+  className,
+  type = "checkbox",
+  ...props
+}: Omit<ComponentProps<"input">, "type" | "children"> & {
+  label: ReactNode;
+  hint?: ReactNode;
+  type?: "checkbox" | "radio";
+}) {
+  return (
+    <label className={cn("flex items-start gap-2 text-sm text-ink-700", className)}>
+      <input type={type} className="mt-0.5 h-4 w-4 shrink-0" {...props} />
+      <span className="min-w-0">
+        {label}
+        {hint && <span className="mt-0.5 block text-xs text-ink-400">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
+/** A file picker styled like the other controls. */
+export function FileInput({ className, ...props }: Omit<ComponentProps<"input">, "type">) {
+  return (
+    <input
+      type="file"
+      className={cn(
+        controlClasses,
+        "file:mr-3 file:rounded file:border-0 file:bg-brand-surface file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-brand-link",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** Label + control + hint/error: the `<div><Label/><Input/><FieldHint/></div>` repeated across forms. */
+export function Field({
+  label,
+  htmlFor,
+  hint,
+  error,
+  required,
+  className,
+  children,
+}: {
+  label: ReactNode;
+  htmlFor?: string;
+  hint?: ReactNode;
+  error?: ReactNode;
+  required?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <Label htmlFor={htmlFor}>
+        {label}
+        {required && <span className="text-danger"> *</span>}
+      </Label>
+      {children}
+      {hint && <FieldHint>{hint}</FieldHint>}
+      {error && <FieldError>{error}</FieldError>}
+    </div>
+  );
 }
 
 // ComponentProps rather than TextareaHTMLAttributes so a caller can pass a

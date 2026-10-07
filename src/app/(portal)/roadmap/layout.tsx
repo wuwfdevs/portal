@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
+import { PrimaryLink } from "@/components/ui/primary-link";
 
 export default async function RoadmapLayout({ children }: { children: React.ReactNode }) {
   const { isCurator } = await requireRoadmapAccess();
@@ -15,12 +15,9 @@ export default async function RoadmapLayout({ children }: { children: React.Reac
               : "Ask for what these tools should do next, and vote on what everyone else asked for."}
           </p>
         </div>
-        <Link
-          href="/roadmap/new"
-          className="shrink-0 rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-        >
+        <PrimaryLink href="/roadmap/new" className="shrink-0">
           New request
-        </Link>
+        </PrimaryLink>
       </div>
       {children}
     </div>

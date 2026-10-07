@@ -6,6 +6,7 @@ import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { getContractDetail } from "@/lib/underwriting/queries";
 import { updateContractPolicy } from "../../../contract-actions";
 import { WizardHeader } from "../wizard-header";
+import { PrimaryLink } from "@/components/ui/primary-link";
 
 /**
  * Setup step 4: the traffic policy the order states (docs/underwriting-
@@ -137,12 +138,9 @@ export default async function ContractPolicyPage({
                   ← Back to copy
                 </Link>
                 <span className="flex-1" />
-                <Link
-                  href={`/underwriting/contracts/${contract.id}`}
-                  className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-                >
+                <PrimaryLink href={`/underwriting/contracts/${contract.id}`}>
                   Continue to review
-                </Link>
+                </PrimaryLink>
               </div>
             </form>
           </section>

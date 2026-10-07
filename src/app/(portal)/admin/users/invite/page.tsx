@@ -34,11 +34,24 @@ export default async function InviteUserPage({
           {error && <p className="text-xs text-danger">{error}</p>}
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={email} placeholder="name@wuwf.org" required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={email}
+              placeholder="name@wuwf.org"
+              required
+            />
           </div>
           <div>
             <Label htmlFor="display_name">Display name</Label>
-            <Input id="display_name" name="display_name" defaultValue={name} placeholder="Jordan Mays" required />
+            <Input
+              id="display_name"
+              name="display_name"
+              defaultValue={name}
+              placeholder="Jordan Mays"
+              required
+            />
           </div>
           <div>
             <Label htmlFor="platform_role">Platform role</Label>

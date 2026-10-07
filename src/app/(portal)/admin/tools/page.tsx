@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { toggleToolEnabled } from "./actions";
 import type { ToolStatus, ToolDefaultAccess } from "@/lib/database.types";
+import { PrimaryLink } from "@/components/ui/primary-link";
 
 const STATUS_BADGE: Record<ToolStatus, { label: string; variant: "accent" | "neutral" | "muted" }> =
   {
@@ -30,12 +31,9 @@ export default async function AdminToolsPage() {
           exception: an idea created here so requests on the Roadmap have something to point at.
           Proposed tools stay off the dashboard and cannot be granted to anyone.
         </p>
-        <Link
-          href="/admin/tools/new"
-          className="shrink-0 rounded bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-[#2278B8]"
-        >
+        <PrimaryLink href="/admin/tools/new" className="shrink-0">
           New proposed tool
-        </Link>
+        </PrimaryLink>
       </div>
       <div className="overflow-x-auto rounded border border-line">
         <table className="w-full min-w-[860px] text-sm">

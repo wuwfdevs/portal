@@ -36,6 +36,7 @@ import type { MigrationRunResult } from "@/lib/underwriting/migration-import";
 import { registerDocumentOnlyEntries } from "../../actions";
 import { batchPath } from "../../paths";
 import { MIGRATION_STEPS } from "../../steps";
+import { formatBytes as formatMB } from "@/lib/format";
 
 export interface RunEntry {
   id: string;
@@ -73,10 +74,6 @@ type Filter = "attention" | "matched" | "extras" | "all";
 
 function fileKey(file: File): string {
   return `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
-}
-
-function formatMB(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 async function sha256Hex(file: File): Promise<string> {

@@ -4,8 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { denyAccessRequest, resendInvite, setAccountStatus } from "./actions";
 import type { AccountStatus } from "@/lib/database.types";
+import { formatShortDate } from "@/lib/format";
 
-const STATUS_BADGE: Record<AccountStatus, { label: string; variant: "accent" | "neutral" | "muted" }> = {
+const STATUS_BADGE: Record<
+  AccountStatus,
+  { label: string; variant: "accent" | "neutral" | "muted" }
+> = {
   active: { label: "Active", variant: "accent" },
   invited: { label: "Invited", variant: "neutral" },
   pending: { label: "Pending", variant: "neutral" },
@@ -20,8 +24,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return value ? formatShortDate(value) : "—";
 }
 
 export default async function AdminUsersPage({
@@ -32,12 +35,17 @@ export default async function AdminUsersPage({
   const { status: statusFilter, q, invited, resent } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: profiles }, { data: grants }, { data: tools }, { data: pendingRequests }] = await Promise.all([
-    supabase.from("profiles").select("*").order("display_name"),
-    supabase.from("tool_access").select("user_id, tool_id").is("revoked_at", null),
-    supabase.from("tools").select("id, name").neq("status", "proposed"),
-    supabase.from("access_requests").select("*").eq("status", "pending").order("requested_at", { ascending: false }),
-  ]);
+  const [{ data: profiles }, { data: grants }, { data: tools }, { data: pendingRequests }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").order("display_name"),
+      supabase.from("tool_access").select("user_id, tool_id").is("revoked_at", null),
+      supabase.from("tools").select("id, name").neq("status", "proposed"),
+      supabase
+        .from("access_requests")
+        .select("*")
+        .eq("status", "pending")
+        .order("requested_at", { ascending: false }),
+    ]);
 
   const toolNameById = new Map((tools ?? []).map((tool) => [tool.id, tool.name]));
   const accessByUser = new Map<string, string[]>();
@@ -56,7 +64,8 @@ export default async function AdminUsersPage({
   if (q) {
     const needle = q.toLowerCase();
     visibleProfiles = visibleProfiles.filter(
-      (p) => p.display_name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle),
+      (p) =>
+        p.display_name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle),
     );
   }
 
@@ -64,7 +73,15 @@ export default async function AdminUsersPage({
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <form className="flex flex-1 items-center gap-2 rounded-full border border-line px-3.5 py-1.5 sm:flex-initial">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9099" strokeWidth={2} className="shrink-0">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#8A9099"
+            strokeWidth={2}
+            className="shrink-0"
+          >
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3-3" />
           </svg>
@@ -109,7 +126,10 @@ export default async function AdminUsersPage({
             Pending access requests
           </div>
           {pendingRequests.map((request) => (
-            <div key={request.id} className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0">
+            <div
+              key={request.id}
+              className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0"
+            >
               <div>
                 <div className="text-sm font-semibold text-ink-900">{request.display_name}</div>
                 <div className="text-xs text-ink-500">{request.email}</div>

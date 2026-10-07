@@ -1,13 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-
-function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatShortDateTime as formatTimestamp } from "@/lib/format";
 
 export default async function AdminAuditPage() {
   const supabase = await createClient();
@@ -43,7 +35,9 @@ export default async function AdminAuditPage() {
           )}
           {events?.map((event) => (
             <tr key={event.id} className="border-b border-line last:border-b-0">
-              <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatTimestamp(event.created_at)}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-ink-500">
+                {formatTimestamp(event.created_at)}
+              </td>
               <td className="px-4 py-3 text-ink-900">
                 {(event.actor_id && actorNameById.get(event.actor_id)) ?? "System"}
               </td>

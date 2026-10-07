@@ -4,10 +4,12 @@ import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link" | "danger-link";
+type ButtonSize = "md" | "sm";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -16,6 +18,16 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   secondary:
     "bg-transparent text-brand-link border border-brand-link hover:bg-brand-surface disabled:border-line disabled:text-ink-400",
   ghost: "bg-transparent text-brand-link px-1 hover:underline disabled:text-ink-400",
+  danger: "bg-danger text-white hover:bg-danger/90 disabled:bg-panel-100 disabled:text-ink-400",
+  // Inline text-style actions (a row's "Retire", "Remove"): no box, no padding.
+  link: "bg-transparent px-0 py-0 text-xs font-semibold text-ink-500 hover:underline disabled:text-ink-400",
+  "danger-link":
+    "bg-transparent px-0 py-0 text-xs font-semibold text-danger hover:underline disabled:text-ink-400",
+};
+
+const SIZE_CLASSES: Record<ButtonSize, string> = {
+  md: "px-4 py-2.5 text-sm",
+  sm: "px-3 py-1.5 text-xs",
 };
 
 /**
@@ -33,7 +45,13 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
  * submission, so it's left alone; type omitted defaults to "submit" in HTML
  * inside a form, same as the browser's own behavior.
  */
-export function Button({ variant = "primary", className, children, ...props }: ButtonProps) {
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...props
+}: ButtonProps) {
   const { pending } = useFormStatus();
   const isPendingSubmit = pending && props.type !== "button";
 
@@ -41,7 +59,8 @@ export function Button({ variant = "primary", className, children, ...props }: B
     <button
       aria-busy={isPendingSubmit || undefined}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded font-bold text-sm px-4 py-2.5 transition-colors disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-1.5 rounded font-bold transition-colors disabled:cursor-not-allowed",
+        variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
         VARIANT_CLASSES[variant],
         className,
       )}

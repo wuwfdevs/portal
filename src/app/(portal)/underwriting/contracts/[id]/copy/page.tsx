@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getContractCopyContext, getContractDetail } from "@/lib/underwriting/queries";
 import { ContractCopyPanel, type CopyPanelParams } from "../copy-panel";
 import { WizardHeader } from "../wizard-header";
+import { PrimaryLink } from "@/components/ui/primary-link";
 
 /**
  * Setup step 3: the messages this contract will air (docs/underwriting-
@@ -50,12 +51,7 @@ export default async function ContractCopyPage({
               ← Back to schedule
             </Link>
             <span className="flex-1" />
-            <Link
-              href={`${base}/policy`}
-              className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-            >
-              Continue to traffic policy
-            </Link>
+            <PrimaryLink href={`${base}/policy`}>Continue to traffic policy</PrimaryLink>
           </div>
         </div>
 

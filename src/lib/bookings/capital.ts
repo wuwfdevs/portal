@@ -12,6 +12,7 @@
 // nothing and raises a review warning. Nothing here is a submission gate.
 
 import { exactAmount } from "./economics";
+import { formatUsd as formatCurrency } from "@/lib/format";
 
 export interface AssetLike {
   id: string;
@@ -136,13 +137,6 @@ export function overlapWarnings(
   return warnings;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 /** The assets that carry a replacement cost but no realistic useful life, in the register's order. */
 export function assetsNeedingLife(assets: readonly AssetLike[]): AssetLike[] {
