@@ -22,7 +22,7 @@ import {
 import { agreementActionItems } from "@/lib/bookings/agreements";
 import { STAGE_LABEL, actionItems } from "@/lib/bookings/projects";
 import {
-  getActivePlan,
+  getCurrentPlan,
   getPlanCalendar,
   listAgreementsWithBlocks,
   listAirtimeCommitments,
@@ -51,7 +51,7 @@ export default async function BookingsDashboard() {
   const today = stationTodayISO();
   const nowISO = new Date().toISOString();
   const [plan, projects, commitments, agreements] = await Promise.all([
-    getActivePlan(),
+    getCurrentPlan(),
     listOpenProjects(),
     listAirtimeCommitments(),
     listAgreementsWithBlocks(),

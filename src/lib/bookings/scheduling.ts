@@ -33,12 +33,18 @@ export type HoursByClass = Record<string, number>;
 export interface TermPlanLike {
   starts_on: string;
   ends_on: string;
-  reserve_share: number;
 }
 
 export interface CapacityLike {
   labor_class_id: string;
+  /** Hours available for production work this term; undated core work is already left out. */
   net_hours: number;
+  /**
+   * The class's reserve share of those hours, or null for none (§22.2). None is
+   * not 0%: a class with no share has no reserve, so every booking of it draws
+   * open capacity — student and OPS crews, which partners pay for, have none.
+   */
+  reserve_share: number | null;
   headcount: number;
   hours_per_person_day: number;
 }
@@ -233,6 +239,8 @@ export interface ClassCapacitySummary {
   labor_class_id: string;
   name: string;
   net: number;
+  /** Whether the class has a reserve at all (a share, even 0%); false means every booking draws open capacity. */
+  hasReserve: boolean;
   reserve: number;
   /** Strategic bookings against the reserve. */
   strategicBooked: number;
@@ -261,18 +269,23 @@ export function classCapacity(
     (b) => b.id !== excludeBookingId && bookingIsLive(b, state.nowISO),
   );
   const net = Number(capacity.net_hours);
-  const reserve = round2(net * Number(state.plan.reserve_share));
+  const hasReserve = capacity.reserve_share !== null && capacity.reserve_share !== undefined;
+  const reserve = hasReserve ? round2(net * Number(capacity.reserve_share)) : 0;
+  // Only a class with a reserve has strategic hours to draw it; without one a
+  // strategic booking draws open capacity like any other (§22.2).
+  const drawsReserve = (b: BookingLike) => hasReserve && b.treatment === "strategic";
   const strategicBooked = round2(
-    live.filter((b) => b.treatment === "strategic").reduce((t, b) => t + hoursOf(b, classId), 0),
+    live.filter(drawsReserve).reduce((t, b) => t + hoursOf(b, classId), 0),
   );
   const nonStrategicBooked = round2(
-    live.filter((b) => b.treatment !== "strategic").reduce((t, b) => t + hoursOf(b, classId), 0),
+    live.filter((b) => !drawsReserve(b)).reduce((t, b) => t + hoursOf(b, classId), 0),
   );
   const held = round2(state.holds.reduce((t, h) => t + hoursOf(h, classId), 0));
   return {
     labor_class_id: classId,
     name: state.classes.find((cls) => cls.id === classId)?.name ?? "Labor",
     net,
+    hasReserve,
     reserve,
     strategicBooked,
     reserveRemaining: round2(reserve - strategicBooked),
@@ -502,7 +515,7 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
     }
 
     const summary = classCapacity(state, classId, request.excludeBookingId)!;
-    if (request.treatment === "strategic") {
+    if (request.treatment === "strategic" && summary.hasReserve) {
       if (asked > summary.reserveRemaining) {
         return {
           reason: "reserve_exhausted",

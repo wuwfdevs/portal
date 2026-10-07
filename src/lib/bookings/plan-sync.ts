@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { calendarStateFrom } from "./estimate";
 import { buildBookingPlan, type BookingPlan, type PlanLine } from "./booking-plan";
 import { logProjectEvent } from "./events";
-import { getActivePlan, getPlanCalendar } from "./queries";
+import { getPlanCalendar, getPlanForDate } from "./queries";
 import { toHHMM } from "./scheduling";
 
 export type SyncResult =
@@ -49,7 +49,8 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
     supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
     supabase.from("bk_reserved_blocks").select("id").eq("project_id", projectId).limit(1),
     supabase.from("bk_partners").select("name").eq("id", project.partner_id).maybeSingle(),
-    getActivePlan(),
+    // The plan is the active one whose dates contain the event (§22.3), not "the" active plan.
+    getPlanForDate(project.event_starts_on),
   ]);
   if ((blocks ?? []).length > 0) return { status: "skipped", reason: "reserved_blocks" };
   const planLines: PlanLine[] = (lines ?? []).map((line) => ({

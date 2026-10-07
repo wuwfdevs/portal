@@ -6,7 +6,7 @@ import { isOfferable } from "@/lib/bookings/estimate-lines";
 import { timeOfDayOptions } from "@/lib/bookings/booking-plan";
 import { PARTNER_KIND_LABEL } from "@/lib/bookings/projects";
 import { REQUESTS_PATH } from "@/lib/bookings/paths";
-import { getActivePlan, getPlanCalendar, getPricingContext, listPartners } from "@/lib/bookings/queries";
+import { getCurrentPlan, getPlanCalendar, getPricingContext, listPartners } from "@/lib/bookings/queries";
 import { hoursPhrase, hourBuckets } from "@/lib/bookings/summary";
 import { createRequest } from "../actions";
 import { NewRequestForm } from "../new-request-form";
@@ -26,7 +26,7 @@ export default async function NewRequestPage({
   const [partners, pricing, plan] = await Promise.all([
     listPartners(),
     getPricingContext(null),
-    getActivePlan(),
+    getCurrentPlan(),
   ]);
   const state = plan ? calendarStateFrom(await getPlanCalendar(plan), new Date().toISOString()) : null;
   const packages = (pricing?.packages ?? [])

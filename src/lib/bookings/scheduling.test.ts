@@ -22,7 +22,7 @@ import {
 // The workbook's placeholders (docs/bookings-design.md §2.1): 100 days =
 // 800 hours a term for the production lead, a 15% reserve = 120 hours. A
 // second class, the engineer, has two people and no reserve draw yet.
-const PLAN = { starts_on: "2027-01-11", ends_on: "2027-05-07", reserve_share: 0.15 };
+const PLAN = { starts_on: "2027-01-11", ends_on: "2027-05-07" };
 const LEAD = "lead";
 const ENGINEER = "engineer";
 const STUDENT = "student";
@@ -62,8 +62,20 @@ function state(overrides: Partial<CalendarState> = {}): CalendarState {
   return {
     plan: PLAN,
     capacity: [
-      { labor_class_id: LEAD, net_hours: 800, headcount: 1, hours_per_person_day: 8 },
-      { labor_class_id: ENGINEER, net_hours: 400, headcount: 2, hours_per_person_day: 8 },
+      {
+        labor_class_id: LEAD,
+        net_hours: 800,
+        reserve_share: 0.15,
+        headcount: 1,
+        hours_per_person_day: 8,
+      },
+      {
+        labor_class_id: ENGINEER,
+        net_hours: 400,
+        reserve_share: 0.15,
+        headcount: 2,
+        hours_per_person_day: 8,
+      },
     ],
     classes: [
       { id: LEAD, name: "Production lead" },
@@ -619,5 +631,95 @@ describe("checkBooking — reserved blocks", () => {
         state({ reservedBlocks: [attached] }),
       ).ok,
     ).toBe(true);
+  });
+});
+
+// §22.2: the reserve share belongs to the labor class. A class with none has no
+// reserve; every booking of it, strategic included, draws open capacity.
+describe("per-class reserve share", () => {
+  const withStudents = (studentShare: number | null) =>
+    state({
+      capacity: [
+        {
+          labor_class_id: LEAD,
+          net_hours: 800,
+          reserve_share: 0.15,
+          headcount: 1,
+          hours_per_person_day: 8,
+        },
+        {
+          labor_class_id: STUDENT,
+          net_hours: 100,
+          reserve_share: studentShare,
+          headcount: 4,
+          hours_per_person_day: 8,
+        },
+      ],
+    });
+  const studentRequest = {
+    ...REQUEST,
+    hours: { [STUDENT]: 8 },
+    treatment: "strategic" as const,
+  };
+
+  it("gives a class with no share no reserve and an open capacity of all its hours", () => {
+    const [, student] = capacitySummary(withStudents(null));
+    expect(student).toMatchObject({
+      hasReserve: false,
+      reserve: 0,
+      reserveRemaining: 0,
+      open: 100,
+    });
+  });
+
+  it("is not 0%: a class with a 0% share has a reserve of zero", () => {
+    const [, student] = capacitySummary(withStudents(0));
+    expect(student).toMatchObject({ hasReserve: true, reserve: 0, open: 100 });
+  });
+
+  it("applies each class's own share, not the plan's", () => {
+    const [lead, student] = capacitySummary(withStudents(0.5));
+    expect(lead).toMatchObject({ reserve: 120, open: 680 });
+    expect(student).toMatchObject({ reserve: 50, open: 50 });
+  });
+
+  it("counts a strategic booking of a class with no share against open capacity", () => {
+    const [, student] = capacitySummary({
+      ...withStudents(null),
+      bookings: [booking({ id: "s", treatment: "strategic", hours: { [STUDENT]: 30 } })],
+    });
+    expect(student).toMatchObject({
+      strategicBooked: 0,
+      reserveRemaining: 0,
+      nonStrategicBooked: 30,
+      open: 70,
+    });
+  });
+
+  it("allows a strategic booking of a class with no share while open capacity lasts", () => {
+    expect(checkBooking(studentRequest, withStudents(null)).ok).toBe(true);
+  });
+
+  it("refuses a strategic booking of a class with no share against open capacity, not a reserve", () => {
+    const tight = {
+      ...withStudents(null),
+      bookings: [
+        booking({
+          id: "i",
+          treatment: "incremental",
+          hours: { [STUDENT]: 96 },
+          date: "2027-03-01",
+        }),
+      ],
+    };
+    const result = checkBooking(studentRequest, tight);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusal.reason).toBe("open_capacity_exhausted");
+  });
+
+  it("still refuses a strategic booking against the reserve where the class has a share", () => {
+    const result = checkBooking(studentRequest, withStudents(0.01));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusal.reason).toBe("reserve_exhausted");
   });
 });

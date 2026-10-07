@@ -7,6 +7,8 @@ import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { assertBookingsDirector, assertBookingsScheduler } from "@/lib/bookings/access";
 import { CALENDAR_PATH, PLAN_PATH, calendarHref, withQuery } from "@/lib/bookings/paths";
+import { splitBlackoutAcrossPlans } from "@/lib/bookings/plans";
+import { listPlans } from "@/lib/bookings/queries";
 import { parseWindowLines, parseWindows, tentativeExpiry } from "@/lib/bookings/scheduling";
 import type { BkHoldKind, BkPricingTreatment, BkTermPlanStatus } from "@/lib/database.types";
 import { isValidDateISO } from "@/lib/log/week-layout";
@@ -104,10 +106,6 @@ function planFields(formData: FormData, path: string) {
   const startsOn = dateField(formData, "starts_on", path, "The first day");
   const endsOn = dateField(formData, "ends_on", path, "The last day");
   if (endsOn < startsOn) failWith(path, "The term must end after it starts.");
-  const reservePercent = numberField(formData, "reserve_percent", path, "The reserve share");
-  if (reservePercent < 0 || reservePercent > 100) {
-    failWith(path, "The reserve share is a percentage between 0 and 100.");
-  }
   const airtime = numberField(
     formData,
     "airtime_contributed_minutes_per_week",
@@ -121,7 +119,6 @@ function planFields(formData: FormData, path: string) {
     label,
     starts_on: startsOn,
     ends_on: endsOn,
-    reserve_share: reservePercent / 100,
     airtime_contributed_minutes_per_week: airtime,
     notes: optionalField(formData, "notes"),
   };
@@ -198,9 +195,8 @@ export async function setPlanStatus(formData: FormData): Promise<void> {
   if (before.status === status) redirect(path);
 
   const { error } = await supabase.from("bk_term_plans").update({ status }).eq("id", planId);
-  if (error?.code === "23505") {
-    failWith(path, "Another term plan is already active. Close it first.");
-  }
+  // The trigger's own sentence says which plan overlaps or why a closed plan is final.
+  if (error?.code === "23514") failWith(path, error.message);
   failIfError(error, path, "Could not change the term plan's status");
   if (status === "active") {
     await logAuditEvent({
@@ -227,8 +223,19 @@ export async function saveCapacity(formData: FormData): Promise<void> {
     "a labor class",
   );
   const path = withQuery(PLAN_PATH, { plan: planId, capacity: classId });
-  const net = numberField(formData, "net_hours", path, "Net hours");
-  if (net < 0) failWith(path, "Net hours can't be negative.");
+  const net = numberField(formData, "net_hours", path, "Hours available");
+  if (net < 0) failWith(path, "Hours available can't be negative.");
+  // The class's reserve share (§22.2): blank means none, which is not 0% — a class
+  // with no share has no reserve, so every booking of it draws open capacity.
+  const reserveText = field(formData, "reserve_percent");
+  let reserveShare: number | null = null;
+  if (reserveText !== "") {
+    const percent = Number(reserveText);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      failWith(path, "The reserve share is a percentage between 0 and 100, or blank for none.");
+    }
+    reserveShare = Math.round(percent * 100) / 10000;
+  }
   const headcount = numberField(formData, "headcount", path, "Headcount");
   if (!Number.isInteger(headcount) || headcount < 1)
     failWith(path, "Headcount is a whole number, at least 1.");
@@ -241,6 +248,7 @@ export async function saveCapacity(formData: FormData): Promise<void> {
       plan_id: planId,
       labor_class_id: classId,
       net_hours: net,
+      reserve_share: reserveShare,
       headcount,
       hours_per_person_day: hoursPerDay,
     },
@@ -324,14 +332,23 @@ export async function createBlackout(formData: FormData): Promise<void> {
     .map(String)
     .filter((value) => UUID.test(value));
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_blackouts").insert({
-    plan_id: planId,
-    starts_on: startsOn,
-    ends_on: endsOn,
-    pool_ids: poolIds.length === 0 ? null : poolIds,
-    reason,
-    created_by: profile.id,
-  });
+  // A blackout is kept per plan, so one that spans two terms (a winter break) is
+  // stored once for each, clipped to that term's dates (§22.3).
+  const rows = splitBlackoutAcrossPlans(
+    { starts_on: startsOn, ends_on: endsOn },
+    await listPlans(),
+  );
+  if (rows.length === 0) {
+    failWith(path, "No term plan covers those dates, so there is nothing to black out.");
+  }
+  const { error } = await supabase.from("bk_blackouts").insert(
+    rows.map((row) => ({
+      ...row,
+      pool_ids: poolIds.length === 0 ? null : poolIds,
+      reason,
+      created_by: profile.id,
+    })),
+  );
   failIfError(error, path, "Could not add the blackout");
   revalidateCalendar();
   redirect(back);

@@ -32,7 +32,7 @@ import {
 } from "@/lib/bookings/paths";
 import { DISPOSITION_BADGE, DISPOSITION_LABEL, STAGE_LABEL } from "@/lib/bookings/projects";
 import {
-  getActivePlan,
+  getCurrentPlan,
   getAgreementDetail,
   getPlanCalendar,
   listAirtimeCommitments,
@@ -100,7 +100,7 @@ export default async function AgreementPage({
   const canKeep = context.isDirector || context.isExecutive;
   const here = agreementHref(id, agreementId);
 
-  const [plan, commitments] = await Promise.all([getActivePlan(), listAirtimeCommitments()]);
+  const [plan, commitments] = await Promise.all([getCurrentPlan(), listAirtimeCommitments()]);
   const calendar = plan ? await getPlanCalendar(plan) : null;
   const state = calendar ? calendarStateFrom(calendar, nowISO) : null;
   const total = state ? totalCapacity(capacitySummary(state)) : null;

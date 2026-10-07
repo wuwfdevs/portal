@@ -4,7 +4,8 @@ Status: **Milestone 1 complete — slice 6 (settlement at actual cost, §21) bui
 calendar (slice 2, rebuilt the same day as slice 2b, labor classes and pools as data — §14),
 projects (slice 3, 2026-10-06 — §15), the public intake (slice 4, 2026-10-06 — §16), and
 partners and agreements (slice 5, 2026-10-06 — §17); the refinement pass (§18–§20) and
-settlement (§21) followed — see §9.** Written 2026-10-05 from two
+settlement (§21) followed — see §9.** **§22 reviews
+the reserve's denominator and the term-plan container.** Written 2026-10-05 from two
 WUWF documents — _University Production Partnerships: capacity, cost
 recovery and provisional rate framework_ (revised) and its companion
 workbook, `WUWF_Production_Rate_Model_v0.1.xlsx` — and from a reviewed
@@ -82,8 +83,8 @@ needs no conversion table. Studio half-days, field days, live days and
 edit hours stay separate availability constraints on the calendar; they
 are never summed into the guardrail.
 
-At the workbook's placeholders: 100 days = 800 hours a term; the 15%
-reserve = 120 hours.
+At the workbook's placeholders: 100 days a year = 800 hours a year (a term
+takes its share of that); the 15% reserve = 120 hours a year. See §22.2.
 
 ### 2.2 Pricing is derived, never picked
 
@@ -260,8 +261,8 @@ Two guard triggers and three functions hold the lifecycle: `bk_guard_frozen_vers
 
 ### Capacity
 
-- **`bk_term_plans`** — `label`, `starts_on`, `ends_on`, `reserve_share`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`), `notes`. One active at a time.
-- **`bk_term_capacity`** — `plan_id`, `labor_class_id`, `net_hours` (the term's net available hours for that class, after core WUWF work), `headcount`, `hours_per_person_day`. One row per tracked class; a class with no row is not capacity-checked that term. The rate model no longer carries a copy of capacity — the term plan is the one place.
+- **`bk_term_plans`** — `label`, `starts_on`, `ends_on`, `airtime_contributed_minutes_per_week`, `status` (`draft` | `active` | `closed`), `notes`. Several plans may be active if their dates do not overlap; a date books against the active plan containing it; a closed plan is final (§22.3).
+- **`bk_term_capacity`** — `plan_id`, `labor_class_id`, `net_hours` (the hours the class has available for production work that term, with undated core work already left out — dated holds come off it), `reserve_share` (the class's reserve as a share of those hours, or null for none, §22.2), `headcount`, `hours_per_person_day`. One row per tracked class; a class with no row is not capacity-checked that term. The rate model no longer carries a copy of capacity — the term plan is the one place.
 - **`bk_term_resources`** — `plan_id`, `pool_id`, `available_units`, `concurrent_units` (how many bookings one window on this pool takes at once — two field kits, one studio), `windows jsonb` (`parseWindows()` in `lib/bookings/scheduling.ts`; a new plan starts from each active pool's `default_windows`).
 - **`bk_blackouts`** — `plan_id`, `starts_on`, `ends_on`, `pool_ids uuid[]` (null = all), `reason`. A policy; no partner work; no exception below the executive.
 - **`bk_holds`** — `plan_id`, `pool_id` (null holds only hours), `date`, `window_start`, `window_end`, `kind` (`core` | `maintenance`), `label`, with hours per class in **`bk_hold_labor`** (`hold_id`, `labor_class_id`, `hours`). WUWF's own use of one window. Entered by the director; nothing is pulled from On Air's broadcast schedule in milestone 1.
@@ -350,7 +351,7 @@ request, in this order:
 2. **Reserved for another partner and not yet released?** Not available until its release deadline.
 3. **Window free, with tentative holds counted as taken?** A window is taken once holds plus live bookings reach the resource's `concurrent_units`. Else propose the next open windows, nearest first.
 4. **Room in each class's day?** For every class the booking draws on: `headcount × hours_per_person_day − hours booked that day ≥ draw`. Else move prep or edit hours to a neighbouring day.
-5. **Capacity for its pricing, per class?** Strategic draws the reserve's unused balance. Incremental and external draw open capacity = net − booked − held − unused reserve. Core WUWF work is never checked; it reduces net. A class with no `bk_term_capacity` row that term is not checked.
+5. **Capacity for its pricing, per class?** Strategic draws the reserve's unused balance, for a class that has a reserve share; a class with none counts every booking against open capacity. Incremental and external draw open capacity = net − booked − held − unused reserve. Undated core WUWF work is never checked; the director leaves it out of net, and dated holds come off it. A class with no `bk_term_capacity` row that term is not checked.
 
 A request with several dates is a series: every date runs the check and
 the result lists the ones that fail, with alternatives, before anything
@@ -1488,3 +1489,75 @@ missing unit cost refuse; the report summary), the extended `projects.test.ts`, 
 migrations applied to preview and production with the table, triggers, policies and
 function confirmed on preview. Not exercised: a signed-in browser session, or a live
 post through `bk_post_settlement()` as a Finance user.
+
+## 22. Design review — what the capacity model is for, and three corrections
+
+Status: **decided; the three corrections in §22.3 are built (see §22.6).** A review of two foundational decisions (the reserve's denominator, and the term plan as the planning container), made after re-reading §2.1, §5, §6.4, §8, §13–§14 and the code (`lib/bookings/scheduling.ts`, `plan-sync.ts`, `bk_booking_allowed()` / `bk_check_booking_labor()`, the plan form). The conclusion is to **keep the model that is built**, fix the three things in it that are wrong, and leave a larger redesign on the shelf (§22.5).
+
+### 22.1 What the model is for
+
+Bookings exists to put constraints on institutional partnerships and recover costs where appropriate. Capacity was layered on top so the station can also answer whether it has room to take outside work. Three rules do everything:
+
+1. **A role has hours, and a share of them is set aside for the university.** The director enters, per labor class and per term, the hours available for production work. A percentage of those hours is the **reserve**: the amount of university work WUWF contributes.
+2. **Inside the reserve, strategic work is comped. Beyond it, or when it is not a strategic priority, it is cost-recovered.** The reserve is the only thing a strategic booking may draw. Work priced incremental or external draws what the reserve does not cover. This is the derivation in §2.2.
+3. **What is left is sellable.** Whether the station can take outside work is whether its hours fit in what remains after the reserve, the dated holds and the work already booked.
+
+### 22.2 The mechanics, per labor class and term
+
+```
+hours      hours the class has available for production work this term.
+           Undated core work is already left out of this number; dated WUWF
+           holds are not, and come off it below. (entered; "net hours")
+share      the class's reserve share, or none.                (entered, optional)
+reserve    share × hours                                    (none → no reserve)
+open       hours − reserve − dated WUWF holds − non-strategic bookings
+
+a strategic booking     class has a share: refused if strategic hours booked + ask > reserve
+                        class has no share: counts like any other booking
+every other booking     incremental and external: refused if booked + ask > open
+```
+
+- **The share belongs to the class, not the plan.** The 15% is set on the professional class's row. A class partners pay for in strategic work (student and OPS crews, `charged_in_strategic`) has no share, so student hours are never limited by it. "None" is not "0%": a 0% share would refuse every strategic hour of that class, whereas none means every booking of that class draws open capacity. Before this change a tracked student class took 15% of its own hours as a "reserve".
+- **Core work is not tracked here.** The director leaves it out of the hours figure. A dated block WUWF wants kept clear (a pledge drive, maintenance) is a hold; holds reduce `open` and never the reserve. Do not enter a hold for hours the figure already left out, or they come out twice.
+- **The reserve is protected whether or not it is used.** Incremental and external work cannot draw it, so an unused reserve does not become sellable.
+- **Percentages are values in the database**, per class and per term, edited on the term plan. They are not in code.
+- **Hours are a term figure.** The workbook's 100 project days is a year (800 hours); a term takes its share of that, and the form says so. The workbook's 15% is of that net figure, so 120 hours a year. If the intent is 15% of a larger figure, the director types the larger figure and accepts that `open` then includes hours core work will use. That is a policy choice (§22.4), not something the model forces.
+
+### 22.3 The three corrections
+
+**1. A share per class.** `bk_term_capacity.reserve_share`, nullable. `classCapacity()` and `bk_check_booking_labor()` apply the reserve only where a class has a share; a class without one counts every booking against open capacity. `bk_term_plans.reserve_share` is removed, so there is one place for the number. Existing data: each plan's share moves onto the classes that are not `charged_in_strategic`; the others get none.
+
+**2. Plans resolved by date, not by "the one active plan".** Before, one plan could be active and any date outside it was refused (`outside_plan`), so a September event could not be booked in April and a winter-break blackout could not span two terms.
+
+- A plan is **bookable when it is active**. Several plans may be active at once provided their dates do not overlap; a trigger refuses to activate an overlapping one.
+- A booking's plan is **the active plan whose dates contain its date**. A date no active plan covers is refused, as before, with a message that says to ask the director to add the term.
+- Screens that show "the" term (dashboard, report, agreement page) show the active plan containing today, else the next one to start, else the latest.
+- A blackout spanning two terms is stored as one row per plan, each clipped to that plan's dates, by the action that creates it.
+
+**3. A closed plan is final.** A trigger refuses edits to a closed plan's dates, share, airtime and capacity and resource rows, refuses reopening it, and refuses new or moved bookings into it; releasing an existing booking stays allowed. A correction is a new plan. This is what makes "past bookings stay interpretable" true: the numbers a closed term was judged by cannot change afterwards.
+
+Also fixed: the doc's two statements about core work (§5 and §6.4 said net is after core work and that core work reduces net, while `open` also subtracts holds) now say what §22.2 says, and the plan form's hours field says what it means.
+
+### 22.4 Decisions that stay with the executive and director
+
+- **The percentage and the figure it applies to.** Today: 15% of a net figure. The framework's 120 hours is the commitment; 15% of a larger figure would be more. The model makes either a plain number the director can read as hours.
+- **Whether unused reserve opens to paid work** near the end of a term. Today it stays protected.
+- **Who may change a share.** Today the director does, on the plan form. An executive-only guard, as for adopting a rate version (§6.1), is easy to add if the share is to be a signed figure.
+- **The capacity study** replaces the placeholder hours; nothing here changes how it feeds in.
+
+### 22.5 Deferred: the larger redesign
+
+A fuller design was worked through and set aside: one standing calendar with effective-dated capacity revisions (prospective, frozen once in force, hours as a weekly rate, fiscal-year bounds), blackouts, holds, bookings and resources owned by no plan, and reporting by date range; and, separately, an explicit core percentage with the role's hours derived from headcount and a weekly schedule. Neither is needed to meet the objectives above, the pilot's natural review cycle is the semester, and the corrections in §22.3 remove the practical problems terms cause today. Revisit it if the pilot shows terms getting in the way (a mid-term staffing change that cannot be expressed, or a year-long agreement that the term boundary keeps cutting).
+
+### 22.6 What was built
+
+**Built** (all three corrections; the schema migration is written and verified, not yet applied to the hosted projects — see below).
+
+- **A share per class.** `scheduling.ts` (`CapacityLike.reserve_share`, `ClassCapacitySummary.hasReserve`, the strategic check only where a class has a reserve), `pricing.ts` (`reserveCoversDraw` covers nothing for a tracked, non-charged class with no share), the plan form (a share per class row, blank for none, a note on a charged class; the plan-level field is gone) and the capacity panel ("None" where a class has no reserve).
+- **Plans by date.** `lib/bookings/plans.ts` (pure, tested): `planForDate`, `currentPlan`, `splitBlackoutAcrossPlans`. `getActivePlan()` became `getCurrentPlan()` plus `getPlanForDate()`. Plan sync, the estimate's reserve check and "Plan a date" resolve the plan from the date; the project page checks each planned date against the calendar of the term it falls in; a blackout spanning terms is stored once per term, clipped.
+- **Closed plans final.** The plan page no longer offers "Reopen as a draft"; the trigger enforces it.
+- **Migrations.** `20261007160000_bookings_capacity_rules.sql` (adds `bk_term_capacity.reserve_share`, moves each plan's share onto its non-charged classes, restates `bk_check_booking_labor()` and `bk_booking_allowed()`, drops `bk_term_plans.reserve_share` and the one-active index, adds `bk_guard_term_plan()` and the closed-plan guards) and `20261007160100_resources_bookings_capacity_rules.sql` (the updated `bookings-calendar` guide and a release note).
+
+**Checked.** Lint, typecheck, and the full suite (2,136 tests, including the new scheduling, pricing and `plans.ts` tests; the existing reserve tests pass unchanged with the share set on the lead class). The schema migration was run against a scratch PostgreSQL 16 built from the real Bookings migrations in order (portal tables stubbed), seeded like preview: it reproduced the old behaviour first (a strategic student booking refused against a 15-hour student "reserve"), then, after the migration, the share moved onto the lead only; a strategic student booking drew open capacity and was refused only once open capacity was spent; the lead's reserve and open limits held; an overlapping active plan, moving an active plan onto another, reopening or editing a closed plan, editing a closed plan's capacity or resources, and a new booking into a closed plan were each refused; two non-overlapping plans were active together; notes on a closed plan and releasing its bookings still worked. Production holds no plan rows; preview holds one `[Test]` plan.
+
+**Not done.** The migrations are not applied to either Supabase project, and `APPLIED.md` has no rows for them (so `npm run db:check` fails on exactly those two files until they are). The migration drops a column and an index, and the session's Supabase tool holds any `drop` for a confirmation that never arrives (the same limit slice 2b recorded), so it must be run in each project's SQL editor, preview first. A signed-in browser pass of the plan form has not been done.

@@ -22,8 +22,16 @@ const PM: ResourceWindow = { key: "pm", label: "Afternoon", start: "13:00", end:
 
 function state(overrides: Partial<CalendarState> = {}): CalendarState {
   return {
-    plan: { starts_on: "2027-01-11", ends_on: "2027-05-07", reserve_share: 0.15 },
-    capacity: [{ labor_class_id: LEAD, net_hours: 800, headcount: 1, hours_per_person_day: 8 }],
+    plan: { starts_on: "2027-01-11", ends_on: "2027-05-07" },
+    capacity: [
+      {
+        labor_class_id: LEAD,
+        net_hours: 800,
+        reserve_share: 0.15,
+        headcount: 1,
+        hours_per_person_day: 8,
+      },
+    ],
     classes: [
       { id: LEAD, name: "Production lead" },
       { id: STUDENT, name: "Student / OPS" },
@@ -229,7 +237,15 @@ describe("buildBookingPlan — refusals and alternatives", () => {
 
   it("passes the project's treatment to the rule: a strategic plan needs the reserve", () => {
     const tight = state({
-      capacity: [{ labor_class_id: LEAD, net_hours: 20, headcount: 1, hours_per_person_day: 8 }],
+      capacity: [
+        {
+          labor_class_id: LEAD,
+          net_hours: 20,
+          reserve_share: 0.15,
+          headcount: 1,
+          hours_per_person_day: 8,
+        },
+      ],
     });
     expect(buildBookingPlan(input({ treatment: "strategic" }), tight).ok).toBe(false);
     expect(buildBookingPlan(input({ treatment: "incremental" }), tight).ok).toBe(true);

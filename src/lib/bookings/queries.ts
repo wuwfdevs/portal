@@ -1,5 +1,6 @@
 import type { LineEconomics } from "./economics";
 import type { BookingEventLike, ObservedProject } from "./observed";
+import { currentPlan, planForDate } from "./plans";
 import { isAdjusted } from "./pricing";
 import { inTerm, type ReportProject } from "./report";
 import type { SettledProject } from "./settlements";
@@ -652,10 +653,17 @@ export async function listBookingsMembers(
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-/** The active term plan, or null. */
-export async function getActivePlan(): Promise<BkTermPlanRow | null> {
-  const plans = await listPlans();
-  return plans.find((plan) => plan.status === "active") ?? null;
+/**
+ * The plan a screen shows when it has no date to go by (§22.3): the active plan
+ * containing today, else the next one to start, else the latest. Null without one.
+ */
+export async function getCurrentPlan(): Promise<BkTermPlanRow | null> {
+  return currentPlan(await listPlans(), stationTodayISO());
+}
+
+/** The active plan whose dates contain `date` — the plan a booking on that date is made in. */
+export async function getPlanForDate(date: string): Promise<BkTermPlanRow | null> {
+  return planForDate(await listPlans(), date);
 }
 
 /** The public intake form's settings (slice 4) — the singleton row; staff read it through RLS. */
