@@ -7,7 +7,6 @@ import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
-import { ForecastSummary } from "@/components/log/forecast-summary";
 
 // Weather is allowed to be 30 minutes old (lib/log/staleness.ts); this only needs
 // to re-run that check often enough to notice — see log-poller.tsx.
@@ -62,18 +61,11 @@ export default async function WeatherPage({
 
             <div>
               <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-400">
-                Next few days
+                Forecast
               </div>
-              <WeatherOutlookStrip days={getDailyOutlook(reading)} />
-            </div>
-
-            <div>
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
-                Live read
-              </div>
-              <ForecastSummary
-                periods={getForecastPeriods(reading)}
-                fallbackText={reading.live_read_text}
+              <WeatherOutlookStrip
+                days={getDailyOutlook(reading)}
+                liveRead={{ periods: getForecastPeriods(reading), fallbackText: reading.live_read_text }}
               />
             </div>
 

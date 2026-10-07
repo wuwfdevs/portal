@@ -59,7 +59,6 @@ import { formatStationClockTime, formatStationTimeHM, formatStationTimestamp } f
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
-import { ForecastSummary } from "@/components/log/forecast-summary";
 import { LogPoller } from "../../log-poller";
 import {
   attestOrdinaryContentAired,
@@ -734,8 +733,16 @@ export default async function RundownDetailPage({
               </div>
             )}
             {item.item_kind === "weather" && weather.reading ? (
-              <div className="mt-1.5">
-                <ForecastSummary periods={getForecastPeriods(weather.reading)} fallbackText={effectiveScript ?? ""} />
+              <div className="mt-2.5 rounded border border-line bg-panel-50 p-2.5">
+                <WeatherOutlookStrip
+                  days={getDailyOutlook(weather.reading)}
+                  liveRead={{
+                    periods: getForecastPeriods(weather.reading),
+                    fallbackText: weather.reading.live_read_text,
+                    overrideText: item.override_script,
+                    onAir: true,
+                  }}
+                />
               </div>
             ) : (
               <>
@@ -746,11 +753,6 @@ export default async function RundownDetailPage({
                   <p className="mt-1.5 text-sm text-ink-700">{item.contentItem.summary}</p>
                 )}
               </>
-            )}
-            {item.item_kind === "weather" && weather.reading && (
-              <div className="mt-2.5 rounded border border-line bg-panel-50 p-2.5">
-                <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
-              </div>
             )}
           </div>
         </>
@@ -1092,18 +1094,18 @@ export default async function RundownDetailPage({
                   <p className="font-semibold text-danger">{weather.reading.hazards}</p>
                 )}
                 <div className="border-t border-line pt-1.5">
-                  <ForecastSummary
-                    periods={getForecastPeriods(weather.reading)}
-                    fallbackText={weather.reading.live_read_text}
+                  <WeatherOutlookStrip
+                    days={getDailyOutlook(weather.reading)}
+                    liveRead={{
+                      periods: getForecastPeriods(weather.reading),
+                      fallbackText: weather.reading.live_read_text,
+                    }}
                     textClassName="text-xs"
                   />
                 </div>
                 <p className="text-ink-400">
                   Valid through {formatStationTimestamp(weather.reading.valid_through_at)}
                 </p>
-                <div className="border-t border-line pt-1.5">
-                  <WeatherOutlookStrip days={getDailyOutlook(weather.reading)} />
-                </div>
               </div>
             </details>
           </>

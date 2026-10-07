@@ -72,7 +72,13 @@ function useTextScale() {
 /** Wraps a subtree so its text — and everything else in it — scales with the host's chosen text size. */
 export function TextScaleZoom({ children }: { children: ReactNode }) {
   const { scale } = useTextScale();
-  return <div style={{ zoom: TEXT_SCALES[scale].zoom }}>{children}</div>;
+  // --text-zoom lets a descendant that sizes itself against the viewport (the
+  // rundown sidebar's max height) divide the zoom back out.
+  return (
+    <div style={{ zoom: TEXT_SCALES[scale].zoom, ["--text-zoom" as string]: TEXT_SCALES[scale].zoom }}>
+      {children}
+    </div>
+  );
 }
 
 /**
