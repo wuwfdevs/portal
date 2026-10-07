@@ -1363,7 +1363,7 @@ a pointer. Underline = `TabNav` (where in the tool), grey block = new `SubNav` (
 a tab), bordered pill = `FilterChips` (which rows), joined bar = `Segmented`/`SegmentedLinks`
 (how the data is drawn). A row under another tab row is always a `SubNav`. `TabNav` gained
 `badge`, `end`, and kept `forceMore`. Traffic is five tabs — Dashboard · Contracts · Needs
-attention (Exceptions, Affidavits, badged with decisions waiting plus unsigned affidavits) ·
+attention (Exceptions, Affidavits, badged with decisions waiting, plus unsigned affidavits for managers) ·
 Library (Underwriters, Copy) · Setup, at the right edge — modelled in `lib/underwriting/nav.ts`;
 routes did not move. `20261009120000` is Resources content only.
 
