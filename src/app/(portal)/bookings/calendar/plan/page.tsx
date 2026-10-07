@@ -175,7 +175,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 href={`${RATES_PATH}/setup`}
                 className="text-sm font-bold text-brand-link hover:underline"
               >
-                Classes are kept under Rates · Setup
+                Classes are kept under Rates · Classes and pools
               </Link>
             </div>
             <TableFrame>
@@ -375,7 +375,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 href={`${RATES_PATH}/setup`}
                 className="text-sm font-bold text-brand-link hover:underline"
               >
-                Pools are kept under Rates · Setup
+                Pools are kept under Rates · Classes and pools
               </Link>
             </div>
             <TableFrame>

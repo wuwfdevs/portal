@@ -18,7 +18,7 @@ type Params = { new?: string; edit_class?: string; edit_pool?: string; error?: s
 const SETUP_PATH = `${RATES_PATH}/setup`;
 
 /**
- * Setup: the two catalogs the rest of Bookings hangs off — labor classes
+ * Classes and pools (the Setup page): the two catalogs the rest of Bookings hangs off — labor classes
  * (who does production work, and how each class is paid) and resource pools
  * (what can be booked, in what unit, costed how). Unversioned, retired
  * rather than deleted; a new class or pool needs its figures on each version

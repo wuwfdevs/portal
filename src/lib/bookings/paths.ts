@@ -5,7 +5,14 @@ export const BOOKINGS_PATH = "/bookings";
 export const RATES_PATH = `${BOOKINGS_PATH}/rates`;
 
 export type RatesSection =
-  "assumptions" | "labor" | "pools" | "packages" | "card" | "assets" | "setup" | "changes";
+  | "assumptions"
+  | "labor"
+  | "pools"
+  | "packages"
+  | "card"
+  | "assets"
+  | "setup"
+  | "changes";
 
 export const RATES_SECTIONS: { key: RatesSection; label: string; versioned: boolean }[] = [
   { key: "assumptions", label: "Assumptions", versioned: true },
@@ -14,17 +21,42 @@ export const RATES_SECTIONS: { key: RatesSection; label: string; versioned: bool
   { key: "packages", label: "Service packages", versioned: true },
   { key: "card", label: "Rate card", versioned: true },
   { key: "assets", label: "Assets", versioned: false },
-  { key: "setup", label: "Setup", versioned: false },
+  { key: "setup", label: "Classes and pools", versioned: false },
   { key: "changes", label: "Change log", versioned: false },
 ];
 
+/**
+ * The Rates tab row has three tabs, not one per section (docs/bookings-design.md §23):
+ * the output (Rate card), the four editors that feed it (reached from the Inputs
+ * checklist), and the change log. Assets and the classes/pools catalogs are kept
+ * behind the row's "⋯" menu. `inputs` is a tab and a page of its own; the four editor
+ * sections all light it.
+ */
+export type RatesTab = "card" | "inputs" | "history";
+
+export const INPUT_SECTIONS: readonly RatesSection[] = [
+  "assumptions",
+  "labor",
+  "pools",
+  "packages",
+];
+
+/** Which of the three tabs a section belongs under; null for the "⋯" menu's catalogs. */
+export function ratesTabFor(section: RatesSection | "inputs"): RatesTab | null {
+  if (section === "card") return "card";
+  if (section === "changes") return "history";
+  if (section === "inputs" || (INPUT_SECTIONS as readonly string[]).includes(section))
+    return "inputs";
+  return null;
+}
+
 /** The Rates screen for a section, scoped to a version and carrying any extra query fields. */
 export function ratesHref(
-  section: RatesSection,
+  section: RatesSection | "inputs",
   versionId?: string | null,
   extra?: Record<string, string>,
 ): string {
-  const base = section === "assumptions" ? RATES_PATH : `${RATES_PATH}/${section}`;
+  const base = `${RATES_PATH}/${section}`;
   const params = new URLSearchParams();
   if (versionId) params.set("version", versionId);
   for (const [key, value] of Object.entries(extra ?? {})) params.set(key, value);

@@ -36,7 +36,7 @@ export function RatesHeader({
   context: BookingsContext;
   versions: BkVersionRow[];
   version: BkVersionRow;
-  section: RatesSection;
+  section: RatesSection | "inputs";
   error?: string;
   /** Inputs still awaiting validation on this version, for the Submit hint. */
   gatePending?: number;
@@ -46,6 +46,10 @@ export function RatesHeader({
   const canReopen = context.isFinance && version.status === "submitted";
   const canUse = context.isFinance && !version.in_use && version.status !== "superseded";
   const canAdopt = context.isExecutive && version.status === "submitted";
+  // Quiet by default: the boxed banner only appears while something needs attention —
+  // a provisional or in-flight version, a note, or an action this viewer can take.
+  const needsBanner =
+    provisional || Boolean(version.notes) || canSubmit || canReopen || canUse || canAdopt;
 
   return (
     <div className="mb-2 flex flex-col gap-4">
@@ -70,79 +74,94 @@ export function RatesHeader({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-line bg-panel-50 px-4 py-3 text-sm text-ink-700">
-        <Badge variant={statusVariant(version)}>{VERSION_STATUS_LABEL[version.status]}</Badge>
-        {version.in_use && <Badge variant="accent">In use for estimates</Badge>}
-        <span>
-          {version.in_use && provisional
-            ? "In use for estimates but not adopted: every figure is provisional until Finance validates each input and the Executive Director adopts."
-            : version.status === "adopted"
-              ? `Adopted${version.adopted_at ? ` on ${new Date(version.adopted_at).toLocaleDateString("en-US", { dateStyle: "medium" })}` : ""}${version.destination_index ? ` · recoveries to ${version.destination_index}` : ""}.`
-              : version.status === "superseded"
-                ? "Superseded by a later version; kept so estimates priced on it still read the rates they were priced at."
-                : version.status === "submitted"
-                  ? "Submitted for validation; the Executive Director can adopt it."
-                  : "A draft. Change assumptions, pools and packages here, then submit for validation."}
-        </span>
-        {version.notes && <span className="basis-full text-xs text-ink-500">{version.notes}</span>}
-        <span className="flex basis-full flex-wrap items-center gap-2 pt-1">
-          {canSubmit && (
-            <form action={submitVersion}>
-              <input type="hidden" name="version_id" value={version.id} />
-              <Button type="submit" variant="secondary" disabled={(gatePending ?? 0) > 0}>
-                Submit for validation
-              </Button>
-              {(gatePending ?? 0) > 0 && (
-                <span className="ml-2 text-xs text-ink-500">
-                  {gatePending} input{gatePending === 1 ? "" : "s"} still await validation
-                </span>
-              )}
-            </form>
+      {!needsBanner && (
+        <p className="text-xs text-ink-500">
+          <Badge variant="success">{VERSION_STATUS_LABEL[version.status]}</Badge>{" "}
+          {version.in_use ? "In use for estimates. " : ""}
+          {version.adopted_at
+            ? `Adopted on ${new Date(version.adopted_at).toLocaleDateString("en-US", { dateStyle: "medium" })}`
+            : ""}
+          {version.destination_index ? ` · recoveries to ${version.destination_index}` : ""}
+        </p>
+      )}
+      {needsBanner && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-line bg-panel-50 px-4 py-3 text-sm text-ink-700">
+          <Badge variant={statusVariant(version)}>{VERSION_STATUS_LABEL[version.status]}</Badge>
+          {version.in_use && <Badge variant="accent">In use for estimates</Badge>}
+          <span>
+            {version.in_use && provisional
+              ? "In use for estimates, but provisional until every input is validated and the Executive Director adopts it."
+              : version.status === "adopted"
+                ? `Adopted${version.adopted_at ? ` on ${new Date(version.adopted_at).toLocaleDateString("en-US", { dateStyle: "medium" })}` : ""}${version.destination_index ? ` · recoveries to ${version.destination_index}` : ""}.`
+                : version.status === "superseded"
+                  ? "Superseded by a later version; kept so estimates priced on it still read the rates they were priced at."
+                  : version.status === "submitted"
+                    ? "Submitted for validation; the Executive Director can adopt it."
+                    : "A draft. Change assumptions, pools and packages here, then submit for validation."}
+          </span>
+          {version.notes && (
+            <span className="basis-full text-xs text-ink-500">{version.notes}</span>
           )}
-          {canReopen && (
-            <form action={reopenVersion}>
-              <input type="hidden" name="version_id" value={version.id} />
-              <Button type="submit" variant="ghost">
-                Reopen as a draft
-              </Button>
-            </form>
-          )}
-          {canUse && (
-            <form action={useVersionForEstimates}>
-              <input type="hidden" name="version_id" value={version.id} />
-              <Button type="submit" variant="secondary">
-                Use for estimates{provisional ? ", provisionally" : ""}
-              </Button>
-            </form>
-          )}
-          {canAdopt && (
-            <details className="basis-full">
-              <summary className="cursor-pointer text-sm font-bold text-brand-link">
-                Adopt this version…
-              </summary>
-              <form action={adoptVersion} className="mt-3 flex max-w-xl flex-col gap-3">
+          <span className="flex basis-full flex-wrap items-center gap-2 pt-1">
+            {canSubmit && (
+              <form action={submitVersion}>
                 <input type="hidden" name="version_id" value={version.id} />
-                <div>
-                  <Label htmlFor="destination_index">Destination index for recoveries</Label>
-                  <Input
-                    id="destination_index"
-                    name="destination_index"
-                    placeholder="A UWF Budget / Controller decision, recorded here"
-                    defaultValue={version.destination_index ?? ""}
-                  />
-                </div>
-                <p className="text-xs text-ink-500">
-                  Adopting puts this version in use for estimates and supersedes the adopted version
-                  before it. An adopted version never changes; a correction is a new version.
-                </p>
-                <Button type="submit" className="self-start">
-                  Adopt
+                <Button type="submit" variant="secondary" disabled={(gatePending ?? 0) > 0}>
+                  Submit for validation
+                </Button>
+                {(gatePending ?? 0) > 0 && (
+                  <span className="ml-2 text-xs text-ink-500">
+                    {gatePending} input{gatePending === 1 ? "" : "s"} still await validation
+                  </span>
+                )}
+              </form>
+            )}
+            {canReopen && (
+              <form action={reopenVersion}>
+                <input type="hidden" name="version_id" value={version.id} />
+                <Button type="submit" variant="ghost">
+                  Reopen as a draft
                 </Button>
               </form>
-            </details>
-          )}
-        </span>
-      </div>
+            )}
+            {canUse && (
+              <form action={useVersionForEstimates}>
+                <input type="hidden" name="version_id" value={version.id} />
+                <Button type="submit" variant="secondary">
+                  Use for estimates{provisional ? ", provisionally" : ""}
+                </Button>
+              </form>
+            )}
+            {canAdopt && (
+              <details className="basis-full">
+                <summary className="cursor-pointer text-sm font-bold text-brand-link">
+                  Adopt this version…
+                </summary>
+                <form action={adoptVersion} className="mt-3 flex max-w-xl flex-col gap-3">
+                  <input type="hidden" name="version_id" value={version.id} />
+                  <div>
+                    <Label htmlFor="destination_index">Destination index for recoveries</Label>
+                    <Input
+                      id="destination_index"
+                      name="destination_index"
+                      placeholder="A UWF Budget / Controller decision, recorded here"
+                      defaultValue={version.destination_index ?? ""}
+                    />
+                  </div>
+                  <p className="text-xs text-ink-500">
+                    Adopting puts this version in use for estimates and supersedes the adopted
+                    version before it. An adopted version never changes; a correction is a new
+                    version.
+                  </p>
+                  <Button type="submit" className="self-start">
+                    Adopt
+                  </Button>
+                </form>
+              </details>
+            )}
+          </span>
+        </div>
+      )}
 
       {error && <Alert>{error}</Alert>}
       <RatesTabs active={section} versionId={version.id} />
@@ -156,7 +175,7 @@ export function NoVersions({
   section,
 }: {
   context: BookingsContext;
-  section: RatesSection;
+  section: RatesSection | "inputs";
 }) {
   return (
     <div className="flex flex-col gap-4">

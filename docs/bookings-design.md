@@ -1561,3 +1561,25 @@ A fuller design was worked through and set aside: one standing calendar with eff
 **Checked.** Lint, typecheck, and the full suite (2,136 tests, including the new scheduling, pricing and `plans.ts` tests; the existing reserve tests pass unchanged with the share set on the lead class). The schema migration was run against a scratch PostgreSQL 16 built from the real Bookings migrations in order (portal tables stubbed), seeded like preview: it reproduced the old behaviour first (a strategic student booking refused against a 15-hour student "reserve"), then, after the migration, the share moved onto the lead only; a strategic student booking drew open capacity and was refused only once open capacity was spent; the lead's reserve and open limits held; an overlapping active plan, moving an active plan onto another, reopening or editing a closed plan, editing a closed plan's capacity or resources, and a new booking into a closed plan were each refused; two non-overlapping plans were active together; notes on a closed plan and releasing its bookings still worked. Production holds no plan rows; preview holds one `[Test]` plan.
 
 **Not done.** The migrations are not applied to either Supabase project, and `APPLIED.md` has no rows for them (so `npm run db:check` fails on exactly those two files until they are). The migration drops a column and an index, and the session's Supabase tool holds any `drop` for a confirmation that never arrives (the same limit slice 2b recorded), so it must be run in each project's SQL editor, preview first. A signed-in browser pass of the plan form has not been done.
+
+## 23. Progressive disclosure — Rates navigation (2026-10-07)
+
+A review found three stacked layers of navigation above any Rates content (the global tabs;
+a version switch with a status banner and lifecycle buttons; eight section tabs), five
+versioned tabs mixed with three unversioned ones, and Labor/Resource pools each existing
+twice (their figures on one tab, their catalog under Setup). Navigation and grouping only —
+no schema change, no action changed:
+
+- **Three tabs**: Rate card · Inputs · History, plus a "⋯" menu holding Assets and
+  Classes and pools (the old Setup page, same route). `RatesTabs` /
+  `lib/bookings/paths.ts`'s `ratesTabFor()`.
+- **`/bookings/rates` redirects to the Rate card.** The Assumptions editor moved to
+  `/bookings/rates/assumptions`; `ratesHref("assumptions")` follows it.
+- **Inputs** (`/bookings/rates/inputs`, `lib/bookings/inputs-progress.ts`) is a checklist, one
+  row per editor with its validated count; the four editors light Inputs and link "← Inputs".
+- **The version banner is quiet by default**: the boxed banner shows only for a provisional or
+  in-flight version, a note, or an action the viewer can take; otherwise one muted line.
+
+Not yet done from the review: folding the Classes and pools forms into the Labor and Pools
+editors (the pages still link to the catalog page), and the Calendar, Dashboard and Requests
+header passes.

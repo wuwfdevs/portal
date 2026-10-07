@@ -144,7 +144,7 @@ export default async function ResourcePoolsPage({
             href={`${RATES_PATH}/setup`}
             className="text-sm font-bold text-brand-link hover:underline"
           >
-            Add or retire a pool under Setup
+            Manage pools
           </Link>
         </div>
         <TableFrame>

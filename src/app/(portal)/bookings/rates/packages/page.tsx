@@ -253,7 +253,9 @@ export default async function ServicePackagesPage({
               External = the higher of incremental ÷ (1 −{" "}
               {margin ? formatShare(Number(margin.value)) : "margin"} −{" "}
               {assessment ? formatShare(Number(assessment.value)) : "assessment"}) and the market
-              floor. Everything rounds up to the next $25 on the card. The review status of a package&apos;s hours and market floor is shown here like any assumption; it never holds up a submission.
+              floor. Everything rounds up to the next $25 on the card. The review status of a
+              package&apos;s hours and market floor is shown here like any assumption; it never
+              holds up a submission.
             </p>
           </div>
           {canEdit && params.new !== "1" && (
@@ -372,11 +374,17 @@ export default async function ServicePackagesPage({
                       {formatDollars(Number(pkg.market_floor))}
                       <span className="text-ink-400">
                         {" · "}
-                        {pkg.market_ceiling === null ? "no ceiling" : formatDollars(Number(pkg.market_ceiling))}
+                        {pkg.market_ceiling === null
+                          ? "no ceiling"
+                          : formatDollars(Number(pkg.market_ceiling))}
                       </span>
                       {cost && pkg.active
                         ? rateCeilingFlags(cost, pkg.market_ceiling).map((treatment) => (
-                            <Badge key={treatment} variant="warning" className="mt-1 block text-right">
+                            <Badge
+                              key={treatment}
+                              variant="warning"
+                              className="mt-1 block text-right"
+                            >
                               {treatment} rate above the ceiling — review the scope or the model
                             </Badge>
                           ))
@@ -386,9 +394,13 @@ export default async function ServicePackagesPage({
                       <div className="flex flex-col gap-2">
                         {(["hours", "floor"] as const).map((which) => {
                           const state =
-                            which === "hours" ? pkg.hours_validation_state : pkg.floor_validation_state;
+                            which === "hours"
+                              ? pkg.hours_validation_state
+                              : pkg.floor_validation_state;
                           const note =
-                            which === "hours" ? pkg.hours_validation_note : pkg.floor_validation_note;
+                            which === "hours"
+                              ? pkg.hours_validation_note
+                              : pkg.floor_validation_note;
                           const key = `${pkg.id}:${which}`;
                           return (
                             <div key={which} className="flex flex-col gap-1">

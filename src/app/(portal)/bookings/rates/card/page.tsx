@@ -103,7 +103,9 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
               <strong>Review:</strong> the practical capacity of{" "}
               {detail.pools
                 .filter((row) => row.units_basis === "volume_forecast")
-                .map((row) => detail.poolCatalog.find((p) => p.id === row.pool_id)?.name ?? "a pool")
+                .map(
+                  (row) => detail.poolCatalog.find((p) => p.id === row.pool_id)?.name ?? "a pool",
+                )
                 .join(", ")}{" "}
               is a volume forecast, not a capacity, so its unit cost — and every rate that uses it —
               is provisional until it is replaced.

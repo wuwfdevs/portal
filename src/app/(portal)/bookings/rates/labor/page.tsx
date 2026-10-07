@@ -19,7 +19,7 @@ type Params = { version?: string; edit?: string; accept?: string; error?: string
  * Labor: one row per labor class with this version's pay figures and the
  * loaded hourly cost they produce. A class with no figures on this version
  * is listed with "Add figures" — the version can't be priced until every
- * active class has them. The classes themselves are kept under Setup.
+ * active class has them. The classes themselves are kept under Classes and pools.
  */
 export default async function LaborPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
@@ -62,7 +62,7 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
             href={`${RATES_PATH}/setup`}
             className="text-sm font-bold text-brand-link hover:underline"
           >
-            Add or retire a class under Setup
+            Manage classes
           </Link>
         </div>
         <TableFrame>
