@@ -30,7 +30,9 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
   ]);
   // A snapshot with no unit costs can't price an adjusted package line (§20.6): stale.
   const unitCostCount = (
-    await (await createClient())
+    await (
+      await createClient()
+    )
       .from("bk_rate_card_unit_costs")
       .select("id", { count: "exact", head: true })
       .eq("version_id", version.id)

@@ -92,105 +92,15 @@ export default async function BookingsDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Dashboard</h2>
-
-      {!plan ? (
-        <Alert variant="note">
-          No term plan is active, so there is no capacity to show.{" "}
-          {context.isDirector ? (
-            <Link
-              href={withQuery(PLAN_PATH, { new: "1" })}
-              className="font-bold text-brand-link hover:underline"
-            >
-              Create the term plan.
-            </Link>
-          ) : (
-            "The Director of Operations creates it on the Calendar tab."
-          )}
-        </Alert>
-      ) : (
-        <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <h3 className="text-sm font-bold text-ink-900">{plan.label}</h3>
-            <span className="text-xs text-ink-500">
-              {formatDateShort(plan.starts_on)} – {formatDateShort(plan.ends_on)} · professional
-              hours across tracked classes; a project day is 8
-            </span>
-            <span className="flex-1" />
-            <Link
-              href={CALENDAR_PATH}
-              className="text-xs font-bold text-brand-link hover:underline"
-            >
-              Calendar
-            </Link>
-          </div>
-          {total && total.net > 0 ? (
-            <CapacityBar
-              segments={[
-                { label: "Strategic", hours: total.strategicBooked, className: "bg-[#2E6DA4]" },
-                {
-                  label: "Reserve to preserve",
-                  hours: Math.max(0, total.reserveRemaining),
-                  className: "bg-[#9FC3E3]",
-                },
-                {
-                  label: "Incremental and external",
-                  hours: total.nonStrategicBooked,
-                  className: "bg-[#0F2235]",
-                },
-                { label: "Held for WUWF", hours: total.held, className: "bg-[#8A9099]" },
-                { label: "Open", hours: Math.max(0, total.open), className: "bg-panel-100" },
-              ]}
-              net={total.net}
-            />
-          ) : (
-            <Alert variant="note">
-              No labor class has capacity on this term plan yet; the director sets each class&apos;s
-              net hours on the term plan.
-            </Alert>
-          )}
-          {envelope && airtime && (
-            <p className="text-sm text-ink-700">
-              <span className="font-semibold text-ink-900">Airtime envelope:</span>{" "}
-              {formatMinutes(airtime.contributedMinutesPerWeek)} a week contributed,{" "}
-              {formatMinutes(airtime.committedMinutesPerWeek)} committed to requests,{" "}
-              <span className={airtime.exceeded ? "font-semibold text-[#8F3A3A]" : ""}>
-                {formatMinutes(airtime.remainingMinutesPerWeek)} left
-              </span>
-              {avails?.error
-                ? ` · the clocks could not be read (${avails.error})`
-                : ` · ${formatMinutes(envelope.eligibleMinutesPerWeek)} of eligible avails a week on the clocks, ${formatMinutes(envelope.sellableMinutesPerWeek)} for Traffic to sell`}
-              .
-            </p>
-          )}
-        </section>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile
-          label="Requests"
-          value={countAt("request")}
-          hint="awaiting an estimate"
-          href={withQuery(REQUESTS_PATH, { view: "request" })}
-        />
-        <Tile
-          label="Estimates out"
-          value={countAt("estimate")}
-          hint="holding dates tentatively"
-          href={withQuery(REQUESTS_PATH, { view: "estimate" })}
-        />
-        <Tile
-          label="Booked"
-          value={countAt("booked")}
-          hint="dates confirmed"
-          href={withQuery(REQUESTS_PATH, { view: "booked" })}
-        />
-        <Tile
-          label="Delivered"
-          value={countAt("delivered")}
-          hint="awaiting settlement"
-          href={withQuery(REQUESTS_PATH, { view: "delivered" })}
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-serif text-[17px] font-bold text-ink-900">Dashboard</h2>
+        <span className="flex-1" />
+        <Link
+          href="/bookings/report"
+          className="px-1 text-sm font-bold text-brand-link hover:underline"
+        >
+          Term report
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -294,12 +204,106 @@ export default async function BookingsDashboard() {
         </section>
       </div>
 
-      <p className="text-xs text-ink-500">
-        Stages: {Object.values(STAGE_LABEL).join(" → ")}.{" "}
-        <Link href="/bookings/report" className="font-bold text-brand-link hover:underline">
-          Term report
-        </Link>
-      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile
+          label="Requests"
+          value={countAt("request")}
+          hint="awaiting an estimate"
+          href={withQuery(REQUESTS_PATH, { view: "request" })}
+        />
+        <Tile
+          label="Estimates out"
+          value={countAt("estimate")}
+          hint="holding dates tentatively"
+          href={withQuery(REQUESTS_PATH, { view: "estimate" })}
+        />
+        <Tile
+          label="Booked"
+          value={countAt("booked")}
+          hint="dates confirmed"
+          href={withQuery(REQUESTS_PATH, { view: "booked" })}
+        />
+        <Tile
+          label="Delivered"
+          value={countAt("delivered")}
+          hint="awaiting settlement"
+          href={withQuery(REQUESTS_PATH, { view: "delivered" })}
+        />
+      </div>
+
+      {!plan ? (
+        <Alert variant="note">
+          No term plan is active, so there is no capacity to show.{" "}
+          {context.isDirector ? (
+            <Link
+              href={withQuery(PLAN_PATH, { new: "1" })}
+              className="font-bold text-brand-link hover:underline"
+            >
+              Create the term plan.
+            </Link>
+          ) : (
+            "The Director of Operations creates it on the Calendar tab."
+          )}
+        </Alert>
+      ) : (
+        <section className="flex flex-col gap-3 rounded border border-line bg-white p-4">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h3 className="text-sm font-bold text-ink-900">{plan.label}</h3>
+            <span className="text-xs text-ink-500">
+              {formatDateShort(plan.starts_on)} – {formatDateShort(plan.ends_on)} · professional
+              hours across tracked classes; a project day is 8
+            </span>
+            <span className="flex-1" />
+            <Link
+              href={CALENDAR_PATH}
+              className="text-xs font-bold text-brand-link hover:underline"
+            >
+              Calendar
+            </Link>
+          </div>
+          {total && total.net > 0 ? (
+            <CapacityBar
+              segments={[
+                { label: "Strategic", hours: total.strategicBooked, className: "bg-[#2E6DA4]" },
+                {
+                  label: "Reserve to preserve",
+                  hours: Math.max(0, total.reserveRemaining),
+                  className: "bg-[#9FC3E3]",
+                },
+                {
+                  label: "Incremental and external",
+                  hours: total.nonStrategicBooked,
+                  className: "bg-[#0F2235]",
+                },
+                { label: "Held for WUWF", hours: total.held, className: "bg-[#8A9099]" },
+                { label: "Open", hours: Math.max(0, total.open), className: "bg-panel-100" },
+              ]}
+              net={total.net}
+            />
+          ) : (
+            <Alert variant="note">
+              No labor class has capacity on this term plan yet; the director sets each class&apos;s
+              net hours on the term plan.
+            </Alert>
+          )}
+          {envelope && airtime && (
+            <p className="text-sm text-ink-700">
+              <span className="font-semibold text-ink-900">Airtime envelope:</span>{" "}
+              {formatMinutes(airtime.contributedMinutesPerWeek)} a week contributed,{" "}
+              {formatMinutes(airtime.committedMinutesPerWeek)} committed to requests,{" "}
+              <span className={airtime.exceeded ? "font-semibold text-[#8F3A3A]" : ""}>
+                {formatMinutes(airtime.remainingMinutesPerWeek)} left
+              </span>
+              {avails?.error
+                ? ` · the clocks could not be read (${avails.error})`
+                : ` · ${formatMinutes(envelope.eligibleMinutesPerWeek)} of eligible avails a week on the clocks, ${formatMinutes(envelope.sellableMinutesPerWeek)} for Traffic to sell`}
+              .
+            </p>
+          )}
+        </section>
+      )}
+
+      <p className="text-xs text-ink-500">Stages: {Object.values(STAGE_LABEL).join(" → ")}.</p>
     </div>
   );
 }

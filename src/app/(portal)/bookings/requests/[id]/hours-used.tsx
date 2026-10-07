@@ -42,7 +42,9 @@ export function HoursUsed({
   const poolIds = Object.keys(planned.resources);
   if (classIds.length === 0 && poolIds.length === 0) return null;
   const usedFor = (kind: "labor" | "units", id: string): number | null => {
-    const row = confirmed.find((r) => r.kind === kind && (kind === "labor" ? r.labor_class_id : r.pool_id) === id);
+    const row = confirmed.find(
+      (r) => r.kind === kind && (kind === "labor" ? r.labor_class_id : r.pool_id) === id,
+    );
     return row ? Number(row.used) : null;
   };
   const isConfirmed = confirmed.length > 0;

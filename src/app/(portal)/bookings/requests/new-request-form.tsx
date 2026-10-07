@@ -61,7 +61,9 @@ export function NewRequestForm({
   const anyTicked = Object.values(ticked).some(Boolean);
 
   const chosen = partners.find((partner) => partner.id === partnerId) ?? null;
-  const isUnit = chosen ? chosen.kind === "uwf_unit" : newName.trim() !== "" && newKind === "uwf_unit";
+  const isUnit = chosen
+    ? chosen.kind === "uwf_unit"
+    : newName.trim() !== "" && newKind === "uwf_unit";
 
   return (
     <form action={action} className="flex max-w-3xl flex-col gap-5">
@@ -87,7 +89,9 @@ export function NewRequestForm({
                 label: partner.name,
                 hint: partner.kindLabel,
               }))}
-              placeholder={partners.length === 0 ? "No one on file yet — add them below" : "Type to search…"}
+              placeholder={
+                partners.length === 0 ? "No one on file yet — add them below" : "Type to search…"
+              }
               emptyMessage="No one by that name — add them below."
             />
             <details className="mt-2 text-sm" open={partners.length === 0}>
@@ -124,7 +128,9 @@ export function NewRequestForm({
 
           {packages.length > 0 && (
             <fieldset className="sm:col-span-2">
-              <legend className="mb-1.5 text-xs font-semibold text-ink-700">What do they need?</legend>
+              <legend className="mb-1.5 text-xs font-semibold text-ink-700">
+                What do they need?
+              </legend>
               <div className="flex flex-col divide-y divide-line rounded border border-line">
                 {packages.map((pkg) => (
                   <div key={pkg.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -138,7 +144,10 @@ export function NewRequestForm({
                         setTicked((current) => ({ ...current, [pkg.id]: event.target.checked }))
                       }
                     />
-                    <label htmlFor={`pkg_${pkg.id}`} className="min-w-0 flex-1 text-sm text-ink-900">
+                    <label
+                      htmlFor={`pkg_${pkg.id}`}
+                      className="min-w-0 flex-1 text-sm text-ink-900"
+                    >
                       <span className="font-semibold">{pkg.name}</span>{" "}
                       <span className="text-ink-500">({pkg.unitLabel})</span>
                       <span className="block text-xs text-ink-500">{pkg.includes}</span>
@@ -199,7 +208,8 @@ export function NewRequestForm({
                   <input type="radio" name="qualifies_strategic" value="no" /> No
                 </label>
                 <label className="flex items-center gap-1.5 text-ink-500">
-                  <input type="radio" name="qualifies_strategic" value="" defaultChecked /> Not sure yet
+                  <input type="radio" name="qualifies_strategic" value="" defaultChecked /> Not sure
+                  yet
                 </label>
               </div>
               <FieldHint>
@@ -215,7 +225,11 @@ export function NewRequestForm({
               id="title"
               name="title"
               maxLength={TITLE_MAX}
-              placeholder={anyTicked ? "Optional — we'll name it from the service and partner" : "Board of Trustees meeting webcast"}
+              placeholder={
+                anyTicked
+                  ? "Optional — we'll name it from the service and partner"
+                  : "Board of Trustees meeting webcast"
+              }
               required={!anyTicked}
             />
           </div>
@@ -297,7 +311,9 @@ export function NewRequestForm({
       </details>
 
       <div className="flex items-center gap-4">
-        <Button type="submit">{anyTicked ? "Create and price the estimate" : "Create the request"}</Button>
+        <Button type="submit">
+          {anyTicked ? "Create and price the estimate" : "Create the request"}
+        </Button>
         <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
           Cancel
         </Link>

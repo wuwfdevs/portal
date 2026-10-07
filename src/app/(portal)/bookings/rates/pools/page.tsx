@@ -6,7 +6,7 @@ import { FieldHint, Input, Label, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { POOL_COSTING_LABEL, formatQuantity } from "@/lib/bookings/labels";
-import { RATES_PATH, ratesHref } from "@/lib/bookings/paths";
+import { ratesHref } from "@/lib/bookings/paths";
 import {
   assetAnnualCosts,
   assetsNeedingLife,
@@ -25,6 +25,7 @@ import {
 import { formatDollars, formatShare } from "@/lib/bookings/rates";
 import { cardForVersion } from "@/lib/bookings/version-card";
 import { refreshFromAssetRegister, savePoolFigures, setPoolValidation } from "../actions";
+import { PoolCatalog, type CatalogParams } from "../catalog-sections";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
 
@@ -34,7 +35,7 @@ type Params = {
   accept?: string;
   error?: string;
   saved?: string;
-};
+} & CatalogParams;
 
 export default async function ResourcePoolsPage({
   searchParams,
@@ -49,6 +50,7 @@ export default async function ResourcePoolsPage({
   const detail = await getVersionDetail(version);
   const computed = cardForVersion(detail);
   const canEdit = context.isFinance && version.status === "draft";
+  const canManage = context.isFinance || context.isDirector;
   const canValidate =
     context.isFinance && (version.status === "draft" || version.status === "submitted");
   const here = (extra?: Record<string, string>) => ratesHref("pools", version.id, extra);
@@ -140,12 +142,6 @@ export default async function ResourcePoolsPage({
               )}
             </p>
           </div>
-          <Link
-            href={`${RATES_PATH}/setup`}
-            className="text-sm font-bold text-brand-link hover:underline"
-          >
-            Manage pools
-          </Link>
         </div>
         <TableFrame>
           <Table stack>
@@ -408,6 +404,24 @@ export default async function ResourcePoolsPage({
           </form>
         )}
       </section>
+      {canManage && (
+        <details
+          open={Boolean(params.new === "pool" || params.edit_pool)}
+          className="rounded border border-line bg-white"
+        >
+          <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-ink-900">
+            Manage resource pools
+          </summary>
+          <div className="border-t border-line p-4">
+            <PoolCatalog
+              pools={detail.poolCatalog}
+              canEdit={canManage}
+              params={params}
+              href={(extra) => ratesHref("pools", version.id, extra)}
+            />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

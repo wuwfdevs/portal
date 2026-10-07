@@ -85,7 +85,6 @@ async function repriceOrFail(projectId: string, path: string): Promise<void> {
   if (!result.ok) failWith(path, result.error);
 }
 
-
 /**
  * The live dates (held or confirmed) a write is about to release, read before it
  * runs, and recorded by resource once it has — the "displaced" half of the term
@@ -233,7 +232,8 @@ export async function createRequest(formData: FormData): Promise<void> {
     }
     for (const selection of picked.selections) {
       const pkg = pricingContext.packages.find((p) => p.id === selection.packageId);
-      if (!pkg || !isOfferable(pkg, null)) failWith(path, "Choose a service package from the list.");
+      if (!pkg || !isOfferable(pkg, null))
+        failWith(path, "Choose a service package from the list.");
     }
   }
 
@@ -255,7 +255,9 @@ export async function createRequest(formData: FormData): Promise<void> {
 
   if (wantsPackages && values.title === "" && pricingContext) {
     values.title = defaultRequestTitle(
-      picked.selections.map((s) => pricingContext!.packages.find((p) => p.id === s.packageId)!.name),
+      picked.selections.map(
+        (s) => pricingContext!.packages.find((p) => p.id === s.packageId)!.name,
+      ),
       partnerName || "the partner",
     );
   }
@@ -671,7 +673,8 @@ function recordField(
     const raw = field(formData, key);
     if (raw === "") continue;
     const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0) failWith(path, `${label} must be a number, zero or more.`);
+    if (!Number.isFinite(value) || value < 0)
+      failWith(path, `${label} must be a number, zero or more.`);
     if (value > 0) out[id] = value;
   }
   return out;
@@ -710,7 +713,11 @@ export async function adjustLineScope(formData: FormData): Promise<void> {
     .select("stage, disposition")
     .eq("id", projectId)
     .maybeSingle();
-  if (!project || project.disposition !== null || !["request", "estimate"].includes(project.stage)) {
+  if (
+    !project ||
+    project.disposition !== null ||
+    !["request", "estimate"].includes(project.stage)
+  ) {
     failWith(path, "The scope can only be adjusted on an open request that hasn't been booked.");
   }
   const { error } = await supabase
@@ -896,7 +903,12 @@ export async function removeDate(formData: FormData): Promise<void> {
       .update({ status: "released" })
       .eq("id", bookingId);
     failIfError(error, path, "Could not release the date");
-    await recordReleased(releasing, projectId, profile.id, "A held or confirmed date was released.");
+    await recordReleased(
+      releasing,
+      projectId,
+      profile.id,
+      "A held or confirmed date was released.",
+    );
     await logProjectEvent({
       projectId,
       actorId: profile.id,
@@ -1261,7 +1273,12 @@ export async function setDisposition(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not close the request");
   if (data && "error" in data) failWith(path, DISPOSITION_ERRORS[data.error] ?? data.error);
-  await recordReleased(releasing, projectId, profile.id, `The request was ${disposition}: ${reason}`);
+  await recordReleased(
+    releasing,
+    projectId,
+    profile.id,
+    `The request was ${disposition}: ${reason}`,
+  );
   const released = data && "released" in data ? data.released : 0;
   await logProjectEvent({
     projectId,
@@ -1346,7 +1363,8 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
       }
       const raw = field(formData, `${prefix}${id}`);
       const value = raw === "" ? 0 : Number(raw);
-      if (!Number.isFinite(value) || value < 0) failWith(path, "Used figures must be numbers, zero or more.");
+      if (!Number.isFinite(value) || value < 0)
+        failWith(path, "Used figures must be numbers, zero or more.");
       used[id] = value;
     }
     return used;
@@ -1373,7 +1391,10 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
       confirmed_by: profile.id,
     })),
   ];
-  const { error: clearError } = await supabase.from("bk_hours_used").delete().eq("project_id", projectId);
+  const { error: clearError } = await supabase
+    .from("bk_hours_used")
+    .delete()
+    .eq("project_id", projectId);
   failIfError(clearError, path, "Could not record what was used");
   if (rows.length > 0) {
     const { error } = await supabase.from("bk_hours_used").insert(rows);
@@ -1383,7 +1404,9 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
     projectId,
     actorId: profile.id,
     kind: "hours_confirmed",
-    note: asPlanned ? "Hours and equipment confirmed as planned." : "Hours and equipment used confirmed, corrected from the plan.",
+    note: asPlanned
+      ? "Hours and equipment confirmed as planned."
+      : "Hours and equipment used confirmed, corrected from the plan.",
   });
   revalidateRequests(projectId);
   redirect(requestHref(projectId, { saved: "1" }));

@@ -8,7 +8,12 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { PRODUCTION_RATE_LABEL, formatQuantity } from "@/lib/bookings/labels";
 import { requestHref } from "@/lib/bookings/paths";
-import { estimateTotals, isAdjusted, legacyRateDelta, recipeDifference } from "@/lib/bookings/pricing";
+import {
+  estimateTotals,
+  isAdjusted,
+  legacyRateDelta,
+  recipeDifference,
+} from "@/lib/bookings/pricing";
 import { LINE_KIND_LABEL } from "@/lib/bookings/projects";
 import type {
   BkEstimateLineRow,
@@ -90,8 +95,8 @@ export function EstimateSection({
           </>
         ) : (
           <span>
-            Not priced yet. The rate is worked out from the partner and the strategic question once a
-            line is added.
+            Not priced yet. The rate is worked out from the partner and the strategic question once
+            a line is added.
           </span>
         )}
       </div>
@@ -376,9 +381,7 @@ export function EstimateSection({
                         </option>
                       ))}
                   </Select>
-                  <FieldHint>
-                    Its hours and equipment are copied onto the line.
-                  </FieldHint>
+                  <FieldHint>Its hours and equipment are copied onto the line.</FieldHint>
                 </div>
               )}
               {openCard.kind === "labor" && (
@@ -469,7 +472,11 @@ function costOf(line: BkEstimateLineRow): number {
   return Number(line.direct_cost ?? line.unit_rate);
 }
 
-function nameOf<T extends { id: string; name: string }>(rows: readonly T[], id: string, fallback: string): string {
+function nameOf<T extends { id: string; name: string }>(
+  rows: readonly T[],
+  id: string,
+  fallback: string,
+): string {
   return rows.find((row) => row.id === id)?.name ?? fallback;
 }
 
@@ -540,7 +547,9 @@ function ScopeCard({
                 min="0"
                 defaultValue={String(labor[id] ?? 0)}
               />
-              <FieldHint>Standard: {formatQuantity(Number(line.recipe_labor_hours?.[id] ?? 0))}</FieldHint>
+              <FieldHint>
+                Standard: {formatQuantity(Number(line.recipe_labor_hours?.[id] ?? 0))}
+              </FieldHint>
             </div>
           ))}
           {poolIds.map((id) => (
@@ -554,7 +563,9 @@ function ScopeCard({
                 min="0"
                 defaultValue={String(units[id] ?? 0)}
               />
-              <FieldHint>Standard: {formatQuantity(Number(line.recipe_resource_units?.[id] ?? 0))}</FieldHint>
+              <FieldHint>
+                Standard: {formatQuantity(Number(line.recipe_resource_units?.[id] ?? 0))}
+              </FieldHint>
             </div>
           ))}
         </div>

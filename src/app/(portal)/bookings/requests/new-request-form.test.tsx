@@ -19,7 +19,12 @@ const props = {
     },
   ],
   packages: [
-    { id: "w", name: "Basic event webcast", unitLabel: "event", includes: "5 staff hours, 10 student hours" },
+    {
+      id: "w",
+      name: "Basic event webcast",
+      unitLabel: "event",
+      includes: "5 staff hours, 10 student hours",
+    },
   ],
   timesOfDay: [{ key: "08:00-12:00", label: "Morning" }],
   cancelHref: "/bookings/requests",

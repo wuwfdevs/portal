@@ -1580,6 +1580,16 @@ no schema change, no action changed:
 - **The version banner is quiet by default**: the boxed banner shows only for a provisional or
   in-flight version, a note, or an action the viewer can take; otherwise one muted line.
 
-Not yet done from the review: folding the Classes and pools forms into the Labor and Pools
-editors (the pages still link to the catalog page), and the Calendar, Dashboard and Requests
-header passes.
+- **Setup is folded away.** The labor class and pool catalogs are `rates/catalog-sections.tsx`,
+  rendered under the Labor and Resource pools figures ("Manage labor classes" / "Manage
+  resource pools"); each form carries a `return_to` that `catalogReturn()` in `actions.ts` honours
+  (only a path under `/bookings/rates/`), so an action lands back where it was raised.
+  `/bookings/rates/setup` still renders both for a direct link; the "⋯" menu holds Assets only.
+- **Calendar**: the status band, capacity and airtime panels are one `<details>` summary line
+  (status, dates, open capacity, avails a week); "Edit term plan" is a plain link for everyone;
+  Find a slot, blackout and hold sit in a "More" `ActionMenu` beside the one primary
+  "+ Booking". `termPlanInline()` is gone.
+- **Dashboard** leads with "Needs your action" and This week, then the stage tiles, then
+  capacity; the Term report is a header link.
+- **Requests**: the public form settings link moved into a "More" menu on the list; a request's
+  Agreement and Owner panels are collapsed to one line showing their current value.

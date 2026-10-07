@@ -175,7 +175,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 href={`${RATES_PATH}/setup`}
                 className="text-sm font-bold text-brand-link hover:underline"
               >
-                Classes are kept under Rates · Classes and pools
+                Classes are kept under Rates · Labor
               </Link>
             </div>
             <TableFrame>
@@ -375,7 +375,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                 href={`${RATES_PATH}/setup`}
                 className="text-sm font-bold text-brand-link hover:underline"
               >
-                Pools are kept under Rates · Classes and pools
+                Pools are kept under Rates · Resource pools
               </Link>
             </div>
             <TableFrame>
@@ -420,8 +420,8 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     defaultValue={resource ? String(resource.available_units) : "0"}
                                   />
                                   <FieldHint>
-                                    What it can realistically deliver this term after downtime —
-                                    not expected bookings.
+                                    What it can realistically deliver this term after downtime — not
+                                    expected bookings.
                                   </FieldHint>
                                 </div>
                                 <div>

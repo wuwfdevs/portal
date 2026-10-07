@@ -3,8 +3,9 @@ import { TabNav } from "@/components/ui/tab-nav";
 import { INPUT_SECTIONS, ratesHref, ratesTabFor, type RatesSection } from "@/lib/bookings/paths";
 
 /**
- * The Rates section's second-level row: Rate card · Inputs · History, with the
- * unversioned catalogs (Assets, Classes and pools) behind the row's "⋯" menu.
+ * The Rates section's second-level row: Rate card · Inputs · History, with
+ * Assets behind the row's "⋯" menu (the labor class and pool catalogs live on the
+ * Labor and Resource pools pages).
  * The four editors are reached from the Inputs checklist, so they light Inputs
  * and carry a "← Inputs" link back instead of four tabs of their own
  * (docs/bookings-design.md §23). The versioned views carry the chosen version
@@ -30,12 +31,6 @@ export function RatesTabs({
             href: ratesHref("assets", null),
             label: "Assets",
             active: active === "assets",
-            forceMore: true,
-          },
-          {
-            href: ratesHref("setup", null),
-            label: "Classes and pools",
-            active: active === "setup",
             forceMore: true,
           },
         ]}

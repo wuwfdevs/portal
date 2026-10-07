@@ -978,9 +978,23 @@ function keyFrom(name: string): string {
     .replace(/^(\d)/, "k$1");
 }
 
+/**
+ * Where a catalog action returns to: the page that raised it (Setup, Labor or Resource
+ * pools, which all render the catalogs) via a `return_to` field, else the Setup page.
+ * Only a path under the Rates section is honoured. `extra` adds catalog query fields.
+ */
+function catalogReturn(formData: FormData, extra?: Record<string, string>): string {
+  const raw = field(formData, "return_to");
+  const base =
+    raw.startsWith(`${RATES_PATH}/`) && !raw.startsWith("//") ? raw : `${RATES_PATH}/setup`;
+  if (!extra) return base;
+  const query = new URLSearchParams(extra).toString();
+  return `${base}${base.includes("?") ? "&" : "?"}${query}`;
+}
+
 export async function createLaborClass(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
-  const path = `${RATES_PATH}/setup?new=class`;
+  const path = catalogReturn(formData, { new: "class" });
   const name = field(formData, "name");
   if (!name) failWith(path, "The labor class needs a name.");
   const payBasis = field(formData, "pay_basis") as BkPayBasis;
@@ -1004,13 +1018,13 @@ export async function createLaborClass(formData: FormData): Promise<void> {
     note: `Added labor class "${name}" (${payBasis}). Each version needs its pay figures.`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function updateLaborClass(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
   const id = field(formData, "id");
-  const path = `${RATES_PATH}/setup?edit_class=${id}`;
+  const path = catalogReturn(formData, { edit_class: id });
   const name = field(formData, "name");
   if (!name) failWith(path, "The labor class needs a name.");
   const payBasis = field(formData, "pay_basis") as BkPayBasis;
@@ -1033,12 +1047,12 @@ export async function updateLaborClass(formData: FormData): Promise<void> {
     note: `Edited labor class "${name}".`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function createPool(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
-  const path = `${RATES_PATH}/setup?new=pool`;
+  const path = catalogReturn(formData, { new: "pool" });
   const name = field(formData, "name");
   if (!name) failWith(path, "The pool needs a name.");
   const unitLabel = field(formData, "unit_label");
@@ -1068,13 +1082,13 @@ export async function createPool(formData: FormData): Promise<void> {
     note: `Added pool "${name}" (${unitLabel}s, ${costing === "allocated" ? "a share of the shared pool" : "its own budget lines"}). Each version needs its figures.`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 export async function updatePoolCatalog(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsAssetWriter();
   const id = field(formData, "id");
-  const path = `${RATES_PATH}/setup?edit_pool=${id}`;
+  const path = catalogReturn(formData, { edit_pool: id });
   const name = field(formData, "name");
   if (!name) failWith(path, "The pool needs a name.");
   const unitLabel = field(formData, "unit_label");
@@ -1103,7 +1117,7 @@ export async function updatePoolCatalog(formData: FormData): Promise<void> {
     note: `Edited pool "${name}".`,
   });
   revalidateRates();
-  redirect(`${RATES_PATH}/setup`);
+  redirect(catalogReturn(formData));
 }
 
 // Assets ----------------------------------------------------------------------------------
@@ -1234,19 +1248,16 @@ export async function refreshFromAssetRegister(formData: FormData): Promise<void
         .map((link) => link.asset_id),
     }));
   const pools = assetAnnualCosts(
-    (assets.data ?? []).map(
-      (asset): AssetLike => ({
-        id: asset.id,
-        name: asset.name,
-        pool_id: asset.pool_id,
-        active: asset.active,
-        replacement_cost: asset.replacement_cost === null ? null : Number(asset.replacement_cost),
-        useful_life_years:
-          asset.useful_life_years === null ? null : Number(asset.useful_life_years),
-        annual_maintenance:
-          asset.annual_maintenance === null ? null : Number(asset.annual_maintenance),
-      }),
-    ),
+    (assets.data ?? []).map((asset): AssetLike => ({
+      id: asset.id,
+      name: asset.name,
+      pool_id: asset.pool_id,
+      active: asset.active,
+      replacement_cost: asset.replacement_cost === null ? null : Number(asset.replacement_cost),
+      useful_life_years: asset.useful_life_years === null ? null : Number(asset.useful_life_years),
+      annual_maintenance:
+        asset.annual_maintenance === null ? null : Number(asset.annual_maintenance),
+    })),
     funding,
   );
 

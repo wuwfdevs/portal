@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isModelRole, termPlanInline, visibleTabs } from "./nav";
+import { isModelRole, visibleTabs } from "./nav";
 
 const labels = (tabs: { label: string }[]) => tabs.map((t) => t.label);
 
@@ -27,15 +27,5 @@ describe("visibleTabs", () => {
 
   it("an administrator sees everything inline", () => {
     expect(labels(visibleTabs([], true).primary)).toContain("Rates");
-  });
-});
-
-describe("termPlanInline", () => {
-  it("is inline for the director and executive only", () => {
-    expect(termPlanInline(["director"])).toBe(true);
-    expect(termPlanInline(["executive"])).toBe(true);
-    expect(termPlanInline(["production"])).toBe(false);
-    expect(termPlanInline([])).toBe(false);
-    expect(termPlanInline([], true)).toBe(true);
   });
 });
