@@ -12,8 +12,11 @@
 // "Pin content" or "Mark eligible" (only the slot named in the URL has one),
 // and the two remove actions (server actions passed down as props).
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import { describeRingSegment, pointOnCircle } from "@/lib/log/clock-face";
 import {
@@ -208,11 +211,7 @@ export function ClockViewer(props: ClockViewerProps) {
   };
 
   if (viewSlots.length === 0) {
-    return (
-      <p className="rounded border border-dashed border-line p-6 text-sm text-ink-500">
-        No slots yet.
-      </p>
-    );
+    return <EmptyState>No slots yet.</EmptyState>;
   }
 
   const panel = (
@@ -263,7 +262,7 @@ export function ClockViewer(props: ClockViewerProps) {
           <div
             role="group"
             aria-label="View"
-            className="flex overflow-hidden rounded border border-[#C9CED4]"
+            className="flex overflow-hidden rounded border border-line"
           >
             {(["timeline", "ring"] as const).map((mode) => (
               <button
@@ -272,7 +271,7 @@ export function ClockViewer(props: ClockViewerProps) {
                 aria-pressed={view === mode}
                 onClick={() => setView(mode)}
                 className={cn(
-                  "h-8 border-r border-[#C9CED4] px-3.5 text-[13px] font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-link",
+                  "h-8 border-r border-line px-3.5 text-[13px] font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-link",
                   view === mode
                     ? "bg-[#0F2235] text-white"
                     : "bg-white text-ink-900 hover:bg-panel-50",
@@ -864,36 +863,36 @@ function SlotList({
         </h3>
         <span className="ml-2 text-[13px] text-ink-500">{slots.length} in this version</span>
       </div>
-      <table className="w-full text-sm">
+      <Table>
         <thead>
-          <tr className="bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-            <th scope="col" className="w-20 px-4 py-2 font-bold">
+          <HeaderRow>
+            <Th scope="col" className="w-20 py-2">
               Start
-            </th>
-            <th scope="col" className="px-2 py-2 font-bold">
+            </Th>
+            <Th scope="col" className="px-2 py-2">
               Slot
-            </th>
-            <th scope="col" className="w-24 px-2 py-2 font-bold">
+            </Th>
+            <Th scope="col" className="w-24 px-2 py-2">
               Length
-            </th>
-            <th scope="col" className="w-32 px-4 py-2 font-bold">
+            </Th>
+            <Th scope="col" className="w-32 py-2">
               Local
-            </th>
-          </tr>
+            </Th>
+          </HeaderRow>
         </thead>
         <tbody>
           {slots.map((slot) => (
-            <tr
+            <Row
               key={slot.id}
               onMouseEnter={onEnter(slot.id)}
               onMouseLeave={onLeave}
-              className={cn("border-t border-line", slot.id === activeId && "bg-brand-surface/50")}
+              className={cn(slot.id === activeId && "bg-brand-surface/50")}
             >
-              <td className="px-4 py-1.5 tabular-nums">
+              <Cell className="py-1.5 tabular-nums">
                 {formatOffsetSeconds(slot.startSeconds)}
                 {slot.float ? "+" : ""}
-              </td>
-              <td className="px-2 py-1.5">
+              </Cell>
+              <Cell className="px-2 py-1.5">
                 <button
                   type="button"
                   aria-pressed={slot.id === activeId}
@@ -908,15 +907,15 @@ function SlotList({
                 >
                   {slot.label}
                 </button>
-              </td>
-              <td className="px-2 py-1.5 tabular-nums text-ink-700">
+              </Cell>
+              <Cell className="px-2 py-1.5 tabular-nums text-ink-700">
                 {slot.float
                   ? describeFloatLength(slot.float)
                   : formatOffsetSeconds(slot.durationSeconds)}
-              </td>
-              <td
+              </Cell>
+              <Cell
                 className={cn(
-                  "px-4 py-1.5 text-xs font-bold",
+                  "py-1.5 text-xs font-bold",
                   slot.local?.requirement === "required" ? "text-ink-900" : "text-brand-link",
                 )}
               >
@@ -925,11 +924,11 @@ function SlotList({
                   : slot.float
                     ? "Floats"
                     : ""}
-              </td>
-            </tr>
+              </Cell>
+            </Row>
           ))}
         </tbody>
-      </table>
+      </Table>
     </section>
   );
 }
@@ -976,8 +975,6 @@ function SlotPanel({
   const hourLabel = shift.startTime
     ? `Hour ${hour + 1} (${shiftTimeOfDay(shift.startTime, hour, 0)})`
     : `Hour ${hour + 1}`;
-  const link =
-    "inline-flex h-9 items-center rounded px-3.5 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-link";
 
   return (
     <aside aria-label="Selected slot" className="rounded border border-line bg-white">
@@ -1090,23 +1087,14 @@ function SlotPanel({
           {isLocal ? (
             <>
               {acting && (
-                <Link
-                  href={actionHref("edit")}
-                  className={cn(link, "bg-brand-link text-white hover:bg-[#124B78]")}
-                >
+                <PrimaryLink href={actionHref("edit")} className="h-9 px-3.5 py-0">
                   Edit eligibility
-                </Link>
+                </PrimaryLink>
               )}
               {pinning && (
-                <Link
-                  href={actionHref("pin")}
-                  className={cn(
-                    link,
-                    "border border-brand-link text-brand-link hover:bg-brand-surface",
-                  )}
-                >
+                <SecondaryLink href={actionHref("pin")} className="h-9 px-3.5 py-0">
                   Pin content
-                </Link>
+                </SecondaryLink>
               )}
               {acting && (
                 <form action={removeOpportunityAction}>
@@ -1117,25 +1105,16 @@ function SlotPanel({
                     value={slot.local?.opportunityId ?? ""}
                   />
                   <input type="hidden" name="return_query" value={returnQuery} />
-                  <button
-                    type="submit"
-                    className={cn(link, "border border-[#C9CED4] text-ink-700 hover:bg-panel-50")}
-                  >
+                  <Button type="submit" variant="secondary" className="h-9 px-3.5 py-0">
                     Remove
-                  </button>
+                  </Button>
                 </form>
               )}
             </>
           ) : (
-            <Link
-              href={actionHref("mark")}
-              className={cn(
-                link,
-                "border border-brand-link text-brand-link hover:bg-brand-surface",
-              )}
-            >
+            <SecondaryLink href={actionHref("mark")} className="h-9 px-3.5 py-0">
               Mark eligible for local content
-            </Link>
+            </SecondaryLink>
           )}
         </div>
       )}
@@ -1144,12 +1123,9 @@ function SlotPanel({
         <div className="border-t border-line bg-panel-50/60 px-5 py-4">
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-sm font-bold text-ink-900">{form.title}</h4>
-            <Link
-              href={form.cancelHref}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={form.cancelHref} className="hover:underline">
               Cancel
-            </Link>
+            </TextLink>
           </div>
           {form.node}
         </div>

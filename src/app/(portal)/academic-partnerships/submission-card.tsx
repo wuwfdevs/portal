@@ -36,7 +36,8 @@ export function SubmissionCard({ submission }: { submission: SubmissionListItem 
       </div>
       {submission.next_action_date && (
         <p className="mt-1.5 text-[11px] font-semibold text-warning-fg">
-          Next: {new Date(submission.next_action_date).toLocaleDateString("en-US", {
+          Next:{" "}
+          {new Date(submission.next_action_date).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
           })}

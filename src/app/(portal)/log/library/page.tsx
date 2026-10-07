@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { computeTotalDurationSeconds, CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
+import { APPROVAL_STATUS } from "@/lib/log/status-badges";
 import { countContentItems, listContentLibraryPage } from "@/lib/log/queries";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import type { LogApprovalStatus, LogContentType } from "@/lib/database.types";
@@ -17,11 +19,6 @@ const APPROVAL_STATUS_LABEL: Record<LogApprovalStatus, string> = {
   approved: "Approved",
   draft: "Draft",
   retired: "Retired",
-};
-const APPROVAL_STATUS_VARIANT: Record<LogApprovalStatus, BadgeVariant> = {
-  draft: "neutral",
-  approved: "success",
-  retired: "muted",
 };
 
 /**
@@ -122,12 +119,9 @@ export default async function ContentLibraryPage({
           },
         ]}
       >
-        <Link
-          href="/log/library/import"
-          className="px-1 text-sm font-bold text-brand-link hover:underline"
-        >
+        <TextLink href="/log/library/import" className="hover:underline">
           Import from DAD
-        </Link>
+        </TextLink>
         <PrimaryLink href="/log/library/new">
           <span>
             + New<span className="max-sm:sr-only"> content item</span>
@@ -136,7 +130,7 @@ export default async function ContentLibraryPage({
       </ListToolbar>
 
       {rows.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {filtered ? (
             <>
               No content items match.{" "}
@@ -147,7 +141,7 @@ export default async function ContentLibraryPage({
           ) : (
             "The content library is empty."
           )}
-        </div>
+        </EmptyState>
       ) : (
         <div>
           <TableFrame>
@@ -176,9 +170,7 @@ export default async function ContentLibraryPage({
                       </Cell>
                       <Cell label="Type">{CONTENT_TYPE_LABEL[item.content_type]}</Cell>
                       <Cell stack="aside">
-                        <Badge variant={APPROVAL_STATUS_VARIANT[item.approval_status]}>
-                          {item.approval_status}
-                        </Badge>
+                        <StatusBadge map={APPROVAL_STATUS} value={item.approval_status} />
                       </Cell>
                       <Cell label="Duration">
                         {totalDurationSeconds ? `${totalDurationSeconds}s` : "—"}

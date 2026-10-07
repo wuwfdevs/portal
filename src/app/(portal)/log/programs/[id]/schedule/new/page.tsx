@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram, listClockTemplates, listScheduleEntries } from "@/lib/log/queries";
 import { stationTodayISO } from "@/lib/log/timezone";
@@ -32,12 +33,12 @@ export default async function NewScheduleEntryPage({
 
   return (
     <div>
-      <Link href={programPath} className="text-xs font-semibold text-brand-link">
-        ← Back to {program.name}
-      </Link>
-      <h2 className="mt-2 mb-5 font-serif text-xl font-bold text-ink-900">
-        Add a time for {program.name}
-      </h2>
+      <PageHeader
+        as="h2"
+        back={{ href: programPath, label: `Back to ${program.name}` }}
+        title={`Add a time for ${program.name}`}
+        className="mb-5"
+      />
       {templates.length === 0 ? (
         <p className="text-sm text-ink-500">
           Create a{" "}

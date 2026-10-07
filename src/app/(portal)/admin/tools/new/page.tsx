@@ -1,7 +1,9 @@
-import Link from "next/link";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
-import { FieldHint, Input, Label } from "@/components/ui/input";
+import { Field, Input } from "@/components/ui/input";
 import { createProposedTool } from "../actions";
 
 /**
@@ -19,28 +21,23 @@ export default async function NewProposedToolPage({
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link href="/admin/tools" className="text-xs font-semibold text-brand-link">
-          ← Back to tools
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4">
-          <h1 className="font-serif text-[17px] font-bold text-ink-900">New proposed tool</h1>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-500">
-            A proposal is a registry row for something nobody has built. It stays off the dashboard,
-            cannot be granted to anyone, and exists so requests on the Roadmap can point at it and
-            be counted together. Change its status here once it is really being built.
-          </p>
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: "/admin/tools", label: "Back to tools" }}
+        title="New proposed tool"
+        description="A proposal is a registry row for something nobody has built. It stays off the dashboard, cannot be granted to anyone, and exists so requests on the Roadmap can point at it and be counted together. Change its status here once it is really being built."
+      />
+      <Card>
         <form action={createProposedTool} className="flex flex-col gap-4 p-5">
           {error && <Alert>{error}</Alert>}
-          <div>
-            <Label htmlFor="name">Name</Label>
+          <Field label="Name" htmlFor="name">
             <Input id="name" name="name" required placeholder="Newsletter Builder" />
-          </div>
-          <div>
-            <Label htmlFor="key">Key</Label>
+          </Field>
+          <Field
+            label="Key"
+            htmlFor="key"
+            hint="Lowercase letters, numbers, and hyphens. Permanent — it is the identifier authorization keys off if this ever becomes a real tool."
+          >
             <Input
               id="key"
               name="key"
@@ -48,37 +45,28 @@ export default async function NewProposedToolPage({
               placeholder="newsletter-builder"
               pattern="[a-z0-9][a-z0-9\-]*"
             />
-            <FieldHint>
-              Lowercase letters, numbers, and hyphens. Permanent — it is the identifier
-              authorization keys off if this ever becomes a real tool.
-            </FieldHint>
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
+          </Field>
+          <Field label="Description" htmlFor="description">
             <Input
               id="description"
               name="description"
               required
               placeholder="What it would do, in a sentence."
             />
-          </div>
-          <div>
-            <Label htmlFor="sort_order">Sort order</Label>
+          </Field>
+          <Field
+            label="Sort order"
+            htmlFor="sort_order"
+            hint="Only affects ordering in lists. Proposals sit after real tools by default."
+          >
             <Input id="sort_order" name="sort_order" type="number" defaultValue={99} />
-            <FieldHint>
-              Only affects ordering in lists. Proposals sit after real tools by default.
-            </FieldHint>
-          </div>
+          </Field>
           <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-            <Link href="/admin/tools">
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </Link>
+            <SecondaryLink href="/admin/tools">Cancel</SecondaryLink>
             <Button type="submit">Create proposal</Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

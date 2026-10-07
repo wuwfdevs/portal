@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, FieldError } from "@/components/ui/input";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import {
   bboxForOffsetRange,
@@ -284,7 +285,7 @@ export function DocumentWorkspace({
             </Button>
             <span className="text-sm text-ink-700">
               Page{" "}
-              <input
+              <Input
                 type="number"
                 min={1}
                 max={pageCount}
@@ -293,7 +294,7 @@ export function DocumentWorkspace({
                   const next = Number(event.target.value);
                   if (Number.isFinite(next)) setCurrentPage(Math.min(Math.max(next, 1), pageCount));
                 }}
-                className="w-12 rounded border border-line px-1 py-0.5 text-center text-base sm:text-sm"
+                className="inline-block w-12 px-1 py-0.5 text-center"
               />{" "}
               of {pageCount}
             </span>
@@ -439,9 +440,9 @@ export function DocumentWorkspace({
           onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
         >
           <div>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">
+            <SectionHeading level="eyebrow" className="mb-2">
               Excerpts from this document
-            </h2>
+            </SectionHeading>
             {excerpts.length === 0 ? (
               <p className="text-sm text-ink-500">
                 Select text above and save it as an excerpt to see it here.
@@ -492,16 +493,17 @@ export function DocumentWorkspace({
                     {excerpt.excerpt && (
                       <p className="line-clamp-2 text-sm text-ink-700">{excerpt.excerpt}</p>
                     )}
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
                       onClick={(event) => {
                         event.stopPropagation();
                         void handleDeleteExcerpt(excerpt.id);
                       }}
-                      className="mt-1 text-xs text-ink-400 hover:text-danger"
+                      className="mt-1 font-normal text-ink-400 hover:text-danger"
                     >
                       Delete
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

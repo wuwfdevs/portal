@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy, type CopyListRow } from "@/lib/underwriting/queries";
 import { isPortalAssignedCut, needsRecording } from "@/lib/underwriting/dad-cut";
@@ -10,13 +10,9 @@ import { Button } from "@/components/ui/button";
 import { setCopyRecorded } from "../copy-actions";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
-
-const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
-  draft: "neutral",
-  approved: "success",
-  expired: "muted",
-  retired: "muted",
-};
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
 
 const FILTERS = ["all", "approved", "draft", "to-record", "needs-cut", "inactive"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -107,12 +103,7 @@ export default async function CopyLibraryPage({
         ]}
       >
         {isAdministrator && (
-          <Link
-            href="/underwriting/setup/migration/copy"
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            Import from RadioTraffic
-          </Link>
+          <TextLink href="/underwriting/setup/migration/copy">Import from RadioTraffic</TextLink>
         )}
         <PrimaryLink href="/underwriting/copy/new">
           <span>
@@ -122,13 +113,13 @@ export default async function CopyLibraryPage({
       </ListToolbar>
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {copy.length === 0
             ? "No copy yet — usually created from a contract's own page."
             : filter === "to-record"
               ? "Nothing to record. Every message that can air has its recording in DAD."
               : "No copy matches."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -146,12 +137,7 @@ export default async function CopyLibraryPage({
               {shown.map((item) => (
                 <Row key={item.id}>
                   <Cell stack="title">
-                    <Link
-                      href={`/underwriting/copy/${item.id}`}
-                      className="font-bold text-brand-link"
-                    >
-                      {item.label}
-                    </Link>
+                    <TextLink href={`/underwriting/copy/${item.id}`}>{item.label}</TextLink>
                     {item.underwriter_name && (
                       <div className="text-xs text-ink-500">{item.underwriter_name}</div>
                     )}
@@ -202,9 +188,7 @@ export default async function CopyLibraryPage({
                     )}
                   </Cell>
                   <Cell stack="aside">
-                    <Badge variant={APPROVAL_VARIANT[item.approval_status]}>
-                      {item.approval_status}
-                    </Badge>
+                    <StatusBadge map={COPY_APPROVAL_STATUS} value={item.approval_status} />
                   </Cell>
                 </Row>
               ))}

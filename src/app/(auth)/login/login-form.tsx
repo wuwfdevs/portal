@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, FieldError } from "@/components/ui/input";
 import { requestSignInLink, type LoginState } from "./actions";
+import { Alert } from "@/components/ui/alert";
+import { SecondaryLink } from "@/components/ui/primary-link";
 
 const initialState: LoginState = { status: "idle" };
 
@@ -13,28 +14,29 @@ export function LoginForm() {
 
   if (state.status === "sent") {
     return (
-      <div className="rounded border border-success-border bg-success-bg p-4">
-        <p className="text-sm text-ink-700">
+      <Alert variant="success" className="p-4 text-sm">
+        <p>
           Check your email — we sent a sign-in link to <strong>{state.email}</strong>. It&apos;s
           valid for 15 minutes.
         </p>
-      </div>
+      </Alert>
     );
   }
 
   if (state.status === "no_account") {
     return (
-      <div className="rounded border border-line bg-panel-50 p-4">
-        <p className="text-sm text-ink-700">
+      <Alert variant="note" className="p-4 text-sm">
+        <p className="text-ink-700">
           We couldn&apos;t find an account for <strong>{state.email}</strong>. If you&apos;re new
           here, request access instead — an administrator will review it.
         </p>
-        <Link href={`/request-access?email=${encodeURIComponent(state.email)}`}>
-          <Button variant="secondary" className="mt-3">
-            Request access
-          </Button>
-        </Link>
-      </div>
+        <SecondaryLink
+          href={`/request-access?email=${encodeURIComponent(state.email)}`}
+          className="mt-3"
+        >
+          Request access
+        </SecondaryLink>
+      </Alert>
     );
   }
 
@@ -42,11 +44,13 @@ export function LoginForm() {
     <form action={formAction}>
       <Label htmlFor="email">Work or university email</Label>
       <Input id="email" name="email" type="email" placeholder="you@wuwf.org" required autoFocus />
-      {state.status === "error" && <p className="mt-1.5 text-xs text-danger">{state.message}</p>}
+      {state.status === "error" && <FieldError>{state.message}</FieldError>}
       <Button type="submit" disabled={isPending} className="mt-4 w-full">
         {isPending ? "Sending…" : "Send sign-in link"}
       </Button>
-      <p className="mt-3.5 text-xs text-ink-400">We&apos;ll email a one-time link. No password to remember.</p>
+      <p className="mt-3.5 text-xs text-ink-400">
+        We&apos;ll email a one-time link. No password to remember.
+      </p>
     </form>
   );
 }

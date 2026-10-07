@@ -1,7 +1,7 @@
 // Pure state derivation and labels for the pipeline. No Supabase, no React —
 // colocated tests cover it directly, per CLAUDE.md's testing expectations.
 
-import type { BadgeVariant } from "@/components/ui/badge";
+import { defineStatusMap } from "@/components/ui/status-badge";
 import type { ApDisposition, ApStage } from "@/lib/database.types";
 
 /** The seven primary kanban columns, in pipeline order. */
@@ -34,12 +34,24 @@ export const DISPOSITION_LABEL: Record<ApDisposition, string> = {
   archived: "Archived",
 };
 
-export const DISPOSITION_BADGE: Record<ApDisposition, BadgeVariant> = {
-  deferred: "warning",
-  declined: "danger",
-  withdrawn: "muted",
-  archived: "neutral",
-};
+/** The stage badge: render with `<StatusBadge map={STAGE_STATUS} value={stage} />`. */
+export const STAGE_STATUS = defineStatusMap<ApStage>({
+  new: { label: STAGE_LABEL.new, variant: "accent" },
+  reviewing: { label: STAGE_LABEL.reviewing, variant: "accent" },
+  meeting_requested: { label: STAGE_LABEL.meeting_requested, variant: "accent" },
+  scoping: { label: STAGE_LABEL.scoping, variant: "accent" },
+  approved: { label: STAGE_LABEL.approved, variant: "accent" },
+  active: { label: STAGE_LABEL.active, variant: "accent" },
+  completed: { label: STAGE_LABEL.completed, variant: "accent" },
+});
+
+/** The disposition badge: render with `<StatusBadge map={DISPOSITION_STATUS} value={disposition} />`. */
+export const DISPOSITION_STATUS = defineStatusMap<ApDisposition>({
+  deferred: { label: DISPOSITION_LABEL.deferred, variant: "warning" },
+  declined: { label: DISPOSITION_LABEL.declined, variant: "danger" },
+  withdrawn: { label: DISPOSITION_LABEL.withdrawn, variant: "muted" },
+  archived: { label: DISPOSITION_LABEL.archived, variant: "neutral" },
+});
 
 /** A reason is required for the three ways a submission closes early, not for archiving — mirrors the ap_submissions_disposition_reason_check constraint. */
 export function dispositionRequiresReason(disposition: ApDisposition): boolean {

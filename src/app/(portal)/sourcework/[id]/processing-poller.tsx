@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRefreshPoller } from "@/lib/use-refresh-poller";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -16,12 +15,6 @@ const POLL_INTERVAL_MS = 5000;
  * realtime infrastructure for.
  */
 export function ProcessingPoller() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const timer = setInterval(() => router.refresh(), POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [router]);
-
+  useRefreshPoller({ intervalMs: POLL_INTERVAL_MS });
   return null;
 }

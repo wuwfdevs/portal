@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Label, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Select, Textarea } from "@/components/ui/input";
 import { buildMailtoUrl, interpolateTemplate } from "@/lib/academic-partnerships/email";
 import type { ApEmailTemplateRow } from "@/lib/academic-partnerships/queries";
 import { recordEmailAction, sendInquiryEmail } from "../actions";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 /**
  * Two ways an email leaves this system, both logged identically afterward
@@ -46,7 +47,9 @@ export function EmailPanel({
         : null,
     [template, submission.faculty_name, appointmentsUrl, staffContext],
   );
-  const mailto = interpolated ? buildMailtoUrl(submission.email, interpolated.subject, interpolated.body) : null;
+  const mailto = interpolated
+    ? buildMailtoUrl(submission.email, interpolated.subject, interpolated.body)
+    : null;
   const isMeetingInvite = templateKey === "meeting_invite";
 
   async function copyDraft() {
@@ -58,11 +61,12 @@ export function EmailPanel({
 
   return (
     <section className="rounded border border-line p-4">
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-400">Email</h2>
+      <SectionHeading level="eyebrow" className="mb-3">
+        Email
+      </SectionHeading>
 
       <div className="flex flex-col gap-3">
-        <div>
-          <Label htmlFor="template_key">Template</Label>
+        <Field label="Template" htmlFor="template_key">
           <Select
             id="template_key"
             value={templateKey}
@@ -74,7 +78,7 @@ export function EmailPanel({
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
 
         {isMeetingInvite && !appointmentsUrl && (
           <Alert variant="note">
@@ -83,8 +87,7 @@ export function EmailPanel({
           </Alert>
         )}
 
-        <div>
-          <Label htmlFor="staff_context">Add context (optional)</Label>
+        <Field label="Add context (optional)" htmlFor="staff_context">
           <Textarea
             id="staff_context"
             rows={3}
@@ -92,7 +95,7 @@ export function EmailPanel({
             onChange={(event) => setStaffContext(event.target.value)}
             placeholder="A sentence or two specific to this inquiry"
           />
-        </div>
+        </Field>
 
         {interpolated && (
           <div className="rounded border border-line bg-panel-50 p-3">
@@ -113,14 +116,18 @@ export function EmailPanel({
             <input type="hidden" name="body" value={interpolated.body} />
             {isMeetingInvite && (
               <>
-                <label className="flex items-start gap-2 text-xs text-ink-700">
-                  <input type="checkbox" name="move_to_meeting_requested" defaultChecked className="mt-0.5" />
-                  Move this submission to Meeting Requested
-                </label>
-                <label className="flex items-start gap-2 text-xs text-ink-700">
-                  <input type="checkbox" name="appointment_link_shared" defaultChecked className="mt-0.5" />
-                  Record that the appointments link was included
-                </label>
+                <CheckboxField
+                  name="move_to_meeting_requested"
+                  defaultChecked
+                  className="text-xs"
+                  label="Move this submission to Meeting Requested"
+                />
+                <CheckboxField
+                  name="appointment_link_shared"
+                  defaultChecked
+                  className="text-xs"
+                  label="Record that the appointments link was included"
+                />
               </>
             )}
             <Button type="submit" className="self-start">
@@ -141,34 +148,41 @@ export function EmailPanel({
             {copied ? "Copied" : "Copy draft"}
           </Button>
           {sendingConfigured && !showManual && (
-            <button
-              type="button"
-              onClick={() => setShowManual(true)}
-              className="text-xs font-semibold text-brand-link hover:underline"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowManual(true)}>
               I sent this myself instead
-            </button>
+            </Button>
           )}
         </div>
 
         {showManual && (
-          <form action={recordEmailAction} className="flex flex-col gap-2 border-t border-line pt-3">
+          <form
+            action={recordEmailAction}
+            className="flex flex-col gap-2 border-t border-line pt-3"
+          >
             <input type="hidden" name="submission_id" value={submission.id} />
             <input type="hidden" name="template_key" value={templateKey} />
             <input type="hidden" name="template_label" value={template?.label ?? ""} />
             {isMeetingInvite && (
               <>
-                <label className="flex items-start gap-2 text-xs text-ink-700">
-                  <input type="checkbox" name="move_to_meeting_requested" defaultChecked className="mt-0.5" />
-                  Move this submission to Meeting Requested
-                </label>
-                <label className="flex items-start gap-2 text-xs text-ink-700">
-                  <input type="checkbox" name="appointment_link_shared" defaultChecked className="mt-0.5" />
-                  Record that the appointments link was included
-                </label>
+                <CheckboxField
+                  name="move_to_meeting_requested"
+                  defaultChecked
+                  className="text-xs"
+                  label="Move this submission to Meeting Requested"
+                />
+                <CheckboxField
+                  name="appointment_link_shared"
+                  defaultChecked
+                  className="text-xs"
+                  label="Record that the appointments link was included"
+                />
               </>
             )}
-            <Button type="submit" variant={sendingConfigured ? "secondary" : "primary"} className="self-start">
+            <Button
+              type="submit"
+              variant={sendingConfigured ? "secondary" : "primary"}
+              className="self-start"
+            >
               I sent this email
             </Button>
           </form>

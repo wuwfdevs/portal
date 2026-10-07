@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import { deleteContract } from "../../contract-actions";
 
 /**
@@ -22,63 +21,25 @@ export function DeleteContractControl({
   label: string;
 }) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    setBusy(true);
     const result = await deleteContract(contractId);
-    setBusy(false);
-    if (result.error) {
-      setConfirming(false);
-      setError(result.error);
-      return;
-    }
+    if (result.error) return { error: result.error };
     router.push("/underwriting/contracts");
   }
 
   return (
-    <section className="rounded border border-danger/30 bg-danger/[0.04] px-5 py-4">
-      <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-danger">
-        Danger zone
-      </h2>
-      {!confirming ? (
-        <Button
-          type="button"
-          variant="secondary"
-          className="text-danger"
-          onClick={() => setConfirming(true)}
-        >
-          Delete this draft
-        </Button>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          <p className="text-xs leading-relaxed text-ink-700">
-            This permanently deletes the draft &ldquo;{label}&rdquo; — its schedule lines, flights,
-            copy links and attached agreement. Copy in the library stays. This can&apos;t be undone.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={busy}
-              className="rounded bg-danger px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:bg-panel-100 disabled:text-ink-400"
-            >
-              {busy ? "Deleting…" : "Yes, delete the draft"}
-            </button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setConfirming(false)}
-              disabled={busy}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
-    </section>
+    <ConfirmAction
+      title="Danger zone"
+      label="Delete this draft"
+      confirmLabel="Yes, delete the draft"
+      message={
+        <>
+          This permanently deletes the draft &ldquo;{label}&rdquo; — its schedule lines, flights,
+          copy links and attached agreement. Copy in the library stays. This can&apos;t be undone.
+        </>
+      }
+      onConfirm={handleDelete}
+    />
   );
 }

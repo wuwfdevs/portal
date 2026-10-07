@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -40,6 +39,9 @@ import {
 import { formatDateShort } from "@/lib/log/program-status";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { weekDates } from "@/lib/log/week-layout";
+import { TextLink } from "@/components/ui/primary-link";
+import { StatTile } from "@/components/ui/stat-tile";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 /**
  * The Dashboard (docs/bookings-design.md §4): the term's capacity bar, the
@@ -94,14 +96,9 @@ export default async function BookingsDashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Dashboard</h2>
+        <SectionHeading>Dashboard</SectionHeading>
         <span className="flex-1" />
-        <Link
-          href="/bookings/report"
-          className="px-1 text-sm font-bold text-brand-link hover:underline"
-        >
-          Term report
-        </Link>
+        <TextLink href="/bookings/report">Term report</TextLink>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -121,12 +118,7 @@ export default async function BookingsDashboard() {
                   key={`${item.projectId}-${item.kind}`}
                   className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm"
                 >
-                  <Link
-                    href={requestHref(item.projectId)}
-                    className="font-semibold text-brand-link hover:underline"
-                  >
-                    {item.title}
-                  </Link>
+                  <TextLink href={requestHref(item.projectId)}>{item.title}</TextLink>
                   <span className="text-ink-700">{item.label}</span>
                 </li>
               ))}
@@ -135,12 +127,9 @@ export default async function BookingsDashboard() {
                   key={`${item.agreementId}-${item.kind}`}
                   className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm"
                 >
-                  <Link
-                    href={agreementHref(item.partnerId, item.agreementId)}
-                    className="font-semibold text-brand-link hover:underline"
-                  >
+                  <TextLink href={agreementHref(item.partnerId, item.agreementId)}>
                     {item.label}
-                  </Link>
+                  </TextLink>
                   <span className="text-ink-700">{item.text}</span>
                 </li>
               ))}
@@ -177,12 +166,9 @@ export default async function BookingsDashboard() {
                       </Cell>
                       <Cell label="What">
                         {booking.project_id && projectTitle.has(booking.project_id) ? (
-                          <Link
-                            href={requestHref(booking.project_id)}
-                            className="font-semibold text-brand-link hover:underline"
-                          >
+                          <TextLink href={requestHref(booking.project_id)}>
                             {projectTitle.get(booking.project_id)}
-                          </Link>
+                          </TextLink>
                         ) : (
                           booking.label
                         )}
@@ -206,25 +192,25 @@ export default async function BookingsDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile
+        <StatTile
           label="Requests"
           value={countAt("request")}
           hint="awaiting an estimate"
           href={withQuery(REQUESTS_PATH, { view: "request" })}
         />
-        <Tile
+        <StatTile
           label="Estimates out"
           value={countAt("estimate")}
           hint="holding dates tentatively"
           href={withQuery(REQUESTS_PATH, { view: "estimate" })}
         />
-        <Tile
+        <StatTile
           label="Booked"
           value={countAt("booked")}
           hint="dates confirmed"
           href={withQuery(REQUESTS_PATH, { view: "booked" })}
         />
-        <Tile
+        <StatTile
           label="Delivered"
           value={countAt("delivered")}
           hint="awaiting settlement"
@@ -236,12 +222,7 @@ export default async function BookingsDashboard() {
         <Alert variant="note">
           No term plan is active, so there is no capacity to show.{" "}
           {context.isDirector ? (
-            <Link
-              href={withQuery(PLAN_PATH, { new: "1" })}
-              className="font-bold text-brand-link hover:underline"
-            >
-              Create the term plan.
-            </Link>
+            <TextLink href={withQuery(PLAN_PATH, { new: "1" })}>Create the term plan.</TextLink>
           ) : (
             "The Director of Operations creates it on the Calendar tab."
           )}
@@ -255,12 +236,9 @@ export default async function BookingsDashboard() {
               hours across tracked classes; a project day is 8
             </span>
             <span className="flex-1" />
-            <Link
-              href={CALENDAR_PATH}
-              className="text-xs font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={CALENDAR_PATH} className="text-xs">
               Calendar
-            </Link>
+            </TextLink>
           </div>
           {total && total.net > 0 ? (
             <CapacityBar
@@ -319,8 +297,8 @@ function CapacityBar({
   const shown = segments.filter((s) => s.hours > 0);
   return (
     <div className="flex flex-col gap-2">
-      <div
-        className="flex h-4 w-full overflow-hidden rounded border border-line"
+      <Card
+        className="flex h-4 w-full overflow-hidden"
         role="img"
         aria-label={segments.map((s) => `${s.label} ${formatHours(s.hours)}`).join("; ")}
       >
@@ -332,7 +310,7 @@ function CapacityBar({
             title={`${s.label}: ${formatHours(s.hours)}`}
           />
         ))}
-      </div>
+      </Card>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
         {segments.map((s) => (
           <span key={s.label}>
@@ -346,28 +324,5 @@ function CapacityBar({
         <span className="text-ink-500">of {formatHours(net)} net</span>
       </div>
     </div>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  hint,
-  href,
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col gap-0.5 rounded border border-line bg-white p-4 hover:border-brand-primary"
-    >
-      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">{label}</span>
-      <span className="text-2xl font-semibold text-ink-900">{value}</span>
-      <span className="text-[11px] text-ink-500">{hint}</span>
-    </Link>
   );
 }

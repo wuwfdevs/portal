@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatChangeWhen,
+  formatEffectiveRange,
   formatWindowHours,
   localFormValues,
   programsInWindow,
@@ -14,6 +15,13 @@ describe("formatWindowHours", () => {
   it("reads as clock times", () => {
     expect(formatWindowHours("20:00:00", "05:00:00")).toBe("8:00 PM – 5:00 AM");
     expect(formatWindowHours("13:00:00", "17:00:00")).toBe("1:00 PM – 5:00 PM");
+  });
+});
+
+describe("formatEffectiveRange", () => {
+  it("shows the end date only when there is one", () => {
+    expect(formatEffectiveRange("2026-10-07", null)).toBe("Oct 7, 2026");
+    expect(formatEffectiveRange("2026-10-07", "2026-11-02")).toBe("Oct 7, 2026 – Nov 2, 2026");
   });
 });
 

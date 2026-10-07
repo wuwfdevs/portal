@@ -1,21 +1,17 @@
-import Link from "next/link";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, CheckboxField } from "@/components/ui/input";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { shortDate } from "@/lib/underwriting/dates";
 import type { ContractDetail, UwAffidavitRow } from "@/lib/underwriting/queries";
-import type { UwRevisionStatus } from "@/lib/database.types";
 import { updateContractPolicy } from "../../contract-actions";
 import { ContractDocumentUpload } from "../../contract-document-upload";
 import { revisionName } from "./revision-panels";
-
-export const REVISION_STATUS_VARIANT: Record<UwRevisionStatus, BadgeVariant> = {
-  draft: "warning",
-  current: "success",
-  superseded: "muted",
-  cancelled: "muted",
-};
+import { TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { REVISION_STATUS } from "@/lib/underwriting/status";
 
 /** How the contract's separation rule reads to a person. */
 export function separationSummary(contract: ContractDetail): string {
@@ -84,7 +80,7 @@ export function AgreementTab({
         ))}
       </nav>
 
-      <section id="signed-agreement" className="scroll-mt-4 rounded border border-line">
+      <Card id="signed-agreement" className="scroll-mt-4">
         <h3 className={sectionHeader}>Signed agreement</h3>
         <div className="p-5">
           <ContractDocumentUpload
@@ -92,18 +88,18 @@ export function AgreementTab({
             existingPath={contract.agreement_document_path}
           />
         </div>
-      </section>
+      </Card>
 
-      <section id="traffic-policy" className="scroll-mt-4 rounded border border-line">
+      <Card id="traffic-policy" className="scroll-mt-4">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="text-sm font-bold text-ink-900">Traffic policy</h3>
           {!editingPolicy && (
-            <Link
+            <TextLink
               href={`${base}?tab=agreement&edit=policy#traffic-policy`}
-              className="text-[13px] font-semibold text-brand-link"
+              className="text-[13px]"
             >
               Edit
-            </Link>
+            </TextLink>
           )}
         </div>
         {editingPolicy ? (
@@ -132,24 +128,16 @@ export function AgreementTab({
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="affidavit_required"
-                className="h-4 w-4"
-                defaultChecked={contract.affidavit_required}
-              />
-              Affidavit required
-            </label>
-            <label className="flex items-center gap-2 text-sm text-ink-700">
-              <input
-                type="checkbox"
-                name="makegood_requires_agency_approval"
-                className="h-4 w-4"
-                defaultChecked={contract.makegood_requires_agency_approval}
-              />
-              Makegoods need agency approval
-            </label>
+            <CheckboxField
+              name="affidavit_required"
+              defaultChecked={contract.affidavit_required}
+              label="Affidavit required"
+            />
+            <CheckboxField
+              name="makegood_requires_agency_approval"
+              defaultChecked={contract.makegood_requires_agency_approval}
+              label="Makegoods need agency approval"
+            />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="separation_source_text">Separation, as the order prints it</Label>
@@ -188,36 +176,26 @@ export function AgreementTab({
               <Button type="submit" variant="secondary">
                 Save policy
               </Button>
-              <Link
-                href={`${base}?tab=agreement#traffic-policy`}
-                className="text-[13px] font-semibold text-brand-link"
-              >
+              <TextLink href={`${base}?tab=agreement#traffic-policy`} className="text-[13px]">
                 Cancel
-              </Link>
+              </TextLink>
             </div>
           </form>
         ) : (
-          <dl className="px-5 py-2 text-[13px]">
-            {policyRows.map(([term, value]) => (
-              <div
-                key={term}
-                className="flex flex-col gap-0.5 border-b border-line py-2 last:border-b-0 sm:flex-row sm:justify-between sm:gap-4"
-              >
-                <dt className="text-ink-500">{term}</dt>
-                <dd className="font-semibold text-ink-900 sm:text-right">{value}</dd>
-              </div>
-            ))}
-          </dl>
+          <DescriptionList
+            className="px-5 py-3"
+            items={policyRows.map(([label, value]) => ({ label, value }))}
+          />
         )}
-      </section>
+      </Card>
 
-      <section id="affidavits" className="scroll-mt-4 rounded border border-line">
+      <Card id="affidavits" className="scroll-mt-4">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="text-sm font-bold text-ink-900">Affidavits</h3>
           {newAffidavitHref && (
-            <Link href={newAffidavitHref} className="text-[13px] font-semibold text-brand-link">
+            <TextLink href={newAffidavitHref} className="text-[13px]">
               Generate an affidavit
-            </Link>
+            </TextLink>
           )}
         </div>
         {affidavits.length === 0 ? (
@@ -235,12 +213,9 @@ export function AgreementTab({
                 key={affidavit.id}
                 className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
               >
-                <Link
-                  href={`/underwriting/affidavits/${affidavit.id}`}
-                  className="font-semibold text-brand-link"
-                >
+                <TextLink href={`/underwriting/affidavits/${affidavit.id}`}>
                   {affidavit.campaign_period_start} – {affidavit.campaign_period_end}
-                </Link>
+                </TextLink>
                 {affidavit.status === "certified" ? (
                   <Badge variant="success">
                     {affidavit.certified_at
@@ -254,9 +229,9 @@ export function AgreementTab({
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section id="revisions" className="scroll-mt-4 rounded border border-line">
+      <Card id="revisions" className="scroll-mt-4">
         <h3 className={sectionHeader}>Revisions</h3>
         {contract.revisions.length === 0 ? (
           <p className="px-5 py-4 text-sm text-ink-500">No revisions.</p>
@@ -273,9 +248,7 @@ export function AgreementTab({
                     <span className="font-semibold text-ink-900">
                       {revisionName(revision, index)}
                     </span>
-                    <Badge variant={REVISION_STATUS_VARIANT[revision.status]}>
-                      {revision.status}
-                    </Badge>
+                    <StatusBadge map={REVISION_STATUS} value={revision.status} />
                     <span className="text-xs text-ink-400">
                       effective {revision.effective_from}
                       {revision.received_at ? ` · received ${revision.received_at}` : ""}
@@ -283,12 +256,9 @@ export function AgreementTab({
                     </span>
                   </span>
                   {revision.status === "draft" ? (
-                    <Link
-                      href={`${base}?activate=1`}
-                      className="text-[13px] font-semibold text-brand-link"
-                    >
+                    <TextLink href={`${base}?activate=1`} className="text-[13px]">
                       Review and activate
-                    </Link>
+                    </TextLink>
                   ) : (
                     revision.notes && <span className="text-xs text-ink-500">{revision.notes}</span>
                   )}
@@ -297,7 +267,7 @@ export function AgreementTab({
             })}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

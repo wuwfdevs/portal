@@ -308,7 +308,8 @@ export function RundownItemCard({
                             name="library_content_type"
                             autoFocus
                             defaultValue="host_created"
-                            className="w-full py-1 text-xs font-normal"
+                            compact
+                            className="w-full font-normal"
                           >
                             {(Object.keys(CONTENT_TYPE_LABEL) as LogContentType[]).map((type) => (
                               <option key={type} value={type}>
@@ -316,12 +317,7 @@ export function RundownItemCard({
                               </option>
                             ))}
                           </Select>
-                          <Button
-                            type="submit"
-                            variant="secondary"
-                            disabled={!connected}
-                            className="px-2.5 py-1.5 text-xs"
-                          >
+                          <Button type="submit" variant="secondary" size="sm" disabled={!connected}>
                             Save to library
                           </Button>
                         </form>
@@ -345,7 +341,8 @@ export function RundownItemCard({
                                 closeMenu();
                               }
                             }}
-                            className="w-full py-1 text-xs font-normal"
+                            compact
+                            className="w-full font-normal"
                           >
                             <option value="">Choose a break…</option>
                             {moveDestinations.map((destination) => (

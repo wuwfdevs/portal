@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatTile } from "@/components/ui/stat-tile";
 import { describeDuration } from "@/lib/audience-listening/media";
 import type { AlAnswer, AlQuery, AlQuestion, AlSubmission } from "@/lib/audience-listening/queries";
 
@@ -26,21 +28,21 @@ export function OverviewTab({
   return (
     <div className="flex flex-col gap-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Submissions" value={String(submissions.length)} />
-        <Stat label="Answers" value={String(uploaded.length)} />
-        <Stat label="Unreviewed" value={unreviewed > 0 ? String(unreviewed) : "—"} />
-        <Stat
+        <StatTile label="Submissions" value={String(submissions.length)} />
+        <StatTile label="Answers" value={String(uploaded.length)} />
+        <StatTile label="Unreviewed" value={unreviewed > 0 ? String(unreviewed) : "—"} />
+        <StatTile
           label="Sent to transcription"
           value={uploaded.length > 0 ? `${transcribed} / ${uploaded.length}` : "—"}
         />
       </div>
 
       <section>
-        <h2 className="mb-3 font-serif text-[17px] font-bold text-ink-900">Question sequence</h2>
+        <SectionHeading className="mb-3">Question sequence</SectionHeading>
         {questions.length === 0 ? (
-          <p className="max-w-md rounded border border-dashed border-line p-5 text-sm text-ink-500">
+          <EmptyState compact className="max-w-md">
             No questions yet. Add at least one before opening this query.
-          </p>
+          </EmptyState>
         ) : (
           <ol className="flex flex-col gap-2">
             {questions.map((question) => (
@@ -71,21 +73,12 @@ export function OverviewTab({
 
       {query.internal_notes && (
         <section>
-          <h2 className="mb-3 font-serif text-[17px] font-bold text-ink-900">Internal notes</h2>
+          <SectionHeading className="mb-3">Internal notes</SectionHeading>
           <p className="max-w-2xl whitespace-pre-wrap rounded border border-line bg-panel-50 p-4 text-sm leading-relaxed text-ink-700">
             {query.internal_notes}
           </p>
         </section>
       )}
     </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="px-4 py-3.5">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</div>
-      <div className="mt-1 font-serif text-[22px] font-bold text-ink-900">{value}</div>
-    </Card>
   );
 }

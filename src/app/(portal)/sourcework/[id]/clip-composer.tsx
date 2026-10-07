@@ -89,23 +89,18 @@ export function ClipComposer({
         {error && <p className="mb-2 text-xs text-danger">{error}</p>}
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            onClick={handleCreate}
-            disabled={isPending}
-            className="px-3 py-1.5 text-xs"
-          >
+          <Button type="button" size="sm" onClick={handleCreate} disabled={isPending}>
             {isPending ? "Creating…" : "Create excerpt"}
           </Button>
           <Button
             type="button"
             variant="secondary"
+            size="sm"
             onClick={() => onPreview(selection.startMs, selection.endMs)}
-            className="px-3 py-1.5 text-xs"
           >
             Preview
           </Button>
-          <Button type="button" variant="ghost" onClick={onCancel} className="px-2 py-1.5 text-xs">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Cancel
           </Button>
         </div>

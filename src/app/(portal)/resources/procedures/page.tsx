@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -46,17 +48,13 @@ export default async function ProceduresListPage({
 
   return (
     <>
-      <Link href="/resources" className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to resources
-      </Link>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-ink-900">Station procedures</h1>
-          <p className="mt-1 text-xs text-ink-400">
-            SOPs written and kept current by designated editors, grouped by area.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        back={{ href: "/resources", label: "Back to resources" }}
+        title="Station procedures"
+        description="SOPs written and kept current by designated editors, grouped by area."
+      />
 
       <ListToolbar
         chips={[
@@ -81,9 +79,9 @@ export default async function ProceduresListPage({
       </ListToolbar>
 
       {rows.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {activeArea ? `No procedures in ${activeArea} yet.` : "No procedures yet."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>

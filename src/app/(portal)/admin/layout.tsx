@@ -1,4 +1,5 @@
 import { requireAdministrator } from "@/lib/auth/authz";
+import { PageHeader } from "@/components/ui/page-header";
 import { AdminNav } from "./admin-nav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -6,9 +7,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="px-6 py-7 sm:px-8 sm:pb-12">
-      <h1 className="mb-3 font-serif text-2xl font-bold text-ink-900">
-        User &amp; access administration
-      </h1>
+      <PageHeader size="page" className="mb-3" title="User & access administration" />
       <AdminNav />
       {children}
     </div>

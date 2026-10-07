@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { PARTNERS_PATH } from "@/lib/bookings/paths";
 import { createPartner } from "../actions";
 import { PartnerForm } from "../partner-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function NewPartnerPage({
   searchParams,
@@ -14,10 +14,7 @@ export default async function NewPartnerPage({
   if (!context.isProduction && !context.isDirector && !context.isExecutive) redirect(PARTNERS_PATH);
   return (
     <div className="flex flex-col gap-4">
-      <Link href={PARTNERS_PATH} className="inline-block text-xs font-semibold text-brand-link">
-        ← Partners
-      </Link>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">New partner</h2>
+      <PageHeader back={{ href: PARTNERS_PATH, label: "Partners" }} title="New partner" />
       <PartnerForm
         action={createPartner}
         submitLabel="Add partner"

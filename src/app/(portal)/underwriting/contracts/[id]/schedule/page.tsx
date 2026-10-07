@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,8 @@ import {
   parseAgreementReading,
   proposeScheduleFromModelOutput,
 } from "@/lib/underwriting/agreement-import";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * Setup step 2: the order's schedule, one line per printed instruction
@@ -95,9 +96,9 @@ export default async function ContractSchedulePage({
       />
 
       <section aria-labelledby="entered" className="mb-5 flex flex-col gap-2.5">
-        <h3 id="entered" className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+        <SectionHeading level="eyebrow" as="h3" id="entered">
           Lines entered · {views.length}
-        </h3>
+        </SectionHeading>
         {views.length === 0 ? (
           <p className="text-sm text-ink-500">None yet — add the first one below.</p>
         ) : (
@@ -129,12 +130,12 @@ export default async function ContractSchedulePage({
                   )}
                   {rewritable && (
                     <div className="flex items-center gap-1">
-                      <Link
+                      <TextLink
                         href={`/underwriting/contracts/${contract.id}/lines/${view.scheduleLine.id}/edit?return_to=schedule`}
-                        className="inline-flex items-center justify-center rounded px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                        className="text-[13px]"
                       >
                         Edit
-                      </Link>
+                      </TextLink>
                       <form action={removeDraftScheduleLine}>
                         <input type="hidden" name="contract_id" value={contract.id} />
                         <input type="hidden" name="schedule_line_id" value={view.scheduleLine.id} />

@@ -1,11 +1,10 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Select } from "@/components/ui/input";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { FieldHint, Input, Label, Select, CheckboxField } from "@/components/ui/input";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 import type { UwCopyApprovalStatus } from "@/lib/database.types";
 import { estimateReadSeconds, countWords } from "@/lib/log/read-time";
@@ -29,13 +28,17 @@ import {
 import { createCopy, setCopyStatus, updateCopyDetails } from "../../copy-actions";
 import { CopyFormFields } from "../../copy/copy-form";
 import { LineActions } from "./line-actions";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { defineStatusMap, StatusBadge } from "@/components/ui/status-badge";
+import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
 
-const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
-  draft: "warning",
-  approved: "success",
-  expired: "muted",
-  retired: "muted",
-};
+// A draft message on a contract is a warning, not neutral: nothing places it
+// until someone approves it.
+const APPROVAL_STATUS = defineStatusMap<UwCopyApprovalStatus>({
+  ...COPY_APPROVAL_STATUS,
+  draft: { label: "draft", variant: "warning" },
+});
 
 export interface CopyPanelParams {
   new?: string;
@@ -123,18 +126,15 @@ export async function ContractCopyPanel({
       {params.error && !openCard && <Alert>{params.error}</Alert>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+        <SectionHeading level="eyebrow" as="h3">
           {surface === "tab"
             ? `Messages in rotation · ${approved} approved`
             : `Messages · ${contract.copy.length} linked${awaiting > 0 ? ` · ${awaiting} awaiting approval` : ""}`}
-        </h3>
+        </SectionHeading>
         <span className="flex-1" />
-        <Link
-          href={withQuery("link=1")}
-          className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-        >
+        <SecondaryLink size="sm" href={withQuery("link=1")}>
           Link existing…
-        </Link>
+        </SecondaryLink>
         <PrimaryLink href={withQuery("new=1")} className="px-3 py-2 text-[13px]">
           + New message
         </PrimaryLink>
@@ -148,17 +148,11 @@ export async function ContractCopyPanel({
           cancelHref={pagePath}
           sections={
             <div className="border-t border-line px-5 py-3">
-              <label className="flex items-start gap-2 text-sm text-ink-700">
-                <input type="checkbox" name="approve_now" className="mt-0.5 h-4 w-4" />
-                <span>
-                  <span className="font-semibold">Approved — ready to place</span>
-                  <span className="mt-0.5 block text-xs leading-snug text-ink-400">
-                    Tick this when the sponsor has already signed off on the wording, as it usually
-                    has by the time an order is entered. Left off, the message is a draft and
-                    nothing places it until someone approves it.
-                  </span>
-                </span>
-              </label>
+              <CheckboxField
+                name="approve_now"
+                label={<span className="font-semibold">Approved — ready to place</span>}
+                hint="Tick this when the sponsor has already signed off on the wording, as it usually has by the time an order is entered. Left off, the message is a draft and nothing places it until someone approves it."
+              />
             </div>
           }
         >
@@ -251,11 +245,11 @@ export async function ContractCopyPanel({
       )}
 
       {contract.copy.length === 0 && openCard !== "new" && (
-        <div className="rounded border border-dashed border-line px-5 py-6 text-sm text-ink-500">
+        <EmptyState compact>
           No messages yet. A contract needs at least one approved message before anything places —
           write the first one, or link one of {contract.underwriter.name}&apos;s from a previous
           order.
-        </div>
+        </EmptyState>
       )}
 
       {contract.copy.map((item) =>
@@ -281,12 +275,9 @@ export async function ContractCopyPanel({
                       {(context.otherContractsByCopy.get(item.id) ?? []).map((other, index) => (
                         <span key={other.id}>
                           {index > 0 && ", "}
-                          <Link
-                            href={`/underwriting/contracts/${other.id}?tab=copy`}
-                            className="font-semibold text-brand-link"
-                          >
+                          <TextLink href={`/underwriting/contracts/${other.id}?tab=copy`}>
                             {orderNumberLabel(other.contractIdentifier)}
-                          </Link>{" "}
+                          </TextLink>{" "}
                           ({other.underwriterName})
                         </span>
                       ))}{" "}
@@ -294,12 +285,9 @@ export async function ContractCopyPanel({
                     </>
                   )}
                 </span>
-                <Link
-                  href={`/underwriting/copy/${item.id}`}
-                  className="shrink-0 font-semibold text-brand-link"
-                >
+                <TextLink href={`/underwriting/copy/${item.id}`} className="shrink-0">
                   Open in copy library ↗
-                </Link>
+                </TextLink>
               </div>
             }
           >
@@ -539,7 +527,7 @@ function CopyCard({
         <span id={`copy_${item.id}`} className="text-sm font-bold text-ink-900">
           {item.label}
         </span>
-        <Badge variant={APPROVAL_VARIANT[item.approval_status]}>{item.approval_status}</Badge>
+        <StatusBadge map={APPROVAL_STATUS} value={item.approval_status} />
         {lineId && !lineIsCurrent && (
           // A revision replaced the line this message was dedicated to; until
           // it is set again it serves no line of the current revision.
@@ -547,18 +535,12 @@ function CopyCard({
         )}
         <span className="text-[13px] text-ink-500">{meta}</span>
         <span className="flex-1" />
-        <Link
-          href={editHref}
-          className="px-1 text-[13px] font-bold text-brand-link hover:underline"
-        >
+        <TextLink href={editHref} className="text-[13px]">
           Edit
-        </Link>
-        <Link
-          href={`/underwriting/copy/${item.id}`}
-          className="px-1 text-[13px] font-bold text-brand-link hover:underline"
-        >
+        </TextLink>
+        <TextLink href={`/underwriting/copy/${item.id}`} className="text-[13px]">
           Library
-        </Link>
+        </TextLink>
         <form action={unlinkCopyFromContract}>
           <input type="hidden" name="contract_id" value={contract.id} />
           <input type="hidden" name="copy_id" value={item.id} />

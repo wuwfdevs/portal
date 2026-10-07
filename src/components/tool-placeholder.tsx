@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { ToolIcon } from "@/components/tool-icon";
 import type { Tool } from "@/lib/tools";
+import { TextLink } from "@/components/ui/primary-link";
 
 export function ToolPlaceholder({ tool }: { tool: Tool }) {
   const statusCopy =
@@ -25,9 +25,7 @@ export function ToolPlaceholder({ tool }: { tool: Tool }) {
             ? "Nobody has built it — it exists so requests on the Roadmap have something to point at."
             : "It isn't available yet — check back, or contact an administrator with questions."}
         </p>
-        <Link href="/dashboard" className="text-sm font-semibold text-brand-link">
-          ← Back to Dashboard
-        </Link>
+        <TextLink href="/dashboard">← Back to Dashboard</TextLink>
       </div>
     </div>
   );

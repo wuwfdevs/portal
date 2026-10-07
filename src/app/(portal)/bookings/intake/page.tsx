@@ -1,9 +1,8 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Label, Textarea } from "@/components/ui/input";
+import { FieldHint, Label, Textarea, CheckboxField } from "@/components/ui/input";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { REQUESTS_PATH } from "@/lib/bookings/paths";
 import { getIntakeSettings } from "@/lib/bookings/queries";
@@ -11,6 +10,9 @@ import { getSiteUrl } from "@/lib/site-url";
 import { formatDateShort } from "@/lib/log/program-status";
 import { updateIntakeSettings } from "./actions";
 import { SharePanel } from "./share-panel";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { DescriptionList } from "@/components/ui/description-list";
 
 /**
  * The public request form's settings and its embed snippet (docs/
@@ -30,11 +32,11 @@ export default async function IntakeSettingsPage({
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <Link href={REQUESTS_PATH} className="text-xs font-bold text-brand-link hover:underline">
+        <TextLink href={REQUESTS_PATH} className="text-xs">
           ← Requests
-        </Link>
+        </TextLink>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">The public request form</h2>
+          <SectionHeading>The public request form</SectionHeading>
           <Badge variant={settings.is_open ? "success" : "neutral"}>
             {settings.is_open ? "Taking requests" : "Closed"}
           </Badge>
@@ -62,10 +64,11 @@ export default async function IntakeSettingsPage({
           </div>
           {canEdit ? (
             <form action={updateIntakeSettings} className="flex flex-col gap-4 px-5 py-4">
-              <label className="flex items-center gap-2 text-sm font-semibold text-ink-800">
-                <input type="checkbox" name="is_open" defaultChecked={settings.is_open} />
-                Taking requests
-              </label>
+              <CheckboxField
+                name="is_open"
+                defaultChecked={settings.is_open}
+                label="Taking requests"
+              />
               <div>
                 <Label htmlFor="intro_copy">Introduction</Label>
                 <Textarea
@@ -112,26 +115,23 @@ export default async function IntakeSettingsPage({
               </div>
             </form>
           ) : (
-            <dl className="grid grid-cols-1 gap-4 px-5 py-4 text-sm">
-              <div>
-                <dt className="text-xs font-semibold text-ink-500">Introduction</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap text-ink-800">{settings.intro_copy}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold text-ink-500">After a request is sent</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap text-ink-800">
-                  {settings.confirmation_copy}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold text-ink-500">While the form is closed</dt>
-                <dd className="mt-0.5 whitespace-pre-wrap text-ink-800">{settings.closed_copy}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold text-ink-500">Services offered</dt>
-                <dd className="mt-0.5 text-ink-800">{settings.offered_packages.join(", ")}</dd>
-              </div>
-            </dl>
+            <DescriptionList
+              className="px-5 py-4"
+              items={[
+                { label: "Introduction", value: settings.intro_copy, preserveLines: true },
+                {
+                  label: "After a request is sent",
+                  value: settings.confirmation_copy,
+                  preserveLines: true,
+                },
+                {
+                  label: "While the form is closed",
+                  value: settings.closed_copy,
+                  preserveLines: true,
+                },
+                { label: "Services offered", value: settings.offered_packages.join(", ") },
+              ]}
+            />
           )}
           <p className="border-t border-line px-5 py-3 text-xs text-ink-400">
             Last changed {formatDateShort(settings.updated_at.slice(0, 10))}.

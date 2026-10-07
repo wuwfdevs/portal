@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { PartnerShell } from "./partner-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { PublicShell } from "@/components/ui/public-shell";
 
 /**
  * Catches a genuine failure loading the form. A broken read says so out loud
@@ -17,8 +18,8 @@ export default function PartnerError({
   reset: () => void;
 }) {
   return (
-    <PartnerShell embedded={false}>
-      <h1 className="font-serif text-[20px] font-bold text-ink-900">Something went wrong</h1>
+    <PublicShell embedded={false}>
+      <PageHeader size="public" title="Something went wrong" />
       <p className="mt-2 text-[15px] leading-relaxed text-ink-700">
         This is a problem on WUWF&apos;s side, not with anything you did.
       </p>
@@ -31,6 +32,6 @@ export default function PartnerError({
           Try again
         </Button>
       </div>
-    </PartnerShell>
+    </PublicShell>
   );
 }

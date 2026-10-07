@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { FileInput, Input, Textarea, Label, FieldError, FieldHint } from "@/components/ui/input";
 import {
   TRANSCRIPTION_MEDIA_BUCKET,
   isAllowedDocumentType,
@@ -143,15 +143,13 @@ export function NewProjectForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <Label htmlFor="media">Audio/video file, or PDF</Label>
-        <input
+        <FileInput
           ref={fileInputRef}
           id="media"
           name="media"
-          type="file"
           accept="audio/*,video/*,application/pdf"
           disabled={isPending}
           onChange={handleFileChange}
-          className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
         />
         <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
       </div>
@@ -175,7 +173,7 @@ export function NewProjectForm() {
       </div>
       <div>
         <Label htmlFor="description">Notes (optional)</Label>
-        <textarea
+        <Textarea
           id="description"
           name="description"
           rows={3}
@@ -185,7 +183,6 @@ export function NewProjectForm() {
               : "Context for this interview — where, why, who set it up"
           }
           disabled={isPending}
-          className="w-full rounded border border-line px-3 py-2.5 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-surface disabled:bg-panel-50 sm:text-sm"
         />
       </div>
 

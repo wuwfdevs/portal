@@ -1,7 +1,7 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Steps } from "@/components/ui/steps";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * The header every step of contract setup shares (docs/underwriting-
@@ -35,12 +35,12 @@ export function WizardHeader({
   return (
     <div className="mb-6 flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Link
+        <TextLink
           href={current === 0 ? "/underwriting/contracts" : (base ?? "/underwriting/contracts")}
-          className="text-xs font-semibold text-brand-link"
+          className="text-xs"
         >
           ← {current === 0 ? "Contracts" : "Contract"}
-        </Link>
+        </TextLink>
         {contract ? (
           <div className="flex flex-wrap items-baseline gap-3">
             <h2 className="font-serif text-xl font-bold text-ink-900">

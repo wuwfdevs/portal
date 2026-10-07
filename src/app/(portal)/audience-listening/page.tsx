@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { listQueries } from "@/lib/audience-listening/queries";
 import { QUERY_STATUS_BADGE } from "@/lib/audience-listening/review";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/format";
 
@@ -19,28 +20,21 @@ export default async function AudienceListeningPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1.5 font-serif text-[28px] font-bold text-ink-900">
-            Audience Listening
-          </h1>
-          <p className="max-w-xl text-[15px] text-ink-500">
-            Recorded callouts you publish into a story, and the responses that come back — grouped
-            by participant, with consent on the record.
-          </p>
-        </div>
-        <Link href="/audience-listening/new">
-          <Button>New query</Button>
-        </Link>
-      </div>
+      <PageHeader
+        size="page"
+        className="mb-8"
+        title="Audience Listening"
+        description="Recorded callouts you publish into a story, and the responses that come back — grouped by participant, with consent on the record."
+        actions={<PrimaryLink href="/audience-listening/new">New query</PrimaryLink>}
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
       {queries.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+        <EmptyState className="leading-relaxed">
           No queries yet. Create one, add up to five questions, and you&apos;ll get a public link
           and an embed to drop into a story.
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack className="md:min-w-[820px]">
@@ -62,12 +56,12 @@ export default async function AudienceListeningPage({
                   return (
                     <Row key={query.id}>
                       <Cell stack="title">
-                        <Link
+                        <TextLink
                           href={`/audience-listening/${query.id}`}
-                          className="font-semibold text-brand-link"
+                          className="px-0 font-semibold"
                         >
                           {query.internal_title}
-                        </Link>
+                        </TextLink>
                         <p className="mt-0.5 max-w-md truncate text-xs text-ink-400">
                           {query.public_title}
                         </p>

@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { BookShell } from "./book-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { PublicShell } from "@/components/ui/public-shell";
 
 /**
  * A genuine failure loading the form says so out loud rather than rendering
@@ -16,8 +17,8 @@ export default function BookError({
   reset: () => void;
 }) {
   return (
-    <BookShell embedded={false}>
-      <h1 className="font-serif text-[20px] font-bold text-ink-900">Something went wrong</h1>
+    <PublicShell embedded={false}>
+      <PageHeader size="public" title="Something went wrong" />
       <p className="mt-2 text-[15px] leading-relaxed text-ink-700">
         This is a problem on WUWF&apos;s side, not with anything you did.
       </p>
@@ -30,6 +31,6 @@ export default function BookError({
           Try again
         </Button>
       </div>
-    </BookShell>
+    </PublicShell>
   );
 }

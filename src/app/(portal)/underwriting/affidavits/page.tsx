@@ -18,7 +18,8 @@ import {
 import { monthLabel, shortDate } from "@/lib/underwriting/dates";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { generateAffidavitsForMonth } from "../affidavit-actions";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * Workflow G as one list per month (docs/underwriting-traffic-redesign.md
@@ -117,9 +118,9 @@ export default async function AffidavitsPage({
           {otherMonths.map((other, index) => (
             <span key={other.month}>
               {index > 0 && ", "}
-              <Link href={monthHref(other.month)} className="font-semibold text-brand-link">
+              <TextLink href={monthHref(other.month)}>
                 {monthLabel(`${other.month}-01`)} ({other.count})
-              </Link>
+              </TextLink>
             </span>
           ))}
         </Alert>
@@ -165,12 +166,9 @@ export default async function AffidavitsPage({
                     )}
                   </Cell>
                   <Cell label="Order" className="text-ink-500">
-                    <Link
-                      href={`/underwriting/contracts/${row.contract.id}?tab=agreement`}
-                      className="text-brand-link"
-                    >
+                    <TextLink href={`/underwriting/contracts/${row.contract.id}?tab=agreement`}>
                       {orderNumberLabel(row.contract.contract_identifier)}
-                    </Link>
+                    </TextLink>
                   </Cell>
                   <Cell label="Period" className="whitespace-nowrap text-ink-500">
                     {shortDate(row.periodStart)} – {shortDate(row.periodEnd)}
@@ -193,21 +191,21 @@ export default async function AffidavitsPage({
                       </form>
                     ) : row.state === "sign" && row.affidavit ? (
                       isManager ? (
-                        <Link
+                        <PrimaryLink
                           href={`/underwriting/affidavits/${row.affidavit.id}?signing=1`}
-                          className="inline-flex items-center rounded bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-[#2278B8]"
+                          className="px-3 py-1.5 text-xs"
                         >
                           Sign
-                        </Link>
+                        </PrimaryLink>
                       ) : (
                         <span className="flex flex-wrap items-center gap-2">
                           <Badge variant="accent">Waiting for signature</Badge>
-                          <Link
+                          <TextLink
                             href={`/underwriting/affidavits/${row.affidavit.id}`}
-                            className="text-xs font-semibold text-brand-link"
+                            className="text-xs"
                           >
                             Preview
-                          </Link>
+                          </TextLink>
                         </span>
                       )
                     ) : row.affidavit ? (
@@ -218,12 +216,12 @@ export default async function AffidavitsPage({
                             ? ` ${shortDate(stationTodayISO(row.affidavit.certifiedAt))}`
                             : ""}
                         </Badge>
-                        <Link
+                        <TextLink
                           href={`/underwriting/affidavits/${row.affidavit.id}`}
-                          className="text-xs font-semibold text-brand-link"
+                          className="text-xs"
                         >
                           Open
-                        </Link>
+                        </TextLink>
                         <a
                           href={`/api/underwriting/affidavits/${row.affidavit.id}/pdf`}
                           target="_blank"
@@ -240,13 +238,10 @@ export default async function AffidavitsPage({
                         {row.earlier.map((earlier, index) => (
                           <span key={earlier.id}>
                             {index > 0 && ", "}
-                            <Link
-                              href={`/underwriting/affidavits/${earlier.id}`}
-                              className="text-brand-link"
-                            >
+                            <TextLink href={`/underwriting/affidavits/${earlier.id}`}>
                               {earlier.status === "certified" ? "signed" : "draft"}{" "}
                               {shortDate(stationTodayISO(earlier.generatedAt))}
-                            </Link>
+                            </TextLink>
                           </span>
                         ))}
                       </div>
@@ -258,18 +253,11 @@ export default async function AffidavitsPage({
           </Table>
         </TableFrame>
       )}
-      {allRows.length > 0 && rows.length === 0 && (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No affidavits match.
-        </div>
-      )}
+      {allRows.length > 0 && rows.length === 0 && <EmptyState>No affidavits match.</EmptyState>}
 
-      <Link
-        href={newAffidavitHref({})}
-        className="self-start text-sm font-semibold text-brand-link"
-      >
+      <TextLink href={newAffidavitHref({})} className="self-start">
         Generate one by hand
-      </Link>
+      </TextLink>
     </div>
   );
 }

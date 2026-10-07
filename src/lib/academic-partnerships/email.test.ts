@@ -26,9 +26,9 @@ describe("interpolateTemplate", () => {
 
   it("leaves staff context blank rather than literal", () => {
     const result = interpolateTemplate(template, { facultyName: "Dr. Rivera" });
-    expect(result.body.trim().endsWith("book here: (no scheduling link has been configured yet)")).toBe(
-      true,
-    );
+    expect(
+      result.body.trim().endsWith("book here: (no scheduling link has been configured yet)"),
+    ).toBe(true);
   });
 });
 

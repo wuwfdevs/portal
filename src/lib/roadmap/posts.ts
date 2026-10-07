@@ -2,18 +2,18 @@
 // Supabase, no React — colocated tests cover it directly, per CLAUDE.md's
 // testing expectations.
 
-import type { BadgeVariant } from "@/components/ui/badge";
+import { defineStatusMap } from "@/components/ui/status-badge";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 import { RICH_TEXT_MAX_CHARACTERS } from "@/lib/rich-text";
 
-export const POST_STATUS_BADGE: Record<RdPostStatus, { label: string; variant: BadgeVariant }> = {
+export const POST_STATUS_BADGE = defineStatusMap<RdPostStatus>({
   open: { label: "Open", variant: "muted" },
   under_review: { label: "Under review", variant: "warning" },
   planned: { label: "Planned", variant: "neutral" },
   in_progress: { label: "In progress", variant: "accent" },
   shipped: { label: "Shipped", variant: "success" },
   declined: { label: "Declined", variant: "danger" },
-};
+});
 
 export const POST_KIND_LABEL: Record<RdPostKind, string> = {
   feature: "New capability",

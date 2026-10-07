@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { buildTranscriptText } from "@/lib/transcription/transcript";
 import { buildTranscriptExportFilename } from "@/lib/transcription/media";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
@@ -56,20 +57,12 @@ export function TranscriptExport({
 
   return (
     <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="text-xs font-semibold text-brand-link hover:underline"
-      >
+      <Button type="button" variant="link" onClick={handleCopy} className="text-brand-link">
         {status === "copied" ? "Copied" : "Copy transcript"}
-      </button>
-      <button
-        type="button"
-        onClick={handleDownload}
-        className="text-xs font-semibold text-brand-link hover:underline"
-      >
+      </Button>
+      <Button type="button" variant="link" onClick={handleDownload} className="text-brand-link">
         Download .txt
-      </button>
+      </Button>
       {status === "failed" && (
         <span className="text-xs text-danger">Couldn&apos;t copy — download it instead.</span>
       )}

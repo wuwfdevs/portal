@@ -3,38 +3,18 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import type { ProjectSourceSummary } from "@/lib/transcription/projects";
-import { processingLabel, type ProjectStatus } from "@/lib/transcription/status";
-import type { SwSourceKind } from "@/lib/database.types";
+import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
 import type { LibraryClip } from "@/lib/transcription/clips";
 import { ClipLibrary } from "@/components/transcription/clip-library";
 import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import { AddSourceModal } from "./add-source-modal";
 import { listProjectExcerptsAction, searchProjectAction } from "./workspace-search-actions";
-
-const KIND_LABEL: Record<SwSourceKind, string> = {
-  audio_video: "Audio",
-  document: "PDF",
-};
-
-function statusBadge(
-  status: ProjectStatus,
-  kind: SwSourceKind,
-): { label: string; variant: "accent" | "neutral" | "muted" | "danger" } {
-  switch (status) {
-    case "ready":
-      return { label: "Ready", variant: "accent" };
-    case "uploading":
-      return { label: "Uploading", variant: "neutral" };
-    case "processing":
-      return { label: processingLabel(kind), variant: "neutral" };
-    case "failed":
-      return { label: "Failed", variant: "danger" };
-  }
-}
 
 /**
  * Switches between a card grid of every source this project references and
@@ -139,9 +119,7 @@ export function SourceCardGrid({
       {isBrowsing ? (
         <>
           <div className="mb-5">
-            <Link href="/sourcework" className="text-xs font-semibold text-brand-link">
-              ← Back to projects
-            </Link>
+            <TextLink href="/sourcework">← Back to projects</TextLink>
           </div>
           {projectHeader}
 
@@ -153,8 +131,9 @@ export function SourceCardGrid({
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   onClick={() => setIsAdding(true)}
-                  className="shrink-0 px-3 py-1.5 text-xs"
+                  className="shrink-0"
                 >
                   + Add source
                 </Button>
@@ -177,7 +156,6 @@ export function SourceCardGrid({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {sources.map((s) => {
                     const isActive = s.sourceId === activeSourceId;
-                    const badge = statusBadge(s.status, s.source.kind);
                     return (
                       <Link
                         key={s.sourceId}
@@ -191,18 +169,14 @@ export function SourceCardGrid({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                            {KIND_LABEL[s.source.kind]}
+                            {SOURCE_KIND_LABEL[s.source.kind]}
                           </span>
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                          <StatusBadge map={projectStatusMap(s.source.kind)} value={s.status} />
                         </div>
                         <p className="font-semibold text-ink-900">{s.source.title}</p>
                         <p className="text-xs text-ink-500">
-                          {new Date(
-                            s.source.interview_date ?? s.source.created_at,
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
+                          {formatShortDate(s.source.interview_date ?? s.source.created_at, {
+                            year: true,
                           })}
                           {s.source.kind === "document"
                             ? s.source.page_count
@@ -226,23 +200,26 @@ export function SourceCardGrid({
         </>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={() => {
-              // Flip the local view immediately (instant, no flash while the
-              // navigation below is in flight), but also actually clear
-              // `?source=` from the URL — otherwise re-picking the very same
-              // source from the grid is a Link to the URL we're already on,
-              // which Next treats as a no-op: activeSourceId/startOnList
-              // never change, so the navigationKey effect above never fires
-              // and clicking the card does nothing.
-              setIsBrowsing(true);
-              router.push(`/sourcework/${projectId}`, { scroll: false });
-            }}
-            className="mb-3 block text-xs font-semibold text-brand-link"
-          >
-            ← All sources in this project ({sources.length})
-          </button>
+          <div className="mb-3">
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => {
+                // Flip the local view immediately (instant, no flash while the
+                // navigation below is in flight), but also actually clear
+                // `?source=` from the URL — otherwise re-picking the very same
+                // source from the grid is a Link to the URL we're already on,
+                // which Next treats as a no-op: activeSourceId/startOnList
+                // never change, so the navigationKey effect above never fires
+                // and clicking the card does nothing.
+                setIsBrowsing(true);
+                router.push(`/sourcework/${projectId}`, { scroll: false });
+              }}
+              className="text-brand-link"
+            >
+              ← All sources in this project ({sources.length})
+            </Button>
+          </div>
           {sourceHeader}
           {children}
         </>

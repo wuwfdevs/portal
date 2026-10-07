@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { controlClasses, FieldHint, Input, Label, Select } from "@/components/ui/input";
+import { Field, FieldHint, Input, Select } from "@/components/ui/input";
+import { TextLink } from "@/components/ui/primary-link";
 import { cn } from "@/lib/cn";
 import {
   describeDaysOfWeek,
@@ -210,8 +211,7 @@ export function ScheduleEditor({
         </fieldset>
 
         <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-          <div className="w-40">
-            <Label htmlFor="air_time">Starts at</Label>
+          <Field className="w-40" label="Starts at" htmlFor="air_time">
             <Input
               id="air_time"
               name="air_time"
@@ -220,9 +220,8 @@ export function ScheduleEditor({
               value={airTime}
               onChange={(event) => setAirTime(event.target.value)}
             />
-          </div>
-          <div className="w-36">
-            <Label htmlFor="duration_minutes">Length (minutes)</Label>
+          </Field>
+          <Field className="w-36" label="Length (minutes)" htmlFor="duration_minutes">
             <Input
               id="duration_minutes"
               name="duration_minutes"
@@ -232,7 +231,7 @@ export function ScheduleEditor({
               value={duration}
               onChange={(event) => setDuration(event.target.value)}
             />
-          </div>
+          </Field>
           <div className="flex gap-1.5 pb-1.5">
             {LENGTH_CHIPS.map((chip) => (
               <button
@@ -255,8 +254,7 @@ export function ScheduleEditor({
         <FieldHint>May span multiple hours — the clock repeats each hour.</FieldHint>
 
         <div className="flex flex-wrap gap-5">
-          <div className="w-full sm:w-52">
-            <Label htmlFor="start_date">Starting</Label>
+          <Field className="w-full sm:w-52" label="Starting" htmlFor="start_date">
             <Input
               id="start_date"
               name="start_date"
@@ -265,24 +263,53 @@ export function ScheduleEditor({
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
             />
-          </div>
-          <div className="w-full sm:w-52">
-            <Label htmlFor="end_date">Ending (optional)</Label>
-            <input
+          </Field>
+          <Field className="w-full sm:w-52" label="Ending (optional)" htmlFor="end_date">
+            <Input
               id="end_date"
               name="end_date"
               type="date"
               ref={endRef}
-              className={controlClasses}
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
             />
-          </div>
+          </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="clock_template_id">Clock</Label>
+          <Field
+            label="Clock"
+            htmlFor="clock_template_id"
+            hint={
+              <>
+                {entry ? (
+                  <>
+                    Rundowns already generated keep the clock they were built from; the new clock
+                    applies to rundowns generated from now on.{" "}
+                  </>
+                ) : (
+                  <>
+                    Not listed?{" "}
+                    <Link
+                      href={`/log/clocks/new?from=${programId}`}
+                      className="font-semibold text-brand-link hover:underline"
+                    >
+                      Create a clock for this program
+                    </Link>
+                    .{" "}
+                  </>
+                )}
+                {selectedClock && (
+                  <Link
+                    href={`/log/clocks/${selectedClock.id}?from=${programId}`}
+                    className="font-semibold text-brand-link hover:underline"
+                  >
+                    Open this clock
+                  </Link>
+                )}
+              </>
+            }
+          >
             <Select
               id="clock_template_id"
               name="clock_template_id"
@@ -296,36 +323,8 @@ export function ScheduleEditor({
                 </option>
               ))}
             </Select>
-            <FieldHint>
-              {entry ? (
-                <>
-                  Rundowns already generated keep the clock they were built from; the new clock
-                  applies to rundowns generated from now on.{" "}
-                </>
-              ) : (
-                <>
-                  Not listed?{" "}
-                  <Link
-                    href={`/log/clocks/new?from=${programId}`}
-                    className="font-semibold text-brand-link hover:underline"
-                  >
-                    Create a clock for this program
-                  </Link>
-                  .{" "}
-                </>
-              )}
-              {selectedClock && (
-                <Link
-                  href={`/log/clocks/${selectedClock.id}?from=${programId}`}
-                  className="font-semibold text-brand-link hover:underline"
-                >
-                  Open this clock
-                </Link>
-              )}
-            </FieldHint>
-          </div>
-          <div>
-            <Label htmlFor="entry_type">Entry type</Label>
+          </Field>
+          <Field label="Entry type" htmlFor="entry_type">
             <Select
               id="entry_type"
               name="entry_type"
@@ -336,22 +335,18 @@ export function ScheduleEditor({
               <option value="override">Override</option>
               <option value="holiday">Holiday</option>
             </Select>
-          </div>
+          </Field>
         </div>
 
-        <div>
-          <Label htmlFor="notes">Notes</Label>
+        <Field label="Notes" htmlFor="notes">
           <Input id="notes" name="notes" maxLength={240} defaultValue={entry?.notes ?? undefined} />
-        </div>
+        </Field>
 
         <div className="flex flex-wrap items-center gap-4 border-t border-line pt-5">
           <Button type="submit">{submitLabel}</Button>
-          <Link
-            href={cancelHref}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
+          <TextLink href={cancelHref} className="hover:underline">
             Cancel
-          </Link>
+          </TextLink>
           <span className="flex-1" />
           <button
             type="button"
@@ -407,12 +402,12 @@ export function ScheduleEditor({
             Next airing: <b>{next ?? "—"}</b>
           </div>
           {ready && overlaps.length === 0 && (
-            <div className="rounded border border-success-fg/30 bg-success-bg px-3 py-2.5 text-sm text-success-fg">
+            <Alert variant="success" className="text-sm">
               No overlap with another program on these days.
-            </div>
+            </Alert>
           )}
           {ready && overlaps.length > 0 && (
-            <div className="rounded border border-warning-fg/30 bg-warning-bg px-3 py-2.5 text-sm text-warning-fg">
+            <Alert variant="warning" className="text-sm">
               <p className="font-semibold">
                 This overlaps{" "}
                 {overlaps.length === 1 ? "another entry" : `${overlaps.length} other entries`}. You
@@ -426,13 +421,13 @@ export function ScheduleEditor({
                   </li>
                 ))}
               </ul>
-            </div>
+            </Alert>
           )}
           {!ready && (
-            <div className="rounded border border-warning-fg/30 bg-warning-bg px-3 py-2.5 text-sm text-warning-fg">
+            <Alert variant="warning" className="text-sm">
               A schedule needs {recurring ? "at least one day, " : ""}a start time and a length
               above zero.
-            </div>
+            </Alert>
           )}
         </div>
       </aside>

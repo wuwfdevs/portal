@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireResourcesEditor } from "@/lib/resources/access";
 import { listProcedureAreaCounts } from "@/lib/resources/queries";
 import { ArticleForm } from "../../article-form";
@@ -13,13 +13,12 @@ export default async function NewProcedurePage({
 
   return (
     <>
-      <Link
-        href="/resources/procedures"
-        className="mb-5 inline-block text-xs font-semibold text-brand-link"
-      >
-        ← Back to procedures
-      </Link>
-      <h1 className="mb-6 font-serif text-2xl font-bold text-ink-900">New procedure</h1>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        back={{ href: "/resources/procedures", label: "Back to procedures" }}
+        title="New procedure"
+      />
       <ArticleForm
         kind="procedure"
         existingAreas={areaCounts.map((entry) => entry.area)}

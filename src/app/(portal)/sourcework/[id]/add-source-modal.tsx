@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { FileInput, Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { formatShortDate } from "@/lib/format";
+import { SOURCE_KIND_LABEL } from "@/lib/transcription/status";
 import { createClient } from "@/lib/supabase/client";
 import {
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -14,7 +16,6 @@ import {
   sourceObjectPath,
   titleFromFileName,
 } from "@/lib/transcription/media";
-import type { SwSourceKind } from "@/lib/database.types";
 import {
   listAttachableSources,
   attachSourceToProject,
@@ -23,11 +24,6 @@ import {
   failSourceUpload,
   type AttachableSource,
 } from "./source-actions";
-
-const KIND_LABEL: Record<SwSourceKind, string> = {
-  audio_video: "Audio",
-  document: "PDF",
-};
 
 type Mode = "find" | "upload";
 
@@ -62,18 +58,23 @@ export function AddSourceModal({
       >
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-ink-900">Add a source</p>
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={onClose}
-            className="text-xs font-semibold text-ink-400 hover:text-ink-700"
+            className="text-ink-400 hover:text-ink-700"
           >
             Close
-          </button>
+          </Button>
         </div>
 
         <div className="mb-3 flex gap-1.5">
           <ModeTab label="Find existing" active={mode === "find"} onClick={() => setMode("find")} />
-          <ModeTab label="Upload new" active={mode === "upload"} onClick={() => setMode("upload")} />
+          <ModeTab
+            label="Upload new"
+            active={mode === "upload"}
+            onClick={() => setMode("upload")}
+          />
         </div>
 
         {mode === "find" ? (
@@ -86,7 +87,15 @@ export function AddSourceModal({
   );
 }
 
-function ModeTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function ModeTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -174,17 +183,12 @@ function FindExistingPanel({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
                     <span className="mr-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-400">
-                      {KIND_LABEL[source.kind]}
+                      {SOURCE_KIND_LABEL[source.kind]}
                     </span>
                     {source.title}
                   </p>
                   <p className="text-xs text-ink-500">
-                    {source.interviewDate &&
-                      new Date(source.interviewDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                    {source.interviewDate && formatShortDate(source.interviewDate, { year: true })}
                     {source.kind === "document"
                       ? source.pageCount
                         ? ` · ${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
@@ -197,9 +201,10 @@ function FindExistingPanel({
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   disabled={attachingId === source.id}
                   onClick={() => handleAttach(source.id)}
-                  className="shrink-0 px-2.5 py-1 text-xs"
+                  className="shrink-0"
                 >
                   {attachingId === source.id ? "Attaching…" : "Reference"}
                 </Button>
@@ -330,15 +335,13 @@ function UploadNewPanel({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <Label htmlFor="media">Audio/video file, or PDF</Label>
-        <input
+        <FileInput
           ref={fileInputRef}
           id="media"
           name="media"
-          type="file"
           accept="audio/*,video/*,application/pdf"
           disabled={isPending}
           onChange={handleFileChange}
-          className="block w-full text-sm text-ink-700 file:mr-3 file:rounded file:border-0 file:bg-panel-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink-700 hover:file:bg-panel-50"
         />
         <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
       </div>
@@ -356,7 +359,9 @@ function UploadNewPanel({
             setTitleIsSuggested(event.target.value.trim() === "");
           }}
         />
-        <FieldHint>Taken from the file name — change it to whatever you&rsquo;ll look for later.</FieldHint>
+        <FieldHint>
+          Taken from the file name — change it to whatever you&rsquo;ll look for later.
+        </FieldHint>
       </div>
 
       {error && <FieldError>{error}</FieldError>}

@@ -12,6 +12,9 @@ import { helpContextForPath } from "@/lib/resources/screens";
 import { formatReleaseDate } from "@/lib/resources/articles";
 import type { HelpContent, HelpLink } from "@/lib/resources/help";
 import { loadHelp } from "@/app/(portal)/resources/help-actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 // The in-tool Help panel (docs/resources-design.md, "Help panel"): opened
 // from the Help button in the portal header on any tool page, it lists the
@@ -143,7 +146,9 @@ export function HelpPanel() {
 
           {content && content.results !== null && query.trim() !== "" ? (
             <section className="mt-5">
-              <Eyebrow>Results</Eyebrow>
+              <SectionHeading level="eyebrow" as="h3" className="mb-1">
+                Results
+              </SectionHeading>
               {content.results.length === 0 ? (
                 <p className="text-sm text-ink-500">No {content.tool.name} guide matches.</p>
               ) : (
@@ -154,23 +159,25 @@ export function HelpPanel() {
             content && (
               <>
                 <section className="mt-5">
-                  <Eyebrow>
+                  <SectionHeading level="eyebrow" as="h3" className="mb-1">
                     {content.screen ? "For this screen" : `${content.tool.name} guides`}
-                  </Eyebrow>
+                  </SectionHeading>
                   {content.guides.length === 0 ? (
-                    <div className="rounded border border-dashed border-line p-4 text-sm text-ink-500">
+                    <EmptyState compact>
                       No guide for this screen yet.{" "}
-                      <Link href={content.allGuidesHref} className="font-semibold text-brand-link">
+                      <TextLink href={content.allGuidesHref}>
                         All {content.tool.name} guides
-                      </Link>
-                    </div>
+                      </TextLink>
+                    </EmptyState>
                   ) : (
                     <GuideList links={content.guides} />
                   )}
                 </section>
                 {content.recent.length > 0 && (
                   <section className="mt-6">
-                    <Eyebrow>Changed recently</Eyebrow>
+                    <SectionHeading level="eyebrow" as="h3" className="mb-1">
+                      Changed recently
+                    </SectionHeading>
                     <ul>
                       {content.recent.map((note) => (
                         <li
@@ -207,20 +214,14 @@ export function HelpPanel() {
               Ask the assistant about {content.tool.name}
             </Button>
             <p className="mt-2 text-center">
-              <Link href={content.allGuidesHref} className="text-xs font-semibold text-brand-link">
+              <TextLink href={content.allGuidesHref} className="text-xs">
                 All {content.tool.name} guides
-              </Link>
+              </TextLink>
             </p>
           </div>
         )}
       </div>
     </aside>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">{children}</p>
   );
 }
 

@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { requestHref } from "@/lib/bookings/paths";
 import { getProjectDetail, listPartners } from "@/lib/bookings/queries";
 import { updateRequest } from "../../actions";
 import { RequestForm } from "../../request-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Edit a request's scope: the same form as `/requests/new`. */
 export default async function EditRequestPage({
@@ -25,10 +25,10 @@ export default async function EditRequestPage({
   if (!detail) notFound();
   return (
     <div className="flex flex-col gap-4">
-      <Link href={requestHref(id)} className="inline-block text-xs font-semibold text-brand-link">
-        ← {detail.project.title}
-      </Link>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Edit the request</h2>
+      <PageHeader
+        back={{ href: requestHref(id), label: detail.project.title }}
+        title="Edit the request"
+      />
       <RequestForm
         action={updateRequest}
         partners={partners}

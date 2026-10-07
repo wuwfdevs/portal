@@ -18,13 +18,7 @@ import {
   STAGE_LABEL,
   validateDispositionInput,
 } from "@/lib/academic-partnerships/pipeline";
-import type {
-  ApCapacity,
-  ApDisposition,
-  ApFit,
-  ApStage,
-  ApTiming,
-} from "@/lib/database.types";
+import type { ApCapacity, ApDisposition, ApFit, ApStage, ApTiming } from "@/lib/database.types";
 
 const LIST_PATH = "/academic-partnerships";
 
@@ -64,7 +58,13 @@ export async function setSubmissionStage(
 
   const { error } = await supabase
     .from("ap_submissions")
-    .update({ stage, disposition: null, disposition_reason: null, disposition_by: null, disposition_at: null })
+    .update({
+      stage,
+      disposition: null,
+      disposition_reason: null,
+      disposition_by: null,
+      disposition_at: null,
+    })
     .eq("id", submissionId);
   if (error) {
     console.error("Could not change stage", error);
@@ -125,9 +125,7 @@ export async function assignOwner(formData: FormData): Promise<void> {
     submissionId,
     actorId: profile.id,
     eventType: "owner_changed",
-    note: ownerId
-      ? `Assigned to ${names.get(ownerId) ?? "a colleague"}.`
-      : "Unassigned.",
+    note: ownerId ? `Assigned to ${names.get(ownerId) ?? "a colleague"}.` : "Unassigned.",
     metadata: { from_owner: before?.owner_id ?? null, to_owner: ownerId },
   });
   await logAuditEvent({
@@ -279,7 +277,12 @@ export async function reopenSubmission(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("ap_submissions")
-    .update({ disposition: null, disposition_reason: null, disposition_by: null, disposition_at: null })
+    .update({
+      disposition: null,
+      disposition_reason: null,
+      disposition_by: null,
+      disposition_at: null,
+    })
     .eq("id", submissionId);
   failIfError(error, path, "Could not reopen this submission");
 
@@ -336,7 +339,10 @@ export async function deleteSubmission(submissionId: string): Promise<{ error?: 
     action: "ap.submission.deleted",
     targetType: "ap_submission",
     targetId: submissionId,
-    metadata: { faculty_name: submission?.faculty_name ?? null, department: submission?.department ?? null },
+    metadata: {
+      faculty_name: submission?.faculty_name ?? null,
+      department: submission?.department ?? null,
+    },
   });
 
   revalidatePath(LIST_PATH);

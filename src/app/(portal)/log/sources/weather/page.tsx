@@ -1,6 +1,10 @@
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList, type DescriptionItem } from "@/components/ui/description-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CardHeader, SectionHeading } from "@/components/ui/section-heading";
 import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { refreshWeatherAction } from "../../weather-actions";
 import { LogPoller } from "../../log-poller";
@@ -19,6 +23,31 @@ export default async function WeatherPage({
 }) {
   const { error } = await searchParams;
   const { reading, stale, refreshError } = await getCurrentWeatherReading();
+  const details: DescriptionItem[] = reading
+    ? [
+        ...(reading.current_temp !== null || reading.current_conditions !== null
+          ? [
+              {
+                label: "Now",
+                value: `${reading.current_temp !== null ? `${reading.current_temp}°` : ""}${
+                  reading.current_temp !== null && reading.current_conditions !== null ? " " : ""
+                }${reading.current_conditions ?? ""}`,
+              },
+            ]
+          : []),
+        {
+          label: "High / Low",
+          value: `${reading.high_temp ?? "—"}° / ${reading.low_temp ?? "—"}°`,
+        },
+        { label: "Conditions", value: reading.conditions_summary },
+        ...(reading.precipitation_notes
+          ? [{ label: "Precipitation", value: reading.precipitation_notes }]
+          : []),
+        { label: "Last updated", value: formatStationTimestamp(reading.last_updated_at) },
+        { label: "Valid through", value: formatStationTimestamp(reading.valid_through_at) },
+        { label: "Source", value: reading.source },
+      ]
+    : [];
 
   return (
     <div className="max-w-2xl">
@@ -37,17 +66,17 @@ export default async function WeatherPage({
       )}
 
       {!reading ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           No weather reading yet. Click Refresh to fetch the current forecast.
           <form action={refreshWeatherAction} className="mt-4">
             <Button type="submit">Refresh</Button>
           </form>
-        </div>
+        </EmptyState>
       ) : (
-        <div className="rounded border border-line">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
+        <Card>
+          <CardHeader className="flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-ink-900">{reading.forecast_area}</span>
+              <span>{reading.forecast_area}</span>
               {stale && <Badge variant="warning">Stale</Badge>}
             </div>
             <form action={refreshWeatherAction}>
@@ -55,69 +84,33 @@ export default async function WeatherPage({
                 Refresh
               </Button>
             </form>
-          </div>
+          </CardHeader>
           <div className="flex flex-col gap-4 p-5 text-sm text-ink-700">
             {reading.hazards && <Alert variant="danger">{reading.hazards}</Alert>}
 
             <div>
-              <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-400">
+              <SectionHeading level="eyebrow" as="h3" className="mb-1.5">
                 Forecast
-              </div>
+              </SectionHeading>
               <WeatherOutlookStrip
                 days={getDailyOutlook(reading)}
-                liveRead={{ periods: getForecastPeriods(reading), fallbackText: reading.live_read_text }}
+                liveRead={{
+                  periods: getForecastPeriods(reading),
+                  fallbackText: reading.live_read_text,
+                }}
               />
             </div>
 
             <div>
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-400">
+              <SectionHeading level="eyebrow" as="h3" className="mb-1">
                 Condensed (for a tight break)
-              </div>
+              </SectionHeading>
               <p>{reading.condensed_text}</p>
             </div>
 
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
-              {(reading.current_temp !== null || reading.current_conditions !== null) && (
-                <div>
-                  <dt className="text-ink-400">Now</dt>
-                  <dd className="font-semibold text-ink-900">
-                    {reading.current_temp !== null && `${reading.current_temp}°`}
-                    {reading.current_temp !== null && reading.current_conditions !== null && " "}
-                    {reading.current_conditions}
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-ink-400">High / Low</dt>
-                <dd className="font-semibold text-ink-900">
-                  {reading.high_temp ?? "—"}° / {reading.low_temp ?? "—"}°
-                </dd>
-              </div>
-              <div>
-                <dt className="text-ink-400">Conditions</dt>
-                <dd>{reading.conditions_summary}</dd>
-              </div>
-              {reading.precipitation_notes && (
-                <div>
-                  <dt className="text-ink-400">Precipitation</dt>
-                  <dd>{reading.precipitation_notes}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-ink-400">Last updated</dt>
-                <dd>{formatStationTimestamp(reading.last_updated_at)}</dd>
-              </div>
-              <div>
-                <dt className="text-ink-400">Valid through</dt>
-                <dd>{formatStationTimestamp(reading.valid_through_at)}</dd>
-              </div>
-              <div>
-                <dt className="text-ink-400">Source</dt>
-                <dd>{reading.source}</dd>
-              </div>
-            </dl>
+            <DescriptionList columns={3} items={details} />
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

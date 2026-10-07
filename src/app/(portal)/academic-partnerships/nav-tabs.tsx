@@ -20,7 +20,9 @@ export function NavTabs({ showSettings }: { showSettings: boolean }) {
       tabs={tabs.map((tab) => ({
         ...tab,
         active:
-          tab.href === "/academic-partnerships" ? pathname === tab.href : pathname.startsWith(tab.href),
+          tab.href === "/academic-partnerships"
+            ? pathname === tab.href
+            : pathname.startsWith(tab.href),
       }))}
     />
   );

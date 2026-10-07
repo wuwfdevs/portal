@@ -3,9 +3,12 @@ import type { ReactNode } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Input } from "@/components/ui/input";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { ToolIcon } from "@/components/tool-icon";
 import {
   SEARCH_SCOPES,
@@ -144,9 +147,9 @@ async function SearchResults({ query, scope }: { query: string; scope: SearchSco
         <span>
           {shown.length} result{shown.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
         </span>
-        <Link href="/resources" className="text-xs font-semibold text-brand-link">
+        <TextLink href="/resources" className="px-0 text-xs font-semibold">
           Clear search
-        </Link>
+        </TextLink>
       </div>
       {hits.length > 0 && (
         <FilterChips
@@ -161,10 +164,10 @@ async function SearchResults({ query, scope }: { query: string; scope: SearchSco
         />
       )}
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           Nothing matches. Try fewer or different words
           {scope === "all" ? "" : ", or search everything"}.
-        </div>
+        </EmptyState>
       ) : (
         <ul className="max-w-[760px] rounded border border-line">
           {shown.map((hit) => (
@@ -197,7 +200,7 @@ function SearchResultRow({ hit }: { hit: SearchHit }) {
   );
 }
 
-function SectionHeading({
+function HomeSectionHeading({
   title,
   count,
   children,
@@ -236,29 +239,24 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
   return (
     <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr] lg:gap-x-12">
       <section className="min-w-0 lg:col-start-1 lg:row-start-1">
-        <SectionHeading title="Tool guides">
+        <HomeSectionHeading title="Tool guides">
           {isEditor && (
-            <Link href="/resources/guides/new" className="text-sm font-semibold text-brand-link">
+            <TextLink href="/resources/guides/new" className="px-0 font-semibold">
               + New guide
-            </Link>
+            </TextLink>
           )}
-        </SectionHeading>
+        </HomeSectionHeading>
         <p className="mb-4 text-sm text-ink-500">
           Updated in the same release that changes each tool. Guides for the tools you can open.
         </p>
         {toolGuides.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            No guides for the tools you can open yet.
-          </div>
+          <EmptyState>No guides for the tools you can open yet.</EmptyState>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {toolGuides.map((entry) => {
               const extra = entry.count - PREVIEW_LIMIT;
               return (
-                <div
-                  key={entry.tool.id}
-                  className="flex flex-col gap-3 rounded border border-line bg-white p-5"
-                >
+                <Card key={entry.tool.id} className="flex flex-col gap-3 p-5">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-brand-surface text-brand-link">
                       <ToolIcon toolKey={entry.tool.key} />
@@ -295,7 +293,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                       + {extra} more
                     </Link>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -303,7 +301,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
       </section>
 
       <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-        <section className="rounded border border-line bg-white px-6 py-5">
+        <Card className="px-6 py-5">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 className="font-serif text-xl font-bold text-ink-900">What&apos;s new</h2>
             <Link href="/resources/whats-new" className="text-[13px] font-semibold text-brand-link">
@@ -341,11 +339,11 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
               </div>
             ))
           )}
-        </section>
+        </Card>
 
         {onboarding.length > 0 && (
           <section className="flex flex-col gap-2.5 rounded border border-line bg-panel-50 px-6 py-5">
-            <h2 className="font-serif text-[17px] font-bold text-ink-900">New to the portal?</h2>
+            <SectionHeading>New to the portal?</SectionHeading>
             <ul className="flex flex-col gap-2">
               {onboarding.map((procedure) => (
                 <li key={procedure.id} className="text-sm">
@@ -364,14 +362,14 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
 
       <section className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-start-2">
         <div>
-          <SectionHeading title="Station procedures" count={procedures.length}>
-            <Link href="/resources/procedures" className="text-sm font-semibold text-brand-link">
+          <HomeSectionHeading title="Station procedures" count={procedures.length}>
+            <TextLink href="/resources/procedures" className="px-0 font-semibold">
               All procedures
-            </Link>
+            </TextLink>
             {isEditor && (
               <PrimaryLink href="/resources/procedures/new">+ New procedure</PrimaryLink>
             )}
-          </SectionHeading>
+          </HomeSectionHeading>
           <p className="text-sm text-ink-500">How WUWF gets things done, by area.</p>
         </div>
 
@@ -424,18 +422,13 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
         )}
 
         {areas.length === 0 ? (
-          <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-            No procedures yet.
-          </div>
+          <EmptyState>No procedures yet.</EmptyState>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {areas.map((group) => {
               const areaHref = `/resources/procedures?area=${encodeURIComponent(group.area)}`;
               return (
-                <div
-                  key={group.area}
-                  className="flex flex-col gap-2.5 rounded border border-line bg-white p-5"
-                >
+                <Card key={group.area} className="flex flex-col gap-2.5 p-5">
                   <div className="flex items-baseline justify-between gap-2">
                     <Link
                       href={areaHref}
@@ -465,7 +458,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                       All {group.count} in {group.area}
                     </Link>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>

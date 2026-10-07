@@ -25,7 +25,9 @@ export async function updateSettings(formData: FormData): Promise<void> {
   const enabledTypes = formData
     .getAll("enabled_partnership_types")
     .map((value) => String(value))
-    .filter((value): value is ApPartnershipType => PARTNERSHIP_TYPES.includes(value as ApPartnershipType));
+    .filter((value): value is ApPartnershipType =>
+      PARTNERSHIP_TYPES.includes(value as ApPartnershipType),
+    );
 
   if (introCopy === "") failWith(SETTINGS_PATH, "The introductory copy can't be empty.");
   if (confirmationCopy === "") failWith(SETTINGS_PATH, "The confirmation copy can't be empty.");

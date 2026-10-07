@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui/input";
+import { formatClock } from "@/lib/format";
 import { WEATHER_ITEM_SENTINEL } from "@/lib/log/content-library";
 import { fillRundownItem } from "../../rundown-actions";
 import { LiveReadForm, type NprLookaheadItem } from "./live-read-form";
@@ -34,12 +35,6 @@ export interface InsertConfig {
   permitsWeather: boolean;
   weatherDurationSeconds: number;
   nprItems: NprLookaheadItem[];
-}
-
-/** "90" → "1:30" — mm:ss, matching the format used elsewhere in Log (e.g. npr/page.tsx). */
-function formatDurationLabel(seconds: number): string {
-  const wholeSeconds = Math.round(seconds);
-  return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, "0")}`;
 }
 
 export function InsertionPoint({
@@ -228,7 +223,7 @@ export function InsertionPoint({
                       >
                         <span className="min-w-0 flex-1 truncate">Today&apos;s weather</span>
                         <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
-                          {formatDurationLabel(config.weatherDurationSeconds)}
+                          {formatClock(config.weatherDurationSeconds)}
                         </span>
                       </button>
                     </li>
@@ -255,7 +250,7 @@ export function InsertionPoint({
                           <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
                           {candidate.durationSeconds !== null && (
                             <span className="shrink-0 font-mono text-xs text-ink-400 tabular-nums">
-                              {formatDurationLabel(candidate.durationSeconds)}
+                              {formatClock(candidate.durationSeconds)}
                             </span>
                           )}
                         </button>

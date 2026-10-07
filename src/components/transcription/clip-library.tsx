@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import type { LibraryClip } from "@/lib/transcription/clips";
 
@@ -53,10 +55,10 @@ export function ClipLibrary({
 
   if (clips.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         No excerpts yet. Open an interview, select a passage in the transcript, and save it as an
         excerpt — it will show up here for everyone.
-      </div>
+      </EmptyState>
     );
   }
 
@@ -111,11 +113,7 @@ export function ClipLibrary({
                   </Link>
                   {!isDocument && ` · ${formatDuration(clip.startMs!)}`}
                   {clip.interviewDate &&
-                    ` · ${new Date(clip.interviewDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}`}
+                    ` · ${formatShortDate(clip.interviewDate, { year: true })}`}
                 </p>
 
                 {showProjectMeta && clip.projectDescription && (

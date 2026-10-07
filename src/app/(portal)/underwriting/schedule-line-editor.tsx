@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,8 @@ import {
   parseScheduleLineForm,
   type ScheduleLineFormValues,
 } from "@/lib/underwriting/schedule-line-form";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 /**
  * The order-entry form for one schedule line (docs/underwriting-traffic-
@@ -729,13 +730,8 @@ export function ScheduleLineEditor({
               The order&apos;s own name for the inventory, mapped to On Air programs on the Pools
               screen. A bundle of programs that isn&apos;t here yet — &ldquo;Drive Time&rdquo;,
               &ldquo;ME and ATC&rdquo; — is a pool:{" "}
-              <Link
-                href="/underwriting/setup/pools?new=1"
-                className="font-semibold text-brand-link"
-              >
-                create it
-              </Link>
-              , then pick it here.
+              <TextLink href="/underwriting/setup/pools?new=1">create it</TextLink>, then pick it
+              here.
             </FieldHint>
           </div>
           <div>
@@ -902,14 +898,7 @@ export function ScheduleLineEditor({
           {editing ? (
             <>
               <Button type="submit">Save line</Button>
-              {cancelHref && (
-                <a
-                  href={cancelHref}
-                  className="inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-bold text-ink-700 hover:bg-panel-50"
-                >
-                  Cancel
-                </a>
-              )}
+              {cancelHref && <TextLink href={cancelHref}>Cancel</TextLink>}
             </>
           ) : (
             <>
@@ -923,12 +912,7 @@ export function ScheduleLineEditor({
           )}
           <span className="flex-1" />
           {continueHref && (
-            <a
-              href={continueHref.href}
-              className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface"
-            >
-              {continueHref.label}
-            </a>
+            <SecondaryLink href={continueHref.href}>{continueHref.label}</SecondaryLink>
           )}
         </div>
       </form>
@@ -937,7 +921,7 @@ export function ScheduleLineEditor({
         aria-label="Compiled demand"
         className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-5 lg:w-80"
       >
-        <div className="rounded border border-line p-4.5 px-5 py-4">
+        <Card className="p-4.5 px-5 py-4">
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
             This line compiles to
           </div>
@@ -975,8 +959,8 @@ export function ScheduleLineEditor({
               warning.
             </p>
           )}
-        </div>
-        <div className="rounded border border-line px-5 py-4">
+        </Card>
+        <Card className="px-5 py-4">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink-500">
             Contract total
           </div>
@@ -1025,7 +1009,7 @@ export function ScheduleLineEditor({
             A mismatch stays visible here and on the contract page. It never blocks saving: a
             partial week or a typo in the order itself is common.
           </FieldHint>
-        </div>
+        </Card>
       </aside>
     </div>
   );

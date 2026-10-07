@@ -8,8 +8,13 @@ export function NavTabs({ role }: { role: EditorialRole }) {
   const pathname = usePathname();
 
   const matches = (href: string, alsoMatch: string[] = [], exact = false) => {
-    const matchesHref = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-    return matchesHref || alsoMatch.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    const matchesHref = exact
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`);
+    return (
+      matchesHref ||
+      alsoMatch.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+    );
   };
 
   const tabs = [

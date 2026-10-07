@@ -13,18 +13,9 @@ import {
 } from "@/lib/bookings/settlements";
 import { formatDateShort } from "@/lib/log/program-status";
 import { draftSettlementAction, postSettlementAction } from "../settlement-actions";
+import { StatTile } from "@/components/ui/stat-tile";
 
 const money = (value: number) => formatDollars(value, { cents: true });
-
-function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold text-ink-500">{label}</dt>
-      <dd className="text-sm font-bold text-ink-900">{value}</dd>
-      {hint && <dd className="text-xs text-ink-500">{hint}</dd>}
-    </div>
-  );
-}
 
 /**
  * Settling a delivered project at actual cost (docs/bookings-design.md §21).
@@ -67,13 +58,13 @@ export function SettlementSection({
 
       {posted && settlement && (
         <>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Figure
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile
               label={settlement.kind === "recharge" ? "Recharged" : "Invoiced"}
               value={money(Number(settlement.amount))}
               hint={`Estimated ${money(Number(settlement.estimated_recovery))}`}
             />
-            <Figure
+            <StatTile
               label="Actual cost to WUWF"
               value={money(Number(settlement.actual_full_cost))}
               hint={
@@ -82,7 +73,7 @@ export function SettlementSection({
                   : `Estimated ${money(Number(settlement.estimated_full_cost))}`
               }
             />
-            <Figure
+            <StatTile
               label="WUWF contributed"
               value={money(Number(settlement.wuwf_contribution))}
               hint={
@@ -91,7 +82,7 @@ export function SettlementSection({
                   : `Estimated ${money(Number(settlement.estimated_contribution))}`
               }
             />
-            <Figure
+            <StatTile
               label="Journal entry"
               value={settlement.journal_entry_number ?? "—"}
               hint={
@@ -100,7 +91,7 @@ export function SettlementSection({
                   : undefined
               }
             />
-          </dl>
+          </div>
           <FieldHint>
             Posted {settlement.posted_at ? formatDateShort(settlement.posted_at.slice(0, 10)) : ""}.
             A posted settlement is final; note a correction on the project instead.
@@ -121,13 +112,13 @@ export function SettlementSection({
 
       {!posted && figures && (
         <>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Figure
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile
               label={figures.kind === "recharge" ? "To recharge" : "To invoice"}
               value={money(figures.amount)}
               hint={`Estimated ${money(figures.estimatedRecovery)}`}
             />
-            <Figure
+            <StatTile
               label="Actual cost to WUWF"
               value={money(figures.fullCost)}
               hint={
@@ -138,18 +129,18 @@ export function SettlementSection({
                     : `${money(Math.abs(figures.costVariance))} ${figures.costVariance > 0 ? "over" : "under"} the estimate`
               }
             />
-            <Figure
+            <StatTile
               label="WUWF contributes"
               value={money(figures.contribution)}
               hint="Cost the partner's payment doesn't cover"
             />
             {figures.kind === "invoice" && (
-              <Figure
+              <StatTile
                 label="Margin · assessment"
                 value={`${money(figures.margin)} · ${money(figures.assessment)}`}
               />
             )}
-          </dl>
+          </div>
           <details className="text-xs text-ink-600">
             <summary className="cursor-pointer font-bold text-brand-link">Show cost</summary>
             <p className="mt-2">

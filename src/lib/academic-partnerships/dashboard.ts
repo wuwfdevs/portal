@@ -41,11 +41,19 @@ export function computeTotals(submissions: DashboardSubmission[]): DashboardTota
     }
   }
 
-  return { total: submissions.length, active, completed, totalStudentsReached, activeStudentsReached };
+  return {
+    total: submissions.length,
+    active,
+    completed,
+    totalStudentsReached,
+    activeStudentsReached,
+  };
 }
 
 /** One count per pipeline stage, active submissions only — mirrors the kanban board's own filter. */
-export function computeStageCounts(submissions: DashboardSubmission[]): { stage: ApStage; count: number }[] {
+export function computeStageCounts(
+  submissions: DashboardSubmission[],
+): { stage: ApStage; count: number }[] {
   const counts = new Map<ApStage, number>(STAGES.map((stage) => [stage, 0]));
   for (const submission of submissions) {
     if (submission.disposition === null) {

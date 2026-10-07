@@ -1,8 +1,6 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { FieldHint, Input, Label } from "@/components/ui/input";
@@ -14,12 +12,10 @@ import { monthLabel } from "@/lib/underwriting/dates";
 import { STATION_LETTERHEAD, formatCalendarDate } from "@/lib/underwriting/affidavits";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { certifyAffidavit } from "../../affidavit-actions";
-import type { UwAffidavitStatus } from "@/lib/database.types";
-
-const STATUS_VARIANT: Record<UwAffidavitStatus, BadgeVariant> = {
-  draft: "neutral",
-  certified: "success",
-};
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { AFFIDAVIT_STATUS } from "@/lib/underwriting/status";
 
 /**
  * Workflow G's affidavit page (docs/underwriting-design.md §4, §6): a
@@ -62,29 +58,23 @@ export default async function AffidavitDetailPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={monthHref} className="text-xs font-semibold text-brand-link">
+        <TextLink href={monthHref} className="text-xs">
           ← {monthLabel(`${month}-01`)}
-        </Link>
+        </TextLink>
         {position >= 0 && (
           <nav aria-label="Affidavits to sign" className="flex items-center gap-2 text-sm">
             <span className="text-ink-500">
               {position + 1} of {queue.length} to sign
             </span>
             {previousId && (
-              <Link
-                href={`/underwriting/affidavits/${previousId}?signing=1`}
-                className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-brand-link hover:bg-panel-50"
-              >
+              <SecondaryLink size="sm" href={`/underwriting/affidavits/${previousId}?signing=1`}>
                 ‹ Previous
-              </Link>
+              </SecondaryLink>
             )}
             {nextId && (
-              <Link
-                href={`/underwriting/affidavits/${nextId}?signing=1`}
-                className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-brand-link hover:bg-panel-50"
-              >
+              <SecondaryLink size="sm" href={`/underwriting/affidavits/${nextId}?signing=1`}>
                 Skip ›
-              </Link>
+              </SecondaryLink>
             )}
           </nav>
         )}
@@ -114,7 +104,7 @@ export default async function AffidavitDetailPage({
                   <h2 className="font-serif text-xl font-bold text-brand-link">
                     Performance Affidavit
                   </h2>
-                  <Badge variant={STATUS_VARIANT[affidavit.status]}>{affidavit.status}</Badge>
+                  <StatusBadge map={AFFIDAVIT_STATUS} value={affidavit.status} />
                 </div>
                 <div className="text-xs text-ink-500">Report {affidavit.report_identifier}</div>
               </div>
@@ -134,12 +124,12 @@ export default async function AffidavitDetailPage({
                   </div>
                 ))}
                 {doc.recipientLines.length === 1 && (
-                  <Link
+                  <TextLink
                     href={`/underwriting/underwriters/${affidavit.contract.underwriter.id}/edit`}
-                    className="mt-1 inline-block text-xs font-semibold text-brand-link"
+                    className="mt-1 inline-block text-xs"
                   >
                     Add a mailing address
-                  </Link>
+                  </TextLink>
                 )}
               </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -152,12 +142,12 @@ export default async function AffidavitDetailPage({
                 <dt className="text-ink-500">Account rep</dt>
                 <dd className="text-ink-900">
                   {affidavit.contract.account_rep ?? (
-                    <Link
+                    <TextLink
                       href={`/underwriting/contracts/${affidavit.contract.id}/order`}
-                      className="text-xs font-semibold text-brand-link"
+                      className="text-xs"
                     >
                       Add on the order
-                    </Link>
+                    </TextLink>
                   )}
                 </dd>
                 {doc.lengthLabel && (
@@ -267,7 +257,7 @@ export default async function AffidavitDetailPage({
           </article>
 
           {affidavit.lineItems.length > 0 && (
-            <section className="rounded border border-line">
+            <Card>
               <div className="border-b border-line px-5 py-3.5">
                 <div className="text-sm font-bold text-ink-900">Every recorded outcome</div>
                 <p className="text-xs text-ink-500">
@@ -301,12 +291,9 @@ export default async function AffidavitDetailPage({
                           </Cell>
                           <Cell className="text-ink-700">
                             {exception ? (
-                              <Link
-                                href={`/underwriting/exceptions/${exception.id}`}
-                                className="text-brand-link"
-                              >
+                              <TextLink href={`/underwriting/exceptions/${exception.id}`}>
                                 {exception.compliance_judgment}
-                              </Link>
+                              </TextLink>
                             ) : (
                               "compliant"
                             )}
@@ -317,7 +304,7 @@ export default async function AffidavitDetailPage({
                   </tbody>
                 </Table>
               </TableFrame>
-            </section>
+            </Card>
           )}
         </div>
 
@@ -345,7 +332,7 @@ export default async function AffidavitDetailPage({
               ]}
             />
           ) : (
-            <div className="rounded border border-line bg-white">
+            <Card>
               <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
                 Sign
               </div>
@@ -390,7 +377,7 @@ export default async function AffidavitDetailPage({
                   draft.
                 </p>
               )}
-            </div>
+            </Card>
           )}
           <DetailSummary
             title="Generated"

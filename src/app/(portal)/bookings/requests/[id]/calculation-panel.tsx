@@ -5,6 +5,8 @@ import type { LineEconomics, MarketBenchmark } from "@/lib/bookings/economics";
 import type { ProjectDetail } from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
 import { RATE_CARD_STEP } from "@/lib/bookings/rates";
+import { DescriptionList } from "@/components/ui/description-list";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 
 function dollars(value: number | null): string {
   return value === null ? "—" : formatDollars(Number(value), { cents: true });
@@ -41,56 +43,69 @@ export function CalculationPanel({
       {economics?.error && <Alert variant="note">{economics.error}</Alert>}
 
       {lines.length > 0 && project.full_economic_cost !== null && (
-        <div className="overflow-x-auto rounded border border-line">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-panel-50 text-ink-500">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Line</th>
-                <th className="px-3 py-2 text-right font-semibold">Labor</th>
-                <th className="px-3 py-2 text-right font-semibold">Equipment &amp; space</th>
-                <th className="px-3 py-2 text-right font-semibold">Direct</th>
-                <th className="px-3 py-2 text-right font-semibold">Partner pays</th>
-              </tr>
+        <TableFrame>
+          <Table className="text-xs">
+            <thead>
+              <HeaderRow>
+                <Th className="px-3 py-2 text-left">Line</Th>
+                <Th className="px-3 py-2 text-right">Labor</Th>
+                <Th className="px-3 py-2 text-right">Equipment &amp; space</Th>
+                <Th className="px-3 py-2 text-right">Direct</Th>
+                <Th className="px-3 py-2 text-right">Partner pays</Th>
+              </HeaderRow>
             </thead>
             <tbody>
               {lines.map((line) => (
-                <tr key={line.lineId} className="border-t border-line">
-                  <td className="px-3 py-1.5 text-ink-900">{line.label}</td>
-                  <td className="px-3 py-1.5 text-right">{dollars(line.laborCost)}</td>
-                  <td className="px-3 py-1.5 text-right">{dollars(line.resourceCost)}</td>
-                  <td className="px-3 py-1.5 text-right">{dollars(line.directCost)}</td>
-                  <td className="px-3 py-1.5 text-right font-semibold">{dollars(line.amount)}</td>
-                </tr>
+                <Row key={line.lineId}>
+                  <Cell className="px-3 py-1.5 text-ink-900">{line.label}</Cell>
+                  <Cell className="px-3 py-1.5 text-right">{dollars(line.laborCost)}</Cell>
+                  <Cell className="px-3 py-1.5 text-right">{dollars(line.resourceCost)}</Cell>
+                  <Cell className="px-3 py-1.5 text-right">{dollars(line.directCost)}</Cell>
+                  <Cell className="px-3 py-1.5 text-right font-semibold">
+                    {dollars(line.amount)}
+                  </Cell>
+                </Row>
               ))}
-              <tr className="border-t border-line bg-panel-50/60 font-semibold text-ink-900">
-                <td className="px-3 py-1.5">Full cost to WUWF</td>
-                <td className="px-3 py-1.5 text-right">{dollars(project.labor_cost)}</td>
-                <td className="px-3 py-1.5 text-right">{dollars(project.resource_cost)}</td>
-                <td className="px-3 py-1.5 text-right">{dollars(project.direct_expense_cost)}</td>
-                <td className="px-3 py-1.5 text-right">{dollars(project.full_economic_cost)}</td>
-              </tr>
+              <Row className="bg-panel-50/60 font-semibold text-ink-900">
+                <Cell className="px-3 py-1.5">Full cost to WUWF</Cell>
+                <Cell className="px-3 py-1.5 text-right">{dollars(project.labor_cost)}</Cell>
+                <Cell className="px-3 py-1.5 text-right">{dollars(project.resource_cost)}</Cell>
+                <Cell className="px-3 py-1.5 text-right">
+                  {dollars(project.direct_expense_cost)}
+                </Cell>
+                <Cell className="px-3 py-1.5 text-right">
+                  {dollars(project.full_economic_cost)}
+                </Cell>
+              </Row>
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableFrame>
       )}
 
       {project.full_economic_cost !== null && (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs">
-          <dt className="text-ink-500">Full cost to WUWF</dt>
-          <dd className="font-semibold text-ink-900">{dollars(project.full_economic_cost)}</dd>
-          <dt className="text-ink-500">The partner pays</dt>
-          <dd className="font-semibold text-ink-900">{dollars(project.partner_recovery)}</dd>
-          <dt className="text-ink-500">WUWF contributes</dt>
-          <dd className="font-semibold text-ink-900">{dollars(project.wuwf_contribution)}</dd>
-          {external && (
-            <>
-              <dt className="text-ink-500">University assessment</dt>
-              <dd>{dollars(project.external_assessment)}</dd>
-              <dt className="text-ink-500">Margin</dt>
-              <dd>{dollars(project.external_margin)}</dd>
-            </>
-          )}
-        </dl>
+        <DescriptionList
+          className="text-xs"
+          items={[
+            {
+              label: "Full cost to WUWF",
+              value: <span className="font-semibold">{dollars(project.full_economic_cost)}</span>,
+            },
+            {
+              label: "The partner pays",
+              value: <span className="font-semibold">{dollars(project.partner_recovery)}</span>,
+            },
+            {
+              label: "WUWF contributes",
+              value: <span className="font-semibold">{dollars(project.wuwf_contribution)}</span>,
+            },
+            ...(external
+              ? [
+                  { label: "University assessment", value: dollars(project.external_assessment) },
+                  { label: "Margin", value: dollars(project.external_margin) },
+                ]
+              : []),
+          ]}
+        />
       )}
       {project.full_economic_cost !== null && (
         <p className="text-xs text-ink-500">

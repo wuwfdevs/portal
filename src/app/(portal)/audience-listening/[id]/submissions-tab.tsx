@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { internalParticipantLabel } from "@/lib/audience-listening/participation";
 import {
@@ -45,30 +46,32 @@ export function SubmissionsTab({
   return (
     <div className="flex flex-col gap-5">
       {queuedCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-line bg-panel-50 px-4 py-3">
-          <p className="text-sm leading-relaxed text-ink-700">
-            <span className="font-semibold">
-              {queuedCount} answer{queuedCount === 1 ? "" : "s"} queued for transcription.
-            </span>{" "}
-            This query is set to transcribe automatically — sending needs one press, because there
-            is no background job runner in this portal.
-          </p>
-          <form action={sendQueuedAnswersAction}>
-            <input type="hidden" name="query_id" value={query.id} />
-            <Button type="submit">Send queued answers</Button>
-          </form>
-        </div>
+        <Alert
+          variant="note"
+          action={
+            <form action={sendQueuedAnswersAction}>
+              <input type="hidden" name="query_id" value={query.id} />
+              <Button type="submit">Send queued answers</Button>
+            </form>
+          }
+        >
+          <span className="font-semibold">
+            {queuedCount} answer{queuedCount === 1 ? "" : "s"} queued for transcription.
+          </span>{" "}
+          This query is set to transcribe automatically — sending needs one press, because there is
+          no background job runner in this portal.
+        </Alert>
       )}
 
       {submissions.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+        <EmptyState className="leading-relaxed">
           {query.status === "draft"
             ? "Nothing yet — this query hasn't been opened."
             : "No submissions yet. Responses appear here as they arrive."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
-          <Table className="min-w-[760px]">
+          <Table stack className="md:min-w-[760px]">
             <thead>
               <HeaderRow>
                 <Th>Participant</Th>
@@ -87,25 +90,27 @@ export function SubmissionsTab({
 
                 return (
                   <Row key={submission.id}>
-                    <Cell>
-                      <Link
+                    <Cell stack="title">
+                      <TextLink
                         href={`/audience-listening/${query.id}/submissions/${submission.id}`}
-                        className="font-semibold text-brand-link"
+                        className="px-0 font-semibold"
                       >
                         {internalParticipantLabel(submission)}
-                      </Link>
+                      </TextLink>
                       {submission.participant_city && (
                         <p className="mt-0.5 text-xs text-ink-400">{submission.participant_city}</p>
                       )}
                     </Cell>
-                    <Cell className="whitespace-nowrap text-ink-500">
+                    <Cell label="Submitted" className="whitespace-nowrap text-ink-500">
                       {formatSubmittedAt(submission.submitted_at)}
                     </Cell>
-                    <Cell className="text-right text-ink-500">{uploaded.length}</Cell>
-                    <Cell>
+                    <Cell label="Answers" className="text-right text-ink-500">
+                      {uploaded.length}
+                    </Cell>
+                    <Cell stack="aside">
                       <Badge variant={review.variant}>{review.label}</Badge>
                     </Cell>
-                    <Cell>
+                    <Cell label="Transcription">
                       <Badge variant={transcription.variant}>{transcription.label}</Badge>
                     </Cell>
                   </Row>
@@ -118,9 +123,9 @@ export function SubmissionsTab({
 
       {linkedProjects.size > 0 && (
         <Alert variant="note">
-          {linkedProjects.size} answer{linkedProjects.size === 1 ? " has" : "s have"} a
-          Sourcework project. Transcript editing, speaker naming, and excerpting all
-          happen there — this screen only tracks the handoff.
+          {linkedProjects.size} answer{linkedProjects.size === 1 ? " has" : "s have"} a Sourcework
+          project. Transcript editing, speaker naming, and excerpting all happen there — this screen
+          only tracks the handoff.
         </Alert>
       )}
     </div>

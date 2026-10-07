@@ -1,9 +1,8 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
@@ -13,13 +12,9 @@ import {
   listIndustryCategories,
 } from "@/lib/underwriting/queries";
 import type { UwContractStatus } from "@/lib/database.types";
-
-const STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
-  draft: "neutral",
-  active: "success",
-  expired: "muted",
-  terminated: "danger",
-};
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTRACT_STATUS } from "@/lib/underwriting/status";
 
 const FILTERS = ["all", "active", "draft", "attention"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -120,12 +115,7 @@ export default async function ContractsPage({
         ]}
       >
         {isAdministrator && (
-          <Link
-            href="/underwriting/setup/migration"
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            Migrate legacy records
-          </Link>
+          <TextLink href="/underwriting/setup/migration">Migrate legacy records</TextLink>
         )}
         <PrimaryLink href="/underwriting/contracts/new">
           <span>
@@ -135,9 +125,9 @@ export default async function ContractsPage({
       </ListToolbar>
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {contracts.length === 0 ? "No contracts yet." : "No contracts match."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -162,12 +152,9 @@ export default async function ContractsPage({
                 return (
                   <Row key={contract.id}>
                     <Cell stack="title">
-                      <Link
-                        href={`/underwriting/contracts/${contract.id}`}
-                        className="font-bold text-brand-link"
-                      >
+                      <TextLink href={`/underwriting/contracts/${contract.id}`}>
                         {contract.underwriter.name}
-                      </Link>
+                      </TextLink>
                       <div className="mt-0.5 text-xs text-ink-500">
                         {orderNumberLabel(contract.contract_identifier)}
                         {industry ? ` · ${industry}` : ""}
@@ -217,7 +204,7 @@ export default async function ContractsPage({
                       )}
                     </Cell>
                     <Cell stack="aside">
-                      <Badge variant={STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
+                      <StatusBadge map={CONTRACT_STATUS} value={contract.status} />
                     </Cell>
                   </Row>
                 );

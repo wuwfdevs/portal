@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import {
@@ -14,6 +13,7 @@ import { listAssets, listPools } from "@/lib/bookings/queries";
 import { formatDollars } from "@/lib/bookings/rates";
 import type { BkAssetFunding } from "@/lib/database.types";
 import { RatesTabs } from "../rates-tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Params = { q?: string; pool?: string; funding?: string; version?: string };
 
@@ -118,9 +118,9 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
       </ListToolbar>
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           {assets.length === 0 ? "No assets inventoried yet." : "No assets match."}
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -143,12 +143,9 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
                 <Row key={asset.id} className={asset.active ? undefined : "text-ink-400"}>
                   <Cell stack="title">
                     {canWrite ? (
-                      <Link
-                        href={`${RATES_PATH}/assets/${asset.id}/edit`}
-                        className="font-semibold text-brand-link hover:underline"
-                      >
+                      <TextLink href={`${RATES_PATH}/assets/${asset.id}/edit`}>
                         {asset.name}
-                      </Link>
+                      </TextLink>
                     ) : (
                       <span className="font-semibold text-ink-900">{asset.name}</span>
                     )}

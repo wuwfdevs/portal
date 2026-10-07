@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -19,20 +18,14 @@ import { settledSummary } from "@/lib/bookings/settlements";
 import { termReport, type ReportScope, type Totals } from "@/lib/bookings/report";
 import type { BkPricingTreatment } from "@/lib/database.types";
 import { formatDateShort } from "@/lib/log/program-status";
+import { TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { StatTile } from "@/components/ui/stat-tile";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 const REPORT_PATH = `${BOOKINGS_PATH}/report`;
 
 const money = (value: number) => formatDollars(value, { cents: true });
-
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded border border-line bg-white px-4 py-3">
-      <div className="text-xs font-semibold text-ink-500">{label}</div>
-      <div className="mt-0.5 text-lg font-bold text-ink-900">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-ink-500">{hint}</div>}
-    </div>
-  );
-}
 
 function TotalsCells({ totals }: { totals: Totals }) {
   return (
@@ -92,7 +85,7 @@ export default async function TermReportPage({
   if (!plan) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Term report</h2>
+        <SectionHeading>Term report</SectionHeading>
         <Alert variant="note">No term plan is active, so there is no term to report on.</Alert>
       </div>
     );
@@ -114,11 +107,11 @@ export default async function TermReportPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={BOOKINGS_PATH} className="inline-block text-xs font-semibold text-brand-link">
+      <TextLink href={BOOKINGS_PATH} className="inline-block text-xs">
         ← Dashboard
-      </Link>
+      </TextLink>
       <div className="flex flex-wrap items-baseline gap-3">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Term report</h2>
+        <SectionHeading>Term report</SectionHeading>
         <span className="text-xs text-ink-500">
           {plan.label}, {formatDateShort(plan.starts_on)} – {formatDateShort(plan.ends_on)}. Costs
           are modeled and exact; prices are the rates charged. Provisional until a rate model
@@ -142,18 +135,18 @@ export default async function TermReportPage({
       />
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Tile
+        <StatTile
           label="Full cost of the work"
           value={money(report.totals.fullCost)}
           hint="Labor + equipment and space + direct expenses; no margin, assessment or overhead"
         />
-        <Tile label="Partners pay" value={money(report.totals.recovery)} />
-        <Tile
+        <StatTile label="Partners pay" value={money(report.totals.recovery)} />
+        <StatTile
           label="WUWF contributes"
           value={money(report.totals.contribution)}
           hint="Full cost not covered by what partners pay, request by request"
         />
-        <Tile
+        <StatTile
           label="Outside margin and assessment"
           value={`${money(report.totals.margin)} · ${money(report.totals.assessment)}`}
           hint="Shown apart; never a negative contribution"
@@ -169,21 +162,21 @@ export default async function TermReportPage({
 
       {settledTotals.count > 0 && (
         <section className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+          <SectionHeading level="eyebrow" as="h3">
             Settled at actual cost
-          </h3>
+          </SectionHeading>
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Tile
+            <StatTile
               label="Charged"
               value={money(settledTotals.amount)}
               hint={`Estimated ${money(settledTotals.estimatedRecovery)} across ${settledTotals.count} settled request${settledTotals.count === 1 ? "" : "s"}`}
             />
-            <Tile
+            <StatTile
               label="Actual cost to WUWF"
               value={money(settledTotals.actualFullCost)}
               hint="Confirmed hours and equipment at the rate card's costs, plus actual expenses"
             />
-            <Tile
+            <StatTile
               label="Estimated cost, same requests"
               value={money(settledTotals.estimatedFullCost)}
               hint={
@@ -192,7 +185,7 @@ export default async function TermReportPage({
                   : `${settledTotals.comparableCount} of ${settledTotals.count} had a modeled cost; actual ${money(settledTotals.comparableActualCost)}`
               }
             />
-            <Tile
+            <StatTile
               label="WUWF contributed"
               value={money(settledTotals.contribution)}
               hint={`Estimated ${money(settledTotals.estimatedContribution)}`}
@@ -207,7 +200,9 @@ export default async function TermReportPage({
       )}
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">By pricing</h3>
+        <SectionHeading level="eyebrow" as="h3">
+          By pricing
+        </SectionHeading>
         <TableFrame>
           <Table stack>
             <TotalsHead first="Rate" />
@@ -236,7 +231,9 @@ export default async function TermReportPage({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">By partner</h3>
+        <SectionHeading level="eyebrow" as="h3">
+          By partner
+        </SectionHeading>
         <TableFrame>
           <Table stack>
             <TotalsHead first="Partner" />
@@ -261,18 +258,18 @@ export default async function TermReportPage({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+        <SectionHeading level="eyebrow" as="h3">
           The $500 webcast, against cost
-        </h3>
+        </SectionHeading>
         {report.webcast ? (
-          <div className="rounded border border-line bg-white px-4 py-3 text-sm text-ink-700">
+          <Card className="px-4 py-3 text-sm text-ink-700">
             Across {report.webcast.events} webcast event{report.webcast.events === 1 ? "" : "s"}: it
             costs WUWF <strong>{money(report.webcast.costPerEvent)}</strong> an event; partners are
             charged <strong>{money(report.webcast.priceChargedPerEvent)}</strong>; the convention it
             replaces was {money(report.webcast.legacyPrice)}. The convention sits{" "}
             {money(Math.abs(report.webcast.costVersusLegacy))}{" "}
             {report.webcast.costVersusLegacy >= 0 ? "below" : "above"} the modeled cost.
-          </div>
+          </Card>
         ) : (
           <p className="text-sm text-ink-500">No webcast has been priced this term.</p>
         )}
@@ -280,9 +277,9 @@ export default async function TermReportPage({
 
       <section className="flex flex-col gap-3">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+          <SectionHeading level="eyebrow" as="h3">
             Assumed versus observed
-          </h3>
+          </SectionHeading>
           <p className="mt-1 max-w-3xl text-xs text-ink-500">
             Read-only, and it feeds nothing: what the packages assumed against what delivered
             projects confirmed they used, and the bookings WUWF refused or displaced. Utilization is

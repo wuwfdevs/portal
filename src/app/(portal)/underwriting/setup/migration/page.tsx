@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
@@ -17,9 +17,6 @@ import {
 import { BatchProgress } from "./batch-progress";
 import { MigrationTabs } from "./migration-tabs";
 import { batchDocumentsPath, batchPath, NEW_BATCH_PATH } from "./paths";
-
-const SECONDARY_LINK =
-  "inline-flex h-9 items-center whitespace-nowrap rounded border border-brand-link px-3 text-sm font-bold text-brand-link hover:bg-brand-surface";
 
 const TILES: { category: MigrationItemCategory; title: string; hint: string; tone: string }[] = [
   {
@@ -53,21 +50,21 @@ function NextStep({ batch }: { batch: MigrationBatchSummary }) {
   const { counts } = batch;
   if (counts.needs_look > 0)
     return (
-      <Link href={batchPath(batch.label, { show: "needs_look" })} className={SECONDARY_LINK}>
+      <SecondaryLink size="sm" href={batchPath(batch.label, { show: "needs_look" })}>
         Review {counts.needs_look}
-      </Link>
+      </SecondaryLink>
     );
   if (counts.failed > 0)
     return (
-      <Link href={batchPath(batch.label, { show: "failed" })} className={SECONDARY_LINK}>
+      <SecondaryLink size="sm" href={batchPath(batch.label, { show: "failed" })}>
         See {counts.failed} failed
-      </Link>
+      </SecondaryLink>
     );
   if (counts.not_run > 0)
     return (
-      <Link href={batchDocumentsPath(batch.label)} className={SECONDARY_LINK}>
+      <SecondaryLink size="sm" href={batchDocumentsPath(batch.label)}>
         Add {counts.not_run} {counts.not_run === 1 ? "document" : "documents"}
-      </Link>
+      </SecondaryLink>
     );
   if (counts.importing > 0) return <Badge variant="accent">Importing</Badge>;
   return <Badge variant="success">Done</Badge>;
@@ -103,9 +100,9 @@ export default async function AgreementMigrationPage({
     <div className="flex flex-col gap-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+          <TextLink href="/underwriting/setup" className="text-xs">
             ← Setup
-          </Link>
+          </TextLink>
           <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy records</h2>
           <p className="mt-1 max-w-3xl text-sm text-ink-700">
             Bring signed agreements from before the portal in as draft contracts. Nothing schedules

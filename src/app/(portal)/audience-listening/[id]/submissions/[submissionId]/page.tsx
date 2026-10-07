@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import {
@@ -10,7 +9,7 @@ import {
 } from "@/lib/audience-listening/queries";
 import { getSignedAnswerUrl } from "@/lib/audience-listening/storage";
 import { answerDownloadFilename } from "@/lib/audience-listening/media";
-import { formatBytes, formatDuration } from "@/lib/transcription/media";
+import { formatBytes, formatClockMs } from "@/lib/format";
 import {
   ANSWER_OUTCOME_LABEL,
   deriveAnswerOutcome,
@@ -28,7 +27,11 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Label, Textarea } from "@/components/ui/input";
+import { DescriptionList } from "@/components/ui/description-list";
+import { Field, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import {
   saveAnswerNote,
   saveSubmissionNotes,
@@ -89,22 +92,16 @@ export default async function SubmissionDetailPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-5">
-        <Link
-          href={`/audience-listening/${query.id}?tab=submissions`}
-          className="text-xs font-semibold text-brand-link"
-        >
-          ← Back to submissions
-        </Link>
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2.5">
-            <h1 className="font-serif text-[24px] font-bold text-ink-900">{participantLabel}</h1>
-            <Badge variant={reviewBadge.variant}>{reviewBadge.label}</Badge>
-          </div>
-          <p className="text-sm text-ink-500">
+      <PageHeader
+        className="mb-6"
+        back={{
+          href: `/audience-listening/${query.id}?tab=submissions`,
+          label: "Back to submissions",
+        }}
+        title={participantLabel}
+        badge={<Badge variant={reviewBadge.variant}>{reviewBadge.label}</Badge>}
+        description={
+          <>
             {query.internal_title}
             {submission.submitted_at &&
               ` · Submitted ${new Date(submission.submitted_at).toLocaleString("en-US", {
@@ -114,38 +111,40 @@ export default async function SubmissionDetailPage({
                 hour: "numeric",
                 minute: "2-digit",
               })}`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {reviewActionsFor(submission.review_state).map((state) => (
-            <form key={state} action={setSubmissionReview}>
-              <input type="hidden" name="query_id" value={query.id} />
-              <input type="hidden" name="submission_id" value={submission.id} />
-              <input type="hidden" name="review_state" value={state} />
-              <Button
-                type="submit"
-                variant={state === "reviewed" ? "primary" : "secondary"}
-                className={state === "rejected" ? "border-danger text-danger" : undefined}
-              >
-                {REVIEW_ACTION_LABEL[state]}
-              </Button>
-            </form>
-          ))}
-        </div>
-      </div>
+          </>
+        }
+        actions={reviewActionsFor(submission.review_state).map((state) => (
+          <form key={state} action={setSubmissionReview}>
+            <input type="hidden" name="query_id" value={query.id} />
+            <input type="hidden" name="submission_id" value={submission.id} />
+            <input type="hidden" name="review_state" value={state} />
+            <Button
+              type="submit"
+              variant={state === "reviewed" ? "primary" : "secondary"}
+              className={state === "rejected" ? "border-danger text-danger" : undefined}
+            >
+              {REVIEW_ACTION_LABEL[state]}
+            </Button>
+          </form>
+        ))}
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="flex flex-col gap-5">
           <Card className="p-5">
-            <h2 className="mb-3 font-serif text-[15px] font-bold text-ink-900">Participant</h2>
-            <dl className="flex flex-col gap-2.5 text-sm">
-              <Detail label="Name" value={submission.participant_name} />
-              <Detail label="City or community" value={submission.participant_city} />
-              <Detail label="Email" value={submission.participant_email} />
-              <Detail label="Phone" value={submission.participant_phone} />
-            </dl>
+            <SectionHeading className="mb-3">Participant</SectionHeading>
+            <DescriptionList
+              columns={2}
+              className="sm:grid-cols-1"
+              items={[
+                { label: "Name", value: given(submission.participant_name) },
+                { label: "City or community", value: given(submission.participant_city) },
+                { label: "Email", value: given(submission.participant_email) },
+                { label: "Phone", value: given(submission.participant_phone) },
+              ]}
+            />
             {submission.participant_note && (
               <div className="mt-4">
                 <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
@@ -159,9 +158,7 @@ export default async function SubmissionDetailPage({
           </Card>
 
           <Card className="p-5">
-            <h2 className="mb-1 font-serif text-[15px] font-bold text-ink-900">
-              Consent and attribution
-            </h2>
+            <SectionHeading className="mb-1">Consent and attribution</SectionHeading>
             <p className="mb-3 text-xs leading-relaxed text-ink-400">
               Three separate answers. Read all three before using anything here.
             </p>
@@ -187,14 +184,15 @@ export default async function SubmissionDetailPage({
             <form action={saveSubmissionNotes}>
               <input type="hidden" name="query_id" value={query.id} />
               <input type="hidden" name="submission_id" value={submission.id} />
-              <Label htmlFor="internal_notes">Internal note</Label>
-              <Textarea
-                id="internal_notes"
-                name="internal_notes"
-                rows={4}
-                defaultValue={submission.internal_notes ?? ""}
-                placeholder="What's usable here, who followed up, what to check"
-              />
+              <Field label="Internal note" htmlFor="internal_notes">
+                <Textarea
+                  id="internal_notes"
+                  name="internal_notes"
+                  rows={4}
+                  defaultValue={submission.internal_notes ?? ""}
+                  placeholder="What's usable here, who followed up, what to check"
+                />
+              </Field>
               <div className="mt-3">
                 <Button type="submit" variant="secondary">
                   Save note
@@ -205,7 +203,7 @@ export default async function SubmissionDetailPage({
         </div>
 
         <div className="flex flex-col gap-4">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">Answers</h2>
+          <SectionHeading>Answers</SectionHeading>
           {questions.map((question) => {
             const answer = answerByQuestionId.get(question.id);
             const outcome = deriveAnswerOutcome({
@@ -271,7 +269,7 @@ export default async function SubmissionDetailPage({
                       </Alert>
                     )}
                     <p className="mt-2 text-xs text-ink-400">
-                      {answer.duration_ms ? formatDuration(answer.duration_ms) : "Length unknown"}
+                      {answer.duration_ms ? formatClockMs(answer.duration_ms) : "Length unknown"}
                       {answer.size_bytes ? ` · ${formatBytes(answer.size_bytes)}` : ""}
                       {urls?.download && (
                         <>
@@ -300,13 +298,13 @@ export default async function SubmissionDetailPage({
                         </form>
                       )}
                       {action === "open" && answer.transcription_project_id && (
-                        <Link
+                        <TextLink
                           href={`/sourcework/${answer.transcription_project_id}`}
-                          className="text-xs font-semibold text-brand-link hover:underline"
+                          className="text-xs font-semibold"
                         >
                           Open in Sourcework
                           {project ? ` (${project.status})` : ""}
-                        </Link>
+                        </TextLink>
                       )}
                       <span className="flex-1" />
                       {reviewActionsFor(answer.review_state)
@@ -332,14 +330,15 @@ export default async function SubmissionDetailPage({
                       <input type="hidden" name="query_id" value={query.id} />
                       <input type="hidden" name="submission_id" value={submission.id} />
                       <input type="hidden" name="answer_id" value={answer.id} />
-                      <Label htmlFor={`note-${answer.id}`}>Note on this answer</Label>
-                      <Textarea
-                        id={`note-${answer.id}`}
-                        name="internal_note"
-                        rows={2}
-                        defaultValue={answer.internal_note ?? ""}
-                        placeholder="The usable line, a timestamp, a caution"
-                      />
+                      <Field label="Note on this answer" htmlFor={`note-${answer.id}`}>
+                        <Textarea
+                          id={`note-${answer.id}`}
+                          name="internal_note"
+                          rows={2}
+                          defaultValue={answer.internal_note ?? ""}
+                          placeholder="The usable line, a timestamp, a caution"
+                        />
+                      </Field>
                       <div className="mt-2">
                         <Button type="submit" variant="ghost">
                           Save note
@@ -376,11 +375,7 @@ export default async function SubmissionDetailPage({
   );
 }
 
-function Detail({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</dt>
-      <dd className="mt-0.5 break-words text-ink-700">{value?.trim() || "Not given"}</dd>
-    </div>
-  );
+/** A participant detail left blank reads "Not given" rather than a dash. */
+function given(value: string | null): string {
+  return value?.trim() || "Not given";
 }

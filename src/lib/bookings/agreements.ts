@@ -6,6 +6,7 @@
 // at query time, with no scheduled job. Keep the two in step.
 
 import type { BadgeVariant } from "@/components/ui/badge";
+import { defineStatusMap } from "@/components/ui/status-badge";
 import type { BkAgreementStatus, BkPricingTreatment } from "@/lib/database.types";
 import { shiftDateISO } from "@/lib/log/timezone";
 import { commitmentMinutesPerWeek, type CommitmentLike } from "./airtime";
@@ -25,11 +26,23 @@ export const AGREEMENT_STATUS_SHORT_LABEL: Record<BkAgreementStatus, string> = {
   ended: "Ended",
 };
 
-export const AGREEMENT_STATUS_BADGE: Record<BkAgreementStatus, BadgeVariant> = {
+const AGREEMENT_STATUS_VARIANT: Record<BkAgreementStatus, BadgeVariant> = {
   draft: "warning",
   active: "success",
   ended: "muted",
 };
+
+export const AGREEMENT_STATUS = defineStatusMap<BkAgreementStatus>({
+  draft: { label: AGREEMENT_STATUS_LABEL.draft, variant: AGREEMENT_STATUS_VARIANT.draft },
+  active: { label: AGREEMENT_STATUS_LABEL.active, variant: AGREEMENT_STATUS_VARIANT.active },
+  ended: { label: AGREEMENT_STATUS_LABEL.ended, variant: AGREEMENT_STATUS_VARIANT.ended },
+});
+
+export const AGREEMENT_STATUS_SHORT = defineStatusMap<BkAgreementStatus>({
+  draft: { label: AGREEMENT_STATUS_SHORT_LABEL.draft, variant: AGREEMENT_STATUS_VARIANT.draft },
+  active: { label: AGREEMENT_STATUS_SHORT_LABEL.active, variant: AGREEMENT_STATUS_VARIANT.active },
+  ended: { label: AGREEMENT_STATUS_SHORT_LABEL.ended, variant: AGREEMENT_STATUS_VARIANT.ended },
+});
 
 // Reserved blocks ---------------------------------------------------------------------------------------
 

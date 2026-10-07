@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { cn } from "@/lib/cn";
+import { Select } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
 import { PauseIcon, PlayIcon } from "./transport-icons";
 
@@ -118,20 +119,21 @@ export function PlayerBar({
 
       <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink-500">
         <span className="sr-only">Playback speed</span>
-        <select
+        <Select
+          compact
           value={rate}
           onChange={(e) => {
             const el = mediaRef.current;
             if (el) el.playbackRate = Number(e.target.value);
           }}
-          className="rounded border border-line bg-white px-1 py-0.5 text-[11px] text-ink-700 focus:border-brand-primary focus:outline-none"
+          className="text-ink-700"
         >
           {PLAYBACK_RATES.map((option) => (
             <option key={option} value={option}>
               {option}×
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <button

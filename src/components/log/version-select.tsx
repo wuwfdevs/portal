@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Select } from "@/components/ui/input";
 
 export interface VersionSelectOption {
   id: string;
@@ -28,20 +29,21 @@ export function VersionSelect({
   return (
     <label className="flex flex-col gap-0.5">
       <span className="text-xs font-bold uppercase tracking-wide text-ink-500">Version</span>
-      <select
+      <Select
         value={currentId}
         onChange={(event) => {
           const params = new URLSearchParams({ ...keepParams, version: event.target.value });
           router.push(`${basePath}?${params.toString()}`);
         }}
-        className="h-[38px] rounded border border-[#C9CED4] bg-white px-3 text-base font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-surface sm:text-sm"
+        compact
+        className="h-[38px] font-semibold"
       >
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

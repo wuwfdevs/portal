@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Button } from "@/components/ui/button";
 import { revokeParticipant } from "../actions";
 
 /** Revoking a guest's link takes their access away immediately — worth a confirm, not a destructive-delete-sized one. */
@@ -16,13 +17,9 @@ export function RevokeLinkButton({
 
   if (!isConfirming) {
     return (
-      <button
-        type="button"
-        onClick={() => setIsConfirming(true)}
-        className="text-xs font-semibold text-danger hover:underline"
-      >
+      <Button type="button" variant="danger-link" onClick={() => setIsConfirming(true)}>
         Revoke
-      </button>
+      </Button>
     );
   }
 
@@ -32,13 +29,14 @@ export function RevokeLinkButton({
       <input type="hidden" name="participant_id" value={participantId} />
       <span className="text-xs text-ink-500">Revoke this link?</span>
       <ConfirmButton />
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => setIsConfirming(false)}
-        className="text-xs font-semibold text-brand-link hover:underline"
+        className="text-brand-link"
       >
         Cancel
-      </button>
+      </Button>
     </form>
   );
 }
@@ -46,12 +44,8 @@ export function RevokeLinkButton({
 function ConfirmButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="text-xs font-bold text-danger hover:underline"
-    >
+    <Button type="submit" variant="danger-link" disabled={pending}>
       {pending ? "Revoking…" : "Yes, revoke"}
-    </button>
+    </Button>
   );
 }

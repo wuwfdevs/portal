@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import type { AgreementProposal, AgreementReading } from "@/lib/underwriting/agreement-import";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * What the agreement's reading could NOT put on the schedule
@@ -70,12 +70,12 @@ export function AgreementReadingNotes({
                     </ul>
                   )}
                 </div>
-                <Link
+                <TextLink
                   href={`/underwriting/contracts/${contractId}/schedule?prefill=${line.index}#line-editor`}
-                  className="inline-flex items-center justify-center rounded px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
+                  className="text-[13px]"
                 >
                   Enter
-                </Link>
+                </TextLink>
               </li>
             );
           })}

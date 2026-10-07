@@ -24,6 +24,8 @@ import type {
 import { autoFillScheduleLineAction } from "../../auto-fill-actions";
 import { clearCreditAction } from "../../placement-actions";
 import { LineMenu } from "./line-menu";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 export const FULFILLMENT_VARIANT: Record<FulfillmentStatus, BadgeVariant> = {
   no_target: "neutral",
@@ -145,11 +147,10 @@ export function LineCard({
           {view.warnings.length > 0 && !cancelled && (
             <ul className="mt-2 flex flex-col gap-1">
               {view.warnings.map((warning) => (
-                <li
-                  key={warning.code}
-                  className="rounded border border-warning-fg/30 bg-warning-fg/[0.06] px-2.5 py-1.5 text-xs text-ink-700"
-                >
-                  {warning.message}
+                <li key={warning.code}>
+                  <Alert variant="warning" className="px-2.5 py-1.5">
+                    {warning.message}
+                  </Alert>
                 </li>
               ))}
             </ul>
@@ -292,7 +293,7 @@ function LineDetails({
   ].filter((note): note is string => note !== null);
 
   return (
-    <div className="mr-4 mb-4 ml-[3.75rem] overflow-hidden rounded border border-line">
+    <Card className="mr-4 mb-4 ml-[3.75rem] overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-panel-50 px-3.5 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
@@ -302,16 +303,13 @@ function LineDetails({
         </div>
         <div className="flex items-center gap-4">
           {canPlace && (
-            <Link href={placeHref()} className="text-xs font-bold text-brand-link hover:underline">
+            <TextLink href={placeHref()} className="text-xs">
               Place a credit
-            </Link>
+            </TextLink>
           )}
-          <Link
-            href={`${base}?view=date`}
-            className="text-xs font-semibold text-brand-link hover:underline"
-          >
+          <TextLink href={`${base}?view=date`} className="text-xs">
             See every placement by date
-          </Link>
+          </TextLink>
         </div>
       </div>
       {rows.length === 0 ? (
@@ -333,11 +331,11 @@ function LineDetails({
               {folded.earlier.length > 0 && (
                 <tr className="border-t border-line">
                   <td colSpan={6} className={cn(cellClass, "text-xs")}>
-                    <Link href={allHref} scroll={false} className="font-semibold text-brand-link">
+                    <TextLink href={allHref} scroll={false}>
                       Show {folded.earlier.length} earlier period
                       {folded.earlier.length === 1 ? "" : "s"}
                       {allSettled(folded.earlier) ? ", all aired" : ""}
-                    </Link>
+                    </TextLink>
                   </td>
                 </tr>
               )}
@@ -421,12 +419,9 @@ function LineDetails({
                         </td>
                         <td className={cn(cellClass, "text-right")}>
                           {canPlace && (
-                            <Link
-                              href={placeHref(row.bucketId)}
-                              className="inline-flex items-center rounded border border-brand-link px-2.5 py-0.5 text-xs font-bold text-brand-link hover:bg-brand-surface"
-                            >
+                            <SecondaryLink size="sm" href={placeHref(row.bucketId)}>
                               Place
-                            </Link>
+                            </SecondaryLink>
                           )}
                         </td>
                       </>
@@ -434,12 +429,9 @@ function LineDetails({
                       <td colSpan={4} className={cn(cellClass, "text-xs text-ink-500")}>
                         {row.makegoodsAwaitingSlot} makegood
                         {row.makegoodsAwaitingSlot === 1 ? "" : "s"} awaiting a break —{" "}
-                        <Link
-                          href="/underwriting/exceptions?status=awaiting_break"
-                          className="font-semibold text-brand-link"
-                        >
+                        <TextLink href="/underwriting/exceptions?status=awaiting_break">
                           Exceptions
-                        </Link>
+                        </TextLink>
                       </td>
                     ) : (
                       <td colSpan={4} className={cn(cellClass, "text-ink-400")}>
@@ -452,11 +444,11 @@ function LineDetails({
               {folded.later.length > 0 && (
                 <tr className="border-t border-line">
                   <td colSpan={6} className={cn(cellClass, "text-xs")}>
-                    <Link href={allHref} scroll={false} className="font-semibold text-brand-link">
+                    <TextLink href={allHref} scroll={false}>
                       Show {folded.later.length} more period
                       {folded.later.length === 1 ? "" : "s"}
                       {allUntouched(folded.later) ? ", all still needed" : ""}
-                    </Link>
+                    </TextLink>
                   </td>
                 </tr>
               )}
@@ -464,6 +456,6 @@ function LineDetails({
           </table>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

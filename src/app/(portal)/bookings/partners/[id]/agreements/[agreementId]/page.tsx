@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +10,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import {
-  AGREEMENT_STATUS_BADGE,
-  AGREEMENT_STATUS_LABEL,
+  AGREEMENT_STATUS,
   BLOCK_STATE_BADGE,
   BLOCK_STATE_LABEL,
   bookingDeadline,
@@ -31,7 +29,7 @@ import {
   ratesHref,
   requestHref,
 } from "@/lib/bookings/paths";
-import { DISPOSITION_BADGE, DISPOSITION_LABEL, STAGE_LABEL } from "@/lib/bookings/projects";
+import { DISPOSITION_STATUS, STAGE_LABEL } from "@/lib/bookings/projects";
 import {
   getCurrentPlan,
   getAgreementDetail,
@@ -59,6 +57,10 @@ import {
   releaseReservedBlock,
 } from "../../../actions";
 import { AgreementDocumentUpload } from "./agreement-document-upload";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type Params = { saved?: string; error?: string; new?: string };
 
@@ -144,15 +146,13 @@ export default async function AgreementPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href={partnerHref(id)} className="inline-block text-xs font-semibold text-brand-link">
+      <TextLink href={partnerHref(id)} className="inline-block text-xs">
         ← {partner.name}
-      </Link>
+      </TextLink>
       <header className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-serif text-xl font-bold text-ink-900">{agreement.label}</h2>
-          <Badge variant={AGREEMENT_STATUS_BADGE[agreement.status]}>
-            {AGREEMENT_STATUS_LABEL[agreement.status]}
-          </Badge>
+          <StatusBadge map={AGREEMENT_STATUS} value={agreement.status} />
           {query.saved && SAVED_LABEL[query.saved] && (
             <Badge variant="success">{SAVED_LABEL[query.saved]}</Badge>
           )}
@@ -185,7 +185,7 @@ export default async function AgreementPage({
                 </Alert>
               ) : (
                 <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                  <div className="rounded border border-line bg-white p-3">
+                  <Card className="p-3">
                     <dt className="text-xs font-bold uppercase tracking-wide text-ink-400">
                       Reserve share
                     </dt>
@@ -205,8 +205,8 @@ export default async function AgreementPage({
                           : `Leaves ${formatHours(draw.reserveRemainingAfter ?? 0)} of the reserve for everyone else.`}
                       </span>
                     </dd>
-                  </div>
-                  <div className="rounded border border-line bg-white p-3">
+                  </Card>
+                  <Card className="p-3">
                     <dt className="text-xs font-bold uppercase tracking-wide text-ink-400">
                       Airtime
                     </dt>
@@ -226,8 +226,8 @@ export default async function AgreementPage({
                           : `Leaves ${formatMinutes(draw.airtimeRemainingAfter ?? 0)} a week for other requests and for Traffic.`}
                       </span>
                     </dd>
-                  </div>
-                  <div className="rounded border border-line bg-white p-3">
+                  </Card>
+                  <Card className="p-3">
                     <dt className="text-xs font-bold uppercase tracking-wide text-ink-400">
                       Windows reserved
                     </dt>
@@ -245,7 +245,7 @@ export default async function AgreementPage({
                         agreement is active.
                       </span>
                     </dd>
-                  </div>
+                  </Card>
                 </dl>
               )}
               {Number(agreement.funded_student_hours) > 0 && (
@@ -300,12 +300,9 @@ export default async function AgreementPage({
               </span>
               <span className="flex-1" />
               {canKeep && agreement.status !== "ended" && (
-                <Link
-                  href={agreementHref(id, agreementId, { new: "block" })}
-                  className="px-1 text-sm font-bold text-brand-link hover:underline"
-                >
+                <TextLink href={agreementHref(id, agreementId, { new: "block" })}>
                   + Reserve a block
-                </Link>
+                </TextLink>
               )}
             </div>
             {agreement.status === "draft" && blocks.length > 0 && (
@@ -395,10 +392,10 @@ export default async function AgreementPage({
             )}
 
             {blocks.length === 0 ? (
-              <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
+              <EmptyState compact>
                 No reserved blocks. An agreement without them still carries its reserve share and
                 airtime allowance; its requests book ordinary windows.
-              </p>
+              </EmptyState>
             ) : (
               <TableFrame>
                 <Table stack>
@@ -438,12 +435,9 @@ export default async function AgreementPage({
                             </Badge>
                             {block.project_id && (
                               <span className="block text-xs text-ink-500">
-                                <Link
-                                  href={requestHref(block.project_id)}
-                                  className="font-semibold text-brand-link hover:underline"
-                                >
+                                <TextLink href={requestHref(block.project_id)}>
                                   {block.project_title ?? "A request"}
-                                </Link>
+                                </TextLink>
                               </span>
                             )}
                             {block.state === "kept" && block.kept_by_name && (
@@ -528,9 +522,7 @@ export default async function AgreementPage({
               </span>
             </div>
             {detail.projects.length === 0 ? (
-              <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
-                None yet.
-              </p>
+              <EmptyState compact>None yet.</EmptyState>
             ) : (
               <TableFrame>
                 <Table stack>
@@ -546,12 +538,7 @@ export default async function AgreementPage({
                     {detail.projects.map((project) => (
                       <Row key={project.id}>
                         <Cell stack="title">
-                          <Link
-                            href={requestHref(project.id)}
-                            className="font-semibold text-brand-link hover:underline"
-                          >
-                            {project.title}
-                          </Link>
+                          <TextLink href={requestHref(project.id)}>{project.title}</TextLink>
                         </Cell>
                         <Cell label="Event">
                           {project.event_starts_on ? formatDateShort(project.event_starts_on) : "—"}
@@ -561,9 +548,7 @@ export default async function AgreementPage({
                         </Cell>
                         <Cell stack="aside">
                           {project.disposition ? (
-                            <Badge variant={DISPOSITION_BADGE[project.disposition]}>
-                              {DISPOSITION_LABEL[project.disposition]}
-                            </Badge>
+                            <StatusBadge map={DISPOSITION_STATUS} value={project.disposition} />
                           ) : (
                             <Badge variant="accent">{STAGE_LABEL[project.stage]}</Badge>
                           )}
@@ -578,9 +563,9 @@ export default async function AgreementPage({
 
           {detail.packages.length > 0 && (
             <section className="flex flex-col gap-2 rounded border border-line bg-panel-50 p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-400">
+              <SectionHeading level="eyebrow" as="h3">
                 Bespoke packages
-              </h3>
+              </SectionHeading>
               <p className="text-sm text-ink-700">
                 Offered only to requests under this agreement:{" "}
                 {detail.packages
@@ -590,13 +575,7 @@ export default async function AgreementPage({
                   )
                   .join("; ")}
                 . Finance scopes a package to an agreement on the{" "}
-                <Link
-                  href={ratesHref("packages")}
-                  className="font-bold text-brand-link hover:underline"
-                >
-                  Rates tab
-                </Link>
-                .
+                <TextLink href={ratesHref("packages")}>Rates tab</TextLink>.
               </p>
             </section>
           )}

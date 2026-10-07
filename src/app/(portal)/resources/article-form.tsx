@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
+import { CheckboxField, Field, FieldError, FieldHint, Input } from "@/components/ui/input";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import {
   AREA_MAX,
   SLUG_MAX,
@@ -69,10 +69,8 @@ export function ArticleForm({
   const editing = defaults !== undefined;
   const screens = tool ? screensForTool(tool.key) : [];
   const fieldError = (name: string) => (error && field === name ? error : null);
-  const hint = (name: string, text: React.ReactNode) => {
-    const message = fieldError(name);
-    return message ? <FieldError>{message}</FieldError> : <FieldHint>{text}</FieldHint>;
-  };
+  // A message for one field replaces that field's hint.
+  const hint = (name: string, text: React.ReactNode) => (fieldError(name) ? undefined : text);
 
   return (
     <form
@@ -84,8 +82,7 @@ export function ArticleForm({
       {defaults && <input type="hidden" name="id" value={defaults.id} />}
       {tool && <input type="hidden" name="tool_key" value={tool.key} />}
 
-      <div>
-        <Label htmlFor="title">Title</Label>
+      <Field label="Title" htmlFor="title" error={fieldError("title")}>
         <Input
           id="title"
           name="title"
@@ -94,45 +91,54 @@ export function ArticleForm({
           defaultValue={defaults?.title ?? ""}
           autoFocus
         />
-        {fieldError("title") && <FieldError>{fieldError("title")}</FieldError>}
-      </div>
+      </Field>
 
-      <div>
-        <Label htmlFor="slug">Address</Label>
-        {editing ? (
-          <>
-            <Input id="slug" value={defaults.slug} readOnly disabled />
-            <FieldHint>
-              Fixed once the page exists, so links to it keep working
-              {kind === "guide" ? " and release updates can find it" : ""}.
-            </FieldHint>
-          </>
-        ) : (
-          <>
-            <Input id="slug" name="slug" maxLength={SLUG_MAX} placeholder="Made from the title" />
-            {hint(
-              "slug",
-              "Lowercase words joined by hyphens. Leave blank to make it from the title.",
-            )}
-          </>
-        )}
-      </div>
+      {editing ? (
+        <Field
+          label="Address"
+          htmlFor="slug"
+          hint={`Fixed once the page exists, so links to it keep working${
+            kind === "guide" ? " and release updates can find it" : ""
+          }.`}
+        >
+          <Input id="slug" value={defaults.slug} readOnly disabled />
+        </Field>
+      ) : (
+        <Field
+          label="Address"
+          htmlFor="slug"
+          error={fieldError("slug")}
+          hint={hint(
+            "slug",
+            "Lowercase words joined by hyphens. Leave blank to make it from the title.",
+          )}
+        >
+          <Input id="slug" name="slug" maxLength={SLUG_MAX} placeholder="Made from the title" />
+        </Field>
+      )}
 
-      <div>
-        <Label htmlFor="summary">Summary</Label>
+      <Field
+        label="Summary"
+        htmlFor="summary"
+        error={fieldError("summary")}
+        hint={hint("summary", "One line, shown in lists.")}
+      >
         <Input
           id="summary"
           name="summary"
           maxLength={SUMMARY_MAX}
           defaultValue={defaults?.summary ?? ""}
         />
-        {hint("summary", "One line, shown in lists.")}
-      </div>
+      </Field>
 
       {kind === "procedure" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="area">Area</Label>
+          <Field
+            label="Area"
+            htmlFor="area"
+            error={fieldError("area")}
+            hint={hint("area", "A department or category. Reuse one already in use where it fits.")}
+          >
             <Input
               id="area"
               name="area"
@@ -147,10 +153,13 @@ export function ArticleForm({
                 <option key={area} value={area} />
               ))}
             </datalist>
-            {hint("area", "A department or category. Reuse one already in use where it fits.")}
-          </div>
-          <div>
-            <Label htmlFor="owner_role">Owner</Label>
+          </Field>
+          <Field
+            label="Owner"
+            htmlFor="owner_role"
+            error={fieldError("owner_role")}
+            hint={hint("owner_role", "A role, not a person.")}
+          >
             <Input
               id="owner_role"
               name="owner_role"
@@ -158,8 +167,7 @@ export function ArticleForm({
               placeholder="Operations"
               defaultValue={defaults?.owner_role ?? ""}
             />
-            {hint("owner_role", "A role, not a person.")}
-          </div>
+          </Field>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
@@ -172,23 +180,29 @@ export function ArticleForm({
             ) : (
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 {screens.map((screen) => (
-                  <label key={screen.key} className="flex items-center gap-2 text-sm text-ink-700">
-                    <input
-                      type="checkbox"
-                      name="screen_keys"
-                      value={screen.key}
-                      defaultChecked={defaults?.screen_keys.includes(screen.key)}
-                      className="h-4 w-4"
-                    />
-                    {screen.name}
-                  </label>
+                  <CheckboxField
+                    key={screen.key}
+                    name="screen_keys"
+                    value={screen.key}
+                    defaultChecked={defaults?.screen_keys.includes(screen.key)}
+                    className="items-center"
+                    label={screen.name}
+                  />
                 ))}
               </div>
             )}
-            {hint("screen_keys", "The screens this guide explains. The Help panel will use them.")}
+            {fieldError("screen_keys") ? (
+              <FieldError>{fieldError("screen_keys")}</FieldError>
+            ) : (
+              <FieldHint>The screens this guide explains. The Help panel will use them.</FieldHint>
+            )}
           </fieldset>
-          <div>
-            <Label htmlFor="sort_order">Order</Label>
+          <Field
+            label="Order"
+            htmlFor="sort_order"
+            error={fieldError("sort_order")}
+            hint={hint("sort_order", "Lower comes first.")}
+          >
             <Input
               id="sort_order"
               name="sort_order"
@@ -198,8 +212,7 @@ export function ArticleForm({
               step={1}
               defaultValue={defaults?.sort_order ?? 100}
             />
-            {hint("sort_order", "Lower comes first.")}
-          </div>
+          </Field>
         </div>
       )}
 
@@ -213,21 +226,22 @@ export function ArticleForm({
         {!editing && <FieldHint>Screenshots can be added once the page is saved.</FieldHint>}
       </div>
 
-      <div>
-        <Label htmlFor="version_note">{editing ? "What changed" : "Note"}</Label>
+      <Field
+        label={editing ? "What changed" : "Note"}
+        htmlFor="version_note"
+        error={fieldError("version_note")}
+        hint={hint("version_note", "Shown in the page's history.")}
+      >
         <Input
           id="version_note"
           name="version_note"
           maxLength={VERSION_NOTE_MAX}
           placeholder={editing ? "Updated the overnight contact list" : "Created"}
         />
-        {hint("version_note", "Shown in the page's history.")}
-      </div>
+      </Field>
 
       <div className="flex items-center justify-end gap-3">
-        <Link href={cancelHref} className="text-xs font-semibold text-ink-500 hover:underline">
-          Cancel
-        </Link>
+        <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
         <Button type="submit">{editing ? "Save changes" : `Create ${kind}`}</Button>
       </div>
     </form>

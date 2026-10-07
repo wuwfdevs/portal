@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { Button } from "@/components/ui/button";
 import { reindexProjectSearch } from "../actions";
 import { removeSourceFromProject, deleteSourceEntirely } from "./source-actions";
 
@@ -142,7 +143,9 @@ export function SourceActionsMenu({
               onClick={() => setStep("confirmDelete")}
               className="rounded border border-danger/30 bg-danger/[0.04] px-3 py-2 text-left hover:bg-danger/10"
             >
-              <span className="block text-sm font-semibold text-danger">Delete this source entirely</span>
+              <span className="block text-sm font-semibold text-danger">
+                Delete this source entirely
+              </span>
               <span className="block text-xs text-ink-700">
                 Permanently deletes the recording, its transcript, and every excerpt made from it
                 {otherProjectCount > 0
@@ -152,38 +155,32 @@ export function SourceActionsMenu({
               </span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setStep("closed")}
-            className="mt-2 text-xs font-semibold text-ink-500 hover:text-ink-700"
-          >
+          <Button type="button" variant="link" onClick={() => setStep("closed")} className="mt-2">
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
       {step === "confirmDelete" && (
         <div className="w-full max-w-xs rounded border border-danger/30 bg-danger/[0.04] p-3">
           <p className="mb-2.5 text-left text-xs leading-relaxed text-ink-700">
-            This can&apos;t be undone{otherProjectCount > 0 ? ` and affects ${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"} too` : ""}.
-            Delete &ldquo;{sourceTitle}&rdquo; entirely?
+            This can&apos;t be undone
+            {otherProjectCount > 0
+              ? ` and affects ${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"} too`
+              : ""}
+            . Delete &ldquo;{sourceTitle}&rdquo; entirely?
           </p>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setStep(projectId ? "choice" : "closed")}
-              className="rounded px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-panel-50"
             >
               {projectId ? "Back" : "Cancel"}
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteEntirely}
-              disabled={busy}
-              className="rounded bg-danger px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:bg-panel-100 disabled:text-ink-400"
-            >
+            </Button>
+            <Button type="button" variant="danger" onClick={handleDeleteEntirely} disabled={busy}>
               {busy ? "Deleting…" : "Yes, delete permanently"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

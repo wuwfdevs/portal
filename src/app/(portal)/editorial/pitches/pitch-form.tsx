@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { savePitch, type PitchFormState } from "./actions";
 import {
   NON_PILLAR_OPTIONS,
@@ -65,10 +65,7 @@ export function PitchForm({
       {pitchId && <input type="hidden" name="pitch_id" value={pitchId} />}
       {state.status === "error" && state.message && <Alert>{state.message}</Alert>}
 
-      <div>
-        <Label htmlFor="title">
-          Title <span className="text-danger">*</span>
-        </Label>
+      <Field label="Title" htmlFor="title" required error={errors.title}>
         <Input
           id="title"
           name="title"
@@ -78,8 +75,7 @@ export function PitchForm({
           aria-invalid={errors.title ? true : undefined}
           placeholder="One line that says what the story is"
         />
-        {errors.title && <FieldError>{errors.title}</FieldError>}
-      </div>
+      </Field>
 
       {fields.map((field) => {
         const name = `field_${field.key}`;
@@ -91,11 +87,14 @@ export function PitchForm({
         const required = isPillarContribution ? pillarContributionRequired : field.required;
 
         return (
-          <div key={field.id}>
-            <Label htmlFor={name}>
-              {field.label}
-              {required && <span className="text-danger"> *</span>}
-            </Label>
+          <Field
+            key={field.id}
+            label={field.label}
+            htmlFor={name}
+            required={required}
+            error={errors[field.key]}
+            hint={errors[field.key] ? undefined : field.help_text}
+          >
             {field.field_type === "long_text" ? (
               <Textarea
                 id={name}
@@ -127,16 +126,13 @@ export function PitchForm({
             ) : field.field_type === "multi_select" ? (
               <div className="flex flex-col gap-2 pt-1">
                 {(field.options ?? []).map((option) => (
-                  <label key={option} className="flex items-center gap-2 text-sm text-ink-900">
-                    <input
-                      type="checkbox"
-                      name={name}
-                      value={option}
-                      defaultChecked={selected.includes(option)}
-                      className="h-4 w-4"
-                    />
-                    {option}
-                  </label>
+                  <CheckboxField
+                    key={option}
+                    name={name}
+                    value={option}
+                    defaultChecked={selected.includes(option)}
+                    label={option}
+                  />
                 ))}
               </div>
             ) : (
@@ -148,21 +144,12 @@ export function PitchForm({
                 aria-invalid={invalid}
               />
             )}
-            {errors[field.key] ? (
-              <FieldError>{errors[field.key]}</FieldError>
-            ) : (
-              field.help_text && <FieldHint>{field.help_text}</FieldHint>
-            )}
-          </div>
+          </Field>
         );
       })}
 
       <div className="flex justify-end gap-2.5 border-t border-line pt-4">
-        <Link href={cancelHref}>
-          <Button type="button" variant="secondary">
-            Cancel
-          </Button>
-        </Link>
+        <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : pitchId ? "Save changes" : "Submit pitch"}
         </Button>

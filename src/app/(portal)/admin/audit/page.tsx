@@ -1,3 +1,4 @@
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 import { formatShortDateTime as formatTimestamp } from "@/lib/format";
 
@@ -15,15 +16,15 @@ export default async function AdminAuditPage() {
   const actorNameById = new Map((actors ?? []).map((actor) => [actor.id, actor.display_name]));
 
   return (
-    <div className="overflow-x-auto rounded border border-line">
-      <table className="w-full min-w-[720px] text-sm">
+    <TableFrame>
+      <Table stack className="md:min-w-[720px]">
         <thead>
-          <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-            <th className="px-4 py-2.5">When</th>
-            <th className="px-4 py-2.5">Actor</th>
-            <th className="px-4 py-2.5">Action</th>
-            <th className="px-4 py-2.5">Target</th>
-          </tr>
+          <HeaderRow>
+            <Th>When</Th>
+            <Th>Actor</Th>
+            <Th>Action</Th>
+            <Th>Target</Th>
+          </HeaderRow>
         </thead>
         <tbody>
           {(!events || events.length === 0) && (
@@ -34,22 +35,24 @@ export default async function AdminAuditPage() {
             </tr>
           )}
           {events?.map((event) => (
-            <tr key={event.id} className="border-b border-line last:border-b-0">
-              <td className="whitespace-nowrap px-4 py-3 text-ink-500">
+            <Row key={event.id}>
+              <Cell label="When" className="whitespace-nowrap text-ink-500">
                 {formatTimestamp(event.created_at)}
-              </td>
-              <td className="px-4 py-3 text-ink-900">
+              </Cell>
+              <Cell stack="title" className="text-ink-900">
                 {(event.actor_id && actorNameById.get(event.actor_id)) ?? "System"}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs text-ink-700">{event.action}</td>
-              <td className="px-4 py-3 text-ink-500">
+              </Cell>
+              <Cell label="Action" className="font-mono text-xs text-ink-700">
+                {event.action}
+              </Cell>
+              <Cell label="Target" className="text-ink-500">
                 {event.target_type}
                 {event.target_id ? ` · ${event.target_id.slice(0, 8)}` : ""}
-              </td>
-            </tr>
+              </Cell>
+            </Row>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableFrame>
   );
 }

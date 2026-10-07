@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,8 @@ import { AIRTIME_TREATMENT_LABEL, HONORED_IN_LABEL } from "@/lib/bookings/projec
 import type { BkAirtimeCommitmentRow, ProjectDetail } from "@/lib/bookings/queries";
 import { formatDateShort } from "@/lib/log/program-status";
 import { addCommitment, removeCommitment, updateCommitment } from "../actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * The project's airtime commitments (docs/bookings-design.md §2.5): airings
@@ -75,9 +76,7 @@ export function AirtimeSection({
       {honoredError && <Alert>Could not read Traffic and On Air: {honoredError}</Alert>}
 
       {commitments.length === 0 ? (
-        <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
-          No airtime asked for.
-        </p>
+        <EmptyState compact>No airtime asked for.</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -135,12 +134,9 @@ export function AirtimeSection({
                     {canEdit && (
                       <Cell stack="full" className="text-right">
                         <span className="inline-flex items-center gap-2">
-                          <Link
-                            href={requestHref(project.id, { airtime: commitment.id })}
-                            className="text-sm font-bold text-brand-link hover:underline"
-                          >
+                          <TextLink href={requestHref(project.id, { airtime: commitment.id })}>
                             Edit
-                          </Link>
+                          </TextLink>
                           <form action={removeCommitment} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="commitment_id" value={commitment.id} />
@@ -172,12 +168,9 @@ export function AirtimeSection({
           </InlineCreateCard>
         ) : (
           <div>
-            <Link
-              href={requestHref(project.id, { new: "airtime" })}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={requestHref(project.id, { new: "airtime" })}>
               + Airtime commitment
-            </Link>
+            </TextLink>
           </div>
         ))}
     </Card>
@@ -235,9 +228,7 @@ function CommitmentFields({
         <Button type="submit" variant="secondary">
           Save
         </Button>
-        <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

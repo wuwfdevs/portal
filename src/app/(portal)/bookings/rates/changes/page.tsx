@@ -2,6 +2,7 @@ import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/tab
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { listRateModelEvents } from "@/lib/bookings/queries";
 import { RatesTabs } from "../rates-tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default async function ChangeLogPage({
   searchParams,
@@ -20,9 +21,7 @@ export default async function ChangeLogPage({
         here is edited or removed.
       </p>
       {events.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          Nothing has changed yet.
-        </div>
+        <EmptyState>Nothing has changed yet.</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>

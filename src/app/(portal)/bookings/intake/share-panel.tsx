@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { buildGroveEmbedCode, embedFormUrl, publicFormUrl } from "@/lib/bookings/embed";
 
@@ -107,12 +108,8 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="shrink-0 text-xs font-semibold text-brand-link hover:underline"
-    >
+    <Button type="button" variant="link" onClick={handleCopy} className="shrink-0 text-brand-link">
       {status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : label}
-    </button>
+    </Button>
   );
 }

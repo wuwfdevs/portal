@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/ui/page-header";
 import { ImportClient } from "./import-client";
 
 // DAD library import: bring WUWF's existing cut library into the content
@@ -9,14 +10,19 @@ import { ImportClient } from "./import-client";
 export default function DadLibraryImportPage() {
   return (
     <div className="max-w-3xl">
-      <h1 className="text-lg font-bold text-ink-900">Import the DAD library</h1>
-      <p className="mt-1 mb-5 text-sm text-ink-500">
-        Upload DAD&apos;s Standard Library export (Library screen &rarr; Generate Reports &rarr; Standard
-        Library) and, optionally, its Groups report. Most groups become ordinary content items; program
-        promos scattered across GENERIC/DAILY/WEEKLY are collapsed into one evergreen promo per matched
-        program instead. Re-uploading later reuses items already imported (matched by DAD cart number)
-        rather than duplicating them.
-      </p>
+      <PageHeader
+        title="Import the DAD library"
+        className="mb-5"
+        description={
+          <>
+            Upload DAD&apos;s Standard Library export (Library screen &rarr; Generate Reports &rarr;
+            Standard Library) and, optionally, its Groups report. Most groups become ordinary
+            content items; program promos scattered across GENERIC/DAILY/WEEKLY are collapsed into
+            one evergreen promo per matched program instead. Re-uploading later reuses items already
+            imported (matched by DAD cart number) rather than duplicating them.
+          </>
+        }
+      />
       <ImportClient />
     </div>
   );

@@ -5,6 +5,8 @@ import { PitchValues, fieldsWithValues } from "@/components/editorial/pitch-valu
 import { Alert } from "@/components/ui/alert";
 import { FloatingPanel, useDetailsMenu } from "@/components/ui/floating-panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { Select, Textarea } from "@/components/ui/input";
 import {
   CONCERN_FLAG_LABEL,
@@ -93,19 +95,12 @@ export function ScoringSection({
                 : `${scoredCount} of ${slate.length} scored`}
             </span>
           </div>
-          <div
-            role="progressbar"
-            aria-valuenow={scoredCount}
-            aria-valuemin={0}
-            aria-valuemax={slate.length}
-            aria-label="Pitches you have scored"
-            className="h-1.5 overflow-hidden rounded-full bg-panel-100"
-          >
-            <div
-              className="h-full rounded-full bg-brand-primary transition-[width]"
-              style={{ width: `${Math.round((scoredCount / slate.length) * 100)}%` }}
-            />
-          </div>
+          <ProgressBar
+            label="Pitches you have scored"
+            done={scoredCount}
+            total={slate.length}
+            complete={allScored}
+          />
         </div>
       )}
 
@@ -123,10 +118,10 @@ export function ScoringSection({
       )}
 
       {slate.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+        <EmptyState className="leading-relaxed">
           No pitches on the slate yet.{" "}
           {isEditor ? "Add one above." : "An editor is still building it."}
-        </div>
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-2.5">
           {slate.map(({ entry, pitch }) => {
@@ -177,12 +172,9 @@ export function ScoringSection({
                       <form action={removePitchFromSlate}>
                         <input type="hidden" name="meeting_id" value={meetingId} />
                         <input type="hidden" name="entry_id" value={entry.id} />
-                        <button
-                          type="submit"
-                          className="shrink-0 rounded text-xs font-semibold text-danger hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface"
-                        >
+                        <Button type="submit" variant="danger-link" className="shrink-0">
                           Remove
-                        </button>
+                        </Button>
                       </form>
                     )}
                   </div>
@@ -256,7 +248,7 @@ function AddPitchControl({
             ))}
           </Select>
           <div className="flex justify-end">
-            <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+            <Button type="submit" variant="secondary" size="sm">
               Add to slate
             </Button>
           </div>

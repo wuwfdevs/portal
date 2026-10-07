@@ -1,13 +1,12 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { calendarStateFrom } from "@/lib/bookings/estimate";
@@ -58,6 +57,8 @@ import {
 } from "./actions";
 import { CalendarGrid, type CalendarView } from "./calendar-grid";
 import { AirtimePanel, CapacityPanel } from "./envelope-panels";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 type Params = {
   plan?: string;
@@ -106,22 +107,21 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   if (!plan) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Calendar</h2>
-        <div className="rounded border border-dashed border-line bg-white px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-ink-900">No term plan yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-            The calendar starts from a term plan: the term&apos;s dates, each labor class&apos;s
-            hours, the reserve, the airtime the station contributes, and each pool&apos;s units and
-            windows.
-          </p>
-          {canDirect ? (
-            <PrimaryLink href={withQuery(PLAN_PATH, { new: "1" })} className="mt-4">
-              + Term plan
-            </PrimaryLink>
-          ) : (
-            <p className="mt-3 text-xs text-ink-500">The Director of Operations creates it.</p>
-          )}
-        </div>
+        <SectionHeading>Calendar</SectionHeading>
+        <EmptyState
+          title="No term plan yet."
+          action={
+            canDirect ? (
+              <PrimaryLink href={withQuery(PLAN_PATH, { new: "1" })}>+ Term plan</PrimaryLink>
+            ) : (
+              <p className="text-xs text-ink-500">The Director of Operations creates it.</p>
+            )
+          }
+        >
+          The calendar starts from a term plan: the term&apos;s dates, each labor class&apos;s
+          hours, the reserve, the airtime the station contributes, and each pool&apos;s units and
+          windows.
+        </EmptyState>
       </div>
     );
   }
@@ -206,7 +206,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Calendar</h2>
+        <SectionHeading>Calendar</SectionHeading>
         {plans.length > 1 && (
           <FilterChips
             label="Term"
@@ -218,12 +218,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           />
         )}
         <span className="flex-1" />
-        <Link
-          href={withQuery(PLAN_PATH, { plan: plan.id })}
-          className="px-1 text-sm font-bold text-brand-link hover:underline"
-        >
+        <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
           {canDirect ? "Edit term plan" : "Term plan"}
-        </Link>
+        </TextLink>
       </div>
 
       <details
@@ -282,12 +279,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <Alert variant="note">
           The term plan has no resources yet, so nothing can be booked.{" "}
           {canDirect ? (
-            <Link
-              href={withQuery(PLAN_PATH, { plan: plan.id })}
-              className="font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
               Add each pool&apos;s units and windows on the term plan.
-            </Link>
+            </TextLink>
           ) : (
             "The director adds each pool's units and windows on the term plan."
           )}
@@ -402,12 +396,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   <Button type="submit" variant="secondary">
                     Check
                   </Button>
-                  <Link
-                    href={here()}
-                    className="pb-2.5 text-sm font-bold text-brand-link hover:underline"
-                  >
+                  <TextLink href={here()} className="pb-2.5">
                     Close
-                  </Link>
+                  </TextLink>
                 </div>
               </div>
             </form>
@@ -482,10 +473,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               <FieldHint>Leave every pool unchecked to black out all of them.</FieldHint>
               <div className="mt-1.5 flex flex-wrap gap-3">
                 {resourcedPools.map((pool) => (
-                  <label key={pool.id} className="flex items-center gap-1.5 text-sm text-ink-900">
-                    <input type="checkbox" name="pool_ids" value={pool.id} className="size-4" />
-                    {pool.name}
-                  </label>
+                  <CheckboxField key={pool.id} name="pool_ids" value={pool.id} label={pool.name} />
                 ))}
               </div>
             </fieldset>
@@ -671,9 +659,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </span>
         </h3>
         {bookingsInRange.length + holdsInRange.length + blackoutsInRange.length === 0 ? (
-          <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
-            Nothing is booked, held or blacked out in this {view}.
-          </p>
+          <EmptyState compact>Nothing is booked, held or blacked out in this {view}.</EmptyState>
         ) : (
           <TableFrame>
             <Table stack>

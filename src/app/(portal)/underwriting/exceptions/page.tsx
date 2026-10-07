@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listExceptions, type ExceptionListItem } from "@/lib/underwriting/queries";
@@ -19,6 +18,9 @@ import {
 import { describeMakegoodState } from "@/lib/underwriting/makegoods";
 import { shortDate } from "@/lib/underwriting/dates";
 import { stationTodayISO } from "@/lib/log/timezone";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MAKEGOOD_STATUS } from "@/lib/underwriting/status";
 
 /**
  * Workflow E with makegoods folded in (docs/underwriting-traffic-redesign.md
@@ -38,9 +40,9 @@ export default async function ExceptionsPage({
 
   if (exceptions.length === 0) {
     return (
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         No exceptions — every underwriting credit has aired as scheduled so far.
-      </div>
+      </EmptyState>
     );
   }
 
@@ -81,9 +83,7 @@ export default async function ExceptionsPage({
       />
 
       {shown.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No exceptions match.
-        </div>
+        <EmptyState>No exceptions match.</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -101,12 +101,9 @@ export default async function ExceptionsPage({
               {shown.map((exception) => (
                 <Row key={exception.id}>
                   <Cell stack="title" className="font-semibold text-ink-900">
-                    <Link
-                      href={`/underwriting/exceptions/${exception.id}`}
-                      className="text-brand-link"
-                    >
+                    <TextLink href={`/underwriting/exceptions/${exception.id}`}>
                       {exception.contract.underwriter.name}
-                    </Link>
+                    </TextLink>
                     <div className="text-xs font-normal text-ink-400">
                       {orderNumberLabel(exception.contract.contract_identifier)}
                     </div>
@@ -143,13 +140,6 @@ function hostOutcome(exception: ExceptionListItem): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-const MAKEGOOD_VARIANT: Record<ReturnType<typeof describeMakegoodState>, BadgeVariant> = {
-  awaiting_slot: "warning",
-  slot_scheduled: "accent",
-  aired: "success",
-  cancelled: "muted",
-};
-
 /** The makegood that says the most: one still in play, else the newest. */
 function MakegoodBadge({ exception }: { exception: ExceptionListItem }) {
   if (exception.resolution_status === "open" && exception.makegood_approval === "pending") {
@@ -177,7 +167,7 @@ function MakegoodBadge({ exception }: { exception: ExceptionListItem }) {
           : "Cancelled";
   const more = exception.makegoods.length > 1 ? ` +${exception.makegoods.length - 1}` : "";
   return (
-    <Badge variant={MAKEGOOD_VARIANT[state]}>
+    <Badge variant={MAKEGOOD_STATUS[state].variant}>
       {label}
       {more}
     </Badge>
@@ -190,25 +180,16 @@ function NextStep({ exception }: { exception: ExceptionListItem }) {
     case "decision":
       return (
         <>
-          <Link href={`${href}#resolve`} className="font-bold text-brand-link">
-            Decide
-          </Link>
+          <TextLink href={`${href}#resolve`}>Decide</TextLink>
           <span className="text-ink-500"> · makegood, alternate airing, or waive</span>
         </>
       );
     case "agency":
-      return (
-        <Link href={`${href}#agency`} className="font-semibold text-brand-link">
-          Record the agency&apos;s answer
-        </Link>
-      );
+      return <TextLink href={`${href}#agency`}>Record the agency&apos;s answer</TextLink>;
     case "awaiting_break":
       return (
         <span className="text-ink-500">
-          Auto-fill will place it ·{" "}
-          <Link href={`${href}#makegood`} className="font-semibold text-brand-link">
-            Pick a break
-          </Link>
+          Auto-fill will place it · <TextLink href={`${href}#makegood`}>Pick a break</TextLink>
         </span>
       );
     case "makegood_scheduled":

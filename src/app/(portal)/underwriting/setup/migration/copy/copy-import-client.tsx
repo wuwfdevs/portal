@@ -12,13 +12,12 @@
 // plain question and a few choices. A choice that is safe to recommend is
 // preselected and shown folded, so it still reads as a decision.
 
-import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/input";
+import { Label, FieldError } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
@@ -36,11 +35,11 @@ import {
 } from "@/lib/underwriting/legacy-copy";
 import type { LegacyCopyImportResult } from "@/lib/underwriting/legacy-copy-import";
 import { importLegacyCopy } from "./actions";
+import { PrimaryLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
 
 const MAX_FILE_BYTES = 1024 * 1024;
 const STEPS = [{ label: "Choose the export" }, { label: "Review" }, { label: "Import" }];
-const SECONDARY_LINK =
-  "inline-flex h-10 items-center whitespace-nowrap rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface";
 
 /**
  * The answers the plan runs on: the person's own, plus the recommended
@@ -231,7 +230,7 @@ function ChooseFile({
             onChange={(event) => onFile(event.target.files?.[0])}
           />
         </label>
-        {fileError && <p className="text-sm text-danger">{fileError}</p>}
+        {fileError && <FieldError>{fileError}</FieldError>}
       </div>
       <aside className="flex flex-col gap-3 rounded border border-line px-5 py-4 text-sm text-ink-700 lg:col-span-5">
         <h3 className="text-[15px] font-bold text-ink-900">Getting the file</h3>
@@ -439,7 +438,7 @@ function Review({
                   : "Everything else is already here or staying out."}
             </span>
           </p>
-          {importError && <p className="text-sm text-danger">{importError}</p>}
+          {importError && <FieldError>{importError}</FieldError>}
           <span className="flex-1" />
           <Button type="button" onClick={onImport} disabled={counts.ready === 0}>
             Import {plural(counts.ready, "row")}
@@ -479,7 +478,7 @@ function QuestionCard({
 
   if (!open && value !== undefined)
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line px-5 py-3">
+      <Card className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
         <span aria-hidden="true" className="text-success-fg">
           ✓
         </span>
@@ -493,7 +492,7 @@ function QuestionCard({
         <button type="button" onClick={onReopen} className="p-2 text-sm font-bold text-brand-link">
           Change
         </button>
-      </div>
+      </Card>
     );
 
   const name = `q-${question.key}`;
@@ -738,16 +737,13 @@ function ImportResult({
 
       <section aria-label="What changed" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {tiles.map((tile) => (
-          <div
-            key={tile.title}
-            className="flex flex-col gap-1 rounded border border-line px-4 py-3.5"
-          >
+          <Card key={tile.title} className="flex flex-col gap-1 px-4 py-3.5">
             <span className="text-xs font-bold uppercase tracking-wide text-ink-500">
               {tile.title}
             </span>
             <span className="font-serif text-3xl font-bold text-ink-900">{tile.count}</span>
             <span className="text-[13px] text-ink-500">{tile.hint}</span>
-          </div>
+          </Card>
         ))}
       </section>
 
@@ -792,15 +788,10 @@ function ImportResult({
       )}
 
       <div className="flex flex-wrap gap-3">
-        <Link
-          href="/underwriting/copy"
-          className="inline-flex h-10 items-center rounded bg-brand-primary px-4 text-sm font-bold text-white hover:bg-[#2278B8]"
-        >
-          Open the copy library
-        </Link>
-        <button type="button" onClick={onAgain} className={SECONDARY_LINK}>
+        <PrimaryLink href="/underwriting/copy">Open the copy library</PrimaryLink>
+        <Button type="button" variant="secondary" onClick={onAgain}>
           Review another export
-        </button>
+        </Button>
       </div>
     </div>
   );

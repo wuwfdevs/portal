@@ -6,31 +6,17 @@ import {
   type RiSession,
 } from "@/lib/remote-interview/sessions";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import type { RiSessionStatus } from "@/lib/database.types";
-
-const STATUS_BADGE: Record<
-  RiSessionStatus,
-  { label: string; variant: "accent" | "neutral" | "muted" | "danger" }
-> = {
-  scheduled: { label: "Scheduled", variant: "neutral" },
-  live: { label: "Live", variant: "accent" },
-  recording: { label: "Recording", variant: "accent" },
-  processing: { label: "Processing", variant: "neutral" },
-  ready: { label: "Ready", variant: "accent" },
-  needs_recovery: { label: "Needs recovery", variant: "danger" },
-  failed: { label: "Failed", variant: "danger" },
-};
+import { SESSION_STATUS } from "@/lib/remote-interview/track-status";
+import { formatShortDate } from "@/lib/format";
 
 function formatSessionDate(session: RiSession): string {
   const source = session.scheduled_at ?? session.created_at;
-  return new Date(source).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(source, { year: true });
 }
 
 export default async function RemoteInterviewListPage({
@@ -48,24 +34,20 @@ export default async function RemoteInterviewListPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1.5 font-serif text-[28px] font-bold text-ink-900">Remote Interview</h1>
-          <p className="max-w-xl text-[15px] text-ink-500">
-            Record a remote guest at full quality, straight from their own browser.
-          </p>
-        </div>
-        <Link href="/remote-interview/new">
-          <Button>New session</Button>
-        </Link>
-      </div>
+      <PageHeader
+        size="page"
+        title="Remote Interview"
+        description="Record a remote guest at full quality, straight from their own browser."
+        actions={<PrimaryLink href="/remote-interview/new">New session</PrimaryLink>}
+        className="mb-8"
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
       {sessions.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+        <EmptyState>
           No sessions yet. Start one and you&apos;ll get a guest link to send right away.
-        </div>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack className="md:min-w-[640px]">
@@ -79,7 +61,6 @@ export default async function RemoteInterviewListPage({
             </thead>
             <tbody>
               {sessions.map((session) => {
-                const badge = STATUS_BADGE[session.status];
                 return (
                   <Row key={session.id}>
                     <Cell stack="title">
@@ -97,7 +78,7 @@ export default async function RemoteInterviewListPage({
                       {participantCounts[session.id] ?? 0}
                     </Cell>
                     <Cell stack="aside">
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                      <StatusBadge map={SESSION_STATUS} value={session.status} />
                     </Cell>
                   </Row>
                 );

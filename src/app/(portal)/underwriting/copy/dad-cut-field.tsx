@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { controlClasses, FieldHint, Label } from "@/components/ui/input";
+import { FieldHint, Label, Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
 import { searchDadCuts, type DadLibraryCut } from "./dad-cut-actions";
@@ -56,13 +57,13 @@ export function DadCutField({
           {typing ? (
             <div className="w-full max-w-[220px]">
               <Label htmlFor={`${idPrefix}_dad_cut`}>DAD cut</Label>
-              <input
+              <Input
                 id={`${idPrefix}_dad_cut`}
                 name="dad_cut"
                 defaultValue={portalCut ?? ""}
                 placeholder="00013A"
                 maxLength={6}
-                className={cn(controlClasses, "font-mono")}
+                className="font-mono"
                 autoFocus
               />
             </div>
@@ -81,13 +82,14 @@ export function DadCutField({
                 : "The next free cut. Record the message into DAD under it."}
             </span>
             {!typing && (
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => setTyping(true)}
-                className="w-fit text-left font-bold text-brand-link hover:underline"
+                className="w-fit text-left text-brand-link"
               >
                 Use a different cut
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -167,7 +169,7 @@ function ExistingSpotPicker({
     <div className="relative flex flex-col gap-1.5">
       <Label htmlFor={id}>Search the DAD library</Label>
       <input type="hidden" name="dad_cut" value={chosen ?? ""} />
-      <input
+      <Input
         id={id}
         role="combobox"
         aria-expanded={open}
@@ -176,7 +178,6 @@ function ExistingSpotPicker({
         autoComplete="off"
         value={query}
         placeholder="Cut number or title, e.g. Dauphin"
-        className={controlClasses}
         onFocus={() => setOpen(true)}
         onChange={(event) => {
           setQuery(event.target.value);

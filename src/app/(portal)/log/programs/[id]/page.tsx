@@ -2,11 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PROGRAM_SCHEDULE_STATUS } from "@/lib/log/status-badges";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { ClockThumb } from "@/components/log/clock-thumb";
 import { requireLogAccess } from "@/lib/log/access";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import {
   CLOCK_VARIANT_LABEL,
   deriveProgramStatus,
@@ -17,7 +23,6 @@ import {
   formatTimeRange,
   isPlaceholderClockName,
   nextAiringDate,
-  STATUS_LABEL,
 } from "@/lib/log/program-status";
 import { formatHour } from "@/lib/log/program-npr";
 import { effectiveDays } from "@/lib/log/schedule-overlap";
@@ -32,12 +37,6 @@ import {
 } from "@/lib/log/queries";
 import { cn } from "@/lib/cn";
 import { updateProgram } from "../../program-actions";
-
-const STATUS_VARIANT = {
-  on_real_clock: "success",
-  needs_clock: "warning",
-  not_scheduled: "neutral",
-} as const;
 
 const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 /** Mon..Sun, as the day pills and the editor lay them out. */
@@ -112,82 +111,74 @@ export default async function ProgramDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-5">
-        <div>
-          <Link href="/log/programs" className="text-xs font-semibold text-brand-link">
-            ← Programs
-          </Link>
-          <div className="mt-2 flex flex-wrap items-center gap-2.5">
-            <h2 className="font-serif text-xl font-bold text-ink-900">{program.name}</h2>
-            <Badge variant={program.kind === "special" ? "warning" : "neutral"}>
-              {program.kind}
-            </Badge>
-            <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
-            {saved && SAVED_MESSAGE[saved] && (
-              <Badge variant="success">{SAVED_MESSAGE[saved]}</Badge>
-            )}
-            {isProgramDirector && (
-              <div className="ml-auto flex flex-wrap gap-2">
-                <Link
-                  href={`/log/programs/${program.id}/schedule/new`}
-                  className="inline-flex h-10 items-center rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface"
-                >
-                  + Add a time
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          as="h2"
+          back={{ href: "/log/programs", label: "Programs" }}
+          title={program.name}
+          badge={
+            <>
+              <Badge variant={program.kind === "special" ? "warning" : "neutral"}>
+                {program.kind}
+              </Badge>
+              <StatusBadge map={PROGRAM_SCHEDULE_STATUS} value={status} />
+              {saved && SAVED_MESSAGE[saved] && (
+                <Badge variant="success">{SAVED_MESSAGE[saved]}</Badge>
+              )}
+            </>
+          }
+          actions={
+            isProgramDirector && (
+              <SecondaryLink href={`/log/programs/${program.id}/schedule/new`}>
+                + Add a time
+              </SecondaryLink>
+            )
+          }
+        />
 
         {error && !editing && <Alert>{error}</Alert>}
 
         {placeholderEntries.length > 0 && (
-          <div
-            role="note"
-            className="flex flex-col gap-4 rounded border border-warning-fg/30 bg-warning-bg p-5 sm:flex-row sm:items-center"
+          <Alert
+            variant="warning"
+            className="p-5"
+            action={
+              isProgramDirector && (
+                <div className="flex shrink-0 flex-col gap-2">
+                  <PrimaryLink
+                    href={`/log/programs/${program.id}/schedule/${placeholderEntries[0]!.id}/edit`}
+                  >
+                    Choose a clock
+                  </PrimaryLink>
+                  <SecondaryLink href={`/log/clocks/new?from=${program.id}`}>
+                    Create a clock for this program
+                  </SecondaryLink>
+                </div>
+              )
+            }
           >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-warning-fg">Awaiting a network clock</p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-700">
-                This program uses the shared placeholder clock, one slot spanning the whole hour.
-                Rundowns can still be generated, but there is no network structure and no local
-                opportunity to fill until it has a real clock.
-              </p>
-            </div>
-            {isProgramDirector && (
-              <div className="flex shrink-0 flex-col gap-2">
-                <Link
-                  href={`/log/programs/${program.id}/schedule/${placeholderEntries[0]!.id}/edit`}
-                  className="inline-flex items-center justify-center rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
-                >
-                  Choose a clock
-                </Link>
-                <Link
-                  href={`/log/clocks/new?from=${program.id}`}
-                  className="inline-flex items-center justify-center rounded border border-brand-link bg-white px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface"
-                >
-                  Create a clock for this program
-                </Link>
-              </div>
-            )}
-          </div>
+            <p className="text-sm font-bold text-warning-fg">Awaiting a network clock</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-700">
+              This program uses the shared placeholder clock, one slot spanning the whole hour.
+              Rundowns can still be generated, but there is no network structure and no local
+              opportunity to fill until it has a real clock.
+            </p>
+          </Alert>
         )}
 
         <section aria-labelledby="schedule-heading" className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 id="schedule-heading" className="text-base font-bold text-ink-900">
-              When it airs
-            </h3>
-            <Link
-              href="/log/programs?view=week"
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              See the full week →
-            </Link>
-          </div>
+          <SectionHeading
+            as="h3"
+            id="schedule-heading"
+            action={
+              <TextLink href="/log/programs?view=week" className="hover:underline">
+                See the full week →
+              </TextLink>
+            }
+          >
+            When it airs
+          </SectionHeading>
           {named.length === 0 ? (
-            <p className="rounded border border-line px-5 py-4 text-sm text-ink-500">
-              Not scheduled yet.
-            </p>
+            <EmptyState compact>Not scheduled yet.</EmptyState>
           ) : (
             <ul className="flex flex-col gap-3">
               {[...live, ...ended].map((entry) => {
@@ -258,12 +249,9 @@ export default async function ProgramDetailPage({
                         {entry.notes && <div className="text-xs text-ink-400">{entry.notes}</div>}
                       </div>
                       {isProgramDirector && (
-                        <Link
-                          href={editHref}
-                          className="inline-flex h-9 shrink-0 items-center justify-center rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface"
-                        >
+                        <SecondaryLink href={editHref} className="h-9 shrink-0 py-0">
                           Edit
-                        </Link>
+                        </SecondaryLink>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-panel-50 px-5 py-3">
@@ -317,11 +305,9 @@ export default async function ProgramDetailPage({
                           </>
                         )}
                       </div>
-                      <div className="flex gap-4 text-sm font-bold">
-                        <Link href={clockHref} className="text-brand-link hover:underline">
-                          Open clock
-                        </Link>
-                      </div>
+                      <TextLink href={clockHref} className="hover:underline">
+                        Open clock
+                      </TextLink>
                     </div>
                   </li>
                 );
@@ -341,8 +327,17 @@ export default async function ProgramDetailPage({
             sections={
               <fieldset className="flex flex-col gap-4 border-t border-line px-5 py-4">
                 <legend className="float-left mb-1 text-sm font-bold text-ink-900">NPR</legend>
-                <div className="clear-left">
-                  <Label htmlFor="npr_collection_id">Collection ID</Label>
+                <Field
+                  className="clear-left"
+                  label="Collection ID"
+                  htmlFor="npr_collection_id"
+                  hint={
+                    <>
+                      NPR&apos;s ID for this program. Leave blank if we don&apos;t pull NPR stories
+                      for it.
+                    </>
+                  }
+                >
                   <Input
                     id="npr_collection_id"
                     name="npr_collection_id"
@@ -350,13 +345,12 @@ export default async function ProgramDetailPage({
                     pattern="[0-9]*"
                     defaultValue={program.npr_collection_id?.toString() ?? ""}
                   />
-                  <FieldHint>
-                    NPR&apos;s ID for this program. Leave blank if we don&apos;t pull NPR stories
-                    for it.
-                  </FieldHint>
-                </div>
-                <div>
-                  <Label htmlFor="npr_feed_start_hour_et">Feed&apos;s first hour (Eastern)</Label>
+                </Field>
+                <Field
+                  label={<>Feed&apos;s first hour (Eastern)</>}
+                  htmlFor="npr_feed_start_hour_et"
+                  hint="Only matters for NPR's multi-hour shows, whose hours alternate on the feed. Ignored without a collection ID."
+                >
                   <Select
                     id="npr_feed_start_hour_et"
                     name="npr_feed_start_hour_et"
@@ -369,19 +363,14 @@ export default async function ProgramDetailPage({
                       </option>
                     ))}
                   </Select>
-                  <FieldHint>
-                    Only matters for NPR&apos;s multi-hour shows, whose hours alternate on the feed.
-                    Ignored without a collection ID.
-                  </FieldHint>
-                </div>
+                </Field>
               </fieldset>
             }
           >
             <div className="flex flex-col gap-4">
               {error && <Alert>{error}</Alert>}
               <input type="hidden" name="id" value={program.id} />
-              <div>
-                <Label htmlFor="name">Name</Label>
+              <Field label="Name" htmlFor="name">
                 <Input
                   id="name"
                   name="name"
@@ -390,23 +379,21 @@ export default async function ProgramDetailPage({
                   defaultValue={program.name}
                   autoFocus
                 />
-              </div>
-              <div>
-                <Label htmlFor="kind">Kind</Label>
+              </Field>
+              <Field label="Kind" htmlFor="kind">
                 <Select id="kind" name="kind" defaultValue={program.kind}>
                   <option value="recurring">Recurring</option>
                   <option value="special">Special</option>
                 </Select>
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
+              </Field>
+              <Field label="Description" htmlFor="description">
                 <Textarea
                   id="description"
                   name="description"
                   rows={3}
                   defaultValue={program.description ?? undefined}
                 />
-              </div>
+              </Field>
             </div>
           </InlineCreateCard>
         ) : (

@@ -1,12 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import type {
-  ApDisposition,
-  ApPartnershipType,
-  ApStage,
-  Database,
-} from "@/lib/database.types";
+import type { ApDisposition, ApPartnershipType, ApStage, Database } from "@/lib/database.types";
 import { ACADEMIC_PARTNERSHIPS_TOOL_KEY } from "./access";
 
 /**
@@ -65,11 +60,16 @@ export async function listPipelineSubmissions(): Promise<SubmissionListItem[]> {
     ) ?? [];
 
   const names = await displayNames(rows.map((row) => row.owner_id));
-  return rows.map((row) => ({ ...row, ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null }));
+  return rows.map((row) => ({
+    ...row,
+    ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
+  }));
 }
 
 /** All submissions, active and historical, with the filters the table screen offers. */
-export async function listAllSubmissions(filters: SubmissionFilters): Promise<SubmissionListItem[]> {
+export async function listAllSubmissions(
+  filters: SubmissionFilters,
+): Promise<SubmissionListItem[]> {
   const supabase = await createClient();
   let query = supabase.from("ap_submissions").select("*");
 
@@ -82,7 +82,8 @@ export async function listAllSubmissions(filters: SubmissionFilters): Promise<Su
   if (filters.department) query = query.eq("department", filters.department);
   // partnership_types is an array (a submission may name more than one
   // track); "filter to this type" means "this type is among them".
-  if (filters.partnershipType) query = query.contains("partnership_types", [filters.partnershipType]);
+  if (filters.partnershipType)
+    query = query.contains("partnership_types", [filters.partnershipType]);
   if (filters.search?.trim()) {
     const term = filters.search.trim().replace(/[%,]/g, "");
     query = query.or(
@@ -91,11 +92,16 @@ export async function listAllSubmissions(filters: SubmissionFilters): Promise<Su
   }
 
   const rows =
-    unwrapRead(await query.order("created_at", { ascending: false }), "the partnership submissions") ??
-    [];
+    unwrapRead(
+      await query.order("created_at", { ascending: false }),
+      "the partnership submissions",
+    ) ?? [];
 
   const names = await displayNames(rows.map((row) => row.owner_id));
-  return rows.map((row) => ({ ...row, ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null }));
+  return rows.map((row) => ({
+    ...row,
+    ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
+  }));
 }
 
 /** Distinct departments seen so far, for the filter dropdown. */
@@ -156,7 +162,11 @@ export async function listToolMembers(): Promise<{ id: string; displayName: stri
 
   const grants =
     unwrapRead(
-      await supabase.from("tool_access").select("user_id").eq("tool_id", tool.id).is("revoked_at", null),
+      await supabase
+        .from("tool_access")
+        .select("user_id")
+        .eq("tool_id", tool.id)
+        .is("revoked_at", null),
       "the list of tool members",
     ) ?? [];
   if (grants.length === 0) return [];

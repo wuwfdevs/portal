@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
@@ -55,18 +56,12 @@ export default async function EditPitchPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="max-w-lg">
-      <div className="mb-5">
-        <Link
-          href={`/editorial/pitches/${pitch.id}`}
-          className="text-xs font-semibold text-brand-link"
-        >
-          ← Back to pitch
-        </Link>
-      </div>
-      <div className="rounded border border-line">
-        <div className="border-b border-line px-5 py-4 font-serif text-[17px] font-bold text-ink-900">
-          Edit pitch
-        </div>
+      <PageHeader
+        className="mb-5"
+        back={{ href: `/editorial/pitches/${pitch.id}`, label: "Back to pitch" }}
+        title="Edit pitch"
+      />
+      <Card>
         <div className="p-5">
           <PitchForm
             fields={fields}
@@ -76,7 +71,7 @@ export default async function EditPitchPage({ params }: { params: Promise<{ id: 
             cancelHref={`/editorial/pitches/${pitch.id}`}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

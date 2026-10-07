@@ -5,6 +5,9 @@ import { getCurrentProfile } from "@/lib/auth/session";
 import { signOutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { LoginForm } from "./login-form";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { PageHeader } from "@/components/ui/page-header";
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "tools-support@wuwf.org";
 
@@ -22,7 +25,7 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-panel-50 px-6 py-12">
-      <div className="w-full max-w-[400px] rounded border border-line bg-white p-9">
+      <Card className="w-full max-w-[400px] p-9">
         <Image
           src="/wuwf-logo.png"
           alt="WUWF 88.1"
@@ -39,14 +42,18 @@ export default async function LoginPage({
           <DisabledPanel />
         ) : (
           <>
-            <h1 className="mb-2 font-serif text-2xl font-bold text-ink-900">
-              Sign in to WUWF Tools
-            </h1>
-            <p className="mb-6 text-sm leading-relaxed text-ink-500">
-              Access is limited to approved WUWF staff, students, faculty collaborators, and
-              university partners. Having a WUWF or UWF email address does not by itself grant
-              access.
-            </p>
+            <PageHeader
+              size="page"
+              className="mb-6"
+              title="Sign in to WUWF Tools"
+              description={
+                <>
+                  Access is limited to approved WUWF staff, students, faculty collaborators, and
+                  university partners. Having a WUWF or UWF email address does not by itself grant
+                  access.
+                </>
+              }
+            />
             {error === "sign_in_failed" && <SignInFailure reason={reason} />}
             <LoginForm />
             <div className="my-6 border-t border-line" />
@@ -62,7 +69,7 @@ export default async function LoginPage({
             </p>
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
@@ -80,12 +87,12 @@ function SignInFailure({ reason }: { reason?: string }) {
   const explanation = explainSignInFailure(reason);
 
   return (
-    <div className="mb-4 rounded border border-danger/30 bg-danger/[0.04] p-3">
-      <p className="text-sm font-bold text-danger">We couldn&apos;t complete your sign-in</p>
-      <p className="mt-1 text-sm leading-relaxed text-ink-700">{explanation}</p>
-      <p className="mt-2 text-sm text-ink-500">Request a new link below to try again.</p>
+    <Alert className="mb-4 p-3 text-sm">
+      <p className="font-bold">We couldn&apos;t complete your sign-in</p>
+      <p className="mt-1 leading-relaxed text-ink-700">{explanation}</p>
+      <p className="mt-2 text-ink-500">Request a new link below to try again.</p>
       {reason && <p className="mt-2 font-mono text-[11px] text-ink-400">Reference: {reason}</p>}
-    </div>
+    </Alert>
   );
 }
 
@@ -108,11 +115,17 @@ function explainSignInFailure(reason?: string): string {
 function PendingPanel() {
   return (
     <div>
-      <h1 className="mb-2 font-serif text-2xl font-bold text-ink-900">Access pending approval</h1>
-      <p className="mb-6 text-sm leading-relaxed text-ink-500">
-        Your request was received. An administrator will review it — you&apos;ll get an email once
-        it&apos;s approved.
-      </p>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        title="Access pending approval"
+        description={
+          <>
+            Your request was received. An administrator will review it — you&apos;ll get an email
+            once it&apos;s approved.
+          </>
+        }
+      />
       <SignOutButton />
     </div>
   );
@@ -121,11 +134,17 @@ function PendingPanel() {
 function InvitedPanel() {
   return (
     <div>
-      <h1 className="mb-2 font-serif text-2xl font-bold text-ink-900">Invitation pending</h1>
-      <p className="mb-6 text-sm leading-relaxed text-ink-500">
-        You&apos;ve been invited but haven&apos;t completed sign-in yet. Check your email for the
-        invitation link.
-      </p>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        title="Invitation pending"
+        description={
+          <>
+            You&apos;ve been invited but haven&apos;t completed sign-in yet. Check your email for
+            the invitation link.
+          </>
+        }
+      />
       <SignOutButton />
     </div>
   );
@@ -134,11 +153,17 @@ function InvitedPanel() {
 function DisabledPanel() {
   return (
     <div>
-      <h1 className="mb-2 font-serif text-2xl font-bold text-ink-900">Access disabled</h1>
-      <p className="mb-6 text-sm leading-relaxed text-ink-500">
-        This account no longer has access to WUWF Tools. Contact an administrator if you believe
-        this is a mistake.
-      </p>
+      <PageHeader
+        size="page"
+        className="mb-6"
+        title="Access disabled"
+        description={
+          <>
+            This account no longer has access to WUWF Tools. Contact an administrator if you believe
+            this is a mistake.
+          </>
+        }
+      />
       <SignOutButton />
     </div>
   );

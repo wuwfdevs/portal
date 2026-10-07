@@ -1,5 +1,4 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { canRewriteScheduleLine } from "@/lib/underwriting/line-mutability";
@@ -13,6 +12,7 @@ import {
 import { formValuesFromScheduleLine } from "@/lib/underwriting/schedule-line-form";
 import { updateScheduleLine } from "../../../../../contract-actions";
 import { ScheduleLineEditor } from "../../../../../schedule-line-editor";
+import { PageHeader } from "@/components/ui/page-header";
 
 /**
  * Edit a schedule line with the same editor that created it (docs/ui-
@@ -77,10 +77,11 @@ export default async function EditScheduleLinePage({
 
   return (
     <div>
-      <Link href={backHref} className="text-xs font-semibold text-brand-link">
-        ← {backLabel}
-      </Link>
-      <h2 className="mt-2 mb-1 font-serif text-xl font-bold text-ink-900">Edit schedule line</h2>
+      <PageHeader
+        back={{ href: backHref, label: backLabel }}
+        title="Edit schedule line"
+        className="mb-1"
+      />
       <p className="mb-5 text-sm text-ink-500">
         {contract.underwriter.name} · {orderNumberLabel(contract.contract_identifier)}
       </p>

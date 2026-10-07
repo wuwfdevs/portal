@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { ListenShell } from "./listen-shell";
 
 /**
@@ -22,10 +23,11 @@ export default function ListenError({
 }) {
   return (
     <ListenShell embedded={false}>
-      <h1 className="font-serif text-[20px] font-bold text-ink-900">Something went wrong</h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-ink-700">
-        This is a problem on WUWF&apos;s side, not with anything you did.
-      </p>
+      <PageHeader
+        size="public"
+        title="Something went wrong"
+        description="This is a problem on WUWF's side, not with anything you did."
+      />
       <p className="mt-3 break-words rounded border border-line bg-panel-50 px-3 py-2 font-mono text-xs text-ink-500">
         {error.message}
         {error.digest && <span className="block text-ink-400">Reference: {error.digest}</span>}

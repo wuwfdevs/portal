@@ -7,6 +7,7 @@ import { unwrapRead } from "@/lib/read-result";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { listIndustryCategories, listInventoryPools } from "@/lib/underwriting/queries";
 import { poolReachability } from "@/lib/underwriting/pool-targets";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -93,9 +94,9 @@ export default async function UnderwritingSetupPage() {
       </div>
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+        <SectionHeading level="eyebrow" as="h3">
           Reference lists
-        </h3>
+        </SectionHeading>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <SetupCard
             href="/underwriting/setup/pools"
@@ -129,7 +130,9 @@ export default async function UnderwritingSetupPage() {
 
       {context.isAdministrator && (
         <section className="flex flex-col gap-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">Imports</h3>
+          <SectionHeading level="eyebrow" as="h3">
+            Imports
+          </SectionHeading>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SetupCard
               href="/underwriting/setup/migration"

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { RATES_PATH } from "@/lib/bookings/paths";
 import { listVersions } from "@/lib/bookings/queries";
 import { createVersion } from "../../actions";
 import { RatesTabs } from "../../rates-tabs";
+import { TextLink } from "@/components/ui/primary-link";
 
 export default async function NewVersionPage({
   searchParams,
@@ -79,9 +79,7 @@ export default async function NewVersionPage({
         </div>
         <div className="flex items-center gap-4">
           <Button type="submit">Create version</Button>
-          <Link href={RATES_PATH} className="text-sm font-bold text-brand-link hover:underline">
-            Cancel
-          </Link>
+          <TextLink href={RATES_PATH}>Cancel</TextLink>
         </div>
       </form>
     </div>

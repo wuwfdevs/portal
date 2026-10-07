@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/ui/empty-state";
 import { WeekMonthLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -231,7 +232,7 @@ export function underwritingLayer(hours: {
 }
 
 const navLink =
-  "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
+  "rounded border border-line px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
 
 function Legend({ primary, context }: { primary: HoursLayer; context: HoursLayer }) {
   return (
@@ -440,9 +441,9 @@ function WeekView({
                 )}
               </h3>
               {rows.length === 0 ? (
-                <p className="rounded border border-dashed border-line px-3 py-2 text-sm text-ink-500">
+                <EmptyState compact className="max-w-none px-3 py-2">
                   {day.summary} all day.
-                </p>
+                </EmptyState>
               ) : (
                 <ul className="divide-y divide-line rounded border border-line">
                   {rows.map((row) => (

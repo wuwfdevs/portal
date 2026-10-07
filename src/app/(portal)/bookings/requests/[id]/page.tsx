@@ -1,11 +1,10 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DetailSummary } from "@/components/ui/detail-summary";
-import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
 import { Steps } from "@/components/ui/steps";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { envelopeCheck, parseHonoredRead } from "@/lib/bookings/airtime";
@@ -20,7 +19,7 @@ import { AGREEMENT_STATUS_SHORT_LABEL } from "@/lib/bookings/agreements";
 import { estimateDraw, estimateTotals, isAdjusted } from "@/lib/bookings/pricing";
 import {
   DISPOSITIONS,
-  DISPOSITION_BADGE,
+  DISPOSITION_STATUS,
   DISPOSITION_LABEL,
   EDITORIAL_REVIEW_LABEL,
   PARTNER_KIND_LABEL,
@@ -76,6 +75,9 @@ import { AirtimeSection } from "./airtime-section";
 import { DatesSection, checkPlannedDates } from "./dates-section";
 import { CalculationPanel } from "./calculation-panel";
 import { EstimateSection } from "./estimate-section";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type Params = {
   error?: string;
@@ -344,16 +346,14 @@ export default async function ProjectPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href={REQUESTS_PATH} className="inline-block text-xs font-semibold text-brand-link">
+      <TextLink href={REQUESTS_PATH} className="inline-block text-xs">
         ← Requests
-      </Link>
+      </TextLink>
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-serif text-xl font-bold text-ink-900">{project.title}</h2>
           {project.disposition ? (
-            <Badge variant={DISPOSITION_BADGE[project.disposition]}>
-              {DISPOSITION_LABEL[project.disposition]}
-            </Badge>
+            <StatusBadge map={DISPOSITION_STATUS} value={project.disposition} />
           ) : (
             <Badge variant="accent">{STAGE_LABEL[project.stage]}</Badge>
           )}
@@ -435,7 +435,7 @@ export default async function ProjectPage({
                 </form>
               )}
               {planFailure && (
-                <div className="flex flex-col gap-3 rounded border border-warning-fg/30 bg-warning-bg px-4 py-3 text-sm text-warning-fg">
+                <Alert variant="warning" className="flex flex-col gap-3 px-4 py-3 text-sm">
                   <p className="font-semibold">The dates need attention.</p>
                   <p>{planFailure.message}</p>
                   {planFailure.alternatives.length > 0 && (
@@ -461,7 +461,7 @@ export default async function ProjectPage({
                   <p className="text-xs">
                     Or plan the dates by hand under <strong>Adjust scope</strong> below.
                   </p>
-                </div>
+                </Alert>
               )}
               {planCheck?.ok && canEdit && (
                 <form action={resumeAutoPlan} className="text-xs">
@@ -571,9 +571,9 @@ export default async function ProjectPage({
 
           {project.description && (
             <section className="rounded border border-line bg-panel-50 p-4">
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
+              <SectionHeading level="eyebrow" as="h3" className="mb-2">
                 What is asked for
-              </h3>
+              </SectionHeading>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-800">
                 {project.description}
               </p>
@@ -581,9 +581,9 @@ export default async function ProjectPage({
           )}
 
           <section>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
+            <SectionHeading level="eyebrow" as="h3" className="mb-2">
               Add a note
-            </h3>
+            </SectionHeading>
             <form action={addNote} className="flex flex-col gap-2">
               <input type="hidden" name="project_id" value={project.id} />
               <Textarea
@@ -598,9 +598,9 @@ export default async function ProjectPage({
           </section>
 
           <section>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
+            <SectionHeading level="eyebrow" as="h3" className="mb-2">
               Activity
-            </h3>
+            </SectionHeading>
             <ActivityLog events={detail.events} />
           </section>
         </div>
@@ -687,12 +687,9 @@ export default async function ProjectPage({
               {
                 label: "Agreement",
                 value: detail.agreement ? (
-                  <Link
-                    href={agreementHref(partner.id, detail.agreement.id)}
-                    className="font-semibold text-brand-link hover:underline"
-                  >
+                  <TextLink href={agreementHref(partner.id, detail.agreement.id)}>
                     {detail.agreement.label}
-                  </Link>
+                  </TextLink>
                 ) : null,
               },
               { label: "Asks for", value: REQUESTED_LABEL[project.requested] },
@@ -840,13 +837,10 @@ export default async function ProjectPage({
                   <FieldHint>Every hold is released; the stage reached is kept.</FieldHint>
                 </div>
                 {partner.kind === "external" && (
-                  <label className="flex items-start gap-2 text-xs text-ink-700">
-                    <input type="checkbox" name="for_capacity" className="mt-0.5 size-4" />
-                    <span>
-                      Declined for capacity — record the estimate&apos;s margin as foregone for the
-                      term report.
-                    </span>
-                  </label>
+                  <CheckboxField
+                    name="for_capacity"
+                    label="Declined for capacity — record the estimate's margin as foregone for the term report."
+                  />
                 )}
                 <Button type="submit" variant="secondary" className="self-start">
                   Close

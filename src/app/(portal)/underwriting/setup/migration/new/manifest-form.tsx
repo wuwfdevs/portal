@@ -14,8 +14,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { ChoiceCards } from "@/components/ui/choice-cards";
-import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldHint, Input, Label, Textarea, FieldError } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatDateRange } from "@/lib/underwriting/line-details";
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/lib/underwriting/agreement-migration";
 import { submitMigrationManifest } from "../actions";
 import { batchDocumentsPath, MIGRATION_PATH } from "../paths";
+import { Card } from "@/components/ui/card";
 
 type Source = "manifest" | "documents";
 
@@ -229,7 +231,7 @@ export function ManifestForm({
                   />
                 </label>
               )}
-              {fileError && <p className="mt-1.5 text-sm text-danger">{fileError}</p>}
+              {fileError && <FieldError>{fileError}</FieldError>}
               <p className="mt-2 text-[13px] text-ink-500">
                 {pasting ? (
                   <button
@@ -363,12 +365,7 @@ export function ManifestForm({
                   ? `Load ${check.ready.length} ${check.ready.length === 1 ? "entry" : "entries"} and continue`
                   : "Load and continue"}
               </Button>
-              <a
-                href={MIGRATION_PATH}
-                className="inline-flex h-10 items-center rounded border border-brand-link px-4 text-sm font-bold text-brand-link hover:bg-brand-surface"
-              >
-                Cancel
-              </a>
+              <SecondaryLink href={MIGRATION_PATH}>Cancel</SecondaryLink>
               {check && check.problems.length > 0 && check.ready.length > 0 && (
                 <span className="text-[13px] text-ink-500">
                   The {check.problems.length} {check.problems.length === 1 ? "row" : "rows"} that
@@ -382,7 +379,7 @@ export function ManifestForm({
       </div>
 
       <aside className="flex flex-col gap-4">
-        <div className="rounded border border-line px-4 py-4 text-sm">
+        <Card className="px-4 py-4 text-sm">
           <h3 className="mb-2 text-sm font-bold text-ink-900">Columns</h3>
           <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Required</div>
           <ul className="mb-3 mt-1.5 flex flex-col gap-1">
@@ -405,7 +402,7 @@ export function ManifestForm({
           >
             Download a template
           </a>
-        </div>
+        </Card>
         <div className="rounded border border-line bg-panel-50 px-4 py-4 text-sm text-ink-700">
           <h3 className="mb-1.5 text-sm font-bold text-ink-900">Who wins a disagreement</h3>
           <p>

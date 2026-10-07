@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input, Select } from "@/components/ui/input";
+import { formatClock } from "@/lib/format";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
   getRundownForProgramOnDate,
@@ -41,13 +43,13 @@ export default async function NprPage({
     return (
       <div>
         <SourceHeader title="NPR" />
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           No programs yet. Set up a{" "}
           <Link href="/log/programs" className="font-semibold text-brand-link">
             program
           </Link>{" "}
           before looking up its NPR episode.
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -102,8 +104,6 @@ export default async function NprPage({
       }
     }
   }
-  const formatLength = (seconds: number): string =>
-    `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
     <div>
@@ -112,8 +112,7 @@ export default async function NprPage({
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <form className="flex flex-wrap items-end gap-3" method="get">
-          <div>
-            <Label htmlFor="npr-program">Program</Label>
+          <Field label="Program" htmlFor="npr-program">
             <Select
               id="npr-program"
               name="program"
@@ -127,9 +126,8 @@ export default async function NprPage({
                 </option>
               ))}
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="npr-date">Show date</Label>
+          </Field>
+          <Field label="Show date" htmlFor="npr-date">
             <Input
               id="npr-date"
               type="date"
@@ -137,7 +135,7 @@ export default async function NprPage({
               defaultValue={selectedDate}
               className="w-40"
             />
-          </div>
+          </Field>
           <Button type="submit" variant="secondary" className="shrink-0">
             Switch
           </Button>
@@ -167,14 +165,14 @@ export default async function NprPage({
       </div>
 
       {result.kind === "unmapped" && (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           This program has no NPR CDS mapping. It&apos;s either a local program or a network program
           WUWF hasn&apos;t linked to an NPR collection yet — see{" "}
           <code className="rounded bg-panel-100 px-1 py-0.5 text-xs">
             log_programs.npr_collection_id
           </code>
           .
-        </div>
+        </EmptyState>
       )}
 
       {result.kind === "not_configured" && (
@@ -189,14 +187,14 @@ export default async function NprPage({
       )}
 
       {result.kind === "not_found" && (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+        <EmptyState>
           No matching NPR episode was returned for this program on this date.
           {result.refreshError &&
             ` A refresh attempt just now also failed (${result.refreshError}).`}
           <div className="mt-2 text-xs text-ink-400">
             Last checked {formatStationTimestamp(result.retrievedAt)}
           </div>
-        </div>
+        </EmptyState>
       )}
 
       {result.kind === "found" && (
@@ -216,9 +214,7 @@ export default async function NprPage({
           </div>
 
           {result.items.length === 0 ? (
-            <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-              CDS returned this episode with no story items yet.
-            </div>
+            <EmptyState>CDS returned this episode with no story items yet.</EmptyState>
           ) : (
             <>
               <TableFrame>
@@ -254,7 +250,7 @@ export default async function NprPage({
                           className="whitespace-nowrap font-mono text-xs text-ink-500 tabular-nums"
                         >
                           {item.duration_seconds !== null
-                            ? formatLength(item.duration_seconds)
+                            ? formatClock(item.duration_seconds)
                             : "—"}
                         </Cell>
                       </Row>

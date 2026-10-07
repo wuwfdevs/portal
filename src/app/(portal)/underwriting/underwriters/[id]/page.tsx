@@ -1,18 +1,13 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { getUnderwriterDetail, listIndustryCategories } from "@/lib/underwriting/queries";
-import type { UwContractStatus } from "@/lib/database.types";
-
-const STATUS_VARIANT: Record<UwContractStatus, BadgeVariant> = {
-  draft: "neutral",
-  active: "success",
-  expired: "muted",
-  terminated: "danger",
-};
+import { TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTRACT_STATUS } from "@/lib/underwriting/status";
 
 /**
  * The underwriter's detail page: its contracts, with a read-only summary
@@ -40,9 +35,9 @@ export default async function UnderwriterDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
-        <Link href="/underwriting/underwriters" className="text-xs font-semibold text-brand-link">
+        <TextLink href="/underwriting/underwriters" className="text-xs">
           ← Back to underwriters
-        </Link>
+        </TextLink>
         <div className="mt-2 mb-4 flex flex-wrap items-center gap-3">
           <h2 className="font-serif text-xl font-bold text-ink-900">{underwriter.name}</h2>
           {saved === "created" && <Badge variant="success">Created</Badge>}
@@ -51,15 +46,12 @@ export default async function UnderwriterDetailPage({
 
         {error && <Alert className="mb-4">{error}</Alert>}
 
-        <div className="rounded border border-line">
+        <Card>
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <span className="text-sm font-bold text-ink-900">Contracts</span>
-            <Link
-              href={`/underwriting/contracts/new?underwriter=${underwriter.id}`}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={`/underwriting/contracts/new?underwriter=${underwriter.id}`}>
               + New contract
-            </Link>
+            </TextLink>
           </div>
           {underwriter.contracts.length === 0 ? (
             <p className="px-5 py-4 text-sm text-ink-500">No contracts yet.</p>
@@ -71,23 +63,20 @@ export default async function UnderwriterDetailPage({
                   className="flex items-center justify-between gap-2 px-5 py-3 text-sm"
                 >
                   <div>
-                    <Link
-                      href={`/underwriting/contracts/${contract.id}`}
-                      className="font-semibold text-brand-link"
-                    >
+                    <TextLink href={`/underwriting/contracts/${contract.id}`}>
                       {orderNumberLabel(contract.contract_identifier)}
-                    </Link>
+                    </TextLink>
                     <div className="mt-0.5 text-xs text-ink-500">
                       {contract.effective_from}
                       {contract.effective_to ? ` – ${contract.effective_to}` : ""}
                     </div>
                   </div>
-                  <Badge variant={STATUS_VARIANT[contract.status]}>{contract.status}</Badge>
+                  <StatusBadge map={CONTRACT_STATUS} value={contract.status} />
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
 
       <aside aria-label="Underwriter details" className="w-full shrink-0 lg:w-80">

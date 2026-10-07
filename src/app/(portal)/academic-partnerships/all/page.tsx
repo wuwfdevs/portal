@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TextLink } from "@/components/ui/primary-link";
 import { Input, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   listAllSubmissions,
   listSubmittedDepartments,
@@ -10,8 +11,8 @@ import {
   type SubmissionFilters,
 } from "@/lib/academic-partnerships/queries";
 import {
-  DISPOSITION_BADGE,
   DISPOSITION_LABEL,
+  DISPOSITION_STATUS,
   DISPOSITIONS,
   STAGE_LABEL,
   STAGES,
@@ -147,19 +148,14 @@ export default async function AllSubmissionsPage({
           Apply
         </Button>
         {hasFilters && (
-          <Link
-            href="/academic-partnerships/all"
-            className="pb-2.5 text-xs font-semibold text-brand-link"
-          >
+          <TextLink href="/academic-partnerships/all" className="pb-2.5 text-xs font-semibold">
             Clear
-          </Link>
+          </TextLink>
         )}
       </form>
 
       {submissions.length === 0 ? (
-        <p className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No submissions match these filters.
-        </p>
+        <EmptyState>No submissions match these filters.</EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -177,12 +173,12 @@ export default async function AllSubmissionsPage({
               {submissions.map((submission) => (
                 <Row key={submission.id}>
                   <Cell stack="title">
-                    <Link
+                    <TextLink
                       href={`/academic-partnerships/${submission.id}`}
-                      className="font-semibold text-brand-link"
+                      className="px-0 font-semibold"
                     >
                       {submission.faculty_name}
-                    </Link>
+                    </TextLink>
                   </Cell>
                   <Cell label="Department">{submission.department}</Cell>
                   <Cell label="Type">
@@ -192,9 +188,7 @@ export default async function AllSubmissionsPage({
                   </Cell>
                   <Cell stack="aside">
                     {submission.disposition ? (
-                      <Badge variant={DISPOSITION_BADGE[submission.disposition]}>
-                        {DISPOSITION_LABEL[submission.disposition]}
-                      </Badge>
+                      <StatusBadge map={DISPOSITION_STATUS} value={submission.disposition} />
                     ) : (
                       STAGE_LABEL[submission.stage]
                     )}

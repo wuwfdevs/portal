@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import Daily, {
   type DailyCall,
   type DailyEventObjectAppMessage,
@@ -12,6 +11,9 @@ import Daily, {
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
 import {
   deriveParticipantHealth,
   anyParticipantNeedsAttention,
@@ -414,12 +416,7 @@ export function StudioClient({
       <div className="px-6 py-10 sm:px-10 sm:py-12">
         <Alert>{callError ?? "Could not open the studio."}</Alert>
         <div className="mt-4">
-          <Link
-            href={`/remote-interview/${sessionId}`}
-            className="text-xs font-semibold text-brand-link"
-          >
-            ← Back to session
-          </Link>
+          <TextLink href={`/remote-interview/${sessionId}`}>← Back to session</TextLink>
         </div>
       </div>
     );
@@ -427,35 +424,28 @@ export function StudioClient({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-5">
-        <Link
-          href={`/remote-interview/${sessionId}`}
-          className="text-xs font-semibold text-brand-link"
-        >
-          ← Back to session
-        </Link>
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-serif text-[22px] font-bold text-ink-900">{sessionTitle}</h1>
-        {callState === "connecting" && <Badge variant="neutral">Connecting…</Badge>}
-      </div>
+      <PageHeader
+        className="mb-6"
+        back={{ href: `/remote-interview/${sessionId}`, label: "Back to session" }}
+        title={sessionTitle}
+        badge={
+          callState === "connecting" ? <Badge variant="neutral">Connecting…</Badge> : undefined
+        }
+      />
 
       {waitingGuests.length > 0 && (
-        <div className="mb-6 max-w-xl rounded border border-warning-border bg-warning-bg">
-          <div className="border-b border-warning-border px-4 py-3">
-            <h2 className="text-sm font-bold text-warning-fg">
-              Waiting room — {waitingGuests.length} guest{waitingGuests.length === 1 ? "" : "s"}{" "}
-              ready to join
-            </h2>
-          </div>
-          <ul>
+        <Alert variant="warning" className="mb-6 max-w-xl text-sm">
+          <h2 className="font-bold">
+            Waiting room — {waitingGuests.length} guest{waitingGuests.length === 1 ? "" : "s"} ready
+            to join
+          </h2>
+          <ul className="mt-2">
             {waitingGuests.map((guest) => (
               <li
                 key={guest.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-b border-warning-border px-4 py-3 last:border-b-0"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-warning-border py-2.5"
               >
-                <span className="text-sm font-semibold text-ink-900">{guest.displayName}</span>
+                <span className="font-semibold text-ink-900">{guest.displayName}</span>
                 <Button
                   type="button"
                   variant="secondary"
@@ -467,7 +457,7 @@ export function StudioClient({
               </li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
       {needsAttention && (
@@ -481,7 +471,7 @@ export function StudioClient({
         </Alert>
       )}
 
-      <div className="mb-6 flex flex-wrap items-center gap-4 rounded border border-line bg-white p-4">
+      <Card className="mb-6 flex flex-wrap items-center gap-4 p-4">
         <Button
           type="button"
           variant={recordingActive ? "secondary" : "primary"}
@@ -503,7 +493,9 @@ export function StudioClient({
         >
           {micOn ? "Mute myself" : "Unmute myself"}
         </Button>
-        <Badge variant={!cloudBackupConfigured ? "muted" : cloudBackupBadgeVariant(cloudBackupState)}>
+        <Badge
+          variant={!cloudBackupConfigured ? "muted" : cloudBackupBadgeVariant(cloudBackupState)}
+        >
           Cloud backup:{" "}
           {!cloudBackupConfigured
             ? "not configured"
@@ -513,7 +505,7 @@ export function StudioClient({
                 ? "failed"
                 : "idle"}
         </Badge>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {participantStatuses.map((status) => (
@@ -532,7 +524,7 @@ function ParticipantTile({ status, level }: { status: ParticipantStatus; level: 
   const health = deriveParticipantHealth(status);
 
   return (
-    <div className="rounded border border-line bg-white p-4">
+    <Card className="p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-ink-900">{status.displayName}</span>
         <Badge variant={dataSafetyBadgeVariant(health.safety)}>
@@ -579,6 +571,6 @@ function ParticipantTile({ status, level }: { status: ParticipantStatus; level: 
       {health.actionRequired && (
         <p className="mt-2 text-xs leading-relaxed text-danger">{health.actionRequired}</p>
       )}
-    </div>
+    </Card>
   );
 }

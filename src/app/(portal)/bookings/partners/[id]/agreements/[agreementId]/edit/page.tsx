@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { agreementHref } from "@/lib/bookings/paths";
 import { getAgreementDetail } from "@/lib/bookings/queries";
 import { updateAgreement } from "../../../../actions";
 import { AgreementForm } from "../../agreement-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Edit an agreement: the same form as `/agreements/new`; an approved agreement's terms are the executive's. */
 export default async function EditAgreementPage({
@@ -25,13 +25,10 @@ export default async function EditAgreementPage({
   if (!detail || detail.partner.id !== id) notFound();
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href={agreementHref(id, agreementId)}
-        className="inline-block text-xs font-semibold text-brand-link"
-      >
-        ← {detail.agreement.label}
-      </Link>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Edit the agreement</h2>
+      <PageHeader
+        back={{ href: agreementHref(id, agreementId), label: detail.agreement.label }}
+        title="Edit the agreement"
+      />
       <AgreementForm
         action={updateAgreement}
         partnerId={id}

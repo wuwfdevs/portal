@@ -171,14 +171,12 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
   for (const grant of toolGrants) {
     const existing = existingByToolId.get(grant.toolId);
     if (!existing) {
-      await supabase
-        .from("tool_access")
-        .insert({
-          user_id: userId,
-          tool_id: grant.toolId,
-          tool_roles: grant.toolRoles,
-          granted_by: admin.id,
-        });
+      await supabase.from("tool_access").insert({
+        user_id: userId,
+        tool_id: grant.toolId,
+        tool_roles: grant.toolRoles,
+        granted_by: admin.id,
+      });
     } else if (!sameRoles(existing.tool_roles, grant.toolRoles)) {
       await supabase
         .from("tool_access")

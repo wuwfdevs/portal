@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SectionHeading } from "@/components/ui/section-heading";
 import {
   buildGroveEmbedCode,
   publicQueryUrl,
@@ -49,10 +51,9 @@ export function ShareTab({
       )}
 
       <Card className="p-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">Public link</h2>
-          <CopyButton value={url} label="Copy link" />
-        </div>
+        <SectionHeading className="mb-2" action={<CopyButton value={url} label="Copy link" />}>
+          Public link
+        </SectionHeading>
         <p className="mb-3 text-xs leading-relaxed text-ink-400">
           The standalone page. Use it in a newsletter or a social post, and give it to anyone whose
           browser blocks the microphone inside the embed.
@@ -63,10 +64,12 @@ export function ShareTab({
       </Card>
 
       <Card className="p-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-serif text-[17px] font-bold text-ink-900">Grove embed code</h2>
-          <CopyButton value={embedCode} label="Copy embed code" />
-        </div>
+        <SectionHeading
+          className="mb-2"
+          action={<CopyButton value={embedCode} label="Copy embed code" />}
+        >
+          Grove embed code
+        </SectionHeading>
         <p className="mb-3 text-xs leading-relaxed text-ink-400">
           Paste this into a Grove Responsive Embed element, unchanged. The{" "}
           <code className="font-mono">allow=&quot;microphone&quot;</code> attribute is what lets the
@@ -111,12 +114,8 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="shrink-0 text-xs font-semibold text-brand-link hover:underline"
-    >
+    <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={handleCopy}>
       {status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : label}
-    </button>
+    </Button>
   );
 }

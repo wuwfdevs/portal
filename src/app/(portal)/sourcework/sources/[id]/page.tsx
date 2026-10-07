@@ -1,36 +1,31 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
-import {
-  getSourceDetail,
-  getTranscriptForRepresentation,
-  processingLabel,
-  type ProjectStatus,
-} from "@/lib/transcription/projects";
+import { getSourceDetail, getTranscriptForRepresentation } from "@/lib/transcription/projects";
 import { listExcerptsForSource } from "@/lib/transcription/clips";
 import { listDocumentExcerptsForSource } from "@/lib/transcription/document-excerpts";
 import { getDocumentContentForRepresentation } from "@/lib/transcription/document-content";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
-import { isVideoContentType, formatBytes, formatDuration } from "@/lib/transcription/media";
-import { Badge } from "@/components/ui/badge";
+import { isVideoContentType, formatDuration } from "@/lib/transcription/media";
+import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
+import { formatBytes, formatShortDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { retryTranscription } from "../../actions";
 import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import { SourceActionsMenu } from "../../[id]/source-actions-menu";
 import { countOtherProjectsForSource } from "../../[id]/source-actions";
-import type { SwSourceKind } from "@/lib/database.types";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
 // than in actions.ts, and docs/sourcework-design.md §8.6 on why it's needed
 // at all: the retry action here can kick off a Mistral OCR call via after().
 export const maxDuration = 300;
-
-const KIND_LABEL: Record<SwSourceKind, string> = {
-  audio_video: "Audio",
-  document: "PDF",
-};
 
 /**
  * One source, independent of any project (docs/sourcework-design.md §7.2) —
@@ -89,48 +84,39 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <div className="mb-5">
-        <Link href="/sourcework?tab=sources" className="text-xs font-semibold text-brand-link">
-          ← Back to sources
-        </Link>
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-400">
-            {KIND_LABEL[source.kind] ?? source.kind}
-          </span>
-          <h1 className="mb-1.5 font-serif text-[22px] font-bold text-ink-900">{source.title}</h1>
-          <p className="text-xs text-ink-500">
+      <PageHeader
+        className="mb-6"
+        back={{ href: "/sourcework?tab=sources", label: "Back to sources" }}
+        eyebrow={SOURCE_KIND_LABEL[source.kind] ?? source.kind}
+        title={source.title}
+        description={
+          <>
             {isDocument
               ? source.pageCount
                 ? `${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
                 : ""
-              : source.interviewDate &&
-                new Date(source.interviewDate).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+              : source.interviewDate && formatShortDate(source.interviewDate, { year: true })}
             {!isDocument && source.durationMs ? ` · ${formatDuration(source.durationMs)}` : ""}
             {source.sizeBytes ? ` · ${formatBytes(source.sizeBytes)}` : ""}
-          </p>
-        </div>
-        <div className="flex items-start gap-3">
-          <StatusBadge status={source.status} kind={source.kind} />
-          <SourceActionsMenu
-            projectId={primaryProjectId}
-            sourceId={id}
-            sourceTitle={source.title}
-            otherProjectCount={otherProjectCount}
-          />
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <StatusBadge map={projectStatusMap(source.kind)} value={source.status} />
+            <SourceActionsMenu
+              projectId={primaryProjectId}
+              sourceId={id}
+              sourceTitle={source.title}
+              otherProjectCount={otherProjectCount}
+            />
+          </>
+        }
+      />
 
       <section className="mb-6">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-500">
+        <SectionHeading level="eyebrow" className="mb-3">
           Used in {source.projects.length} project{source.projects.length === 1 ? "" : "s"}
-        </h2>
+        </SectionHeading>
         {source.projects.length === 0 ? (
           <p className="text-sm text-ink-500">Not attached to any project yet.</p>
         ) : (
@@ -150,7 +136,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
       </section>
 
       {fileReady && isDocument && (
-        <div className="rounded border border-line bg-white p-5">
+        <Card className="p-5">
           <RepresentationStatusBanner
             status={representationStatus}
             kind="document"
@@ -174,11 +160,11 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               Couldn&apos;t load the document right now. Reload the page to try again.
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {fileReady && !isDocument && (
-        <div className="rounded border border-line bg-white p-5">
+        <Card className="p-5">
           <RepresentationStatusBanner
             status={representationStatus}
             kind="audio_video"
@@ -208,30 +194,34 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
                 : "This source isn't attached to a project, so there's nothing to open here."}
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Only reached when the *file* isn't available — see the project
           workspace's equivalent comment. A failed extraction over a
           perfectly good file is a banner, not one of these. */}
       {!fileReady && source.fileStatus === "uploading" && (
-        <div className="max-w-lg rounded border border-dashed border-line p-5 text-sm text-ink-500">
+        <EmptyState className="max-w-lg p-5">
           This source doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
           upload is still running in another tab, or it was interrupted.
-        </div>
+        </EmptyState>
       )}
 
       {!fileReady && source.fileStatus !== "uploading" && (
-        <div className="max-w-lg rounded border border-line bg-white p-5">
+        <Card className="max-w-lg p-5">
           <p className="text-sm text-ink-700">
             {source.errorMessage ??
               source.transcript?.error_message ??
               "Something went wrong with this source."}
           </p>
           {hasMedia && primaryProjectId && (
-            <RetryForm projectId={primaryProjectId} sourceId={id} returnTo={`/sourcework/sources/${id}`} />
+            <RetryForm
+              projectId={primaryProjectId}
+              sourceId={id}
+              returnTo={`/sourcework/sources/${id}`}
+            />
           )}
-        </div>
+        </Card>
       )}
 
       {/* Once an audio source is ready, the workspace's clip rail above
@@ -242,9 +232,9 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
           this fallback covers the same not-ready states for a document. */}
       {!fileReady && !isDocument && excerpts.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-500">
+          <SectionHeading level="eyebrow" className="mb-3">
             Excerpts from this source
-          </h2>
+          </SectionHeading>
           <ul className="flex flex-col gap-3">
             {excerpts.map((excerpt) => (
               <li key={excerpt.id} className="rounded border border-line bg-white p-4">
@@ -266,16 +256,18 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
 
       {!fileReady && isDocument && documentExcerpts.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-500">
+          <SectionHeading level="eyebrow" className="mb-3">
             Excerpts from this source
-          </h2>
+          </SectionHeading>
           <ul className="flex flex-col gap-3">
             {documentExcerpts.map((excerpt) => (
               <li key={excerpt.id} className="rounded border border-line bg-white p-4">
                 <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold text-ink-900">{excerpt.title}</span>
                   <span className="text-xs text-ink-400">
-                    {excerpt.pages.length === 1 ? `p. ${excerpt.pages[0]}` : `pp. ${excerpt.pages.join(", ")}`}
+                    {excerpt.pages.length === 1
+                      ? `p. ${excerpt.pages[0]}`
+                      : `pp. ${excerpt.pages.join(", ")}`}
                   </span>
                 </div>
                 {excerpt.excerpt && (
@@ -288,17 +280,6 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
       )}
     </div>
   );
-}
-
-function StatusBadge({ status, kind }: { status: ProjectStatus; kind: SwSourceKind }) {
-  const map = {
-    ready: { label: "Ready", variant: "accent" as const },
-    uploading: { label: "Uploading", variant: "neutral" as const },
-    processing: { label: processingLabel(kind), variant: "neutral" as const },
-    failed: { label: "Failed", variant: "danger" as const },
-  };
-  const { label, variant } = map[status];
-  return <Badge variant={variant}>{label}</Badge>;
 }
 
 function RetryForm({

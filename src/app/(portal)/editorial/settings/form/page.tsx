@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { listFormFields } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
@@ -63,7 +63,7 @@ export default async function FormSettingsPage({
       <div>
         <h2 className="mb-2.5 text-sm font-bold text-ink-900">Fields on the pitch form</h2>
         <TableFrame>
-          <Table className="min-w-[680px]">
+          <Table stack className="md:min-w-[680px]">
             <thead>
               <HeaderRow>
                 <Th>Field</Th>
@@ -78,13 +78,17 @@ export default async function FormSettingsPage({
             <tbody>
               {view === "active" && (
                 <Row className="hover:bg-transparent">
-                  <Cell>
+                  <Cell stack="title">
                     <div className="font-semibold text-ink-900">Title</div>
                     <div className="text-xs text-ink-400">Every pitch needs a title.</div>
                   </Cell>
-                  <Cell className="text-ink-500">Short text</Cell>
-                  <Cell className="text-ink-500">Yes</Cell>
-                  <Cell colSpan={2}>
+                  <Cell label="Type" className="text-ink-500">
+                    Short text
+                  </Cell>
+                  <Cell label="Required" className="text-ink-500">
+                    Yes
+                  </Cell>
+                  <Cell stack="aside" colSpan={2}>
                     <Badge variant="neutral">Built in</Badge>
                   </Cell>
                 </Row>
@@ -128,14 +132,14 @@ function FieldRow({
 }) {
   return (
     <Row className={field.active ? undefined : "bg-panel-50/40"}>
-      <Cell>
+      <Cell stack="title">
         <div className="font-semibold text-ink-900">{field.label}</div>
         {field.key === PRIMARY_PILLAR_FIELD_KEY ? (
           <div className="mt-0.5 text-xs leading-snug text-ink-400">
             Picklist and guidance managed in{" "}
-            <Link href="/editorial/settings/pillars" className="text-brand-link hover:underline">
+            <TextLink href="/editorial/settings/pillars" className="px-0 text-xs font-normal">
               Settings → Pillars
-            </Link>
+            </TextLink>
             .
           </div>
         ) : (
@@ -150,10 +154,14 @@ function FieldRow({
         )}
         <code className="mt-1 block font-mono text-[11px] text-ink-400">{field.key}</code>
       </Cell>
-      <Cell className="text-ink-500">{FIELD_TYPE_LABEL[field.field_type]}</Cell>
-      <Cell className="text-ink-500">{field.required ? "Yes" : "No"}</Cell>
+      <Cell label="Type" className="text-ink-500">
+        {FIELD_TYPE_LABEL[field.field_type]}
+      </Cell>
+      <Cell label="Required" className="text-ink-500">
+        {field.required ? "Yes" : "No"}
+      </Cell>
       {view === "active" && (
-        <Cell>
+        <Cell stack="full">
           <ReorderButtons
             action={moveFormField}
             idName="field_id"
@@ -164,23 +172,20 @@ function FieldRow({
           />
         </Cell>
       )}
-      <Cell>
+      <Cell stack="full">
         <div className="flex items-center gap-3 whitespace-nowrap">
-          <Link
+          <TextLink
             href={`/editorial/settings/form/${field.id}/edit`}
-            className="text-xs font-semibold text-brand-link hover:underline"
+            className="px-0 text-xs font-semibold"
           >
             Edit
-          </Link>
+          </TextLink>
           <form action={toggleFormFieldActive}>
             <input type="hidden" name="field_id" value={field.id} />
             <input type="hidden" name="next_active" value={(!field.active).toString()} />
-            <button
-              type="submit"
-              className="rounded text-xs font-semibold text-ink-500 hover:text-ink-900 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-surface"
-            >
+            <Button type="submit" variant="link">
               {field.active ? "Retire" : "Restore"}
-            </button>
+            </Button>
           </form>
         </div>
       </Cell>

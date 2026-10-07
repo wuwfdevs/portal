@@ -1,5 +1,9 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { RichText } from "@/components/ui/rich-text";
 import { formatReleaseDate, groupByReleaseDate } from "@/lib/resources/articles";
@@ -23,13 +27,12 @@ export default async function WhatsNewPage({
 
   return (
     <>
-      <Link href="/resources" className="mb-5 inline-block text-xs font-semibold text-brand-link">
-        ← Back to resources
-      </Link>
-      <h1 className="font-serif text-2xl font-bold text-ink-900">What&apos;s new</h1>
-      <p className="mt-1 text-xs text-ink-400">
-        Every change to the portal that you&apos;d notice, in the order it shipped.
-      </p>
+      <PageHeader
+        size="page"
+        back={{ href: "/resources", label: "Back to resources" }}
+        title="What's new"
+        description="Every change to the portal that you'd notice, in the order it shipped."
+      />
 
       <ListToolbar
         chipsLabel="Tool"
@@ -45,23 +48,17 @@ export default async function WhatsNewPage({
       />
 
       {groups.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
-          No release notes yet.
-        </div>
+        <EmptyState>No release notes yet.</EmptyState>
       ) : (
         <div className="flex max-w-[760px] flex-col gap-7">
           {groups.map((group) => (
             <section key={group.date}>
-              <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">
+              <SectionHeading level="eyebrow" className="mb-2.5">
                 {formatReleaseDate(group.date)}
-              </h2>
+              </SectionHeading>
               <div className="flex flex-col gap-3">
                 {group.notes.map((note) => (
-                  <article
-                    key={note.id}
-                    id={note.slug}
-                    className="scroll-mt-20 rounded border border-line bg-white px-5 py-4"
-                  >
+                  <Card key={note.id} id={note.slug} className="scroll-mt-20 px-5 py-4">
                     {note.tool && <Badge variant="neutral">{note.tool.name}</Badge>}
                     <h3 className="mt-2 font-serif text-[15px] font-bold text-ink-900">
                       {note.title}
@@ -76,17 +73,17 @@ export default async function WhatsNewPage({
                         {note.guides.map((guide, index) => (
                           <span key={guide.slug}>
                             {index > 0 && ", "}
-                            <Link
+                            <TextLink
                               href={`/resources/tools/${guide.toolKey}/${guide.slug}`}
-                              className="font-semibold text-brand-link"
+                              className="px-0 text-xs font-semibold"
                             >
                               {guide.title}
-                            </Link>
+                            </TextLink>
                           </span>
                         ))}
                       </p>
                     )}
-                  </article>
+                  </Card>
                 ))}
               </div>
             </section>

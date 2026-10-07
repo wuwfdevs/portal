@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,8 @@ import {
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
 import { addPlannedDate, attachReservedBlock, removeDate } from "../actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface DateCheck {
   bookingId: string;
@@ -130,9 +131,9 @@ export function DatesSection({
           Planned now; held for 14 days when the estimate is sent; confirmed when it is approved.
         </span>
         <span className="flex-1" />
-        <Link href={CALENDAR_PATH} className="text-xs font-bold text-brand-link hover:underline">
+        <TextLink href={CALENDAR_PATH} className="text-xs">
           Calendar
-        </Link>
+        </TextLink>
       </div>
 
       {!calendar && (
@@ -201,12 +202,12 @@ export function DatesSection({
       )}
 
       {dates.length === 0 ? (
-        <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
+        <EmptyState compact>
           No dates yet.{" "}
           {project.requested === "airtime"
             ? "An airtime-only request needs none."
             : "Plan each window the work needs."}
-        </p>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -418,19 +419,11 @@ export function DatesSection({
           </InlineCreateCard>
         ) : (
           <div className="flex flex-wrap gap-4">
-            <Link
-              href={requestHref(project.id, { new: "date" })}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
-              + Plan a date
-            </Link>
+            <TextLink href={requestHref(project.id, { new: "date" })}>+ Plan a date</TextLink>
             {attachableBlocks.length > 0 && openCard !== "block" && (
-              <Link
-                href={requestHref(project.id, { new: "block" })}
-                className="text-sm font-bold text-brand-link hover:underline"
-              >
+              <TextLink href={requestHref(project.id, { new: "block" })}>
                 + Use a reserved block ({attachableBlocks.length})
-              </Link>
+              </TextLink>
             )}
           </div>
         ))}

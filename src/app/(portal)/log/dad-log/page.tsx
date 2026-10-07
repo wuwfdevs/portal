@@ -3,6 +3,12 @@ import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { SegmentedLinks } from "@/components/ui/segmented";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireLogAccess } from "@/lib/log/access";
 import { automatedSegments, stationLocalParts } from "@/lib/log/automated-hours";
@@ -59,32 +65,21 @@ export default async function DadLogPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <Link
-          href={`/log?date=${date}`}
-          className="text-sm font-semibold text-brand-link hover:underline"
-        >
-          ← Today
-        </Link>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-ink-900">
-              DAD log · {formatStationDateLong(date)}
-            </h1>
-            <p className="text-sm text-ink-500">
-              The credits DAD plays in automated hours. Nothing else is in the file.
-            </p>
-          </div>
-          <div className="flex gap-2">
+      <PageHeader
+        back={{ href: `/log?date=${date}`, label: "Today" }}
+        title={<>DAD log · {formatStationDateLong(date)}</>}
+        description="The credits DAD plays in automated hours. Nothing else is in the file."
+        actions={
+          <>
             <Link href={href({ date: shiftDateISO(date, -1) })} className={NAV_LINK}>
               ← Prev day
             </Link>
             <Link href={href({ date: shiftDateISO(date, 1) })} className={NAV_LINK}>
               Next day →
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {params.error && <Alert>{params.error}</Alert>}
       {params.released && /^\d+$/.test(params.released) && (
@@ -100,9 +95,7 @@ export default async function DadLogPage({
           {segments.length === 0 && (
             <Alert variant="note">
               Every hour on this day is hosted, so there&apos;s nothing for DAD to play.{" "}
-              <Link href="/log/automated-hours" className="font-bold text-brand-link">
-                Automation
-              </Link>
+              <TextLink href="/log/automated-hours">Automation</TextLink>
             </Alert>
           )}
           {blocking.length > 0 && (
@@ -116,42 +109,22 @@ export default async function DadLogPage({
 
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-base font-bold text-ink-900">
+              <SectionHeading>
                 What DAD will play · {day.events.length}{" "}
                 {day.events.length === 1 ? "item" : "items"}
-              </h2>
+              </SectionHeading>
               <span className="flex-1" />
-              <nav
-                aria-label="Show"
-                className="inline-flex overflow-hidden rounded border border-line"
-              >
-                <Link
-                  href={href({})}
-                  aria-current={!showFile ? "page" : undefined}
-                  className={cn(
-                    "px-3.5 py-1.5 text-[13px] font-bold",
-                    !showFile ? "bg-brand-link text-white" : "bg-white text-ink-900",
-                  )}
-                >
-                  Table
-                </Link>
-                <Link
-                  href={href({ show: "file" })}
-                  aria-current={showFile ? "page" : undefined}
-                  className={cn(
-                    "border-l border-line px-3.5 py-1.5 text-[13px] font-bold",
-                    showFile ? "bg-brand-link text-white" : "bg-white text-ink-900",
-                  )}
-                >
-                  File
-                </Link>
-              </nav>
+              <SegmentedLinks
+                label="Show"
+                options={[
+                  { label: "Table", href: href({}), active: !showFile },
+                  { label: "File", href: href({ show: "file" }), active: showFile },
+                ]}
+              />
             </div>
 
             {day.events.length === 0 ? (
-              <div className="rounded border border-dashed border-line p-6 text-sm text-ink-500">
-                Nothing is placed in this day&apos;s automated breaks.
-              </div>
+              <EmptyState>Nothing is placed in this day&apos;s automated breaks.</EmptyState>
             ) : showFile ? (
               <pre className="overflow-x-auto rounded border border-line bg-panel-50 p-3 font-mono text-[11px] leading-5 text-ink-900">
                 {previewRowsFromEvents(day.events)
@@ -202,7 +175,7 @@ export default async function DadLogPage({
         </div>
 
         <aside className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded border border-line p-4">
+          <Card className="flex flex-col gap-3 p-4">
             <h2 className="text-sm font-bold text-ink-900">Release</h2>
             {latest && current === false && (
               <Alert variant="warning">
@@ -246,10 +219,10 @@ export default async function DadLogPage({
                 </span>
               </div>
             )}
-          </section>
+          </Card>
 
           {day.releases.length > 0 && (
-            <section className="flex flex-col gap-2 rounded border border-line p-4">
+            <Card className="flex flex-col gap-2 p-4">
               <h2 className="text-sm font-bold text-ink-900">History</h2>
               <ul className="flex flex-col gap-1.5 text-sm">
                 {day.releases.map((release) => (
@@ -270,7 +243,7 @@ export default async function DadLogPage({
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           )}
         </aside>
       </div>
@@ -300,12 +273,7 @@ function IssueList({
   tone: "danger" | "note";
 }) {
   return (
-    <section
-      className={cn(
-        "rounded border p-4",
-        tone === "danger" ? "border-danger/30 bg-danger/[0.04]" : "border-line bg-panel-50",
-      )}
-    >
+    <Alert variant={tone} className="p-4">
       <h2
         className={cn("mb-2 text-sm font-bold", tone === "danger" ? "text-danger" : "text-ink-900")}
       >
@@ -319,14 +287,14 @@ function IssueList({
           >
             <span>{issue.message}</span>
             {issue.href && (
-              <Link href={issue.href} className="shrink-0 font-bold text-brand-link">
+              <TextLink href={issue.href} className="shrink-0">
                 Fix →
-              </Link>
+              </TextLink>
             )}
           </li>
         ))}
       </ul>
-    </section>
+    </Alert>
   );
 }
 

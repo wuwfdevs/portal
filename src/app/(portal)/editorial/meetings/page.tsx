@@ -6,7 +6,9 @@ import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input, Select } from "@/components/ui/input";
 import { createMeeting } from "./actions";
 
 export default async function MeetingsPage({
@@ -53,17 +55,15 @@ export default async function MeetingsPage({
   return (
     <div>
       {role === "editor" && (
-        <div className="mb-5 rounded border border-line">
+        <Card className="mb-5">
           <div className="border-b border-line px-4 py-3 text-sm font-bold text-ink-900">
             New meeting
           </div>
           <form action={createMeeting} className="flex flex-wrap items-end gap-3 px-4 py-4">
-            <div>
-              <Label htmlFor="meeting_date">Meeting date</Label>
+            <Field label="Meeting date" htmlFor="meeting_date">
               <Input id="meeting_date" name="meeting_date" type="date" required className="w-44" />
-            </div>
-            <div>
-              <Label htmlFor="rubric_profile_id">Rubric profile</Label>
+            </Field>
+            <Field label="Rubric profile" htmlFor="rubric_profile_id">
               <Select
                 id="rubric_profile_id"
                 name="rubric_profile_id"
@@ -76,7 +76,7 @@ export default async function MeetingsPage({
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
             <Button type="submit">Create meeting</Button>
             <p className="basis-full text-xs leading-relaxed text-ink-400">
               A new meeting opens for slate building and independent scoring. Nobody sees anyone
@@ -84,20 +84,20 @@ export default async function MeetingsPage({
               slate is dominated by urgent coverage — pillar fit won&apos;t gate those pitches.
             </p>
           </form>
-        </div>
+        </Card>
       )}
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
       {meetingRows.length === 0 ? (
-        <div className="max-w-md rounded border border-dashed border-line p-6 text-sm leading-relaxed text-ink-500">
+        <EmptyState className="leading-relaxed">
           No meetings yet.{" "}
           {role === "editor"
             ? "Create one above and pick a slate from the backlog."
             : "An editor will create the first one."}
-        </div>
+        </EmptyState>
       ) : (
-        <div className="rounded border border-line">
+        <Card>
           {meetingRows.map((meeting) => {
             const stats = slateStats.get(meeting.id) ?? { total: 0, assigned: 0 };
             const slateLine =
@@ -128,7 +128,7 @@ export default async function MeetingsPage({
               </Link>
             );
           })}
-        </div>
+        </Card>
       )}
     </div>
   );

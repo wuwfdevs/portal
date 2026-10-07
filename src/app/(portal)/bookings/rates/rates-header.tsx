@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,9 @@ import { RATES_PATH, ratesHref, type RatesSection } from "@/lib/bookings/paths";
 import type { BkVersionRow } from "@/lib/bookings/queries";
 import { adoptVersion, reopenVersion, submitVersion, useVersionForEstimates } from "./actions";
 import { RatesTabs } from "./rates-tabs";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 function statusVariant(version: BkVersionRow): "accent" | "neutral" | "success" | "muted" {
   if (version.status === "adopted") return "success";
@@ -54,7 +56,7 @@ export function RatesHeader({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Rate model</h2>
+        <SectionHeading>Rate model</SectionHeading>
         <FilterChips
           label="Version"
           chips={versions.map((candidate) => ({
@@ -65,12 +67,7 @@ export function RatesHeader({
         />
         <span className="flex-1" />
         {context.isFinance && (
-          <Link
-            href={`${RATES_PATH}/versions/new?from=${version.id}`}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            + New version
-          </Link>
+          <TextLink href={`${RATES_PATH}/versions/new?from=${version.id}`}>+ New version</TextLink>
         )}
       </div>
 
@@ -180,21 +177,15 @@ export function NoVersions({
   return (
     <div className="flex flex-col gap-4">
       <RatesTabs active={section} versionId={null} />
-      <div className="max-w-md rounded border border-dashed border-line p-6 text-sm text-ink-500">
+      <EmptyState>
         No rate model version exists yet.
         {context.isFinance && (
           <>
             {" "}
-            <Link
-              href={`${RATES_PATH}/versions/new`}
-              className="font-bold text-brand-link hover:underline"
-            >
-              Create the first one
-            </Link>
-            .
+            <TextLink href={`${RATES_PATH}/versions/new`}>Create the first one</TextLink>.
           </>
         )}
-      </div>
+      </EmptyState>
     </div>
   );
 }

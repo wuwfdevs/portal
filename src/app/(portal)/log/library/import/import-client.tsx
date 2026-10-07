@@ -9,7 +9,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
-import { controlClasses } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Field, FileInput } from "@/components/ui/input";
 import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
@@ -97,7 +98,7 @@ export function ImportClient() {
       {error && <Alert variant="danger">{error}</Alert>}
 
       {result?.ok && (
-        <div className="rounded border border-line bg-panel-50 p-4">
+        <Card className="bg-panel-50 p-4">
           <h2 className="text-sm font-bold text-ink-900">Import complete</h2>
           <p className="mt-1 text-sm text-ink-700">
             {result.itemsCreated} item{result.itemsCreated === 1 ? "" : "s"} created ·{" "}
@@ -111,7 +112,7 @@ export function ImportClient() {
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Kept mounted (only hidden) while the export is read, so a failed read
@@ -123,24 +124,22 @@ export function ImportClient() {
             reading && "hidden",
           )}
         >
-          <label className="flex flex-col gap-1 text-sm">
-            Standard Library export (required)
-            <input
+          <Field label="Standard Library export (required)" htmlFor="library-file">
+            <FileInput
+              id="library-file"
               ref={libraryInputRef}
-              type="file"
               accept=".txt,.rep,text/plain"
-              className={cn(controlClasses, "max-w-md")}
+              className="max-w-md"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Groups report (optional)
-            <input
+          </Field>
+          <Field label="Groups report (optional)" htmlFor="groups-file">
+            <FileInput
+              id="groups-file"
               ref={groupsInputRef}
-              type="file"
               accept=".txt,.rep,text/plain"
-              className={cn(controlClasses, "max-w-md")}
+              className="max-w-md"
             />
-          </label>
+          </Field>
           <Button type="button" onClick={upload} disabled={pending}>
             {pending ? "Reading…" : "Preview import"}
           </Button>
@@ -194,7 +193,7 @@ export function ImportClient() {
             </Alert>
           )}
 
-          <section className="rounded border border-line">
+          <Card>
             <h3 className="border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold tracking-wide text-ink-500 uppercase">
               Groups
             </h3>
@@ -213,9 +212,9 @@ export function ImportClient() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
 
-          <section className="rounded border border-line">
+          <Card>
             <h3 className="border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold tracking-wide text-ink-500 uppercase">
               Canonical program promos
             </h3>
@@ -241,10 +240,10 @@ export function ImportClient() {
                 </li>
               )}
             </ul>
-          </section>
+          </Card>
 
           {unmatchedPromoItems.length > 0 && (
-            <section className="rounded border border-line">
+            <Card>
               <h3 className="border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold tracking-wide text-ink-500 uppercase">
                 Generic/daily/weekly cuts with no matching program ({unmatchedPromoItems.length})
               </h3>
@@ -261,7 +260,7 @@ export function ImportClient() {
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           )}
         </>
       )}

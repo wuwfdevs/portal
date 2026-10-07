@@ -1,8 +1,7 @@
 import { orderNumberLabel } from "@/lib/underwriting/contract-label";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { FieldHint, Label, Select } from "@/components/ui/input";
@@ -12,14 +11,10 @@ import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
 import { CopyCutButton } from "./copy-cut-button";
-import type { UwCopyApprovalStatus } from "@/lib/database.types";
-
-const APPROVAL_VARIANT: Record<UwCopyApprovalStatus, BadgeVariant> = {
-  draft: "neutral",
-  approved: "success",
-  expired: "muted",
-  retired: "muted",
-};
+import { TextLink } from "@/components/ui/primary-link";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
 
 /**
  * A copy row's detail page: the script itself, the contracts it is linked
@@ -46,12 +41,12 @@ export default async function CopyDetailPage({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
-        <Link href="/underwriting/copy" className="text-xs font-semibold text-brand-link">
+        <TextLink href="/underwriting/copy" className="text-xs">
           ← Back to copy library
-        </Link>
+        </TextLink>
         <div className="mt-2 mb-4 flex flex-wrap items-center gap-2.5">
           <h2 className="font-serif text-xl font-bold text-ink-900">{copy.label}</h2>
-          <Badge variant={APPROVAL_VARIANT[copy.approval_status]}>{copy.approval_status}</Badge>
+          <StatusBadge map={COPY_APPROVAL_STATUS} value={copy.approval_status} />
           <Badge variant="neutral">
             {copy.execution_kind === "recorded" ? "Recorded spot" : "Live read"}
           </Badge>
@@ -61,7 +56,7 @@ export default async function CopyDetailPage({
 
         {error && <Alert className="mb-4">{error}</Alert>}
 
-        <div className="rounded border border-line">
+        <Card>
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Script
           </div>
@@ -72,19 +67,16 @@ export default async function CopyDetailPage({
           ) : (
             <p className="px-5 py-4 text-sm text-ink-500">No script recorded.</p>
           )}
-        </div>
+        </Card>
 
         <section aria-labelledby="in-dad" className="mt-6 rounded border border-line">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <h3 id="in-dad" className="text-sm font-bold text-ink-900">
               In DAD
             </h3>
-            <Link
-              href={`/underwriting/copy/${copy.id}/edit`}
-              className="text-[13px] font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={`/underwriting/copy/${copy.id}/edit`} className="text-[13px]">
               {copy.dad_cut ? "Change cut" : "Pick a DAD spot"}
-            </Link>
+            </TextLink>
           </div>
           {copy.dad_cut ? (
             <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
@@ -155,7 +147,7 @@ export default async function CopyDetailPage({
           )}
         </section>
 
-        <div className="mt-6 rounded border border-line">
+        <Card className="mt-6">
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Linked contracts
           </div>
@@ -167,17 +159,14 @@ export default async function CopyDetailPage({
             <ul className="divide-y divide-line">
               {copy.contracts.map((contract) => (
                 <li key={contract.id} className="px-5 py-3 text-sm">
-                  <Link
-                    href={`/underwriting/contracts/${contract.id}`}
-                    className="font-semibold text-brand-link"
-                  >
+                  <TextLink href={`/underwriting/contracts/${contract.id}`}>
                     {orderNumberLabel(contract.contract_identifier)}
-                  </Link>
+                  </TextLink>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
 
       <aside aria-label="Copy details" className="flex w-full shrink-0 flex-col gap-6 lg:w-80">
@@ -203,7 +192,7 @@ export default async function CopyDetailPage({
             },
           ]}
         />
-        <div className="rounded border border-line">
+        <Card>
           <div className="border-b border-line px-5 py-3.5 text-sm font-bold text-ink-900">
             Status
           </div>
@@ -228,7 +217,7 @@ export default async function CopyDetailPage({
             </FieldHint>
             <Button type="submit">Update status</Button>
           </form>
-        </div>
+        </Card>
       </aside>
     </div>
   );

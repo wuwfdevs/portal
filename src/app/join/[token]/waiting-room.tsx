@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
 import { createClient } from "@/lib/supabase/client";
 import { GuestShell } from "./guest-shell";
 
@@ -49,10 +50,11 @@ export function WaitingRoom({
 
   return (
     <GuestShell>
-      <h1 className="mb-2 font-serif text-lg font-bold text-ink-900">You&apos;re in the waiting room</h1>
-      <p className="text-sm leading-relaxed text-ink-500">
-        Thanks, {displayName}. The host will let you in shortly — keep this tab open.
-      </p>
+      <PageHeader
+        size="public"
+        title="You're in the waiting room"
+        description={`Thanks, ${displayName}. The host will let you in shortly — keep this tab open.`}
+      />
     </GuestShell>
   );
 }

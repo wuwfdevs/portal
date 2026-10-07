@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,11 @@ import {
   updatePlan,
   updateResource,
 } from "../actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
 
 type Params = { plan?: string; new?: string; edit?: string; capacity?: string; error?: string };
 
@@ -61,7 +65,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">Term plan</h2>
+        <SectionHeading>Term plan</SectionHeading>
         {plans.length > 0 && (
           <FilterChips
             label="Term"
@@ -73,21 +77,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
           />
         )}
         <span className="flex-1" />
-        {plan && (
-          <Link
-            href={calendarHref({ plan: plan.id })}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            ← Calendar
-          </Link>
-        )}
+        {plan && <TextLink href={calendarHref({ plan: plan.id })}>← Calendar</TextLink>}
         {canEdit && params.new !== "1" && (
-          <Link
-            href={withQuery(PLAN_PATH, { new: "1" })}
-            className="px-1 text-sm font-bold text-brand-link hover:underline"
-          >
-            + New term
-          </Link>
+          <TextLink href={withQuery(PLAN_PATH, { new: "1" })}>+ New term</TextLink>
         )}
       </div>
 
@@ -101,9 +93,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
             cancelHref={plans[0] ? withQuery(PLAN_PATH, { plan: plans[0].id }) : calendarHref({})}
           />
         ) : (
-          <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
-            No term plan yet. The Director of Operations creates it.
-          </p>
+          <EmptyState compact>No term plan yet. The Director of Operations creates it.</EmptyState>
         )
       ) : (
         <>
@@ -171,12 +161,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                   with no row is not capacity-checked.
                 </p>
               </div>
-              <Link
-                href={`${RATES_PATH}/setup`}
-                className="text-sm font-bold text-brand-link hover:underline"
-              >
-                Classes are kept under Rates · Labor
-              </Link>
+              <TextLink href={`${RATES_PATH}/setup`}>Classes are kept under Rates · Labor</TextLink>
             </div>
             <TableFrame>
               <Table stack>
@@ -276,12 +261,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                               </div>
                               <div className="flex items-center gap-3">
                                 <Button type="submit">Save</Button>
-                                <Link
-                                  href={withQuery(PLAN_PATH, { plan: plan.id })}
-                                  className="px-1 text-sm font-bold text-brand-link hover:underline"
-                                >
+                                <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
                                   Cancel
-                                </Link>
+                                </TextLink>
                               </div>
                             </form>
                           </Cell>
@@ -331,12 +313,11 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                         <Cell stack="aside" className="text-right">
                           {canEdit && (
                             <span className="inline-flex items-center gap-3">
-                              <Link
+                              <TextLink
                                 href={withQuery(PLAN_PATH, { plan: plan.id, capacity: cls.id })}
-                                className="text-sm font-bold text-brand-link hover:underline"
                               >
                                 {row ? "Edit" : "Track"}
-                              </Link>
+                              </TextLink>
                               {row && (
                                 <form action={removeCapacity}>
                                   <input type="hidden" name="plan_id" value={plan.id} />
@@ -371,12 +352,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                   calendar; the guardrail is labor hours.
                 </p>
               </div>
-              <Link
-                href={`${RATES_PATH}/setup`}
-                className="text-sm font-bold text-brand-link hover:underline"
-              >
+              <TextLink href={`${RATES_PATH}/setup`}>
                 Pools are kept under Rates · Resource pools
-              </Link>
+              </TextLink>
             </div>
             <TableFrame>
               <Table stack>
@@ -469,12 +447,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                               </div>
                               <div className="flex items-center gap-3">
                                 <Button type="submit">Save</Button>
-                                <Link
-                                  href={withQuery(PLAN_PATH, { plan: plan.id })}
-                                  className="px-1 text-sm font-bold text-brand-link hover:underline"
-                                >
+                                <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
                                   Cancel
-                                </Link>
+                                </TextLink>
                               </div>
                             </form>
                           </Cell>
@@ -513,12 +488,11 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                         <Cell stack="aside" className="text-right">
                           {canEdit && (
                             <span className="inline-flex items-center gap-3">
-                              <Link
+                              <TextLink
                                 href={withQuery(PLAN_PATH, { plan: plan.id, edit: pool.id })}
-                                className="text-sm font-bold text-brand-link hover:underline"
                               >
                                 {resource ? "Edit" : "Add to this term"}
-                              </Link>
+                              </TextLink>
                               {resource && (
                                 <form action={removeResource}>
                                   <input type="hidden" name="plan_id" value={plan.id} />
@@ -554,18 +528,16 @@ function PlanSummary({ plan }: { plan: BkTermPlanRow }) {
     ["Contributed airtime", `${plan.airtime_contributed_minutes_per_week} min a week`],
   ];
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded border border-line bg-white px-4 py-3 text-sm sm:grid-cols-2">
-      {items.map(([label, value]) => (
-        <div
-          key={label}
-          className="flex justify-between gap-4 border-b border-line py-1.5 last:border-b-0"
-        >
-          <dt className="text-ink-500">{label}</dt>
-          <dd className="font-semibold text-ink-900">{value}</dd>
-        </div>
-      ))}
-      {plan.notes && <p className="text-xs text-ink-500 sm:col-span-2">{plan.notes}</p>}
-    </dl>
+    <Card className="px-4 py-3">
+      <DescriptionList
+        columns={2}
+        items={items.map(([label, value]) => ({
+          label,
+          value: <span className="font-semibold">{value}</span>,
+        }))}
+      />
+      {plan.notes && <p className="mt-2 text-xs text-ink-500">{plan.notes}</p>}
+    </Card>
   );
 }
 
@@ -649,9 +621,7 @@ function PlanForm({
       )}
       <div className="flex items-center gap-4">
         <Button type="submit">{submitLabel}</Button>
-        <Link href={cancelHref} className="px-1 text-sm font-bold text-brand-link hover:underline">
-          Cancel
-        </Link>
+        <TextLink href={cancelHref}>Cancel</TextLink>
       </div>
     </form>
   );

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEditorialAccess } from "@/lib/editorial/access";
@@ -23,7 +22,11 @@ import {
 } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { TextLink } from "@/components/ui/primary-link";
 import { archivePitch, unarchivePitch } from "../actions";
 
 export default async function PitchDetailPage({
@@ -127,37 +130,32 @@ export default async function PitchDetailPage({
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-4">
-        <Link href="/editorial" className="text-xs font-semibold text-brand-link hover:underline">
-          ← Back to backlog
-        </Link>
-      </div>
+      <PageHeader
+        className="mb-4"
+        back={{ href: "/editorial", label: "Back to backlog" }}
+        title={pitch.title}
+        badge={<PitchStatusBadge status={pitch.status} />}
+        description={
+          <>
+            Submitted by {names.get(pitch.submitted_by ?? "") ?? "a former member"} on{" "}
+            {formatDate(pitch.created_at)}
+          </>
+        }
+        actions={
+          canEdit && (
+            <TextLink
+              href={`/editorial/pitches/${pitch.id}/edit`}
+              className="text-xs font-semibold"
+            >
+              Edit
+            </TextLink>
+          )
+        }
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <div className="rounded border border-line">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="font-serif text-[19px] font-bold leading-snug text-ink-900">
-              {pitch.title}
-            </h2>
-            <p className="mt-1 text-xs text-ink-400">
-              Submitted by {names.get(pitch.submitted_by ?? "") ?? "a former member"} on{" "}
-              {formatDate(pitch.created_at)}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <PitchStatusBadge status={pitch.status} />
-            {canEdit && (
-              <Link
-                href={`/editorial/pitches/${pitch.id}/edit`}
-                className="text-xs font-semibold text-brand-link hover:underline"
-              >
-                Edit
-              </Link>
-            )}
-          </div>
-        </div>
+      <Card>
         <div className="p-5">
           <PitchValues fields={fields} values={valuesByPitch.get(pitch.id) ?? []} />
         </div>
@@ -167,24 +165,24 @@ export default async function PitchDetailPage({
             <span>
               Assigned to <strong>{names.get(pitch.assigned_to ?? "") ?? "—"}</strong>
             </span>
-            <Link
+            <TextLink
               href={`/editorial/pitches/${pitch.id}/story-plan`}
-              className="text-xs font-semibold text-brand-link hover:underline"
+              className="text-xs font-semibold"
             >
               {storyPlan
                 ? `Story plan · ${STORY_PLAN_STATUS_LABEL[storyPlan.status]}`
                 : "Start story plan"}
-            </Link>
+            </TextLink>
           </div>
         )}
         {pitch.status !== "assigned" && storyPlan && (
           <div className="border-t border-line bg-panel-50 px-5 py-3 text-sm text-ink-700">
-            <Link
+            <TextLink
               href={`/editorial/pitches/${pitch.id}/story-plan`}
-              className="text-xs font-semibold text-brand-link hover:underline"
+              className="text-xs font-semibold"
             >
               Story plan · {STORY_PLAN_STATUS_LABEL[storyPlan.status]}
-            </Link>
+            </TextLink>
           </div>
         )}
         {pitch.status === "archived" && (
@@ -200,7 +198,7 @@ export default async function PitchDetailPage({
             ends.
           </div>
         )}
-      </div>
+      </Card>
 
       {role === "editor" && pitch.status === "open" && (
         <form
@@ -231,9 +229,7 @@ export default async function PitchDetailPage({
 
       <h3 className="mb-2.5 mt-8 text-sm font-bold text-ink-900">Review history</h3>
       {sortedRounds.length === 0 ? (
-        <p className="rounded border border-dashed border-line p-5 text-sm text-ink-500">
-          This pitch hasn&apos;t been discussed in a meeting yet.
-        </p>
+        <EmptyState compact>This pitch hasn&apos;t been discussed in a meeting yet.</EmptyState>
       ) : (
         <div className="flex flex-col gap-2.5">
           {sortedRounds.map(({ round, meeting }) => {
@@ -252,14 +248,14 @@ export default async function PitchDetailPage({
               minCoreScoreForModifier: settings.modifier_min_core_score,
             });
             return (
-              <div key={round.id} className="rounded border border-line px-4 py-3">
+              <Card key={round.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <Link
+                  <TextLink
                     href={`/editorial/meetings/${meeting!.id}`}
-                    className="text-sm font-semibold text-brand-link"
+                    className="px-0 font-semibold"
                   >
                     Meeting · {formatDate(meeting!.meeting_date)}
-                  </Link>
+                  </TextLink>
                   <MeetingStatusBadge status={meeting!.status} />
                   <div className="flex-1" />
                   <OutcomeBadge outcome={round.outcome} />
@@ -298,7 +294,7 @@ export default async function PitchDetailPage({
                       ))}
                   </ul>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

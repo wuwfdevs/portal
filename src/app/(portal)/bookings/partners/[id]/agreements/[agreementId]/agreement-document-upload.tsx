@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FieldError, FieldHint } from "@/components/ui/input";
+import { FieldError, FieldHint, FileInput } from "@/components/ui/input";
 import { completeAgreementDocumentUpload, getAgreementDocumentDownloadUrl } from "../../../actions";
 
 const DOCUMENTS_BUCKET = "bookings-documents";
@@ -99,12 +99,10 @@ export function AgreementDocumentUpload({
       )}
       {canUpload && (
         <>
-          <input
-            type="file"
+          <FileInput
             accept="application/pdf,image/png,image/jpeg"
             onChange={handleChange}
             disabled={status === "uploading"}
-            className="text-xs text-ink-500"
           />
           <FieldHint>
             {existingPath

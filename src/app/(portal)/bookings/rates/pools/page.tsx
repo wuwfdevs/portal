@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,7 @@ import { refreshFromAssetRegister, savePoolFigures, setPoolValidation } from "..
 import { PoolCatalog, type CatalogParams } from "../catalog-sections";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
+import { TextLink } from "@/components/ui/primary-link";
 
 type Params = {
   version?: string;
@@ -246,12 +246,7 @@ export default async function ResourcePoolsPage({
                           </div>
                           <div className="flex items-center gap-4">
                             <Button type="submit">Save</Button>
-                            <Link
-                              href={here()}
-                              className="text-sm font-bold text-brand-link hover:underline"
-                            >
-                              Cancel
-                            </Link>
+                            <TextLink href={here()}>Cancel</TextLink>
                             <span className="flex-1" />
                             <FieldHint>
                               A changed figure goes back to awaiting validation.
@@ -351,12 +346,9 @@ export default async function ResourcePoolsPage({
                     </Cell>
                     <Cell stack="aside" className="text-right">
                       {canEdit && (
-                        <Link
-                          href={here({ edit: pool.id })}
-                          className="text-sm font-bold text-brand-link hover:underline"
-                        >
+                        <TextLink href={here({ edit: pool.id })}>
                           {row ? "Edit" : "Add figures"}
-                        </Link>
+                        </TextLink>
                       )}
                     </Cell>
                   </Row>

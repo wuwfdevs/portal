@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAgreementMigrationAccess } from "@/lib/underwriting/access";
 import { loadLegacyCopySnapshot } from "@/lib/underwriting/legacy-copy-import";
 import { MigrationTabs } from "../migration-tabs";
 import { CopyImportClient } from "./copy-import-client";
+import { TextLink } from "@/components/ui/primary-link";
 
 /**
  * Seeding active copy from RadioTraffic (docs/underwriting-traffic-
@@ -18,9 +18,9 @@ export default async function LegacyCopyMigrationPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/underwriting/setup" className="text-xs font-semibold text-brand-link">
+        <TextLink href="/underwriting/setup" className="text-xs">
           ← Setup
-        </Link>
+        </TextLink>
         <h2 className="mt-2 text-xl font-bold text-ink-900">Migrate legacy records</h2>
         <p className="mt-1 max-w-3xl text-sm text-ink-700">
           Bring active copy in from RadioTraffic: each message is matched to its underwriter and,

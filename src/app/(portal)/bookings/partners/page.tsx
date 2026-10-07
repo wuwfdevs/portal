@@ -1,15 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { PARTNERS_PATH, partnerHref } from "@/lib/bookings/paths";
 import { PARTNER_KIND_LABEL } from "@/lib/bookings/projects";
 import { countPartners, listPartnersPage, type PartnerListView } from "@/lib/bookings/queries";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/section-heading";
 
 const VIEWS: readonly PartnerListView[] = ["all", "uwf_unit", "external"];
 
@@ -41,7 +42,7 @@ export default async function PartnersPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Partners</h2>
+      <SectionHeading>Partners</SectionHeading>
       <ListToolbar
         search={{
           placeholder: "Search by name",
@@ -71,16 +72,11 @@ export default async function PartnersPage({
       </ListToolbar>
 
       {rows.length === 0 ? (
-        <div className="rounded border border-dashed border-line bg-white px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-ink-900">
-            {q ? "No partners match." : "No partners yet."}
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-            A partner is a UWF unit or an outside organization WUWF produces for. One is added here,
-            or named on a request; an agreement — a standing arrangement with a reserve share and
-            reserved blocks — is drafted on the partner&apos;s page.
-          </p>
-        </div>
+        <EmptyState title={q ? "No partners match." : "No partners yet."}>
+          A partner is a UWF unit or an outside organization WUWF produces for. One is added here,
+          or named on a request; an agreement — a standing arrangement with a reserve share and
+          reserved blocks — is drafted on the partner&apos;s page.
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -96,12 +92,7 @@ export default async function PartnersPage({
               {rows.map((partner) => (
                 <Row key={partner.id}>
                   <Cell stack="title">
-                    <Link
-                      href={partnerHref(partner.id)}
-                      className="font-semibold text-brand-link hover:underline"
-                    >
-                      {partner.name}
-                    </Link>
+                    <TextLink href={partnerHref(partner.id)}>{partner.name}</TextLink>
                     <span className="block text-xs text-ink-500">
                       {PARTNER_KIND_LABEL[partner.kind]}
                     </span>

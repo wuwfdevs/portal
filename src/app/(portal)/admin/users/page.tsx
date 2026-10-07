@@ -1,20 +1,14 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { denyAccessRequest, resendInvite, setAccountStatus } from "./actions";
-import type { AccountStatus } from "@/lib/database.types";
 import { formatShortDate } from "@/lib/format";
-
-const STATUS_BADGE: Record<
-  AccountStatus,
-  { label: string; variant: "accent" | "neutral" | "muted" }
-> = {
-  active: { label: "Active", variant: "accent" },
-  invited: { label: "Invited", variant: "neutral" },
-  pending: { label: "Pending", variant: "neutral" },
-  disabled: { label: "Disabled", variant: "muted" },
-};
+import { ACCOUNT_STATUS } from "@/lib/admin-status";
 
 const ROLE_LABEL: Record<string, string> = {
   administrator: "Administrator",
@@ -71,57 +65,32 @@ export default async function AdminUsersPage({
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <form className="flex flex-1 items-center gap-2 rounded-full border border-line px-3.5 py-1.5 sm:flex-initial">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#8A9099"
-            strokeWidth={2}
-            className="shrink-0"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3-3" />
-          </svg>
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search by name or email"
-            className="w-full min-w-0 border-0 text-base text-ink-900 outline-none placeholder:text-ink-400 sm:w-64 sm:text-sm"
-          />
-        </form>
-        <Link href="/admin/users/invite" className="shrink-0">
-          <Button>+ Invite user</Button>
-        </Link>
-      </div>
+      <ListToolbar
+        className="mb-5"
+        search={{
+          placeholder: "Search by name or email",
+          label: "Search users",
+          defaultValue: q,
+          hidden: statusFilter && statusFilter !== "all" ? { status: statusFilter } : undefined,
+        }}
+        chipsLabel="Account status"
+        chips={["all", "active", "invited", "pending", "disabled"].map((value) => ({
+          label: value === "all" ? "All" : value[0]!.toUpperCase() + value.slice(1),
+          href: value === "all" ? "/admin/users" : `/admin/users?status=${value}`,
+          active: (statusFilter ?? "all") === value,
+        }))}
+      >
+        <PrimaryLink href="/admin/users/invite">+ Invite user</PrimaryLink>
+      </ListToolbar>
 
       {(invited || resent) && (
-        <div className="mb-4 flex items-center gap-2 rounded border border-success-border bg-success-bg px-4 py-2.5 text-sm text-ink-700">
+        <Alert variant="success" className="mb-4">
           {invited ? `Invitation sent to ${invited}.` : `Invitation re-sent to ${resent}.`}
-        </div>
+        </Alert>
       )}
 
-      <div className="mb-5 flex flex-wrap gap-1.5">
-        {["all", "active", "invited", "pending", "disabled"].map((value) => (
-          <Link
-            key={value}
-            href={value === "all" ? "/admin/users" : `/admin/users?status=${value}`}
-            className={
-              (statusFilter ?? "all") === value
-                ? "rounded-full bg-brand-surface px-3 py-1.5 text-xs font-bold text-brand-link"
-                : "rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-500"
-            }
-          >
-            {value === "all" ? "All" : value[0]!.toUpperCase() + value.slice(1)}
-          </Link>
-        ))}
-      </div>
-
       {pendingRequests && pendingRequests.length > 0 && (
-        <div className="mb-6 rounded border border-line">
+        <Card className="mb-6 bg-transparent">
           <div className="border-b border-line bg-panel-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink-500">
             Pending access requests
           </div>
@@ -136,36 +105,36 @@ export default async function AdminUsersPage({
                 {request.note && <div className="mt-1 text-xs text-ink-400">{request.note}</div>}
               </div>
               <div className="flex items-center gap-3">
-                <Link
+                <TextLink
                   href={`/admin/users/invite?email=${encodeURIComponent(request.email)}&name=${encodeURIComponent(request.display_name)}`}
-                  className="text-xs font-semibold text-brand-link"
+                  className="px-0 text-xs font-semibold"
                 >
                   Approve &amp; invite
-                </Link>
+                </TextLink>
                 <form action={denyAccessRequest}>
                   <input type="hidden" name="request_id" value={request.id} />
-                  <button type="submit" className="text-xs font-semibold text-danger">
+                  <Button type="submit" variant="danger-link">
                     Deny
-                  </button>
+                  </Button>
                 </form>
               </div>
             </div>
           ))}
-        </div>
+        </Card>
       )}
 
-      <div className="overflow-x-auto rounded border border-line">
-        <table className="w-full min-w-[860px] text-sm">
+      <TableFrame>
+        <Table stack className="md:min-w-[860px]">
           <thead>
-            <tr className="border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500">
-              <th className="px-4 py-2.5">Name</th>
-              <th className="px-4 py-2.5">Email</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5">Role</th>
-              <th className="px-4 py-2.5">Tool access</th>
-              <th className="px-4 py-2.5">Last active</th>
-              <th className="px-4 py-2.5">Actions</th>
-            </tr>
+            <HeaderRow>
+              <Th>Name</Th>
+              <Th>Email</Th>
+              <Th>Status</Th>
+              <Th>Role</Th>
+              <Th>Tool access</Th>
+              <Th>Last active</Th>
+              <Th>Actions</Th>
+            </HeaderRow>
           </thead>
           <tbody>
             {visibleProfiles.length === 0 && (
@@ -176,56 +145,68 @@ export default async function AdminUsersPage({
               </tr>
             )}
             {visibleProfiles.map((profile) => {
-              const badge = STATUS_BADGE[profile.account_status];
               const tools = accessByUser.get(profile.id);
               return (
-                <tr key={profile.id} className="border-b border-line last:border-b-0">
-                  <td className="px-4 py-3 font-semibold text-ink-900">{profile.display_name}</td>
-                  <td className="px-4 py-3 text-ink-500">{profile.email}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-ink-700">{ROLE_LABEL[profile.platform_role]}</td>
-                  <td className="px-4 py-3 text-ink-500">{tools?.join(", ") ?? "—"}</td>
-                  <td className="px-4 py-3 text-ink-500">{formatDate(profile.last_active_at)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3 whitespace-nowrap text-xs font-semibold">
-                      <Link href={`/admin/users/${profile.id}/edit`} className="text-brand-link">
+                <Row key={profile.id}>
+                  <Cell stack="title" className="font-semibold text-ink-900">
+                    {profile.display_name}
+                  </Cell>
+                  <Cell label="Email" className="text-ink-500">
+                    {profile.email}
+                  </Cell>
+                  <Cell stack="aside">
+                    <StatusBadge map={ACCOUNT_STATUS} value={profile.account_status} />
+                  </Cell>
+                  <Cell label="Role" className="text-ink-700">
+                    {ROLE_LABEL[profile.platform_role]}
+                  </Cell>
+                  <Cell label="Tool access" className="text-ink-500">
+                    {tools?.join(", ") ?? "—"}
+                  </Cell>
+                  <Cell label="Last active" className="text-ink-500">
+                    {formatDate(profile.last_active_at)}
+                  </Cell>
+                  <Cell stack="full">
+                    <div className="flex items-center gap-3 whitespace-nowrap">
+                      <TextLink
+                        href={`/admin/users/${profile.id}/edit`}
+                        className="px-0 text-xs font-semibold"
+                      >
                         Edit access
-                      </Link>
+                      </TextLink>
                       {profile.account_status === "invited" && (
                         <form action={resendInvite}>
                           <input type="hidden" name="user_id" value={profile.id} />
-                          <button type="submit" className="text-brand-link">
+                          <Button type="submit" variant="ghost" size="sm" className="px-0">
                             Resend invite
-                          </button>
+                          </Button>
                         </form>
                       )}
                       {profile.account_status === "disabled" ? (
                         <form action={setAccountStatus}>
                           <input type="hidden" name="user_id" value={profile.id} />
                           <input type="hidden" name="status" value="active" />
-                          <button type="submit" className="text-brand-link">
+                          <Button type="submit" variant="ghost" size="sm" className="px-0">
                             Enable
-                          </button>
+                          </Button>
                         </form>
                       ) : (
                         <form action={setAccountStatus}>
                           <input type="hidden" name="user_id" value={profile.id} />
                           <input type="hidden" name="status" value="disabled" />
-                          <button type="submit" className="text-danger">
+                          <Button type="submit" variant="danger-link">
                             Disable
-                          </button>
+                          </Button>
                         </form>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </Cell>
+                </Row>
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableFrame>
     </div>
   );
 }

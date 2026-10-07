@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatStationDateLong } from "@/lib/log/timezone";
 import { ImportClient } from "./import-client";
 
@@ -35,14 +36,19 @@ export default async function ImportPage({
           </>
         )}
       </div>
-      <h1 className="text-lg font-bold text-ink-900">Import a program log</h1>
-      <p className="mt-1 mb-5 text-sm text-ink-500">
-        Upload a daily WUWF-FM program log exported from the traffic system as a PDF. The AI reading
-        step turns it into a plan — every break and item, each credit&apos;s underwriter and script
-        copied from the document — which you review below. Nothing is written until you confirm;
-        underwriting credits already in the library are reused, and only genuinely new underwriters
-        and copy are created.
-      </p>
+      <PageHeader
+        title="Import a program log"
+        className="mb-5"
+        description={
+          <>
+            Upload a daily WUWF-FM program log exported from the traffic system as a PDF. The AI
+            reading step turns it into a plan — every break and item, each credit&apos;s underwriter
+            and script copied from the document — which you review below. Nothing is written until
+            you confirm; underwriting credits already in the library are reused, and only genuinely
+            new underwriters and copy are created.
+          </>
+        }
+      />
       <ImportClient fromDate={fromDate} />
     </div>
   );

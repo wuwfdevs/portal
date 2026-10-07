@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,8 @@ import {
   setPricing,
   updateEstimateLine,
 } from "../actions";
+import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const LINE_KINDS: readonly BkEstimateLineKind[] = ["package", "labor", "expense"];
@@ -154,9 +155,9 @@ export function EstimateSection({
         )}
 
       {lines.length === 0 ? (
-        <p className="rounded border border-dashed border-line px-4 py-3 text-sm text-ink-500">
+        <EmptyState compact>
           No lines yet. Add a service package, labor hours beyond a package, or a direct expense.
-        </p>
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack>
@@ -230,12 +231,9 @@ export function EstimateSection({
                           <Button type="submit" variant="secondary">
                             Save
                           </Button>
-                          <Link
-                            href={here}
-                            className="pb-2.5 text-sm font-bold text-brand-link hover:underline"
-                          >
+                          <TextLink href={here} className="pb-2.5">
                             Cancel
-                          </Link>
+                          </TextLink>
                         </div>
                         <div className="col-span-2 sm:col-span-5">
                           <Label htmlFor="l_notes">Notes</Label>
@@ -277,21 +275,15 @@ export function EstimateSection({
                     {canEdit && (
                       <Cell stack="full" className="text-right">
                         <span className="inline-flex items-center gap-2">
-                          <Link
-                            href={requestHref(project.id, { line: line.id })}
-                            className="text-sm font-bold text-brand-link hover:underline"
-                          >
+                          <TextLink href={requestHref(project.id, { line: line.id })}>
                             Edit
-                          </Link>
+                          </TextLink>
                           {line.kind === "package" &&
                             line.recipe_labor_hours &&
                             (project.stage === "request" || project.stage === "estimate") && (
-                              <Link
-                                href={requestHref(project.id, { adjust: line.id })}
-                                className="text-sm font-bold text-brand-link hover:underline"
-                              >
+                              <TextLink href={requestHref(project.id, { adjust: line.id })}>
                                 Adjust scope
-                              </Link>
+                              </TextLink>
                             )}
                           <form action={removeEstimateLine} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
@@ -452,12 +444,9 @@ export function EstimateSection({
           </InlineCreateCard>
         ) : (
           <div>
-            <Link
-              href={requestHref(project.id, { new: "line", kind: "package" })}
-              className="text-sm font-bold text-brand-link hover:underline"
-            >
+            <TextLink href={requestHref(project.id, { new: "line", kind: "package" })}>
               + Add a line
-            </Link>
+            </TextLink>
           </div>
         ))}
     </Card>
@@ -583,9 +572,7 @@ function ScopeCard({
         </div>
         <div className="flex items-center gap-3">
           <Button type="submit">Adjust the scope</Button>
-          <Link href={cancelHref} className="text-sm font-bold text-brand-link hover:underline">
-            Cancel
-          </Link>
+          <TextLink href={cancelHref}>Cancel</TextLink>
         </div>
       </form>
       {line.adjustment_reason && (

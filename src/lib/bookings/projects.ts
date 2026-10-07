@@ -5,7 +5,7 @@
 // (settled is Finance's; an override onto the reserve is the executive's);
 // everything else here shapes the screens and is tested beside it.
 
-import type { BadgeVariant } from "@/components/ui/badge";
+import { defineStatusMap } from "@/components/ui/status-badge";
 import type {
   BkAirtimeHonoredIn,
   BkAirtimeTreatment,
@@ -43,11 +43,11 @@ export const DISPOSITION_LABEL: Record<BkProjectDisposition, string> = {
   withdrawn: "Withdrawn",
 };
 
-export const DISPOSITION_BADGE: Record<BkProjectDisposition, BadgeVariant> = {
-  deferred: "warning",
-  declined: "danger",
-  withdrawn: "muted",
-};
+export const DISPOSITION_STATUS = defineStatusMap<BkProjectDisposition>({
+  deferred: { label: DISPOSITION_LABEL.deferred, variant: "warning" },
+  declined: { label: DISPOSITION_LABEL.declined, variant: "danger" },
+  withdrawn: { label: DISPOSITION_LABEL.withdrawn, variant: "muted" },
+});
 
 export const REQUESTED_LABEL: Record<BkRequested, string> = {
   production: "Production",

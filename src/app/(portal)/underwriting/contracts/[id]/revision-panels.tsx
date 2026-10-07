@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { FieldHint, Input, Label } from "@/components/ui/input";
+import { FieldHint, Input, Label, CheckboxField } from "@/components/ui/input";
 import { formatPlacementTime } from "@/lib/underwriting/placement";
 import type { RevisionActivationPreview } from "@/lib/underwriting/revisions";
 import {
@@ -8,6 +7,7 @@ import {
   cancelDraftRevision,
   createRevisionFromCurrent,
 } from "../../contract-actions";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -114,19 +114,16 @@ export function DraftRevisionBanner({
               <Button type="submit">Activate revision</Button>
             </form>
             {discardForm}
-            <Link href={base} className="text-[13px] font-semibold text-brand-link">
+            <TextLink href={base} className="text-[13px]">
               Close
-            </Link>
+            </TextLink>
           </div>
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Link
-            href={`${base}?activate=1`}
-            className="inline-flex items-center justify-center rounded border border-brand-link px-3 py-2 text-[13px] font-bold text-brand-link hover:bg-brand-surface"
-          >
+          <SecondaryLink size="sm" href={`${base}?activate=1`}>
             Review and activate
-          </Link>
+          </SecondaryLink>
           {discardForm}
         </div>
       )}
@@ -163,16 +160,18 @@ export function ReviseScheduleForm({ base, contractId }: { base: string; contrac
           <Label htmlFor="revision_received_at">Received</Label>
           <Input id="revision_received_at" name="received_at" type="date" />
         </div>
-        <label className="flex items-center gap-2 pb-2 text-sm text-ink-700">
-          <input type="checkbox" name="copy_lines" className="h-4 w-4" defaultChecked />
-          Start from a copy of the current lines
-        </label>
+        <CheckboxField
+          name="copy_lines"
+          defaultChecked
+          label="Start from a copy of the current lines"
+          className="pb-2"
+        />
         <Button type="submit" variant="secondary">
           Create draft
         </Button>
-        <Link href={base} className="pb-2 text-[13px] font-semibold text-brand-link">
+        <TextLink href={base} className="pb-2 text-[13px]">
           Cancel
-        </Link>
+        </TextLink>
       </form>
       <FieldHint>
         A draft is edited beside the current schedule and schedules nothing until it is activated.

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getUnderwriter, listIndustryCategories } from "@/lib/underwriting/queries";
 import { updateUnderwriter } from "../../../contract-actions";
 import { UnderwriterForm } from "../../underwriter-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Edit uses the same form as create (docs/ui-patterns.md rule 3); the detail page's aside is read-only. */
 export default async function EditUnderwriterPage({
@@ -23,10 +23,11 @@ export default async function EditUnderwriterPage({
 
   return (
     <div>
-      <Link href={detailPath} className="text-xs font-semibold text-brand-link">
-        ← Back to {underwriter.name}
-      </Link>
-      <h2 className="mt-2 mb-5 font-serif text-xl font-bold text-ink-900">Edit underwriter</h2>
+      <PageHeader
+        back={{ href: detailPath, label: `Back to ${underwriter.name}` }}
+        title="Edit underwriter"
+        className="mb-5"
+      />
       <UnderwriterForm
         action={updateUnderwriter}
         defaults={underwriter}
