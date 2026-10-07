@@ -153,3 +153,20 @@ describe("buildDailyOutlook", () => {
     expect(buildDailyOutlook(periods)).toHaveLength(5);
   });
 });
+
+describe("buildDailyOutlook details", () => {
+  it("carries each period's detailed forecast, labeled by NWS's period name", () => {
+    const outlook = buildDailyOutlook([
+      period({ startTime: "2026-10-08T06:00:00-05:00", isDaytime: true, name: "Thursday", detailedForecast: "Sunny, with a high near 84." }),
+      period({ startTime: "2026-10-08T18:00:00-05:00", isDaytime: false, name: "Thursday Night", detailedForecast: "Clear, with a low around 66." }),
+    ]);
+    expect(outlook[0]!.details).toEqual([
+      { label: "Thursday", text: "Sunny, with a high near 84." },
+      { label: "Thursday Night", text: "Clear, with a low around 66." },
+    ]);
+  });
+
+  it("is empty when periods carry no detail", () => {
+    expect(buildDailyOutlook([period({ startTime: "2026-10-08T06:00:00-05:00", isDaytime: true })])[0]!.details).toEqual([]);
+  });
+});
