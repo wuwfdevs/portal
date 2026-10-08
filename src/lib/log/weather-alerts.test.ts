@@ -259,6 +259,16 @@ describe("alertLabels", () => {
       name: "Rip Current",
     });
   });
+  it("treats Local Statement as one product name", () => {
+    expect(alertLabels({ event: "Tropical Cyclone Local Statement", tier: "statement" })).toEqual({
+      badge: "Statement",
+      name: "Tropical Cyclone",
+    });
+    expect(alertLabels({ event: "Hurricane Local Statement", tier: "statement" })).toEqual({
+      badge: "Statement",
+      name: "Hurricane",
+    });
+  });
   it("labels an advisory as an advisory, not a statement", () => {
     expect(alertLabels({ event: "Small Craft Advisory", tier: "statement" })).toEqual({
       badge: "Advisory",

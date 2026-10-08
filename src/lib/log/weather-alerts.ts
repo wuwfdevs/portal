@@ -248,7 +248,10 @@ export function alertsDisplay(alerts: WeatherAlert[], state: AlertsCheckState): 
   return "list";
 }
 
-const LABEL_SUFFIX = /\s+(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin)$/i;
+// "Local Statement" is one product name (Hurricane/Tropical Cyclone Local
+// Statement), so "Local" goes with it rather than being left dangling.
+const LABEL_SUFFIX =
+  /\s+((?:Local\s+)?(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin))$/i;
 
 /**
  * The badge says what kind of alert it is, so the name shouldn't say it again:
@@ -261,7 +264,7 @@ export function alertLabels(alert: Pick<WeatherAlert, "event" | "tier">): {
   badge: string;
   name: string;
 } {
-  const suffix = LABEL_SUFFIX.exec(alert.event.trim())?.[1];
+  const suffix = LABEL_SUFFIX.exec(alert.event.trim())?.[2];
   const word = suffix ? suffix[0]!.toUpperCase() + suffix.slice(1).toLowerCase() : null;
   const tierWord = alert.tier === "warning" ? "Warning" : alert.tier === "watch" ? "Watch" : null;
   const badge = tierWord ?? word ?? "Alert";
