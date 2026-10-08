@@ -91,6 +91,9 @@ export function SegmentRow({
   const [changingSpeaker, setChangingSpeaker] = useState(false);
 
   const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
+  const speakerLabel = speaker
+    ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
+    : "Unknown speaker";
   const canSplit = caret > 0 && caret < text.trim().length;
 
   /** How strongly one word is marked: the strongest state any clip over it asks for. */
@@ -220,29 +223,44 @@ export function SegmentRow({
         // short one. The lines stay in the DOM on purpose: a selection can
         // span lines that are off screen, and find and follow-along scroll
         // to a line by looking it up.
-        "group border-l-2 px-4 py-2 transition-colors [contain-intrinsic-size:auto_72px] [content-visibility:auto]",
+        "group border-l-2 px-4 py-2 transition-colors max-lg:border-l-0 max-lg:pr-1 [contain-intrinsic-size:auto_72px] [content-visibility:auto]",
         isActive ? "border-brand-primary bg-brand-surface/50" : "border-transparent",
       )}
     >
       {showSpeaker && (
-        <p className="mb-1 mt-2 text-xs font-bold uppercase tracking-wide text-ink-700 first:mt-0">
-          {speaker
-            ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
-            : "Unknown speaker"}
+        <p className="mb-1 mt-2 text-xs font-bold uppercase tracking-wide text-ink-700 first:mt-0 max-lg:hidden">
+          {speakerLabel}
         </p>
       )}
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 max-lg:gap-0">
         <button
           type="button"
           onClick={() => onSeek(segment.startMs)}
           title="Play from here"
-          className="-my-2 w-11 shrink-0 py-2 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline max-lg:-my-2.5 max-lg:min-h-11 max-lg:py-3"
+          className="-my-2 w-11 shrink-0 py-2 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline max-lg:hidden"
         >
           {formatDuration(segment.startMs)}
         </button>
 
         <div className="min-w-0 flex-1">
+          {/* On a phone the time moves up beside the speaker, so the words get the
+              full width — the whole line, not a column left of it. */}
+          <div className="flex h-9 items-center gap-2 lg:hidden">
+            {showSpeaker && (
+              <span className="text-xs font-bold uppercase tracking-wide text-ink-700">
+                {speakerLabel}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onSeek(segment.startMs)}
+              aria-label={`Play from ${formatDuration(segment.startMs)}`}
+              className="flex h-9 items-center font-mono text-xs text-ink-500"
+            >
+              {formatDuration(segment.startMs)}
+            </button>
+          </div>
           {isEditing ? (
             <div>
               <Textarea
@@ -309,7 +327,7 @@ export function SegmentRow({
             <p
               onDoubleClick={beginEditing}
               onClick={handleTextClick}
-              className="text-sm leading-relaxed text-ink-900"
+              className="text-[17px] leading-[26px] text-ink-900 lg:text-sm lg:leading-relaxed"
             >
               {/* Spaces sit between the spans, not inside them, so selecting
                   whitespace alone never counts as touching a word. They do get
