@@ -119,7 +119,7 @@ export function WeatherAlertsPanel({
             alert={lead}
             nowISO={view.nowISO}
             textClassName={textClassName}
-            className={cn("border-t border-line", padding)}
+            className={padding}
           />
           {rest.length > 0 && (
             <ul>
@@ -147,7 +147,7 @@ export function WeatherAlertsPanel({
                         alert={alert}
                         nowISO={view.nowISO}
                         textClassName={textClassName}
-                        className={cn("border-t border-line", padding)}
+                        className={padding}
                       />
                     )}
                   </li>
@@ -192,6 +192,11 @@ function AlertHeading({
   );
 }
 
+/**
+ * The words under an alert. A consolidated row (several NWS alerts of one
+ * event) shows each as its own block, labelled by where it applies, so a
+ * county's own forecast, impacts, contacts or river are never merged away.
+ */
 function AlertDetail({
   alert,
   nowISO,
@@ -203,10 +208,61 @@ function AlertDetail({
   textClassName: string;
   className?: string;
 }) {
+  const members = alert.members;
+  if (!members) {
+    return (
+      <div className={cn("border-t border-line bg-panel-50 py-2.5", className)}>
+        <AlertBody alert={alert} nowISO={nowISO} textClassName={textClassName} />
+      </div>
+    );
+  }
+  return (
+    <div className="border-t border-line bg-panel-50">
+      {members.map((member, index) => (
+        <div
+          key={member.id}
+          className={cn("py-2.5", className, index > 0 && "border-t border-line")}
+        >
+          <AlertBody
+            alert={member}
+            nowISO={nowISO}
+            textClassName={textClassName}
+            label={memberLabel(member, nowISO)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Where a member applies, and when: "Mobile (Mobile Coastal) · in effect". */
+function memberLabel(member: WeatherAlert, nowISO: string): string {
+  const places = alertPlaces(member);
+  const zones =
+    member.areaDesc && member.areaDesc.length <= 40 && member.areaDesc !== places
+      ? ` (${member.areaDesc})`
+      : "";
+  return [
+    `${places ?? member.areaDesc ?? "Area not stated"}${zones}`,
+    alertTiming(member, nowISO),
+  ].join(" · ");
+}
+
+function AlertBody({
+  alert,
+  nowISO,
+  textClassName,
+  label,
+}: {
+  alert: WeatherAlert;
+  nowISO: string;
+  textClassName: string;
+  label?: string;
+}) {
   const full = alertFullText(alert);
   const leadText = alertLeadText(alert);
   const meta = [
-    alert.areaDesc,
+    alertPlaces(alert),
     alertIssuedLabel(alert),
     alert.senderName,
     alertTiming(alert, nowISO),
@@ -214,8 +270,11 @@ function AlertDetail({
     .filter(Boolean)
     .join(" · ");
   return (
-    <div className={cn("flex flex-col gap-1.5 bg-panel-50 py-2.5", className)}>
-      <p className="text-xs text-ink-400">{meta}</p>
+    <div className="flex flex-col gap-1.5">
+      {label ? <p className="text-xs font-semibold text-ink-900">{label}</p> : null}
+      <p className="text-xs text-ink-400">
+        {label ? [alertIssuedLabel(alert), alert.senderName].filter(Boolean).join(" · ") : meta}
+      </p>
       {leadText && (
         <p className={cn("whitespace-pre-wrap leading-relaxed text-ink-700", textClassName)}>
           {leadText}
