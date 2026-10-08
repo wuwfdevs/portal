@@ -2,6 +2,19 @@
 
 **Status:** Editorial draft. No production edits. Reconcile with the live staff-edited `underwriting-set-up-a-contract` guide (flagged `needs_review`) before any guide migration. Confirm code and live behavior for actions named below.
 
+## Direct screen links
+
+These links target the **portal's current route structure**. Dynamic record screens must be opened from their parent list; a link to a list cannot identify an individual record.
+
+- [Copy](/underwriting/copy)
+- [Place a credit](/underwriting/contracts)
+- [Affidavits](/underwriting/affidavits)
+- [Exceptions](/underwriting/exceptions)
+- [Contracts](/underwriting/contracts)
+- [Dashboard](/underwriting)
+- [Migration](/underwriting/setup/migration)
+- [DAD log](/log/dad-log)
+
 ## Purpose and handoffs
 
 Traffic turns an approved underwriting agreement into a measurable broadcast obligation. The essential chain is **signed order → contract and flights → scheduled demand → approved copy → placed credit → broadcast verification → exception or fulfillment → affidavit**. A scheduled credit is not necessarily an aired credit. An approved script is not necessarily a recorded DAD cut.
