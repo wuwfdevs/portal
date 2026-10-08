@@ -497,7 +497,7 @@ describe("every event type api.weather.gov publishes", () => {
     expect(labels("Blue Alert")).toEqual({ badge: "Alert", name: "Blue Alert" });
     expect(labels("Short Term Forecast")).toEqual({ badge: "Alert", name: "Short Term Forecast" });
     expect(labels("911 Telephone Outage")).toEqual({
-      badge: "Alert",
+      badge: "Warning",
       name: "911 Telephone Outage",
     });
     expect(labels("Extreme Fire Danger")).toEqual({ badge: "Alert", name: "Extreme Fire Danger" });
