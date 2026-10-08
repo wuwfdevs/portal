@@ -43,7 +43,7 @@ Clarify the requesting unit or organization; the intended deliverable; event dat
 
 ### Enter, price, and check dates
 
-1. In **Bookings → Requests**, select **+ New request**.
+1. In [**Bookings → Requests**](/bookings/requests), select [**+ New request**](/bookings/requests/new).
 2. Identify the partner, select the requested service, and enter the event date and required information. For a university request, answer the strategic/applied-learning question only when that classification has actually been decided.
 3. Select **Create and price the estimate**. The request and its estimate are created together. Review the summary: work, partner amount, WUWF contribution, required time, date feasibility and estimate expiry.
 4. Open **Show calculation** if you need to understand the rate version, labor and equipment assumptions or how the quoted amount was derived. These details are for review, not values to change casually.
