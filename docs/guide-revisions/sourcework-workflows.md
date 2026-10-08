@@ -4,7 +4,7 @@
 
 ## Organize a project
 
-Create a project for a clearly defined reporting question, not merely a dumping ground for files. Name it so another reporter can distinguish it from related work. Add or reference relevant sources through the existing **Source Library** and project workspace. Before uploading, verify permission to use or retain sensitive recordings and avoid adding material unrelated to the work.
+Create a project for a clearly defined reporting question, not merely a dumping ground for files. Name it so another reporter can distinguish it from related work. Add or reference relevant sources through the existing [**Source Library**](/sourcework?tab=sources) and project workspace. Before uploading, verify permission to use or retain sensitive recordings and avoid adding material unrelated to the work.
 
 A source is the underlying recording or document. A transcript is a derived representation. An excerpt is a selected passage. The distinction matters: derived text must not silently replace the original when facts, attribution or exact wording are important.
 
