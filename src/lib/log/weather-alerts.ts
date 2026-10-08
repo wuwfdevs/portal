@@ -33,6 +33,13 @@ export interface WeatherAlert {
   startsAt: string | null;
   /** The hard end, when NWS sets one. A hurricane warning usually has none. */
   endsAt: string | null;
+  /** Ids of earlier alerts this message replaces (CAP "references"). */
+  supersedes?: string[];
+  /**
+   * Set only on a consolidated row (see consolidateAlerts): the separate NWS
+   * alerts it stands for, each keeping its own text, places and end time.
+   */
+  members?: WeatherAlert[];
 }
 
 const SEVERITY_RANK: Record<string, number> = {
@@ -106,6 +113,7 @@ interface NwsAlertFeature {
     effective?: string | null;
     onset?: string | null;
     ends?: string | null;
+    references?: Array<{ identifier?: string; "@id"?: string }>;
     messageType?: string;
     status?: string;
   };
@@ -154,10 +162,24 @@ export function parseNwsAlerts(
       senderName: textOrNull(p.senderName),
       issuedAt: p.sent ?? p.effective ?? null,
       startsAt: p.onset ?? p.effective ?? null,
+      supersedes: (p.references ?? [])
+        .map((ref) => ref.identifier ?? ref["@id"]?.split("/").pop() ?? "")
+        .filter(Boolean),
       endsAt: p.ends ?? null,
     });
   }
-  return sortAlerts(alerts);
+  return sortAlerts(removeSuperseded(alerts));
+}
+
+/** Drops every alert that a later message in the same set says it replaces. */
+export function removeSuperseded(alerts: WeatherAlert[]): WeatherAlert[] {
+  const replaced = new Set(alerts.flatMap((alert) => alert.supersedes ?? []));
+  return replaced.size === 0 ? alerts : alerts.filter((alert) => !replaced.has(alert.id));
+}
+
+/** An ISO instant as milliseconds, 0 when absent. Instants carry differing offsets ("-05:00" vs "Z"), so they must be compared as times, not strings. */
+function timeMs(iso: string | null | undefined): number {
+  return iso ? new Date(iso).getTime() || 0 : 0;
 }
 
 /** Warnings first, then watches, then statements; within a tier the more severe and the more recently issued first. */
@@ -168,7 +190,7 @@ export function sortAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
     if (severity !== 0) return severity;
     const urgency = (URGENCY_RANK[a.urgency] ?? 4) - (URGENCY_RANK[b.urgency] ?? 4);
     if (urgency !== 0) return urgency;
-    return (b.issuedAt ?? "").localeCompare(a.issuedAt ?? "");
+    return timeMs(b.issuedAt) - timeMs(a.issuedAt);
   });
 }
 
@@ -199,6 +221,8 @@ function stationWhen(iso: string): string {
  * 6:00 PM" plus its end when it has one. Station time throughout.
  */
 export function alertTiming(alert: WeatherAlert, nowISO: string): string {
+  // A consolidated row whose members end at different times has no single end.
+  if (membersEndAtDifferentTimes(alert)) return "times vary";
   const begins =
     alert.startsAt && new Date(alert.startsAt).getTime() > new Date(nowISO).getTime()
       ? `begins ${stationWhen(alert.startsAt)}`
@@ -242,6 +266,7 @@ export function readStoredAlerts(value: unknown): WeatherAlert[] {
       ...entry,
       urgency: entry.urgency ?? "Unknown",
       places: entry.places ?? [],
+      supersedes: entry.supersedes ?? [],
       startsAt: entry.startsAt ?? null,
     }));
 }
@@ -307,7 +332,7 @@ export function alertLeadText(alert: WeatherAlert): string | null {
   return alert.headline;
 }
 
-const NOT_LEAD = /^(locations affected|next update)\b/i;
+const NOT_LEAD = /^(locations affected|next update|\.\.\.the national weather service in)/i;
 
 /** Everything NWS said, normalized, for the "Full NWS text" disclosure. Null when it adds nothing beyond the lead. */
 export function alertFullText(alert: WeatherAlert): string | null {
@@ -390,12 +415,95 @@ export function abbreviateAreas(areaDesc: string | null | undefined, shown = 2):
   return `${areas.slice(0, shown).join(", ")} +${areas.length - shown}`;
 }
 
-/** Combines alert lists, one entry per NWS alert id (the first list wins), ranked. */
+/**
+ * Combines alert lists: one entry per NWS alert id (the first list wins), the
+ * ones a later message replaces removed, ranked. The separate alerts are what
+ * is stored; they are consolidated into rows only when read (see
+ * consolidateAlerts), so no county's text is ever thrown away.
+ */
 export function mergeAlerts(...lists: WeatherAlert[][]): WeatherAlert[] {
   const byId = new Map<string, WeatherAlert>();
   for (const list of lists)
     for (const alert of list) if (!byId.has(alert.id)) byId.set(alert.id, alert);
-  return sortAlerts([...byId.values()]);
+  return sortAlerts(removeSuperseded([...byId.values()]));
+}
+
+/**
+ * One row per event, for a host scanning a list. NWS issues a separate alert
+ * for each county or zone group a product covers — during a hurricane, a
+ * dozen Hurricane Warnings — and each carries its own forecast, impacts and
+ * contacts, or for a flood warning its own river. So the row summarizes and
+ * every alert stays under it as a member: the places are the union, the
+ * strongest tier, severity and urgency win, and the newest supplies the
+ * header. A "Local Statement" is the one exception: it is a single running
+ * statement NWS reissues, so only the newest is kept.
+ */
+export function consolidateAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
+  const groups = new Map<string, WeatherAlert[]>();
+  for (const alert of removeSuperseded(alerts)) {
+    const key = alert.event.trim().toLowerCase();
+    groups.set(key, [...(groups.get(key) ?? []), alert]);
+  }
+  return sortAlerts([...groups.values()].map(mergeEventGroup));
+}
+
+const RUNNING_STATEMENT = /local statement$/i;
+
+function strongest(values: string[], rank: Record<string, number>): string {
+  return values.reduce((best, value) => ((rank[value] ?? 4) < (rank[best] ?? 4) ? value : best));
+}
+
+function mergeEventGroup(group: WeatherAlert[]): WeatherAlert {
+  const newest = group.reduce((best, alert) =>
+    timeMs(alert.issuedAt) > timeMs(best.issuedAt) ? alert : best,
+  );
+  if (group.length === 1) return group[0]!;
+  if (RUNNING_STATEMENT.test(newest.event.trim())) return newest;
+
+  const named = new Set(group.flatMap((alert) => alert.places));
+  const order = (alert: WeatherAlert) =>
+    Math.min(
+      ...alert.places
+        .map((place) => COVERAGE_COUNTIES.findIndex((c) => c.name === place))
+        .filter((i) => i >= 0),
+      99,
+    );
+  const members = [...group].sort(
+    (a, b) =>
+      order(a) - order(b) ||
+      (a.areaDesc ?? "").localeCompare(b.areaDesc ?? "") ||
+      timeMs(b.issuedAt) - timeMs(a.issuedAt),
+  );
+  const tier = group.reduce<AlertTier>(
+    (best, alert) => (TIER_RANK[alert.tier] < TIER_RANK[best] ? alert.tier : best),
+    "statement",
+  );
+  const openEnded = group.some((alert) => !alert.endsAt);
+  const latestEnd = group.reduce(
+    (latest, alert) => (timeMs(alert.endsAt) > timeMs(latest) ? (alert.endsAt as string) : latest),
+    "",
+  );
+  return {
+    ...newest,
+    tier,
+    severity: strongest(
+      group.map((alert) => alert.severity),
+      SEVERITY_RANK,
+    ),
+    urgency: strongest(
+      group.map((alert) => alert.urgency),
+      URGENCY_RANK,
+    ),
+    places: COVERAGE_COUNTIES.map((county) => county.name).filter((name) => named.has(name)),
+    endsAt: openEnded || !latestEnd ? null : latestEnd,
+    members,
+  };
+}
+
+/** Whether a consolidated row's members do not all end at the same time (or one has no end). */
+export function membersEndAtDifferentTimes(alert: WeatherAlert): boolean {
+  const ends = new Set((alert.members ?? []).map((member) => member.endsAt ?? "none"));
+  return ends.size > 1;
 }
 
 /**

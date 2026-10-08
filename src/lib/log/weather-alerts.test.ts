@@ -3,6 +3,9 @@ import { NWS_EVENT_TYPES } from "./fixtures/nws-event-types";
 import {
   activeAlerts,
   abbreviateAreas,
+  consolidateAlerts,
+  membersEndAtDifferentTimes,
+  removeSuperseded,
   alertPlaces,
   coveragePlaces,
   mergeAlerts,
@@ -630,6 +633,252 @@ describe("alertLeadText skips a list of places", () => {
   it("falls back to the first paragraph when every paragraph is skippable", () => {
     expect(alertLeadText(alert({ description: "NEXT UPDATE\nAt 4 PM." }))).toBe(
       "NEXT UPDATE At 4 PM.",
+    );
+  });
+});
+
+describe("consolidateAlerts (shapes taken from the 2026-10-08 hurricane feed)", () => {
+  const A = (id: string, event: string, places: string[], over: Partial<WeatherAlert> = {}) =>
+    alert({
+      id,
+      event,
+      tier: /Warning$/.test(event) ? "warning" : /Watch$/.test(event) ? "watch" : "statement",
+      severity: "Extreme",
+      places,
+      issuedAt: "2026-10-08T10:06:00-05:00",
+      ...over,
+    });
+
+  it("collapses a Hurricane Warning issued once per county group into one, listing every county", () => {
+    const merged = consolidateAlerts([
+      A("a.019.1", "Hurricane Warning", ["Escambia"]),
+      A("a.015.1", "Hurricane Warning", ["Mobile"]),
+      A("a.021.1", "Hurricane Warning", ["Escambia"]),
+      A("a.020.1", "Hurricane Warning", ["Okaloosa"]),
+      A("a.018.1", "Hurricane Warning", ["Santa Rosa"]),
+      A("a.019.2", "Storm Surge Warning", ["Escambia"]),
+      A("a.015.2", "Storm Surge Warning", ["Mobile"]),
+    ]);
+    expect(merged.map((a) => a.event)).toEqual(["Hurricane Warning", "Storm Surge Warning"]);
+    expect(merged[0]!.places).toEqual(["Escambia", "Santa Rosa", "Okaloosa", "Mobile"]);
+    expect(merged[1]!.places).toEqual(["Escambia", "Mobile"]);
+  });
+
+  it("keeps only the newest of a repeatedly reissued statement", () => {
+    const merged = consolidateAlerts([
+      A("old", "Tropical Cyclone Local Statement", ["Escambia"], {
+        issuedAt: "2026-10-08T04:23:00-05:00",
+        description: "old",
+      }),
+      A("new", "Tropical Cyclone Local Statement", ["Escambia"], {
+        issuedAt: "2026-10-08T10:42:00-05:00",
+        description: "new",
+      }),
+      A("mid", "Tropical Cyclone Local Statement", ["Escambia"], {
+        issuedAt: "2026-10-08T07:01:00-05:00",
+        description: "mid",
+      }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ id: "new", description: "new" });
+  });
+
+  it("compares issue times as instants, not strings, across different offsets", () => {
+    // 10:00 at -05:00 is 15:00Z, later than 14:00Z even though "14" sorts after "10".
+    const merged = consolidateAlerts([
+      A("z", "Flood Watch", ["Escambia"], { issuedAt: "2026-10-08T14:00:00Z" }),
+      A("c", "Flood Watch", ["Escambia"], { issuedAt: "2026-10-08T10:00:00-05:00" }),
+    ]);
+    expect(merged[0]!.id).toBe("c");
+  });
+
+  it("merges several Flood Warnings into one covering the union of their counties", () => {
+    const merged = consolidateAlerts([
+      A("1", "Flood Warning", ["Okaloosa"], { severity: "Severe" }),
+      A("2", "Flood Warning", ["Escambia"], { severity: "Severe" }),
+      A("3", "Flood Warning", ["Santa Rosa", "Okaloosa"], { severity: "Severe" }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.places).toEqual(["Escambia", "Santa Rosa", "Okaloosa"]);
+  });
+
+  it("is open-ended if any member is, otherwise ends with the latest member", () => {
+    const withEnds = consolidateAlerts([
+      A("1", "Flood Warning", ["Escambia"], { endsAt: "2026-10-09T12:00:00Z" }),
+      A("2", "Flood Warning", ["Okaloosa"], { endsAt: "2026-10-10T12:00:00Z" }),
+    ]);
+    expect(withEnds[0]!.endsAt).toBe("2026-10-10T12:00:00Z");
+    const open = consolidateAlerts([
+      A("1", "Flood Warning", ["Escambia"], { endsAt: "2026-10-09T12:00:00Z" }),
+      A("2", "Flood Warning", ["Okaloosa"], { endsAt: null }),
+    ]);
+    expect(open[0]!.endsAt).toBeNull();
+  });
+
+  it("takes the strongest severity and urgency of the group", () => {
+    const merged = consolidateAlerts([
+      A("1", "Flood Watch", ["Escambia"], { severity: "Moderate", urgency: "Future" }),
+      A("2", "Flood Watch", ["Okaloosa"], { severity: "Severe", urgency: "Expected" }),
+    ]);
+    expect(merged[0]).toMatchObject({ severity: "Severe", urgency: "Expected" });
+  });
+
+  it("leaves distinct events alone, ranked, and is idempotent", () => {
+    const input = [
+      A("w", "Flood Watch", ["Escambia"]),
+      A("h", "Hurricane Warning", ["Escambia"]),
+      A("h2", "Hurricane Warning", ["Mobile"]),
+    ];
+    const once = consolidateAlerts(input);
+    expect(once.map((a) => a.event)).toEqual(["Hurricane Warning", "Flood Watch"]);
+    expect(consolidateAlerts(once)).toEqual(once);
+  });
+
+  it("is case-insensitive about the event name and keeps a lone alert untouched", () => {
+    const only = A("x", "Rip Current Statement", ["Escambia"]);
+    expect(consolidateAlerts([only])).toEqual([only]);
+    expect(
+      consolidateAlerts([A("a", "Flood Watch", ["Escambia"]), A("b", "flood watch", ["Mobile"])]),
+    ).toHaveLength(1);
+  });
+});
+
+describe("consolidation keeps each alert's own detail (2026-10-08 hurricane feed)", () => {
+  const A = (id: string, event: string, places: string[], over: Partial<WeatherAlert> = {}) =>
+    alert({
+      id,
+      event,
+      tier: "warning",
+      severity: "Extreme",
+      places,
+      issuedAt: "2026-10-08T10:06:00-05:00",
+      ...over,
+    });
+
+  it("keeps every county's separate text as a member of the one row", () => {
+    const merged = consolidateAlerts([
+      A("m", "Hurricane Warning", ["Mobile"], {
+        areaDesc: "Mobile Coastal",
+        description: "Peak Wind Forecast: 45-55 mph",
+      }),
+      A("s", "Hurricane Warning", ["Santa Rosa"], {
+        areaDesc: "Santa Rosa Coastal",
+        description: "Peak Wind Forecast: 65-85 mph",
+      }),
+      A("e", "Hurricane Warning", ["Escambia"], {
+        areaDesc: "Escambia Coastal",
+        description: "Peak Wind Forecast: 75-95 mph",
+      }),
+    ]);
+    expect(merged).toHaveLength(1);
+    // Members run in coverage order: Escambia, Santa Rosa, Mobile.
+    expect(merged[0]!.members!.map((m) => m.description)).toEqual([
+      "Peak Wind Forecast: 75-95 mph",
+      "Peak Wind Forecast: 65-85 mph",
+      "Peak Wind Forecast: 45-55 mph",
+    ]);
+  });
+
+  it("does not drop a Flood Warning whose places match another's: they are different rivers", () => {
+    const merged = consolidateAlerts([
+      A("bc", "Flood Warning", ["Santa Rosa", "Okaloosa"], {
+        description: "Big Coldwater Creek near Milton",
+      }),
+      A("bw", "Flood Warning", ["Santa Rosa", "Okaloosa"], {
+        description: "Blackwater River near Baker",
+      }),
+    ]);
+    expect(merged[0]!.members).toHaveLength(2);
+  });
+
+  it("says times vary when members end differently, or one is open-ended, instead of one misleading end", () => {
+    const merged = consolidateAlerts([
+      A("1", "Flood Warning", ["Escambia"], { endsAt: "2026-10-12T22:00:00Z" }),
+      A("2", "Flood Warning", ["Okaloosa"], { endsAt: null }),
+    ])[0]!;
+    expect(membersEndAtDifferentTimes(merged)).toBe(true);
+    expect(alertTiming(merged, "2026-10-08T18:00:00Z")).toBe("times vary");
+  });
+
+  it("gives a plain end when every member ends together", () => {
+    const merged = consolidateAlerts([
+      A("1", "Flood Warning", ["Escambia"], { endsAt: "2026-10-10T18:00:00Z" }),
+      A("2", "Flood Warning", ["Okaloosa"], { endsAt: "2026-10-10T18:00:00Z" }),
+    ])[0]!;
+    expect(alertTiming(merged, "2026-10-08T18:00:00Z")).toBe("until Sat 1:00 PM");
+  });
+
+  it("keeps only the newest of a reissued Local Statement, with no members", () => {
+    const merged = consolidateAlerts([
+      A("old", "Tropical Cyclone Local Statement", ["Escambia"], {
+        tier: "statement",
+        issuedAt: "2026-10-08T04:23:00-05:00",
+      }),
+      A("new", "Tropical Cyclone Local Statement", ["Escambia"], {
+        tier: "statement",
+        issuedAt: "2026-10-08T10:42:00-05:00",
+      }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ id: "new" });
+    expect(merged[0]!.members).toBeUndefined();
+  });
+
+  it("stores the separate alerts: mergeAlerts ranks and dedupes but does not consolidate", () => {
+    const merged = mergeAlerts([
+      A("a", "Hurricane Warning", ["Escambia"]),
+      A("b", "Hurricane Warning", ["Mobile"]),
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged.every((m) => m.members === undefined)).toBe(true);
+  });
+});
+
+describe("supersession by CAP references", () => {
+  it("drops an alert a later message replaces", () => {
+    const alerts = parseNwsAlerts({
+      features: [
+        feature({
+          id: "urn:old",
+          event: "Tropical Cyclone Local Statement",
+          sent: "2026-10-08T04:23:00-05:00",
+        }),
+        feature({
+          id: "urn:new",
+          event: "Tropical Cyclone Local Statement",
+          sent: "2026-10-08T07:01:00-05:00",
+          references: [{ identifier: "urn:old" }],
+        }),
+      ],
+    });
+    expect(alerts.map((a) => a.id)).toEqual(["urn:new"]);
+  });
+
+  it("reads the id from an @id URL when there is no identifier", () => {
+    expect(
+      removeSuperseded([alert({ id: "urn:a" }), alert({ id: "urn:b", supersedes: ["urn:a"] })]).map(
+        (a) => a.id,
+      ),
+    ).toEqual(["urn:b"]);
+    const [parsed] = parseNwsAlerts({
+      features: [
+        feature({
+          id: "urn:z",
+          event: "Flood Watch",
+          references: [{ "@id": "https://api.weather.gov/alerts/urn:y" }],
+        }),
+      ],
+    });
+    expect(parsed!.supersedes).toEqual(["urn:y"]);
+  });
+});
+
+describe("lead text for a flood warning names the river, not the boilerplate", () => {
+  it("skips the NWS introduction", () => {
+    const description =
+      "...The National Weather Service in Mobile has issued a Flood Warning\nfor the following rivers in Alabama...Florida...\n\nPerdido River Near Barrineau Park affecting Baldwin and Escambia\nCounties.\n\n* WHAT...Minor flooding is forecast.";
+    expect(alertLeadText(alert({ description }))).toBe(
+      "Perdido River Near Barrineau Park affecting Baldwin and Escambia Counties.",
     );
   });
 });
