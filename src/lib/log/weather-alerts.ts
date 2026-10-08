@@ -62,6 +62,8 @@ export function classifyAlertTier(event: string, severity: string | null | undef
   const name = event.trim();
   if (/warning$/i.test(name)) return "warning";
   if (/emergency( message)?$/i.test(name) || /^evacuation\b/i.test(name)) return "warning";
+  // Not weather, but the public cannot call for help: a station relays it as a warning.
+  if (/^911 telephone outage$/i.test(name)) return "warning";
   if (severity === "Extreme") return "warning";
   if (/watch$/i.test(name)) return "watch";
   return "statement";
@@ -105,7 +107,9 @@ export function parseNwsAlerts(
     // Cancel withdraws an alert; Ack and Error are system traffic, not hazards.
     if (p.messageType === "Cancel" || p.messageType === "Ack" || p.messageType === "Error")
       continue;
-    if (/^test$/i.test(event)) continue;
+    // Products that are not hazards: a test, the routine short-term forecast,
+    // and NWS-internal administrative traffic.
+    if (/^(test|short term forecast|administrative message)$/i.test(event)) continue;
     const severity = p.severity ?? "Unknown";
     alerts.push({
       id: p.id ?? `${event}:${p.sent ?? ""}`,

@@ -460,6 +460,7 @@ describe("every event type api.weather.gov publishes", () => {
       "Civil Emergency Message",
       "Local Area Emergency",
       "Evacuation Immediate",
+      "911 Telephone Outage",
     ]) {
       expect(tierOf(event), event).toBe("warning");
     }
@@ -470,14 +471,7 @@ describe("every event type api.weather.gov publishes", () => {
       if (/(Advisory|Statement|Outlook)$/.test(event))
         expect(tierOf(event), event).toBe("statement");
     }
-    for (const event of [
-      "911 Telephone Outage",
-      "Administrative Message",
-      "Air Quality Alert",
-      "Blue Alert",
-      "Extreme Fire Danger",
-      "Short Term Forecast",
-    ]) {
+    for (const event of ["Air Quality Alert", "Blue Alert", "Extreme Fire Danger"]) {
       expect(tierOf(event), event).toBe("statement");
     }
   });
@@ -525,7 +519,9 @@ describe("every event type api.weather.gov publishes", () => {
     });
   });
 
-  it("does not show a Test product", () => {
-    expect(parseNwsAlerts({ features: [feature({ event: "Test" })] })).toEqual([]);
+  it("does not show products that are not hazards", () => {
+    for (const event of ["Test", "Short Term Forecast", "Administrative Message"]) {
+      expect(parseNwsAlerts({ features: [feature({ event })] }), event).toEqual([]);
+    }
   });
 });
