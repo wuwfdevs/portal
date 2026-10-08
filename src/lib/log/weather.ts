@@ -6,8 +6,9 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeatherReadingRow, type LogWeatherReadingRow } from "./queries";
-import { fetchWeatherReading } from "./providers/weather";
-import { checkStaleness, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
+import { fetchWeatherAlerts, fetchWeatherReading } from "./providers/weather";
+import { checkStaleness, WEATHER_ALERTS_STALE_THRESHOLD_MS, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
+import { activeAlerts, alertsCheckState, alertsToHazards, readStoredAlerts, type AlertsCheckState, type WeatherAlert } from "./weather-alerts";
 import type { DailyOutlookEntry, ForecastPeriodSummary } from "./weather-outlook";
 
 /** Typed accessor for the row's jsonb daily_outlook column (stored as `unknown` in database.types.ts, the same convention as every other plain jsonb column here) — this repo's own shape, never user input, so a direct cast is safe. */
@@ -20,6 +21,20 @@ export function getForecastPeriods(reading: LogWeatherReadingRow): ForecastPerio
   return (reading.forecast_periods as ForecastPeriodSummary[] | null) ?? [];
 }
 
+/** The stored alerts and how far to trust them — the panel's whole input. */
+export function getAlertsView(reading: LogWeatherReadingRow): {
+  alerts: WeatherAlert[];
+  state: AlertsCheckState;
+  checkedAt: string | null;
+} {
+  const alerts = activeAlerts(readStoredAlerts(reading.alerts), new Date().toISOString());
+  return {
+    alerts,
+    state: alertsCheckState(alerts, reading.alerts_checked_at, reading.alerts_check_failed),
+    checkedAt: reading.alerts_checked_at,
+  };
+}
+
 export interface WeatherResult {
   reading: LogWeatherReadingRow | null;
   stale: boolean;
@@ -30,6 +45,27 @@ export interface WeatherResult {
 async function replaceCurrentWeatherReading(): Promise<LogWeatherReadingRow> {
   const fetched = await fetchWeatherReading();
   const supabase = await createClient();
+  const previous = await getCurrentWeatherReadingRow();
+  const now = new Date().toISOString();
+
+  // A failed alerts check (alerts === null) must never read as "all clear":
+  // carry the last good alerts forward and flag the check as failed.
+  const { alerts, ...forecast } = fetched;
+  const alertColumns = alerts
+    ? {
+        alerts,
+        hazards: alertsToHazards(alerts),
+        alerts_checked_at: now,
+        alerts_attempted_at: now,
+        alerts_check_failed: false,
+      }
+    : {
+        alerts: previous?.alerts ?? [],
+        hazards: previous?.hazards ?? null,
+        alerts_checked_at: previous?.alerts_checked_at ?? null,
+        alerts_attempted_at: now,
+        alerts_check_failed: true,
+      };
 
   const { error: clearError } = await supabase
     .from("log_weather_reading")
@@ -39,10 +75,45 @@ async function replaceCurrentWeatherReading(): Promise<LogWeatherReadingRow> {
 
   const { data, error } = await supabase
     .from("log_weather_reading")
-    .insert({ ...fetched, is_current: true, last_updated_at: new Date().toISOString() })
+    .insert({ ...forecast, ...alertColumns, is_current: true, last_updated_at: now })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Rechecks only the alerts on the current row. Alerts get a much shorter
+ * clock than the forecast, and a rundown open during a storm must not wait
+ * half an hour to learn a warning was issued. A failure keeps the last good
+ * alerts and flags them; it never clears them.
+ */
+async function refreshCurrentAlerts(reading: LogWeatherReadingRow): Promise<LogWeatherReadingRow> {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  let changes: Partial<LogWeatherReadingRow>;
+  try {
+    const alerts = await fetchWeatherAlerts();
+    changes = {
+      alerts,
+      hazards: alertsToHazards(alerts),
+      alerts_checked_at: now,
+      alerts_attempted_at: now,
+      alerts_check_failed: false,
+    };
+  } catch {
+    changes = { alerts_attempted_at: now, alerts_check_failed: true };
+  }
+  const { data, error } = await supabase
+    .from("log_weather_reading")
+    .update(changes)
+    .eq("id", reading.id)
+    .eq("is_current", true)
+    .select("*")
+    .maybeSingle();
+  // The alerts view is a refinement of a reading we already have; if the
+  // write fails or the row was superseded meanwhile, serve what we had.
+  if (error || !data) return { ...reading, ...changes };
   return data;
 }
 
@@ -64,6 +135,20 @@ export async function getCurrentWeatherReading(): Promise<WeatherResult> {
       // Keep serving whatever reading we already had, if any — never let a
       // failed refetch make the display blank.
     }
+  }
+
+  // Alerts run on their own shorter clock, independent of the forecast: a
+  // forecast refresh that just succeeded already rechecked them, but one that
+  // failed (the forecast endpoints can be down while /alerts/active is up)
+  // must not leave alerts unchecked behind it.
+  const forecastJustRefreshed = isStale && refreshError === null;
+  if (reading && !forecastJustRefreshed) {
+    const alertsStale = checkStaleness(
+      reading.alerts_attempted_at ?? reading.last_updated_at,
+      WEATHER_ALERTS_STALE_THRESHOLD_MS,
+      new Date().toISOString(),
+    );
+    if (alertsStale.isStale) reading = await refreshCurrentAlerts(reading);
   }
 
   return { reading, stale: refreshError !== null, refreshError };

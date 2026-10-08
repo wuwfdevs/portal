@@ -55,7 +55,8 @@ import {
   networkSlotLabelAt,
 } from "@/lib/log/timing";
 import { isWrapUpVisible, listUnresolvedEntries } from "@/lib/log/submission";
-import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
+import { getAlertsView, getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
+import { WeatherAlertsPanel } from "@/components/log/weather-alerts-panel";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { getFneStories } from "@/lib/log/fne";
 import {
@@ -779,6 +780,7 @@ export default async function RundownDetailPage({
                     overrideText: item.override_script,
                     onAir: true,
                   }}
+                  alerts={getAlertsView(weather.reading)}
                 />
               </div>
             ) : (
@@ -1140,6 +1142,12 @@ export default async function RundownDetailPage({
               {weather.stale && " · stale"}
             </p>
             <p className="mt-1.5 text-sm text-ink-700">{weather.reading.condensed_text}</p>
+            {/* Alerts sit above the fold, outside the collapsed "Full forecast":
+                a warning must not need a click to be seen. The weather item's
+                card and the Sources page render the same panel under the strip. */}
+            <div className="mt-2.5">
+              <WeatherAlertsPanel view={getAlertsView(weather.reading)} textClassName="text-xs" />
+            </div>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-semibold text-brand-link">
                 Full forecast
@@ -1147,9 +1155,6 @@ export default async function RundownDetailPage({
               <div className="mt-2 flex flex-col gap-1.5 text-xs text-ink-700">
                 {weather.reading.precipitation_notes && (
                   <p>{weather.reading.precipitation_notes}</p>
-                )}
-                {weather.reading.hazards && (
-                  <p className="font-semibold text-danger">{weather.reading.hazards}</p>
                 )}
                 <div className="border-t border-line pt-1.5">
                   <WeatherOutlookStrip

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { DescriptionList, type DescriptionItem } from "@/components/ui/description-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CardHeader, SectionHeading } from "@/components/ui/section-heading";
-import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
+import { getAlertsView, getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { refreshWeatherAction } from "../../weather-actions";
 import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";
@@ -35,11 +35,6 @@ export default async function WeatherPage({
               },
             ]
           : []),
-        {
-          label: "High / Low",
-          value: `${reading.high_temp ?? "—"}° / ${reading.low_temp ?? "—"}°`,
-        },
-        { label: "Conditions", value: reading.conditions_summary },
         ...(reading.precipitation_notes
           ? [{ label: "Precipitation", value: reading.precipitation_notes }]
           : []),
@@ -86,8 +81,6 @@ export default async function WeatherPage({
             </form>
           </CardHeader>
           <div className="flex flex-col gap-4 p-5 text-sm text-ink-700">
-            {reading.hazards && <Alert variant="danger">{reading.hazards}</Alert>}
-
             <div>
               <SectionHeading level="eyebrow" as="h3" className="mb-1.5">
                 Forecast
@@ -98,17 +91,11 @@ export default async function WeatherPage({
                   periods: getForecastPeriods(reading),
                   fallbackText: reading.live_read_text,
                 }}
+                alerts={getAlertsView(reading)}
               />
             </div>
 
-            <div>
-              <SectionHeading level="eyebrow" as="h3" className="mb-1">
-                Condensed (for a tight break)
-              </SectionHeading>
-              <p>{reading.condensed_text}</p>
-            </div>
-
-            <DescriptionList columns={3} items={details} />
+            <DescriptionList columns={4} items={details} />
           </div>
         </Card>
       )}

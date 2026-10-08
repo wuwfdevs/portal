@@ -2043,6 +2043,14 @@ export interface Database {
           // lib/log/weather-outlook.ts's ForecastPeriodSummary[]) so the UI
           // can style Today and Tonight apart; same unknown convention.
           forecast_periods: unknown;
+          // Added by 20261009140000_log_weather_alerts.sql — the ranked
+          // active NWS alerts (lib/log/weather-alerts.ts's WeatherAlert[],
+          // same unknown convention), the last successful check, the last
+          // attempt of any outcome, and whether the latest attempt failed.
+          alerts: unknown;
+          alerts_checked_at: string | null;
+          alerts_attempted_at: string | null;
+          alerts_check_failed: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["log_weather_reading"]["Row"]> & {
           forecast_area: string;
