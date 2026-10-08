@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { TextLink } from "@/components/ui/primary-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
@@ -152,7 +153,18 @@ export function SourceCardGrid({
                 />
               </nav>
 
-              {browseTab === "sources" ? (
+              {browseTab === "sources" && sources.length === 0 ? (
+                <EmptyState
+                  title="No sources yet"
+                  action={
+                    <Button type="button" onClick={() => setIsAdding(true)}>
+                      Add the first source
+                    </Button>
+                  }
+                >
+                  Upload an interview or PDF, or reference one already in the library.
+                </EmptyState>
+              ) : browseTab === "sources" ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {sources.map((s) => {
                     const isActive = s.sourceId === activeSourceId;

@@ -15,7 +15,12 @@ import {
   sourceObjectPath,
   titleFromFileName,
 } from "@/lib/transcription/media";
-import { createProject, completeProjectUpload, failProjectUpload } from "../actions";
+import {
+  createEmptyProject,
+  createProject,
+  completeProjectUpload,
+  failProjectUpload,
+} from "../actions";
 
 type Stage = "idle" | "creating" | "uploading" | "finishing";
 
@@ -57,6 +62,7 @@ export function NewProjectForm() {
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
   const [selectedIsDocument, setSelectedIsDocument] = useState(false);
+  const [hasFile, setHasFile] = useState(false);
   const [title, setTitle] = useState("");
   // Whether the title box is still the file name we suggested (or empty), and
   // so may be replaced when a different file is picked. Anything the reporter
@@ -66,6 +72,7 @@ export function NewProjectForm() {
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0] ?? null;
+    setHasFile(Boolean(file));
     setSelectedIsDocument(isDocumentContentType(file?.type ?? ""));
     if (file && titleIsSuggested) setTitle(titleFromFileName(file.name));
   }
@@ -78,8 +85,17 @@ export function NewProjectForm() {
     const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
     const file = fileInputRef.current?.files?.[0];
 
+    // A project doesn't need a file to exist: sources are added from the
+    // project afterwards (upload or reference one from the library).
     if (!file) {
-      setError("Choose an audio/video file or a PDF to upload.");
+      setStage("creating");
+      const created = await createEmptyProject({ title, description });
+      if ("error" in created) {
+        setError(created.error);
+        setStage("idle");
+        return;
+      }
+      router.push(`/sourcework/${created.id}`);
       return;
     }
     const isDocument = isDocumentContentType(file.type);
@@ -142,18 +158,6 @@ export function NewProjectForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <Label htmlFor="media">Audio/video file, or PDF</Label>
-        <FileInput
-          ref={fileInputRef}
-          id="media"
-          name="media"
-          accept="audio/*,video/*,application/pdf"
-          disabled={isPending}
-          onChange={handleFileChange}
-        />
-        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
-      </div>
-      <div>
         <Label htmlFor="title">Title</Label>
         <Input
           id="title"
@@ -168,7 +172,9 @@ export function NewProjectForm() {
           }}
         />
         <FieldHint>
-          Taken from the file name — change it to whatever you&rsquo;ll look for later.
+          {hasFile
+            ? "Taken from the file name — change it to whatever you\u2019ll look for later."
+            : "Whatever you\u2019ll look for later."}
         </FieldHint>
       </div>
       <div>
@@ -186,6 +192,21 @@ export function NewProjectForm() {
         />
       </div>
 
+      <div>
+        <Label htmlFor="media">First source (optional)</Label>
+        <FileInput
+          ref={fileInputRef}
+          id="media"
+          name="media"
+          accept="audio/*,video/*,application/pdf"
+          disabled={isPending}
+          onChange={handleFileChange}
+        />
+        <FieldHint>
+          WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF. You can also add sources later, or reference
+          ones already in the library.
+        </FieldHint>
+      </div>
       {error && <FieldError>{error}</FieldError>}
       {stage !== "idle" && (
         <BusyPanel
@@ -196,7 +217,7 @@ export function NewProjectForm() {
       )}
 
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Working…" : "Upload and create project"}
+        {isPending ? "Working…" : hasFile ? "Upload and create project" : "Create project"}
       </Button>
     </form>
   );

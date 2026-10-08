@@ -15,7 +15,11 @@ export type SwRepresentation = Database["public"]["Tables"]["sw_representations"
 // this module's server-only data access — see that file's header comment.
 // Re-exported here so every existing server-side import of these three from
 // "@/lib/transcription/projects" keeps working unchanged.
-export { computeProjectStatus, processingLabel, type ProjectStatus } from "@/lib/transcription/status";
+export {
+  computeProjectStatus,
+  processingLabel,
+  type ProjectStatus,
+} from "@/lib/transcription/status";
 
 export interface ProjectSourceRef {
   sourceId: string;
@@ -169,6 +173,8 @@ export interface ProjectListRow {
   durationMs: number | null;
   sizeBytes: number | null;
   pageCount: number | null;
+  /** How many sources the project references. Zero is a normal state: a project can be started before any file exists. */
+  sourceCount: number;
   status: ProjectStatus;
 }
 
@@ -231,7 +237,9 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       "the project list's sources",
     ) ?? [];
   const primarySourceIdByProject = new Map<string, string>();
+  const sourceCountByProject = new Map<string, number>();
   for (const link of links) {
+    sourceCountByProject.set(link.project_id, (sourceCountByProject.get(link.project_id) ?? 0) + 1);
     if (!primarySourceIdByProject.has(link.project_id)) {
       primarySourceIdByProject.set(link.project_id, link.source_id);
     }
@@ -244,7 +252,9 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       : (unwrapRead(
           await supabase
             .from("sw_sources")
-            .select("id, kind, interview_date, status, original_size_bytes, original_duration_ms, page_count")
+            .select(
+              "id, kind, interview_date, status, original_size_bytes, original_duration_ms, page_count",
+            )
             .in("id", sourceIds),
           "the project list's sources",
         ) ?? []);
@@ -277,6 +287,7 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       durationMs: source?.original_duration_ms ?? null,
       sizeBytes: source?.original_size_bytes ?? null,
       pageCount: source?.page_count ?? null,
+      sourceCount: sourceCountByProject.get(project.id) ?? 0,
       status: computeProjectStatus(source, transcript),
     };
   });
@@ -365,7 +376,9 @@ export async function listSources(): Promise<SourceLibraryRow[]> {
     unwrapRead(
       await supabase
         .from("sw_sources")
-        .select("id, kind, title, interview_date, status, original_duration_ms, page_count, created_at")
+        .select(
+          "id, kind, title, interview_date, status, original_duration_ms, page_count, created_at",
+        )
         .order("created_at", { ascending: false }),
       "the source library",
     ) ?? [];

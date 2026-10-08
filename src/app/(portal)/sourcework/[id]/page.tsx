@@ -114,10 +114,12 @@ export default async function TranscriptionProjectPage({
         title={project.title}
         actions={
           <>
-            <StatusBadge
-              map={projectStatusMap(source?.kind ?? "audio_video")}
-              value={project.status}
-            />
+            {project.sources.length > 0 && (
+              <StatusBadge
+                map={projectStatusMap(source?.kind ?? "audio_video")}
+                value={project.status}
+              />
+            )}
             {canDelete && (
               <ProjectActionsMenu
                 projectId={project.id}
@@ -134,7 +136,7 @@ export default async function TranscriptionProjectPage({
         ) : (
           <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
             No background yet — a note here is what tells someone finding a quote from this
-            recording in two years what it was.
+            project in two years what it was about.
           </p>
         )}
         <ProjectDetails

@@ -110,6 +110,24 @@ export async function createProjectWithSource(
   return { projectId: project.id, sourceId: source.id };
 }
 
+/**
+ * Creates a project with no sources. A project is a workspace that references
+ * sources, many-to-many (docs/sourcework-design.md), so it exists before any
+ * file does: sources are added afterwards, uploaded or found in the library.
+ */
+export async function createBareProject(
+  supabase: Client,
+  input: { title: string; description: string | null; createdBy: string },
+): Promise<{ projectId: string } | { error: string }> {
+  const { data: project, error } = await supabase
+    .from("tw_projects")
+    .insert({ title: input.title, description: input.description, created_by: input.createdBy })
+    .select("id")
+    .single();
+  if (error || !project) return { error: error?.message ?? "Could not create the project." };
+  return { projectId: project.id };
+}
+
 export interface CreateSourceForExistingProjectInput {
   projectId: string;
   title: string;

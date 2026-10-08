@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatBytes, formatShortDate } from "@/lib/format";
@@ -45,7 +46,9 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
   }, [projects, query]);
 
   if (projects.length === 0) {
-    return <EmptyState>No interviews yet. Upload one to get started.</EmptyState>;
+    return (
+      <EmptyState>No projects yet. Start one, then add interviews and documents to it.</EmptyState>
+    );
   }
 
   return (
@@ -98,10 +101,14 @@ export function ProjectTable({ projects }: { projects: ProjectListRow[] }) {
                     {project.sizeBytes ? formatBytes(project.sizeBytes) : "—"}
                   </Cell>
                   <Cell stack="aside">
-                    <StatusBadge
-                      map={projectStatusMap(project.sourceKind ?? "audio_video")}
-                      value={project.status}
-                    />
+                    {project.sourceCount === 0 ? (
+                      <Badge variant="muted">No sources</Badge>
+                    ) : (
+                      <StatusBadge
+                        map={projectStatusMap(project.sourceKind ?? "audio_video")}
+                        value={project.status}
+                      />
+                    )}
                   </Cell>
                 </Row>
               ))}

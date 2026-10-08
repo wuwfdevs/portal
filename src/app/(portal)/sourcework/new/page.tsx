@@ -25,7 +25,7 @@ export default async function NewTranscriptionProjectPage() {
           size="form"
           back={{ href: "/sourcework", label: "Back to projects" }}
           title="New project"
-          description="Upload the raw interview to get started."
+          description="Name the project. Add interviews and documents now or whenever you have them."
           className="mb-6"
         />
         <NewProjectForm />

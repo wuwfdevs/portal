@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { reindexRepresentation, embedPendingForProject } from "@/lib/transcription/indexing";
-import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
+import {
+  createBareProject,
+  createProjectWithSource,
+  startTranscriptionForProject,
+} from "@/lib/transcription/ingest";
 import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
 import { purgeSource } from "@/lib/transcription/source-deletion";
@@ -37,7 +41,10 @@ export async function createProject(input: {
 
   const title = input.title.trim();
   if (!title) {
-    return { error: input.kind === "document" ? "Give the document a title." : "Give the interview a title." };
+    return {
+      error:
+        input.kind === "document" ? "Give the document a title." : "Give the interview a title.",
+    };
   }
 
   const supabase = await createClient();
@@ -58,6 +65,30 @@ export async function createProject(input: {
     return { error: "Could not create the project. Please try again." };
   }
   return { id: created.projectId, sourceId: created.sourceId };
+}
+
+/**
+ * Creates a project with no source. Sources are added afterwards from the
+ * project itself (upload, or reference one already in the library), so
+ * starting a project never waits on a file.
+ */
+export async function createEmptyProject(input: {
+  title: string;
+  description: string;
+}): Promise<{ id: string } | { error: string }> {
+  const { profile } = await assertToolAccess("transcription");
+
+  const title = input.title.trim();
+  if (!title) return { error: "Give the project a title." };
+
+  const supabase = await createClient();
+  const created = await createBareProject(supabase, {
+    title,
+    description: input.description.trim() || null,
+    createdBy: profile.id,
+  });
+  if ("error" in created) return { error: "Could not create the project. Please try again." };
+  return { id: created.projectId };
 }
 
 /**
@@ -121,7 +152,10 @@ export async function updateProjectDetails(input: {
  * transcription retry (docs/sourcework-design.md §7): reindexing whichever
  * source is actually on screen, not always the first one attached.
  */
-export async function reindexProjectSearch(projectId: string | null, sourceId: string): Promise<{
+export async function reindexProjectSearch(
+  projectId: string | null,
+  sourceId: string,
+): Promise<{
   error?: string;
   chunks?: number;
   embedded?: number;
@@ -228,7 +262,10 @@ export async function retryTranscription(formData: FormData): Promise<void> {
     // was really about the representation (new-project-form.tsx,
     // add-source-modal.tsx) — without this, a source stuck that way stays
     // stuck forever, since nothing else ever clears it once set.
-    await supabase.from("sw_sources").update({ status: "ready", error_message: null }).eq("id", ref.sourceId);
+    await supabase
+      .from("sw_sources")
+      .update({ status: "ready", error_message: null })
+      .eq("id", ref.sourceId);
 
     if (source.kind === "document") {
       // startDocumentProcessing does its own status flip (and its own
