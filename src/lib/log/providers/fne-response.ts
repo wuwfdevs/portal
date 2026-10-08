@@ -80,7 +80,7 @@ function enclosureOf(block: string): { url: string | null; bytes: number | null 
   const match = /<enclosure\s+([^>]*?)\/?>/.exec(block);
   if (!match) return { url: null, bytes: null };
   const attrs: Record<string, string> = {};
-  for (const attr of match[1]!.matchAll(/([\w:-]+)="([^"]*)"/g)) {
+  for (const attr of match[1]!.matchAll(/((?:\w|:|-)+)="([^"]*)"/g)) {
     attrs[attr[1]!] = decodeEntities(attr[2]!);
   }
   const bytes = Number(attrs.length);
@@ -123,7 +123,9 @@ export function parseFneTitle(rawTitle: string): {
   }
 
   const leading =
-    /^(?:\(\s*(wrap|cut|voicer|super)\s*\)|(wrap|cut|voicer|super)\s*[-:–]\s*)\s*/i.exec(title);
+    /^(?:\(\s*(wrap|cut|voicer|super)\s*\)|(wrap|cut|voicer|super)\s*(?:-|:|\u2013)\s*)\s*/i.exec(
+      title,
+    );
   if (leading) {
     kind = KIND_WORDS[(leading[1] ?? leading[2]!).toLowerCase()]!;
     title = title.slice(leading[0].length);
