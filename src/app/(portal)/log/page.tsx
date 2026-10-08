@@ -20,6 +20,36 @@ const COUNT_PARAM = /^\d{1,4}$/;
 const NAV_LINK_CLASSES =
   "inline-flex shrink-0 items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
 
+/** Tray with an arrow into it (import) or out of it (export). */
+function TransferIcon({ direction }: { direction: "in" | "out" }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      {direction === "in" ? (
+        <>
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </>
+      ) : (
+        <>
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default async function LogTodayPage({
   searchParams,
 }: {
@@ -89,27 +119,24 @@ export default async function LogTodayPage({
             </Button>
           </form>
           <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
-          <SecondaryLink href={importHref} size="sm" className="shrink-0">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Import program log
+          <SecondaryLink
+            href={importHref}
+            size="sm"
+            className="shrink-0"
+            title="Import the traffic system's program log"
+          >
+            <TransferIcon direction="in" />
+            Import
           </SecondaryLink>
-          <Link href={`/log/dad-log?date=${selectedDate}`} className={NAV_LINK_CLASSES}>
-            DAD log
-          </Link>
+          <SecondaryLink
+            href={`/log/dad-log?date=${selectedDate}`}
+            size="sm"
+            className="shrink-0"
+            title="Export the DAD log for automated hours"
+          >
+            <TransferIcon direction="out" />
+            Export
+          </SecondaryLink>
         </div>
       </div>
       {error && <Alert className="mb-4">{error}</Alert>}
