@@ -38,7 +38,7 @@ export async function getSignedMediaUrl(
 /**
  * A longer-lived signed URL handed to the ASR provider so it can fetch the
  * source file itself — called once, right after upload, from the
- * still-authenticated uploader's own request (see completeProjectUpload).
+ * still-authenticated uploader's own request (see completeSourceUpload).
  */
 export async function getSignedMediaUrlForIngest(storagePath: string): Promise<string | null> {
   const supabase = await createClient();

@@ -3,6 +3,7 @@
 import { Fragment, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/input";
 import { useSyncedState } from "@/lib/use-synced-state";
@@ -41,6 +42,7 @@ export function SegmentRow({
   hoveredClipId,
   speakers,
   segmentIndex,
+  found,
   isActive,
   isLast,
   showSpeaker,
@@ -59,6 +61,8 @@ export function SegmentRow({
   hoveredClipId: string | null;
   speakers: TranscriptSpeaker[];
   segmentIndex: number;
+  /** Words to highlight for "Find in this transcript": every match, and the one being looked at. */
+  found?: { tokens: Set<number>; currentTokens: Set<number> };
   isActive: boolean;
   isLast: boolean;
   showSpeaker: boolean;
@@ -81,6 +85,7 @@ export function SegmentRow({
   const [caret, setCaret] = useState(0);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [changingSpeaker, setChangingSpeaker] = useState(false);
 
   const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
   const canSplit = caret > 0 && caret < text.trim().length;
@@ -207,7 +212,12 @@ export function SegmentRow({
       // line even while it's being edited. Token spans stay nested inside.
       data-segment-index={segmentIndex}
       className={cn(
-        "group border-l-2 px-4 py-2 transition-colors",
+        // content-visibility lets the browser skip layout and paint for lines
+        // that are scrolled far off, so a two-hour transcript scrolls like a
+        // short one. The lines stay in the DOM on purpose: a selection can
+        // span lines that are off screen, and find and follow-along scroll
+        // to a line by looking it up.
+        "group border-l-2 px-4 py-2 transition-colors [contain-intrinsic-size:auto_72px] [content-visibility:auto]",
         isActive ? "border-brand-primary bg-brand-surface/50" : "border-transparent",
       )}
     >
@@ -302,7 +312,16 @@ export function SegmentRow({
               {tokens.map((token, tokenIndex) => (
                 <Fragment key={tokenIndex}>
                   {tokenIndex > 0 && <span className={markClass(gapMark(tokenIndex))}> </span>}
-                  <span data-token-index={tokenIndex} className={markClass(tokenMark(tokenIndex))}>
+                  <span
+                    data-token-index={tokenIndex}
+                    className={cn(
+                      markClass(tokenMark(tokenIndex)),
+                      found?.tokens.has(tokenIndex) &&
+                        (found.currentTokens.has(tokenIndex)
+                          ? "rounded-sm bg-brand-primary/50"
+                          : "rounded-sm bg-brand-primary/20"),
+                    )}
+                  >
                     {token.text}
                   </span>
                 </Fragment>
@@ -312,46 +331,51 @@ export function SegmentRow({
         </div>
 
         {!isEditing && (
-          // Hidden below sm rather than just opacity-0: hover (the only thing
-          // that reveals it) doesn't exist on touch, so on a phone this row
-          // was invisible AND unreachable while still reserving its width in
-          // the flex row — squeezing the transcript text into a sliver next
-          // to controls nobody could tap. sm and up keeps the hover reveal.
-          <div className="hidden shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 sm:flex">
+          // Always present, not revealed on hover: hover doesn't exist on
+          // touch, so the old hover-only row left a phone or tablet with no
+          // way to edit, merge or reassign a line. A quiet "⋮" costs one
+          // small icon per line instead of a toolbar.
+          <div className="flex shrink-0 items-center gap-2">
             {status === "saving" && <span className="text-[11px] text-ink-400">Saving…</span>}
             {status === "saved" && <span className="text-[11px] text-ink-400">Saved</span>}
-            <Select
-              compact
-              value={speakerId}
-              onChange={handleSpeakerChange}
-              aria-label="Who is speaking on this line"
-              title="Reassign this line to another speaker"
-              className="max-w-[9rem]"
-            >
-              <option value="">Unknown speaker</option>
-              {speakers.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {speakerDisplayLabel(option.diarizationLabel, option.displayName)}
-                </option>
-              ))}
-            </Select>
-            <Button type="button" variant="link" onClick={beginEditing} className="text-brand-link">
-              Edit
-            </Button>
-            {!isLast && (
-              <Button
-                type="button"
-                variant="link"
-                onClick={handleMerge}
-                title="Join this line with the one below"
-                className="text-brand-link"
-              >
-                Merge ↓
-              </Button>
-            )}
+            <ActionMenu
+              label="Line actions"
+              trigger="quiet"
+              items={[
+                { label: "Edit text", onClick: beginEditing },
+                { label: "Change speaker…", onClick: () => setChangingSpeaker(true) },
+                ...(isLast
+                  ? []
+                  : [{ label: "Merge with the next line", onClick: () => void handleMerge() }]),
+              ]}
+            />
           </div>
         )}
       </div>
+
+      {changingSpeaker && !isEditing && (
+        <div className="mt-1.5 flex items-center gap-2 pl-14">
+          <Select
+            compact
+            autoFocus
+            value={speakerId}
+            onChange={async (event) => {
+              await handleSpeakerChange(event);
+              setChangingSpeaker(false);
+            }}
+            onBlur={() => setChangingSpeaker(false)}
+            aria-label="Who is speaking on this line"
+            className="max-w-[16rem]"
+          >
+            <option value="">Unknown speaker</option>
+            {speakers.map((option) => (
+              <option key={option.id} value={option.id}>
+                {speakerDisplayLabel(option.diarizationLabel, option.displayName)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       {actionError && <p className="mt-1.5 pl-14 text-xs text-danger">{actionError}</p>}
     </div>

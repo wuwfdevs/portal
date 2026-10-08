@@ -28,9 +28,8 @@ import {
   DEFAULT_RATE_LIMIT_PAUSE_MS,
   MIGRATION_CONCURRENCY,
   MIGRATION_MAX_RATE_LIMIT_RETRIES,
-  runQueue,
-  type QueueOutcome,
 } from "@/lib/underwriting/migration-queue";
+import { runQueue, type QueueOutcome } from "@/lib/run-queue";
 import type { MigrationRunResult } from "@/lib/underwriting/migration-import";
 import { registerDocumentOnlyEntries } from "../../actions";
 import { batchPath } from "../../paths";

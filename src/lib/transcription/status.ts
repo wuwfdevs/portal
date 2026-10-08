@@ -71,3 +71,30 @@ export function projectStatusMap(kind: SwSourceKind) {
     failed: { label: "Failed", variant: "danger" },
   });
 }
+
+/** What a project's row in the list says about its sources as a whole. */
+export type ProjectOverviewStatus = "none" | "failed" | "active" | "ready";
+
+/**
+ * The one badge a project shows in the list. Worst news first: any failed
+ * source makes the project "needs attention", then anything still on its way
+ * is "in progress", and a project with no sources says so rather than looking
+ * finished.
+ */
+export function overviewStatus(counts: {
+  sourceCount: number;
+  failedCount: number;
+  activeCount: number;
+}): ProjectOverviewStatus {
+  if (counts.sourceCount === 0) return "none";
+  if (counts.failedCount > 0) return "failed";
+  if (counts.activeCount > 0) return "active";
+  return "ready";
+}
+
+export const overviewStatusMap = defineStatusMap<ProjectOverviewStatus>({
+  none: { label: "No sources", variant: "muted" },
+  failed: { label: "Needs attention", variant: "danger" },
+  active: { label: "In progress", variant: "neutral" },
+  ready: { label: "Ready", variant: "accent" },
+});

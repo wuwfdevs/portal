@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runQueue, type QueueOutcome } from "./migration-queue";
+import { runQueue, type QueueOutcome } from "./run-queue";
 
 function deferred() {
   let resolve!: () => void;

@@ -9,7 +9,8 @@ const SHORTCUTS: [string, string][] = [
   ["K", "Pause"],
   ["↑ / ↓", "Previous / next line"],
   ["E", "Edit the current line"],
-  ["C", "Name the excerpt you just selected"],
+  ["C", "Jump to the title of the excerpt you just selected"],
+  ["Enter", "Save the excerpt (in its title box)"],
 ];
 
 /** Keyboard shortcuts are only useful if they're discoverable. */

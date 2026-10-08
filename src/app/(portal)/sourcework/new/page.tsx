@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { NewProjectForm } from "./new-project-form";
 
-// completeProjectUpload (called from NewProjectForm) can kick off
+// completeSourceUpload (called from the upload forms) can kick off
 // startDocumentProcessing, which schedules a Mistral OCR call via Next's
 // after() for a large scanned document — raised here so that work has room
 // to finish. A Server Action inherits its invoking route's maxDuration;
@@ -25,7 +25,7 @@ export default async function NewTranscriptionProjectPage() {
           size="form"
           back={{ href: "/sourcework", label: "Back to projects" }}
           title="New project"
-          description="Upload the raw interview to get started."
+          description="Name the project. Add interviews and documents now or whenever you have them."
           className="mb-6"
         />
         <NewProjectForm />

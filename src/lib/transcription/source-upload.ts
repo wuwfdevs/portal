@@ -11,9 +11,8 @@ import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
 /**
  * Shared second half of finishing a source's upload — content-type
  * validation, marking the source ready, and dispatching to OCR or ASR.
- * Extracted so completeProjectUpload (new project) and completeSourceUpload
- * (uploading a new source into an existing project) can't drift on
- * validation or dispatch logic. Lives in its own file rather than inside
+ * Called by completeSourceUpload, which every upload goes through now (a new
+ * project's files are uploaded as sources of the project, like any other). Lives in its own file rather than inside
  * ingest.ts: document-ingest.ts already imports redactUrls from ingest.ts,
  * so ingest.ts importing startDocumentProcessing back from document-ingest.ts
  * would be a circular import.

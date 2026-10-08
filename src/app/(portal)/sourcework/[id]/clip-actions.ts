@@ -6,7 +6,10 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
-import { getPrimaryProjectIdForSource, listProjectIdsForSource } from "@/lib/transcription/projects";
+import {
+  getPrimaryProjectIdForSource,
+  listProjectIdsForSource,
+} from "@/lib/transcription/projects";
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -213,7 +216,11 @@ export async function getClipDownloadUrl(
     projectId
       ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase.from("sw_sources").select("interview_date, created_at").eq("id", clip.source_id).maybeSingle(),
+    supabase
+      .from("sw_sources")
+      .select("interview_date, created_at")
+      .eq("id", clip.source_id)
+      .maybeSingle(),
   ]);
 
   const downloadUrl = await getSignedMediaUrl(

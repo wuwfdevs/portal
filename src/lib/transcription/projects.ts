@@ -5,6 +5,7 @@ import { parseWords } from "@/lib/transcription/transcript";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database, SwSourceKind } from "@/lib/database.types";
 import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
+import { pageRange } from "@/lib/pagination";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
 export type SwSource = Database["public"]["Tables"]["sw_sources"]["Row"];
@@ -15,7 +16,11 @@ export type SwRepresentation = Database["public"]["Tables"]["sw_representations"
 // this module's server-only data access — see that file's header comment.
 // Re-exported here so every existing server-side import of these three from
 // "@/lib/transcription/projects" keeps working unchanged.
-export { computeProjectStatus, processingLabel, type ProjectStatus } from "@/lib/transcription/status";
+export {
+  computeProjectStatus,
+  processingLabel,
+  type ProjectStatus,
+} from "@/lib/transcription/status";
 
 export interface ProjectSourceRef {
   sourceId: string;
@@ -169,6 +174,8 @@ export interface ProjectListRow {
   durationMs: number | null;
   sizeBytes: number | null;
   pageCount: number | null;
+  /** How many sources the project references. Zero is a normal state: a project can be started before any file exists. */
+  sourceCount: number;
   status: ProjectStatus;
 }
 
@@ -231,7 +238,9 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       "the project list's sources",
     ) ?? [];
   const primarySourceIdByProject = new Map<string, string>();
+  const sourceCountByProject = new Map<string, number>();
   for (const link of links) {
+    sourceCountByProject.set(link.project_id, (sourceCountByProject.get(link.project_id) ?? 0) + 1);
     if (!primarySourceIdByProject.has(link.project_id)) {
       primarySourceIdByProject.set(link.project_id, link.source_id);
     }
@@ -244,7 +253,9 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       : (unwrapRead(
           await supabase
             .from("sw_sources")
-            .select("id, kind, interview_date, status, original_size_bytes, original_duration_ms, page_count")
+            .select(
+              "id, kind, interview_date, status, original_size_bytes, original_duration_ms, page_count",
+            )
             .in("id", sourceIds),
           "the project list's sources",
         ) ?? []);
@@ -277,6 +288,7 @@ export async function listProjects(): Promise<ProjectListRow[]> {
       durationMs: source?.original_duration_ms ?? null,
       sizeBytes: source?.original_size_bytes ?? null,
       pageCount: source?.page_count ?? null,
+      sourceCount: sourceCountByProject.get(project.id) ?? 0,
       status: computeProjectStatus(source, transcript),
     };
   });
@@ -365,7 +377,9 @@ export async function listSources(): Promise<SourceLibraryRow[]> {
     unwrapRead(
       await supabase
         .from("sw_sources")
-        .select("id, kind, title, interview_date, status, original_duration_ms, page_count, created_at")
+        .select(
+          "id, kind, title, interview_date, status, original_duration_ms, page_count, created_at",
+        )
         .order("created_at", { ascending: false }),
       "the source library",
     ) ?? [];
@@ -534,4 +548,88 @@ export async function getTranscriptForRepresentation(
       displayName: row.display_name,
     })),
   };
+}
+
+export type ProjectListFilter = "all" | "mine" | "attention" | "empty";
+
+export const PROJECT_LIST_FILTERS: ProjectListFilter[] = ["all", "mine", "attention", "empty"];
+
+export function parseProjectListFilter(raw: string | undefined): ProjectListFilter {
+  return PROJECT_LIST_FILTERS.includes(raw as ProjectListFilter)
+    ? (raw as ProjectListFilter)
+    : "all";
+}
+
+export interface ProjectOverviewRow {
+  id: string;
+  title: string;
+  description: string | null;
+  createdBy: string;
+  /** Null when the author's name isn't visible to the caller. */
+  startedByName: string | null;
+  sourceCount: number;
+  failedCount: number;
+  activeCount: number;
+  excerptCount: number;
+  lastActivity: string;
+}
+
+/**
+ * One page of the Projects list, filtered, newest activity first. Reads the
+ * `sw_project_overview` view (security invoker, so the caller's RLS applies)
+ * and pages in the database, so the list costs the same at 40 projects as at
+ * 4,000 and never meets PostgREST's silent row cap.
+ */
+export async function listProjectsPage(options: {
+  filter: ProjectListFilter;
+  userId: string;
+  page: number;
+}): Promise<{ rows: ProjectOverviewRow[]; total: number }> {
+  const supabase = await createClient();
+  const { from, to } = pageRange(options.page);
+  let query = supabase.from("sw_project_overview").select("*", { count: "exact" });
+  if (options.filter === "mine") query = query.eq("created_by", options.userId);
+  else if (options.filter === "attention") query = query.gt("failed_count", 0);
+  else if (options.filter === "empty") query = query.eq("source_count", 0);
+  const result = await query
+    .order("last_activity", { ascending: false })
+    .order("id")
+    .range(from, to);
+  const data = unwrapRead(result, "the project list") ?? [];
+  return {
+    total: result.count ?? data.length,
+    rows: data.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      createdBy: row.created_by,
+      startedByName: row.started_by_name,
+      sourceCount: row.source_count,
+      failedCount: row.failed_count,
+      activeCount: row.active_count,
+      excerptCount: row.excerpt_count,
+      lastActivity: row.last_activity,
+    })),
+  };
+}
+
+/** How many projects each filter chip would show, for the chip labels. */
+export async function countProjectFilters(
+  userId: string,
+): Promise<Record<ProjectListFilter, number>> {
+  const supabase = await createClient();
+  const counts = await Promise.all(
+    PROJECT_LIST_FILTERS.map(async (filter) => {
+      let query = supabase
+        .from("sw_project_overview")
+        .select("id", { count: "exact", head: true });
+      if (filter === "mine") query = query.eq("created_by", userId);
+      else if (filter === "attention") query = query.gt("failed_count", 0);
+      else if (filter === "empty") query = query.eq("source_count", 0);
+      const result = await query;
+      unwrapRead(result, "the project counts");
+      return [filter, result.count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(counts) as Record<ProjectListFilter, number>;
 }

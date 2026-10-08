@@ -112,9 +112,33 @@ describe("buildNativeBlocksForPage", () => {
     const page: NativeTextPage = {
       ...basePage,
       items: [
-        item({ str: "Big Title", x: 72, y: 740, width: 150, fontSize: 24, height: 24, hasEOL: true }),
-        item({ str: "Body text follows here", x: 72, y: 700, width: 150, fontSize: 12, height: 12, hasEOL: true }),
-        item({ str: "and continues", x: 72, y: 688, width: 150, fontSize: 12, height: 12, hasEOL: true }),
+        item({
+          str: "Big Title",
+          x: 72,
+          y: 740,
+          width: 150,
+          fontSize: 24,
+          height: 24,
+          hasEOL: true,
+        }),
+        item({
+          str: "Body text follows here",
+          x: 72,
+          y: 700,
+          width: 150,
+          fontSize: 12,
+          height: 12,
+          hasEOL: true,
+        }),
+        item({
+          str: "and continues",
+          x: 72,
+          y: 688,
+          width: 150,
+          fontSize: 12,
+          height: 12,
+          hasEOL: true,
+        }),
       ],
     };
     const blocks = buildNativeBlocksForPage(page, 0);

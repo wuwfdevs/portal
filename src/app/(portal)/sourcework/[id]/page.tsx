@@ -15,14 +15,21 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { retryTranscription } from "../actions";
-import { ProjectActionsMenu } from "../project-actions-menu";
+import { ExportExcerptsButton } from "./export-excerpts-button";
+import { DeleteProjectPanel } from "../delete-project-panel";
+import { describeProjectDeletion } from "@/lib/transcription/project-deletion";
+import { loadDeletionSources } from "@/lib/transcription/project-deletion-plan";
+import { createClient } from "@/lib/supabase/server";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { DocumentWorkspace } from "./document-workspace";
 import { ProjectDetails } from "./project-details";
 import { RepresentationStatusBanner } from "./representation-status-banner";
 import { SourceActionsMenu } from "./source-actions-menu";
 import { countOtherProjectsForSource } from "./source-actions";
-import { SourceCardGrid } from "./source-card-grid";
+import { SourceSwitcher, AddSourceButton, type SwitcherSource } from "./source-switcher";
+import { ProjectExcerptsView } from "./project-excerpts-view";
+import { TextLink } from "@/components/ui/primary-link";
+import { listLibraryClips } from "@/lib/transcription/clips";
 
 // See new/page.tsx's comment on why this lives on the page rather than in
 // actions.ts, and docs/sourcework-design.md §8.6 on why it's needed at all:
@@ -34,11 +41,18 @@ export default async function TranscriptionProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ t?: string; clip?: string; source?: string; page?: string }>;
+  searchParams: Promise<{
+    t?: string;
+    clip?: string;
+    source?: string;
+    page?: string;
+    view?: string;
+  }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { t, clip, source: sourceParam, page } = await searchParams;
+  const { t, clip, source: sourceParam, page, view } = await searchParams;
+  const excerptsView = view === "excerpts";
   // ?t= arrives from a search result or a clip in the library; anything that
   // isn't a plain number is ignored rather than trusted into a seek.
   const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
@@ -47,17 +61,6 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  // A project-level action (see ProjectActionsMenu in the header below),
-  // deliberately not scoped to whichever source happens to be on screen —
-  // deleting *a* source precisely is SourceActionsMenu's "Remove…" choice
-  // now, so this stays simply about the project itself. deleteProject still
-  // only cascades the project's *primary* (earliest-attached) source, and
-  // only if no other project references it — see actions.ts's deleteProject.
-  const hasAnyMedia = project.sources.some((s) => Boolean(s.source.original_storage_path));
-  const deleteLabel = "Delete this project";
-  const deleteWarning = hasAnyMedia
-    ? "This permanently deletes the project. Its primary source is removed too, unless another project still references it — anything else attached stays in the library."
-    : "This removes the project and anything already uploaded for it.";
   // ?source= picks which source is showing; absent (or unknown) falls back
   // to the earliest-attached source — same "primary" this project always
   // had before a second source could be attached (docs/sourcework-design.md
@@ -78,51 +81,61 @@ export default async function TranscriptionProjectPage({
   const representationStatus = transcriptRepresentation?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  const [signedUrl, transcript, clips, documentContent, documentExcerpts, otherProjectCount] =
-    await Promise.all([
-      fileReady && source?.original_storage_path
-        ? getSignedMediaUrl(source.original_storage_path)
-        : Promise.resolve(null),
-      !isDocument && contentReady && transcriptRepresentation
-        ? getTranscriptForRepresentation(transcriptRepresentation.id)
-        : Promise.resolve({ segments: [], speakers: [] }),
-      !isDocument && fileReady && activeSourceSummary
-        ? listExcerptsForSource(activeSourceSummary.sourceId)
-        : Promise.resolve([]),
-      isDocument && contentReady && transcriptRepresentation
-        ? getDocumentContentForRepresentation(transcriptRepresentation.id)
-        : Promise.resolve({ pages: [], blocks: [] }),
-      isDocument && fileReady && activeSourceSummary
-        ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
-        : Promise.resolve([]),
-      // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
-      // say how many other projects a "delete entirely" would also affect.
-      // Not gated on fileReady — the menu (in sourceHeader below) shows
-      // whether or not the file itself is ready.
-      activeSourceSummary
-        ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
-        : Promise.resolve(0),
-    ]);
+  const [
+    signedUrl,
+    transcript,
+    clips,
+    documentContent,
+    documentExcerpts,
+    otherProjectCount,
+    projectExcerpts,
+  ] = await Promise.all([
+    fileReady && source?.original_storage_path
+      ? getSignedMediaUrl(source.original_storage_path)
+      : Promise.resolve(null),
+    !isDocument && contentReady && transcriptRepresentation
+      ? getTranscriptForRepresentation(transcriptRepresentation.id)
+      : Promise.resolve({ segments: [], speakers: [] }),
+    !isDocument && fileReady && activeSourceSummary
+      ? listExcerptsForSource(activeSourceSummary.sourceId)
+      : Promise.resolve([]),
+    isDocument && contentReady && transcriptRepresentation
+      ? getDocumentContentForRepresentation(transcriptRepresentation.id)
+      : Promise.resolve({ pages: [], blocks: [] }),
+    isDocument && fileReady && activeSourceSummary
+      ? listDocumentExcerptsForSource(activeSourceSummary.sourceId)
+      : Promise.resolve([]),
+    // Feeds SourceActionsMenu's "Remove…" choice, so its warning text can
+    // say how many other projects a "delete entirely" would also affect.
+    // Not gated on fileReady — the menu (in sourceHeader below) shows
+    // whether or not the file itself is ready.
+    activeSourceSummary
+      ? countOtherProjectsForSource(activeSourceSummary.sourceId, project.id)
+      : Promise.resolve(0),
+    // The project-wide excerpts view (?view=excerpts) only.
+    excerptsView ? listLibraryClips(project.id) : Promise.resolve([]),
+  ]);
 
-  // Shown on the browsing grid — a project-level title bar (edit, delete)
-  // makes sense while looking at the project as a whole. See SourceCardGrid's
-  // comment on why this and sourceHeader below are two separate slots rather
-  // than one header that's always the project's.
+  // The project's own title bar (rename, notes, delete). It stays put while
+  // the source switcher below picks which source's workspace shows; each
+  // source then has its own header (sourceHeader) naming it.
   const projectHeader = (
     <div className="mb-6">
       <PageHeader
         title={project.title}
         actions={
           <>
-            <StatusBadge
-              map={projectStatusMap(source?.kind ?? "audio_video")}
-              value={project.status}
-            />
-            {canDelete && (
-              <ProjectActionsMenu
+            {project.sources.length > 0 && (
+              <StatusBadge
+                map={projectStatusMap(source?.kind ?? "audio_video")}
+                value={project.status}
+              />
+            )}
+            {project.sources.length > 0 && (
+              <ExportExcerptsButton
                 projectId={project.id}
-                label={deleteLabel}
-                warning={deleteWarning}
+                projectTitle={project.title}
+                exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
               />
             )}
           </>
@@ -133,8 +146,8 @@ export default async function TranscriptionProjectPage({
           <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
         ) : (
           <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
-            No background yet — a note here is what tells someone finding a quote from this
-            recording in two years what it was.
+            No background yet — a note here is what tells someone finding a quote from this project
+            in two years what it was about.
           </p>
         )}
         <ProjectDetails
@@ -146,11 +159,9 @@ export default async function TranscriptionProjectPage({
     </div>
   );
 
-  // Shown over the active source's workspace instead — this source's own
-  // title, its own status (not the project's), and its own Rebuild-index/
-  // Remove menu, the same information the standalone Source Detail page
-  // leads with. Null only when the project has no sources at all, the same
-  // case SourceCardGrid's grid would render empty.
+  // This source's own title, its own status (not the project's), and its own
+  // Rebuild-index/Remove menu, the same information the standalone Source
+  // Detail page leads with. Null only when the project has no sources at all.
   const sourceHeader =
     activeSourceSummary && source ? (
       <PageHeader
@@ -187,143 +198,205 @@ export default async function TranscriptionProjectPage({
       />
     ) : null;
 
+  // Only the person who started the project can delete it, so only they pay
+  // for the lookup that lets the warning name what goes and what stays.
+  const deletionPlan = canDelete
+    ? describeProjectDeletion(
+        await loadDeletionSources(
+          await createClient(),
+          project.id,
+          project.sources.map((entry) => ({
+            id: entry.sourceId,
+            title: entry.source.title,
+            kind: entry.source.kind,
+          })),
+        ),
+      )
+    : null;
+
+  const switcherSources: SwitcherSource[] = project.sources.map((entry) => ({
+    sourceId: entry.sourceId,
+    title: entry.source.title,
+    kind: entry.source.kind,
+    status: entry.status,
+    durationMs: entry.source.original_duration_ms,
+    pageCount: entry.source.page_count,
+  }));
+
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <SourceCardGrid
-        projectId={project.id}
-        sources={project.sources}
-        activeSourceId={activeSourceSummary?.sourceId ?? null}
-        startOnList={!project.sources.some((s) => s.sourceId === sourceParam)}
-        projectHeader={projectHeader}
-        sourceHeader={sourceHeader}
-      >
-        {fileReady && isDocument && (
-          <Card className="p-5">
-            <RepresentationStatusBanner
-              status={representationStatus}
-              kind="document"
-              errorMessage={transcriptRepresentation?.error_message ?? null}
-              projectId={project.id}
-              sourceId={activeSourceSummary?.sourceId ?? null}
-            />
-            {signedUrl && activeSourceSummary ? (
-              <DocumentWorkspace
-                // A fresh mount per distinct ?page= target — this component
-                // only reads initialPage in a useState initializer, so a
-                // search result that only changes ?page= while staying on
-                // this same source (e.g. this workspace's own embedded
-                // per-source search box) would otherwise leave the viewer on
-                // whatever page it already had open. See the analogous
-                // TranscriptWorkspace key below for the audio counterpart.
-                key={`${activeSourceSummary.sourceId}:${initialPage ?? ""}`}
-                projectId={project.id}
-                sourceId={activeSourceSummary.sourceId}
-                representationId={transcriptRepresentation?.id ?? null}
-                fileUrl={signedUrl}
-                pages={documentContent.pages}
-                blocks={documentContent.blocks}
-                excerpts={documentExcerpts}
-                initialPage={initialPage}
-              />
-            ) : (
-              <p className="text-sm text-ink-500">
-                Couldn&apos;t load the document right now. Reload the page to try again.
-              </p>
-            )}
-            {source?.page_count && (
-              <DescriptionList
-                columns={4}
-                className="mt-4"
-                items={[
-                  { label: "Pages", value: source.page_count },
-                  ...(source.original_size_bytes
-                    ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
-                    : []),
-                ]}
-              />
-            )}
-          </Card>
-        )}
+      <div className="mb-5">
+        <TextLink href="/sourcework">← Back to projects</TextLink>
+      </div>
+      {projectHeader}
 
-        {fileReady && !isDocument && (
-          <Card className="p-5">
-            <RepresentationStatusBanner
-              status={representationStatus}
-              kind="audio_video"
-              errorMessage={transcriptRepresentation?.error_message ?? null}
-              projectId={project.id}
-              sourceId={activeSourceSummary?.sourceId ?? null}
-            />
-            {signedUrl && activeSourceSummary ? (
-              <TranscriptWorkspace
-                // A fresh mount per distinct ?t=/?clip= target. Both only
-                // ever seed a useState/ref once (initialSeekAppliedRef,
-                // selectedClip's initializer), so a search result that only
-                // changes ?t= or ?clip= while staying on this same source —
-                // e.g. this workspace's own embedded per-source search box —
-                // would otherwise leave the player and highlighted clip
-                // exactly where they were instead of jumping to the new hit.
-                key={`${activeSourceSummary.sourceId}:${initialSeekMs ?? ""}:${clip ?? ""}`}
-                projectId={project.id}
-                sourceId={activeSourceSummary.sourceId}
-                representationId={transcriptRepresentation?.id ?? null}
-                projectTitle={project.title}
-                interviewDate={source?.interview_date ?? null}
-                exportDate={source?.interview_date ?? project.createdAt}
-                mediaUrl={signedUrl}
-                isVideo={isVideoContentType(source?.original_content_type ?? "")}
-                segments={transcript.segments}
-                speakers={transcript.speakers}
-                clips={clips}
-                initialSeekMs={initialSeekMs}
-                highlightClipId={clip ?? null}
-              />
-            ) : (
-              <p className="text-sm text-ink-500">
-                Couldn&apos;t load the media right now. Reload the page to try again.
-              </p>
-            )}
-            <DescriptionList
-              columns={4}
-              className="mt-4"
-              items={[
-                ...(source?.original_duration_ms
-                  ? [{ label: "Duration", value: formatDuration(source.original_duration_ms) }]
-                  : []),
-                ...(source?.original_size_bytes
-                  ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
-                  : []),
-              ]}
-            />
-          </Card>
-        )}
+      {project.sources.length === 0 ? (
+        <EmptyState
+          title="No sources yet"
+          action={<AddSourceButton projectId={project.id} hasSources={false} primary />}
+        >
+          Upload interviews or PDFs, or reference ones already in the library.
+        </EmptyState>
+      ) : (
+        <>
+          <SourceSwitcher
+            projectId={project.id}
+            sources={switcherSources}
+            activeSourceId={activeSourceSummary?.sourceId ?? null}
+            excerptsView={excerptsView}
+          />
 
-        {/* Below here the *file* isn't available, so there is no workspace to
+          {excerptsView ? (
+            <ProjectExcerptsView projectId={project.id} clips={projectExcerpts} />
+          ) : (
+            <>
+              {sourceHeader}
+              {fileReady && isDocument && (
+                <Card className="p-5">
+                  <RepresentationStatusBanner
+                    status={representationStatus}
+                    kind="document"
+                    errorMessage={transcriptRepresentation?.error_message ?? null}
+                    projectId={project.id}
+                    sourceId={activeSourceSummary?.sourceId ?? null}
+                  />
+                  {signedUrl && activeSourceSummary ? (
+                    <DocumentWorkspace
+                      // A fresh mount per distinct ?page= target — this component
+                      // only reads initialPage in a useState initializer, so a
+                      // search result that only changes ?page= while staying on
+                      // this same source (e.g. this workspace's own embedded
+                      // per-source search box) would otherwise leave the viewer on
+                      // whatever page it already had open. See the analogous
+                      // TranscriptWorkspace key below for the audio counterpart.
+                      key={`${activeSourceSummary.sourceId}:${initialPage ?? ""}`}
+                      projectId={project.id}
+                      sourceId={activeSourceSummary.sourceId}
+                      representationId={transcriptRepresentation?.id ?? null}
+                      fileUrl={signedUrl}
+                      pages={documentContent.pages}
+                      blocks={documentContent.blocks}
+                      excerpts={documentExcerpts}
+                      initialPage={initialPage}
+                    />
+                  ) : (
+                    <p className="text-sm text-ink-500">
+                      Couldn&apos;t load the document right now. Reload the page to try again.
+                    </p>
+                  )}
+                  {source?.page_count && (
+                    <DescriptionList
+                      columns={4}
+                      className="mt-4"
+                      items={[
+                        { label: "Pages", value: source.page_count },
+                        ...(source.original_size_bytes
+                          ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
+                          : []),
+                      ]}
+                    />
+                  )}
+                </Card>
+              )}
+
+              {fileReady && !isDocument && (
+                <Card className="p-5">
+                  <RepresentationStatusBanner
+                    status={representationStatus}
+                    kind="audio_video"
+                    errorMessage={transcriptRepresentation?.error_message ?? null}
+                    projectId={project.id}
+                    sourceId={activeSourceSummary?.sourceId ?? null}
+                  />
+                  {signedUrl && activeSourceSummary ? (
+                    <TranscriptWorkspace
+                      // A fresh mount per distinct ?t=/?clip= target. Both only
+                      // ever seed a useState/ref once (initialSeekAppliedRef,
+                      // selectedClip's initializer), so a search result that only
+                      // changes ?t= or ?clip= while staying on this same source —
+                      // e.g. this workspace's own embedded per-source search box —
+                      // would otherwise leave the player and highlighted clip
+                      // exactly where they were instead of jumping to the new hit.
+                      key={`${activeSourceSummary.sourceId}:${initialSeekMs ?? ""}:${clip ?? ""}`}
+                      projectId={project.id}
+                      sourceId={activeSourceSummary.sourceId}
+                      representationId={transcriptRepresentation?.id ?? null}
+                      projectTitle={project.title}
+                      interviewDate={source?.interview_date ?? null}
+                      exportDate={source?.interview_date ?? project.createdAt}
+                      mediaUrl={signedUrl}
+                      isVideo={isVideoContentType(source?.original_content_type ?? "")}
+                      segments={transcript.segments}
+                      speakers={transcript.speakers}
+                      clips={clips}
+                      initialSeekMs={initialSeekMs}
+                      highlightClipId={clip ?? null}
+                    />
+                  ) : (
+                    <p className="text-sm text-ink-500">
+                      Couldn&apos;t load the media right now. Reload the page to try again.
+                    </p>
+                  )}
+                  <DescriptionList
+                    columns={4}
+                    className="mt-4"
+                    items={[
+                      ...(source?.original_duration_ms
+                        ? [
+                            {
+                              label: "Duration",
+                              value: formatDuration(source.original_duration_ms),
+                            },
+                          ]
+                        : []),
+                      ...(source?.original_size_bytes
+                        ? [{ label: "File size", value: formatBytes(source.original_size_bytes) }]
+                        : []),
+                    ]}
+                  />
+                </Card>
+              )}
+
+              {/* Below here the *file* isn't available, so there is no workspace to
             show — the upload is still running, or it failed outright. A
             failure in the text extracted from an uploaded file is not one of
             these states; it rides above the workspace as a banner. sourceHeader
             still shows above this (Remove… covers a stuck source too); only
             the retry itself is repeated inline here. */}
-        {!fileReady && activeStatus === "uploading" && (
-          <EmptyState className="max-w-lg p-5">
-            This project doesn&apos;t have any {isDocument ? "document" : "media"} yet — either an
-            upload is still running in another tab, or it was interrupted.
-          </EmptyState>
-        )}
+              {!fileReady && activeStatus === "uploading" && (
+                <EmptyState className="max-w-lg p-5">
+                  This project doesn&apos;t have any {isDocument ? "document" : "media"} yet —
+                  either an upload is still running in another tab, or it was interrupted.
+                </EmptyState>
+              )}
 
-        {!fileReady && activeStatus !== "uploading" && (
-          <Card className="max-w-lg p-5">
-            <p className="text-sm text-ink-700">
-              {source?.error_message ??
-                transcriptRepresentation?.error_message ??
-                "Something went wrong with this project."}
-            </p>
-            {hasMedia && (
-              <RetryForm projectId={project.id} sourceId={activeSourceSummary?.sourceId ?? null} />
-            )}
-          </Card>
-        )}
-      </SourceCardGrid>
+              {!fileReady && activeStatus !== "uploading" && (
+                <Card className="max-w-lg p-5">
+                  <p className="text-sm text-ink-700">
+                    {source?.error_message ??
+                      transcriptRepresentation?.error_message ??
+                      "Something went wrong with this project."}
+                  </p>
+                  {hasMedia && (
+                    <RetryForm
+                      projectId={project.id}
+                      sourceId={activeSourceSummary?.sourceId ?? null}
+                    />
+                  )}
+                </Card>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {deletionPlan && (
+        <DeleteProjectPanel
+          projectId={project.id}
+          projectTitle={project.title}
+          plan={deletionPlan}
+        />
+      )}
     </div>
   );
 }

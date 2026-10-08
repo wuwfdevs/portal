@@ -31,9 +31,12 @@ export interface ActionMenuItem {
 export function ActionMenu({
   label = "Actions",
   items,
+  trigger = "boxed",
 }: {
   label?: string;
   items: ActionMenuItem[];
+  /** `quiet` drops the border, for a menu repeated on every row of a long list. */
+  trigger?: "boxed" | "quiet";
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +81,11 @@ export function ActionMenu({
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 w-8 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link"
+        className={
+          trigger === "quiet"
+            ? "flex h-8 w-8 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface"
+            : "flex h-8 w-8 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link"
+        }
       >
         <span aria-hidden="true" className="text-lg leading-none">
           ⋮

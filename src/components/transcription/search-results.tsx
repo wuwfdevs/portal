@@ -5,6 +5,7 @@ import { StatusBadge, defineStatusMap } from "@/components/ui/status-badge";
 import { formatShortDate } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import type { SearchResult, SearchResultKind } from "@/lib/transcription/search";
+import { groupResultsByProject, splitHighlight } from "@/lib/transcription/search-groups";
 
 // One ranked list, three kinds of result (design doc §3F). A saved clip and
 // an unclipped stretch of transcript answer the same question — "where do we
@@ -61,14 +62,106 @@ export function SearchResults({ results, query }: { results: SearchResult[]; que
     <ul className="flex flex-col gap-3">
       {results.map((result) => (
         <li key={`${result.kind}:${result.id}`}>
-          <ResultCard result={result} />
+          <ResultCard result={result} query={query} />
         </li>
       ))}
     </ul>
   );
 }
 
-function ResultCard({ result }: { result: SearchResult }) {
+/** Results regrouped by project: one heading per interview or document set, the first few hits under it, the rest a click away. */
+export function GroupedSearchResults({
+  results,
+  query,
+}: {
+  results: SearchResult[];
+  query: string;
+}) {
+  if (results.length === 0) return <SearchResults results={results} query={query} />;
+  const groups = groupResultsByProject(results);
+  return (
+    <div className="flex flex-col gap-8">
+      {groups.map((group) => {
+        const shown = group.results.slice(0, GROUP_VISIBLE);
+        const rest = group.results.slice(GROUP_VISIBLE);
+        return (
+          <section key={group.projectId} aria-label={group.projectTitle}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <h2 className="font-serif text-lg font-semibold text-ink-900">
+                <Link
+                  href={`/sourcework/${group.projectId}`}
+                  className="hover:text-brand-link hover:underline"
+                >
+                  {group.projectTitle}
+                </Link>
+              </h2>
+              <span className="text-xs text-ink-500">
+                {group.results.length} result{group.results.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {group.projectDescription && (
+              <p className="mb-3 mt-0.5 text-sm italic text-ink-400">{group.projectDescription}</p>
+            )}
+            <ul className="mt-3 flex flex-col gap-3">
+              {shown.map((result) => (
+                <li key={`${result.kind}:${result.id}`}>
+                  <ResultCard result={result} query={query} inGroup />
+                </li>
+              ))}
+            </ul>
+            {rest.length > 0 && (
+              <details className="group/more mt-3">
+                <summary className="cursor-pointer text-sm font-semibold text-brand-link">
+                  <span className="group-open/more:hidden">
+                    Show {rest.length} more in {group.projectTitle}
+                  </span>
+                  <span className="hidden group-open/more:inline">Show fewer</span>
+                </summary>
+                <ul className="mt-3 flex flex-col gap-3">
+                  {rest.map((result) => (
+                    <li key={`${result.kind}:${result.id}`}>
+                      <ResultCard result={result} query={query} inGroup />
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** How many hits of one project show before "Show N more". */
+const GROUP_VISIBLE = 3;
+
+function Highlighted({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {splitHighlight(text, query).map((part, index) =>
+        part.hit ? (
+          <mark key={index} className="rounded-sm bg-brand-surface px-0.5 text-inherit">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function ResultCard({
+  result,
+  query,
+  inGroup = false,
+}: {
+  result: SearchResult;
+  query: string;
+  /** Under a project heading already, so the project's name and background aren't repeated. */
+  inGroup?: boolean;
+}) {
   const heading = result.kind === "clip" ? result.title : result.projectTitle;
 
   return (
@@ -81,7 +174,9 @@ function ResultCard({ result }: { result: SearchResult }) {
       </div>
 
       {result.kind !== "project" && (
-        <p className="mb-2 line-clamp-3 text-sm text-ink-700">{result.snippet}</p>
+        <p className="mb-2 line-clamp-3 text-sm text-ink-700">
+          <Highlighted text={result.snippet} query={query} />
+        </p>
       )}
 
       <p className="text-xs text-ink-500">
@@ -95,7 +190,7 @@ function ResultCard({ result }: { result: SearchResult }) {
           // A clip already shows its own title above, so name the recording
           // here instead — "what else did they say about this?" is the next
           // question every time.
-          result.kind === "clip" ? result.projectTitle : null,
+          result.kind === "clip" && !inGroup ? result.projectTitle : null,
           formatResultDate(result.interviewDate),
         ]
           .filter(Boolean)
@@ -104,7 +199,7 @@ function ResultCard({ result }: { result: SearchResult }) {
 
       {/* The project's background: the context a stranger to this recording
           needs before they can use the quote (design doc §3G). */}
-      {result.projectDescription && (
+      {!inGroup && result.projectDescription && (
         <p className="mt-1.5 line-clamp-2 text-xs italic text-ink-400">
           {result.projectDescription}
         </p>

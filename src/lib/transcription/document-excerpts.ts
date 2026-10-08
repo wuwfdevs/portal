@@ -33,7 +33,9 @@ export interface DocumentExcerptSummary {
  * always shows its full span (pages, and where available, per-region
  * highlights) rather than paginating locations separately.
  */
-export async function listDocumentExcerptsForSource(sourceId: string): Promise<DocumentExcerptSummary[]> {
+export async function listDocumentExcerptsForSource(
+  sourceId: string,
+): Promise<DocumentExcerptSummary[]> {
   const supabase = await createClient();
 
   const excerpts = unwrapRead(

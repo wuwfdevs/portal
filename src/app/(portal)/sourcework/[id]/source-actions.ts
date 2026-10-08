@@ -180,7 +180,10 @@ export async function createSourceForProject(
 
   const title = input.title.trim();
   if (!title) {
-    return { error: input.kind === "document" ? "Give the document a title." : "Give the recording a title." };
+    return {
+      error:
+        input.kind === "document" ? "Give the document a title." : "Give the recording a title.",
+    };
   }
 
   const supabase = await createClient();

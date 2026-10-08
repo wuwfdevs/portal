@@ -115,9 +115,7 @@ export function buildNativeBlocksForPage(
 
   const flush = () => {
     if (paragraphLines.length === 0) return;
-    blocks.push(
-      buildBlockFromLines(paragraphLines, page, readingOrder, medianFontSize),
-    );
+    blocks.push(buildBlockFromLines(paragraphLines, page, readingOrder, medianFontSize));
     readingOrder += 1;
     paragraphLines = [];
   };
@@ -177,7 +175,8 @@ function buildBlockFromLines(
   const text = lineTexts.join("\n");
 
   const avgFontSize = lines.reduce((sum, line) => sum + line.fontSize, 0) / lines.length;
-  const isHeading = medianFontSize > 0 && avgFontSize / medianFontSize >= HEADING_FONT_SIZE_MULTIPLIER;
+  const isHeading =
+    medianFontSize > 0 && avgFontSize / medianFontSize >= HEADING_FONT_SIZE_MULTIPLIER;
 
   // Block-relative offsets matching how `text` was joined above (a "\n"
   // between each line) — the same convention document-selection.ts's

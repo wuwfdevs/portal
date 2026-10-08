@@ -51,6 +51,51 @@ export async function renameSpeaker(input: {
   return {};
 }
 
+/**
+ * Folds one speaker into another: every line of `fromSpeakerId` moves to
+ * `intoSpeakerId`, then the emptied speaker is removed. Diarization often
+ * splits one person into two or three, and in a long public meeting into
+ * many; this is the repair, one click per stray voice instead of reassigning
+ * every line by hand. Both speakers must belong to the same transcript, which
+ * is checked here rather than trusted from the client.
+ */
+export async function mergeSpeakers(input: {
+  projectId: string;
+  fromSpeakerId: string;
+  intoSpeakerId: string;
+}): Promise<{ error?: string }> {
+  const supabase = await assertTranscriptionAccess();
+  if (input.fromSpeakerId === input.intoSpeakerId) {
+    return { error: "Choose a different speaker to merge into." };
+  }
+
+  const { data: speakers, error: readError } = await supabase
+    .from("tw_speakers")
+    .select("id, representation_id")
+    .in("id", [input.fromSpeakerId, input.intoSpeakerId]);
+  if (readError || !speakers || speakers.length !== 2) {
+    return { error: "Could not find those speakers." };
+  }
+  if (speakers[0]!.representation_id !== speakers[1]!.representation_id) {
+    return { error: "Those speakers belong to different transcripts." };
+  }
+
+  const { error: moveError } = await supabase
+    .from("tw_segments")
+    .update({ speaker_id: input.intoSpeakerId })
+    .eq("speaker_id", input.fromSpeakerId);
+  if (moveError) return { error: "Could not move that speaker's lines." };
+
+  const { error: deleteError } = await supabase
+    .from("tw_speakers")
+    .delete()
+    .eq("id", input.fromSpeakerId);
+  if (deleteError) return { error: "Moved the lines, but could not remove the old speaker." };
+
+  revalidateProject(input.projectId);
+  return {};
+}
+
 export async function reassignSegmentSpeaker(input: {
   projectId: string;
   segmentId: string;
@@ -119,7 +164,9 @@ export async function splitSegment(input: {
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words")
+    .select(
+      "id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words",
+    )
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };

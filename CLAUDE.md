@@ -347,6 +347,33 @@ transcription/`, and their imports are untouched; so are internal identifiers
 params, the `kind = 'clip'` search-result value) — only strings a user actually reads,
 plus the URL they navigate to, changed.
 
+**Sourcework revision (2026-10-08) — projects without files, many uploads, a scalable workspace.**
+Read `docs/ui-patterns.md` "Uploads and batch runs" and "Controls that grow with the data" first; this
+is a pointer. (1) **A project exists before any source does**: `createEmptyProject` (and
+`createBareProject` in `lib/transcription/ingest.ts`) makes a `tw_projects` row alone; files become
+sources of it through `uploadSource()` (`lib/transcription/upload-source.ts`), the one create → probe
+duration → upload → finish sequence both the new-project form and the add-source dialog use
+(`useSourceUploads`, `staged-files.tsx`). `createProject`/`completeProjectUpload`/`failProjectUpload`
+are gone. Uploads report byte progress through XHR (`lib/storage-upload.ts`, the request storage-js
+makes), run three at a time through `lib/run-queue.ts` (moved out of Underwriting) via
+`useTaskQueue`/`BatchRunPanel`, and are **not resumable** — a retry restarts that file; Supabase's
+TUS endpoint is the open option and needs a client dependency. (2) **The project page has no view
+state**: `?source=` picks the source (`source-switcher.tsx`, `SearchableSelect` + previous/next),
+`?view=excerpts` is the project-wide excerpts; `SourceCardGrid` is deleted. (3) **The Projects list is
+paged in the database** through `sw_project_overview` (a `security_invoker` view,
+`20261010120000`), filters `?filter=` (all/mine/attention/empty); search results group by project
+and filter by `?kind=` (`lib/transcription/search-groups.ts`). (4) **Workspace**: the speaker panel
+is `SpeakersMenu` (sorted by talk time via `lib/transcription/speakers.ts`, filter past six, `mergeSpeakers`
+folds a split voice), every line has a quiet `ActionMenu` (`trigger="quiet"`), find-in-transcript is
+`lib/transcription/find.ts`, selecting words opens `SelectionToolbar` (title suggested by
+`excerpt-title.ts`), excerpt marks sit under the scrubber (`scrubber-marks.ts`, merging to a density
+strip past 30; selecting a stretch zooms the scrubber to it, `zoomWindowForBin`), and the rail orders/filters/pages (`clip-order.ts`). Off-screen lines use
+`content-visibility`, **not** true windowing, so selection across lines and scroll-to-line keep working;
+a multi-hour transcript is the case to watch. (5) Deleting a project is `DeleteProjectPanel`
+(`ConfirmAction`, `describeProjectDeletion`), and `deleteProject` no longer redirects. None of this was
+exercised against a running app in the session that built it (no Supabase egress); the view was
+verified with a rolled-back scenario on preview.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

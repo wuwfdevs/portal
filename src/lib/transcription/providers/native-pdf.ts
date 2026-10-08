@@ -80,7 +80,9 @@ async function ensurePdfWorkerGlobal(): Promise<void> {
  * document-processing pipeline runs this synchronously before deciding
  * whether OCR is needed at all (see document-ingest.ts).
  */
-export async function extractNativeDocumentText(pdfBytes: Uint8Array): Promise<NativeExtractionResult> {
+export async function extractNativeDocumentText(
+  pdfBytes: Uint8Array,
+): Promise<NativeExtractionResult> {
   ensureCanvaslessGlobals();
   await ensurePdfWorkerGlobal();
   // Dynamic import: pdfjs-dist's legacy build is ESM-only and pulls in a

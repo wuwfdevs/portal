@@ -32,6 +32,7 @@ import { MediaRecorder as WavMediaRecorder, register } from "extendable-media-re
 import { connect } from "extendable-media-recorder-wav-encoder";
 import { createClient } from "@/lib/supabase/client";
 import { REMOTE_INTERVIEW_MEDIA_BUCKET } from "@/lib/remote-interview/media";
+import { backoffDelayMs } from "@/lib/backoff";
 
 const TIMESLICE_MS = 5000;
 const RETRY_BASE_DELAY_MS = 2000;
@@ -297,7 +298,10 @@ async function uploadPartWithRetry(params: UploadPartParams, attempt: number): P
       });
     }
 
-    const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+    const delay = backoffDelayMs(attempt + 1, {
+      baseMs: RETRY_BASE_DELAY_MS,
+      capMs: RETRY_MAX_DELAY_MS,
+    });
     await new Promise((resolve) => setTimeout(resolve, delay));
     if (isDisposed()) return;
     return uploadPartWithRetry(params, attempt + 1);
