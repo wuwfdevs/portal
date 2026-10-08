@@ -6,7 +6,7 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import {
-  abbreviateAreas,
+  alertPlaces,
   alertFullText,
   alertLabels,
   alertsDisplay,
@@ -45,7 +45,7 @@ function Chevron({ open }: { open: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={cn("ml-auto shrink-0 text-ink-400 transition-transform", open && "rotate-90")}
+      className={cn("ml-auto mt-1 shrink-0 text-ink-400 transition-transform", open && "rotate-90")}
     >
       <path d="m9 18 6-6-6-6" />
     </svg>
@@ -97,14 +97,17 @@ export function WeatherAlertsPanel({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={cn("flex w-full items-center gap-2 py-2 text-left hover:bg-panel-50", padding)}
+        className={cn("flex w-full items-start gap-2 py-2 text-left hover:bg-panel-50", padding)}
       >
-        <AlertHeading alert={lead} extra={rest.length > 0 ? `+ ${rest.length}` : null} />
-        {view.state === "stale" && view.checkedAt && (
-          <span className="shrink-0 text-xs text-warning-fg">
-            Last checked {formatStationTimestamp(view.checkedAt)}
-          </span>
-        )}
+        <AlertHeading
+          alert={lead}
+          extra={rest.length > 0 ? `+ ${rest.length}` : null}
+          note={
+            view.state === "stale" && view.checkedAt
+              ? `Last checked ${formatStationTimestamp(view.checkedAt)}`
+              : null
+          }
+        />
         <Chevron open={open} />
       </button>
 
@@ -129,14 +132,15 @@ export function WeatherAlertsPanel({
                       aria-expanded={selected}
                       onClick={() => setSelectedId(selected ? null : alert.id)}
                       className={cn(
-                        "flex w-full items-center gap-2 py-2 text-left hover:bg-panel-50",
+                        "flex w-full items-start gap-2 py-2 text-left hover:bg-panel-50",
                         padding,
                       )}
                     >
-                      <AlertHeading alert={alert} extra={null} />
-                      <span className="shrink-0 text-xs text-ink-400">
-                        {alertTiming(alert, view.nowISO)}
-                      </span>
+                      <AlertHeading
+                        alert={alert}
+                        extra={null}
+                        timing={alertTiming(alert, view.nowISO)}
+                      />
                     </button>
                     {selected && (
                       <AlertDetail
@@ -157,18 +161,33 @@ export function WeatherAlertsPanel({
   );
 }
 
-/** Badge, name without the word the badge already says, and the abbreviated places beneath it — enough to scan the list without opening anything. */
-function AlertHeading({ alert, extra }: { alert: WeatherAlert; extra: string | null }) {
+/**
+ * Badge, name without the word the badge already says, and beneath it the
+ * coverage counties (plus, in a list row, when it ends). Nothing here
+ * truncates: in the narrow sidebar a long name or place list wraps instead of
+ * ending in an ellipsis, since a host reads this at a glance mid-broadcast.
+ */
+function AlertHeading({
+  alert,
+  extra,
+  timing,
+  note,
+}: {
+  alert: WeatherAlert;
+  extra: string | null;
+  timing?: string;
+  note?: string | null;
+}) {
   const { badge, name } = alertLabels(alert);
-  const places = abbreviateAreas(alert.areaDesc);
+  const sub = [alertPlaces(alert), timing, note].filter(Boolean).join(" · ");
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="flex min-w-0 items-center gap-2">
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
         <Badge variant={TIER_VARIANT[alert.tier]}>{badge}</Badge>
-        <span className="min-w-0 truncate text-sm font-semibold text-ink-900">{name}</span>
+        <span className="min-w-0 break-words text-sm font-semibold text-ink-900">{name}</span>
         {extra && <span className="shrink-0 text-xs text-ink-400">{extra}</span>}
       </span>
-      {places && <span className="truncate text-xs text-ink-500">{places}</span>}
+      {sub && <span className="break-words text-xs text-ink-500">{sub}</span>}
     </span>
   );
 }
