@@ -226,6 +226,17 @@ repo and a project's history, not the version number.
 | `20261007160100_resources_bookings_capacity_rules.sql`                 | 2026-10-07 | 2026-10-07 |
 | `20261008120000_underwriting_copy_rotation_weights.sql`                | 2026-10-07 | 2026-10-07 |
 | `20261008120100_resources_underwriting_rotation_weights.sql`           | 2026-10-07 | 2026-10-07 |
+| `20261008180000_resources_workflow_overviews.sql`                      | 2026-10-08 | 2026-10-08 |
+| `20261008190000_resources_reconcile_overviews.sql`                     | 2026-10-08 | 2026-10-08 |
+| `20261008200000_resources_reconcile_editor_guides.sql`                 | 2026-10-08 | 2026-10-08 |
+| `20261008210000_resources_contextual_workflow_links.sql`               | 2026-10-08 | 2026-10-08 |
+| `20261008220000_resources_contextual_detailed_links.sql`               | 2026-10-08 | 2026-10-08 |
+| `20261008221000_resources_contextual_cross_tool_links.sql`             | 2026-10-08 | 2026-10-08 |
+| `20261008230000_resources_reconcile_duplicate_traffic_guide.sql`       | 2026-10-08 | 2026-10-08 |
+| `20261008235000_resources_remaining_contextual_links.sql`              | 2026-10-08 | 2026-10-08 |
+| `20261008235500_resources_reconciled_workflow_overviews.sql`           | 2026-10-08 | 2026-10-08 |
+| `20261008235900_resources_contextual_sop_crosslinks.sql`               | 2026-10-08 | 2026-10-08 |
+| `20261009130000_resources_log_florida_news_exchange.sql`               | 2026-10-08 | 2026-10-08 |
 | `20261009120000_resources_navigation_shapes.sql`                       | 2026-10-07 | 2026-10-07 |
 | `20261009140000_log_weather_alerts.sql`                                | 2026-10-08 | 2026-10-08 |
 | `20261009150000_resources_log_weather_alerts.sql`                      | 2026-10-08 | 2026-10-08 |
@@ -246,6 +257,19 @@ applied migration this repo doesn't have, except the one noted below. (The five
 2026-08-07, ahead of their own filename timestamp — the timestamp prefix is a
 sequencing identifier chosen when the files were written, not a claim about
 when they'd be applied.)
+
+## Resources content migrations recorded 2026-10-08
+
+Ten Resources content migrations (`20261008180000` through `20261008235900`) were
+found already present on both projects when `db:check` flagged them as unrecorded: their
+guides and links were live, but they were run outside the migration tool, so neither
+project's migration history lists them and the dates above are the day they were
+verified, not the day they ran. `20261009130000_resources_log_florida_news_exchange.sql`
+had not been run on either project; its two release notes and the rundown guide were
+applied 2026-10-08. Its first statement (the Sources guide) was deliberately **not**
+run: `20261009150000_resources_log_weather_alerts.sql` had already replaced that guide
+with a version that includes both the Florida News Exchange and Weather alerts sections,
+and running the older body afterwards would have removed the alerts section.
 
 ## Known discrepancy: `harden_functions`
 
