@@ -15,46 +15,31 @@ import { SourceHeader } from "../source-header";
 // needs to re-run that check often enough to notice — see log-poller.tsx.
 const POLL_INTERVAL_MS = 5 * 60_000;
 
-function formatSize(bytes: number): string {
-  return bytes >= 1_000_000
-    ? `${(bytes / 1_000_000).toFixed(1)} MB`
-    : `${Math.round(bytes / 1000)} KB`;
-}
-
-function Version({ item }: { item: FneItem }) {
+function Version({ item, showKind }: { item: FneItem; showKind: boolean }) {
   return (
-    <li className="flex flex-col gap-2 border-t border-line px-5 py-3 first:border-t-0">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Badge variant="accent">{FNE_KIND_LABELS[item.kind]}</Badge>
+    <li className="flex flex-col gap-3 border-t border-line px-5 py-4 first:border-t-0">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        {showKind && <Badge variant="accent">{FNE_KIND_LABELS[item.kind]}</Badge>}
         {item.holdNote && <Badge variant="warning">{item.holdNote}</Badge>}
         <span className="text-ink-500">{formatStationTimestamp(item.publishedAt)}</span>
-        {item.audioBytes !== null && (
-          <span className="text-ink-500">· {formatSize(item.audioBytes)}</span>
-        )}
-        <TextLink href={item.link} target="_blank" rel="noreferrer" className="ml-auto">
-          Open on PRX
-        </TextLink>
-        <PrimaryLink href={buildFneLibraryHandoffPath(item)}>Add to library</PrimaryLink>
+        <span className="ml-auto flex items-center gap-3">
+          <TextLink href={item.link} target="_blank" rel="noreferrer">
+            Open on PRX
+          </TextLink>
+          <PrimaryLink href={buildFneLibraryHandoffPath(item)}>Add to library</PrimaryLink>
+        </span>
       </div>
 
       {item.audioUrl ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <audio controls preload="none" src={item.audioUrl} className="h-9 w-full max-w-md">
-            <track kind="captions" />
-          </audio>
-          <TextLink href={item.audioUrl} download rel="noreferrer">
-            Download
-          </TextLink>
-        </div>
+        <audio controls preload="none" src={item.audioUrl} className="h-9 w-full max-w-md">
+          <track kind="captions" />
+        </audio>
       ) : (
         <p className="text-sm text-ink-500">No audio attached.</p>
       )}
 
       {item.description && (
-        <details className="text-sm text-ink-700">
-          <summary className="cursor-pointer font-semibold text-ink-900">Feed description</summary>
-          <p className="mt-2 max-w-prose whitespace-pre-wrap">{item.description}</p>
-        </details>
+        <p className="max-w-prose whitespace-pre-wrap text-sm text-ink-700">{item.description}</p>
       )}
     </li>
   );
@@ -69,8 +54,8 @@ export default async function FloridaNewsExchangePage() {
       <SourceHeader title="Florida News Exchange" />
 
       <p className="mb-4 text-sm text-ink-500">
-        Stories other Florida stations share through PRX, newest first. A wrap and its cut are
-        listed together. Check a story&apos;s hold note and station tags in its copy before it airs.
+        Stories other Florida stations share through PRX, from the last 24 hours, newest first. The
+        description is often only a summary; the full script can be on the story&apos;s PRX page.
       </p>
 
       {refreshError && (
@@ -100,7 +85,11 @@ export default async function FloridaNewsExchangePage() {
               </CardHeader>
               <ul>
                 {story.versions.map((item) => (
-                  <Version key={item.guid} item={item} />
+                  <Version
+                    key={item.guid}
+                    item={item}
+                    showKind={item.kind !== "other" || story.versions.length > 1}
+                  />
                 ))}
               </ul>
             </Card>

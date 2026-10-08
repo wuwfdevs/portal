@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TextLink } from "@/components/ui/primary-link";
+import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { RUNDOWN_STATUS } from "@/lib/log/status-badges";
@@ -1223,15 +1223,12 @@ export default async function RundownDetailPage({
         {fne.stories.length > 0 ? (
           <ul className="flex flex-col gap-2">
             {fne.stories.slice(0, FNE_SIDEBAR_STORIES).map((story) => (
-              <li key={story.versions[0]!.guid} className="text-xs text-ink-700">
-                <span className="mr-1.5 font-mono text-ink-400 tabular-nums">
-                  {formatStationTimeHM(story.latestAt)}
-                </span>
+              <li key={story.versions[0]!.guid} className="text-xs">
                 <a
                   href={story.versions[0]!.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-brand-link hover:underline"
+                  className="font-semibold text-ink-900 hover:text-brand-link hover:underline"
                 >
                   {story.title}
                 </a>
@@ -1243,14 +1240,15 @@ export default async function RundownDetailPage({
         ) : (
           <p className="text-xs text-ink-400">No stories in the last 24 hours.</p>
         )}
-        <a
+        <SecondaryLink
           href="/log/sources/fne"
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block text-xs font-semibold text-brand-link hover:underline"
+          size="sm"
+          className="mt-3 w-full"
         >
           All stories
-        </a>
+        </SecondaryLink>
       </Card>
 
       {(!live || wrapUpVisible) && (
