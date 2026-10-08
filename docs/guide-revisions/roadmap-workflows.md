@@ -17,10 +17,3 @@ The [Roadmap board](https://tools.wuwf.org/roadmap) is a channel for collecting 
 Read the current card or request page for its actual status and discussion. Do not infer that a popular proposal is approved or that a proposed change is ready to deploy. When a request becomes implemented, link the relevant release note or tool guide so the original requester can learn what changed.
 
 **Review before publication:** Check actual status names, voting and permission controls against the current Roadmap UI before expanding this into click-by-click instructions.
-
-## Direct portal screen links
-
-Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
-
-- [Board](https://tools.wuwf.org/roadmap)
-- [New request](https://tools.wuwf.org/roadmap/new)
