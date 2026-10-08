@@ -205,6 +205,12 @@ export function TranscriptWorkspace({
     );
   }
 
+  /** Off → on doubles as "take me back to the playhead". */
+  function toggleFollow() {
+    setFollow((current) => !current);
+    if (!follow) scrollToActive();
+  }
+
   const scrollToActive = useCallback(() => {
     const root = transcriptRef.current;
     if (!root || activeIndex < 0) return;
@@ -551,11 +557,7 @@ export function TranscriptWorkspace({
           }))}
           onSelectMark={handleSelectFromRail}
           follow={follow}
-          onToggleFollow={() => {
-            // Off → on doubles as "take me back to the playhead".
-            setFollow((current) => !current);
-            if (!follow) scrollToActive();
-          }}
+          onToggleFollow={toggleFollow}
         />
 
         <div className={cn("flex-col gap-4", pane === "transcript" ? "flex" : "hidden lg:flex")}>
@@ -626,6 +628,21 @@ export function TranscriptWorkspace({
               segments={segments}
               speakers={speakers}
             />
+            {/* The docked player has no room for this, so on a phone it lives
+                with the transcript it controls. */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              aria-pressed={follow}
+              onClick={toggleFollow}
+              className={cn(
+                "ml-auto min-h-11 px-4 lg:hidden",
+                follow && "border-brand-primary text-brand-link",
+              )}
+            >
+              {follow ? "Following" : "Follow"}
+            </Button>
             <span className="max-lg:hidden">
               <ShortcutsHelp />
             </span>
@@ -658,7 +675,7 @@ export function TranscriptWorkspace({
                   // reporter takes over, instead of fighting them for the pane.
                   onWheel={() => setFollow(false)}
                   onTouchMove={() => setFollow(false)}
-                  className="max-h-[max(20rem,calc(100dvh-22rem))] overflow-y-auto rounded border border-line py-2 pb-24 lg:max-h-[max(24rem,calc(100vh-17rem))]"
+                  className="max-h-[max(20rem,calc(100dvh-22rem))] overflow-y-auto py-2 pb-24 lg:rounded lg:border lg:border-line lg:max-h-[max(24rem,calc(100vh-17rem))]"
                 >
                   {segments.map((segment, index) => (
                     <SegmentRow
