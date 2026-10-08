@@ -112,27 +112,6 @@ export async function removeSourceFromProject(
 }
 
 /**
- * How many *other* projects reference this source — feeds the "remove"
- * choice's warning text so deleting entirely doesn't silently pull the
- * ground out from under someone else's project.
- */
-export async function countOtherProjectsForSource(
-  sourceId: string,
-  excludingProjectId: string,
-): Promise<number> {
-  await assertToolAccess("transcription");
-  const supabase = await createClient();
-
-  const { count } = await supabase
-    .from("sw_project_sources")
-    .select("project_id", { count: "exact", head: true })
-    .eq("source_id", sourceId)
-    .neq("project_id", excludingProjectId);
-
-  return count ?? 0;
-}
-
-/**
  * Permanently deletes a source — the destructive half of a source's "remove"
  * choice. Unlike detaching, this affects every project that references it:
  * sw_project_sources/sw_representations (and everything keyed off a

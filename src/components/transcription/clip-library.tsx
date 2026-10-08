@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { formatShortDate } from "@/lib/format";
+import { projectPath, sourcePath } from "@/lib/transcription/links";
 import { formatDuration } from "@/lib/transcription/media";
 import type { LibraryClip } from "@/lib/transcription/clips";
 
@@ -80,14 +81,17 @@ export function ClipLibrary({
         <ul className="flex flex-col gap-3">
           {filtered.map((clip) => {
             const isDocument = clip.locatorKind === "document";
-            const openParams = isDocument
-              ? `page=${clip.pageNumber ?? 1}`
-              : `t=${clip.startMs}&clip=${clip.id}`;
+            const openHref = sourcePath(clip.sourceId, {
+              projectId: clip.projectId,
+              ...(isDocument
+                ? { page: clip.pageNumber ?? 1 }
+                : { t: clip.startMs, clip: clip.id }),
+            });
             return (
               <li key={clip.id} className="rounded border border-line bg-white p-4">
                 <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
                   <Link
-                    href={`/sourcework/${clip.projectId}?source=${clip.sourceId}&${openParams}`}
+                    href={openHref}
                     className="font-semibold text-brand-link"
                   >
                     {clip.title}
@@ -106,7 +110,11 @@ export function ClipLibrary({
 
                 <p className="text-xs text-ink-500">
                   <Link
-                    href={`/sourcework/${clip.projectId}?source=${clip.sourceId}`}
+                    href={
+                      showProjectMeta
+                        ? projectPath(clip.projectId)
+                        : sourcePath(clip.sourceId, { projectId: clip.projectId })
+                    }
                     className="text-brand-link"
                   >
                     {showProjectMeta ? clip.projectTitle : clip.sourceTitle}

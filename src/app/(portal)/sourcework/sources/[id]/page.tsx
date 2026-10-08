@@ -20,7 +20,7 @@ import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import { SourceActionsMenu } from "../../[id]/source-actions-menu";
-import { countOtherProjectsForSource } from "../../[id]/source-actions";
+import { projectPath, sourcePath } from "@/lib/transcription/links";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
 // than in actions.ts, and docs/sourcework-design.md §8.6 on why it's needed
@@ -40,19 +40,33 @@ export const maxDuration = 300;
  * document text) still doesn't need one, it needs a different workspace
  * body, which is what the kind branch below is.
  */
-export default async function SourceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SourceDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ project?: string; t?: string; clip?: string; page?: string }>;
+}) {
   await requireToolAccess("transcription");
   const { id } = await params;
+  const { project: projectParam, t, clip, page } = await searchParams;
+  // ?t= / ?page= / ?clip= arrive from a search result or an excerpt; anything
+  // that isn't a plain number is ignored rather than trusted into a seek.
+  const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
+  const initialPage = page !== undefined && /^\d+$/.test(page) ? Number(page) : null;
 
   const source = await getSourceDetail(id);
   if (!source) notFound();
 
-  // The project a source-scoped action (retry, excerpt creation) revalidates
-  // and links through — earliest-attached, same convention
-  // getPrimaryProjectIdForSource uses elsewhere. Every source reaches this
-  // page having been created through some project's upload flow, so this is
-  // null only if that project was since deleted.
-  const primaryProjectId = source.projects[0]?.id ?? null;
+  // The project this source was opened from, if any — it names the back link and
+  // is the project "Remove from this project" detaches from. `primaryProjectId`
+  // is what a source-scoped action (retry, excerpt creation) revalidates and
+  // links through: that project, else the earliest-attached one. It is null
+  // only if every project that had this source was since deleted.
+  const contextProject = source.projects.find((project) => project.id === projectParam) ?? null;
+  const primaryProjectId = contextProject?.id ?? source.projects[0]?.id ?? null;
+  const otherProjectCount = source.projects.length - (contextProject ? 1 : 0);
+  const returnTo = sourcePath(id, { projectId: contextProject?.id });
   const hasMedia = Boolean(source.originalStoragePath);
   const isDocument = source.kind === "document";
   // See ../../[id]/representation-status-banner.tsx: the file and the text
@@ -62,31 +76,29 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
   const representationStatus = source.transcript?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  const [signedUrl, transcript, excerpts, documentContent, documentExcerpts, otherProjectCount] =
-    await Promise.all([
-      fileReady && source.originalStoragePath
-        ? getSignedMediaUrl(source.originalStoragePath)
-        : Promise.resolve(null),
-      !isDocument && contentReady && source.transcript
-        ? getTranscriptForRepresentation(source.transcript.id)
-        : Promise.resolve({ segments: [], speakers: [] }),
-      isDocument ? Promise.resolve([]) : listExcerptsForSource(id),
-      isDocument && contentReady && source.transcript
-        ? getDocumentContentForRepresentation(source.transcript.id)
-        : Promise.resolve({ pages: [], blocks: [] }),
-      isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
-      // Feeds SourceActionsMenu's "Remove…" choice in the header below, same
-      // as the project workspace's equivalent — see page.tsx there. Not
-      // gated on fileReady — the menu shows whether or not the file itself
-      // is ready.
-      primaryProjectId ? countOtherProjectsForSource(id, primaryProjectId) : Promise.resolve(0),
-    ]);
+  const [signedUrl, transcript, excerpts, documentContent, documentExcerpts] = await Promise.all([
+    fileReady && source.originalStoragePath
+      ? getSignedMediaUrl(source.originalStoragePath)
+      : Promise.resolve(null),
+    !isDocument && contentReady && source.transcript
+      ? getTranscriptForRepresentation(source.transcript.id)
+      : Promise.resolve({ segments: [], speakers: [] }),
+    isDocument ? Promise.resolve([]) : listExcerptsForSource(id),
+    isDocument && contentReady && source.transcript
+      ? getDocumentContentForRepresentation(source.transcript.id)
+      : Promise.resolve({ pages: [], blocks: [] }),
+    isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <PageHeader
         className="mb-6"
-        back={{ href: "/sourcework?tab=sources", label: "Back to sources" }}
+        back={
+          contextProject
+            ? { href: projectPath(contextProject.id), label: contextProject.title }
+            : { href: "/sourcework?tab=sources", label: "Back to sources" }
+        }
         eyebrow={SOURCE_KIND_LABEL[source.kind] ?? source.kind}
         title={source.title}
         description={
@@ -104,7 +116,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
           <>
             <StatusBadge map={projectStatusMap(source.kind)} value={source.status} />
             <SourceActionsMenu
-              projectId={primaryProjectId}
+              projectId={contextProject?.id ?? null}
               sourceId={id}
               sourceTitle={source.title}
               otherProjectCount={otherProjectCount}
@@ -124,7 +136,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
             {source.projects.map((project) => (
               <li key={project.id}>
                 <Link
-                  href={`/sourcework/${project.id}?source=${id}`}
+                  href={projectPath(project.id)}
                   className="text-sm font-semibold text-brand-link"
                 >
                   {project.title}
@@ -143,10 +155,13 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
             errorMessage={source.transcript?.error_message ?? null}
             projectId={primaryProjectId}
             sourceId={id}
-            returnTo={`/sourcework/sources/${id}`}
+            returnTo={returnTo}
           />
           {signedUrl ? (
             <DocumentWorkspace
+              // A fresh mount per distinct ?page= target — the viewer only reads
+              // initialPage in a useState initializer.
+              key={`${id}:${initialPage ?? ""}`}
               projectId={primaryProjectId}
               sourceId={id}
               representationId={source.transcript?.id ?? null}
@@ -154,6 +169,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               pages={documentContent.pages}
               blocks={documentContent.blocks}
               excerpts={documentExcerpts}
+              initialPage={initialPage}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -171,10 +187,15 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
             errorMessage={source.transcript?.error_message ?? null}
             projectId={primaryProjectId}
             sourceId={id}
-            returnTo={`/sourcework/sources/${id}`}
+            returnTo={returnTo}
           />
           {signedUrl && primaryProjectId ? (
             <TranscriptWorkspace
+              // A fresh mount per distinct ?t=/?clip= target. Both only ever seed
+              // a useState/ref once, so a search result that only changes them
+              // while staying on this source would otherwise leave the player and
+              // the highlighted excerpt exactly where they were.
+              key={`${id}:${initialSeekMs ?? ""}:${clip ?? ""}`}
               projectId={primaryProjectId}
               sourceId={id}
               representationId={source.transcript?.id ?? null}
@@ -186,6 +207,8 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               segments={transcript.segments}
               speakers={transcript.speakers}
               clips={excerpts}
+              initialSeekMs={initialSeekMs}
+              highlightClipId={clip ?? null}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -215,11 +238,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
               "Something went wrong with this source."}
           </p>
           {hasMedia && primaryProjectId && (
-            <RetryForm
-              projectId={primaryProjectId}
-              sourceId={id}
-              returnTo={`/sourcework/sources/${id}`}
-            />
+            <RetryForm projectId={primaryProjectId} sourceId={id} returnTo={returnTo} />
           )}
         </Card>
       )}

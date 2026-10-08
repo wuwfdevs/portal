@@ -357,9 +357,8 @@ duration → upload → finish sequence both the new-project form and the add-so
 are gone. Uploads report byte progress through XHR (`lib/storage-upload.ts`, the request storage-js
 makes), run three at a time through `lib/run-queue.ts` (moved out of Underwriting) via
 `useTaskQueue`/`BatchRunPanel`, and are **not resumable** — a retry restarts that file; Supabase's
-TUS endpoint is the open option and needs a client dependency. (2) **The project page has no view
-state**: `?source=` picks the source (`source-switcher.tsx`, `SearchableSelect` + previous/next),
-`?view=excerpts` is the project-wide excerpts; `SourceCardGrid` is deleted. (3) **The Projects list is
+TUS endpoint is the open option and needs a client dependency. (2) **The project screen and the source
+screen are separate** (revised 2026-10-09, see the entry below); `SourceCardGrid` is deleted. (3) **The Projects list is
 paged in the database** through `sw_project_overview` (a `security_invoker` view,
 `20261010120000`), filters `?filter=` (all/mine/attention/empty); search results group by project
 and filter by `?kind=` (`lib/transcription/search-groups.ts`). (4) **Workspace**: the speaker panel
@@ -373,6 +372,27 @@ a multi-hour transcript is the case to watch. (5) Deleting a project is `DeleteP
 (`ConfirmAction`, `describeProjectDeletion`), and `deleteProject` no longer redirects. None of this was
 exercised against a running app in the session that built it (no Supabase egress); the view was
 verified with a rolled-back scenario on preview.
+
+**Sourcework: the project screen and the source screen are separate, and both work on a phone
+(2026-10-09).** Revises point (2) above. The project screen (`/sourcework/[id]`, `page.tsx`) is about
+the project only: its title and background, a **Sources** tab of `SourceCard`s (the same card the
+Source Library uses, `components/transcription/source-card.tsx`) and an **Excerpts** tab
+(`?view=excerpts`) holding the project-wide excerpts and **Export all**, plus the project's own Danger
+zone. It has no player, no transcript and no source switcher; `source-switcher.tsx` is deleted and
+`AddSourceButton` lives in `add-source-button.tsx`. A source is opened as its own screen
+(`/sourcework/sources/[id]`), which is the working surface; `?project=<id>` is only context (the back
+link, and the project "Remove from this project" detaches from) and `?t=`/`?clip=`/`?page=` land on a
+search hit. **Build every link to either screen with `lib/transcription/links.ts`'s
+`projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
+`/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
+(Transcript / Excerpts / Speakers) with the player docked to the bottom and the transcript scrolling
+with the page (see `transcript-workspace.tsx`, `player-bar.tsx`); every `ActionMenu` in the portal opens as
+a bottom sheet there (`useMediaQuery`), and an item may carry `confirm` so a destructive choice reads its
+consequence inside the menu — `SourceActionsMenu`'s "Remove from this project…" and "Delete source…"
+do, and replace the panels that used to overflow the header. `ConfirmAction` (project delete) is
+full-width and larger on a phone. Storage refusals go through `lib/storage-upload-errors.ts`; "exceeded
+the maximum allowed size" is the **project-wide Storage limit** (a bucket can only be stricter —
+`transcription-media` allows 2 GB), which is raised in the Supabase dashboard, not in code.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names

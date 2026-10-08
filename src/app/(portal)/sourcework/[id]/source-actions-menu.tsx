@@ -3,35 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { Button } from "@/components/ui/button";
 import { reindexProjectSearch } from "../actions";
 import { removeSourceFromProject, deleteSourceEntirely } from "./source-actions";
-
-type RemoveStep = "closed" | "choice" | "confirmDelete";
+import { projectPath } from "@/lib/transcription/links";
 
 /**
- * A source's own actions — shared by the project workspace's source pill
- * (always has a projectId) and the standalone Source Detail screen (which
- * only has one when the source is attached to at least one project; an
- * orphaned source detached from everything has none). The two views render
- * the same working surface for a source (docs/sourcework-design.md §7.2), so
- * a single menu with `projectId` nullable stays in sync automatically
- * instead of drifting the way two near-identical copies would. Two jobs:
+ * A source's own actions, on the source screen. Rebuild the search index, and
+ * the two ways out, each with its consequence read in the menu itself
+ * (ActionMenu's `confirm` step) rather than in a panel the page has to make
+ * room for:
  *
- * - Rebuild search index: the Phase 5 backfill for sources transcribed
- *   before search existed, or a manual re-run after a round of corrections
- *   (see the old reindex-button.tsx, folded in here). Reports what actually
- *   happened, including the case that matters most — chunks built but
- *   embeddings skipped — since silence there would look identical to
- *   success. Works with or without a projectId (reindexProjectSearch only
- *   uses it to revalidate the project's own path).
- * - Remove: with a projectId, picking it doesn't act immediately, it asks
- *   *how* — detach this source from just this project (safe: the source and
- *   every other project referencing it are untouched), or delete it
- *   entirely (affects every project referencing it, so that path gets its
- *   own extra confirm on top of the choice itself). Without a projectId
- *   there's nothing to detach *from*, so it goes straight to the delete
- *   confirmation.
+ * - Remove from this project: detaches the source from the project it was
+ *   opened from. Safe — the source and every other project's use of it are
+ *   untouched. Only offered when there is a project to detach from.
+ * - Delete: permanently deletes the source, its transcript and every excerpt
+ *   made from it, in every project that references it.
+ *
+ * Rebuild search index is the Phase 5 backfill for sources transcribed before
+ * search existed, or a manual re-run after a round of corrections. It reports
+ * what actually happened, including the case that matters most — chunks built
+ * but embeddings skipped — since silence there would look identical to success.
  */
 export function SourceActionsMenu({
   projectId,
@@ -39,17 +30,15 @@ export function SourceActionsMenu({
   sourceTitle,
   otherProjectCount,
 }: {
-  /** Null on the Source Detail screen when the source isn't attached to any project — see above. */
+  /** The project this source was opened from; null when it wasn't (or is attached to none). */
   projectId: string | null;
   sourceId: string;
   sourceTitle: string;
-  /** How many *other* projects also reference this source — shapes the choice's warning text. */
+  /** How many *other* projects also reference this source — shapes the consequence text. */
   otherProjectCount: number;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
-  const [step, setStep] = useState<RemoveStep>("closed");
-  const [busy, setBusy] = useState(false);
 
   async function handleReindex() {
     setMessage("Rebuilding search index…");
@@ -76,115 +65,66 @@ export function SourceActionsMenu({
   }
 
   async function handleDetach() {
-    if (!projectId) return; // only reachable from the choice step, which only renders with a projectId
-    setBusy(true);
+    if (!projectId) return { error: "This source isn't opened from a project." };
     const result = await removeSourceFromProject(projectId, sourceId);
-    setBusy(false);
-
-    if (result.error) {
-      setStep("closed");
-      setMessage(result.error);
-      return;
-    }
-    router.push(`/sourcework/${projectId}`);
+    if (result.error) return { error: result.error };
+    router.push(projectPath(projectId));
   }
 
   async function handleDeleteEntirely() {
-    setBusy(true);
     const result = await deleteSourceEntirely(sourceId);
-    setBusy(false);
-
-    if (result.error) {
-      setStep("closed");
-      setMessage(result.error);
-      return;
-    }
-    router.push(projectId ? `/sourcework/${projectId}` : "/sourcework?tab=sources");
+    if (result.error) return { error: result.error };
+    router.push(projectId ? projectPath(projectId) : "/sourcework?tab=sources");
   }
+
+  const others =
+    otherProjectCount > 0
+      ? `${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"}`
+      : null;
 
   return (
     <div className="flex flex-col items-end gap-2">
       <ActionMenu
+        label="Source actions"
+        sheetHeading={<span className="font-semibold">{sourceTitle}</span>}
         items={[
           { label: "Rebuild search index", onClick: handleReindex },
+          ...(projectId
+            ? [
+                {
+                  label: "Remove from this project…",
+                  dividerBefore: true,
+                  onClick: handleDetach,
+                  confirm: {
+                    message: (
+                      <>
+                        Keeps the recording, its transcript and its excerpts. “{sourceTitle}” stays
+                        in the library{others ? ` and in ${others}` : ""}.
+                      </>
+                    ),
+                    confirmLabel: "Remove from this project",
+                  },
+                },
+              ]
+            : []),
           {
-            label: projectId ? "Remove…" : "Delete…",
-            onClick: () => setStep(projectId ? "choice" : "confirmDelete"),
-            variant: "danger",
+            label: "Delete source…",
+            variant: "danger" as const,
+            dividerBefore: !projectId,
+            onClick: handleDeleteEntirely,
+            confirm: {
+              message: (
+                <>
+                  <strong>This can’t be undone.</strong> Permanently deletes “{sourceTitle}”, its
+                  transcript, and every excerpt made from it
+                  {others ? `, and removes it from ${others}` : ""}.
+                </>
+              ),
+              confirmLabel: "Yes, delete permanently",
+            },
           },
         ]}
       />
-
-      {step === "choice" && projectId && (
-        <div className="w-full max-w-xs rounded border border-line bg-white p-3 shadow-sm">
-          <p className="mb-2.5 text-left text-xs leading-relaxed text-ink-700">
-            Remove &ldquo;{sourceTitle}&rdquo; how?
-          </p>
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              onClick={handleDetach}
-              disabled={busy}
-              className="rounded border border-line px-3 py-2 text-left hover:bg-panel-50 disabled:cursor-not-allowed"
-            >
-              <span className="block text-sm font-semibold text-ink-900">
-                {busy ? "Removing…" : "Detach from this project"}
-              </span>
-              <span className="block text-xs text-ink-500">
-                Keeps the source and its data. Stays in the library
-                {otherProjectCount > 0
-                  ? ` and in ${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"}`
-                  : ""}
-                .
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep("confirmDelete")}
-              className="rounded border border-danger/30 bg-danger/[0.04] px-3 py-2 text-left hover:bg-danger/10"
-            >
-              <span className="block text-sm font-semibold text-danger">
-                Delete this source entirely
-              </span>
-              <span className="block text-xs text-ink-700">
-                Permanently deletes the recording, its transcript, and every excerpt made from it
-                {otherProjectCount > 0
-                  ? ` — including removing it from ${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"}`
-                  : ""}
-                .
-              </span>
-            </button>
-          </div>
-          <Button type="button" variant="link" onClick={() => setStep("closed")} className="mt-2">
-            Cancel
-          </Button>
-        </div>
-      )}
-
-      {step === "confirmDelete" && (
-        <div className="w-full max-w-xs rounded border border-danger/30 bg-danger/[0.04] p-3">
-          <p className="mb-2.5 text-left text-xs leading-relaxed text-ink-700">
-            This can&apos;t be undone
-            {otherProjectCount > 0
-              ? ` and affects ${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"} too`
-              : ""}
-            . Delete &ldquo;{sourceTitle}&rdquo; entirely?
-          </p>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setStep(projectId ? "choice" : "closed")}
-            >
-              {projectId ? "Back" : "Cancel"}
-            </Button>
-            <Button type="button" variant="danger" onClick={handleDeleteEntirely} disabled={busy}>
-              {busy ? "Deleting…" : "Yes, delete permanently"}
-            </Button>
-          </div>
-        </div>
-      )}
-
       {message && <span className="max-w-xs text-right text-xs text-ink-400">{message}</span>}
     </div>
   );
