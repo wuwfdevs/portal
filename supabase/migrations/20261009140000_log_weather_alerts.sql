@@ -11,7 +11,7 @@
 --     readings and surfaces that still read the string.
 --   * alerts_checked_at: the last SUCCESSFUL check; null if none ever succeeded.
 --   * alerts_attempted_at: the last attempt of any outcome — the alerts' own
---     5-minute staleness clock keys on this, so a failing check retries on
+--     15-minute staleness clock keys on this, so a failing check retries on
 --     schedule rather than on every page render.
 --   * alerts_check_failed: the latest attempt errored; the stored alerts are
 --     then the last good ones, shown labelled with alerts_checked_at.
