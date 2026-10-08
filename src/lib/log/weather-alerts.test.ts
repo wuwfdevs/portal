@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeAlerts,
   alertFullText,
+  alertsDisplay,
   alertLeadText,
   alertTiming,
   alertsCheckState,
@@ -221,5 +222,22 @@ describe("alertLeadText / alertFullText", () => {
   it("has no full text when it would only repeat the lead", () => {
     expect(alertFullText(alert({ description: "Only this." }))).toBeNull();
     expect(alertFullText(alert({}))).toBeNull();
+  });
+});
+
+describe("alertsDisplay", () => {
+  it("draws nothing for a checked, empty list", () => {
+    expect(alertsDisplay([], "none")).toBe("hidden");
+    expect(alertsDisplay([], "current")).toBe("hidden");
+  });
+  it("says it could not verify when alerts were never checked", () => {
+    expect(alertsDisplay([], "unknown")).toBe("unverified");
+  });
+  it("does not treat a failed check after an all-clear as all clear", () => {
+    expect(alertsDisplay([], "stale")).toBe("unverified");
+  });
+  it("lists alerts, current or stale", () => {
+    expect(alertsDisplay([alert({})], "current")).toBe("list");
+    expect(alertsDisplay([alert({})], "stale")).toBe("list");
   });
 });

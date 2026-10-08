@@ -227,3 +227,23 @@ export function alertFullText(alert: WeatherAlert): string | null {
   const full = parts.join("\n\n");
   return full === alertLeadText(alert) ? null : full;
 }
+
+export type AlertsDisplay =
+  /** Draw nothing. */
+  | "hidden"
+  /** Draw the "couldn't verify" notice instead of a list. */
+  | "unverified"
+  /** Draw the panel; there is at least one alert. */
+  | "list";
+
+/**
+ * What the panel draws. The check state alone is not enough: a failed check
+ * after an all-clear leaves a "stale" state with an empty list, which must
+ * still say it could not verify (an empty stale list is not "all clear"), and
+ * which has no lead alert to name.
+ */
+export function alertsDisplay(alerts: WeatherAlert[], state: AlertsCheckState): AlertsDisplay {
+  if (state === "unknown") return "unverified";
+  if (alerts.length === 0) return state === "stale" ? "unverified" : "hidden";
+  return "list";
+}

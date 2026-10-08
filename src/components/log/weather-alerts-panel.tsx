@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import {
   alertFullText,
+  alertsDisplay,
   alertIssuedLabel,
   alertLeadText,
   alertTiming,
@@ -67,12 +68,16 @@ export function WeatherAlertsPanel({
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (view.state === "none") return null;
-  if (view.state === "unknown") {
+  const display = alertsDisplay(view.alerts, view.state);
+  if (display === "hidden") return null;
+  if (display === "unverified") {
     return (
       <Alert variant="warning">
-        Couldn&apos;t check weather alerts. Verify with the National Weather Service before airing a
-        weather read.
+        Couldn&apos;t check weather alerts
+        {view.checkedAt
+          ? ` (the last check, ${formatStationTimestamp(view.checkedAt)}, found none)`
+          : ""}
+        . Verify with the National Weather Service before airing a weather read.
       </Alert>
     );
   }

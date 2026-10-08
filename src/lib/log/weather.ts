@@ -137,8 +137,12 @@ export async function getCurrentWeatherReading(): Promise<WeatherResult> {
     }
   }
 
-  // The forecast is fresh enough, but alerts run on their own shorter clock.
-  if (reading && !isStale) {
+  // Alerts run on their own shorter clock, independent of the forecast: a
+  // forecast refresh that just succeeded already rechecked them, but one that
+  // failed (the forecast endpoints can be down while /alerts/active is up)
+  // must not leave alerts unchecked behind it.
+  const forecastJustRefreshed = isStale && refreshError === null;
+  if (reading && !forecastJustRefreshed) {
     const alertsStale = checkStaleness(
       reading.alerts_attempted_at ?? reading.last_updated_at,
       WEATHER_ALERTS_STALE_THRESHOLD_MS,
