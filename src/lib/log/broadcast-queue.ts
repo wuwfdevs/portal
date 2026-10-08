@@ -23,6 +23,7 @@
  */
 
 import type { LogMissReason } from "@/lib/database.types";
+import { backoffDelayMs } from "@/lib/backoff";
 
 interface QueuedActionBase {
   /** Client-generated UUID. For an outcome, it is also the log_broadcast_events id. */
@@ -70,8 +71,7 @@ const RETRY_CAP_MS = 30_000;
 
 /** Delay before retry number `attempts` (1-based) after a network failure: 1s, 2s, 4s … capped at 30s. */
 export function retryDelayMs(attempts: number): number {
-  const exponent = Math.max(0, attempts - 1);
-  return Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** exponent);
+  return backoffDelayMs(attempts, { baseMs: RETRY_BASE_MS, capMs: RETRY_CAP_MS });
 }
 
 /**
