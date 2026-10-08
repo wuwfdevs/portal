@@ -29,6 +29,8 @@ export interface WeatherAlertsView {
   state: AlertsCheckState;
   /** Last successful check, ISO. */
   checkedAt: string | null;
+  /** The instant the server rendered at, so timing text ("begins…", "until…") is identical on both sides of hydration. */
+  nowISO: string;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -112,6 +114,7 @@ export function WeatherAlertsPanel({
               its words sit directly under the header and the rest follow. */}
           <AlertDetail
             alert={lead}
+            nowISO={view.nowISO}
             textClassName={textClassName}
             className={cn("border-t border-line", padding)}
           />
@@ -131,11 +134,14 @@ export function WeatherAlertsPanel({
                       )}
                     >
                       <AlertHeading alert={alert} extra={null} />
-                      <span className="shrink-0 text-xs text-ink-400">{alertTiming(alert)}</span>
+                      <span className="shrink-0 text-xs text-ink-400">
+                        {alertTiming(alert, view.nowISO)}
+                      </span>
                     </button>
                     {selected && (
                       <AlertDetail
                         alert={alert}
+                        nowISO={view.nowISO}
                         textClassName={textClassName}
                         className={cn("border-t border-line", padding)}
                       />
@@ -169,16 +175,23 @@ function AlertHeading({ alert, extra }: { alert: WeatherAlert; extra: string | n
 
 function AlertDetail({
   alert,
+  nowISO,
   textClassName,
   className,
 }: {
   alert: WeatherAlert;
+  nowISO: string;
   textClassName: string;
   className?: string;
 }) {
   const full = alertFullText(alert);
   const leadText = alertLeadText(alert);
-  const meta = [alert.areaDesc, alertIssuedLabel(alert), alert.senderName, alertTiming(alert)]
+  const meta = [
+    alert.areaDesc,
+    alertIssuedLabel(alert),
+    alert.senderName,
+    alertTiming(alert, nowISO),
+  ]
     .filter(Boolean)
     .join(" · ");
   return (

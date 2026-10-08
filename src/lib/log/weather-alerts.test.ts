@@ -27,12 +27,14 @@ function alert(overrides: Partial<WeatherAlert>): WeatherAlert {
     event: "Flood Watch",
     tier: "watch",
     severity: "Moderate",
+    urgency: "Expected",
     headline: null,
     description: null,
     instruction: null,
     areaDesc: null,
     senderName: null,
     issuedAt: "2026-10-08T06:00:00Z",
+    startsAt: null,
     endsAt: null,
     ...overrides,
   };
@@ -156,11 +158,13 @@ describe("activeAlerts", () => {
 
 describe("alertTiming", () => {
   it("says in effect when NWS sets no end", () => {
-    expect(alertTiming(alert({ endsAt: null }))).toBe("in effect");
+    expect(alertTiming(alert({ endsAt: null }), "2026-10-08T18:00:00Z")).toBe("in effect");
   });
   it("words an end in station time", () => {
     // 18:00Z on Sat 2026-10-10 is 1:00 PM CDT.
-    expect(alertTiming(alert({ endsAt: "2026-10-10T18:00:00Z" }))).toBe("until Sat 1:00 PM");
+    expect(alertTiming(alert({ endsAt: "2026-10-10T18:00:00Z" }), "2026-10-08T18:00:00Z")).toBe(
+      "until Sat 1:00 PM",
+    );
   });
 });
 
@@ -303,5 +307,138 @@ describe("abbreviateAreas", () => {
   it("is null when there is no area", () => {
     expect(abbreviateAreas(null)).toBeNull();
     expect(abbreviateAreas(" ; ")).toBeNull();
+  });
+});
+
+describe("alertTiming for a hazard that has not begun", () => {
+  const now = "2026-10-08T18:00:00Z";
+  it("says when it begins", () => {
+    // 23:00Z on Fri 2026-10-09 is 6:00 PM CDT.
+    expect(alertTiming(alert({ startsAt: "2026-10-09T23:00:00Z" }), now)).toBe(
+      "begins Fri 6:00 PM",
+    );
+  });
+  it("gives the start and the end", () => {
+    expect(
+      alertTiming(alert({ startsAt: "2026-10-09T23:00:00Z", endsAt: "2026-10-10T18:00:00Z" }), now),
+    ).toBe("begins Fri 6:00 PM, until Sat 1:00 PM");
+  });
+  it("ignores a start already past", () => {
+    expect(alertTiming(alert({ startsAt: "2026-10-08T06:00:00Z" }), now)).toBe("in effect");
+  });
+});
+
+describe("the range of NWS event names and CAP values", () => {
+  const cases: Array<[string, string, string]> = [
+    // event, severity, expected tier
+    ["Hurricane Warning", "Extreme", "warning"],
+    ["Storm Surge Warning", "Extreme", "warning"],
+    ["Tornado Warning", "Severe", "warning"],
+    ["Extreme Wind Warning", "Extreme", "warning"],
+    ["Flash Flood Warning", "Severe", "warning"],
+    ["Special Marine Warning", "Severe", "warning"],
+    ["Law Enforcement Warning", "Severe", "warning"],
+    ["Shelter In Place Warning", "Severe", "warning"],
+    ["Civil Emergency Message", "Extreme", "warning"],
+    ["Civil Emergency Message", "Unknown", "warning"],
+    ["Child Abduction Emergency", "Severe", "warning"],
+    ["911 Telephone Outage Emergency", "Severe", "warning"],
+    ["Local Area Emergency", "Severe", "warning"],
+    ["Evacuation - Immediate", "Extreme", "warning"],
+    ["Evacuation - Immediate", "Unknown", "warning"],
+    ["Hurricane Watch", "Severe", "watch"],
+    ["Tropical Storm Watch", "Severe", "watch"],
+    ["Tornado Watch", "Severe", "watch"],
+    ["Flood Watch", "Moderate", "watch"],
+    ["Small Craft Advisory", "Minor", "statement"],
+    ["Dense Fog Advisory", "Minor", "statement"],
+    ["Rip Current Statement", "Minor", "statement"],
+    ["Tropical Cyclone Local Statement", "Minor", "statement"],
+    ["Hurricane Local Statement", "Minor", "statement"],
+    ["Special Weather Statement", "Moderate", "statement"],
+    ["Severe Weather Statement", "Severe", "statement"],
+    ["Beach Hazards Statement", "Minor", "statement"],
+    ["Hydrologic Outlook", "Minor", "statement"],
+    ["Administrative Message", "Unknown", "statement"],
+  ];
+  it.each(cases)("%s (%s) is a %s", (event, severity, tier) => {
+    expect(classifyAlertTier(event, severity)).toBe(tier);
+  });
+
+  it("gives every one of those a non-empty badge and name", () => {
+    for (const [event, severity] of cases) {
+      const labels = alertLabels({ event, tier: classifyAlertTier(event, severity) });
+      expect(labels.badge.length).toBeGreaterThan(0);
+      expect(labels.name.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("drops system traffic: Cancel, Ack, Error, tests and drafts", () => {
+    const alerts = parseNwsAlerts({
+      features: [
+        feature({ event: "Hurricane Warning", messageType: "Cancel" }),
+        feature({ event: "Hurricane Warning", messageType: "Ack" }),
+        feature({ event: "Hurricane Warning", messageType: "Error" }),
+        feature({ event: "Test" }),
+        feature({ event: "Hurricane Warning", status: "Draft" }),
+        feature({ event: "Hurricane Warning", status: "System" }),
+        feature({ event: "Hurricane Warning", messageType: "Alert", status: "Actual" }),
+        feature({ event: "Hurricane Warning", messageType: "Update", status: "Actual" }),
+      ],
+    });
+    expect(alerts).toHaveLength(2);
+  });
+
+  it("ranks an unrecognized severity or urgency last, without failing", () => {
+    const sorted = sortAlerts([
+      alert({
+        id: "odd",
+        event: "A Warning",
+        tier: "warning",
+        severity: "Catastrophic",
+        urgency: "Soon",
+      }),
+      alert({
+        id: "minor",
+        event: "B Warning",
+        tier: "warning",
+        severity: "Minor",
+        urgency: "Immediate",
+      }),
+    ]);
+    expect(sorted.map((a) => a.id)).toEqual(["minor", "odd"]);
+  });
+
+  it("breaks a severity tie by urgency, most immediate first", () => {
+    const sorted = sortAlerts([
+      alert({ id: "future", tier: "watch", severity: "Severe", urgency: "Future" }),
+      alert({ id: "immediate", tier: "watch", severity: "Severe", urgency: "Immediate" }),
+      alert({ id: "past", tier: "watch", severity: "Severe", urgency: "Past" }),
+    ]);
+    expect(sorted.map((a) => a.id)).toEqual(["immediate", "future", "past"]);
+  });
+
+  it("fills in fields a stored alert predates", () => {
+    const [stored] = readStoredAlerts([
+      { id: "x", event: "Flood Watch", tier: "watch", severity: "Moderate" },
+    ]);
+    expect(stored).toMatchObject({ urgency: "Unknown", startsAt: null });
+  });
+
+  it("reads onset as the start, falling back to effective", () => {
+    const [withOnset] = parseNwsAlerts({
+      features: [
+        feature({
+          event: "Flood Watch",
+          onset: "2026-10-09T23:00:00Z",
+          effective: "2026-10-08T12:00:00Z",
+        }),
+      ],
+    });
+    expect(withOnset!.startsAt).toBe("2026-10-09T23:00:00Z");
+    const [withEffective] = parseNwsAlerts({
+      features: [feature({ event: "Flood Watch", effective: "2026-10-08T12:00:00Z" })],
+    });
+    expect(withEffective!.startsAt).toBe("2026-10-08T12:00:00Z");
   });
 });
