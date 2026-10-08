@@ -144,7 +144,9 @@ export async function getCurrentWeatherReading(): Promise<WeatherResult> {
   const forecastJustRefreshed = isStale && refreshError === null;
   if (reading && !forecastJustRefreshed) {
     const alertsStale = checkStaleness(
-      reading.alerts_attempted_at ?? reading.last_updated_at,
+      // Never attempted (a reading saved before the alerts columns existed)
+      // is stale by definition: checkStaleness treats null as due now.
+      reading.alerts_attempted_at,
       WEATHER_ALERTS_STALE_THRESHOLD_MS,
       new Date().toISOString(),
     );
