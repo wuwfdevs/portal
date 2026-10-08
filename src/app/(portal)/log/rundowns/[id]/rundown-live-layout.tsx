@@ -116,7 +116,7 @@ export function RundownLiveLayout({
                 // the zoom to stay inside the visible window) — otherwise the
                 // bottom of a tall sidebar is reachable only once the main
                 // pane has scrolled to its end.
-                "lg:max-h-[calc(100vh_/_var(--text-zoom,1)_-_7rem)] lg:overflow-y-auto lg:overscroll-contain",
+                "lg:max-h-[calc(100vh_/_var(--text-zoom,1)_-_7rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-6",
                 tab === "context" ? "flex" : "hidden",
               )}
             >
