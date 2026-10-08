@@ -53,14 +53,22 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 /**
- * Active NWS alerts as one quiet row that opens in place — resting shows only
- * the most severe alert's name and how many more; opening lists them all, with
- * the most severe already read out; any one expands to its words. Same shape
- * as the forecast strip's chip-then-paragraph disclosure, and rendered under
- * it on every screen that shows the strip (the weather page, a weather item's
- * card) and above the sidebar's collapsed "Full forecast". Draws nothing when
- * the check succeeded and nothing is active; says so plainly when alerts have
- * never been checked, rather than implying all clear.
+ * Active NWS alerts, disclosed one level at a time so nothing long ever
+ * stands between a host and the rest of the list:
+ *
+ *   closed   one row: the most severe alert, its counties, "+ N";
+ *   open     the row becomes a title ("7 active alerts") and every alert is a
+ *            compact row beneath it, the lead included, so no alert appears
+ *            twice;
+ *   alert    one alert selected opens in place; if NWS issued it as several
+ *            (a warning per county, a flood warning per river) those are a
+ *            short list of rows, and only one is read at a time.
+ *
+ * Same chip-then-text shape as the forecast strip, rendered under it on the
+ * weather page and a weather item's card, and above the sidebar's collapsed
+ * "Full forecast". Draws nothing when the check succeeded and nothing is
+ * active; says so plainly when alerts have never been checked, rather than
+ * implying all clear.
  */
 export function WeatherAlertsPanel({
   view,
@@ -71,6 +79,8 @@ export function WeatherAlertsPanel({
 }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** The member read inside the selected alert; null means the first. "" means none. */
+  const [memberId, setMemberId] = useState<string | null>(null);
 
   const display = alertsDisplay(view.alerts, view.state);
   if (display === "hidden") return null;
@@ -87,9 +97,13 @@ export function WeatherAlertsPanel({
   }
 
   const { alerts } = view;
-  const [lead, ...rest] = alerts as [WeatherAlert, ...WeatherAlert[]];
+  const lead = alerts[0]!;
   const small = textClassName === "text-xs";
   const padding = small ? "px-2.5" : "px-3";
+  const staleNote =
+    view.state === "stale" && view.checkedAt
+      ? `Last checked ${formatStationTimestamp(view.checkedAt)}`
+      : null;
 
   return (
     <div className="overflow-hidden rounded border border-line bg-white">
@@ -99,63 +113,62 @@ export function WeatherAlertsPanel({
         onClick={() => setOpen((value) => !value)}
         className={cn("flex w-full items-start gap-2 py-2 text-left hover:bg-panel-50", padding)}
       >
-        <AlertHeading
-          alert={lead}
-          extra={rest.length > 0 ? `+ ${rest.length}` : null}
-          note={
-            view.state === "stale" && view.checkedAt
-              ? `Last checked ${formatStationTimestamp(view.checkedAt)}`
-              : null
-          }
-        />
+        {open ? (
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-sm font-semibold text-ink-900">
+              {alerts.length} active {alerts.length === 1 ? "alert" : "alerts"}
+            </span>
+            {staleNote && <span className="text-xs text-ink-500">{staleNote}</span>}
+          </span>
+        ) : (
+          <AlertHeading
+            alert={lead}
+            extra={alerts.length > 1 ? `+ ${alerts.length - 1}` : null}
+            note={staleNote}
+          />
+        )}
         <Chevron open={open} />
       </button>
 
       {open && (
-        <>
-          {/* The header already names the lead alert, so it is not listed again:
-              its words sit directly under the header and the rest follow. */}
-          <AlertDetail
-            alert={lead}
-            nowISO={view.nowISO}
-            textClassName={textClassName}
-            className={padding}
-          />
-          {rest.length > 0 && (
-            <ul>
-              {rest.map((alert) => {
-                const selected = alert.id === selectedId;
-                return (
-                  <li key={alert.id} className="border-t border-line">
-                    <button
-                      type="button"
-                      aria-expanded={selected}
-                      onClick={() => setSelectedId(selected ? null : alert.id)}
-                      className={cn(
-                        "flex w-full items-start gap-2 py-2 text-left hover:bg-panel-50",
-                        padding,
-                      )}
-                    >
-                      <AlertHeading
-                        alert={alert}
-                        extra={null}
-                        timing={alertTiming(alert, view.nowISO)}
-                      />
-                    </button>
-                    {selected && (
-                      <AlertDetail
-                        alert={alert}
-                        nowISO={view.nowISO}
-                        textClassName={textClassName}
-                        className={padding}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
+        <ul>
+          {alerts.map((alert) => {
+            const selected = alert.id === selectedId;
+            return (
+              <li key={alert.id} className="border-t border-line">
+                <button
+                  type="button"
+                  aria-expanded={selected}
+                  onClick={() => {
+                    setSelectedId(selected ? null : alert.id);
+                    setMemberId(null);
+                  }}
+                  className={cn(
+                    "flex w-full items-start gap-2 py-2 text-left hover:bg-panel-50",
+                    padding,
+                  )}
+                >
+                  <AlertHeading
+                    alert={alert}
+                    extra={alert.members ? `${alert.members.length} areas` : null}
+                    timing={alertTiming(alert, view.nowISO)}
+                  />
+                  <Chevron open={selected} />
+                </button>
+                {selected && (
+                  <AlertDetail
+                    alert={alert}
+                    nowISO={view.nowISO}
+                    textClassName={textClassName}
+                    padding={padding}
+                    memberId={memberId}
+                    onMember={setMemberId}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );
@@ -193,88 +206,107 @@ function AlertHeading({
 }
 
 /**
- * The words under an alert. A consolidated row (several NWS alerts of one
- * event) shows each as its own block, labelled by where it applies, so a
- * county's own forecast, impacts, contacts or river are never merged away.
+ * The words under a selected alert. One alert: its text. An alert NWS issued
+ * as several (a warning per county group, a flood warning per river): a short
+ * list of rows, one per area, with only one open at a time — the first, until
+ * a host picks another — so a long run of near-identical blocks never has to
+ * be scrolled past.
  */
 function AlertDetail({
   alert,
   nowISO,
   textClassName,
-  className,
+  padding,
+  memberId,
+  onMember,
 }: {
   alert: WeatherAlert;
   nowISO: string;
   textClassName: string;
-  className?: string;
+  padding: string;
+  memberId: string | null;
+  onMember: (id: string | null) => void;
 }) {
   const members = alert.members;
   if (!members) {
     return (
-      <div className={cn("border-t border-line bg-panel-50 py-2.5", className)}>
+      <div className={cn("border-t border-line bg-panel-50 py-2.5", padding)}>
         <AlertBody alert={alert} nowISO={nowISO} textClassName={textClassName} />
       </div>
     );
   }
+  const activeId = memberId === null ? members[0]!.id : memberId;
   return (
-    <div className="border-t border-line bg-panel-50">
-      {members.map((member, index) => (
-        <div
-          key={member.id}
-          className={cn("py-2.5", className, index > 0 && "border-t border-line")}
-        >
-          <AlertBody
-            alert={member}
-            nowISO={nowISO}
-            textClassName={textClassName}
-            label={memberLabel(member, nowISO)}
-          />
-        </div>
-      ))}
-    </div>
+    <ul className="border-t border-line bg-panel-50">
+      {members.map((member, index) => {
+        const active = member.id === activeId;
+        return (
+          <li key={member.id} className={cn(index > 0 && "border-t border-line")}>
+            <button
+              type="button"
+              aria-expanded={active}
+              onClick={() => onMember(active ? "" : member.id)}
+              className={cn(
+                "flex w-full items-start gap-2 py-2 text-left hover:bg-panel-100",
+                padding,
+              )}
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="break-words text-xs font-semibold text-ink-900">
+                  {memberName(member)}
+                </span>
+                <span className="break-words text-xs text-ink-500">
+                  {alertTiming(member, nowISO)}
+                </span>
+              </span>
+              <Chevron open={active} />
+            </button>
+            {active && (
+              <div className={cn("pb-2.5", padding)}>
+                <AlertBody alert={member} nowISO={nowISO} textClassName={textClassName} compact />
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
-/** Where a member applies, and when: "Mobile (Mobile Coastal) · in effect". */
-function memberLabel(member: WeatherAlert, nowISO: string): string {
+/** Where a member applies: "Mobile (Mobile Coastal)". */
+function memberName(member: WeatherAlert): string {
   const places = alertPlaces(member);
   const zones =
     member.areaDesc && member.areaDesc.length <= 40 && member.areaDesc !== places
       ? ` (${member.areaDesc})`
       : "";
-  return [
-    `${places ?? member.areaDesc ?? "Area not stated"}${zones}`,
-    alertTiming(member, nowISO),
-  ].join(" · ");
+  return `${places ?? member.areaDesc ?? "Area not stated"}${zones}`;
 }
 
 function AlertBody({
   alert,
   nowISO,
   textClassName,
-  label,
+  compact = false,
 }: {
   alert: WeatherAlert;
   nowISO: string;
   textClassName: string;
-  label?: string;
+  /** Inside a member row, which already names the place and timing. */
+  compact?: boolean;
 }) {
   const full = alertFullText(alert);
   const leadText = alertLeadText(alert);
-  const meta = [
-    alertPlaces(alert),
-    alertIssuedLabel(alert),
-    alert.senderName,
-    alertTiming(alert, nowISO),
-  ]
+  const meta = (
+    compact
+      ? [alertIssuedLabel(alert), alert.senderName]
+      : [alertPlaces(alert), alertIssuedLabel(alert), alert.senderName, alertTiming(alert, nowISO)]
+  )
     .filter(Boolean)
     .join(" · ");
   return (
     <div className="flex flex-col gap-1.5">
-      {label ? <p className="text-xs font-semibold text-ink-900">{label}</p> : null}
-      <p className="text-xs text-ink-400">
-        {label ? [alertIssuedLabel(alert), alert.senderName].filter(Boolean).join(" · ") : meta}
-      </p>
+      {meta && <p className="text-xs text-ink-400">{meta}</p>}
       {leadText && (
         <p className={cn("whitespace-pre-wrap leading-relaxed text-ink-700", textClassName)}>
           {leadText}
