@@ -10,7 +10,7 @@ Explain the problem before proposing a feature. Include the workflow affected, w
 
 ## Triage and discussion
 
-The Roadmap board is a channel for collecting and curating product work, not a guarantee of implementation or delivery date. Administrators should identify duplicate requests, ask for missing context, group related work, and distinguish confirmed needs from possible solutions. Comments should add evidence or a materially different use case rather than simply repeat support.
+The [Roadmap board](/roadmap) is a channel for collecting and curating product work, not a guarantee of implementation or delivery date. Administrators should identify duplicate requests, ask for missing context, group related work, and distinguish confirmed needs from possible solutions. Comments should add evidence or a materially different use case rather than simply repeat support.
 
 ## Interpret status
 
