@@ -8,9 +8,14 @@
 // source means an entry here, a status loader in lib/log/data-source-status.ts,
 // and its own page under /log/sources/.
 
-import { checkStaleness, NPR_STALE_THRESHOLD_MS, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
+import {
+  checkStaleness,
+  FNE_STALE_THRESHOLD_MS,
+  NPR_STALE_THRESHOLD_MS,
+  WEATHER_STALE_THRESHOLD_MS,
+} from "./staleness";
 
-export type DataSourceKey = "npr" | "weather";
+export type DataSourceKey = "npr" | "weather" | "fne";
 
 export interface DataSourceDefinition {
   key: DataSourceKey;
@@ -35,6 +40,14 @@ export const DATA_SOURCES: readonly DataSourceDefinition[] = [
     description: "The National Weather Service forecast for Pensacola, written for on-air reading.",
     href: "/log/sources/weather",
     staleAfterMs: WEATHER_STALE_THRESHOLD_MS,
+  },
+  {
+    key: "fne",
+    label: "Florida News Exchange",
+    description:
+      "Stories other Florida stations share through PRX, with their copy and audio — wraps, cuts and voicers.",
+    href: "/log/sources/fne",
+    staleAfterMs: FNE_STALE_THRESHOLD_MS,
   },
 ];
 

@@ -8,11 +8,17 @@ import "server-only";
 // reports the most recently retrieved episode, and refreshing happens on the
 // NPR page for a chosen program and date.
 
+import { formatStationTimestamp } from "./timezone";
 import { deriveDataSourceState, type DataSourceKey, type DataSourceState } from "./data-sources";
 import { getLatestNprEpisodeSummary } from "./queries";
 import { isNprCdsConfigured } from "./providers/npr";
+import { getFneStories } from "./fne";
 import { getCurrentWeatherReading } from "./weather";
-import { NPR_STALE_THRESHOLD_MS, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
+import {
+  FNE_STALE_THRESHOLD_MS,
+  NPR_STALE_THRESHOLD_MS,
+  WEATHER_STALE_THRESHOLD_MS,
+} from "./staleness";
 
 export interface DataSourceStatus {
   key: DataSourceKey;
@@ -84,8 +90,31 @@ async function weatherStatus(nowISO: string): Promise<DataSourceStatus> {
   };
 }
 
+async function fneStatus(nowISO: string): Promise<DataSourceStatus> {
+  const { itemCount, fetchedAt, refreshError, stories } = await getFneStories(new Date(nowISO));
+  const newest = stories[0]?.latestAt ?? null;
+  return {
+    key: "fne",
+    state: deriveDataSourceState({
+      // A public feed; there is nothing to configure.
+      configured: true,
+      lastUpdatedAt: fetchedAt,
+      staleAfterMs: FNE_STALE_THRESHOLD_MS,
+      refreshFailed: refreshError !== null,
+      nowISO,
+    }),
+    lastUpdatedAt: fetchedAt,
+    latest: newest ? `${itemCount} stories · newest ${formatStationTimestamp(newest)}` : null,
+    refreshError,
+  };
+}
+
 export async function loadDataSourceStatuses(): Promise<Record<DataSourceKey, DataSourceStatus>> {
   const nowISO = new Date().toISOString();
-  const [npr, weather] = await Promise.all([nprStatus(nowISO), weatherStatus(nowISO)]);
-  return { npr, weather };
+  const [npr, weather, fne] = await Promise.all([
+    nprStatus(nowISO),
+    weatherStatus(nowISO),
+    fneStatus(nowISO),
+  ]);
+  return { npr, weather, fne };
 }
