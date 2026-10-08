@@ -119,7 +119,9 @@ export async function splitSegment(input: {
 
   const { data: segment } = await supabase
     .from("tw_segments")
-    .select("id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words")
+    .select(
+      "id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words",
+    )
     .eq("id", input.segmentId)
     .maybeSingle();
   if (!segment) return { error: "That line no longer exists." };

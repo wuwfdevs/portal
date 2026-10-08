@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { NewProjectForm } from "./new-project-form";
 
-// completeProjectUpload (called from NewProjectForm) can kick off
+// completeSourceUpload (called from the upload forms) can kick off
 // startDocumentProcessing, which schedules a Mistral OCR call via Next's
 // after() for a large scanned document — raised here so that work has room
 // to finish. A Server Action inherits its invoking route's maxDuration;

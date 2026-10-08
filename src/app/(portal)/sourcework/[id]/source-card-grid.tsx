@@ -240,6 +240,7 @@ export function SourceCardGrid({
       {isAdding && (
         <AddSourceModal
           projectId={projectId}
+          hasSources={sources.length > 0}
           onClose={() => setIsAdding(false)}
           onDone={(sourceId) => {
             setIsAdding(false);

@@ -17,7 +17,11 @@ const blocks: SelectableBlock[] = [
 
 describe("resolveDocumentSelection", () => {
   it("resolves a selection within a single block", () => {
-    const result = resolveDocumentSelection(blocks, { blockId: "b1", offset: 0 }, { blockId: "b1", offset: 5 });
+    const result = resolveDocumentSelection(
+      blocks,
+      { blockId: "b1", offset: 0 },
+      { blockId: "b1", offset: 5 },
+    );
     expect(result).toEqual({
       excerpt: "First",
       locations: [{ pageNumber: 1, blockId: "b1", startOffset: 0, endOffset: 5 }],
@@ -47,21 +51,41 @@ describe("resolveDocumentSelection", () => {
   });
 
   it("handles the anchors arriving in reverse order (end before start in the DOM)", () => {
-    const forward = resolveDocumentSelection(blocks, { blockId: "b1", offset: 0 }, { blockId: "b2", offset: 6 });
-    const backward = resolveDocumentSelection(blocks, { blockId: "b2", offset: 6 }, { blockId: "b1", offset: 0 });
+    const forward = resolveDocumentSelection(
+      blocks,
+      { blockId: "b1", offset: 0 },
+      { blockId: "b2", offset: 6 },
+    );
+    const backward = resolveDocumentSelection(
+      blocks,
+      { blockId: "b2", offset: 6 },
+      { blockId: "b1", offset: 0 },
+    );
     expect(backward).toEqual(forward);
   });
 
   it("returns null for an unknown block id", () => {
-    expect(resolveDocumentSelection(blocks, { blockId: "nope", offset: 0 }, { blockId: "b1", offset: 5 })).toBeNull();
+    expect(
+      resolveDocumentSelection(
+        blocks,
+        { blockId: "nope", offset: 0 },
+        { blockId: "b1", offset: 5 },
+      ),
+    ).toBeNull();
   });
 
   it("returns null for a zero-width single-block selection", () => {
-    expect(resolveDocumentSelection(blocks, { blockId: "b1", offset: 3 }, { blockId: "b1", offset: 3 })).toBeNull();
+    expect(
+      resolveDocumentSelection(blocks, { blockId: "b1", offset: 3 }, { blockId: "b1", offset: 3 }),
+    ).toBeNull();
   });
 
   it("takes middle blocks in full when a selection spans three or more blocks", () => {
-    const result = resolveDocumentSelection(blocks, { blockId: "b1", offset: 0 }, { blockId: "b3", offset: 5 });
+    const result = resolveDocumentSelection(
+      blocks,
+      { blockId: "b1", offset: 0 },
+      { blockId: "b3", offset: 5 },
+    );
     expect(result?.locations[1]).toEqual({
       pageNumber: 1,
       blockId: "b2",
@@ -79,7 +103,9 @@ describe("buildExcerptRuns", () => {
   });
 
   it("returns one covered run when an excerpt spans the whole block", () => {
-    const ranges: ExcerptCharRange[] = [{ excerptId: "e1", startOffset: 0, endOffset: text.length }];
+    const ranges: ExcerptCharRange[] = [
+      { excerptId: "e1", startOffset: 0, endOffset: text.length },
+    ];
     expect(buildExcerptRuns(text, ranges)).toEqual([{ text, excerptIds: ["e1"] }]);
   });
 

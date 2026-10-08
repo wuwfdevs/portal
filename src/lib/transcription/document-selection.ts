@@ -55,7 +55,9 @@ export function resolveDocumentSelection(
   if (startIndex === -1 || endIndex === -1) return null;
 
   const [fromIndex, toIndex, fromAnchor, toAnchor] =
-    startIndex <= endIndex ? [startIndex, endIndex, start, end] : [endIndex, startIndex, end, start];
+    startIndex <= endIndex
+      ? [startIndex, endIndex, start, end]
+      : [endIndex, startIndex, end, start];
 
   const spanned = ordered.slice(fromIndex, toIndex + 1);
   if (spanned.length === 0) return null;
@@ -142,7 +144,8 @@ export function excerptAtOffset(ranges: ExcerptCharRange[], offset: number): str
 
   for (const range of ranges) {
     if (offset < range.startOffset || offset >= range.endOffset) continue;
-    if (!best || range.endOffset - range.startOffset < best.endOffset - best.startOffset) best = range;
+    if (!best || range.endOffset - range.startOffset < best.endOffset - best.startOffset)
+      best = range;
   }
 
   return best?.excerptId ?? null;

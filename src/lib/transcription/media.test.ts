@@ -14,6 +14,7 @@ import {
   slugify,
   sourceObjectPath,
   titleFromFileName,
+  classifySourceFile,
 } from "./media";
 
 describe("isAllowedMediaType", () => {
@@ -169,5 +170,19 @@ describe("titleFromFileName", () => {
   it("returns an empty string when nothing is left to use as a title", () => {
     expect(titleFromFileName(".pdf")).toBe("");
     expect(titleFromFileName("   ")).toBe("");
+  });
+});
+
+describe("classifySourceFile", () => {
+  it("sorts a file into audio/video or document", () => {
+    expect(classifySourceFile("audio/mpeg")).toEqual({ kind: "audio_video" });
+    expect(classifySourceFile("video/mp4")).toEqual({ kind: "audio_video" });
+    expect(classifySourceFile("application/pdf")).toEqual({ kind: "document" });
+  });
+
+  it("refuses anything else with a sentence the reporter can act on", () => {
+    const result = classifySourceFile("image/png");
+    expect(result).toHaveProperty("error");
+    expect((result as { error: string }).error).toContain("PDF");
   });
 });

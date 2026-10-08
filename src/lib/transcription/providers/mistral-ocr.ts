@@ -11,7 +11,11 @@ import "server-only";
 // normalized document model.
 
 import { Mistral } from "@mistralai/mistralai";
-import type { DocumentOcrInput, DocumentOcrProvider, DocumentOcrResult } from "@/lib/transcription/document-provider";
+import type {
+  DocumentOcrInput,
+  DocumentOcrProvider,
+  DocumentOcrResult,
+} from "@/lib/transcription/document-provider";
 import { mapMistralResponseToDocument } from "./mistral-ocr-mapping";
 
 const MODEL = "mistral-ocr-latest";

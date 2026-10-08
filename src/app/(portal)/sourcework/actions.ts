@@ -5,67 +5,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { reindexRepresentation, embedPendingForProject } from "@/lib/transcription/indexing";
-import {
-  createBareProject,
-  createProjectWithSource,
-  startTranscriptionForProject,
-} from "@/lib/transcription/ingest";
+import { createBareProject, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import { startDocumentProcessing } from "@/lib/transcription/document-ingest";
-import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
 import { purgeSource } from "@/lib/transcription/source-deletion";
 import { getPrimarySourceForProject, getSourceRef } from "@/lib/transcription/projects";
-import type { SwSourceKind } from "@/lib/database.types";
-
-export type CreateProjectResult = { id: string; sourceId: string } | { error: string };
-
-/**
- * Creates the project, its source, and its (not-yet-started) primary
- * representation before any upload starts — the source is created with
- * status='uploading' so an abandoned upload is a visible, cleanable row
- * rather than an orphaned storage object (see design doc §6). Called
- * directly from the client upload form (not a <form action>), because the
- * caller needs the new ids back to know where to put the file next
- * (sourceObjectPath is keyed by source id, not project id).
- *
- * `kind` is the reporter's chosen file's source kind (docs/sourcework-design.md
- * §8.2) — audio_video (default) or document. It only decides which
- * representation kind gets created; the upload itself is still validated
- * against the actual file's content type in completeProjectUpload.
- */
-export async function createProject(input: {
-  title: string;
-  description: string;
-  kind?: SwSourceKind;
-}): Promise<CreateProjectResult> {
-  const { profile } = await assertToolAccess("transcription");
-
-  const title = input.title.trim();
-  if (!title) {
-    return {
-      error:
-        input.kind === "document" ? "Give the document a title." : "Give the interview a title.",
-    };
-  }
-
-  const supabase = await createClient();
-  const created = await createProjectWithSource(supabase, {
-    title,
-    description: input.description.trim() || null,
-    // Sourcework no longer asks for a date at upload: a date fits an
-    // interview and not a court filing or a records dump, and the one field
-    // had to serve every source kind. Sources ingested from another tool
-    // (audience-listening's handoff) still set it, so the column and
-    // createProjectWithSource's parameter stay.
-    interviewDate: null,
-    createdBy: profile.id,
-    kind: input.kind,
-  });
-
-  if ("error" in created) {
-    return { error: "Could not create the project. Please try again." };
-  }
-  return { id: created.projectId, sourceId: created.sourceId };
-}
 
 /**
  * Creates a project with no source. Sources are added afterwards from the
@@ -184,38 +127,6 @@ export async function reindexProjectSearch(
 }
 
 /**
- * Finalizes a project after the browser has uploaded its source file
- * directly to Storage (never through this server), then kicks off
- * transcription automatically — there's no scenario where a reporter
- * uploads and doesn't want a transcript (see design doc §3A).
- */
-export async function completeProjectUpload(input: {
-  projectId: string;
-  contentType: string;
-  storagePath: string;
-  sizeBytes: number;
-  durationMs: number | null;
-}): Promise<{ error?: string }> {
-  await assertToolAccess("transcription");
-
-  const supabase = await createClient();
-  const ref = await getPrimarySourceForProject(supabase, input.projectId);
-  if (!ref) return { error: "This project has no source to attach media to." };
-  if (!ref.representationId) {
-    return { error: "This project has no representation to process yet." };
-  }
-
-  return finalizeSourceUpload(supabase, {
-    sourceId: ref.sourceId,
-    representationId: ref.representationId,
-    contentType: input.contentType,
-    storagePath: input.storagePath,
-    sizeBytes: input.sizeBytes,
-    durationMs: input.durationMs,
-  });
-}
-
-/**
  * Re-kicks transcription after a transcription-stage failure (media is
  * already uploaded, so this is distinct from re-uploading). Any tool member
  * can retry, not just the uploader — matches the shared-workspace CRUD model
@@ -290,23 +201,6 @@ export async function retryTranscription(formData: FormData): Promise<void> {
   }
 
   redirect(redirectTo);
-}
-
-/** Marks a project's source failed after a client-side upload error, with a reason a reporter can act on. */
-export async function failProjectUpload(input: {
-  projectId: string;
-  message: string;
-}): Promise<void> {
-  await assertToolAccess("transcription");
-
-  const supabase = await createClient();
-  const ref = await getPrimarySourceForProject(supabase, input.projectId);
-  if (ref) {
-    await supabase
-      .from("sw_sources")
-      .update({ status: "failed", error_message: input.message })
-      .eq("id", ref.sourceId);
-  }
 }
 
 /**

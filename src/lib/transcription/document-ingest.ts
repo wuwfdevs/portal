@@ -192,7 +192,8 @@ async function finishProcessing(
     raw: unknown;
   },
 ): Promise<{ error?: string }> {
-  const { representationId, sourceId, attempt, method, provider, providerModel, result, raw } = params;
+  const { representationId, sourceId, attempt, method, provider, providerModel, result, raw } =
+    params;
 
   await supabase.from("sw_document_blocks").delete().eq("representation_id", representationId);
   await supabase.from("sw_document_pages").delete().eq("representation_id", representationId);
@@ -239,7 +240,8 @@ async function finishProcessing(
         extra: block.extra ?? {},
       })),
     );
-    if (blockError) return await failFinish(supabase, representationId, attempt, blockError.message);
+    if (blockError)
+      return await failFinish(supabase, representationId, attempt, blockError.message);
   }
 
   await supabase.from("sw_sources").update({ page_count: result.pages.length }).eq("id", sourceId);

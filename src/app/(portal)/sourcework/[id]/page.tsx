@@ -135,8 +135,8 @@ export default async function TranscriptionProjectPage({
           <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
         ) : (
           <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
-            No background yet — a note here is what tells someone finding a quote from this
-            project in two years what it was about.
+            No background yet — a note here is what tells someone finding a quote from this project
+            in two years what it was about.
           </p>
         )}
         <ProjectDetails

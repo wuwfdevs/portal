@@ -1,137 +1,89 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { probeDurationMs } from "@/lib/transcription/probe-duration";
-import { createClient } from "@/lib/supabase/client";
-import { BusyPanel } from "@/components/ui/busy-panel";
+import { BatchRunPanel } from "@/components/ui/batch-run-panel";
 import { Button } from "@/components/ui/button";
-import { FileInput, Input, Textarea, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { FieldError, FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { summarizeTasks } from "@/lib/task-queue";
+import type { SourceUploadActions } from "@/lib/transcription/upload-source";
+import { createEmptyProject } from "../actions";
 import {
-  TRANSCRIPTION_MEDIA_BUCKET,
-  isAllowedDocumentType,
-  isAllowedMediaType,
-  isDocumentContentType,
-  sourceObjectPath,
-  titleFromFileName,
-} from "@/lib/transcription/media";
-import {
-  createEmptyProject,
-  createProject,
-  completeProjectUpload,
-  failProjectUpload,
-} from "../actions";
+  completeSourceUpload,
+  createSourceForProject,
+  failSourceUpload,
+} from "../[id]/source-actions";
+import { StagedFiles } from "../staged-files";
+import { useSourceUploads, type StagedFile } from "../use-source-uploads";
 
-type Stage = "idle" | "creating" | "uploading" | "finishing";
+function actionsFor(projectId: string): SourceUploadActions {
+  return {
+    createSource: (input) => createSourceForProject(projectId, input),
+    completeSource: (input) => completeSourceUpload({ projectId, ...input }),
+    failSource: (input) => failSourceUpload({ projectId, ...input }),
+  };
+}
 
-const STAGE_TITLE: Record<Exclude<Stage, "idle">, string> = {
-  creating: "Creating the project",
-  uploading: "Uploading the file",
-  finishing: "Finishing up",
-};
-
-// The upload is a single request, so there is no honest percentage to show.
-const STAGE_HINT: Partial<Record<Stage, string>> = {
-  uploading: "This can take a few minutes for a long recording",
-};
-
+/**
+ * A project is a workspace that references sources, so it starts with a name
+ * and nothing else. Files are optional: any chosen here become sources of the
+ * new project (each its own, uploaded a few at a time), and sources can be
+ * added or found in the library afterwards.
+ */
 export function NewProjectForm() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [stage, setStage] = useState<Stage>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [selectedIsDocument, setSelectedIsDocument] = useState(false);
-  const [hasFile, setHasFile] = useState(false);
+  const uploads = useSourceUploads();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   // Whether the title box is still the file name we suggested (or empty), and
-  // so may be replaced when a different file is picked. Anything the reporter
-  // types is theirs and is never overwritten.
+  // so may be replaced when files are chosen. Anything the reporter types is
+  // theirs and is never overwritten.
   const [titleIsSuggested, setTitleIsSuggested] = useState(true);
-  const isPending = stage !== "idle";
+  const [staged, setStaged] = useState<StagedFile[]>([]);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0] ?? null;
-    setHasFile(Boolean(file));
-    setSelectedIsDocument(isDocumentContentType(file?.type ?? ""));
-    if (file && titleIsSuggested) setTitle(titleFromFileName(file.name));
+  const summary = useMemo(() => summarizeTasks(uploads.tasks), [uploads.tasks]);
+  const uploading = uploads.tasks.length > 0;
+  const pending = creating || uploads.running;
+
+  // Everything uploaded cleanly: go to the project. With failures the panel
+  // stays, so they can be retried or the project opened regardless.
+  useEffect(() => {
+    if (projectId && summary.finished && summary.failed === 0) {
+      router.push(`/sourcework/${projectId}`);
+    }
+  }, [projectId, summary.finished, summary.failed, router]);
+
+  function handleStagedChange(next: StagedFile[]) {
+    setStaged(next);
+    if (titleIsSuggested) setTitle(next.length === 1 ? (next[0]?.title ?? "") : "");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    const form = event.currentTarget;
-    const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
-    const file = fileInputRef.current?.files?.[0];
-
-    // A project doesn't need a file to exist: sources are added from the
-    // project afterwards (upload or reference one from the library).
-    if (!file) {
-      setStage("creating");
+    let id = projectId;
+    if (!id) {
+      setCreating(true);
       const created = await createEmptyProject({ title, description });
+      setCreating(false);
       if ("error" in created) {
         setError(created.error);
-        setStage("idle");
         return;
       }
-      router.push(`/sourcework/${created.id}`);
-      return;
-    }
-    const isDocument = isDocumentContentType(file.type);
-    if (!isDocument && !isAllowedMediaType(file.type)) {
-      setError("That file type isn't supported. Use WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.");
-      return;
-    }
-    if (isDocument && !isAllowedDocumentType(file.type)) {
-      setError("That file type isn't supported.");
-      return;
+      id = created.id;
+      setProjectId(id);
     }
 
-    setStage("creating");
-    const created = await createProject({
-      title,
-      description,
-      kind: isDocument ? "document" : "audio_video",
-    });
-    if ("error" in created) {
-      setError(created.error);
-      setStage("idle");
+    if (staged.length === 0) {
+      router.push(`/sourcework/${id}`);
       return;
     }
-    const projectId = created.id;
-
-    setStage("uploading");
-    const durationMs = isDocument ? null : await probeDurationMs(file);
-    const storagePath = sourceObjectPath(created.sourceId, file.type);
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(TRANSCRIPTION_MEDIA_BUCKET)
-      .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-    if (uploadError) {
-      await failProjectUpload({ projectId, message: uploadError.message });
-      router.push(`/sourcework/${projectId}`);
-      return;
-    }
-
-    setStage("finishing");
-    // No failProjectUpload here on error: the file is already in Storage at
-    // this point (that's the branch above), so the source's own upload
-    // genuinely succeeded. A completeProjectUpload error means processing
-    // couldn't be kicked off (or failed synchronously) — finalizeSourceUpload
-    // already recorded that on the *representation* via startDocumentProcessing/
-    // startTranscriptionForProject. Marking the source itself failed too used
-    // to overwrite a perfectly good upload with a stale error that a later
-    // successful retry of the representation never cleared, since retry only
-    // ever touches the representation — see representation-status-banner.tsx.
-    await completeProjectUpload({
-      projectId,
-      contentType: file.type,
-      storagePath,
-      sizeBytes: file.size,
-      durationMs,
-    });
-    router.push(`/sourcework/${projectId}`);
+    uploads.begin(staged, actionsFor(id));
   }
 
   return (
@@ -143,7 +95,7 @@ export function NewProjectForm() {
           name="title"
           placeholder="Mayor Reeves on bridge funding"
           required
-          disabled={isPending}
+          disabled={pending || uploading}
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);
@@ -151,9 +103,9 @@ export function NewProjectForm() {
           }}
         />
         <FieldHint>
-          {hasFile
-            ? "Taken from the file name — change it to whatever you\u2019ll look for later."
-            : "Whatever you\u2019ll look for later."}
+          {staged.length === 1
+            ? "Taken from the file name — change it to whatever you’ll look for later."
+            : "Whatever you’ll look for later."}
         </FieldHint>
       </div>
       <div>
@@ -162,42 +114,56 @@ export function NewProjectForm() {
           id="description"
           name="description"
           rows={3}
-          placeholder={
-            selectedIsDocument
-              ? "Context for this document — where it's from, why it matters"
-              : "Context for this interview — where, why, who set it up"
-          }
-          disabled={isPending}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Context for this project — what it’s about, who set it up"
+          disabled={pending || uploading}
         />
       </div>
 
-      <div>
-        <Label htmlFor="media">First source (optional)</Label>
-        <FileInput
-          ref={fileInputRef}
-          id="media"
-          name="media"
-          accept="audio/*,video/*,application/pdf"
-          disabled={isPending}
-          onChange={handleFileChange}
-        />
-        <FieldHint>
-          WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF. You can also add sources later, or reference
-          ones already in the library.
-        </FieldHint>
-      </div>
-      {error && <FieldError>{error}</FieldError>}
-      {stage !== "idle" && (
-        <BusyPanel
-          title={STAGE_TITLE[stage]}
-          hint={STAGE_HINT[stage]}
-          note="Keep this page open until it finishes."
-        />
+      {!uploading && (
+        <div>
+          <Label>Sources (optional)</Label>
+          <StagedFiles staged={staged} onChange={handleStagedChange} disabled={pending} />
+          <FieldHint>
+            You can also add sources later, or reference ones already in the library.
+          </FieldHint>
+        </div>
       )}
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Working…" : hasFile ? "Upload and create project" : "Create project"}
-      </Button>
+      {error && <FieldError>{error}</FieldError>}
+
+      {uploading && (
+        <>
+          <BatchRunPanel
+            tasks={uploads.tasks}
+            running={uploads.running}
+            onStop={uploads.stop}
+            onResume={uploads.resume}
+            onRetry={(id) => uploads.retry([id])}
+            onRetryFailed={uploads.retryFailed}
+          />
+          {!uploads.running && summary.failed > 0 && projectId && (
+            <p className="text-sm text-ink-700">
+              The project was created.{" "}
+              <Link href={`/sourcework/${projectId}`} className="font-semibold text-brand-link">
+                Open it
+              </Link>{" "}
+              and add the rest later, or retry above.
+            </p>
+          )}
+        </>
+      )}
+
+      {!uploading && (
+        <Button type="submit" disabled={pending}>
+          {pending
+            ? "Working…"
+            : staged.length === 0
+              ? "Create project"
+              : `Create project and upload ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+        </Button>
+      )}
     </form>
   );
 }

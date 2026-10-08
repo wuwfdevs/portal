@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { BatchRunPanel } from "@/components/ui/batch-run-panel";
 import { Button } from "@/components/ui/button";
-import { FileInput, Input, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { formatShortDate } from "@/lib/format";
+import { summarizeTasks } from "@/lib/task-queue";
 import { SOURCE_KIND_LABEL } from "@/lib/transcription/status";
-import { probeDurationMs } from "@/lib/transcription/probe-duration";
-import { createClient } from "@/lib/supabase/client";
-import {
-  TRANSCRIPTION_MEDIA_BUCKET,
-  formatDuration,
-  isAllowedDocumentType,
-  isAllowedMediaType,
-  isDocumentContentType,
-  sourceObjectPath,
-  titleFromFileName,
-} from "@/lib/transcription/media";
+import { formatDuration } from "@/lib/transcription/media";
+import type { SourceUploadActions } from "@/lib/transcription/upload-source";
+import { StagedFiles } from "../staged-files";
+import { useSourceUploads, type StagedFile } from "../use-source-uploads";
 import {
   listAttachableSources,
   attachSourceToProject,
@@ -38,14 +33,17 @@ type Mode = "find" | "upload";
  */
 export function AddSourceModal({
   projectId,
+  hasSources,
   onClose,
   onDone,
 }: {
   projectId: string;
+  /** False for a project with nothing in it yet: the dialog opens on Upload, since there is little to find. */
+  hasSources: boolean;
   onClose: () => void;
   onDone: (sourceId: string) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("find");
+  const [mode, setMode] = useState<Mode>(hasSources ? "find" : "upload");
 
   return (
     <div
@@ -53,7 +51,7 @@ export function AddSourceModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded border border-line bg-white p-4 shadow-lg"
+        className="max-h-[calc(100vh-6rem)] w-full max-w-xl overflow-y-auto rounded border border-line bg-white p-4 shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -217,14 +215,6 @@ function FindExistingPanel({
   );
 }
 
-type Stage = "idle" | "creating" | "uploading" | "finishing";
-
-const STAGE_LABEL: Record<Exclude<Stage, "idle">, string> = {
-  creating: "Creating source…",
-  uploading: "Uploading — this can take a few minutes for a long recording…",
-  finishing: "Finishing up…",
-};
-
 function UploadNewPanel({
   projectId,
   onDone,
@@ -232,123 +222,58 @@ function UploadNewPanel({
   projectId: string;
   onDone: (sourceId: string) => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [stage, setStage] = useState<Stage>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  // See NewProjectForm — the suggested file-name title is replaced when the
-  // file changes, but anything the reporter typed is left alone.
-  const [titleIsSuggested, setTitleIsSuggested] = useState(true);
-  const isPending = stage !== "idle";
+  const uploads = useSourceUploads();
+  const [staged, setStaged] = useState<StagedFile[]>([]);
+  const summary = useMemo(() => summarizeTasks(uploads.tasks), [uploads.tasks]);
+  const started = uploads.tasks.length > 0;
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0] ?? null;
-    if (file && titleIsSuggested) setTitle(titleFromFileName(file.name));
+  // Everything uploaded cleanly: switch the project to the first new source.
+  useEffect(() => {
+    if (!summary.finished || summary.failed > 0) return;
+    const first = uploads.uploadedSourceIds()[0];
+    if (first) onDone(first);
+    // uploadedSourceIds changes with the task list, which `summary` already tracks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary.finished, summary.failed]);
+
+  function handleUpload() {
+    const actions: SourceUploadActions = {
+      createSource: (input) => createSourceForProject(projectId, input),
+      completeSource: (input) => completeSourceUpload({ projectId, ...input }),
+      failSource: (input) => failSourceUpload({ projectId, ...input }),
+    };
+    uploads.begin(staged, actions);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-
-    const file = fileInputRef.current?.files?.[0];
-
-    if (!file) {
-      setError("Choose an audio/video file or a PDF to upload.");
-      return;
-    }
-    const isDocument = isDocumentContentType(file.type);
-    if (!isDocument && !isAllowedMediaType(file.type)) {
-      setError("That file type isn't supported. Use WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.");
-      return;
-    }
-    if (isDocument && !isAllowedDocumentType(file.type)) {
-      setError("That file type isn't supported.");
-      return;
-    }
-
-    setStage("creating");
-    const created = await createSourceForProject(projectId, {
-      title,
-      kind: isDocument ? "document" : "audio_video",
-    });
-    if ("error" in created) {
-      setError(created.error);
-      setStage("idle");
-      return;
-    }
-    const sourceId = created.sourceId;
-
-    setStage("uploading");
-    const durationMs = isDocument ? null : await probeDurationMs(file);
-    const storagePath = sourceObjectPath(sourceId, file.type);
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(TRANSCRIPTION_MEDIA_BUCKET)
-      .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-    if (uploadError) {
-      await failSourceUpload({ projectId, sourceId, message: uploadError.message });
-      onDone(sourceId);
-      return;
-    }
-
-    setStage("finishing");
-    // See new-project-form.tsx's equivalent comment: the file is already in
-    // Storage by this point, so the source's own upload succeeded regardless
-    // of whether completeSourceUpload's processing kickoff did. Don't mark
-    // the source itself failed too — completeSourceUpload already recorded
-    // that on the representation, and it's the only thing a later retry
-    // clears.
-    await completeSourceUpload({
-      projectId,
-      sourceId,
-      contentType: file.type,
-      storagePath,
-      sizeBytes: file.size,
-      durationMs,
-    });
-    onDone(sourceId);
+  if (started) {
+    const first = uploads.uploadedSourceIds()[0];
+    return (
+      <div className="flex flex-col gap-3">
+        <BatchRunPanel
+          tasks={uploads.tasks}
+          running={uploads.running}
+          onStop={uploads.stop}
+          onResume={uploads.resume}
+          onRetry={(id) => uploads.retry([id])}
+          onRetryFailed={uploads.retryFailed}
+        />
+        {!uploads.running && summary.failed > 0 && first && (
+          <Button type="button" variant="secondary" onClick={() => onDone(first)}>
+            Open the {summary.done} that uploaded
+          </Button>
+        )}
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div>
-        <Label htmlFor="media">Audio/video file, or PDF</Label>
-        <FileInput
-          ref={fileInputRef}
-          id="media"
-          name="media"
-          accept="audio/*,video/*,application/pdf"
-          disabled={isPending}
-          onChange={handleFileChange}
-        />
-        <FieldHint>WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.</FieldHint>
-      </div>
-      <div>
-        <Label htmlFor="title">Title</Label>
-        <Input
-          id="title"
-          name="title"
-          placeholder="Mayor Reeves on bridge funding"
-          required
-          disabled={isPending}
-          value={title}
-          onChange={(event) => {
-            setTitle(event.target.value);
-            setTitleIsSuggested(event.target.value.trim() === "");
-          }}
-        />
-        <FieldHint>
-          Taken from the file name — change it to whatever you&rsquo;ll look for later.
-        </FieldHint>
-      </div>
-
-      {error && <FieldError>{error}</FieldError>}
-      {isPending && <p className="text-xs text-ink-500">{STAGE_LABEL[stage]}</p>}
-
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Working…" : "Upload"}
+    <div className="flex flex-col gap-4">
+      <StagedFiles staged={staged} onChange={setStaged} />
+      <Button type="button" disabled={staged.length === 0} onClick={handleUpload}>
+        {staged.length === 0
+          ? "Upload"
+          : `Upload ${staged.length} file${staged.length === 1 ? "" : "s"}`}
       </Button>
-    </form>
+    </div>
   );
 }

@@ -262,7 +262,10 @@ export async function embedPending(
     const inputs = [
       ...chunkRows.map((row) => buildEmbeddingInput(context.projectContext, row.text)),
       ...clipRows.map((row) =>
-        buildClipEmbeddingInput(context.projectContext, { title: row.title, excerpt: row.excerpt_text }),
+        buildClipEmbeddingInput(context.projectContext, {
+          title: row.title,
+          excerpt: row.excerpt_text,
+        }),
       ),
     ];
     const vectors = await provider.embed(inputs);

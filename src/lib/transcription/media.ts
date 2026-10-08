@@ -48,6 +48,23 @@ export function extensionForContentType(contentType: string): string {
   return EXTENSION_BY_CONTENT_TYPE[contentType] ?? "bin";
 }
 
+/** The `accept` string and the sentence about it, for every source file picker and drop zone. */
+export const SOURCE_FILE_ACCEPT = "audio/*,video/*,application/pdf";
+export const SOURCE_FILE_HINT = "WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.";
+
+/**
+ * What kind of source a chosen file would be, or why it can't be one. The one
+ * check every upload surface (new project, add source) runs before anything is
+ * created, so a bad file is refused before a source row exists for it.
+ */
+export function classifySourceFile(
+  contentType: string,
+): { kind: "audio_video" | "document" } | { error: string } {
+  if (isDocumentContentType(contentType)) return { kind: "document" };
+  if (isAllowedMediaType(contentType)) return { kind: "audio_video" };
+  return { error: `That file type isn't supported. Use ${SOURCE_FILE_HINT}` };
+}
+
 export function isVideoContentType(contentType: string): boolean {
   return contentType.startsWith("video/");
 }

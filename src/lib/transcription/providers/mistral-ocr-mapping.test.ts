@@ -37,7 +37,12 @@ describe("mapMistralResponseToDocument", () => {
     );
 
     expect(result.pages).toEqual([
-      { pageNumber: 1, widthPt: (1700 / 200) * 72, heightPt: (2200 / 200) * 72, rotationDegrees: 0 },
+      {
+        pageNumber: 1,
+        widthPt: (1700 / 200) * 72,
+        heightPt: (2200 / 200) * 72,
+        rotationDegrees: 0,
+      },
     ]);
     expect(result.blocks).toHaveLength(1);
     expect(result.blocks[0]!.pageNumber).toBe(1);
@@ -102,7 +107,10 @@ describe("mapMistralResponseToDocument", () => {
             markdown: "",
             images: [],
             dimensions: dims,
-            blocks: [{ type: "text", content: "p1b1", ...coords }, { type: "text", content: "p1b2", ...coords }],
+            blocks: [
+              { type: "text", content: "p1b1", ...coords },
+              { type: "text", content: "p1b2", ...coords },
+            ],
           },
           {
             index: 1,

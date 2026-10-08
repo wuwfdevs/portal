@@ -404,8 +404,8 @@ export function TranscriptWorkspace({
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-ink-400">
-                Select any stretch of text to make an excerpt. Hover a line to edit, split, merge, or
-                reassign it.
+                Select any stretch of text to make an excerpt. Hover a line to edit, split, merge,
+                or reassign it.
               </p>
               <div className="flex items-center gap-3">
                 {/* Built from `segments` and the live `speakers` state, so a
