@@ -240,6 +240,10 @@ export function AgentChatWidget() {
   // the bubble there (the component itself stays mounted, so an already-open
   // panel keeps its state and its own in-panel close button still works).
   const hideBubble = pathname?.startsWith("/editorial-inquiry") ?? false;
+  // Sourcework's workspace docks its player to the bottom edge on a phone, right
+  // where the bubble sits; lift the bubble clear of it (below the excerpt sheet,
+  // which stacks above both).
+  const liftBubble = /^\/sourcework\/(?!new(\/|$))[^/]+/.test(pathname ?? "");
 
   return (
     <>
@@ -255,6 +259,7 @@ export function AgentChatWidget() {
             // full-screen sheet with nothing to dodge, so the bubble stays
             // put. Either right panel (this one or Help) is 24rem wide.
             anyPanelOpen && "lg:right-[calc(24rem+1.5rem)]",
+            liftBubble && "max-lg:bottom-[calc(var(--player-dock-h,0px)+1rem)]",
           )}
         >
           {open ? (

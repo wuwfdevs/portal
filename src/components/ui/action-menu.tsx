@@ -32,11 +32,14 @@ export function ActionMenu({
   label = "Actions",
   items,
   trigger = "boxed",
+  touchTarget = false,
 }: {
   label?: string;
   items: ActionMenuItem[];
   /** `quiet` drops the border, for a menu repeated on every row of a long list. */
   trigger?: "boxed" | "quiet";
+  /** Grows the trigger and the items to a thumb-sized target below lg — for a menu a phone user reaches for on every row. */
+  touchTarget?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,7 +68,7 @@ export function ActionMenu({
   if (items.length === 0) return null;
 
   const itemClasses = (item: ActionMenuItem) =>
-    `block w-full px-3 py-1.5 text-left text-sm ${
+    `block w-full px-3 ${touchTarget ? "py-3 lg:py-1.5" : "py-1.5"} text-left text-sm ${
       item.disabled
         ? "cursor-default text-ink-400"
         : item.variant === "danger"
@@ -83,7 +86,7 @@ export function ActionMenu({
         onClick={() => setOpen((o) => !o)}
         className={
           trigger === "quiet"
-            ? "flex h-8 w-8 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface"
+            ? `flex ${touchTarget ? "h-11 w-11 lg:h-8 lg:w-8" : "h-8 w-8"} items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface`
             : "flex h-8 w-8 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link"
         }
       >

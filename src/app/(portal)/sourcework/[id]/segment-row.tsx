@@ -51,6 +51,7 @@ export function SegmentRow({
   onStopEditing,
   onSeek,
   onSelectClip,
+  onMakeExcerpt,
 }: {
   projectId: string;
   segment: TranscriptSegment;
@@ -73,6 +74,8 @@ export function SegmentRow({
   onSeek: (startMs: number) => void;
   /** A plain click on a word: null where nothing is clipped, which clears the selection. */
   onSelectClip: (clipId: string | null) => void;
+  /** Turns the whole line into the pending excerpt — the way to make one on a phone without precise text selection. */
+  onMakeExcerpt: () => void;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -234,7 +237,7 @@ export function SegmentRow({
           type="button"
           onClick={() => onSeek(segment.startMs)}
           title="Play from here"
-          className="mt-0.5 w-11 shrink-0 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline"
+          className="-my-2 w-11 shrink-0 py-2 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline max-lg:-my-2.5 max-lg:min-h-11 max-lg:py-3"
         >
           {formatDuration(segment.startMs)}
         </button>
@@ -268,6 +271,7 @@ export function SegmentRow({
                   size="sm"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSave}
+                  className="max-lg:min-h-11 max-lg:px-4"
                 >
                   Save
                 </Button>
@@ -277,6 +281,7 @@ export function SegmentRow({
                   variant="secondary"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={cancelEditing}
+                  className="max-lg:min-h-11 max-lg:px-4"
                 >
                   Cancel
                 </Button>
@@ -291,11 +296,13 @@ export function SegmentRow({
                       ? "Split this line at the cursor"
                       : "Put the cursor inside the text to split there"
                   }
-                  className="text-brand-link"
+                  className="text-brand-link max-lg:min-h-11"
                 >
                   Split here
                 </Button>
-                <span className="text-[11px] text-ink-400">⌘↵ to save · Esc to cancel</span>
+                <span className="text-[11px] text-ink-400 max-lg:hidden">
+                  ⌘↵ to save · Esc to cancel
+                </span>
               </div>
             </div>
           ) : (
@@ -341,8 +348,10 @@ export function SegmentRow({
             <ActionMenu
               label="Line actions"
               trigger="quiet"
+              touchTarget
               items={[
                 { label: "Edit text", onClick: beginEditing },
+                { label: "Make an excerpt from this line", onClick: onMakeExcerpt },
                 { label: "Change speaker…", onClick: () => setChangingSpeaker(true) },
                 ...(isLast
                   ? []

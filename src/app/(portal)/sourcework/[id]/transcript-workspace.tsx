@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { findActiveSegmentIndex } from "@/lib/transcription/transcript";
@@ -16,7 +17,7 @@ import {
 } from "@/lib/transcription/selection";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 import type { ProjectClip } from "@/lib/transcription/clips";
-import { SpeakersMenu } from "./speakers-menu";
+import { SpeakersMenu, SpeakersPane } from "./speakers-menu";
 import { SegmentRow } from "./segment-row";
 import { ClipRail, type ClipSelectionOrigin } from "./clip-rail";
 import { TranscriptExport } from "./transcript-export";
@@ -25,6 +26,11 @@ import { PlayerBar } from "./player-bar";
 import { ShortcutsHelp } from "./shortcuts-help";
 
 const SKIP_MS = 5000;
+
+/** How long the selection must sit still before it is read — long enough for a drag of the handles to settle. */
+const SELECTION_SETTLE_MS = 250;
+
+type Pane = "transcript" | "excerpts" | "speakers";
 
 /**
  * The player, speaker naming, transcript, and clips as one coupled surface
@@ -85,6 +91,14 @@ export function TranscriptWorkspace({
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
+  // Below lg the three working surfaces are tabs of one screen rather than a
+  // column and a rail; from lg up all of them are on screen and this is unused.
+  const [pane, setPane] = useState<Pane>("transcript");
+  // Whether the pending selection came from the browser's own text selection
+  // (which a tap elsewhere in the text collapses) or from "excerpt from this
+  // line" (which nothing in the DOM backs).
+  const selectionFromDomRef = useRef(false);
+  const lineSelectionRef = useRef<number | null>(null);
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const initialSeekAppliedRef = useRef(false);
@@ -220,6 +234,21 @@ export function TranscriptWorkspace({
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
+  // Choosing an excerpt on the Excerpts tab has nothing to scroll to while the
+  // transcript is hidden; returning to the Transcript tab lands on its words.
+  useEffect(() => {
+    if (pane !== "transcript" || selectedClip?.origin !== "rail") return;
+    const start = findClipStart(clipCoverage, selectedClip.id);
+    if (!start) return;
+    transcriptRef.current
+      ?.querySelector(
+        `[data-segment-index="${start.segmentIndex}"] [data-token-index="${start.tokenIndex}"]`,
+      )
+      ?.scrollIntoView({ block: "center" });
+    // Only on arriving at the tab, not on every later clip change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pane]);
+
   /**
    * Deep link (?t=) — the thing that makes a search hit a *place* rather than
    * a citation (design doc §3F). Seeks without playing: a page that starts
@@ -268,12 +297,16 @@ export function TranscriptWorkspace({
     const root = transcriptRef.current;
     const domSelection = window.getSelection();
     if (!root || !domSelection || domSelection.isCollapsed || domSelection.rangeCount === 0) {
+      selectionFromDomRef.current = false;
+      lineSelectionRef.current = null;
       setSelection(null);
       return;
     }
 
     const range = domSelection.getRangeAt(0);
     if (!root.contains(range.commonAncestorContainer)) {
+      selectionFromDomRef.current = false;
+      lineSelectionRef.current = null;
       setSelection(null);
       return;
     }
@@ -289,15 +322,108 @@ export function TranscriptWorkspace({
     });
 
     const resolved = resolveSelection(tokensBySegment, refs);
-    setSelection(resolved);
+    selectionFromDomRef.current = resolved !== null;
+    lineSelectionRef.current = null;
+    // Same range, same object: the sheet is keyed on it, and this now runs on
+    // every settle of a touch selection, not just once per mouse drag.
+    setSelection((current) =>
+      current &&
+      resolved &&
+      current.startMs === resolved.startMs &&
+      current.endMs === resolved.endMs
+        ? current
+        : resolved,
+    );
     // Dragging out a new clip supersedes whichever one was open: the composer
     // takes the panel anyway, and leaving the old clip tinted underneath a
     // fresh selection makes it ambiguous which words are about to be cut.
     if (resolved) setSelectedClip(null);
   }, [tokensBySegment]);
 
+  /**
+   * The same selection, read for touch. A long-press-and-drag never fires
+   * `mouseup`, so reading the selection there left a phone with no way to make
+   * an excerpt at all; `selectionchange` is the event both mouse and touch
+   * produce, settled for a moment because a drag of the handles fires it
+   * continuously.
+   *
+   * It only ever *sets* a selection, or clears one the browser itself made
+   * once a tap inside the text collapses it. A selection that moved outside
+   * the transcript is ignored on purpose: focusing the excerpt title moves the
+   * browser's selection into the input, and that must not close the sheet
+   * you are typing in.
+   */
+  useEffect(() => {
+    let timer: number | undefined;
+    function onSelectionChange() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const root = transcriptRef.current;
+        const domSelection = window.getSelection();
+        if (!root || !domSelection || domSelection.rangeCount === 0) return;
+        const insideRoot = root.contains(domSelection.getRangeAt(0).commonAncestorContainer);
+        if (!insideRoot) return;
+        if (domSelection.isCollapsed) {
+          if (selectionFromDomRef.current) {
+            selectionFromDomRef.current = false;
+            setSelection(null);
+          }
+          return;
+        }
+        captureSelection();
+      }, SELECTION_SETTLE_MS);
+    }
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("selectionchange", onSelectionChange);
+    };
+  }, [captureSelection]);
+
+  /** One whole line as the pending excerpt — what "Make an excerpt from this line" does. */
+  function makeExcerptFromLine(segmentIndex: number) {
+    const tokens = tokensBySegment[segmentIndex] ?? [];
+    const resolved = resolveSelection(
+      tokensBySegment,
+      tokens.map((_, tokenIndex) => ({ segmentIndex, tokenIndex })),
+    );
+    if (!resolved) return;
+    window.getSelection()?.removeAllRanges();
+    selectionFromDomRef.current = false;
+    lineSelectionRef.current = segmentIndex;
+    setSelectedClip(null);
+    setSelection(resolved);
+  }
+
+  // On a phone the sheet covers the lower part of the screen. Bring the words
+  // being cut up above it, or the reporter is naming a quote they can't see.
+  useEffect(() => {
+    if (!selection || !window.matchMedia("(max-width: 1023px)").matches) return;
+    const frame = requestAnimationFrame(() => {
+      const sheet = document.querySelector<HTMLElement>(
+        '[role="toolbar"][aria-label="Make an excerpt"]',
+      );
+      if (!sheet) return;
+      const domSelection = window.getSelection();
+      const lineIndex = lineSelectionRef.current;
+      const target =
+        lineIndex !== null
+          ? transcriptRef.current?.querySelector(`[data-segment-index="${lineIndex}"]`)
+          : domSelection && domSelection.rangeCount > 0 && !domSelection.isCollapsed
+            ? domSelection.getRangeAt(0)
+            : null;
+      if (!target) return;
+      const overlap =
+        target.getBoundingClientRect().bottom - (sheet.getBoundingClientRect().top - 12);
+      if (overlap > 0) window.scrollBy({ top: overlap, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selection]);
+
   const clearSelection = useCallback(() => {
     window.getSelection()?.removeAllRanges();
+    selectionFromDomRef.current = false;
+    lineSelectionRef.current = null;
     setSelection(null);
   }, []);
 
@@ -379,7 +505,19 @@ export function TranscriptWorkspace({
   }, [activeIndex, segments, selection, seekTo]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-6 pb-[calc(var(--player-dock-h,7rem)+1rem)] lg:grid-cols-[minmax(0,1fr)_300px] lg:pb-0",
+        // Room to scroll the selected words clear of the excerpt sheet.
+        selection && "max-lg:pb-[calc(var(--player-dock-h,7rem)+20rem)]",
+      )}
+    >
+      <PaneTabs
+        pane={pane}
+        onChange={setPane}
+        excerptCount={clips.length}
+        speakerCount={speakers.length}
+      />
       <div className="flex flex-col gap-4">
         {isVideo ? (
           <video
@@ -420,149 +558,172 @@ export function TranscriptWorkspace({
           }}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <SpeakersMenu
-            projectId={projectId}
-            speakers={speakers}
-            segments={segments}
-            onSeek={seekTo}
-            onRenamed={handleSpeakerRenamed}
-          />
-          <span className="flex-1" />
-          <form
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              goToMatch(currentMatch + 1);
-            }}
-            className="flex items-center gap-1.5"
-          >
-            <Input
-              type="search"
-              value={findQuery}
-              onChange={(event) => {
-                setFindQuery(event.target.value);
-                setFindIndex(0);
-              }}
-              placeholder="Find in this transcript"
-              aria-label="Find in this transcript"
-              className="w-52 px-2.5 py-1.5"
+        <div className={cn("flex-col gap-4", pane === "transcript" ? "flex" : "hidden lg:flex")}>
+          <div className="flex flex-wrap items-center gap-2">
+            <SpeakersMenu
+              projectId={projectId}
+              speakers={speakers}
+              segments={segments}
+              onSeek={seekTo}
+              onRenamed={handleSpeakerRenamed}
             />
-            {findQuery.trim().length >= 2 && (
-              <>
-                <span className="whitespace-nowrap text-xs text-ink-500" aria-live="polite">
-                  {matches.length === 0 ? "No matches" : `${currentMatch + 1} of ${matches.length}`}
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={matches.length === 0}
-                  onClick={() => goToMatch(currentMatch - 1)}
-                  aria-label="Previous match"
-                >
-                  ↑
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={matches.length === 0}
-                  onClick={() => goToMatch(currentMatch + 1)}
-                  aria-label="Next match"
-                >
-                  ↓
-                </Button>
-              </>
-            )}
-          </form>
-          {/* Built from `segments` and the live `speakers` state, so a copy
-              always carries the corrections and names on screen. */}
-          <TranscriptExport
-            projectTitle={projectTitle}
-            interviewDate={interviewDate}
-            exportDate={exportDate}
-            segments={segments}
-            speakers={speakers}
-          />
-          <ShortcutsHelp />
-        </div>
-
-        {segments.length === 0 ? (
-          <p className="text-sm text-ink-500">
-            The transcript didn&apos;t come back with any speech.
-          </p>
-        ) : (
-          <div>
-            <p className="mb-2 text-xs text-ink-400">
-              Select any stretch of text to make an excerpt. Use the ⋮ on a line to edit, merge, or
-              reassign it.
-            </p>
-            <div className="relative">
-              <div
-                ref={transcriptRef}
-                // Clearing on mousedown *here* rather than on a document-wide
-                // selectionchange: focusing any form control collapses the
-                // document selection, so listening globally meant clicking
-                // into the clip title closed the composer you'd just opened.
-                // A pending clip now survives until you touch the transcript
-                // again, create it, or cancel.
-                onMouseDown={() => setSelection(null)}
-                onMouseUp={captureSelection}
-                // Wheel and touch fire only for user-driven scrolling, never
-                // for scrollIntoView — so following stops the moment the
-                // reporter takes over, instead of fighting them for the pane.
-                onWheel={() => setFollow(false)}
-                onTouchMove={() => setFollow(false)}
-                className="max-h-[max(24rem,calc(100vh-17rem))] overflow-y-auto rounded border border-line py-2 pb-24"
-              >
-                {segments.map((segment, index) => (
-                  <SegmentRow
-                    key={segment.id}
-                    projectId={projectId}
-                    segment={segment}
-                    tokens={tokensBySegment[index] ?? []}
-                    clipSpans={clipCoverage[index] ?? []}
-                    selectedClipId={selectedClipId}
-                    hoveredClipId={hoveredClipId}
-                    speakers={speakers}
-                    segmentIndex={index}
-                    found={highlights.get(index)}
-                    isActive={index === activeIndex}
-                    isLast={index === segments.length - 1}
-                    showSpeaker={
-                      index === 0 || segments[index - 1]?.speakerId !== segment.speakerId
-                    }
-                    isEditing={editingSegmentId === segment.id}
-                    onStartEditing={() => setEditingSegmentId(segment.id)}
-                    onStopEditing={() => setEditingSegmentId(null)}
-                    onSeek={seekTo}
-                    onSelectClip={(clipId) =>
-                      setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
-                    }
-                  />
-                ))}
-              </div>
-              {selection && (
-                <SelectionToolbar
-                  key={`${selection.startMs}-${selection.endMs}`}
-                  sourceId={sourceId}
-                  representationId={representationId}
-                  selection={selection}
-                  onPreview={previewRange}
-                  onCancel={clearSelection}
-                  onCreated={() => {
-                    clearSelection();
-                    router.refresh();
-                  }}
-                />
+            <span className="flex-1" />
+            <form
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                goToMatch(currentMatch + 1);
+              }}
+              className="flex w-full items-center gap-1.5 lg:w-auto"
+            >
+              <Input
+                type="search"
+                value={findQuery}
+                onChange={(event) => {
+                  setFindQuery(event.target.value);
+                  setFindIndex(0);
+                }}
+                placeholder="Find in this transcript"
+                aria-label="Find in this transcript"
+                className="min-w-0 flex-1 px-2.5 py-1.5 lg:w-52 lg:flex-none"
+              />
+              {findQuery.trim().length >= 2 && (
+                <>
+                  <span className="whitespace-nowrap text-xs text-ink-500" aria-live="polite">
+                    {matches.length === 0
+                      ? "No matches"
+                      : `${currentMatch + 1} of ${matches.length}`}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={matches.length === 0}
+                    onClick={() => goToMatch(currentMatch - 1)}
+                    aria-label="Previous match"
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={matches.length === 0}
+                    onClick={() => goToMatch(currentMatch + 1)}
+                    aria-label="Next match"
+                  >
+                    ↓
+                  </Button>
+                </>
               )}
-            </div>
+            </form>
+            {/* Built from `segments` and the live `speakers` state, so a copy
+              always carries the corrections and names on screen. */}
+            <TranscriptExport
+              projectTitle={projectTitle}
+              interviewDate={interviewDate}
+              exportDate={exportDate}
+              segments={segments}
+              speakers={speakers}
+            />
+            <span className="max-lg:hidden">
+              <ShortcutsHelp />
+            </span>
           </div>
-        )}
+
+          {segments.length === 0 ? (
+            <p className="text-sm text-ink-500">
+              The transcript didn&apos;t come back with any speech.
+            </p>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs text-ink-400">
+                Select any stretch of text to make an excerpt — on a phone, touch and hold a word,
+                then drag. Use the ⋮ on a line to edit, merge, or reassign it, or to make an excerpt
+                from the whole line.
+              </p>
+              <div className="relative">
+                <div
+                  ref={transcriptRef}
+                  // Clearing on mousedown *here* rather than on a document-wide
+                  // selectionchange: focusing any form control collapses the
+                  // document selection, so listening globally meant clicking
+                  // into the clip title closed the composer you'd just opened.
+                  // A pending clip now survives until you touch the transcript
+                  // again, create it, or cancel.
+                  onMouseDown={() => setSelection(null)}
+                  onMouseUp={captureSelection}
+                  // Wheel and touch fire only for user-driven scrolling, never
+                  // for scrollIntoView — so following stops the moment the
+                  // reporter takes over, instead of fighting them for the pane.
+                  onWheel={() => setFollow(false)}
+                  onTouchMove={() => setFollow(false)}
+                  className="max-h-[max(20rem,calc(100dvh-22rem))] overflow-y-auto rounded border border-line py-2 pb-24 lg:max-h-[max(24rem,calc(100vh-17rem))]"
+                >
+                  {segments.map((segment, index) => (
+                    <SegmentRow
+                      key={segment.id}
+                      projectId={projectId}
+                      segment={segment}
+                      tokens={tokensBySegment[index] ?? []}
+                      clipSpans={clipCoverage[index] ?? []}
+                      selectedClipId={selectedClipId}
+                      hoveredClipId={hoveredClipId}
+                      speakers={speakers}
+                      segmentIndex={index}
+                      found={highlights.get(index)}
+                      isActive={index === activeIndex}
+                      isLast={index === segments.length - 1}
+                      showSpeaker={
+                        index === 0 || segments[index - 1]?.speakerId !== segment.speakerId
+                      }
+                      isEditing={editingSegmentId === segment.id}
+                      onStartEditing={() => setEditingSegmentId(segment.id)}
+                      onStopEditing={() => setEditingSegmentId(null)}
+                      onSeek={seekTo}
+                      onSelectClip={(clipId) =>
+                        setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
+                      }
+                      onMakeExcerpt={() => makeExcerptFromLine(index)}
+                    />
+                  ))}
+                </div>
+                {selection && (
+                  <SelectionToolbar
+                    key={`${selection.startMs}-${selection.endMs}`}
+                    sourceId={sourceId}
+                    representationId={representationId}
+                    selection={selection}
+                    onPreview={previewRange}
+                    onCancel={clearSelection}
+                    onCreated={() => {
+                      clearSelection();
+                      router.refresh();
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto">
+      <div className={cn(pane === "speakers" ? "lg:hidden" : "hidden")}>
+        <SpeakersPane
+          projectId={projectId}
+          speakers={speakers}
+          segments={segments}
+          onSeek={seekTo}
+          onRenamed={handleSpeakerRenamed}
+        />
+      </div>
+
+      <div
+        className={cn(
+          "flex-col gap-4 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
+          pane === "excerpts" ? "flex" : "hidden",
+        )}
+      >
         <ClipRail
           clips={clips}
           selectedClipId={selectedClipId}
@@ -575,6 +736,60 @@ export function TranscriptWorkspace({
           onPreview={previewRange}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The three working surfaces as tabs, below lg only. Buttons rather than the
+ * link-based TabNav, because these switch what one screen shows and are not
+ * places in the tool; the underline is the same, since it answers the same
+ * question.
+ */
+function PaneTabs({
+  pane,
+  onChange,
+  excerptCount,
+  speakerCount,
+}: {
+  pane: Pane;
+  onChange: (pane: Pane) => void;
+  excerptCount: number;
+  speakerCount: number;
+}) {
+  const tabs: { id: Pane; label: string; count?: number }[] = [
+    { id: "transcript", label: "Transcript" },
+    { id: "excerpts", label: "Excerpts", count: excerptCount },
+    { id: "speakers", label: "Speakers", count: speakerCount },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="Workspace"
+      className="-mb-2 flex border-b border-line lg:hidden"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={pane === tab.id}
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "-mb-px flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-[3px] text-[15px] font-semibold transition-colors",
+            pane === tab.id
+              ? "border-brand-primary text-brand-link"
+              : "border-transparent text-ink-500",
+          )}
+        >
+          {tab.label}
+          {tab.count !== undefined && tab.count > 0 && (
+            <span className="rounded-full bg-panel-100 px-1.5 text-xs font-bold leading-5 text-ink-700">
+              {tab.count}
+            </span>
+          )}
+        </button>
+      ))}
     </div>
   );
 }

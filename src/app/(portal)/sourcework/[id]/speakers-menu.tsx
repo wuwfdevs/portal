@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { CheckboxField, Input, Select } from "@/components/ui/input";
@@ -83,7 +84,7 @@ export function SpeakersMenu({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="max-w-full"
+        className="max-w-full max-lg:hidden"
       >
         <span className="truncate">
           Speakers ({summary.count}){summary.text && ` · ${summary.text}`}
@@ -100,48 +101,142 @@ export function SpeakersMenu({
         role="dialog"
         className="w-[34rem] max-w-[calc(100vw-1rem)] rounded border border-line bg-white shadow-lg"
       >
-        <div className="flex flex-col gap-2 p-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <strong className="text-sm text-ink-900">Speakers ({summary.count})</strong>
-            {summary.unnamed > 0 && (
-              <span className="text-xs text-ink-500">{summary.unnamed} unnamed</span>
-            )}
-          </div>
-          {rows.length > FILTER_THRESHOLD && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Find a speaker"
-                aria-label="Find a speaker"
-                className="min-w-0 flex-1 px-2.5 py-1.5"
-              />
-              <CheckboxField
-                label="Unnamed only"
-                checked={unnamedOnly}
-                onChange={(event) => setUnnamedOnly(event.target.checked)}
-              />
-            </div>
+        <SpeakersPanelBody
+          projectId={projectId}
+          rows={rows}
+          summary={summary}
+          visible={visible}
+          query={query}
+          onQuery={setQuery}
+          unnamedOnly={unnamedOnly}
+          onUnnamedOnly={setUnnamedOnly}
+          onSeek={onSeek}
+          onRenamed={onRenamed}
+        />
+      </FloatingPanel>
+    </>
+  );
+}
+
+/**
+ * The speakers list as a tab of its own. Below lg the popover above is hidden
+ * (a floating panel is a poor fit for a phone) and this renders the same rows
+ * inline instead — the same rename, example and merge, one source of truth.
+ */
+export function SpeakersPane({
+  projectId,
+  speakers,
+  segments,
+  onSeek,
+  onRenamed,
+}: {
+  projectId: string;
+  speakers: TranscriptSpeaker[];
+  segments: TranscriptSegment[];
+  onSeek: (startMs: number) => void;
+  onRenamed: (speakerId: string, displayName: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [unnamedOnly, setUnnamedOnly] = useState(false);
+  const rows = useMemo(() => speakerRows(segments, speakers), [segments, speakers]);
+  const summary = useMemo(() => speakerSummary(rows), [rows]);
+  const visible = useMemo(
+    () => filterSpeakerRows(rows, { query, unnamedOnly }),
+    [rows, query, unnamedOnly],
+  );
+
+  if (speakers.length === 0) {
+    return <p className="text-sm text-ink-500">No speakers were identified in this recording.</p>;
+  }
+
+  return (
+    <div className="rounded border border-line bg-white">
+      <SpeakersPanelBody
+        projectId={projectId}
+        rows={rows}
+        summary={summary}
+        visible={visible}
+        query={query}
+        onQuery={setQuery}
+        unnamedOnly={unnamedOnly}
+        onUnnamedOnly={setUnnamedOnly}
+        onSeek={onSeek}
+        onRenamed={onRenamed}
+        scrollable={false}
+      />
+    </div>
+  );
+}
+
+function SpeakersPanelBody({
+  projectId,
+  rows,
+  summary,
+  visible,
+  query,
+  onQuery,
+  unnamedOnly,
+  onUnnamedOnly,
+  onSeek,
+  onRenamed,
+  scrollable = true,
+}: {
+  projectId: string;
+  rows: ReturnType<typeof speakerRows>;
+  summary: ReturnType<typeof speakerSummary>;
+  visible: ReturnType<typeof speakerRows>;
+  query: string;
+  onQuery: (value: string) => void;
+  unnamedOnly: boolean;
+  onUnnamedOnly: (value: boolean) => void;
+  onSeek: (startMs: number) => void;
+  onRenamed: (speakerId: string, displayName: string) => void;
+  /** The popover caps its height and scrolls; the tab is part of the page and does not. */
+  scrollable?: boolean;
+}) {
+  return (
+    <>
+      <div className="flex flex-col gap-2 p-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <strong className="text-sm text-ink-900">Speakers ({summary.count})</strong>
+          {summary.unnamed > 0 && (
+            <span className="text-xs text-ink-500">{summary.unnamed} unnamed</span>
           )}
         </div>
-        <ul className="max-h-80 overflow-y-auto border-t border-line">
-          {visible.length === 0 ? (
-            <li className="px-3 py-4 text-sm text-ink-500">No speaker matches.</li>
-          ) : (
-            visible.map((row) => (
-              <SpeakerEditRow
-                key={row.speaker.id}
-                projectId={projectId}
-                row={row}
-                others={rows.filter((other) => other.speaker.id !== row.speaker.id)}
-                onSeek={onSeek}
-                onRenamed={onRenamed}
-              />
-            ))
-          )}
-        </ul>
-      </FloatingPanel>
+        {rows.length > FILTER_THRESHOLD && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => onQuery(event.target.value)}
+              placeholder="Find a speaker"
+              aria-label="Find a speaker"
+              className="min-w-0 flex-1 px-2.5 py-1.5"
+            />
+            <CheckboxField
+              label="Unnamed only"
+              checked={unnamedOnly}
+              onChange={(event) => onUnnamedOnly(event.target.checked)}
+            />
+          </div>
+        )}
+      </div>
+      <ul className={cn("border-t border-line", scrollable && "max-h-80 overflow-y-auto")}>
+        {visible.length === 0 ? (
+          <li className="px-3 py-4 text-sm text-ink-500">No speaker matches.</li>
+        ) : (
+          visible.map((row) => (
+            <SpeakerEditRow
+              key={row.speaker.id}
+              projectId={projectId}
+              row={row}
+              others={rows.filter((other) => other.speaker.id !== row.speaker.id)}
+              onSeek={onSeek}
+              onRenamed={onRenamed}
+            />
+          ))
+        )}
+      </ul>
     </>
   );
 }
@@ -215,7 +310,7 @@ function SpeakerEditRow({
           onBlur={handleBlur}
           placeholder={`Speaker ${speaker.diarizationLabel}`}
           aria-label={`Name for ${row.label}`}
-          className="w-44 px-2.5 py-1.5"
+          className="w-full px-2.5 py-1.5 sm:w-44"
         />
         <span className="font-mono text-[11px] text-ink-500">
           {row.lines === 0
@@ -227,7 +322,7 @@ function SpeakerEditRow({
             type="button"
             variant="link"
             onClick={() => onSeek(row.firstStartMs!)}
-            className="text-brand-link"
+            className="text-brand-link max-lg:min-h-11"
           >
             Hear an example
           </Button>
@@ -237,7 +332,7 @@ function SpeakerEditRow({
             type="button"
             variant="link"
             onClick={() => setMerging((current) => !current)}
-            className="text-brand-link"
+            className="text-brand-link max-lg:min-h-11"
           >
             Merge…
           </Button>

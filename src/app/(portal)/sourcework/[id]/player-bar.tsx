@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
@@ -19,6 +19,12 @@ const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
  * The persistent compact transport the design asks for (§4): play/pause,
  * time, seek, speed — plus the ±5s jump that re-hearing a phrase depends on
  * and the follow-along toggle.
+ *
+ * On a phone it is docked to the bottom of the screen instead of the top of the
+ * column, so it stays reachable by thumb whichever workspace tab is open. It
+ * publishes its own height as `--player-dock-h` on the root element, which is
+ * what lets the excerpt sheet sit exactly above it and the page leave room
+ * for it, without either guessing a number.
  *
  * It drives the media element the workspace owns, and subscribes to that
  * element for its own display state rather than having the workspace hold
@@ -40,6 +46,7 @@ export function PlayerBar({
   /** A click on one excerpt's mark (not on a merged stretch). */
   onSelectMark?: (clipId: string) => void;
 }) {
+  const barRef = useRef<HTMLDivElement>(null);
   const [currentMs, setCurrentMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -87,6 +94,20 @@ export function PlayerBar({
     };
   }, [mediaRef]);
 
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--player-dock-h", `${bar.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--player-dock-h");
+    };
+  }, []);
+
   function togglePlay() {
     const el = mediaRef.current;
     if (!el) return;
@@ -101,12 +122,20 @@ export function PlayerBar({
   }
 
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded border border-line bg-white/95 px-3 py-2 backdrop-blur">
+    <div
+      ref={barRef}
+      className={cn(
+        // Below lg: docked to the bottom edge, clear of the home indicator.
+        "fixed inset-x-0 bottom-0 z-30 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_14px_rgba(15,20,25,0.07)]",
+        // lg and up: the sticky bar at the top of the transcript column.
+        "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-10 lg:gap-3 lg:rounded lg:border lg:bg-white/95 lg:py-2 lg:pb-2 lg:shadow-none lg:backdrop-blur",
+      )}
+    >
       <button
         type="button"
         onClick={togglePlay}
         aria-label={isPlaying ? "Pause" : "Play"}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white hover:bg-[#2278B8]"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white hover:bg-[#2278B8] lg:h-8 lg:w-8"
       >
         {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="ml-0.5 h-3 w-3" />}
       </button>
@@ -120,7 +149,11 @@ export function PlayerBar({
         </TransportButton>
       </div>
 
-      <div className="flex min-w-[8rem] flex-1 flex-col gap-1">
+      <div className="order-first flex w-full flex-col gap-1 lg:order-none lg:w-auto lg:min-w-[8rem] lg:flex-1">
+        <div className="flex justify-between font-mono text-[11px] tabular-nums text-ink-500 lg:hidden">
+          <span>{formatDuration(currentMs)}</span>
+          <span>{durationMs ? formatDuration(durationMs) : "—:—"}</span>
+        </div>
         <input
           type="range"
           min={view.startMs}
@@ -134,7 +167,7 @@ export function PlayerBar({
             if (el) el.currentTime = Number(e.target.value) / 1000;
           }}
           aria-label="Seek"
-          className="h-1 w-full cursor-pointer accent-[#2A8AD4]"
+          className="h-6 w-full cursor-pointer accent-[#2A8AD4] lg:h-1"
         />
         <ScrubberStrip
           marks={marks}
@@ -168,11 +201,11 @@ export function PlayerBar({
         )}
       </div>
 
-      <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-500">
+      <span className="hidden shrink-0 font-mono text-[11px] tabular-nums text-ink-500 lg:inline">
         {formatDuration(currentMs)} / {durationMs ? formatDuration(durationMs) : "—:—"}
       </span>
 
-      <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink-500">
+      <label className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-ink-500 lg:ml-0">
         <span className="sr-only">Playback speed</span>
         <Select
           compact
@@ -181,7 +214,7 @@ export function PlayerBar({
             const el = mediaRef.current;
             if (el) el.playbackRate = Number(e.target.value);
           }}
-          className="text-ink-700"
+          className="text-ink-700 max-lg:min-h-11"
         >
           {PLAYBACK_RATES.map((option) => (
             <option key={option} value={option}>
@@ -201,13 +234,20 @@ export function PlayerBar({
             : "Scroll the transcript back to the playhead and follow along"
         }
         className={cn(
-          "shrink-0 rounded border px-2 py-0.5 text-[11px] font-semibold transition-colors",
+          "shrink-0 rounded border px-3 text-sm font-semibold transition-colors max-lg:min-h-11 lg:px-2 lg:py-0.5 lg:text-[11px]",
           follow
             ? "border-brand-primary bg-brand-surface text-brand-link"
             : "border-line text-ink-500 hover:bg-panel-50",
         )}
       >
-        {follow ? "Following" : "Jump to playhead"}
+        {follow ? (
+          "Following"
+        ) : (
+          <>
+            <span className="lg:hidden">Follow</span>
+            <span className="hidden lg:inline">Jump to playhead</span>
+          </>
+        )}
       </button>
     </div>
   );
@@ -228,7 +268,7 @@ function TransportButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50"
+      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-11"
     >
       {children}
     </button>
