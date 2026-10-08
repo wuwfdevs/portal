@@ -1,7 +1,10 @@
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { CardHeader } from "@/components/ui/section-heading";
 import { EmptyState } from "@/components/ui/empty-state";
+import { buildFneLibraryHandoffPath } from "@/lib/log/fne-handoff";
 import { getFneFeedUrl, getFneStories } from "@/lib/log/fne";
 import { FNE_KIND_LABELS, type FneItem } from "@/lib/log/providers/fne-response";
 import { formatStationTimestamp } from "@/lib/log/timezone";
@@ -28,27 +31,20 @@ function Version({ item }: { item: FneItem }) {
         {item.audioBytes !== null && (
           <span className="text-ink-500">· {formatSize(item.audioBytes)}</span>
         )}
-        <a
-          href={item.link}
-          target="_blank"
-          rel="noreferrer"
-          className="ml-auto font-semibold text-brand-link"
-        >
+        <TextLink href={item.link} target="_blank" rel="noreferrer" className="ml-auto">
           Open on PRX
-        </a>
+        </TextLink>
+        <PrimaryLink href={buildFneLibraryHandoffPath(item)}>Add to library</PrimaryLink>
       </div>
 
       {item.audioUrl ? (
         <div className="flex flex-wrap items-center gap-3">
-          <audio controls preload="none" src={item.audioUrl} className="h-9 w-full max-w-md" />
-          <a
-            href={item.audioUrl}
-            download
-            className="text-sm font-semibold text-brand-link"
-            rel="noreferrer"
-          >
+          <audio controls preload="none" src={item.audioUrl} className="h-9 w-full max-w-md">
+            <track kind="captions" />
+          </audio>
+          <TextLink href={item.audioUrl} download rel="noreferrer">
             Download
-          </a>
+          </TextLink>
         </div>
       ) : (
         <p className="text-sm text-ink-500">No audio attached.</p>
@@ -56,7 +52,7 @@ function Version({ item }: { item: FneItem }) {
 
       {item.description && (
         <details className="text-sm text-ink-700">
-          <summary className="cursor-pointer font-semibold text-ink-900">Copy</summary>
+          <summary className="cursor-pointer font-semibold text-ink-900">Feed description</summary>
           <p className="mt-2 max-w-prose whitespace-pre-wrap">{item.description}</p>
         </details>
       )}
@@ -99,8 +95,10 @@ export default async function FloridaNewsExchangePage() {
         <div className="flex flex-col gap-4">
           {stories.map((story) => (
             <Card key={story.versions[0]!.guid} role="region" aria-label={story.title}>
-              <h2 className="px-5 pt-4 text-base font-bold text-ink-900">{story.title}</h2>
-              <ul className="mt-2">
+              <CardHeader>
+                <h2>{story.title}</h2>
+              </CardHeader>
+              <ul>
                 {story.versions.map((item) => (
                   <Version key={item.guid} item={item} />
                 ))}

@@ -1,14 +1,20 @@
 import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/ui/page-header";
+import { readPrefill } from "@/lib/log/fne-handoff";
 import { createContentItem } from "../../library-actions";
 import { ContentItemForm } from "../content-item-form";
 
 export default async function NewContentItemPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    title?: string;
+    content_type?: string;
+    summary?: string;
+  }>;
 }) {
-  const { error } = await searchParams;
+  const { error, ...prefill } = await searchParams;
 
   return (
     <div className="max-w-2xl">
@@ -21,7 +27,11 @@ export default async function NewContentItemPage({
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
-      <ContentItemForm action={createContentItem} submitLabel="Create content item" />
+      <ContentItemForm
+        action={createContentItem}
+        submitLabel="Create content item"
+        initial={readPrefill(prefill)}
+      />
     </div>
   );
 }

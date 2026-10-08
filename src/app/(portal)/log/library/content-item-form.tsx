@@ -14,21 +14,34 @@ export function ContentItemForm({
   submitLabel,
   item,
   cancelHref,
+  initial,
 }: {
   action: (formData: FormData) => void;
   submitLabel: string;
   /** Omit for a new item; pass the existing row to prefill an edit. */
   item?: LogContentItemRow;
   cancelHref?: string;
+  /** Starting values for a NEW item, e.g. from a hand-off link; an existing `item` wins. */
+  initial?: { title?: string; content_type?: string; summary?: string };
 }) {
   return (
     <form action={action} className="flex flex-col gap-4 rounded border border-line p-5">
       {item && <input type="hidden" name="content_item_id" value={item.id} />}
       <Field label="Title" htmlFor="title">
-        <Input id="title" name="title" required maxLength={200} defaultValue={item?.title ?? ""} />
+        <Input
+          id="title"
+          name="title"
+          required
+          maxLength={200}
+          defaultValue={item?.title ?? initial?.title ?? ""}
+        />
       </Field>
       <Field label="Content type" htmlFor="content_type">
-        <Select id="content_type" name="content_type" defaultValue={item?.content_type ?? "news"}>
+        <Select
+          id="content_type"
+          name="content_type"
+          defaultValue={item?.content_type ?? initial?.content_type ?? "news"}
+        >
           {Object.entries(CONTENT_TYPE_LABEL).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
@@ -37,7 +50,12 @@ export function ContentItemForm({
         </Select>
       </Field>
       <Field label="Summary" htmlFor="summary">
-        <Textarea id="summary" name="summary" rows={2} defaultValue={item?.summary ?? ""} />
+        <Textarea
+          id="summary"
+          name="summary"
+          rows={initial?.summary ? 6 : 2}
+          defaultValue={item?.summary ?? initial?.summary ?? ""}
+        />
       </Field>
       <Field label="Script" htmlFor="script">
         <Textarea id="script" name="script" rows={5} defaultValue={item?.script ?? ""} />
