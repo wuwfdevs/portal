@@ -39,7 +39,7 @@ export function StagedFiles({
     const problems: string[] = [];
     const accepted: StagedFile[] = [];
     for (const file of files) {
-      const classified = classifySourceFile(file.type);
+      const classified = classifySourceFile(file);
       if ("error" in classified) {
         problems.push(file.name);
         continue;

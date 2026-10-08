@@ -620,9 +620,7 @@ export async function countProjectFilters(
   const supabase = await createClient();
   const counts = await Promise.all(
     PROJECT_LIST_FILTERS.map(async (filter) => {
-      let query = supabase
-        .from("sw_project_overview")
-        .select("id", { count: "exact", head: true });
+      let query = supabase.from("sw_project_overview").select("id", { count: "exact", head: true });
       if (filter === "mine") query = query.eq("created_by", userId);
       else if (filter === "attention") query = query.gt("failed_count", 0);
       else if (filter === "empty") query = query.eq("source_count", 0);

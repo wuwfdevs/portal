@@ -15,6 +15,7 @@ import {
   sourceObjectPath,
   titleFromFileName,
   classifySourceFile,
+  resolveSourceContentType,
 } from "./media";
 
 describe("isAllowedMediaType", () => {
@@ -175,14 +176,48 @@ describe("titleFromFileName", () => {
 
 describe("classifySourceFile", () => {
   it("sorts a file into audio/video or document", () => {
-    expect(classifySourceFile("audio/mpeg")).toEqual({ kind: "audio_video" });
-    expect(classifySourceFile("video/mp4")).toEqual({ kind: "audio_video" });
-    expect(classifySourceFile("application/pdf")).toEqual({ kind: "document" });
+    expect(classifySourceFile({ name: "a.mp3", type: "audio/mpeg" })).toEqual({
+      kind: "audio_video",
+      contentType: "audio/mpeg",
+    });
+    expect(classifySourceFile({ name: "a.mp4", type: "video/mp4" })).toEqual({
+      kind: "audio_video",
+      contentType: "video/mp4",
+    });
+    expect(classifySourceFile({ name: "a.pdf", type: "application/pdf" })).toEqual({
+      kind: "document",
+      contentType: "application/pdf",
+    });
   });
 
   it("refuses anything else with a sentence the reporter can act on", () => {
-    const result = classifySourceFile("image/png");
+    const result = classifySourceFile({ name: "a.png", type: "image/png" });
     expect(result).toHaveProperty("error");
     expect((result as { error: string }).error).toContain("PDF");
+  });
+});
+
+describe("resolveSourceContentType", () => {
+  it("keeps a type the allow-list knows", () => {
+    expect(resolveSourceContentType({ name: "x.m4a", type: "audio/x-m4a" })).toBe("audio/x-m4a");
+  });
+
+  it("maps the aliases browsers report for an iPhone Voice Memo", () => {
+    expect(resolveSourceContentType({ name: "New Recording.m4a", type: "audio/m4a" })).toBe(
+      "audio/mp4",
+    );
+    expect(resolveSourceContentType({ name: "x.m4a", type: "audio/mp4a-latm" })).toBe("audio/mp4");
+  });
+
+  it("falls back to the extension when the type is empty or unlisted", () => {
+    expect(resolveSourceContentType({ name: "New Recording 4.M4A", type: "" })).toBe("audio/mp4");
+    expect(resolveSourceContentType({ name: "clip.mov", type: "application/octet-stream" })).toBe(
+      "video/quicktime",
+    );
+  });
+
+  it("returns nothing for a file it can't identify", () => {
+    expect(resolveSourceContentType({ name: "photo.png", type: "image/png" })).toBe("");
+    expect(classifySourceFile({ name: "notes", type: "" })).toHaveProperty("error");
   });
 });

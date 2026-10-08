@@ -1,4 +1,4 @@
-import { isVideoContentType } from "@/lib/transcription/media";
+import { isVideoContentType, resolveSourceContentType } from "@/lib/transcription/media";
 
 /**
  * Reads a local audio or video file's duration in the browser, with no server
@@ -8,7 +8,9 @@ import { isVideoContentType } from "@/lib/transcription/media";
  */
 export function probeDurationMs(file: File): Promise<number | null> {
   return new Promise((resolve) => {
-    const el = document.createElement(isVideoContentType(file.type) ? "video" : "audio");
+    const el = document.createElement(
+      isVideoContentType(resolveSourceContentType(file)) ? "video" : "audio",
+    );
     const objectUrl = URL.createObjectURL(file);
     const cleanup = () => URL.revokeObjectURL(objectUrl);
 

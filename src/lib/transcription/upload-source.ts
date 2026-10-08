@@ -67,7 +67,7 @@ export async function uploadSource(params: {
 }): Promise<UploadSourceResult> {
   const { file, title, actions, existingSourceId = null, finalAttempt = true } = params;
 
-  const classified = classifySourceFile(file.type);
+  const classified = classifySourceFile(file);
   if ("error" in classified) {
     return { ok: false, sourceId: null, error: classified.error, retryable: false };
   }
@@ -84,11 +84,17 @@ export async function uploadSource(params: {
 
   params.onStage?.("uploading");
   const durationMs = classified.kind === "document" ? null : await probeDurationMs(file);
-  const storagePath = sourceObjectPath(sourceId, file.type);
+  const storagePath = sourceObjectPath(sourceId, classified.contentType);
+  // The part's Content-Type comes from the File, and the bucket checks it: send the resolved
+  // type, not whatever the browser guessed for an iPhone's .m4a.
+  const upload =
+    file.type === classified.contentType
+      ? file
+      : new File([file], file.name, { type: classified.contentType });
   const uploaded = await uploadWithProgress({
     bucket: TRANSCRIPTION_MEDIA_BUCKET,
     path: storagePath,
-    file,
+    file: upload,
     upsert: existingSourceId !== null,
     onProgress: params.onProgress,
   });
@@ -102,7 +108,7 @@ export async function uploadSource(params: {
   params.onStage?.("finishing");
   const completed = await actions.completeSource({
     sourceId,
-    contentType: file.type,
+    contentType: classified.contentType,
     storagePath,
     sizeBytes: file.size,
     durationMs,
