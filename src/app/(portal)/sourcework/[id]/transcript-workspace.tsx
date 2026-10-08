@@ -205,6 +205,12 @@ export function TranscriptWorkspace({
     );
   }
 
+  /** Off → on doubles as "take me back to the playhead". */
+  function toggleFollow() {
+    setFollow((current) => !current);
+    if (!follow) scrollToActive();
+  }
+
   const scrollToActive = useCallback(() => {
     const root = transcriptRef.current;
     if (!root || activeIndex < 0) return;
@@ -512,6 +518,18 @@ export function TranscriptWorkspace({
         selection && "max-lg:pb-[calc(var(--player-dock-h,7rem)+20rem)]",
       )}
     >
+      {/* Playback follows along by default; scrolling or touching the text turns
+          it off, and this is the way back. A phone has no room for a permanent
+          button, so it only exists when it has something to do. */}
+      {!follow && activeIndex >= 0 && pane === "transcript" && !selection && (
+        <button
+          type="button"
+          onClick={toggleFollow}
+          className="fixed bottom-[calc(var(--player-dock-h,5rem)+0.75rem)] left-1/2 z-30 min-h-11 -translate-x-1/2 rounded-full bg-brand-primary px-5 text-sm font-semibold text-white shadow-lg lg:hidden"
+        >
+          Jump to now
+        </button>
+      )}
       <PaneTabs
         pane={pane}
         onChange={setPane}
@@ -551,11 +569,7 @@ export function TranscriptWorkspace({
           }))}
           onSelectMark={handleSelectFromRail}
           follow={follow}
-          onToggleFollow={() => {
-            // Off → on doubles as "take me back to the playhead".
-            setFollow((current) => !current);
-            if (!follow) scrollToActive();
-          }}
+          onToggleFollow={toggleFollow}
         />
 
         <div className={cn("flex-col gap-4", pane === "transcript" ? "flex" : "hidden lg:flex")}>
@@ -658,7 +672,7 @@ export function TranscriptWorkspace({
                   // reporter takes over, instead of fighting them for the pane.
                   onWheel={() => setFollow(false)}
                   onTouchMove={() => setFollow(false)}
-                  className="max-h-[max(20rem,calc(100dvh-22rem))] overflow-y-auto rounded border border-line py-2 pb-24 lg:max-h-[max(24rem,calc(100vh-17rem))]"
+                  className="py-2 max-lg:pb-0 lg:max-h-[max(24rem,calc(100vh-17rem))] lg:overflow-y-auto lg:rounded lg:border lg:border-line lg:pb-24"
                 >
                   {segments.map((segment, index) => (
                     <SegmentRow
@@ -767,7 +781,7 @@ function PaneTabs({
     <div
       role="tablist"
       aria-label="Workspace"
-      className="-mb-2 flex border-b border-line lg:hidden"
+      className="sticky top-16 z-30 -mb-2 flex border-b border-line bg-white lg:hidden"
     >
       {tabs.map((tab) => (
         <button

@@ -164,7 +164,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ i
       )}
 
       {fileReady && !isDocument && (
-        <Card className="p-5">
+        <Card className="p-5 max-lg:border-0 max-lg:bg-transparent max-lg:p-0">
           <RepresentationStatusBanner
             status={representationStatus}
             kind="audio_video"

@@ -126,9 +126,9 @@ export function PlayerBar({
       ref={barRef}
       className={cn(
         // Below lg: docked to the bottom edge, clear of the home indicator.
-        "fixed inset-x-0 bottom-0 z-30 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_14px_rgba(15,20,25,0.07)]",
+        "fixed inset-x-0 bottom-0 z-30 flex flex-nowrap items-center gap-1.5 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_14px_rgba(15,20,25,0.07)]",
         // lg and up: the sticky bar at the top of the transcript column.
-        "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-10 lg:gap-3 lg:rounded lg:border lg:bg-white/95 lg:py-2 lg:pb-2 lg:shadow-none lg:backdrop-blur",
+        "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-10 lg:flex-wrap lg:gap-3 lg:rounded lg:border lg:bg-white/95 lg:py-2 lg:pb-2 lg:shadow-none lg:backdrop-blur",
       )}
     >
       <button
@@ -140,7 +140,9 @@ export function PlayerBar({
         {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="ml-0.5 h-3 w-3" />}
       </button>
 
-      <div className="flex shrink-0 gap-1">
+      {/* Desktop only: on a phone the scrubber is wider for it, and tapping any
+          line's time already jumps back or ahead. */}
+      <div className="flex shrink-0 gap-1 max-lg:hidden">
         <TransportButton onClick={() => skip(-SKIP_MS)} label="Back 5 seconds">
           −5s
         </TransportButton>
@@ -149,11 +151,7 @@ export function PlayerBar({
         </TransportButton>
       </div>
 
-      <div className="order-first flex w-full flex-col gap-1 lg:order-none lg:w-auto lg:min-w-[8rem] lg:flex-1">
-        <div className="flex justify-between font-mono text-[11px] tabular-nums text-ink-500 lg:hidden">
-          <span>{formatDuration(currentMs)}</span>
-          <span>{durationMs ? formatDuration(durationMs) : "—:—"}</span>
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 lg:min-w-[8rem] lg:gap-1">
         <input
           type="range"
           min={view.startMs}
@@ -185,6 +183,10 @@ export function PlayerBar({
             if (el) el.currentTime = bin.startMs / 1000;
           }}
         />
+        <div className="flex justify-between font-mono text-[11px] tabular-nums text-ink-500 lg:hidden">
+          <span>{formatDuration(currentMs)}</span>
+          <span>{durationMs ? formatDuration(durationMs) : "—:—"}</span>
+        </div>
         {zoom && (
           <div className="flex items-center gap-2 text-[11px] text-ink-500">
             <span>
@@ -205,7 +207,7 @@ export function PlayerBar({
         {formatDuration(currentMs)} / {durationMs ? formatDuration(durationMs) : "—:—"}
       </span>
 
-      <label className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-ink-500 lg:ml-0">
+      <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink-500 max-lg:hidden">
         <span className="sr-only">Playback speed</span>
         <Select
           compact
@@ -214,7 +216,7 @@ export function PlayerBar({
             const el = mediaRef.current;
             if (el) el.playbackRate = Number(e.target.value);
           }}
-          className="text-ink-700 max-lg:min-h-11"
+          className="text-ink-700"
         >
           {PLAYBACK_RATES.map((option) => (
             <option key={option} value={option}>
@@ -226,6 +228,20 @@ export function PlayerBar({
 
       <button
         type="button"
+        onClick={() => {
+          const el = mediaRef.current;
+          if (!el) return;
+          const next = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(rate) + 1) % PLAYBACK_RATES.length];
+          el.playbackRate = next ?? 1;
+        }}
+        aria-label={`Playback speed ${rate}×. Change speed.`}
+        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded border border-line px-1 text-sm font-semibold text-ink-700 lg:hidden"
+      >
+        {rate}×
+      </button>
+
+      <button
+        type="button"
         onClick={onToggleFollow}
         aria-pressed={follow}
         title={
@@ -234,20 +250,13 @@ export function PlayerBar({
             : "Scroll the transcript back to the playhead and follow along"
         }
         className={cn(
-          "shrink-0 rounded border px-3 text-sm font-semibold transition-colors max-lg:min-h-11 lg:px-2 lg:py-0.5 lg:text-[11px]",
+          "shrink-0 rounded border px-3 text-sm font-semibold transition-colors max-lg:hidden lg:px-2 lg:py-0.5 lg:text-[11px]",
           follow
             ? "border-brand-primary bg-brand-surface text-brand-link"
             : "border-line text-ink-500 hover:bg-panel-50",
         )}
       >
-        {follow ? (
-          "Following"
-        ) : (
-          <>
-            <span className="lg:hidden">Follow</span>
-            <span className="hidden lg:inline">Jump to playhead</span>
-          </>
-        )}
+        {follow ? "Following" : "Jump to playhead"}
       </button>
     </div>
   );
@@ -268,7 +277,7 @@ function TransportButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-11"
+      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50"
     >
       {children}
     </button>
