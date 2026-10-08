@@ -242,6 +242,8 @@ repo and a project's history, not the version number.
 | `20261009150000_resources_log_weather_alerts.sql`                      | 2026-10-08 | 2026-10-08 |
 | `20261007170000_resources_bookings_rates_navigation.sql`               | 2026-10-07 | 2026-10-07 |
 | `20261010120000_sourcework_project_overview.sql`                        | 2026-10-08 | 2026-10-08 |
+| `20261010130000_resources_sourcework_workspace.sql`                     | 2026-10-08 | 2026-10-08 |
+| `20261010140000_resources_sourcework_workspace_guides.sql`              | 2026-10-08 | 2026-10-08 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

@@ -151,12 +151,12 @@ Four shapes, each with one meaning. Before this, a second row of tabs looked exa
 first, pills did double duty as filters and view switches, and four tool pages hand-rolled their
 own underline tabs.
 
-| Shape | Component | Answers | Where it sits |
-| --- | --- | --- | --- |
-| Underline | `TabNav` | Where am I in this tool? | Top of a tool, one row per page |
-| Grey block (square corners, no rule) | `SubNav` | Which page inside this tab? | Directly under the tabs, only for a tab with several pages |
-| Bordered pill | `FilterChips` | Which rows of this list? | In the list's toolbar, with counts |
-| Joined bar | `Segmented` / `SegmentedLinks` | How is this same data drawn? | Beside a view's title; also form choices |
+| Shape                                | Component                      | Answers                      | Where it sits                                              |
+| ------------------------------------ | ------------------------------ | ---------------------------- | ---------------------------------------------------------- |
+| Underline                            | `TabNav`                       | Where am I in this tool?     | Top of a tool, one row per page                            |
+| Grey block (square corners, no rule) | `SubNav`                       | Which page inside this tab?  | Directly under the tabs, only for a tab with several pages |
+| Bordered pill                        | `FilterChips`                  | Which rows of this list?     | In the list's toolbar, with counts                         |
+| Joined bar                           | `Segmented` / `SegmentedLinks` | How is this same data drawn? | Beside a view's title; also form choices                   |
 
 Rules:
 
@@ -393,3 +393,30 @@ writing the class string again; all live in `src/components/ui` unless noted.
 
 Not yet covered, deliberately: a multi-segment or tone-aware `ProgressBar`, a button-style
 `FilterChips`, and a `ConfirmAction` that wraps a server-action form.
+
+## Uploads and batch runs (2026-10-08)
+
+Shared pieces, found by reading every upload in the portal:
+
+- **`FileDrop`** (`components/ui/file-drop.tsx`): a drop zone over a real file picker. Dropped files
+  are checked against `accept` (`lib/file-accept.ts`); rejects go to `onRejected`. Ten screens still use
+  a bare `FileInput`; move them as they are touched.
+- **`useTaskQueue` + `BatchRunPanel`**: a run of many tasks, a few at a time (`lib/run-queue.ts`,
+  `UPLOAD_CONCURRENCY` = 3 for uploads), one overall `ProgressBar`, failures pinned first with a Retry,
+  the tail folded behind a count (`lib/task-queue.ts`, pure and tested). Traffic's migration run
+  (`documents-run.tsx`) predates it and still has its own panel; it should move onto this.
+- **`RecordDocumentUpload`** (`components/ui/record-document-upload.tsx`): one document attached to a
+  record, browser → private bucket at a fixed path, then recorded by an action. Traffic's contract
+  agreement and Bookings' signed agreement are thin wrappers.
+- **`uploadWithProgress`** (`lib/storage-upload.ts`) for progress on a Storage upload; **`backoffDelayMs`**
+  (`lib/backoff.ts`) for the doubling delay every browser retry queue uses.
+
+## Controls that grow with the data (2026-10-08)
+
+One rule per control, so a screen reads the same with two items or two hundred: **a count, a filter that
+appears only when needed, its own scroll, and the tail folded behind a number.** Examples: the source
+switcher (`SearchableSelect`, not tabs or a card per source), `SpeakersMenu` (a button with a summary,
+not a chip per person), the excerpt rail (order, filter past eight, twenty at a time), the scrubber (marks
+become a density strip past thirty), the delete confirmation (five names and "and N more"). Problems
+float to the top. Logic that decides these things is pure and tested (`speakers.ts`, `scrubber-marks.ts`,
+`clip-order.ts`, `task-queue.ts`, `project-deletion.ts`).
