@@ -30,16 +30,16 @@ function Version({ item, showKind }: { item: FneItem; showKind: boolean }) {
         </span>
       </div>
 
+      {item.description && (
+        <p className="max-w-prose whitespace-pre-wrap text-sm text-ink-700">{item.description}</p>
+      )}
+
       {item.audioUrl ? (
         <audio controls preload="none" src={item.audioUrl} className="h-9 w-full max-w-md">
           <track kind="captions" />
         </audio>
       ) : (
         <p className="text-sm text-ink-500">No audio attached.</p>
-      )}
-
-      {item.description && (
-        <p className="max-w-prose whitespace-pre-wrap text-sm text-ink-700">{item.description}</p>
       )}
     </li>
   );
