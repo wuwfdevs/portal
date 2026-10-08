@@ -4,7 +4,7 @@
 
 ## Design a listening question
 
-Start with a specific reporting uncertainty and ask what members of the public can usefully tell the newsroom from direct experience. Use open questions that do not imply an answer, conflate multiple issues, demand private information unnecessarily or promise editorial outcomes. The public query tool supports a limited set of recorded questions; keep the sequence short enough to answer thoughtfully.
+Start with a specific reporting uncertainty and ask what members of the public can usefully tell the newsroom from direct experience. Use open questions that do not imply an answer, conflate multiple issues, demand private information unnecessarily or promise editorial outcomes. The [public query tool](/audience-listening) supports a limited set of recorded questions; keep the sequence short enough to answer thoughtfully.
 
 Examples:
 - **Less useful:** "Why has rising rent made the city unaffordable for everyone?"
