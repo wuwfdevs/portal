@@ -140,7 +140,9 @@ export function PlayerBar({
         {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="ml-0.5 h-3 w-3" />}
       </button>
 
-      <div className="flex shrink-0 gap-1">
+      {/* Desktop only: on a phone the scrubber is wider for it, and tapping any
+          line's time already jumps back or ahead. */}
+      <div className="flex shrink-0 gap-1 max-lg:hidden">
         <TransportButton onClick={() => skip(-SKIP_MS)} label="Back 5 seconds">
           −5s
         </TransportButton>
@@ -275,7 +277,7 @@ function TransportButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-10 max-lg:px-0"
+      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50"
     >
       {children}
     </button>
