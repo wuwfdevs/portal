@@ -80,5 +80,5 @@ Traffic's placement system and On Air's automation schedule are linked but not i
 - [ ] Compare the existing exceptions-and-makegoods guide with the older combined exceptions/makegoods/affidavits guide; consolidate overlapping instructions without losing useful detail.
 - [ ] Validate screen labels and roles against the current code and a signed-in workflow.
 - [ ] Link the separate underwriter payment SOP; do not blend PCI procedures into this tool guide.
-- [ ] Check whether October 8 weighted-rotation migrations are applied to production before calling them live.
+- [x] Confirm the latest weighted-rotation changes are deployed (deployment confirmed by station leadership; production also exposes the contract-copy `weight` field).
 - [ ] Release through migration only after review, with correct screen keys and a release note.
