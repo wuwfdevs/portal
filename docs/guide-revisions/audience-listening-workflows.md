@@ -29,10 +29,3 @@ Responses gathered through an open public prompt are **not a representative poll
 Where appropriate, explain what questions the newsroom heard and how they shaped subsequent coverage; do not imply that every submission will be broadcast or receive an individual response.
 
 **Review before publication:** Read the live editor-modified query guides first and preserve their edits. Verify actual consent language, retention settings, audience access and Sourcework handoff before offering definitive privacy or disposal instructions.
-
-## Direct portal screen links
-
-Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
-
-- [Queries](https://tools.wuwf.org/audience-listening)
-- [New query](https://tools.wuwf.org/audience-listening/new)
