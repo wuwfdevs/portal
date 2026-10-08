@@ -54,7 +54,7 @@ function pickParam(raw: string | undefined): string | undefined {
 
 /**
  * A clock's page. It leads with who airs on the clock (a program's schedule is
- * where a clock is reached from), then the diagram — Timeline or Ring, one hour
+ * where a clock is reached from), then the diagram — Ring (the default) or Timeline, one hour
  * at a time, stepping through the hours of a multi-hour shift — with the slot
  * list and the selected slot's panel (`components/log/clock-viewer.tsx`).
  * `?version=` picks a version (default: the one in effect today); `?view=`,
@@ -109,7 +109,7 @@ export default async function ClockTemplateDetailPage({
     ...(version ? { version: version.id } : {}),
     ...(fromProgram ? { from: fromProgram.id } : {}),
   };
-  const view = query.view === "ring" ? "ring" : "timeline";
+  const view = query.view === "timeline" ? "timeline" : "ring";
   const hour = clampHour(query.hour, shift.hours);
   const slotParam = pickParam(query.slot);
   const mode =
