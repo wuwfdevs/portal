@@ -1,6 +1,10 @@
 import "server-only";
-import { buildDailyOutlook, type DailyOutlookEntry, type ForecastPeriodSummary } from "../weather-outlook";
-import { alertsToHazards, parseNwsAlerts, type WeatherAlert } from "../weather-alerts";
+import {
+  buildDailyOutlook,
+  type DailyOutlookEntry,
+  type ForecastPeriodSummary,
+} from "../weather-outlook";
+import { alertsToHazards, mergeAlerts, parseNwsAlerts, type WeatherAlert } from "../weather-alerts";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -97,15 +101,31 @@ export interface WeatherReading {
   forecast_periods: ForecastPeriodSummary[];
 }
 
-/** Active watches, warnings and statements for the point. Throws on any failure so the caller can tell "no alerts" from "couldn't check". */
+/**
+ * Active watches, warnings and statements for WUWF's coverage. The point
+ * query for the studio is the required half: everything NWS says covers
+ * Pensacola, so a failure there throws and the caller can tell "no alerts"
+ * from "couldn't check". The state-wide query (Florida and Alabama, filtered
+ * to the coverage counties by their SAME codes) is best-effort and adds
+ * what the point query cannot see, such as a warning for Mobile County alone.
+ */
 export async function fetchWeatherAlerts(
   latitude: string = process.env.WEATHER_LATITUDE || DEFAULT_LATITUDE,
   longitude: string = process.env.WEATHER_LONGITUDE || DEFAULT_LONGITUDE,
 ): Promise<WeatherAlert[]> {
-  const response = await getJson<Parameters<typeof parseNwsAlerts>[0]>(
-    `${API_BASE}/alerts/active?point=${latitude},${longitude}`,
+  type Response = Parameters<typeof parseNwsAlerts>[0];
+  const point = parseNwsAlerts(
+    await getJson<Response>(`${API_BASE}/alerts/active?point=${latitude},${longitude}`),
   );
-  return parseNwsAlerts(response);
+  let region: WeatherAlert[] = [];
+  try {
+    region = parseNwsAlerts(await getJson<Response>(`${API_BASE}/alerts/active?area=FL,AL`)).filter(
+      (alert) => alert.places.length > 0,
+    );
+  } catch {
+    // The point query already answered for the studio's own county.
+  }
+  return mergeAlerts(point, region);
 }
 
 /** Fetches the current live-read from NWS. Throws with a clear message on any failure — lib/log/weather.ts catches it and falls back to the last-known reading, per §6/§22's "never make the display unreadable." */
@@ -163,7 +183,9 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
 
   const cityState = points.properties.relativeLocation?.properties;
   const forecastArea =
-    cityState?.city && cityState?.state ? `${cityState.city}, ${cityState.state}` : DEFAULT_FORECAST_AREA;
+    cityState?.city && cityState?.state
+      ? `${cityState.city}, ${cityState.state}`
+      : DEFAULT_FORECAST_AREA;
 
   // Each period's detailedForecast is already a complete, self-contained
   // paragraph from NWS (its own precipitation-chance sentence and all) — a
@@ -176,7 +198,9 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   // plain string to prefill its textarea.
   const forecastPeriods: ForecastPeriodSummary[] = [
     dayPeriod.detailedForecast ? { label: dayPeriod.name, text: dayPeriod.detailedForecast } : null,
-    nightPeriod?.detailedForecast ? { label: nightPeriod.name, text: nightPeriod.detailedForecast } : null,
+    nightPeriod?.detailedForecast
+      ? { label: nightPeriod.name, text: nightPeriod.detailedForecast }
+      : null,
   ].filter((period): period is ForecastPeriodSummary => period !== null);
 
   const liveReadText = forecastPeriods.map((period) => `${period.label}: ${period.text}`).join(" ");

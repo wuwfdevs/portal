@@ -24,6 +24,8 @@ export interface WeatherAlert {
   description: string | null;
   instruction: string | null;
   areaDesc: string | null;
+  /** Which of WUWF's coverage counties the alert covers, by name, in a fixed order. Empty when NWS gave no county codes (marine alerts, for one). */
+  places: string[];
   senderName: string | null;
   /** When NWS sent this message. */
   issuedAt: string | null;
@@ -48,6 +50,25 @@ const URGENCY_RANK: Record<string, number> = {
   Unknown: 4,
 };
 const TIER_RANK: Record<AlertTier, number> = { warning: 0, watch: 1, statement: 2 };
+
+/**
+ * The counties WUWF covers, with their SAME (FIPS) codes — NWS tags every
+ * alert with the counties it touches, which is a precise match where the
+ * zone names are not ("Escambia" is also a county in Alabama; "Mobile Coastal"
+ * and "Baldwin Coastal" are zones, not counties). Order is the display order.
+ */
+export const COVERAGE_COUNTIES: ReadonlyArray<{ name: string; same: string }> = [
+  { name: "Escambia", same: "012033" },
+  { name: "Santa Rosa", same: "012113" },
+  { name: "Okaloosa", same: "012091" },
+  { name: "Mobile", same: "001097" },
+];
+
+/** The coverage counties named in an alert's SAME codes, in display order. */
+export function coveragePlaces(same: readonly string[] | null | undefined): string[] {
+  const codes = new Set(same ?? []);
+  return COVERAGE_COUNTIES.filter((county) => codes.has(county.same)).map((county) => county.name);
+}
 
 /**
  * Warning and Watch come from the event name. Emergencies and evacuations
@@ -79,6 +100,7 @@ interface NwsAlertFeature {
     description?: string | null;
     instruction?: string | null;
     areaDesc?: string | null;
+    geocode?: { SAME?: string[] };
     senderName?: string | null;
     sent?: string | null;
     effective?: string | null;
@@ -110,6 +132,13 @@ export function parseNwsAlerts(
     // Products that are not hazards: a test, the routine short-term forecast,
     // and NWS-internal administrative traffic.
     if (/^(test|short term forecast|administrative message)$/i.test(event)) continue;
+    // Only WUWF's coverage. NWS lists the counties an alert touches; one that
+    // names counties and none of ours does not apply here and is dropped. An
+    // alert with no county codes at all (some marine products) cannot be
+    // judged and is kept, since NWS matched it to the studio's point.
+    const same = p.geocode?.SAME ?? [];
+    const places = coveragePlaces(same);
+    if (same.length > 0 && places.length === 0) continue;
     const severity = p.severity ?? "Unknown";
     alerts.push({
       id: p.id ?? `${event}:${p.sent ?? ""}`,
@@ -121,6 +150,7 @@ export function parseNwsAlerts(
       description: textOrNull(p.description),
       instruction: textOrNull(p.instruction),
       areaDesc: textOrNull(p.areaDesc),
+      places,
       senderName: textOrNull(p.senderName),
       issuedAt: p.sent ?? p.effective ?? null,
       startsAt: p.onset ?? p.effective ?? null,
@@ -211,6 +241,7 @@ export function readStoredAlerts(value: unknown): WeatherAlert[] {
     .map((entry) => ({
       ...entry,
       urgency: entry.urgency ?? "Unknown",
+      places: entry.places ?? [],
       startsAt: entry.startsAt ?? null,
     }));
 }
@@ -265,10 +296,18 @@ export function normalizeNwsText(text: string): string {
  * else the headline. The complete text stays one click away.
  */
 export function alertLeadText(alert: WeatherAlert): string | null {
-  if (alert.instruction) return normalizeNwsText(alert.instruction).split("\n\n")[0] ?? null;
-  if (alert.description) return normalizeNwsText(alert.description).split("\n\n")[0] ?? null;
+  const first = (text: string) => {
+    const paragraphs = normalizeNwsText(text).split("\n\n");
+    // Tropical products open with a list of places or a next-update time;
+    // the places are already in the header, so lead with real prose.
+    return paragraphs.find((paragraph) => !NOT_LEAD.test(paragraph)) ?? paragraphs[0] ?? null;
+  };
+  if (alert.instruction) return first(alert.instruction);
+  if (alert.description) return first(alert.description);
   return alert.headline;
 }
+
+const NOT_LEAD = /^(locations affected|next update)\b/i;
 
 /** Everything NWS said, normalized, for the "Full NWS text" disclosure. Null when it adds nothing beyond the lead. */
 export function alertFullText(alert: WeatherAlert): string | null {
@@ -349,4 +388,22 @@ export function abbreviateAreas(areaDesc: string | null | undefined, shown = 2):
   if (areas.length === 0) return null;
   if (areas.length <= shown) return areas.join(", ");
   return `${areas.slice(0, shown).join(", ")} +${areas.length - shown}`;
+}
+
+/** Combines alert lists, one entry per NWS alert id (the first list wins), ranked. */
+export function mergeAlerts(...lists: WeatherAlert[][]): WeatherAlert[] {
+  const byId = new Map<string, WeatherAlert>();
+  for (const list of lists)
+    for (const alert of list) if (!byId.has(alert.id)) byId.set(alert.id, alert);
+  return sortAlerts([...byId.values()]);
+}
+
+/**
+ * The places line for an alert: only the coverage counties, all of them (there
+ * are four at most). An alert with no county codes falls back to the first
+ * few zones NWS named, abbreviated.
+ */
+export function alertPlaces(alert: Pick<WeatherAlert, "places" | "areaDesc">): string | null {
+  if (alert.places.length > 0) return alert.places.join(", ");
+  return abbreviateAreas(alert.areaDesc);
 }

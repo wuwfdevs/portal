@@ -3,6 +3,9 @@ import { NWS_EVENT_TYPES } from "./fixtures/nws-event-types";
 import {
   activeAlerts,
   abbreviateAreas,
+  alertPlaces,
+  coveragePlaces,
+  mergeAlerts,
   alertFullText,
   alertLabels,
   alertsDisplay,
@@ -33,6 +36,7 @@ function alert(overrides: Partial<WeatherAlert>): WeatherAlert {
     description: null,
     instruction: null,
     areaDesc: null,
+    places: [],
     senderName: null,
     issuedAt: "2026-10-08T06:00:00Z",
     startsAt: null,
@@ -523,5 +527,109 @@ describe("every event type api.weather.gov publishes", () => {
     for (const event of ["Test", "Short Term Forecast", "Administrative Message"]) {
       expect(parseNwsAlerts({ features: [feature({ event })] }), event).toEqual([]);
     }
+  });
+});
+
+describe("coverage counties", () => {
+  const ESCAMBIA = "012033";
+  const SANTA_ROSA = "012113";
+  const OKALOOSA = "012091";
+  const MOBILE = "001097";
+  const WALTON = "012131";
+  const BALDWIN = "001003";
+  const ESCAMBIA_AL = "001053";
+
+  it("names the coverage counties in a fixed order whatever order NWS lists them", () => {
+    expect(coveragePlaces([MOBILE, OKALOOSA, WALTON, ESCAMBIA, SANTA_ROSA])).toEqual([
+      "Escambia",
+      "Santa Rosa",
+      "Okaloosa",
+      "Mobile",
+    ]);
+  });
+
+  it("does not mistake Escambia County, Alabama, or Baldwin for coverage", () => {
+    expect(coveragePlaces([ESCAMBIA_AL, BALDWIN, WALTON])).toEqual([]);
+  });
+
+  it("handles missing codes", () => {
+    expect(coveragePlaces(undefined)).toEqual([]);
+    expect(coveragePlaces([])).toEqual([]);
+  });
+
+  it("keeps an alert that touches a coverage county and lists only those counties", () => {
+    const [kept] = parseNwsAlerts({
+      features: [
+        feature({
+          event: "Flood Watch",
+          areaDesc: "Escambia; Covington; Baldwin Coastal",
+          geocode: { SAME: [ESCAMBIA_AL, "001039", BALDWIN, ESCAMBIA] },
+        }),
+      ],
+    });
+    expect(kept!.places).toEqual(["Escambia"]);
+  });
+
+  it("drops an alert whose counties are all outside coverage", () => {
+    const alerts = parseNwsAlerts({
+      features: [
+        feature({ event: "Flood Watch", geocode: { SAME: [WALTON, BALDWIN] } }),
+        feature({ event: "Flood Watch", geocode: { SAME: [MOBILE] } }),
+      ],
+    });
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.places).toEqual(["Mobile"]);
+  });
+
+  it("keeps an alert with no county codes at all, since it cannot be judged", () => {
+    const alerts = parseNwsAlerts({
+      features: [feature({ event: "Small Craft Advisory", areaDesc: "Pensacola Bay" })],
+    });
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.places).toEqual([]);
+  });
+});
+
+describe("alertPlaces", () => {
+  it("lists every coverage county, not an abbreviation", () => {
+    expect(
+      alertPlaces({
+        places: ["Escambia", "Santa Rosa", "Okaloosa", "Mobile"],
+        areaDesc: "x; y; z",
+      }),
+    ).toBe("Escambia, Santa Rosa, Okaloosa, Mobile");
+  });
+  it("falls back to the abbreviated zones when there are no county codes", () => {
+    expect(alertPlaces({ places: [], areaDesc: "Pensacola Bay; Perdido Bay; Mobile Bay" })).toBe(
+      "Pensacola Bay, Perdido Bay +1",
+    );
+    expect(alertPlaces({ places: [], areaDesc: null })).toBeNull();
+  });
+});
+
+describe("mergeAlerts", () => {
+  it("keeps one entry per alert id, the first list winning, and ranks the result", () => {
+    const merged = mergeAlerts(
+      [alert({ id: "a", event: "Flood Watch", tier: "watch" })],
+      [
+        alert({ id: "a", event: "Different", tier: "watch" }),
+        alert({ id: "b", event: "Hurricane Warning", tier: "warning", severity: "Extreme" }),
+      ],
+    );
+    expect(merged.map((a) => a.id)).toEqual(["b", "a"]);
+    expect(merged.find((a) => a.id === "a")!.event).toBe("Flood Watch");
+  });
+});
+
+describe("alertLeadText skips a list of places", () => {
+  it("leads with prose, not LOCATIONS AFFECTED or NEXT UPDATE", () => {
+    const description =
+      "LOCATIONS AFFECTED\n- Pensacola\n- Perdido Bay\n\nA Hurricane Warning is in effect.\n\nNEXT UPDATE\nAt 4 PM.";
+    expect(alertLeadText(alert({ description }))).toBe("A Hurricane Warning is in effect.");
+  });
+  it("falls back to the first paragraph when every paragraph is skippable", () => {
+    expect(alertLeadText(alert({ description: "NEXT UPDATE\nAt 4 PM." }))).toBe(
+      "NEXT UPDATE At 4 PM.",
+    );
   });
 });
