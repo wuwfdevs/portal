@@ -160,6 +160,11 @@ export function parseNwsAlerts(
   return sortAlerts(alerts);
 }
 
+/** An ISO instant as milliseconds, 0 when absent. Instants carry differing offsets ("-05:00" vs "Z"), so they must be compared as times, not strings. */
+function timeMs(iso: string | null | undefined): number {
+  return iso ? new Date(iso).getTime() || 0 : 0;
+}
+
 /** Warnings first, then watches, then statements; within a tier the more severe and the more recently issued first. */
 export function sortAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
   return [...alerts].sort((a, b) => {
@@ -168,7 +173,7 @@ export function sortAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
     if (severity !== 0) return severity;
     const urgency = (URGENCY_RANK[a.urgency] ?? 4) - (URGENCY_RANK[b.urgency] ?? 4);
     if (urgency !== 0) return urgency;
-    return (b.issuedAt ?? "").localeCompare(a.issuedAt ?? "");
+    return timeMs(b.issuedAt) - timeMs(a.issuedAt);
   });
 }
 
@@ -390,12 +395,65 @@ export function abbreviateAreas(areaDesc: string | null | undefined, shown = 2):
   return `${areas.slice(0, shown).join(", ")} +${areas.length - shown}`;
 }
 
-/** Combines alert lists, one entry per NWS alert id (the first list wins), ranked. */
+/** Combines alert lists: one entry per NWS alert id (the first list wins), consolidated by event, ranked. */
 export function mergeAlerts(...lists: WeatherAlert[][]): WeatherAlert[] {
   const byId = new Map<string, WeatherAlert>();
   for (const list of lists)
     for (const alert of list) if (!byId.has(alert.id)) byId.set(alert.id, alert);
-  return sortAlerts([...byId.values()]);
+  return consolidateAlerts([...byId.values()]);
+}
+
+/**
+ * One row per event. NWS issues a separate alert for each county or zone
+ * group a product covers — during a hurricane, a dozen Hurricane Warnings
+ * that differ only in where — and keeps superseded statements active until
+ * they expire. A host needs "Hurricane Warning: Escambia, Santa Rosa,
+ * Okaloosa, Mobile", once. The newest message supplies the words; places are
+ * the union; the strongest tier, severity and urgency win; and the hazard is
+ * open-ended if any member is.
+ */
+export function consolidateAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
+  const groups = new Map<string, WeatherAlert[]>();
+  for (const alert of alerts) {
+    const key = alert.event.trim().toLowerCase();
+    groups.set(key, [...(groups.get(key) ?? []), alert]);
+  }
+  return sortAlerts([...groups.values()].map(mergeEventGroup));
+}
+
+function strongest(values: string[], rank: Record<string, number>): string {
+  return values.reduce((best, value) => ((rank[value] ?? 4) < (rank[best] ?? 4) ? value : best));
+}
+
+function mergeEventGroup(group: WeatherAlert[]): WeatherAlert {
+  if (group.length === 1) return group[0]!;
+  const newest = group.reduce((best, alert) =>
+    timeMs(alert.issuedAt) > timeMs(best.issuedAt) ? alert : best,
+  );
+  const named = new Set(group.flatMap((alert) => alert.places));
+  const tier = group.reduce<AlertTier>(
+    (best, alert) => (TIER_RANK[alert.tier] < TIER_RANK[best] ? alert.tier : best),
+    "statement",
+  );
+  const openEnded = group.some((alert) => !alert.endsAt);
+  const latestEnd = group.reduce(
+    (latest, alert) => (timeMs(alert.endsAt) > timeMs(latest) ? (alert.endsAt as string) : latest),
+    group.find((a) => a.endsAt)?.endsAt ?? "",
+  );
+  return {
+    ...newest,
+    tier,
+    severity: strongest(
+      group.map((alert) => alert.severity),
+      SEVERITY_RANK,
+    ),
+    urgency: strongest(
+      group.map((alert) => alert.urgency),
+      URGENCY_RANK,
+    ),
+    places: COVERAGE_COUNTIES.map((county) => county.name).filter((name) => named.has(name)),
+    endsAt: openEnded || !latestEnd ? null : latestEnd,
+  };
 }
 
 /**

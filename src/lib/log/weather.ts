@@ -15,6 +15,7 @@ import {
 import {
   activeAlerts,
   alertsCheckState,
+  consolidateAlerts,
   alertsToHazards,
   readStoredAlerts,
   type AlertsCheckState,
@@ -40,7 +41,7 @@ export function getAlertsView(reading: LogWeatherReadingRow): {
   nowISO: string;
 } {
   const nowISO = new Date().toISOString();
-  const alerts = activeAlerts(readStoredAlerts(reading.alerts), nowISO);
+  const alerts = consolidateAlerts(activeAlerts(readStoredAlerts(reading.alerts), nowISO));
   return {
     alerts,
     state: alertsCheckState(alerts, reading.alerts_checked_at, reading.alerts_check_failed),
