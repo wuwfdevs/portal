@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeMarks } from "./scrubber-marks";
+import { mergeMarks, zoomWindowForBin } from "./scrubber-marks";
 
 const range = (id: string, startMs: number, endMs: number) => ({ id, startMs, endMs });
 
@@ -38,5 +38,71 @@ describe("mergeMarks", () => {
     expect(result.bins[9]).toMatchObject({ count: 10 });
     expect(result.bins[9]!.intensity).toBeCloseTo(1 / 3);
     expect(result.bins[5]).toMatchObject({ count: 0, intensity: 0, startMs: 50_000 });
+  });
+});
+
+describe("mergeMarks in a zoomed window", () => {
+  it("draws only the excerpts in view, positioned against the window", () => {
+    const result = mergeMarks(
+      [range("a", 0, 10_000), range("b", 50_000, 60_000), range("c", 90_000, 100_000)],
+      100_000,
+      { window: { startMs: 40_000, endMs: 80_000 } },
+    );
+    expect(result).toEqual({ mode: "marks", marks: [{ id: "b", left: 25, width: 25 }] });
+  });
+
+  it("clips an excerpt that runs past the window edge", () => {
+    const result = mergeMarks([range("a", 30_000, 50_000)], 100_000, {
+      window: { startMs: 40_000, endMs: 80_000 },
+    });
+    if (result.mode !== "marks") throw new Error("expected marks");
+    expect(result.marks[0]).toMatchObject({ left: 0, width: 25 });
+  });
+
+  it("bins over the window, so zooming a dense stripe separates its excerpts", () => {
+    const many = Array.from({ length: 40 }, (_, i) =>
+      range(`c${i}`, 10_000 + i * 500, 10_400 + i * 500),
+    );
+    const whole = mergeMarks(many, 100_000, { maxMarks: 30, bins: 10 });
+    expect(whole.mode).toBe("density");
+    const zoomed = mergeMarks(many, 100_000, {
+      maxMarks: 50,
+      window: { startMs: 10_000, endMs: 30_000 },
+    });
+    expect(zoomed.mode).toBe("marks");
+    if (whole.mode === "density")
+      expect(whole.bins[1]).toMatchObject({ startMs: 10_000, endMs: 20_000 });
+  });
+});
+
+describe("zoomWindowForBin", () => {
+  const whole = { startMs: 0, endMs: 100_000 };
+
+  it("centres a few bins on the one clicked", () => {
+    expect(zoomWindowForBin({ startMs: 40_000, endMs: 50_000 }, whole)).toEqual({
+      startMs: 30_000,
+      endMs: 60_000,
+    });
+  });
+
+  it("slides back inside the current view at either end", () => {
+    expect(zoomWindowForBin({ startMs: 0, endMs: 10_000 }, whole)).toEqual({
+      startMs: 0,
+      endMs: 30_000,
+    });
+    expect(zoomWindowForBin({ startMs: 90_000, endMs: 100_000 }, whole)).toEqual({
+      startMs: 70_000,
+      endMs: 100_000,
+    });
+  });
+
+  it("refuses a zoom that would not narrow the view", () => {
+    expect(
+      zoomWindowForBin(
+        { startMs: 0, endMs: 40_000 },
+        { startMs: 0, endMs: 100_000 },
+        { spanBins: 3 },
+      ),
+    ).toBeNull();
   });
 });

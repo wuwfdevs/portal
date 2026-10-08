@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState, type RefObject } from "react";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
-import { mergeMarks, type RangeLike } from "@/lib/transcription/scrubber-marks";
+import {
+  mergeMarks,
+  zoomWindowForBin,
+  type RangeLike,
+  type ScrubberWindow,
+} from "@/lib/transcription/scrubber-marks";
 import { PauseIcon, PlayIcon } from "./transport-icons";
 
 const SKIP_MS = 5000;
@@ -39,6 +44,14 @@ export function PlayerBar({
   const [durationMs, setDurationMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRate] = useState(1);
+  // The stretch of the recording the scrubber covers. Null is all of it; a
+  // click on a density stripe narrows it until the excerpts inside can be
+  // told apart (see zoomWindowForBin).
+  const [zoom, setZoom] = useState<ScrubberWindow | null>(null);
+  const view: ScrubberWindow = useMemo(
+    () => zoom ?? { startMs: 0, endMs: durationMs },
+    [zoom, durationMs],
+  );
 
   useEffect(() => {
     const el = mediaRef.current;
@@ -110,9 +123,12 @@ export function PlayerBar({
       <div className="flex min-w-[8rem] flex-1 flex-col gap-1">
         <input
           type="range"
-          min={0}
-          max={Math.max(durationMs, 1)}
-          value={Math.min(currentMs, durationMs || currentMs)}
+          min={view.startMs}
+          max={Math.max(view.endMs, view.startMs + 1)}
+          value={Math.min(
+            Math.max(currentMs, view.startMs),
+            Math.max(view.endMs, view.startMs + 1),
+          )}
           onChange={(e) => {
             const el = mediaRef.current;
             if (el) el.currentTime = Number(e.target.value) / 1000;
@@ -123,12 +139,33 @@ export function PlayerBar({
         <ScrubberStrip
           marks={marks}
           durationMs={durationMs}
+          view={view}
           onSelectMark={onSelectMark}
-          onSeekTo={(ms) => {
+          onZoomBin={(bin) => {
+            const next = zoomWindowForBin(bin, view);
+            if (next) {
+              setZoom(next);
+              return;
+            }
+            // Already as narrow as a click can make it: just go there.
             const el = mediaRef.current;
-            if (el) el.currentTime = ms / 1000;
+            if (el) el.currentTime = bin.startMs / 1000;
           }}
         />
+        {zoom && (
+          <div className="flex items-center gap-2 text-[11px] text-ink-500">
+            <span>
+              Showing {formatDuration(zoom.startMs)}–{formatDuration(zoom.endMs)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setZoom(null)}
+              className="font-semibold text-brand-link hover:underline"
+            >
+              Show the whole recording
+            </button>
+          </div>
+        )}
       </div>
 
       <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-500">
@@ -207,15 +244,20 @@ function TransportButton({
 function ScrubberStrip({
   marks,
   durationMs,
+  view,
   onSelectMark,
-  onSeekTo,
+  onZoomBin,
 }: {
   marks: (RangeLike & { title: string })[];
   durationMs: number;
+  view: ScrubberWindow;
   onSelectMark?: (clipId: string) => void;
-  onSeekTo: (ms: number) => void;
+  onZoomBin: (bin: { startMs: number; endMs: number }) => void;
 }) {
-  const merged = useMemo(() => mergeMarks(marks, durationMs), [marks, durationMs]);
+  const merged = useMemo(
+    () => mergeMarks(marks, durationMs, { window: view }),
+    [marks, durationMs, view],
+  );
   const titleById = useMemo(() => new Map(marks.map((mark) => [mark.id, mark.title])), [marks]);
   if (marks.length === 0 || durationMs <= 0) return null;
 
@@ -238,9 +280,9 @@ function ScrubberStrip({
               <button
                 key={bin.left}
                 type="button"
-                onClick={() => onSeekTo(bin.startMs)}
-                title={`${bin.count} excerpt${bin.count === 1 ? "" : "s"} here`}
-                aria-label={`${bin.count} excerpts from ${formatDuration(bin.startMs)}`}
+                onClick={() => onZoomBin(bin)}
+                title={`${bin.count} excerpt${bin.count === 1 ? "" : "s"} here. Select to zoom in.`}
+                aria-label={`${bin.count} excerpts from ${formatDuration(bin.startMs)} to ${formatDuration(bin.endMs)}. Zoom in.`}
                 className="absolute inset-y-0 bg-clipped-line"
                 style={{
                   left: `${bin.left}%`,

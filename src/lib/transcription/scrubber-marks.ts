@@ -23,8 +23,15 @@ export interface DensityBin {
   count: number;
   /** 0 to 1, relative to the busiest stretch. */
   intensity: number;
-  /** Where clicking this stretch should seek. */
+  /** The stretch of the recording this bin covers. */
   startMs: number;
+  endMs: number;
+}
+
+/** A visible stretch of the recording, in ms. Null/absent means all of it. */
+export interface ScrubberWindow {
+  startMs: number;
+  endMs: number;
 }
 
 export type ScrubberMarks =
@@ -36,28 +43,38 @@ const MIN_MARK_WIDTH = 0.7;
 export function mergeMarks(
   ranges: RangeLike[],
   durationMs: number,
-  options: { maxMarks?: number; bins?: number } = {},
+  options: { maxMarks?: number; bins?: number; window?: ScrubberWindow | null } = {},
 ): ScrubberMarks {
   const { maxMarks = 30, bins = 48 } = options;
-  if (durationMs <= 0 || ranges.length === 0) return { mode: "marks", marks: [] };
+  const windowStart = Math.max(0, options.window?.startMs ?? 0);
+  const windowEnd = Math.min(durationMs, options.window?.endMs ?? durationMs);
+  const span = windowEnd - windowStart;
+  if (durationMs <= 0 || span <= 0) return { mode: "marks", marks: [] };
+
+  // Only the excerpts that overlap the visible stretch are drawn.
+  const visible = ranges.filter((range) => range.endMs > windowStart && range.startMs < windowEnd);
+  if (visible.length === 0) return { mode: "marks", marks: [] };
 
   const clamp = (value: number) => Math.min(100, Math.max(0, value));
 
-  if (ranges.length <= maxMarks) {
+  if (visible.length <= maxMarks) {
     return {
       mode: "marks",
-      marks: ranges.map((range) => {
-        const width = Math.max(MIN_MARK_WIDTH, ((range.endMs - range.startMs) / durationMs) * 100);
+      marks: visible.map((range) => {
+        const from = Math.max(range.startMs, windowStart);
+        const to = Math.min(range.endMs, windowEnd);
+        const width = Math.max(MIN_MARK_WIDTH, ((to - from) / span) * 100);
         // Slide a mark that would run off the end back in, rather than squash it.
-        const left = Math.min(clamp((range.startMs / durationMs) * 100), 100 - width);
+        const left = Math.min(clamp(((from - windowStart) / span) * 100), 100 - width);
         return { id: range.id, left, width };
       }),
     };
   }
 
   const counts = new Array<number>(bins).fill(0);
-  for (const range of ranges) {
-    const index = Math.min(bins - 1, Math.max(0, Math.floor((range.startMs / durationMs) * bins)));
+  for (const range of visible) {
+    const position = (Math.max(range.startMs, windowStart) - windowStart) / span;
+    const index = Math.min(bins - 1, Math.max(0, Math.floor(position * bins)));
     counts[index] = (counts[index] ?? 0) + 1;
   }
   const busiest = Math.max(...counts);
@@ -68,7 +85,40 @@ export function mergeMarks(
       width: 100 / bins,
       count,
       intensity: busiest === 0 ? 0 : count / busiest,
-      startMs: Math.round((index / bins) * durationMs),
+      startMs: Math.round(windowStart + (index / bins) * span),
+      endMs: Math.round(windowStart + ((index + 1) / bins) * span),
     })),
   };
+}
+
+/**
+ * The stretch to zoom to when a density bin is clicked: a few bins wide,
+ * centred on the one clicked and kept inside the stretch currently shown, so
+ * each click narrows the view and a stripe of many excerpts resolves into
+ * individual marks. Null when it would not narrow the view at all.
+ */
+export function zoomWindowForBin(
+  bin: { startMs: number; endMs: number },
+  current: ScrubberWindow,
+  options: { spanBins?: number } = {},
+): ScrubberWindow | null {
+  const { spanBins = 3 } = options;
+  const size = bin.endMs - bin.startMs;
+  const centre = (bin.startMs + bin.endMs) / 2;
+  const half = (size * spanBins) / 2;
+  let startMs = centre - half;
+  let endMs = centre + half;
+  // Slide, don't squash, a window that would overhang an end.
+  if (startMs < current.startMs) {
+    endMs += current.startMs - startMs;
+    startMs = current.startMs;
+  }
+  if (endMs > current.endMs) {
+    startMs -= endMs - current.endMs;
+    endMs = current.endMs;
+  }
+  startMs = Math.max(current.startMs, Math.round(startMs));
+  endMs = Math.min(current.endMs, Math.round(endMs));
+  if (endMs - startMs >= current.endMs - current.startMs || endMs <= startMs) return null;
+  return { startMs, endMs };
 }
