@@ -48,20 +48,73 @@ export function extensionForContentType(contentType: string): string {
   return EXTENSION_BY_CONTENT_TYPE[contentType] ?? "bin";
 }
 
-/** The `accept` string and the sentence about it, for every source file picker and drop zone. */
-export const SOURCE_FILE_ACCEPT = "audio/*,video/*,application/pdf";
+/**
+ * The `accept` string and the sentence about it, for every source file picker and drop zone.
+ * The extensions are there because browsers report an iPhone Voice Memo (.m4a) as
+ * `audio/x-m4a`, `audio/m4a`, `audio/mp4a-latm`, or nothing at all, depending on the
+ * browser and system; a name match catches what the type doesn't.
+ */
+export const SOURCE_FILE_ACCEPT =
+  "audio/*,video/*,application/pdf,.m4a,.mp4,.m4v,.mov,.aac,.mp3,.wav,.webm,.pdf";
 export const SOURCE_FILE_HINT = "WAV, MP3, M4A/AAC, MP4, MOV, WebM, or PDF.";
+
+// Types browsers report for these formats that aren't the canonical ones the
+// bucket and the allow-list know. Mapped, never stored.
+const CONTENT_TYPE_ALIASES: Record<string, string> = {
+  "audio/m4a": "audio/mp4",
+  "audio/x-mp4": "audio/mp4",
+  "audio/mp4a-latm": "audio/mp4",
+  "audio/x-aac": "audio/aac",
+  "audio/aacp": "audio/aac",
+  "audio/mp3": "audio/mpeg",
+  "audio/x-mp3": "audio/mpeg",
+  "audio/mpeg3": "audio/mpeg",
+  "audio/wave": "audio/wav",
+  "audio/vnd.wave": "audio/wav",
+  "video/x-m4v": "video/mp4",
+  "video/x-quicktime": "video/quicktime",
+};
+
+const CONTENT_TYPE_BY_FILE_EXTENSION: Record<string, string> = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  pdf: "application/pdf",
+};
+
+/**
+ * The content type an upload of this file should carry: the browser's own when
+ * the allow-list knows it, a known alias mapped to its canonical type, and
+ * otherwise whatever the file name's extension says. Browsers disagree about
+ * (or omit) the type of an iPhone's .m4a, so the extension is the fallback
+ * rather than a refusal. Returns "" when nothing identifies the file.
+ */
+export function resolveSourceContentType(file: { name: string; type: string }): string {
+  const reported = file.type.trim().toLowerCase().split(";")[0]!.trim();
+  if (reported in EXTENSION_BY_CONTENT_TYPE) return reported;
+  const alias = CONTENT_TYPE_ALIASES[reported];
+  if (alias) return alias;
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]{1,8})$/)?.[1];
+  return (extension && CONTENT_TYPE_BY_FILE_EXTENSION[extension]) || "";
+}
 
 /**
  * What kind of source a chosen file would be, or why it can't be one. The one
  * check every upload surface (new project, add source) runs before anything is
  * created, so a bad file is refused before a source row exists for it.
  */
-export function classifySourceFile(
-  contentType: string,
-): { kind: "audio_video" | "document" } | { error: string } {
-  if (isDocumentContentType(contentType)) return { kind: "document" };
-  if (isAllowedMediaType(contentType)) return { kind: "audio_video" };
+export function classifySourceFile(file: {
+  name: string;
+  type: string;
+}): { kind: "audio_video" | "document"; contentType: string } | { error: string } {
+  const contentType = resolveSourceContentType(file);
+  if (isDocumentContentType(contentType)) return { kind: "document", contentType };
+  if (isAllowedMediaType(contentType)) return { kind: "audio_video", contentType };
   return { error: `That file type isn't supported. Use ${SOURCE_FILE_HINT}` };
 }
 
