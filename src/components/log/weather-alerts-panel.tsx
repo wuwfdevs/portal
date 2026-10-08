@@ -7,6 +7,10 @@ import { cn } from "@/lib/cn";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import {
   alertPlaces,
+  alertPreview,
+  memberCountLabel,
+  memberName,
+  membersNeedingPreview,
   alertFullText,
   alertLabels,
   alertsDisplay,
@@ -150,7 +154,7 @@ export function WeatherAlertsPanel({
                 >
                   <AlertHeading
                     alert={alert}
-                    extra={alert.members ? `${alert.members.length} areas` : null}
+                    extra={memberCountLabel(alert)}
                     timing={alertTiming(alert, view.nowISO)}
                   />
                   <Chevron open={selected} />
@@ -236,6 +240,7 @@ function AlertDetail({
     );
   }
   const activeId = memberId === null ? members[0]!.id : memberId;
+  const needsPreview = membersNeedingPreview(members);
   return (
     <ul className="border-t border-line bg-panel-50">
       {members.map((member, index) => {
@@ -258,6 +263,9 @@ function AlertDetail({
                 <span className="break-words text-xs text-ink-500">
                   {alertTiming(member, nowISO)}
                 </span>
+                {needsPreview.has(member.id) && !active && (
+                  <span className="break-words text-xs text-ink-700">{alertPreview(member)}</span>
+                )}
               </span>
               <Chevron open={active} />
             </button>
@@ -271,16 +279,6 @@ function AlertDetail({
       })}
     </ul>
   );
-}
-
-/** Where a member applies: "Mobile (Mobile Coastal)". */
-function memberName(member: WeatherAlert): string {
-  const places = alertPlaces(member);
-  const zones =
-    member.areaDesc && member.areaDesc.length <= 40 && member.areaDesc !== places
-      ? ` (${member.areaDesc})`
-      : "";
-  return `${places ?? member.areaDesc ?? "Area not stated"}${zones}`;
 }
 
 function AlertBody({
