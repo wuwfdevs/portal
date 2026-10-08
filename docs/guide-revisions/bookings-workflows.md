@@ -99,3 +99,15 @@ The existing request workflow distinguishes estimate, planning, date holds, comm
 - [ ] Compare these explanations with the live 11 Bookings guides; retain their detailed screen references, remove duplication and preserve history.
 - [ ] Convert approved sections into ProseMirror `rc_release_guide` migrations, with screen keys and one dated release note; do not overwrite editor-modified content.
 - [ ] Run `release-content.test.ts`, the Bookings suite, and a signed-in walkthrough before publishing.
+
+## Direct portal screen links
+
+Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
+
+- [Requests](/bookings/requests)
+- [New request](/bookings/requests/new)
+- [Calendar](/bookings/calendar)
+- [Term plan](/bookings/calendar/plan)
+- [Rate card](/bookings/rates/card)
+- [Term report](/bookings/report)
+- [Partners](/bookings/partners)
