@@ -27,11 +27,3 @@ An assignment needs more than a reporter's name. Define the central reporting qu
 Configuration guides should explain the difference between weighted core criteria and separate modifiers, how archived rubric elements preserve historical scores, and when changing criteria is justified. Any numerical example must match the live rubric.
 
 **Review before publication:** Verify existing pitch form fields, access rights and labels. Editorial expectations above are proposed instructional guidance, not a newly adopted binding newsroom policy.
-
-## Direct portal screen links
-
-Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
-
-- [Pitch backlog](https://tools.wuwf.org/editorial)
-- [Meetings](https://tools.wuwf.org/editorial/meetings)
-- [Settings](https://tools.wuwf.org/editorial/settings)
