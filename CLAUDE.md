@@ -367,7 +367,7 @@ is `SpeakersMenu` (sorted by talk time via `lib/transcription/speakers.ts`, filt
 folds a split voice), every line has a quiet `ActionMenu` (`trigger="quiet"`), find-in-transcript is
 `lib/transcription/find.ts`, selecting words opens `SelectionToolbar` (title suggested by
 `excerpt-title.ts`), excerpt marks sit under the scrubber (`scrubber-marks.ts`, merging to a density
-strip past 30), and the rail orders/filters/pages (`clip-order.ts`). Off-screen lines use
+strip past 30; selecting a stretch zooms the scrubber to it, `zoomWindowForBin`), and the rail orders/filters/pages (`clip-order.ts`). Off-screen lines use
 `content-visibility`, **not** true windowing, so selection across lines and scroll-to-line keep working;
 a multi-hour transcript is the case to watch. (5) Deleting a project is `DeleteProjectPanel`
 (`ConfirmAction`, `describeProjectDeletion`), and `deleteProject` no longer redirects. None of this was
