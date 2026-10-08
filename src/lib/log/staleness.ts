@@ -6,6 +6,9 @@
 
 export const NPR_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 export const WEATHER_STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+// Alerts change faster than a forecast and matter more, so the weather page
+// rechecks them on their own, much shorter, clock (lib/log/weather.ts).
+export const WEATHER_ALERTS_STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 export const FNE_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface StalenessCheck {

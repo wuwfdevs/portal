@@ -6,6 +6,7 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/cn";
 import type { DailyOutlookEntry, ForecastPeriodSummary } from "@/lib/log/weather-outlook";
 import { ForecastSummary } from "./forecast-summary";
+import { WeatherAlertsPanel, type WeatherAlertsView } from "./weather-alerts-panel";
 import { WeatherIcon } from "./weather-icon";
 
 /** What Today's paragraph shows: the live read, and — on a weather item — a host's edit of it for this airing. */
@@ -36,19 +37,25 @@ export function WeatherOutlookStrip({
   days,
   liveRead,
   textClassName = "text-sm",
+  alerts,
 }: {
   days: DailyOutlookEntry[];
   liveRead: WeatherLiveRead;
   textClassName?: string;
+  /** Active alerts, shown under the strip. The sidebar omits this and renders the panel itself, above its collapsed "Full forecast". */
+  alerts?: WeatherAlertsView;
 }) {
   const [selected, setSelected] = useState(0);
   if (days.length === 0) {
     return (
-      <ForecastSummary
-        periods={liveRead.periods}
-        fallbackText={liveRead.fallbackText}
-        textClassName={textClassName}
-      />
+      <div className="flex flex-col gap-2.5">
+        <ForecastSummary
+          periods={liveRead.periods}
+          fallbackText={liveRead.fallbackText}
+          textClassName={textClassName}
+        />
+        {alerts && <WeatherAlertsPanel view={alerts} textClassName={textClassName} />}
+      </div>
     );
   }
 
@@ -134,6 +141,8 @@ export function WeatherOutlookStrip({
           </>
         )}
       </div>
+
+      {alerts && <WeatherAlertsPanel view={alerts} textClassName={textClassName} />}
     </div>
   );
 }

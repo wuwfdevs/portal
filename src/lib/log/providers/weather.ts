@@ -1,5 +1,6 @@
 import "server-only";
 import { buildDailyOutlook, type DailyOutlookEntry, type ForecastPeriodSummary } from "../weather-outlook";
+import { alertsToHazards, parseNwsAlerts, type WeatherAlert } from "../weather-alerts";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -77,10 +78,6 @@ interface ForecastResponse {
   properties: { periods: ForecastPeriod[] };
 }
 
-interface AlertsResponse {
-  features: Array<{ properties: { headline?: string; event?: string } }>;
-}
-
 export interface WeatherReading {
   forecast_area: string;
   source: string;
@@ -93,9 +90,22 @@ export interface WeatherReading {
   conditions_summary: string;
   precipitation_notes: string | null;
   hazards: string | null;
+  /** Structured active alerts, ranked. Null means the alerts check itself failed (distinct from an empty list, which means all clear). */
+  alerts: WeatherAlert[] | null;
   valid_through_at: string;
   daily_outlook: DailyOutlookEntry[];
   forecast_periods: ForecastPeriodSummary[];
+}
+
+/** Active watches, warnings and statements for the point. Throws on any failure so the caller can tell "no alerts" from "couldn't check". */
+export async function fetchWeatherAlerts(
+  latitude: string = process.env.WEATHER_LATITUDE || DEFAULT_LATITUDE,
+  longitude: string = process.env.WEATHER_LONGITUDE || DEFAULT_LONGITUDE,
+): Promise<WeatherAlert[]> {
+  const response = await getJson<Parameters<typeof parseNwsAlerts>[0]>(
+    `${API_BASE}/alerts/active?point=${latitude},${longitude}`,
+  );
+  return parseNwsAlerts(response);
 }
 
 /** Fetches the current live-read from NWS. Throws with a clear message on any failure — lib/log/weather.ts catches it and falls back to the last-known reading, per §6/§22's "never make the display unreadable." */
@@ -139,18 +149,17 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
     // Leave both null — the widget falls back to forecast-only display.
   }
 
-  let hazards: string | null = null;
+  // Alerts are best-effort for the forecast (a failed alerts call never blocks
+  // a usable reading) but not silent: null tells lib/log/weather.ts the check
+  // failed, so it keeps the last good alerts and flags them rather than
+  // presenting "no alerts".
+  let alerts: WeatherAlert[] | null = null;
   try {
-    const alerts = await getJson<AlertsResponse>(`${API_BASE}/alerts/active?point=${latitude},${longitude}`);
-    const headlines = alerts.features
-      .map((feature) => feature.properties.headline || feature.properties.event)
-      .filter((headline): headline is string => Boolean(headline));
-    hazards = headlines.length > 0 ? headlines.join("; ") : null;
+    alerts = await fetchWeatherAlerts(latitude, longitude);
   } catch {
-    // Hazards are a bonus, not required for a usable reading — never block
-    // the live-read on the alerts endpoint specifically failing.
-    hazards = null;
+    alerts = null;
   }
+  const hazards = alerts ? alertsToHazards(alerts) : null;
 
   const cityState = points.properties.relativeLocation?.properties;
   const forecastArea =
@@ -189,6 +198,7 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
     conditions_summary: dayPeriod.shortForecast,
     precipitation_notes: null,
     hazards,
+    alerts,
     valid_through_at: (nightPeriod ?? dayPeriod).endTime,
     daily_outlook: dailyOutlook,
     forecast_periods: forecastPeriods,
