@@ -8,7 +8,7 @@ A pitch should make a potential story legible to a colleague without requiring a
 
 **Example:** Rather than "UWF hosts military program," frame the public question: whether a university's expansion of military-to-civilian training is changing access to civilian employment and for whom. The institutional activity is a lead to investigate, not necessarily the story's conclusion.
 
-The existing workflow permits a [submitted pitch](/editorial) to be edited until it enters [meeting scoring](/editorial/meetings); use review history to understand whether it was assigned, deferred or archived.
+The existing workflow permits a [submitted pitch](https://tools.wuwf.org/editorial) to be edited until it enters [meeting scoring](https://tools.wuwf.org/editorial/meetings); use review history to understand whether it was assigned, deferred or archived.
 
 ## Run a planning meeting
 
@@ -32,6 +32,6 @@ Configuration guides should explain the difference between weighted core criteri
 
 Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
 
-- [Pitch backlog](/editorial)
-- [Meetings](/editorial/meetings)
-- [Settings](/editorial/settings)
+- [Pitch backlog](https://tools.wuwf.org/editorial)
+- [Meetings](https://tools.wuwf.org/editorial/meetings)
+- [Settings](https://tools.wuwf.org/editorial/settings)
