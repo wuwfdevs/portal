@@ -57,6 +57,7 @@ import {
 import { isWrapUpVisible, listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
+import { getFneStories } from "@/lib/log/fne";
 import {
   formatStationClockTime,
   formatStationTimeHM,
@@ -117,6 +118,11 @@ function itemDuration(item: RundownItemDetail): number {
   return item.planned_duration_seconds;
 }
 
+// The rundown sidebar lists the newest few shared stories; a slow feed must not
+// hold up a live screen, so its read gets a short leash.
+const FNE_SIDEBAR_TIMEOUT_MS = 3000;
+const FNE_SIDEBAR_STORIES = 3;
+
 export default async function RundownDetailPage({
   params,
   searchParams,
@@ -153,6 +159,7 @@ export default async function RundownDetailPage({
     clockSlots,
     weather,
     npr,
+    fne,
     events,
     hasOpenExceptions,
   ] = await Promise.all([
@@ -162,6 +169,7 @@ export default async function RundownDetailPage({
     listClockSlotsForVersion(rundown.clock_version_id),
     getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
+    getFneStories(new Date(), FNE_SIDEBAR_TIMEOUT_MS),
     live
       ? listBroadcastEventsForItems(allItems.map((item) => item.id))
       : (Promise.resolve([]) as Promise<LogBroadcastEventRow[]>),
@@ -1206,6 +1214,43 @@ export default async function RundownDetailPage({
         ) : (
           <p className="text-xs text-ink-400">No episode data yet.</p>
         )}
+      </Card>
+
+      <Card className="p-4">
+        <SectionHeading level="eyebrow" as="h3" className="mb-1">
+          Florida News Exchange
+        </SectionHeading>
+        {fne.stories.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {fne.stories.slice(0, FNE_SIDEBAR_STORIES).map((story) => (
+              <li key={story.versions[0]!.guid} className="text-xs text-ink-700">
+                <span className="mr-1.5 font-mono text-ink-400 tabular-nums">
+                  {formatStationTimeHM(story.latestAt)}
+                </span>
+                <a
+                  href={story.versions[0]!.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-brand-link hover:underline"
+                >
+                  {story.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : fne.refreshError ? (
+          <p className="text-xs text-ink-400">Couldn&apos;t read the feed right now.</p>
+        ) : (
+          <p className="text-xs text-ink-400">No stories in the last 24 hours.</p>
+        )}
+        <a
+          href="/log/sources/fne"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-xs font-semibold text-brand-link hover:underline"
+        >
+          All stories
+        </a>
       </Card>
 
       {(!live || wrapUpVisible) && (

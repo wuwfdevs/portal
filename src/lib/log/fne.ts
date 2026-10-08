@@ -45,10 +45,10 @@ export interface FneResult {
   refreshError: string | null;
 }
 
-async function fetchItems(url: string): Promise<FneItem[]> {
+async function fetchItems(url: string, timeoutMs: number): Promise<FneItem[]> {
   const response = await fetch(url, {
     cache: "no-store",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: { Accept: "application/rss+xml, application/xml, text/xml" },
   });
   if (!response.ok) throw new Error(`PRX answered ${response.status}`);
@@ -57,7 +57,15 @@ async function fetchItems(url: string): Promise<FneItem[]> {
   return items;
 }
 
-export async function getFneStories(now: Date = new Date()): Promise<FneResult> {
+/**
+ * `timeoutMs` is how long a refresh may hold up the caller. The Sources page
+ * can afford the default; the rundown sidebar passes a short one so a slow PRX
+ * never delays a live screen (it falls back to the last copy, or nothing).
+ */
+export async function getFneStories(
+  now: Date = new Date(),
+  timeoutMs: number = FETCH_TIMEOUT_MS,
+): Promise<FneResult> {
   const url = getFneFeedUrl();
   const usable = cached && cached.url === url ? cached : null;
 
@@ -69,7 +77,7 @@ export async function getFneStories(now: Date = new Date()): Promise<FneResult> 
   }
 
   try {
-    const items = await fetchItems(url);
+    const items = await fetchItems(url, timeoutMs);
     cached = { url, items, fetchedAt: now.toISOString() };
     return result(cached, false, null);
   } catch (error) {
