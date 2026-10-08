@@ -40,15 +40,3 @@
 When the broadcast system is impaired, follow the station procedures for a total power failure, web-stream restart, Comrex routing, FPREN codec operation and HD3 source failure as applicable. These SOPs cover hardware and continuity response; this guide must not duplicate their technical recovery instructions.
 
 **Review before publication:** Reconcile the staff-edited `log-content-library` guide marked for review; check exact current UI labels, host permissions, automation hour semantics and whether DAD release/import is still a manual file step.
-
-## Direct portal screen links
-
-Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
-
-- [Today](https://tools.wuwf.org/log)
-- [Content library](https://tools.wuwf.org/log/library)
-- [Programs](https://tools.wuwf.org/log/programs)
-- [Automation](https://tools.wuwf.org/log/automated-hours)
-- [Underwriting hours](https://tools.wuwf.org/log/underwriting-hours)
-- [DAD log](https://tools.wuwf.org/log/dad-log)
-- [Sources](https://tools.wuwf.org/log/sources)
