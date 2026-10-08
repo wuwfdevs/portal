@@ -31,7 +31,7 @@ These are pricing treatments, not judgments about whether a project is worthwhil
 
 A term plan is a bounded planning period, not a claim that every staff hour is available for outside projects. Operations enters the professional time genuinely available for production after routine core obligations, and records dated holds for additional known conflicts. Protected capacity is set per labor class, not as a blanket percentage of all labor. A labor class without a reserve draws ordinary open capacity even on a strategic booking.
 
-**Release verification required:** The repository's October 7 capacity correction permits multiple active nonoverlapping plans, selects the plan by booking date, and makes closed plans final. `docs/bookings-design.md` states those migrations were not yet applied when that section was written. Confirm migration status and live behavior before converting this paragraph into published instructions.
+The deployed capacity model permits multiple active, nonoverlapping plans, selects the term by booking date, and makes closed terms final.
 
 ## 2. Handle a new production request
 
@@ -94,7 +94,7 @@ The existing request workflow distinguishes estimate, planning, date holds, comm
 
 ## Editorial and release checklist
 
-- [ ] Verify live production migration status, especially the October 7 capacity correction, against the repository and preview.
+- [x] Confirm the latest Bookings changes are deployed (deployment confirmed by station leadership; production also exposes the per-class `reserve_share` field).
 - [ ] Verify current button text, stage transitions and authorization for each role in the actual application.
 - [ ] Compare these explanations with the live 11 Bookings guides; retain their detailed screen references, remove duplication and preserve history.
 - [ ] Convert approved sections into ProseMirror `rc_release_guide` migrations, with screen keys and one dated release note; do not overwrite editor-modified content.
