@@ -3,7 +3,11 @@ import { NWS_EVENT_TYPES } from "./fixtures/nws-event-types";
 import {
   activeAlerts,
   abbreviateAreas,
+  alertPreview,
   consolidateAlerts,
+  memberCountLabel,
+  memberName,
+  membersNeedingPreview,
   membersEndAtDifferentTimes,
   removeSuperseded,
   alertPlaces,
@@ -880,5 +884,73 @@ describe("lead text for a flood warning names the river, not the boilerplate", (
     expect(alertLeadText(alert({ description }))).toBe(
       "Perdido River Near Barrineau Park affecting Baldwin and Escambia Counties.",
     );
+  });
+});
+
+describe("telling consolidated members apart", () => {
+  const M = (id: string, places: string[], over: Partial<WeatherAlert> = {}) =>
+    alert({ id, places, ...over });
+
+  it("calls members areas when each is a different place, alerts when two share one", () => {
+    const hurricane = {
+      members: [
+        M("a", ["Escambia"], { areaDesc: "Escambia Coastal" }),
+        M("b", ["Escambia"], { areaDesc: "Escambia Inland" }),
+        M("c", ["Mobile"], { areaDesc: "Mobile Coastal" }),
+      ],
+    };
+    expect(memberCountLabel(hurricane)).toBe("3 areas");
+    const floods = {
+      members: [M("1", ["Santa Rosa", "Okaloosa"]), M("2", ["Santa Rosa", "Okaloosa"])],
+    };
+    expect(memberCountLabel(floods)).toBe("2 alerts");
+  });
+
+  it("has no count for a single alert", () => {
+    expect(memberCountLabel({})).toBeNull();
+    expect(memberCountLabel({ members: [M("a", ["Escambia"])] })).toBeNull();
+  });
+
+  it("names a member by county and a short zone", () => {
+    expect(memberName({ places: ["Mobile"], areaDesc: "Mobile Coastal" })).toBe(
+      "Mobile (Mobile Coastal)",
+    );
+    expect(memberName({ places: ["Escambia"], areaDesc: "Escambia" })).toBe("Escambia");
+    expect(memberName({ places: [], areaDesc: null })).toBe("Area not stated");
+    const long = "Escambia; Santa Rosa; Okaloosa; Walton; Holmes; Washington; Bay";
+    expect(memberName({ places: ["Escambia"], areaDesc: long })).toBe("Escambia");
+  });
+
+  it("flags only the members whose row label would be identical to another's", () => {
+    const members = [
+      M("bc", ["Santa Rosa", "Okaloosa"]),
+      M("bw", ["Santa Rosa", "Okaloosa"]),
+      M("shoal", ["Okaloosa"]),
+    ];
+    expect([...membersNeedingPreview(members)].sort()).toEqual(["bc", "bw"]);
+  });
+
+  it("previews each river so identical-looking rows can be told apart", () => {
+    const bc = M("bc", ["Santa Rosa", "Okaloosa"], {
+      description:
+        "...The National Weather Service in Mobile has issued a Flood Warning\n\nBig Coldwater Creek Near Milton affecting Okaloosa and Santa Rosa\nCounties.",
+    });
+    const bw = M("bw", ["Santa Rosa", "Okaloosa"], {
+      description:
+        "...The National Weather Service in Mobile has issued a Flood Warning\n\nBlackwater River Near Baker affecting Escambia, Covington, Okaloosa\nand Santa Rosa Counties.",
+    });
+    expect(alertPreview(bc)).toBe(
+      "Big Coldwater Creek Near Milton affecting Okaloosa and Santa Rosa Counties.",
+    );
+    expect(alertPreview(bw)).not.toBe(alertPreview(bc));
+  });
+
+  it("cuts a long preview at a word and marks it, and has none without text", () => {
+    const long = "word ".repeat(60).trim();
+    const preview = alertPreview(alert({ description: long }), 40)!;
+    expect(preview.endsWith("…")).toBe(true);
+    expect(preview.length).toBeLessThanOrEqual(41);
+    expect(preview.slice(0, -1).endsWith("word")).toBe(true);
+    expect(alertPreview(alert({}))).toBeNull();
   });
 });

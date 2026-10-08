@@ -515,3 +515,57 @@ export function alertPlaces(alert: Pick<WeatherAlert, "places" | "areaDesc">): s
   if (alert.places.length > 0) return alert.places.join(", ");
   return abbreviateAreas(alert.areaDesc);
 }
+
+/**
+ * Where a consolidated row's member applies: "Mobile (Mobile Coastal)" — the
+ * coverage counties, plus the zone NWS named when that adds something short.
+ */
+export function memberName(member: Pick<WeatherAlert, "places" | "areaDesc">): string {
+  const places = alertPlaces(member);
+  const zone =
+    member.areaDesc && member.areaDesc.length <= 40 && member.areaDesc !== places
+      ? ` (${member.areaDesc})`
+      : "";
+  return `${places ?? member.areaDesc ?? "Area not stated"}${zone}`;
+}
+
+/**
+ * How to count a consolidated row's members. They are "areas" only when each
+ * is a different place; NWS can also issue several alerts for the same place
+ * (two flood warnings on different rivers), and calling those "2 areas" would
+ * be wrong, so they are "alerts".
+ */
+export function memberCountLabel(alert: Pick<WeatherAlert, "members">): string | null {
+  const members = alert.members;
+  if (!members || members.length < 2) return null;
+  const distinctPlaces = new Set(members.map((member) => memberName(member))).size;
+  return `${members.length} ${distinctPlaces === members.length ? "areas" : "alerts"}`;
+}
+
+/**
+ * A short, whole-word preview of what a member says, to tell apart members
+ * that cover the same place (two river Flood Warnings both read "Escambia").
+ * Null when there is no text.
+ */
+export function alertPreview(alert: WeatherAlert, max = 110): string | null {
+  const lead = alertLeadText(alert);
+  if (!lead) return null;
+  const text = lead.replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max).replace(/\s+\S*$/, "");
+  return `${cut || text.slice(0, max)}…`;
+}
+
+/** The members whose row label would be identical to another's, so they need a preview to be told apart. */
+export function membersNeedingPreview(members: WeatherAlert[]): Set<string> {
+  const byName = new Map<string, WeatherAlert[]>();
+  for (const member of members) {
+    const name = memberName(member);
+    byName.set(name, [...(byName.get(name) ?? []), member]);
+  }
+  return new Set(
+    [...byName.values()]
+      .filter((group) => group.length > 1)
+      .flatMap((group) => group.map((member) => member.id)),
+  );
+}
