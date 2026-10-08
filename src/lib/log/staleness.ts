@@ -6,6 +6,7 @@
 
 export const NPR_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 export const WEATHER_STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+export const FNE_STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface StalenessCheck {
   isStale: boolean;

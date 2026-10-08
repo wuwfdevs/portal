@@ -54,9 +54,10 @@ import {
   computeRundownSummary,
   networkSlotLabelAt,
 } from "@/lib/log/timing";
-import { listUnresolvedEntries } from "@/lib/log/submission";
+import { isWrapUpVisible, listUnresolvedEntries } from "@/lib/log/submission";
 import { getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
+import { getFneStories } from "@/lib/log/fne";
 import {
   formatStationClockTime,
   formatStationTimeHM,
@@ -117,6 +118,11 @@ function itemDuration(item: RundownItemDetail): number {
   return item.planned_duration_seconds;
 }
 
+// The rundown sidebar lists the newest few shared stories; a slow feed must not
+// hold up a live screen, so its read gets a short leash.
+const FNE_SIDEBAR_TIMEOUT_MS = 3000;
+const FNE_SIDEBAR_STORIES = 3;
+
 export default async function RundownDetailPage({
   params,
   searchParams,
@@ -153,6 +159,7 @@ export default async function RundownDetailPage({
     clockSlots,
     weather,
     npr,
+    fne,
     events,
     hasOpenExceptions,
   ] = await Promise.all([
@@ -162,6 +169,7 @@ export default async function RundownDetailPage({
     listClockSlotsForVersion(rundown.clock_version_id),
     getCurrentWeatherReading(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
+    getFneStories(new Date(), FNE_SIDEBAR_TIMEOUT_MS),
     live
       ? listBroadcastEventsForItems(allItems.map((item) => item.id))
       : (Promise.resolve([]) as Promise<LogBroadcastEventRow[]>),
@@ -245,6 +253,12 @@ export default async function RundownDetailPage({
   // against yet. (events itself was already fetched above, alongside every
   // other independent read.)
   const now = new Date().toISOString();
+  // The wrap-up panel waits until the program is over — see isWrapUpVisible.
+  const wrapUpVisible = isWrapUpVisible({
+    status: rundown.status,
+    shiftEndAtISO: rundown.shift_end_at,
+    nowISO: now,
+  });
   const eventCountByItem = new Map<string, number>();
   for (const event of events) {
     eventCountByItem.set(
@@ -1203,119 +1217,158 @@ export default async function RundownDetailPage({
       </Card>
 
       <Card className="p-4">
-        {!live ? (
-          <>
-            <SectionHeading level="eyebrow" as="h3" className="mb-2">
-              Status
-            </SectionHeading>
-            <p className="mb-3 text-xs text-ink-500">
-              This rundown hasn&apos;t started yet. Starting it marks it in progress and turns on
-              the live countdown, aired/missed/move, and today&apos;s weather above. NPR is already
-              shown for planning look-aheads.
-            </p>
-            <RequiresConnection>
-              <form action={startBroadcast}>
-                <input type="hidden" name="rundown_id" value={rundown.id} />
-                <Button type="submit">Start broadcast</Button>
-              </form>
-            </RequiresConnection>
-          </>
-        ) : (
-          <>
-            <div className="mb-2 flex items-center justify-between">
-              <SectionHeading level="eyebrow" as="h3">
-                Wrap up
-              </SectionHeading>
-              {unresolvedEntries.length > 0 && (
-                <Badge variant="warning">{unresolvedEntries.length} unresolved</Badge>
-              )}
-            </div>
-            {unresolvedEntries.length > 0 && (
-              <p className="mb-3 text-xs text-ink-500">
-                {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
-                need an underwriting credit confirmed, or content for a required break. Ordinary
-                content is never counted here — see below.
-              </p>
-            )}
-
-            {underwritingItems.length > 0 && (
-              <div className="mb-3 rounded border border-line bg-panel-50 p-3">
-                <SectionHeading level="eyebrow" as="h3" className="mb-1">
-                  Underwriting credits
-                </SectionHeading>
-                {unconfirmedUnderwritingCount > 0 && (
-                  <>
-                    <p className="mb-2 text-xs text-ink-700">
-                      {unconfirmedUnderwritingCount} credit
-                      {unconfirmedUnderwritingCount === 1 ? "" : "s"} haven&apos;t been confirmed
-                      one way or the other. Attesting marks all of them aired as scheduled — never
-                      anything already recorded as aired or missed.
-                    </p>
-                    <RequiresConnection requireSynced>
-                      <form action={attestUnderwritingCredits}>
-                        <input type="hidden" name="rundown_id" value={rundown.id} />
-                        <Button type="submit" variant="secondary" size="sm">
-                          Attest {unconfirmedUnderwritingCount} aired as scheduled
-                        </Button>
-                      </form>
-                    </RequiresConnection>
-                  </>
-                )}
-                {hasOpenExceptions && (
-                  <Alert
-                    variant="danger"
-                    className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}
-                  >
-                    This rundown has an unresolved underwriting exception. Submission is blocked
-                    until it&apos;s resolved in Traffic — a makegood, an accepted alternate, or a
-                    waiver.
-                  </Alert>
-                )}
-                {unconfirmedUnderwritingCount === 0 && !hasOpenExceptions && (
-                  <p className="text-xs text-ink-500">Every credit is confirmed or resolved.</p>
-                )}
-              </div>
-            )}
-
-            {unconfirmedOrdinaryCount > 0 && (
-              <div className="mb-3 rounded border border-line bg-panel-50 p-3">
-                <p className="mb-2 text-xs text-ink-700">
-                  {unconfirmedOrdinaryCount} other item{unconfirmedOrdinaryCount === 1 ? "" : "s"}{" "}
-                  haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t
-                  need this. Marking them helps keep a complete record.
-                </p>
-                <RequiresConnection requireSynced>
-                  <form action={attestOrdinaryContentAired}>
-                    <input type="hidden" name="rundown_id" value={rundown.id} />
-                    <Button type="submit" variant="secondary" size="sm">
-                      Mark {unconfirmedOrdinaryCount} aired as scheduled
-                    </Button>
-                  </form>
-                </RequiresConnection>
-              </div>
-            )}
-
-            <RequiresConnection requireSynced>
-              <form action={submitRundown}>
-                <input type="hidden" name="rundown_id" value={rundown.id} />
-                <Button
-                  type="submit"
-                  variant={rundown.status === "submitted" ? "secondary" : "primary"}
-                  disabled={hasOpenExceptions}
+        <SectionHeading level="eyebrow" as="h3" className="mb-1">
+          Florida News Exchange
+        </SectionHeading>
+        {fne.stories.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {fne.stories.slice(0, FNE_SIDEBAR_STORIES).map((story) => (
+              <li key={story.versions[0]!.guid} className="text-xs text-ink-700">
+                <span className="mr-1.5 font-mono text-ink-400 tabular-nums">
+                  {formatStationTimeHM(story.latestAt)}
+                </span>
+                <a
+                  href={story.versions[0]!.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-brand-link hover:underline"
                 >
-                  {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
-                </Button>
-              </form>
-            </RequiresConnection>
-            {rundown.status === "submitted" && rundown.submitted_at && (
-              <p className="mt-2 text-xs text-ink-400">
-                Submitted {formatStationTimestamp(rundown.submitted_at)}. Corrections still work
-                above.
-              </p>
-            )}
-          </>
+                  {story.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : fne.refreshError ? (
+          <p className="text-xs text-ink-400">Couldn&apos;t read the feed right now.</p>
+        ) : (
+          <p className="text-xs text-ink-400">No stories in the last 24 hours.</p>
         )}
+        <a
+          href="/log/sources/fne"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-xs font-semibold text-brand-link hover:underline"
+        >
+          All stories
+        </a>
       </Card>
+
+      {(!live || wrapUpVisible) && (
+        <Card className="p-4">
+          {!live ? (
+            <>
+              <SectionHeading level="eyebrow" as="h3" className="mb-2">
+                Status
+              </SectionHeading>
+              <p className="mb-3 text-xs text-ink-500">
+                This rundown hasn&apos;t started yet. Starting it marks it in progress and turns on
+                the live countdown, aired/missed/move, and today&apos;s weather above. NPR is
+                already shown for planning look-aheads.
+              </p>
+              <RequiresConnection>
+                <form action={startBroadcast}>
+                  <input type="hidden" name="rundown_id" value={rundown.id} />
+                  <Button type="submit">Start broadcast</Button>
+                </form>
+              </RequiresConnection>
+            </>
+          ) : (
+            <>
+              <div className="mb-2 flex items-center justify-between">
+                <SectionHeading level="eyebrow" as="h3">
+                  Wrap up
+                </SectionHeading>
+                {unresolvedEntries.length > 0 && (
+                  <Badge variant="warning">{unresolvedEntries.length} unresolved</Badge>
+                )}
+              </div>
+              {unresolvedEntries.length > 0 && (
+                <p className="mb-3 text-xs text-ink-500">
+                  {unresolvedEntries.length} thing{unresolvedEntries.length === 1 ? "" : "s"} still
+                  need an underwriting credit confirmed, or content for a required break. Ordinary
+                  content is never counted here — see below.
+                </p>
+              )}
+
+              {underwritingItems.length > 0 && (
+                <div className="mb-3 rounded border border-line bg-panel-50 p-3">
+                  <SectionHeading level="eyebrow" as="h3" className="mb-1">
+                    Underwriting credits
+                  </SectionHeading>
+                  {unconfirmedUnderwritingCount > 0 && (
+                    <>
+                      <p className="mb-2 text-xs text-ink-700">
+                        {unconfirmedUnderwritingCount} credit
+                        {unconfirmedUnderwritingCount === 1 ? "" : "s"} haven&apos;t been confirmed
+                        one way or the other. Attesting marks all of them aired as scheduled — never
+                        anything already recorded as aired or missed.
+                      </p>
+                      <RequiresConnection requireSynced>
+                        <form action={attestUnderwritingCredits}>
+                          <input type="hidden" name="rundown_id" value={rundown.id} />
+                          <Button type="submit" variant="secondary" size="sm">
+                            Attest {unconfirmedUnderwritingCount} aired as scheduled
+                          </Button>
+                        </form>
+                      </RequiresConnection>
+                    </>
+                  )}
+                  {hasOpenExceptions && (
+                    <Alert
+                      variant="danger"
+                      className={unconfirmedUnderwritingCount > 0 ? "mt-3" : undefined}
+                    >
+                      This rundown has an unresolved underwriting exception. Submission is blocked
+                      until it&apos;s resolved in Traffic — a makegood, an accepted alternate, or a
+                      waiver.
+                    </Alert>
+                  )}
+                  {unconfirmedUnderwritingCount === 0 && !hasOpenExceptions && (
+                    <p className="text-xs text-ink-500">Every credit is confirmed or resolved.</p>
+                  )}
+                </div>
+              )}
+
+              {unconfirmedOrdinaryCount > 0 && (
+                <div className="mb-3 rounded border border-line bg-panel-50 p-3">
+                  <p className="mb-2 text-xs text-ink-700">
+                    {unconfirmedOrdinaryCount} other item{unconfirmedOrdinaryCount === 1 ? "" : "s"}{" "}
+                    haven&apos;t been confirmed aired — entirely optional, submitting doesn&apos;t
+                    need this. Marking them helps keep a complete record.
+                  </p>
+                  <RequiresConnection requireSynced>
+                    <form action={attestOrdinaryContentAired}>
+                      <input type="hidden" name="rundown_id" value={rundown.id} />
+                      <Button type="submit" variant="secondary" size="sm">
+                        Mark {unconfirmedOrdinaryCount} aired as scheduled
+                      </Button>
+                    </form>
+                  </RequiresConnection>
+                </div>
+              )}
+
+              <RequiresConnection requireSynced>
+                <form action={submitRundown}>
+                  <input type="hidden" name="rundown_id" value={rundown.id} />
+                  <Button
+                    type="submit"
+                    variant={rundown.status === "submitted" ? "secondary" : "primary"}
+                    disabled={hasOpenExceptions}
+                  >
+                    {rundown.status === "submitted" ? "Re-submit" : "Submit rundown"}
+                  </Button>
+                </form>
+              </RequiresConnection>
+              {rundown.status === "submitted" && rundown.submitted_at && (
+                <p className="mt-2 text-xs text-ink-400">
+                  Submitted {formatStationTimestamp(rundown.submitted_at)}. Corrections still work
+                  above.
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+      )}
     </>
   );
 

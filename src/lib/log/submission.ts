@@ -52,3 +52,18 @@ export function listUnresolvedEntries(
   }
   return entries;
 }
+
+/**
+ * Whether the rundown screen's "Wrap up" panel (attest, submit) is worth showing
+ * yet: only once the program's shift has ended, or the rundown was already
+ * submitted (a re-submit and the notes about it stay reachable). Before that it
+ * is clutter in a sidebar a host is using to run the broadcast.
+ */
+export function isWrapUpVisible(params: {
+  status: string;
+  shiftEndAtISO: string;
+  nowISO: string;
+}): boolean {
+  if (params.status === "submitted") return true;
+  return new Date(params.nowISO).getTime() >= new Date(params.shiftEndAtISO).getTime();
+}

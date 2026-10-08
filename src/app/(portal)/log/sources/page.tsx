@@ -39,7 +39,7 @@ export default async function SourcesPage({
         </Alert>
       )}
 
-      <div className="grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
+      <div className="grid max-w-5xl grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {DATA_SOURCES.map((source) => {
           const status = statuses[source.key];
           return (
