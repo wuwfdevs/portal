@@ -15,8 +15,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { retryTranscription } from "../actions";
-import { ProjectActionsMenu } from "../project-actions-menu";
 import { ExportExcerptsButton } from "./export-excerpts-button";
+import { DeleteProjectPanel } from "../delete-project-panel";
+import { describeProjectDeletion } from "@/lib/transcription/project-deletion";
+import { loadDeletionSources } from "@/lib/transcription/project-deletion-plan";
+import { createClient } from "@/lib/supabase/server";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { DocumentWorkspace } from "./document-workspace";
 import { ProjectDetails } from "./project-details";
@@ -58,17 +61,6 @@ export default async function TranscriptionProjectPage({
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  // A project-level action (see ProjectActionsMenu in the header below),
-  // deliberately not scoped to whichever source happens to be on screen —
-  // deleting *a* source precisely is SourceActionsMenu's "Remove…" choice
-  // now, so this stays simply about the project itself. deleteProject still
-  // only cascades the project's *primary* (earliest-attached) source, and
-  // only if no other project references it — see actions.ts's deleteProject.
-  const hasAnyMedia = project.sources.some((s) => Boolean(s.source.original_storage_path));
-  const deleteLabel = "Delete this project";
-  const deleteWarning = hasAnyMedia
-    ? "This permanently deletes the project. Its primary source is removed too, unless another project still references it — anything else attached stays in the library."
-    : "This removes the project and anything already uploaded for it.";
   // ?source= picks which source is showing; absent (or unknown) falls back
   // to the earliest-attached source — same "primary" this project always
   // had before a second source could be attached (docs/sourcework-design.md
@@ -146,13 +138,6 @@ export default async function TranscriptionProjectPage({
                 exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
               />
             )}
-            {canDelete && (
-              <ProjectActionsMenu
-                projectId={project.id}
-                label={deleteLabel}
-                warning={deleteWarning}
-              />
-            )}
           </>
         }
       />
@@ -212,6 +197,22 @@ export default async function TranscriptionProjectPage({
         }
       />
     ) : null;
+
+  // Only the person who started the project can delete it, so only they pay
+  // for the lookup that lets the warning name what goes and what stays.
+  const deletionPlan = canDelete
+    ? describeProjectDeletion(
+        await loadDeletionSources(
+          await createClient(),
+          project.id,
+          project.sources.map((entry) => ({
+            id: entry.sourceId,
+            title: entry.source.title,
+            kind: entry.source.kind,
+          })),
+        ),
+      )
+    : null;
 
   const switcherSources: SwitcherSource[] = project.sources.map((entry) => ({
     sourceId: entry.sourceId,
@@ -387,6 +388,14 @@ export default async function TranscriptionProjectPage({
             </>
           )}
         </>
+      )}
+
+      {deletionPlan && (
+        <DeleteProjectPanel
+          projectId={project.id}
+          projectTitle={project.title}
+          plan={deletionPlan}
+        />
       )}
     </div>
   );

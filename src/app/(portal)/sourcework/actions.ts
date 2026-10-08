@@ -218,9 +218,8 @@ export async function retryTranscription(formData: FormData): Promise<void> {
  * non-owner could strip the media object while the row delete silently
  * no-ops under RLS, leaving an orphaned row.
  */
-export async function deleteProject(formData: FormData): Promise<void> {
+export async function deleteProject(projectId: string): Promise<{ error?: string }> {
   const { profile } = await assertToolAccess("transcription");
-  const projectId = String(formData.get("project_id") ?? "");
 
   const supabase = await createClient();
   const { data: project } = await supabase
@@ -230,7 +229,7 @@ export async function deleteProject(formData: FormData): Promise<void> {
     .maybeSingle();
 
   if (!project || project.created_by !== profile.id) {
-    redirect("/sourcework");
+    return { error: "Only the person who started this project can delete it." };
   }
 
   const { data: projectSources } = await supabase
@@ -250,8 +249,9 @@ export async function deleteProject(formData: FormData): Promise<void> {
     }
   }
 
-  await supabase.from("tw_projects").delete().eq("id", projectId);
+  const { error } = await supabase.from("tw_projects").delete().eq("id", projectId);
+  if (error) return { error: "Could not delete the project. Please try again." };
 
   revalidatePath("/sourcework");
-  redirect("/sourcework");
+  return {};
 }

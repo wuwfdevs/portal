@@ -57,7 +57,7 @@ export function ConfirmAction({
     </Button>
   ) : (
     <div className="flex flex-col gap-2.5">
-      <p className="text-xs leading-relaxed text-ink-700">{message}</p>
+      <div className="text-xs leading-relaxed text-ink-700">{message}</div>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="danger" onClick={run} disabled={busy}>
           {busy ? "Working…" : confirmLabel}
