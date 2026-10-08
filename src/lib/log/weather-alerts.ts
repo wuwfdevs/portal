@@ -16,8 +16,10 @@ export interface WeatherAlert {
   /** NWS's event name, e.g. "Hurricane Warning". */
   event: string;
   tier: AlertTier;
-  /** NWS severity: Extreme, Severe, Moderate, Minor or Unknown. */
+  /** CAP severity: Extreme, Severe, Moderate, Minor or Unknown. */
   severity: string;
+  /** CAP urgency: Immediate, Expected, Future, Past or Unknown. */
+  urgency: string;
   headline: string | null;
   description: string | null;
   instruction: string | null;
@@ -25,6 +27,8 @@ export interface WeatherAlert {
   senderName: string | null;
   /** When NWS sent this message. */
   issuedAt: string | null;
+  /** When the hazard begins, when that is later than now — a Watch is often issued for tomorrow. */
+  startsAt: string | null;
   /** The hard end, when NWS sets one. A hurricane warning usually has none. */
   endsAt: string | null;
 }
@@ -36,13 +40,32 @@ const SEVERITY_RANK: Record<string, number> = {
   Minor: 3,
   Unknown: 4,
 };
+const URGENCY_RANK: Record<string, number> = {
+  Immediate: 0,
+  Expected: 1,
+  Future: 2,
+  Past: 3,
+  Unknown: 4,
+};
 const TIER_RANK: Record<AlertTier, number> = { warning: 0, watch: 1, statement: 2 };
 
-/** Warning and Watch come from the event name; Extreme severity is treated as a warning whatever it is called. Everything else (advisories, statements, outlooks) is the quiet tier. */
+/**
+ * Warning and Watch come from the event name. Emergencies and evacuations
+ * are the most urgent products NWS relays but do not end in "Warning"
+ * ("Civil Emergency Message", "Child Abduction Emergency", "911 Telephone
+ * Outage Emergency", "Local Area Emergency", "Evacuation - Immediate"), so
+ * they are named explicitly; Extreme severity is a warning whatever it is
+ * called. Everything else (advisories, statements, outlooks, messages) is the
+ * quiet tier.
+ */
 export function classifyAlertTier(event: string, severity: string | null | undefined): AlertTier {
-  if (/warning$/i.test(event.trim())) return "warning";
+  const name = event.trim();
+  if (/warning$/i.test(name)) return "warning";
+  if (/emergency( message)?$/i.test(name) || /^evacuation\b/i.test(name)) return "warning";
+  // Not weather, but the public cannot call for help: a station relays it as a warning.
+  if (/^911 telephone outage$/i.test(name)) return "warning";
   if (severity === "Extreme") return "warning";
-  if (/watch$/i.test(event.trim())) return "watch";
+  if (/watch$/i.test(name)) return "watch";
   return "statement";
 }
 
@@ -51,6 +74,7 @@ interface NwsAlertFeature {
     id?: string;
     event?: string;
     severity?: string;
+    urgency?: string;
     headline?: string | null;
     description?: string | null;
     instruction?: string | null;
@@ -58,6 +82,7 @@ interface NwsAlertFeature {
     senderName?: string | null;
     sent?: string | null;
     effective?: string | null;
+    onset?: string | null;
     ends?: string | null;
     messageType?: string;
     status?: string;
@@ -79,19 +104,26 @@ export function parseNwsAlerts(
     const event = textOrNull(p?.event);
     if (!p || !event) continue;
     if (p.status && p.status !== "Actual") continue;
-    if (p.messageType === "Cancel") continue;
+    // Cancel withdraws an alert; Ack and Error are system traffic, not hazards.
+    if (p.messageType === "Cancel" || p.messageType === "Ack" || p.messageType === "Error")
+      continue;
+    // Products that are not hazards: a test, the routine short-term forecast,
+    // and NWS-internal administrative traffic.
+    if (/^(test|short term forecast|administrative message)$/i.test(event)) continue;
     const severity = p.severity ?? "Unknown";
     alerts.push({
       id: p.id ?? `${event}:${p.sent ?? ""}`,
       event,
       tier: classifyAlertTier(event, severity),
       severity,
+      urgency: p.urgency ?? "Unknown",
       headline: textOrNull(p.headline),
       description: textOrNull(p.description),
       instruction: textOrNull(p.instruction),
       areaDesc: textOrNull(p.areaDesc),
       senderName: textOrNull(p.senderName),
       issuedAt: p.sent ?? p.effective ?? null,
+      startsAt: p.onset ?? p.effective ?? null,
       endsAt: p.ends ?? null,
     });
   }
@@ -104,6 +136,8 @@ export function sortAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
     if (a.tier !== b.tier) return TIER_RANK[a.tier] - TIER_RANK[b.tier];
     const severity = (SEVERITY_RANK[a.severity] ?? 4) - (SEVERITY_RANK[b.severity] ?? 4);
     if (severity !== 0) return severity;
+    const urgency = (URGENCY_RANK[a.urgency] ?? 4) - (URGENCY_RANK[b.urgency] ?? 4);
+    if (urgency !== 0) return urgency;
     return (b.issuedAt ?? "").localeCompare(a.issuedAt ?? "");
   });
 }
@@ -120,16 +154,28 @@ export function activeAlerts(alerts: WeatherAlert[], nowISO: string): WeatherAle
   return alerts.filter((alert) => !alert.endsAt || new Date(alert.endsAt).getTime() > now);
 }
 
-/** "in effect" with no end, else "until Sat 1:00 PM" in station time. */
-export function alertTiming(alert: WeatherAlert): string {
-  if (!alert.endsAt) return "in effect";
-  const when = new Date(alert.endsAt).toLocaleString("en-US", {
+function stationWhen(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
     timeZone: STATION_TIME_ZONE,
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
   });
-  return `until ${when}`;
+}
+
+/**
+ * "in effect" when already running with no end, "until Sat 1:00 PM" with one,
+ * and for a hazard that has not begun yet (a Watch for tomorrow) "begins Fri
+ * 6:00 PM" plus its end when it has one. Station time throughout.
+ */
+export function alertTiming(alert: WeatherAlert, nowISO: string): string {
+  const begins =
+    alert.startsAt && new Date(alert.startsAt).getTime() > new Date(nowISO).getTime()
+      ? `begins ${stationWhen(alert.startsAt)}`
+      : null;
+  const until = alert.endsAt ? `until ${stationWhen(alert.endsAt)}` : null;
+  if (begins && until) return `${begins}, ${until}`;
+  return begins ?? until ?? "in effect";
 }
 
 /** "issued 6:56 AM" in station time, or null when NWS gave no send time. */
@@ -151,16 +197,22 @@ export function alertsToHazards(alerts: WeatherAlert[]): string | null {
   return alerts.length === 0 ? null : alerts.map((alert) => alert.event).join("; ");
 }
 
-/** Reads the jsonb column back into alerts, tolerating a row that predates it. */
+/** Reads the jsonb column back into alerts, tolerating a row that predates a field. */
 export function readStoredAlerts(value: unknown): WeatherAlert[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (entry): entry is WeatherAlert =>
-      typeof entry === "object" &&
-      entry !== null &&
-      typeof (entry as WeatherAlert).event === "string" &&
-      typeof (entry as WeatherAlert).tier === "string",
-  );
+  return value
+    .filter(
+      (entry): entry is WeatherAlert =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as WeatherAlert).event === "string" &&
+        typeof (entry as WeatherAlert).tier === "string",
+    )
+    .map((entry) => ({
+      ...entry,
+      urgency: entry.urgency ?? "Unknown",
+      startsAt: entry.startsAt ?? null,
+    }));
 }
 
 export type AlertsCheckState =
@@ -246,4 +298,55 @@ export function alertsDisplay(alerts: WeatherAlert[], state: AlertsCheckState): 
   if (state === "unknown") return "unverified";
   if (alerts.length === 0) return state === "stale" ? "unverified" : "hidden";
   return "list";
+}
+
+// "Local Statement" is one product name (Hurricane/Tropical Cyclone Local
+// Statement), so "Local" goes with it rather than being left dangling.
+const LABEL_SUFFIX =
+  /\s+((?:Local\s+)?(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin|Alert))$/i;
+
+/**
+ * The badge says what kind of alert it is, so the name shouldn't say it again:
+ * "Hurricane Warning" reads Warning + "Hurricane", "Flood Watch" Watch +
+ * "Flood". The badge word follows the event's own last word where there is one
+ * (Advisory, Statement), so a Small Craft Advisory is not mislabelled as a
+ * Statement. An event whose tier comes from severity alone keeps its full name.
+ */
+// "Blue Alert" is the whole name of the product; stripping Alert would leave "Blue".
+const KEEP_WHOLE = /^blue alert$/i;
+
+export function alertLabels(alert: Pick<WeatherAlert, "event" | "tier">): {
+  badge: string;
+  name: string;
+} {
+  const suffix = LABEL_SUFFIX.exec(alert.event.trim())?.[2];
+  const word = suffix ? suffix[0]!.toUpperCase() + suffix.slice(1).toLowerCase() : null;
+  const tierWord = alert.tier === "warning" ? "Warning" : alert.tier === "watch" ? "Watch" : null;
+  const badge = tierWord ?? word ?? "Alert";
+  // Strip the suffix only when it is exactly what the badge already says.
+  if (word && word === badge && !KEEP_WHOLE.test(alert.event.trim())) {
+    const name = alert.event.trim().replace(LABEL_SUFFIX, "").trim();
+    return { badge, name: name || alert.event.trim() };
+  }
+  return { badge, name: alert.event.trim() };
+}
+
+/**
+ * NWS's areaDesc is a semicolon-separated list of counties and zones. For a
+ * header a host scans: the first two, then how many more — "Escambia, Santa
+ * Rosa +3". Null when NWS gave no area.
+ */
+export function abbreviateAreas(areaDesc: string | null | undefined, shown = 2): string | null {
+  if (!areaDesc) return null;
+  const areas = [
+    ...new Set(
+      areaDesc
+        .split(";")
+        .map((area) => area.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (areas.length === 0) return null;
+  if (areas.length <= shown) return areas.join(", ");
+  return `${areas.slice(0, shown).join(", ")} +${areas.length - shown}`;
 }

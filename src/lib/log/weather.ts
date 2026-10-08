@@ -7,8 +7,19 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeatherReadingRow, type LogWeatherReadingRow } from "./queries";
 import { fetchWeatherAlerts, fetchWeatherReading } from "./providers/weather";
-import { checkStaleness, WEATHER_ALERTS_STALE_THRESHOLD_MS, WEATHER_STALE_THRESHOLD_MS } from "./staleness";
-import { activeAlerts, alertsCheckState, alertsToHazards, readStoredAlerts, type AlertsCheckState, type WeatherAlert } from "./weather-alerts";
+import {
+  checkStaleness,
+  WEATHER_ALERTS_STALE_THRESHOLD_MS,
+  WEATHER_STALE_THRESHOLD_MS,
+} from "./staleness";
+import {
+  activeAlerts,
+  alertsCheckState,
+  alertsToHazards,
+  readStoredAlerts,
+  type AlertsCheckState,
+  type WeatherAlert,
+} from "./weather-alerts";
 import type { DailyOutlookEntry, ForecastPeriodSummary } from "./weather-outlook";
 
 /** Typed accessor for the row's jsonb daily_outlook column (stored as `unknown` in database.types.ts, the same convention as every other plain jsonb column here) — this repo's own shape, never user input, so a direct cast is safe. */
@@ -26,12 +37,15 @@ export function getAlertsView(reading: LogWeatherReadingRow): {
   alerts: WeatherAlert[];
   state: AlertsCheckState;
   checkedAt: string | null;
+  nowISO: string;
 } {
-  const alerts = activeAlerts(readStoredAlerts(reading.alerts), new Date().toISOString());
+  const nowISO = new Date().toISOString();
+  const alerts = activeAlerts(readStoredAlerts(reading.alerts), nowISO);
   return {
     alerts,
     state: alertsCheckState(alerts, reading.alerts_checked_at, reading.alerts_check_failed),
     checkedAt: reading.alerts_checked_at,
+    nowISO,
   };
 }
 
@@ -131,7 +145,8 @@ export async function getCurrentWeatherReading(): Promise<WeatherResult> {
     try {
       reading = await replaceCurrentWeatherReading();
     } catch (error) {
-      refreshError = error instanceof Error ? error.message : "Could not refresh the weather reading.";
+      refreshError =
+        error instanceof Error ? error.message : "Could not refresh the weather reading.";
       // Keep serving whatever reading we already had, if any — never let a
       // failed refetch make the display blank.
     }
@@ -162,6 +177,8 @@ export async function refreshWeatherReading(): Promise<{ error?: string }> {
     await replaceCurrentWeatherReading();
     return {};
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not refresh the weather reading." };
+    return {
+      error: error instanceof Error ? error.message : "Could not refresh the weather reading.",
+    };
   }
 }
