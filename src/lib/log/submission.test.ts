@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { listUnresolvedEntries, type UnresolvedReviewBreakLike } from "./submission";
+import {
+  isWrapUpVisible,
+  listUnresolvedEntries,
+  type UnresolvedReviewBreakLike,
+} from "./submission";
 
 function item(id: string, requiresConfirmation = true) {
   return { id, requiresConfirmation };
 }
 
-function brk(overrides: Partial<UnresolvedReviewBreakLike> & { id: string }): UnresolvedReviewBreakLike {
+function brk(
+  overrides: Partial<UnresolvedReviewBreakLike> & { id: string },
+): UnresolvedReviewBreakLike {
   return { requirement: "optional", items: [], ...overrides };
 }
 
@@ -32,12 +38,18 @@ describe("listUnresolvedEntries", () => {
   });
 
   it("flags an empty required break as the break itself, not an item", () => {
-    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "required", items: [] })], new Set());
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", requirement: "required", items: [] })],
+      new Set(),
+    );
     expect(result).toEqual([{ breakId: "b1", itemId: null }]);
   });
 
   it("does not flag an empty optional break — carrying network is resolved", () => {
-    const result = listUnresolvedEntries([brk({ id: "b1", requirement: "optional", items: [] })], new Set());
+    const result = listUnresolvedEntries(
+      [brk({ id: "b1", requirement: "optional", items: [] })],
+      new Set(),
+    );
     expect(result).toEqual([]);
   });
 
@@ -63,5 +75,27 @@ describe("listUnresolvedEntries", () => {
       new Set(["item-1"]),
     );
     expect(result).toEqual([]);
+  });
+});
+
+describe("isWrapUpVisible", () => {
+  const shiftEndAtISO = "2026-10-09T14:00:00.000Z";
+
+  it("is hidden while the program is still on", () => {
+    expect(
+      isWrapUpVisible({ status: "in_progress", shiftEndAtISO, nowISO: "2026-10-09T13:59:59.000Z" }),
+    ).toBe(false);
+  });
+
+  it("shows once the shift has ended", () => {
+    expect(
+      isWrapUpVisible({ status: "in_progress", shiftEndAtISO, nowISO: "2026-10-09T14:00:00.000Z" }),
+    ).toBe(true);
+  });
+
+  it("stays visible for a submitted rundown, even one submitted early", () => {
+    expect(
+      isWrapUpVisible({ status: "submitted", shiftEndAtISO, nowISO: "2026-10-09T12:00:00.000Z" }),
+    ).toBe(true);
   });
 });

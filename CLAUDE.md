@@ -3297,6 +3297,24 @@ band; the Programs week grid shades both (`week-layout.ts`'s `shadingBands`).
 Not built: per-line exemptions, moving already-placed credits when the hours
 change.
 
+**Log: Florida News Exchange is a third Sources feed (2026-10-09).** Read
+`lib/log/fne.ts`'s header before touching it; this is a pointer. PRX's public RSS
+feed of stories other Florida stations share (`FNE_FEED_URL` overrides the default),
+shown at `/log/sources/fne` for the **last 24 hours only**. Parsed by a pure, tested
+`providers/fne-response.ts` (no XML dependency); read lazily with a 15-minute
+staleness check and kept **in memory per server instance**, not in the database —
+the feed is a rolling window and its audio links are signed S3 URLs that expire
+after an hour, so never store one. The feed has no duration, byline or station, and
+its description is often only a summary (the real script is frequently on the PRX
+item page, which this repo cannot read), so **"Add to library" is a link, not a
+write**: `fne-handoff.ts` opens the library's ordinary New content item form with
+title, type News and a summary (description, hold note, PRX link) prefilled, script
+left blank — the Editorial Inquiry pitch hand-off shape. There is no schema, no
+draft state and no record of which stories were added (so a story can be added
+twice), by decision. Components are added on the saved item's page like any other.
+Separately, the rundown screen's **Wrap up panel shows only after the shift has
+ended** (or once submitted): `submission.ts`'s `isWrapUpVisible()`.
+
 **Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display
 names only (`20261002180000`, applied to both projects): the registry rows'
 `name`/`description`, page headings, and user-facing strings. The keys (`log`,
