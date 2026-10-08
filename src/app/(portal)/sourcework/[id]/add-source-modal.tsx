@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FileInput, Input, Label, FieldError, FieldHint } from "@/components/ui/input";
 import { formatShortDate } from "@/lib/format";
 import { SOURCE_KIND_LABEL } from "@/lib/transcription/status";
+import { probeDurationMs } from "@/lib/transcription/probe-duration";
 import { createClient } from "@/lib/supabase/client";
 import {
   TRANSCRIPTION_MEDIA_BUCKET,
@@ -12,7 +13,6 @@ import {
   isAllowedDocumentType,
   isAllowedMediaType,
   isDocumentContentType,
-  isVideoContentType,
   sourceObjectPath,
   titleFromFileName,
 } from "@/lib/transcription/media";
@@ -224,27 +224,6 @@ const STAGE_LABEL: Record<Exclude<Stage, "idle">, string> = {
   uploading: "Uploading — this can take a few minutes for a long recording…",
   finishing: "Finishing up…",
 };
-
-/** Reads a local file's duration client-side, without a server round trip. */
-function probeDurationMs(file: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const el = document.createElement(isVideoContentType(file.type) ? "video" : "audio");
-    const objectUrl = URL.createObjectURL(file);
-    const cleanup = () => URL.revokeObjectURL(objectUrl);
-
-    el.preload = "metadata";
-    el.onloadedmetadata = () => {
-      const ms = Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : null;
-      cleanup();
-      resolve(ms);
-    };
-    el.onerror = () => {
-      cleanup();
-      resolve(null);
-    };
-    el.src = objectUrl;
-  });
-}
 
 function UploadNewPanel({
   projectId,

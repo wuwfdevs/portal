@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { probeDurationMs } from "@/lib/transcription/probe-duration";
 import { createClient } from "@/lib/supabase/client";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import {
   isAllowedDocumentType,
   isAllowedMediaType,
   isDocumentContentType,
-  isVideoContentType,
   sourceObjectPath,
   titleFromFileName,
 } from "@/lib/transcription/media";
@@ -34,27 +34,6 @@ const STAGE_TITLE: Record<Exclude<Stage, "idle">, string> = {
 const STAGE_HINT: Partial<Record<Stage, string>> = {
   uploading: "This can take a few minutes for a long recording",
 };
-
-/** Reads a local file's duration client-side, without a server round trip. */
-function probeDurationMs(file: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const el = document.createElement(isVideoContentType(file.type) ? "video" : "audio");
-    const objectUrl = URL.createObjectURL(file);
-    const cleanup = () => URL.revokeObjectURL(objectUrl);
-
-    el.preload = "metadata";
-    el.onloadedmetadata = () => {
-      const ms = Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : null;
-      cleanup();
-      resolve(ms);
-    };
-    el.onerror = () => {
-      cleanup();
-      resolve(null);
-    };
-    el.src = objectUrl;
-  });
-}
 
 export function NewProjectForm() {
   const router = useRouter();
