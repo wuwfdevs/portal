@@ -33,7 +33,7 @@ The underwriting or business team is accountable for accurate commercial terms, 
 
 ## 2. Prepare and approve copy
 
-1. From the contract's **Copy** area, create a new message or link existing copy. Verify that the sponsor identification and script satisfy the order and station underwriting standards.
+1. From the contract's [**Copy** area](/underwriting/copy), create a new message or link existing copy. Verify that the sponsor identification and script satisfy the order and station underwriting standards.
 2. Associate approved messages with the correct contract, flight and, where stipulated, schedule line. A line-specific message must not rotate onto unrelated lines.
 3. Check the script's status, effective dates, duration, and DAD cut. **Approved** governs scheduling eligibility; **recorded in DAD** governs whether automation can play it.
 4. For a newly assigned cut, record the message under the identified cut number and mark it recorded after checking the actual DAD asset. An existing DAD spot must be explicitly selected when the copy references one. Changing a cut or substantive wording can clear the recorded status.
@@ -46,7 +46,7 @@ Two approved messages with weights **2** and **1** should be distributed approxi
 ## 3. Place and verify credits
 
 1. Check the line's remaining demand and eligible dates or inventory pools.
-2. Use **Place a credit** to select an available break and verify the proposed message. Manual placement may show adjacency warnings; these warnings are advisory and should still be considered.
+2. Use [**Place a credit**](/underwriting/contracts) to select an available break and verify the proposed message. Manual placement may show adjacency warnings; these warnings are advisory and should still be considered.
 3. Use the available auto-fill scope (line, contract or all eligible active contracts) when appropriate. Auto-fill may provision the rundowns it needs. Its success must be checked against each line's period demand, not simply by counting total credits.
 4. Distinguish the placement record from broadcast confirmation. Review outcomes and period fulfillment after air; resolve missed, preempted or otherwise disputed credits using the exception workflow.
 5. Where agency approval is required for a makegood, record it before scheduling the substitution. Avoid using an available slot to conceal a contractual shortfall in a different week or flight.
