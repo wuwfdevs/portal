@@ -25,3 +25,11 @@ Search across projects and the Source Library to locate likely sources, then ope
 Before publishing from an excerpt, verify exact words, speaker identification, dates, context, potential edits and the original audio or document. AI-assisted summarization is an aid to retrieval; it is not an independent source.
 
 **Review before publication:** Verify screen labels and permission rules; cross-link starting a project, transcripts/excerpts, source referencing, source-library browsing and search. Do not invent retention, confidentiality or consent rules not yet adopted by WUWF.
+
+## Direct portal screen links
+
+Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
+
+- [Projects](/sourcework)
+- [Create project](/sourcework/new)
+- [Source Library](/sourcework?tab=sources)
