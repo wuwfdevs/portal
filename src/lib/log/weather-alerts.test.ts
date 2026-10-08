@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   activeAlerts,
+  abbreviateAreas,
   alertFullText,
+  alertLabels,
   alertsDisplay,
   alertLeadText,
   alertTiming,
@@ -239,5 +241,57 @@ describe("alertsDisplay", () => {
   it("lists alerts, current or stale", () => {
     expect(alertsDisplay([alert({})], "current")).toBe("list");
     expect(alertsDisplay([alert({})], "stale")).toBe("list");
+  });
+});
+
+describe("alertLabels", () => {
+  it("moves the tier word to the badge and out of the name", () => {
+    expect(alertLabels({ event: "Hurricane Warning", tier: "warning" })).toEqual({
+      badge: "Warning",
+      name: "Hurricane",
+    });
+    expect(alertLabels({ event: "Flood Watch", tier: "watch" })).toEqual({
+      badge: "Watch",
+      name: "Flood",
+    });
+    expect(alertLabels({ event: "Rip Current Statement", tier: "statement" })).toEqual({
+      badge: "Statement",
+      name: "Rip Current",
+    });
+  });
+  it("labels an advisory as an advisory, not a statement", () => {
+    expect(alertLabels({ event: "Small Craft Advisory", tier: "statement" })).toEqual({
+      badge: "Advisory",
+      name: "Small Craft",
+    });
+  });
+  it("keeps the full name when the tier came from severity, not the name", () => {
+    expect(alertLabels({ event: "Tropical Cyclone Local Statement", tier: "warning" })).toEqual({
+      badge: "Warning",
+      name: "Tropical Cyclone Local Statement",
+    });
+  });
+  it("does not empty a name that is only the suffix, or invent a suffix", () => {
+    expect(alertLabels({ event: "Warning", tier: "warning" }).name).toBe("Warning");
+    expect(alertLabels({ event: "Dense Fog", tier: "statement" })).toEqual({
+      badge: "Alert",
+      name: "Dense Fog",
+    });
+  });
+});
+
+describe("abbreviateAreas", () => {
+  it("shows two areas and counts the rest", () => {
+    expect(abbreviateAreas("Escambia; Santa Rosa; Okaloosa; Walton")).toBe(
+      "Escambia, Santa Rosa +2",
+    );
+  });
+  it("lists one or two areas in full, dropping duplicates", () => {
+    expect(abbreviateAreas("Escambia")).toBe("Escambia");
+    expect(abbreviateAreas("Escambia; Santa Rosa; Escambia")).toBe("Escambia, Santa Rosa");
+  });
+  it("is null when there is no area", () => {
+    expect(abbreviateAreas(null)).toBeNull();
+    expect(abbreviateAreas(" ; ")).toBeNull();
   });
 });

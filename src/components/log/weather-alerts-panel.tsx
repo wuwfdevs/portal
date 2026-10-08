@@ -6,7 +6,9 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import {
+  abbreviateAreas,
   alertFullText,
+  alertLabels,
   alertsDisplay,
   alertIssuedLabel,
   alertLeadText,
@@ -16,10 +18,10 @@ import {
   type WeatherAlert,
 } from "@/lib/log/weather-alerts";
 
-const TIER_BADGE: Record<AlertTier, { variant: BadgeVariant; label: string }> = {
-  warning: { variant: "danger", label: "Warning" },
-  watch: { variant: "warning", label: "Watch" },
-  statement: { variant: "neutral", label: "Statement" },
+const TIER_VARIANT: Record<AlertTier, BadgeVariant> = {
+  warning: "danger",
+  watch: "warning",
+  statement: "neutral",
 };
 
 export interface WeatherAlertsView {
@@ -83,10 +85,9 @@ export function WeatherAlertsPanel({
   }
 
   const { alerts } = view;
-  const lead = alerts[0]!;
-  const more = alerts.length - 1;
-  const activeId = selectedId ?? lead.id;
+  const [lead, ...rest] = alerts as [WeatherAlert, ...WeatherAlert[]];
   const small = textClassName === "text-xs";
+  const padding = small ? "px-2.5" : "px-3";
 
   return (
     <div className="overflow-hidden rounded border border-line bg-white">
@@ -94,19 +95,9 @@ export function WeatherAlertsPanel({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={cn(
-          "flex w-full items-center gap-2 text-left hover:bg-panel-50",
-          small ? "px-2.5 py-2" : "px-3 py-2.5",
-        )}
+        className={cn("flex w-full items-center gap-2 py-2 text-left hover:bg-panel-50", padding)}
       >
-        <Badge variant={TIER_BADGE[lead.tier].variant}>{TIER_BADGE[lead.tier].label}</Badge>
-        <span className="min-w-0 truncate text-sm font-semibold text-ink-900">{lead.event}</span>
-        {more > 0 && (
-          <span className="shrink-0 text-xs text-ink-400">
-            + {more}
-            {small ? "" : " more"}
-          </span>
-        )}
+        <AlertHeading alert={lead} extra={rest.length > 0 ? `+ ${rest.length}` : null} />
         {view.state === "stale" && view.checkedAt && (
           <span className="shrink-0 text-xs text-warning-fg">
             Last checked {formatStationTimestamp(view.checkedAt)}
@@ -116,79 +107,99 @@ export function WeatherAlertsPanel({
       </button>
 
       {open && (
-        <ul>
-          {alerts.map((alert) => {
-            const selected = alert.id === activeId;
-            const full = alertFullText(alert);
-            const leadText = alertLeadText(alert);
-            const meta = [
-              alert.areaDesc,
-              alertIssuedLabel(alert),
-              alert.senderName,
-              alertTiming(alert),
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            return (
-              <li key={alert.id} className="border-t border-line">
-                <button
-                  type="button"
-                  aria-expanded={selected}
-                  onClick={() => setSelectedId(selected ? "" : alert.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2 text-left hover:bg-panel-50",
-                    small ? "px-2.5 py-2" : "px-3 py-2",
-                  )}
-                >
-                  <Badge variant={TIER_BADGE[alert.tier].variant}>
-                    {TIER_BADGE[alert.tier].label}
-                  </Badge>
-                  <span className="min-w-0 truncate text-sm font-semibold text-ink-900">
-                    {alert.event}
-                  </span>
-                  <span className="ml-auto shrink-0 text-xs text-ink-400">
-                    {alertTiming(alert)}
-                  </span>
-                </button>
-                {selected && (
-                  <div
-                    className={cn(
-                      "flex flex-col gap-1.5 bg-panel-50 px-3 py-2.5",
-                      small && "px-2.5",
+        <>
+          {/* The header already names the lead alert, so it is not listed again:
+              its words sit directly under the header and the rest follow. */}
+          <AlertDetail
+            alert={lead}
+            textClassName={textClassName}
+            className={cn("border-t border-line", padding)}
+          />
+          {rest.length > 0 && (
+            <ul>
+              {rest.map((alert) => {
+                const selected = alert.id === selectedId;
+                return (
+                  <li key={alert.id} className="border-t border-line">
+                    <button
+                      type="button"
+                      aria-expanded={selected}
+                      onClick={() => setSelectedId(selected ? null : alert.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 py-2 text-left hover:bg-panel-50",
+                        padding,
+                      )}
+                    >
+                      <AlertHeading alert={alert} extra={null} />
+                      <span className="shrink-0 text-xs text-ink-400">{alertTiming(alert)}</span>
+                    </button>
+                    {selected && (
+                      <AlertDetail
+                        alert={alert}
+                        textClassName={textClassName}
+                        className={cn("border-t border-line", padding)}
+                      />
                     )}
-                  >
-                    <p className="text-xs text-ink-400">{meta}</p>
-                    {leadText && (
-                      <p
-                        className={cn(
-                          "whitespace-pre-wrap leading-relaxed text-ink-700",
-                          textClassName,
-                        )}
-                      >
-                        {leadText}
-                      </p>
-                    )}
-                    {full && (
-                      <details>
-                        <summary className="cursor-pointer text-xs font-semibold text-brand-link">
-                          Full NWS text
-                        </summary>
-                        <p
-                          className={cn(
-                            "mt-1.5 whitespace-pre-wrap leading-relaxed text-ink-700",
-                            textClassName,
-                          )}
-                        >
-                          {full}
-                        </p>
-                      </details>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Badge, name without the word the badge already says, and the abbreviated places beneath it — enough to scan the list without opening anything. */
+function AlertHeading({ alert, extra }: { alert: WeatherAlert; extra: string | null }) {
+  const { badge, name } = alertLabels(alert);
+  const places = abbreviateAreas(alert.areaDesc);
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 items-center gap-2">
+        <Badge variant={TIER_VARIANT[alert.tier]}>{badge}</Badge>
+        <span className="min-w-0 truncate text-sm font-semibold text-ink-900">{name}</span>
+        {extra && <span className="shrink-0 text-xs text-ink-400">{extra}</span>}
+      </span>
+      {places && <span className="truncate text-xs text-ink-500">{places}</span>}
+    </span>
+  );
+}
+
+function AlertDetail({
+  alert,
+  textClassName,
+  className,
+}: {
+  alert: WeatherAlert;
+  textClassName: string;
+  className?: string;
+}) {
+  const full = alertFullText(alert);
+  const leadText = alertLeadText(alert);
+  const meta = [alert.areaDesc, alertIssuedLabel(alert), alert.senderName, alertTiming(alert)]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className={cn("flex flex-col gap-1.5 bg-panel-50 py-2.5", className)}>
+      <p className="text-xs text-ink-400">{meta}</p>
+      {leadText && (
+        <p className={cn("whitespace-pre-wrap leading-relaxed text-ink-700", textClassName)}>
+          {leadText}
+        </p>
+      )}
+      {full && (
+        <details>
+          <summary className="cursor-pointer text-xs font-semibold text-brand-link">
+            Full NWS text
+          </summary>
+          <p
+            className={cn("mt-1.5 whitespace-pre-wrap leading-relaxed text-ink-700", textClassName)}
+          >
+            {full}
+          </p>
+        </details>
       )}
     </div>
   );

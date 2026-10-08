@@ -247,3 +247,48 @@ export function alertsDisplay(alerts: WeatherAlert[], state: AlertsCheckState): 
   if (alerts.length === 0) return state === "stale" ? "unverified" : "hidden";
   return "list";
 }
+
+const LABEL_SUFFIX = /\s+(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin)$/i;
+
+/**
+ * The badge says what kind of alert it is, so the name shouldn't say it again:
+ * "Hurricane Warning" reads Warning + "Hurricane", "Flood Watch" Watch +
+ * "Flood". The badge word follows the event's own last word where there is one
+ * (Advisory, Statement), so a Small Craft Advisory is not mislabelled as a
+ * Statement. An event whose tier comes from severity alone keeps its full name.
+ */
+export function alertLabels(alert: Pick<WeatherAlert, "event" | "tier">): {
+  badge: string;
+  name: string;
+} {
+  const suffix = LABEL_SUFFIX.exec(alert.event.trim())?.[1];
+  const word = suffix ? suffix[0]!.toUpperCase() + suffix.slice(1).toLowerCase() : null;
+  const tierWord = alert.tier === "warning" ? "Warning" : alert.tier === "watch" ? "Watch" : null;
+  const badge = tierWord ?? word ?? "Alert";
+  // Strip the suffix only when it is exactly what the badge already says.
+  if (word && word === badge) {
+    const name = alert.event.trim().replace(LABEL_SUFFIX, "").trim();
+    return { badge, name: name || alert.event.trim() };
+  }
+  return { badge, name: alert.event.trim() };
+}
+
+/**
+ * NWS's areaDesc is a semicolon-separated list of counties and zones. For a
+ * header a host scans: the first two, then how many more — "Escambia, Santa
+ * Rosa +3". Null when NWS gave no area.
+ */
+export function abbreviateAreas(areaDesc: string | null | undefined, shown = 2): string | null {
+  if (!areaDesc) return null;
+  const areas = [
+    ...new Set(
+      areaDesc
+        .split(";")
+        .map((area) => area.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (areas.length === 0) return null;
+  if (areas.length <= shown) return areas.join(", ");
+  return `${areas.slice(0, shown).join(", ")} +${areas.length - shown}`;
+}
