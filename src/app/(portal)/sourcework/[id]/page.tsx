@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { retryTranscription } from "../actions";
 import { ProjectActionsMenu } from "../project-actions-menu";
+import { ExportExcerptsButton } from "./export-excerpts-button";
 import { TranscriptWorkspace } from "./transcript-workspace";
 import { DocumentWorkspace } from "./document-workspace";
 import { ProjectDetails } from "./project-details";
@@ -136,6 +137,13 @@ export default async function TranscriptionProjectPage({
               <StatusBadge
                 map={projectStatusMap(source?.kind ?? "audio_video")}
                 value={project.status}
+              />
+            )}
+            {project.sources.length > 0 && (
+              <ExportExcerptsButton
+                projectId={project.id}
+                projectTitle={project.title}
+                exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
               />
             )}
             {canDelete && (

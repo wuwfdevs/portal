@@ -2,12 +2,12 @@
 
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link" | "danger-link";
 type ButtonSize = "md" | "sm";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
 }

@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
-import { buildClipsZipFilename, formatDuration } from "@/lib/transcription/media";
+import { Segmented } from "@/components/ui/segmented";
+import { formatDuration } from "@/lib/transcription/media";
+import {
+  CLIP_FILTER_THRESHOLD,
+  CLIP_PAGE_SIZE,
+  filterClips,
+  orderClips,
+  type ClipOrder,
+} from "@/lib/transcription/clip-order";
 import {
   deleteClip,
   exportClip,
@@ -16,8 +23,6 @@ import {
   renameClip,
   updateClipTrim,
 } from "./clip-actions";
-import { searchSourceAction } from "./workspace-search-actions";
-import { downloadBlob } from "./download-blob";
 import { PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
 
@@ -37,10 +42,6 @@ const TRIM_COMMIT_DELAY_MS = 400;
 export type ClipSelectionOrigin = "deep-link" | "transcript" | "rail";
 
 export function ClipRail({
-  projectId,
-  sourceId,
-  projectTitle,
-  exportDate,
   clips,
   selectedClipId,
   selectionOrigin,
@@ -49,12 +50,6 @@ export function ClipRail({
   onTrimPreview,
   onPreview,
 }: {
-  projectId: string;
-  /** The active source this rail's clips belong to — scopes the search box below. */
-  sourceId: string;
-  projectTitle: string;
-  /** Interview date, falling back to the project's creation date — the date every export filename carries. */
-  exportDate: string;
   clips: ProjectClip[];
   /** The clip marked in the transcript too — from ?clip=, a click here, or a click on the text. */
   selectedClipId?: string | null;
@@ -66,86 +61,59 @@ export function ClipRail({
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
 }) {
-  const router = useRouter();
-  const [status, setStatus] = useState<"idle" | "preparing">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [order, setOrder] = useState<ClipOrder>("in_order");
+  const [query, setQuery] = useState("");
+  const [shown, setShown] = useState(CLIP_PAGE_SIZE);
 
-  const pendingCount = clips.filter((clip) => !clip.hasExport).length;
-
-  /**
-   * The whole rail as one download. Fetched rather than navigated to,
-   * because a failure has to land back in this panel — a plain navigation to
-   * a route that turns out to error would replace the workspace with an
-   * error page and lose the reporter's place.
-   */
-  async function handleExportAll() {
-    setStatus("preparing");
-    setErrorMessage(null);
-    try {
-      const response = await fetch(`/api/transcription/projects/${projectId}/clips.zip`);
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setErrorMessage(body?.error ?? "Could not export these excerpts. Please try again.");
-        return;
-      }
-      // A signed-out request is redirected to /login, which fetch follows and
-      // reports as a perfectly successful HTML page — without this check, that
-      // lands on disk as a "zip" that won't open.
-      if (!response.headers.get("Content-Type")?.includes("application/zip")) {
-        setErrorMessage("Your session may have expired. Reload the page and try again.");
-        return;
-      }
-      // Rejects if the archive fails part-way through rendering, which is
-      // the one failure the server can't report as JSON.
-      downloadBlob(await response.blob(), buildClipsZipFilename(exportDate, projectTitle));
-      // Clips rendered along the way now have a download of their own.
-      router.refresh();
-    } catch {
-      setErrorMessage("The export stopped part-way through. Please try again.");
-    } finally {
-      setStatus("idle");
-    }
-  }
+  const visible = useMemo(
+    () => filterClips(orderClips(clips, order), query),
+    [clips, order, query],
+  );
+  // A clip picked from the transcript (or a deep link) may be past the page
+  // being shown; show enough of the list to include it, or it would never
+  // scroll into view.
+  const selectedIndex = visible.findIndex((clip) => clip.id === selectedClipId);
+  const limit = Math.max(shown, selectedIndex + 1);
+  const page = visible.slice(0, limit);
 
   return (
-    <ScopedSearchPanel
-      placeholder="Search this source's transcript and excerpts…"
-      onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
-    >
-      <div className="flex flex-col gap-3">
-        <SectionHeading
-          level="eyebrow"
-          className="items-center"
-          action={
-            clips.length > 0 ? (
-              <Button
-                type="button"
-                variant="link"
-                onClick={handleExportAll}
-                disabled={status === "preparing"}
-                title="Download every excerpt in this project as a zip"
-                className="text-brand-link"
-              >
-                {status === "preparing" ? "Preparing zip…" : "Export all (zip)"}
-              </Button>
-            ) : undefined
-          }
-        >
-          Excerpts{clips.length > 0 && ` (${clips.length})`}
-        </SectionHeading>
+    <div className="flex flex-col gap-3">
+      <SectionHeading level="eyebrow" className="items-center">
+        Excerpts{clips.length > 0 && ` (${clips.length})`}
+      </SectionHeading>
 
-        {status === "preparing" && pendingCount > 0 && (
-          <p className="text-xs text-ink-400">
-            Rendering {pendingCount} excerpt{pendingCount === 1 ? "" : "s"} that{" "}
-            {pendingCount === 1 ? "hasn't" : "haven't"} been exported yet — this can take a minute.
-          </p>
-        )}
-        {errorMessage && <p className="text-xs text-danger">{errorMessage}</p>}
+      {clips.length > 1 && (
+        <Segmented
+          name="clip-order"
+          options={[
+            { value: "in_order", label: "In order" },
+            { value: "newest", label: "Newest" },
+          ]}
+          value={order}
+          onChange={setOrder}
+        />
+      )}
+      {clips.length > CLIP_FILTER_THRESHOLD && (
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setShown(CLIP_PAGE_SIZE);
+          }}
+          placeholder="Filter excerpts"
+          aria-label="Filter excerpts"
+          className="px-2.5 py-1.5"
+        />
+      )}
 
-        {clips.length === 0 ? (
-          <EmptyState compact>Select some transcript text to make your first excerpt.</EmptyState>
-        ) : (
-          clips.map((clip) => (
+      {clips.length === 0 ? (
+        <EmptyState compact>Select some transcript text to make your first excerpt.</EmptyState>
+      ) : visible.length === 0 ? (
+        <p className="text-sm text-ink-500">No excerpt matches “{query}”.</p>
+      ) : (
+        <>
+          {page.map((clip) => (
             <ClipCard
               key={clip.id}
               clip={clip}
@@ -156,10 +124,21 @@ export function ClipRail({
               onTrimPreview={onTrimPreview}
               onPreview={onPreview}
             />
-          ))
-        )}
-      </div>
-    </ScopedSearchPanel>
+          ))}
+          {visible.length > page.length && (
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => setShown(limit + CLIP_PAGE_SIZE)}
+              className="self-start text-brand-link"
+            >
+              Show {Math.min(CLIP_PAGE_SIZE, visible.length - page.length)} more (
+              {visible.length - page.length} left)
+            </Button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -193,6 +172,7 @@ function ClipCard({
   const [status, setStatus] = useState<"idle" | "exporting" | "downloading" | "deleting">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showTrim, setShowTrim] = useState(false);
 
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => clearTimeout(commitTimer.current ?? undefined), []);
@@ -350,13 +330,15 @@ function ClipCard({
       )}
       <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">{clip.excerpt}</p>
 
-      <div className="mt-2.5 flex flex-col gap-1.5 text-xs text-ink-500">
-        <TrimRow label="In" valueMs={startMs} onNudge={(delta) => nudge("start", delta)} />
-        <TrimRow label="Out" valueMs={endMs} onNudge={(delta) => nudge("end", delta)} />
-        <p className="pl-9 font-mono text-[11px] text-ink-400">
-          {formatDuration(endMs - startMs)} long
-        </p>
-      </div>
+      <p className="mt-1 font-mono text-[11px] text-ink-400">
+        {formatDuration(startMs)}–{formatDuration(endMs)} · {formatDuration(endMs - startMs)} long
+      </p>
+      {showTrim && (
+        <div className="mt-2.5 flex flex-col gap-1.5 text-xs text-ink-500">
+          <TrimRow label="In" valueMs={startMs} onNudge={(delta) => nudge("start", delta)} />
+          <TrimRow label="Out" valueMs={endMs} onNudge={(delta) => nudge("end", delta)} />
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {/* The one icon-only control in the rail: a clip is a piece of audio,
@@ -379,6 +361,15 @@ function ClipCard({
           disabled={status !== "idle"}
         >
           {status === "exporting" ? "Exporting…" : hasExport ? "Re-export" : "Export WAV"}
+        </Button>
+        <Button
+          type="button"
+          variant="link"
+          aria-expanded={showTrim}
+          onClick={() => setShowTrim((current) => !current)}
+          className="text-brand-link"
+        >
+          {showTrim ? "Done trimming" : "Trim"}
         </Button>
         {hasExport && (
           <Button
