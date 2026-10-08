@@ -10,7 +10,7 @@ Explain the problem before proposing a feature. Include the workflow affected, w
 
 ## Triage and discussion
 
-The [Roadmap board](/roadmap) is a channel for collecting and curating product work, not a guarantee of implementation or delivery date. Administrators should identify duplicate requests, ask for missing context, group related work, and distinguish confirmed needs from possible solutions. Comments should add evidence or a materially different use case rather than simply repeat support.
+The [Roadmap board](https://tools.wuwf.org/roadmap) is a channel for collecting and curating product work, not a guarantee of implementation or delivery date. Administrators should identify duplicate requests, ask for missing context, group related work, and distinguish confirmed needs from possible solutions. Comments should add evidence or a materially different use case rather than simply repeat support.
 
 ## Interpret status
 
@@ -22,5 +22,5 @@ Read the current card or request page for its actual status and discussion. Do n
 
 Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
 
-- [Board](/roadmap)
-- [New request](/roadmap/new)
+- [Board](https://tools.wuwf.org/roadmap)
+- [New request](https://tools.wuwf.org/roadmap/new)
