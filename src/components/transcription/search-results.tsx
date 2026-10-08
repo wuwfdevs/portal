@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge, defineStatusMap } from "@/components/ui/status-badge";
 import { formatShortDate } from "@/lib/format";
+import { projectPath, sourcePath } from "@/lib/transcription/links";
 import { formatDuration } from "@/lib/transcription/media";
 import type { SearchResult, SearchResultKind } from "@/lib/transcription/search";
 import { groupResultsByProject, splitHighlight } from "@/lib/transcription/search-groups";
@@ -20,15 +21,12 @@ const KIND_BADGE = defineStatusMap<SearchResultKind>({
 });
 
 /**
- * A result's link into the workspace. `source` picks the right pill for a
- * multi-source project (Phase 3a) — without it the workspace falls back to
- * the project's earliest-attached source, which for a hit against a later
- * one means the wrong media, a `t`/`page` that lands nowhere meaningful, and
- * a `clip` that can't be found in that pill's excerpt list. `t` (audio) or
- * `page` (document) is what makes a hit a place rather than a citation — the
- * workspace seeks/navigates there on load; `clip` additionally opens that
- * clip in the rail so it can be re-trimmed or re-exported without a second
- * hunt (document excerpts don't have an analogous rail to open into yet).
+ * A result's link into the source it was found in. A hit is a place, so the
+ * link carries it: `t` (audio) or `page` (document) is where the workspace
+ * seeks or navigates on load, and `clip` additionally opens that excerpt in the
+ * rail so it can be re-trimmed or re-exported without a second hunt. The
+ * project rides along only as context — it picks the back link. A result with
+ * no source falls back to its project.
  */
 export function resultHref(result: {
   kind: SearchResultKind;
@@ -38,14 +36,13 @@ export function resultHref(result: {
   startMs: number | null;
   pageNumber: number | null;
 }): string {
-  const params = new URLSearchParams();
-  if (result.sourceId) params.set("source", result.sourceId);
-  if (result.startMs !== null) params.set("t", String(result.startMs));
-  else if (result.pageNumber !== null) params.set("page", String(result.pageNumber));
-  if (result.kind === "clip" && result.startMs !== null) params.set("clip", result.id);
-
-  const query = params.toString();
-  return `/sourcework/${result.projectId}${query ? `?${query}` : ""}`;
+  if (!result.sourceId) return projectPath(result.projectId);
+  return sourcePath(result.sourceId, {
+    projectId: result.projectId,
+    t: result.startMs,
+    page: result.pageNumber,
+    clip: result.kind === "clip" && result.startMs !== null ? result.id : null,
+  });
 }
 
 export function SearchResults({ results, query }: { results: SearchResult[]; query: string }) {
@@ -89,7 +86,7 @@ export function GroupedSearchResults({
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <h2 className="font-serif text-lg font-semibold text-ink-900">
                 <Link
-                  href={`/sourcework/${group.projectId}`}
+                  href={projectPath(group.projectId)}
                   className="hover:text-brand-link hover:underline"
                 >
                   {group.projectTitle}

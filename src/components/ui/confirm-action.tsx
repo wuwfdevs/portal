@@ -50,19 +50,31 @@ export function ConfirmAction({
     <Button
       type="button"
       variant="secondary"
-      className="text-danger"
+      className="text-danger max-lg:min-h-12 max-lg:w-full"
       onClick={() => setConfirming(true)}
     >
       {label}
     </Button>
   ) : (
     <div className="flex flex-col gap-2.5">
-      <div className="text-xs leading-relaxed text-ink-700">{message}</div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="danger" onClick={run} disabled={busy}>
+      <div className="text-sm leading-relaxed text-ink-700 lg:text-xs">{message}</div>
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+        <Button
+          type="button"
+          variant="danger"
+          onClick={run}
+          disabled={busy}
+          className="max-lg:min-h-12"
+        >
           {busy ? "Working…" : confirmLabel}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setConfirming(false)}
+          disabled={busy}
+          className="max-lg:min-h-12"
+        >
           Cancel
         </Button>
       </div>

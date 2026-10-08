@@ -1,3 +1,4 @@
+import { describeUploadRefusal } from "@/lib/storage-upload-errors";
 import { createClient } from "@/lib/supabase/client";
 
 /** The object URL storage-js posts a new file to, with each path segment encoded. */
@@ -59,14 +60,19 @@ export async function uploadWithProgress(params: {
         resolve({ ok: true });
         return;
       }
-      let message = `The upload was refused (HTTP ${xhr.status}).`;
+      let apiMessage: string | null = null;
       try {
         const body = JSON.parse(xhr.responseText) as { message?: string; error?: string };
-        message = body.message ?? body.error ?? message;
+        apiMessage = body.message ?? body.error ?? null;
       } catch {
         // keep the generic message
       }
-      resolve({ ok: false, error: message, retryable: xhr.status >= 500 || xhr.status === 429 });
+      const refusal = describeUploadRefusal({
+        status: xhr.status,
+        apiMessage,
+        fileSizeBytes: file.size,
+      });
+      resolve({ ok: false, error: refusal.message, retryable: refusal.retryable });
     };
     xhr.onerror = () =>
       resolve({ ok: false, error: "The connection dropped during the upload.", retryable: true });

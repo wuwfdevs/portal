@@ -1,14 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { formatShortDate } from "@/lib/format";
-import { formatDuration } from "@/lib/transcription/media";
+import { sourcePath } from "@/lib/transcription/links";
 import type { SourceLibraryRow } from "@/lib/transcription/projects";
-import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
+import { SourceCard, formatSourceMeta } from "./source-card";
 import type { SwSourceKind } from "@/lib/database.types";
 
 const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
@@ -86,38 +83,26 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((source) => {
-            return (
-              <Link
-                key={source.id}
-                href={`/sourcework/sources/${source.id}`}
-                className="flex flex-col gap-2 rounded border border-line bg-white p-4 hover:border-brand-primary"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                    {SOURCE_KIND_LABEL[source.kind] ?? source.kind}
-                  </span>
-                  <StatusBadge map={projectStatusMap(source.kind)} value={source.status} />
-                </div>
-                <p className="font-semibold text-ink-900">{source.title}</p>
-                <p className="text-xs text-ink-500">
-                  {formatShortDate(source.interviewDate ?? source.createdAt, { year: true })}
-                  {source.kind === "document"
-                    ? source.pageCount
-                      ? ` · ${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
-                      : ""
-                    : source.durationMs
-                      ? ` · ${formatDuration(source.durationMs)}`
-                      : ""}
-                </p>
-                <p className="text-xs text-ink-400">
-                  {source.projectCount === 0
-                    ? "Not used in any project yet"
-                    : `Used in ${source.projectCount} project${source.projectCount === 1 ? "" : "s"}`}
-                </p>
-              </Link>
-            );
-          })}
+          {filtered.map((source) => (
+            <SourceCard
+              key={source.id}
+              href={sourcePath(source.id)}
+              kind={source.kind}
+              status={source.status}
+              title={source.title}
+              meta={formatSourceMeta({
+                kind: source.kind,
+                date: source.interviewDate ?? source.createdAt,
+                durationMs: source.durationMs,
+                pageCount: source.pageCount,
+              })}
+              footnote={
+                source.projectCount === 0
+                  ? "Not used in any project yet"
+                  : `Used in ${source.projectCount} project${source.projectCount === 1 ? "" : "s"}`
+              }
+            />
+          ))}
         </div>
       )}
     </div>
