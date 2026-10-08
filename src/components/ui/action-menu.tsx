@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { FloatingPanel } from "@/components/ui/floating-panel";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 export interface ActionMenuItem {
   label: string;
@@ -22,6 +24,11 @@ export interface ActionMenuItem {
 }
 
 /**
+ * Below lg the menu opens as a bottom sheet instead of a floating popover: big
+ * rows a thumb can hit, a Cancel button, and nothing that can run off the edge
+ * of a small screen. Every menu in the portal gets this, which is the point —
+ * a row of actions should look and behave the same wherever it is.
+ *
  * A "⋮" trigger for a screen's less-frequent actions — introduced once a
  * source's workspace grew past two inline buttons (Reindex, Delete/Remove)
  * worth of them. Closes on an outside click, Escape, or an item firing;
@@ -32,22 +39,27 @@ export function ActionMenu({
   label = "Actions",
   items,
   trigger = "boxed",
-  touchTarget = false,
+  sheetHeading,
 }: {
   label?: string;
   items: ActionMenuItem[];
   /** `quiet` drops the border, for a menu repeated on every row of a long list. */
   trigger?: "boxed" | "quiet";
-  /** Grows the trigger and the items to a thumb-sized target below lg — for a menu a phone user reaches for on every row. */
-  touchTarget?: boolean;
+  /** Shown at the top of the bottom sheet below lg, so it says which row the actions are for. */
+  sheetHeading?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const narrow = useMediaQuery("(max-width: 1023px)");
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    // A sheet closes from its backdrop's click, not on pointerdown: closing on
+    // pointerdown unmounts it before the click, and the tap then lands on
+    // whatever was underneath.
     function handlePointerDown(event: PointerEvent) {
+      if (narrow) return;
       const target = event.target as Node;
       // The panel is portaled to <body>, so it's outside containerRef — check both.
       if (!containerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
@@ -59,16 +71,24 @@ export function ActionMenu({
     }
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    // The page behind a sheet should not scroll under the finger.
+    const previousOverflow = document.body.style.overflow;
+    if (narrow) document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [open, narrow]);
 
   if (items.length === 0) return null;
 
   const itemClasses = (item: ActionMenuItem) =>
-    `block w-full px-3 ${touchTarget ? "py-3 lg:py-1.5" : "py-1.5"} text-left text-sm ${
+    `${
+      narrow
+        ? "flex min-h-[3.25rem] w-full flex-col justify-center border-b border-line px-4 text-left text-base"
+        : "block w-full px-3 py-1.5 text-left text-sm"
+    } ${
       item.disabled
         ? "cursor-default text-ink-400"
         : item.variant === "danger"
@@ -86,84 +106,187 @@ export function ActionMenu({
         onClick={() => setOpen((o) => !o)}
         className={
           trigger === "quiet"
-            ? `flex ${touchTarget ? "h-11 w-11 lg:h-8 lg:w-8" : "h-8 w-8"} items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface`
-            : "flex h-8 w-8 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link"
+            ? `flex h-11 w-11 lg:h-8 lg:w-8 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface`
+            : "flex h-11 w-11 items-center justify-center rounded border border-line lg:h-8 lg:w-8 text-ink-500 hover:border-brand-primary hover:text-brand-link"
         }
       >
         <span aria-hidden="true" className="text-lg leading-none">
           ⋮
         </span>
       </button>
-      <FloatingPanel
-        anchorRef={containerRef}
-        open={open}
-        ref={panelRef}
-        role="menu"
-        className="min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
-      >
-        {items.map((item) => {
-          const body = (
-            <>
-              <span className="block">{item.label}</span>
-              {item.hint && (
-                <span className="block text-xs text-ink-400 sm:whitespace-nowrap">{item.hint}</span>
-              )}
-            </>
-          );
-          const divider = item.dividerBefore ? (
-            <div role="separator" className="my-1 border-t border-line" />
-          ) : null;
-          if (item.disabled) {
-            return (
-              <div key={item.label}>
-                {divider}
-                <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
-                  {body}
+      {narrow ? (
+        open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-50">
+            <div
+              aria-hidden="true"
+              onClick={() => setOpen(false)}
+              className="absolute inset-0 bg-[#0F2235]/50"
+            />
+            <div
+              ref={panelRef}
+              role="menu"
+              aria-label={label}
+              className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-y-auto rounded-t-xl bg-white pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(15,34,53,0.2)]"
+            >
+              <div aria-hidden="true" className="mx-auto mb-2 h-1 w-9 rounded-full bg-line" />
+              {sheetHeading && (
+                <div className="border-b border-line px-4 pb-3 pt-1 text-sm text-ink-700">
+                  {sheetHeading}
                 </div>
+              )}
+              {items.map((item) => {
+                const body = (
+                  <>
+                    <span className="block">{item.label}</span>
+                    {item.hint && (
+                      <span className="block text-xs text-ink-400 sm:whitespace-nowrap">
+                        {item.hint}
+                      </span>
+                    )}
+                  </>
+                );
+                const divider = item.dividerBefore ? (
+                  <div role="separator" className="my-1 border-t border-line" />
+                ) : null;
+                if (item.disabled) {
+                  return (
+                    <div key={item.label}>
+                      {divider}
+                      <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
+                        {body}
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.href) {
+                  return (
+                    <div key={item.label}>
+                      {divider}
+                      <Link
+                        role="menuitem"
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={itemClasses(item)}
+                      >
+                        {body}
+                      </Link>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={item.label}>
+                    {divider}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        // Submit before closing: closing unmounts this button, and
+                        // a detached submitter has no form owner, so a plain
+                        // type="submit" with the `form` attribute would submit
+                        // nothing once the menu re-rendered.
+                        if (item.formId) {
+                          const form = document.getElementById(item.formId);
+                          if (form instanceof HTMLFormElement) form.requestSubmit();
+                        }
+                        setOpen(false);
+                        item.onClick?.();
+                      }}
+                      className={itemClasses(item)}
+                    >
+                      {body}
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="px-4 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="h-12 w-full rounded border border-line bg-white text-base font-semibold text-ink-700"
+                >
+                  Cancel
+                </button>
               </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      ) : (
+        <FloatingPanel
+          anchorRef={containerRef}
+          open={open}
+          ref={panelRef}
+          role="menu"
+          className="min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
+        >
+          {items.map((item) => {
+            const body = (
+              <>
+                <span className="block">{item.label}</span>
+                {item.hint && (
+                  <span className="block text-xs text-ink-400 sm:whitespace-nowrap">
+                    {item.hint}
+                  </span>
+                )}
+              </>
             );
-          }
-          if (item.href) {
+            const divider = item.dividerBefore ? (
+              <div role="separator" className="my-1 border-t border-line" />
+            ) : null;
+            if (item.disabled) {
+              return (
+                <div key={item.label}>
+                  {divider}
+                  <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
+                    {body}
+                  </div>
+                </div>
+              );
+            }
+            if (item.href) {
+              return (
+                <div key={item.label}>
+                  {divider}
+                  <Link
+                    role="menuitem"
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={itemClasses(item)}
+                  >
+                    {body}
+                  </Link>
+                </div>
+              );
+            }
             return (
               <div key={item.label}>
                 {divider}
-                <Link
+                <button
+                  type="button"
                   role="menuitem"
-                  href={item.href}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    // Submit before closing: closing unmounts this button, and
+                    // a detached submitter has no form owner, so a plain
+                    // type="submit" with the `form` attribute would submit
+                    // nothing once the menu re-rendered.
+                    if (item.formId) {
+                      const form = document.getElementById(item.formId);
+                      if (form instanceof HTMLFormElement) form.requestSubmit();
+                    }
+                    setOpen(false);
+                    item.onClick?.();
+                  }}
                   className={itemClasses(item)}
                 >
                   {body}
-                </Link>
+                </button>
               </div>
             );
-          }
-          return (
-            <div key={item.label}>
-              {divider}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  // Submit before closing: closing unmounts this button, and
-                  // a detached submitter has no form owner, so a plain
-                  // type="submit" with the `form` attribute would submit
-                  // nothing once the menu re-rendered.
-                  if (item.formId) {
-                    const form = document.getElementById(item.formId);
-                    if (form instanceof HTMLFormElement) form.requestSubmit();
-                  }
-                  setOpen(false);
-                  item.onClick?.();
-                }}
-                className={itemClasses(item)}
-              >
-                {body}
-              </button>
-            </div>
-          );
-        })}
-      </FloatingPanel>
+          })}
+        </FloatingPanel>
+      )}
     </div>
   );
 }

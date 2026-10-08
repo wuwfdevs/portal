@@ -734,6 +734,7 @@ export function TranscriptWorkspace({
             setPendingTrims((current) => ({ ...current, [clipId]: range }))
           }
           onPreview={previewRange}
+          onShowInTranscript={() => setPane("transcript")}
         />
       </div>
     </div>

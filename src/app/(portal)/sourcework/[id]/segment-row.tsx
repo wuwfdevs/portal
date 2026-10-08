@@ -348,7 +348,17 @@ export function SegmentRow({
             <ActionMenu
               label="Line actions"
               trigger="quiet"
-              touchTarget
+              sheetHeading={
+                <>
+                  <span className="font-mono text-xs text-ink-500">
+                    {formatDuration(segment.startMs)} ·{" "}
+                    {speaker
+                      ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
+                      : "Unknown speaker"}
+                  </span>
+                  <span className="mt-0.5 block truncate">{text}</span>
+                </>
+              }
               items={[
                 { label: "Edit text", onClick: beginEditing },
                 { label: "Make an excerpt from this line", onClick: onMakeExcerpt },

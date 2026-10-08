@@ -49,6 +49,7 @@ export function ClipRail({
   onHover,
   onTrimPreview,
   onPreview,
+  onShowInTranscript,
 }: {
   clips: ProjectClip[];
   /** The clip marked in the transcript too — from ?clip=, a click here, or a click on the text. */
@@ -60,6 +61,8 @@ export function ClipRail({
   /** An in-progress trim, so the transcript's mark tracks the nudge instead of the write. */
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
+  /** Below lg the transcript is another tab, so a card offers a way back to its words. */
+  onShowInTranscript?: () => void;
 }) {
   const [order, setOrder] = useState<ClipOrder>("in_order");
   const [query, setQuery] = useState("");
@@ -78,7 +81,7 @@ export function ClipRail({
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeading level="eyebrow" className="items-center">
+      <SectionHeading level="eyebrow" className="items-center max-lg:hidden">
         Excerpts{clips.length > 0 && ` (${clips.length})`}
       </SectionHeading>
 
@@ -123,6 +126,7 @@ export function ClipRail({
               onHover={onHover}
               onTrimPreview={onTrimPreview}
               onPreview={onPreview}
+              onShowInTranscript={onShowInTranscript}
             />
           ))}
           {visible.length > page.length && (
@@ -150,6 +154,7 @@ function ClipCard({
   onHover,
   onTrimPreview,
   onPreview,
+  onShowInTranscript,
 }: {
   clip: ProjectClip;
   isSelected?: boolean;
@@ -158,6 +163,7 @@ function ClipCard({
   onHover: (clipId: string | null) => void;
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
+  onShowInTranscript?: () => void;
 }) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -323,7 +329,7 @@ function ClipCard({
           type="button"
           onClick={() => setIsRenaming(true)}
           title="Rename this excerpt"
-          className="block w-full text-left text-sm font-semibold text-ink-900 hover:text-brand-link"
+          className="block w-full text-left text-sm font-semibold text-ink-900 hover:text-brand-link max-lg:py-2.5 max-lg:text-base"
         >
           {title}
         </button>
@@ -349,7 +355,7 @@ function ClipCard({
           onClick={() => onPreview(startMs, endMs)}
           aria-label="Preview this excerpt"
           title="Preview this excerpt"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"
         >
           <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
         </button>
@@ -359,6 +365,7 @@ function ClipCard({
           size="sm"
           onClick={handleExport}
           disabled={status !== "idle"}
+          className="max-lg:min-h-11"
         >
           {status === "exporting" ? "Exporting…" : hasExport ? "Re-export" : "Export WAV"}
         </Button>
@@ -367,17 +374,27 @@ function ClipCard({
           variant="link"
           aria-expanded={showTrim}
           onClick={() => setShowTrim((current) => !current)}
-          className="text-brand-link"
+          className="text-brand-link max-lg:min-h-11"
         >
           {showTrim ? "Done trimming" : "Trim"}
         </Button>
+        {onShowInTranscript && (
+          <Button
+            type="button"
+            variant="link"
+            onClick={onShowInTranscript}
+            className="text-brand-link max-lg:min-h-11 lg:hidden"
+          >
+            Show in transcript
+          </Button>
+        )}
         {hasExport && (
           <Button
             type="button"
             variant="link"
             onClick={handleDownload}
             disabled={status !== "idle"}
-            className="text-brand-link"
+            className="text-brand-link max-lg:min-h-11"
           >
             {status === "downloading" ? "Preparing…" : "Download"}
           </Button>
@@ -393,10 +410,16 @@ function ClipCard({
               variant="danger-link"
               onClick={handleDelete}
               disabled={status === "deleting"}
+              className="max-lg:min-h-11"
             >
               {status === "deleting" ? "Deleting…" : "Delete"}
             </Button>
-            <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => setConfirmDelete(false)}
+              className="max-lg:min-h-11"
+            >
               Keep
             </Button>
           </div>
@@ -405,7 +428,7 @@ function ClipCard({
             type="button"
             variant="link"
             onClick={() => setConfirmDelete(true)}
-            className="font-normal text-ink-400 hover:text-danger"
+            className="font-normal text-ink-400 hover:text-danger max-lg:min-h-11"
           >
             Delete
           </Button>
@@ -432,7 +455,7 @@ function TrimRow({
   onNudge: (deltaMs: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="w-7 font-semibold text-ink-700">{label}</span>
       <span className="w-14 font-mono">{formatDuration(valueMs)}</span>
       <div className="flex gap-1">
@@ -442,7 +465,7 @@ function TrimRow({
             type="button"
             onClick={() => onNudge(step)}
             aria-label={`Move ${label.toLowerCase()} point ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
-            className="rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50"
+            className="rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-12 max-lg:text-xs"
           >
             {step > 0 ? `+${step}` : step}
           </button>
