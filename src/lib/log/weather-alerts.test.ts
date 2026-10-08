@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NWS_EVENT_TYPES } from "./fixtures/nws-event-types";
 import {
   activeAlerts,
   abbreviateAreas,
@@ -440,5 +441,91 @@ describe("the range of NWS event names and CAP values", () => {
       features: [feature({ event: "Flood Watch", effective: "2026-10-08T12:00:00Z" })],
     });
     expect(withEffective!.startsAt).toBe("2026-10-08T12:00:00Z");
+  });
+});
+
+describe("every event type api.weather.gov publishes", () => {
+  const tierOf = (event: string) => classifyAlertTier(event, "Moderate");
+
+  it("classifies every Warning and Watch by its name", () => {
+    for (const event of NWS_EVENT_TYPES) {
+      if (/Warning$/.test(event)) expect(tierOf(event), event).toBe("warning");
+      if (/Watch$/.test(event)) expect(tierOf(event), event).toBe("watch");
+    }
+  });
+
+  it("ranks the emergencies and the evacuation order as warnings though they do not end in Warning", () => {
+    for (const event of [
+      "Child Abduction Emergency",
+      "Civil Emergency Message",
+      "Local Area Emergency",
+      "Evacuation Immediate",
+    ]) {
+      expect(tierOf(event), event).toBe("warning");
+    }
+  });
+
+  it("leaves advisories, statements, outlooks, alerts and notices in the quiet tier", () => {
+    for (const event of NWS_EVENT_TYPES) {
+      if (/(Advisory|Statement|Outlook)$/.test(event))
+        expect(tierOf(event), event).toBe("statement");
+    }
+    for (const event of [
+      "911 Telephone Outage",
+      "Administrative Message",
+      "Air Quality Alert",
+      "Blue Alert",
+      "Extreme Fire Danger",
+      "Short Term Forecast",
+    ]) {
+      expect(tierOf(event), event).toBe("statement");
+    }
+  });
+
+  it("promotes any of them to a warning on Extreme severity", () => {
+    for (const event of NWS_EVENT_TYPES) {
+      expect(classifyAlertTier(event, "Extreme"), event).toBe("warning");
+    }
+  });
+
+  it("never leaves the badge word repeated in the name, or the name empty", () => {
+    for (const event of NWS_EVENT_TYPES) {
+      const { badge, name } = alertLabels({ event, tier: tierOf(event) });
+      expect(name.length, event).toBeGreaterThan(0);
+      if (event !== "Blue Alert")
+        expect(name.toLowerCase().endsWith(badge.toLowerCase()), event).toBe(false);
+    }
+  });
+
+  it("words the awkward ones sensibly", () => {
+    const labels = (event: string) => alertLabels({ event, tier: tierOf(event) });
+    expect(labels("Air Quality Alert")).toEqual({ badge: "Alert", name: "Air Quality" });
+    expect(labels("Blue Alert")).toEqual({ badge: "Alert", name: "Blue Alert" });
+    expect(labels("Short Term Forecast")).toEqual({ badge: "Alert", name: "Short Term Forecast" });
+    expect(labels("911 Telephone Outage")).toEqual({
+      badge: "Alert",
+      name: "911 Telephone Outage",
+    });
+    expect(labels("Extreme Fire Danger")).toEqual({ badge: "Alert", name: "Extreme Fire Danger" });
+    expect(labels("Hazardous Weather Outlook")).toEqual({
+      badge: "Outlook",
+      name: "Hazardous Weather",
+    });
+    expect(labels("Civil Emergency Message")).toEqual({
+      badge: "Warning",
+      name: "Civil Emergency Message",
+    });
+    expect(labels("Hurricane Force Wind Warning")).toEqual({
+      badge: "Warning",
+      name: "Hurricane Force Wind",
+    });
+    expect(labels("Tropical Cyclone Local Statement")).toEqual({
+      badge: "Statement",
+      name: "Tropical Cyclone",
+    });
+  });
+
+  it("does not show a Test product", () => {
+    expect(parseNwsAlerts({ features: [feature({ event: "Test" })] })).toEqual([]);
   });
 });

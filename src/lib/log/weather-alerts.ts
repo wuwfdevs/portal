@@ -299,7 +299,7 @@ export function alertsDisplay(alerts: WeatherAlert[], state: AlertsCheckState): 
 // "Local Statement" is one product name (Hurricane/Tropical Cyclone Local
 // Statement), so "Local" goes with it rather than being left dangling.
 const LABEL_SUFFIX =
-  /\s+((?:Local\s+)?(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin))$/i;
+  /\s+((?:Local\s+)?(Warning|Watch|Advisory|Statement|Outlook|Message|Bulletin|Alert))$/i;
 
 /**
  * The badge says what kind of alert it is, so the name shouldn't say it again:
@@ -308,6 +308,9 @@ const LABEL_SUFFIX =
  * (Advisory, Statement), so a Small Craft Advisory is not mislabelled as a
  * Statement. An event whose tier comes from severity alone keeps its full name.
  */
+// "Blue Alert" is the whole name of the product; stripping Alert would leave "Blue".
+const KEEP_WHOLE = /^blue alert$/i;
+
 export function alertLabels(alert: Pick<WeatherAlert, "event" | "tier">): {
   badge: string;
   name: string;
@@ -317,7 +320,7 @@ export function alertLabels(alert: Pick<WeatherAlert, "event" | "tier">): {
   const tierWord = alert.tier === "warning" ? "Warning" : alert.tier === "watch" ? "Watch" : null;
   const badge = tierWord ?? word ?? "Alert";
   // Strip the suffix only when it is exactly what the badge already says.
-  if (word && word === badge) {
+  if (word && word === badge && !KEEP_WHOLE.test(alert.event.trim())) {
     const name = alert.event.trim().replace(LABEL_SUFFIX, "").trim();
     return { badge, name: name || alert.event.trim() };
   }
