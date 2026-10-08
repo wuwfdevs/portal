@@ -3782,7 +3782,26 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      /** security_invoker view: one row per Sourcework project with counts, for the Projects list. */
+      sw_project_overview: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          created_at: string;
+          created_by: string;
+          /** Null unless profiles RLS lets the caller see the author. */
+          started_by_name: string | null;
+          source_count: number;
+          failed_count: number;
+          active_count: number;
+          excerpt_count: number;
+          last_activity: string;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       /** Security invoker; finance's RLS applies. Puts one version in use for estimates. */
       bk_set_version_in_use: {

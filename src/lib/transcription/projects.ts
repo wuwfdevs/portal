@@ -5,6 +5,7 @@ import { parseWords } from "@/lib/transcription/transcript";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database, SwSourceKind } from "@/lib/database.types";
 import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
+import { pageRange } from "@/lib/pagination";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
 export type SwSource = Database["public"]["Tables"]["sw_sources"]["Row"];
@@ -547,4 +548,88 @@ export async function getTranscriptForRepresentation(
       displayName: row.display_name,
     })),
   };
+}
+
+export type ProjectListFilter = "all" | "mine" | "attention" | "empty";
+
+export const PROJECT_LIST_FILTERS: ProjectListFilter[] = ["all", "mine", "attention", "empty"];
+
+export function parseProjectListFilter(raw: string | undefined): ProjectListFilter {
+  return PROJECT_LIST_FILTERS.includes(raw as ProjectListFilter)
+    ? (raw as ProjectListFilter)
+    : "all";
+}
+
+export interface ProjectOverviewRow {
+  id: string;
+  title: string;
+  description: string | null;
+  createdBy: string;
+  /** Null when the author's name isn't visible to the caller. */
+  startedByName: string | null;
+  sourceCount: number;
+  failedCount: number;
+  activeCount: number;
+  excerptCount: number;
+  lastActivity: string;
+}
+
+/**
+ * One page of the Projects list, filtered, newest activity first. Reads the
+ * `sw_project_overview` view (security invoker, so the caller's RLS applies)
+ * and pages in the database, so the list costs the same at 40 projects as at
+ * 4,000 and never meets PostgREST's silent row cap.
+ */
+export async function listProjectsPage(options: {
+  filter: ProjectListFilter;
+  userId: string;
+  page: number;
+}): Promise<{ rows: ProjectOverviewRow[]; total: number }> {
+  const supabase = await createClient();
+  const { from, to } = pageRange(options.page);
+  let query = supabase.from("sw_project_overview").select("*", { count: "exact" });
+  if (options.filter === "mine") query = query.eq("created_by", options.userId);
+  else if (options.filter === "attention") query = query.gt("failed_count", 0);
+  else if (options.filter === "empty") query = query.eq("source_count", 0);
+  const result = await query
+    .order("last_activity", { ascending: false })
+    .order("id")
+    .range(from, to);
+  const data = unwrapRead(result, "the project list") ?? [];
+  return {
+    total: result.count ?? data.length,
+    rows: data.map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      createdBy: row.created_by,
+      startedByName: row.started_by_name,
+      sourceCount: row.source_count,
+      failedCount: row.failed_count,
+      activeCount: row.active_count,
+      excerptCount: row.excerpt_count,
+      lastActivity: row.last_activity,
+    })),
+  };
+}
+
+/** How many projects each filter chip would show, for the chip labels. */
+export async function countProjectFilters(
+  userId: string,
+): Promise<Record<ProjectListFilter, number>> {
+  const supabase = await createClient();
+  const counts = await Promise.all(
+    PROJECT_LIST_FILTERS.map(async (filter) => {
+      let query = supabase
+        .from("sw_project_overview")
+        .select("id", { count: "exact", head: true });
+      if (filter === "mine") query = query.eq("created_by", userId);
+      else if (filter === "attention") query = query.gt("failed_count", 0);
+      else if (filter === "empty") query = query.eq("source_count", 0);
+      const result = await query;
+      unwrapRead(result, "the project counts");
+      return [filter, result.count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(counts) as Record<ProjectListFilter, number>;
 }
