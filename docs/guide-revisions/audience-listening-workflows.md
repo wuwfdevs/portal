@@ -4,7 +4,7 @@
 
 ## Design a listening question
 
-Start with a specific reporting uncertainty and ask what members of the public can usefully tell the newsroom from direct experience. Use open questions that do not imply an answer, conflate multiple issues, demand private information unnecessarily or promise editorial outcomes. The [public query tool](/audience-listening) supports a limited set of recorded questions; keep the sequence short enough to answer thoughtfully.
+Start with a specific reporting uncertainty and ask what members of the public can usefully tell the newsroom from direct experience. Use open questions that do not imply an answer, conflate multiple issues, demand private information unnecessarily or promise editorial outcomes. The [public query tool](https://tools.wuwf.org/audience-listening) supports a limited set of recorded questions; keep the sequence short enough to answer thoughtfully.
 
 Examples:
 - **Less useful:** "Why has rising rent made the city unaffordable for everyone?"
@@ -34,5 +34,5 @@ Where appropriate, explain what questions the newsroom heard and how they shaped
 
 Open these routes in the portal. Individual records must be opened from their list; no record ID is assumed.
 
-- [Queries](/audience-listening)
-- [New query](/audience-listening/new)
+- [Queries](https://tools.wuwf.org/audience-listening)
+- [New query](https://tools.wuwf.org/audience-listening/new)
