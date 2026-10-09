@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram, listClockTemplates, listScheduleEntries } from "@/lib/log/queries";
+import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { toOverlapOther } from "../to-overlap-other";
 import { createScheduleEntry } from "../../../../program-actions";
@@ -30,6 +31,14 @@ export default async function NewScheduleEntryPage({
   ]);
   if (!program) notFound();
   const programPath = `/log/programs/${program.id}`;
+  const todayISO = stationTodayISO();
+  // The program's standing times, for pre-filling a one-time change: the recurring
+  // entry in effect today, else its first recurring entry.
+  const standingEntries = allEntries.filter(
+    (entry) => entry.program_id === program.id && entry.entry_type === "recurring",
+  );
+  const standingEntry =
+    standingEntries.find((entry) => isScheduleEntryActiveOn(entry, todayISO)) ?? standingEntries[0];
 
   return (
     <div>
@@ -56,7 +65,16 @@ export default async function NewScheduleEntryPage({
           programId={program.id}
           templates={templates.map((template) => ({ id: template.id, name: template.name }))}
           others={allEntries.map(toOverlapOther)}
-          todayISO={stationTodayISO()}
+          standing={
+            standingEntry
+              ? {
+                  days_of_week: standingEntry.days_of_week,
+                  air_time: standingEntry.air_time,
+                  duration_minutes: standingEntry.duration_minutes,
+                }
+              : undefined
+          }
+          todayISO={todayISO}
           defaultClockId={templates.some((template) => template.id === clock) ? clock : undefined}
           submitLabel="Add to schedule"
           cancelHref={programPath}

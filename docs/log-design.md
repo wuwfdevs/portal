@@ -53,8 +53,8 @@ whole correction) exposed why it was wrong: **every slot in every clock
 seeded so far was `fill_mode = 'required'`/`assignment_mode = 'automatic'`.
 There has never actually been a host-fillable network slot in this data**,
 because a WUWF local-substitution opportunity is not a property of one
-network segment at all — it's WUWF's own operational decision layered *on
-top of* an accurate network clock, and it routinely spans several network
+network segment at all — it's WUWF's own operational decision layered _on
+top of_ an accurate network clock, and it routinely spans several network
 segments. Morning Edition's real ~29:30–34:00 local-story window, for
 example, covers the tail of a cross-promo, a Music Bed, and both Newscast 3
 and Newscast 4 — four distinct network slots, one WUWF opportunity. There
@@ -63,7 +63,7 @@ conflating "what the network publishes" with "where WUWF may substitute
 local material," and a floating opportunity spanning several slots proved
 those are genuinely different objects, not two names for the same one.
 
-*How a multi-slot window is represented, since 2026-08-10:* the first cut
+_How a multi-slot window is represented, since 2026-08-10:_ the first cut
 of this correction gave an opportunity its own offset range, so the 29:30
 window was one row spanning four slots. That was replaced by
 **slot-keyed opportunities** (`20260809170000_log_local_opportunities_slot_
@@ -97,11 +97,13 @@ flagged. See §5 (Morning Edition's five seeded opportunities) and §6
 (`log_rundown_breaks`) for how this plays out downstream.
 
 ### Program
-A recurring or special broadcast program (§3) — *Morning Edition*,
-*Ranger Rick's Radio Hour*, a pledge-drive special. Identifies scheduled air
+
+A recurring or special broadcast program (§3) — _Morning Edition_,
+_Ranger Rick's Radio Hour_, a pledge-drive special. Identifies scheduled air
 periods; doesn't itself carry timing structure.
 
 ### Clock template / Clock version
+
 A **clock template** is the named, editable clock staff maintain — "Weekday
 Morning Drive," "Weekend Classical." A **clock version** is an immutable,
 dated snapshot of that template's slots. This split exists for the same
@@ -112,12 +114,14 @@ changing underneath it would silently rewrite history. Editing a template
 creates a new version; old rundowns keep referencing the old one.
 
 ### Clock slot
+
 A position within a clock version describing **only the network's own
 structure** (post-redesign): start offset, duration, label, and — for a
 genuinely floating network element (Hidden Brain's own described break) — a
 timing window. No fillability of any kind lives here anymore; see above.
 
 ### Local opportunity
+
 WUWF's own local-substitution overlay on a clock version: one network slot
 marked as a place WUWF may (`optional`) or must (`required`) put local
 content, plus the content types permitted there. Its offset, duration,
@@ -129,6 +133,7 @@ when retired — because it's WUWF's own policy decision about an accurate
 network clock, not a fact about the network clock itself.
 
 ### Content item / Content component
+
 A **content item** is reusable or one-time material (§7): news, a station
 promo, a membership message, a university announcement, a PSA, legal ID, an
 interview or feature, or a host-created one-off. A **content component** is
@@ -150,6 +155,7 @@ below. Milestone 1 shipped this as a manual stopgap `content_type`; that
 stopgap is gone.
 
 ### NPR program episode
+
 NPR identifies a network program as a **collection** in its Content
 Distribution Service (CDS), and a particular broadcast's rundown as a dated
 **program-episode** document within that collection, containing an ordered
@@ -164,6 +170,7 @@ built it: editorial metadata a host reads, never on-air copy Log assumes NPR
 supplies (see §3D).
 
 ### Weather reading
+
 One current live-read, not one row per slot (§8) — every weather slot in
 every rundown references today's current version by default. A host may
 still set a **per-airing override** for one specific slot's wording without
@@ -171,6 +178,7 @@ mutating that shared master reading — see the per-airing override entry
 below.
 
 ### Rundown / Rundown break / Rundown item
+
 A **rundown** is the generated, editable plan for one program's air period
 or host shift, tiling `log_local_opportunities` hourly across the shift the
 same way milestone 1 tiled clock slots. A **rundown break** is one
@@ -185,6 +193,7 @@ into the breaks after it (§6, "Overruns and content that spans several
 breaks").
 
 ### Per-airing override
+
 A rundown item may override a master content item's script, total duration,
 live-intro/live-outro/tag seconds, or add operator notes, **for this one
 airing only** — new in this redesign, and the mechanism behind "the same
@@ -199,6 +208,7 @@ reference at all, and its effective text is the current
 `log_weather_reading` unless this one airing's `override_script` is set.
 
 ### Broadcast event
+
 The planned-versus-actual record of one rundown item's airing (§15). This is
 the critical distinction the source document names explicitly: **a content
 item is not the same as an airing.** One story can have many broadcast
@@ -209,6 +219,7 @@ events across many air dates, each independently outcome-tracked.
 ## 3. Primary user workflows
 
 ### A. Defining a clock (producer)
+
 A producer builds or edits a clock template's slots — offsets, durations,
 labels, and (for a genuinely floating network element) a timing window.
 Saving creates a new clock version; the template itself has no "current
@@ -223,6 +234,7 @@ ring and local opportunities on an outer one (`lib/log/clock-face.ts`,
 `components/log/clock-face.tsx`).
 
 ### B. Scheduling programs (producer)
+
 Maintains the recurring weekly grid, associates each program with a clock
 template, and layers in date-bounded substitutions and temporary
 pledge-drive/breaking-coverage exceptions (see "One-time clock changes"
@@ -230,6 +242,7 @@ below). There is no holiday entry type: the station does not use a different
 clock on a holiday, and a day that is simply automated is set under Automation.
 
 #### One-time clock changes (2026-10-09)
+
 A one-time change is a `log_schedule` entry with `entry_type = 'override'`. It
 names a different clock for a date range and replaces the program's recurring
 entry on those dates. Its first real use is FPREN Phase I storm coverage
@@ -237,6 +250,12 @@ entry on those dates. Its first real use is FPREN Phase I storm coverage
 covering whole program airings. Phase II and III add content to breaks a clock
 already has and need no clock change.
 
+- **An override has its own days (revised 2026-10-09).** It lists the weekdays it
+  covers within its date range; none means every day. It originally ignored days
+  (inherited from the holiday-only model), so a clock swap on a program that airs
+  twice a week would have generated rundowns for all seven days. The editor
+  pre-fills days, start and length from the program's standing entry; on a date the
+  override's days exclude, the standing entry stays in force.
 - **Which entry is in force** is decided in one place, `resolveEntryInForce` /
   `entriesInForceOn` in `lib/log/schedule.ts`: a one-time change beats the
   recurring entry; between two of a kind, the later start date wins. Today,
@@ -268,6 +287,7 @@ already has and need no clock change.
   revision cannot erase the record.
 
 ### C. Managing the content library (newsroom, promotions, any member)
+
 Newsroom staff create news items with scripts, summaries, expected
 durations, geography and subject tags, and eligible newscasts (§9).
 Promotions staff create promos and institutional announcements with
@@ -278,6 +298,7 @@ tool member. Recorded items carry a `dad_cart_number` rather than an
 uploaded audio file — see §6.
 
 ### D. Reading NPR and weather in context
+
 The current NPR program-episode's ordered story items render inline in
 chronological position within the rundown (§5.2) — not a separate tab. NPR
 supplies editorial metadata (title, teaser/description) for a host to read
@@ -290,6 +311,7 @@ per-airing override for the current slot without overwriting the master
 copy every other slot references.
 
 ### E–H. Building, running, and submitting a rundown — one screen (host, or a producer preparing ahead)
+
 Workflows E ("building the daily rundown"), F ("running the console live"),
 G (mid-broadcast actions), and H (submitting) all happen on **one screen**,
 `/log/rundowns/[id]` — not four workflows split across two routes. This is
@@ -299,7 +321,7 @@ time-independent) from a separate **console** (`/console`, a narrowed
 current/next live view with only aired/missed/move). Real usage showed that
 split was wrong on two counts, both found from direct reports against the
 deployed app, not from re-reading the spec: a host routinely decides what
-fills an open avail *while on air*, not only ahead of time, so the console
+fills an open avail _while on air_, not only ahead of time, so the console
 needed the builder's fill controls anyway — and once it had them, keeping a
 second, narrower route around stopped making sense. A solo host running the
 board wants the **same vertical, chronological list of break cards** at
@@ -317,7 +339,7 @@ state. Every action recalculates timing immediately (§11.3, §12).
 
 **Filling a break is one workflow, not three, and weather is not a special
 case.** A single "Add…" picker lists every eligible content-library item
-*and* "Today's weather" together — weather is picked exactly the way any
+_and_ "Today's weather" together — weather is picked exactly the way any
 other content is, not through a separate button living apart from the rest.
 The underlying write still branches (weather has no library row behind it —
 its effective text always comes from the current `log_weather_reading`
@@ -333,7 +355,7 @@ airing break's network rejoin, or — once the network is back — to the next
 break with local content); the
 break currently airing highlighted and anchored ("Jump to now"), its items
 shown at adjustable large text size for readability (§13); and, on every
-*unconfirmed* item in *any* break — not only the current one, since the
+_unconfirmed_ item in _any_ break — not only the current one, since the
 whole show is visible at once — the three mid-broadcast actions: **aired**,
 **moved** to another valid break, or **missed** with a brief reason (§14.3).
 Every deviation is retained, never silently dropped from the record (§1.2's
@@ -345,7 +367,7 @@ current weather, NPR context, and a wrap-up panel (unresolved-item count,
 submit).
 
 At the end of a shift, the host reviews that wrap-up panel — an empty
-*required* break, or a filled item with no recorded outcome — and submits.
+_required_ break, or a filled item with no recorded outcome — and submits.
 That freezes a reference version of the rundown while still allowing
 documented management corrections afterward (§15.3) — submission is a
 checkpoint, not a lock that erases the ability to fix a mistake, and every
@@ -396,21 +418,25 @@ conventions. This section reflects the post-redesign shape
 `20260808140000_log_content_dad_and_media_removal.sql`).
 
 ### `log_programs`
+
 `id`, `name`, `description`, `kind` (`recurring` | `special`),
 `npr_collection_id` (nullable `int` — this program's NPR CDS collection id,
 e.g. Morning Edition = 3; null for local programs and any network program
 without a known mapping, never guessed), `created_at`, `created_by`.
 
 ### `log_clock_templates`
+
 `id`, `name`, `description`, `created_at`, `created_by`, `updated_at`.
 
 ### `log_clock_versions`
+
 `id`, `clock_template_id`, `variant` (`weekday` | `weekend` |
 `program_specific` | `holiday` | `special_event`), `effective_from`,
 `effective_to` (nullable), `created_at`, `created_by`. Immutable — no update
 path on this table from the application; a correction is a new version.
 
 ### `log_clock_slots`
+
 `id`, `clock_version_id`, `position`, `start_offset_seconds` (nullable —
 some slots float), `duration_seconds`, `timing_mode` (`fixed` | `float`),
 `earliest_start_offset_seconds`/`latest_start_offset_seconds` (nullable,
@@ -422,6 +448,7 @@ had here (`fill_mode`, `assignment_mode`, `permitted_content_types`,
 as `log_clock_versions`.
 
 ### `log_local_opportunities` (new)
+
 `id`, `clock_version_id`, `slot_id` (unique — one opportunity per network
 slot), `requirement` (`optional` | `required`), `permitted_content_types`
 (`text[]`), `notes`, `active` bool (deactivate, don't delete),
@@ -429,7 +456,7 @@ slot), `requirement` (`optional` | `required`), `permitted_content_types`
 Update-able in place, unlike the network clock tables, since this is station
 policy rather than immutable network structure.
 
-*Superseded shape.* As first built (`20260808120000`), this table carried
+_Superseded shape._ As first built (`20260808120000`), this table carried
 its own `position`, `label`, `timing_mode`, `start_offset_seconds`,
 `duration_seconds`, earliest/latest offsets and `allow_multiple`.
 `20260809170000_log_local_opportunities_slot_based.sql` dropped all of them
@@ -456,9 +483,9 @@ built against, five rows against Morning Edition's clock version:
 3. Optional local story window at ~29:30–34:00 (270s) — spans the tail of a
    cross-promo, a Music Bed, and both Newscast 3 and Newscast 4;
    `allow_multiple = false` since this window is sized for one longer piece.
-   *Now four slot-keyed opportunities — Music Bed (29:30, 30s), Newscast 3
+   _Now four slot-keyed opportunities — Music Bed (29:30, 30s), Newscast 3
    (30:00, 90s), Newscast 4 (31:30, 90s), Music Bed (33:00, 60s) — and a
-   long story reaches across them by overrun chaining; see §6.*
+   long story reaches across them by overrun chaining; see §6._
 4. Optional local story window at ~49:35–51:30 (115s) — lands almost exactly
    on the Music Bed at :49:34–:51:29, WUWF's second common story-
    substitution point.
@@ -486,16 +513,16 @@ data changes below) because it was a bulk, sourced, one-time seed — the same
 precedent Morning Edition's own opportunities migration set. It deliberately
 left **every clock's Billboard, and ME/ATC/WE/Weekend ATC's Return slot**
 unseeded, pending a WUWF policy decision — see the next note for that
-decision. It also flagged specific slots the audit found are *not* eligible
+decision. It also flagged specific slots the audit found are _not_ eligible
 despite a Music-Bed-like label — e.g. Echoes' Hour 1 junction (59:00–60:00)
 is "explicitly Protected/network content," unlike its Hour 2 counterpart.
 
 **NPR broadcast-rights context, checked against the model (2026-08-11).**
-WUWF's own NPR program terms for *Morning Edition*, *All Things Considered*,
-and *Weekend Edition* (the three clocks currently seeded), plus NPR's
+WUWF's own NPR program terms for _Morning Edition_, _All Things Considered_,
+and _Weekend Edition_ (the three clocks currently seeded), plus NPR's
 General Terms and Conditions for Use of NPR Member Benefits, were checked
 against this design — they confirm it rather than change it. NPR's terms
-grant WUWF a *right* to cover certain elements (billboards, newscast/
+grant WUWF a _right_ to cover certain elements (billboards, newscast/
 headlines, returns, promos, **music beds**, and individual Stories within
 permitted segments); which of those rights WUWF actually exercises as a
 `log_local_opportunities` row is WUWF's own operational decision, exactly
@@ -567,12 +594,14 @@ surfaced yet):
   once WUWF confirms ATC's real local avails.
 
 ### `log_schedule`
+
 `id`, `program_id`, `clock_template_id`, `entry_type` (`recurring` |
 `override` | `holiday`), `days_of_week` (`int[]`, for `recurring`),
 `start_date`, `end_date` (nullable), `effective_from`, `notes`,
 `created_by`.
 
 ### Automated hours and underwriting hours (2026-10-02, 2026-10-05)
+
 Two weekly overlays on the schedule, each "a default plus the exceptions":
 `log_automated_weekly` / `log_on_air_changes` (hosted is the default; when
 no one is in the studio, DAD plays that hour's credits — `lib/log/
@@ -585,6 +614,7 @@ director's and sit with Programs under the Schedule tab
 the programs.
 
 ### `log_content_items`
+
 `id`, `content_type` (`news` | `station_promo` | `program_promo` |
 `membership_message` | `university_announcement` | `psa` | `legal_id` |
 `interview_feature` | `host_created`), `title`, `script` (nullable),
@@ -599,12 +629,14 @@ taxonomy exists, see §6), `reporter_or_editor` (nullable, news-specific),
 `created_at`, `updated_at`, `created_by`.
 
 ### `log_content_components`
+
 `id`, `content_item_id`, `component_type` (`live_intro` | `recorded_audio` |
 `live_outro` | `optional_tag`), `sequence`, `duration_seconds`, `required`
 bool, `script` (nullable), `dad_cart_number` (nullable — only meaningful for
 `component_type = recorded_audio`).
 
 ### `log_npr_episodes`
+
 `id`, `program_id`, `show_date`, `npr_collection_id` (`int`), `status`
 (`found` | `not_found`), `npr_episode_id` (nullable), `title` (nullable),
 `raw` (`jsonb`, nullable), `retrieved_at`. One row per (`program_id`,
@@ -612,11 +644,13 @@ bool, `script` (nullable), `dad_cart_number` (nullable — only meaningful for
 retrieval, not diffed.
 
 ### `log_npr_episode_items`
+
 `id`, `episode_id`, `position`, `npr_item_id`, `title`, `teaser` (nullable),
 `raw` (`jsonb`, nullable). Deleted and reinserted with its parent episode
 row.
 
 ### `log_weather_reading`
+
 `id`, `forecast_area`, `source`, `live_read_text`, `condensed_text`,
 `high_temp`, `low_temp`, `conditions_summary`, `precipitation_notes`
 (nullable), `hazards` (nullable), `last_updated_at`, `valid_through_at`,
@@ -626,6 +660,7 @@ item lives on that `log_rundown_items` row (`override_script`), not here —
 see below.
 
 ### `log_rundowns`
+
 `id`, `program_id`, `schedule_entry_id` (nullable), `clock_version_id`,
 `air_date`, `shift_start_at`, `shift_end_at`, `status` (`draft` |
 `generated` | `in_progress` | `submitted`), `generated_at`, `submitted_at`,
@@ -633,6 +668,7 @@ see below.
 idempotent.
 
 ### `log_rundown_breaks` (new — replaces the milestone-1 one-row-per-slot shape)
+
 `id`, `rundown_id`, `local_opportunity_id` (nullable — see §8 for imported
 breaks), `position`, `label`, `requirement`, `permitted_content_types`
 (`text[]`), `scheduled_at`, `available_duration_seconds`,
@@ -646,6 +682,7 @@ opportunity's latest permitted start + duration for a floating one, computed
 once at generation time.
 
 ### `log_rundown_items`
+
 `id`, `break_id`, `position`, `item_kind` (`content` | `live_read` |
 `weather` | `underwriting_credit` — the last added by Underwriting's own
 migration, see §6), `content_item_id` (for `content`), `live_read_title`/
@@ -661,6 +698,7 @@ precedent as `sw_source_excerpts`. A break can hold zero, one, or several of
 these rows; remaining duration is the only limit.
 
 ### `log_broadcast_events`
+
 `id`, `rundown_item_id`, `outcome` (`scheduled` | `aired_as_scheduled` |
 `aired_different_time` | `partially_aired` | `skipped` | `missed` |
 `replaced` | `wrong_copy_aired` | `unconfirmed` | `pending_review` |
@@ -814,12 +852,12 @@ end of the rundown ends the chain.
 
 **What each break shows:**
 
-| Break | Status |
-|---|---|
-| The one whose items run long, when the chain absorbs the whole overage | `filled` |
-| The same, when the chain runs out first | `over`, with the seconds still unaccounted for |
-| A `required` break the overrun reached | `covered_by_previous` — local content there is mandatory, and the overrun is local content, so the obligation is met and nothing is flagged |
-| An `optional` break the overrun reached | `preempted_by_previous` — an optional break usually sits over real network content (a newscast, a segment) that nobody chose to drop this time, so it's absorbed but flagged, never hidden; `computeRundownSummary` counts these as `preemptedBreaks` |
+| Break                                                                  | Status                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The one whose items run long, when the chain absorbs the whole overage | `filled`                                                                                                                                                                                                                                              |
+| The same, when the chain runs out first                                | `over`, with the seconds still unaccounted for                                                                                                                                                                                                        |
+| A `required` break the overrun reached                                 | `covered_by_previous` — local content there is mandatory, and the overrun is local content, so the obligation is met and nothing is flagged                                                                                                           |
+| An `optional` break the overrun reached                                | `preempted_by_previous` — an optional break usually sits over real network content (a newscast, a segment) that nobody chose to drop this time, so it's absorbed but flagged, never hidden; `computeRundownSummary` counts these as `preemptedBreaks` |
 
 Nothing blocks an overrun (§1.2, "human control during live radio"). The
 statuses only make sure a host sees what it displaces.
@@ -827,12 +865,12 @@ statuses only make sure a host sees what it displaces.
 **Worked example: a four-minute story at 29:30 on Morning Edition.** The
 window is four marked `optional` slots, 4:30 in all:
 
-| Starts | Slot | Length | Status with a 4:00 story at 29:30 |
-|---|---|---|---|
-| 29:30 | Music Bed | 30s | `filled` (the story's own break) |
-| 30:00 | Newscast 3 | 90s | `preempted_by_previous` |
-| 31:30 | Newscast 4 | 90s | `preempted_by_previous` |
-| 33:00 | Music Bed | 60s | `preempted_by_previous` (30s of it used; 30s still open) |
+| Starts | Slot       | Length | Status with a 4:00 story at 29:30                        |
+| ------ | ---------- | ------ | -------------------------------------------------------- |
+| 29:30  | Music Bed  | 30s    | `filled` (the story's own break)                         |
+| 30:00  | Newscast 3 | 90s    | `preempted_by_previous`                                  |
+| 31:30  | Newscast 4 | 90s    | `preempted_by_previous`                                  |
+| 33:00  | Music Bed  | 60s    | `preempted_by_previous` (30s of it used; 30s still open) |
 
 A story longer than 4:30 runs past 34:00 into the network's Funding Credit,
 which isn't a marked opportunity and has no break, so the chain ends and the
@@ -869,10 +907,10 @@ session, each building on the one before it:
    missed, move, nothing else — on the assumption that "building" is
    builder work and "executing" is console work. That's wrong for how this
    actually happens at a small station: a host is routinely deciding what
-   fills an open avail *while on air*. Fixed by sharing the builder's fill
+   fills an open avail _while on air_. Fixed by sharing the builder's fill
    actions with the console instead of duplicating them.
 2. Once the console could fill breaks, keeping a second, narrower route
-   around stopped making sense — the thing that made a live view *live*
+   around stopped making sense — the thing that made a live view _live_
    was never "less content, more buttons," it was the timing badge and the
    mid-broadcast actions, and those can layer onto the same always-visible
    break list the builder already had. A host running the board wants full
@@ -890,7 +928,7 @@ Text size control (`components/log/text-scale.tsx`) as the one way copy gets
 bigger — a separate larger-type view for the current break, with its own
 size buttons, existed and was removed 2026-08-24 as a second, confusingly
 independent size system. Mid-broadcast actions (aired/missed/move) appear on any
-unconfirmed item in *any* break once live, not only the current one — the
+unconfirmed item in _any_ break once live, not only the current one — the
 whole show is visible at once, so a host can act on something from three
 breaks back exactly as easily as on what's airing right now, which a
 narrowed current/next view could never offer. A sidebar carries
@@ -923,8 +961,8 @@ connectivity loss without becoming unreadable, and unsent host actions to be
 preserved and synchronized when connectivity returns. Flagged in the
 2026-08-07/08 redesign as the top operational gap; built 2026-09-28.
 
-**What keeps working with no connection.** Everything a host does *to the
-as-aired record* mid-broadcast: marking an underwriting credit aired or
+**What keeps working with no connection.** Everything a host does _to the
+as-aired record_ mid-broadcast: marking an underwriting credit aired or
 missed, and moving any item (drag or "Move to…"), credits included. Each is
 one entry in an offline queue:
 
@@ -993,7 +1031,7 @@ other page go straight to the network. A redirect to sign-in drops the kept
 copy. The status bar says the rundown is shown "as of" when that copy was
 rendered.
 
-"Connected" means the browser reports online *and* the last contact with the
+"Connected" means the browser reports online _and_ the last contact with the
 server worked; a send that takes over 10 seconds, a failed send, or a failed
 probe marks it disconnected until a probe (every 15s) or a send succeeds —
 this is what catches Wi-Fi that's up with nothing behind it.
@@ -1110,7 +1148,7 @@ Design decisions, in the order they were argued out:
 1. **Imported rundowns carry their breaks directly from the export**
    (`log_rundowns.source = 'imported'`,
    `log_rundown_breaks.local_opportunity_id` now nullable) rather than
-   being forced through clock local opportunities. The export *is* WUWF's
+   being forced through clock local opportunities. The export _is_ WUWF's
    confirmed avail structure for that day — parsing the reference export
    showed its Morning Edition avail offsets matching the independently
    transcribed clock data second-for-second — and most clocks still have
@@ -1120,7 +1158,7 @@ Design decisions, in the order they were argued out:
    engine, the rundown screen, broadcast events, and Underwriting's break
    reads treat them identically.
 
-   *Revised 2026-08-24, from first real use:* the export only prints the
+   _Revised 2026-08-24, from first real use:_ the export only prints the
    windows DAD scheduled something into, so an imported rundown was
    missing every clock window the export never mentioned — Morning
    Edition's newscast covers and promo slots (the 31:30 Newscast 4 window
@@ -1139,6 +1177,7 @@ Design decisions, in the order they were argued out:
    never duplicated. Assignment auto-placement runs for the
    clock-originated breaks this adds (they carry real opportunity ids);
    the export-originated breaks still never get it.
+
 2. **Underwriting credits become real `uw_underwriters`/`uw_copy` rows —
    never shell contracts, never Log content items.** The export carries
    the underwriter's name, copy label, cart number, script, and duration;
@@ -1178,10 +1217,10 @@ Design decisions, in the order they were argued out:
    rundown that already exists for a program + date is skipped, never
    merged over.
 
-*Revised 2026-09-22 — rebuilt as a single model call; everything below
+_Revised 2026-09-22 — rebuilt as a single model call; everything below
 this note describes the current importer, and the earlier parser history
-is kept only as context.* The importer is now one Responses API call per
-upload (`lib/log/program-log-ai-import.ts`), and the model's answer *is*
+is kept only as context._ The importer is now one Responses API call per
+upload (`lib/log/program-log-ai-import.ts`), and the model's answer _is_
 the plan: rundowns containing breaks containing items, with every
 reference already resolved, in a strict JSON schema
 (`program-log-plan.ts`'s `buildPlanOutputSchema`). The reasoning, in the
@@ -1263,8 +1302,8 @@ exports taught the prompt: a program-start row can carry a cart number
 title row, column headings, and a "Printed … Page n of m" footer in the
 middle of whatever script straddles it.
 
-*Revised again 2026-09-22, from the first preview of the rebuilt importer
-against a real export:* two corrections. **The export's script now
+_Revised again 2026-09-22, from the first preview of the rebuilt importer
+against a real export:_ two corrections. **The export's script now
 prevails over the library's.** Item 3's original "a matched copy whose
 stored script differs is still reused, flagged on the preview — the export
 is not where copy gets edited from" assumed Underwriting staff maintaining
@@ -1272,7 +1311,7 @@ copy in their own tool, which is not yet how WUWF works: the traffic system
 (DAD) is the real source of truth for a credit's wording, and the daily
 export is the only way that text reaches this database. Checking the
 library rows behind the "script differs" flags on a real preview showed
-every one of them was the library being *wrong* — words glued across line
+every one of them was the library being _wrong_ — words glued across line
 breaks by the pre-2026-08-28 Word extractor ("committedto", "LoyaltyCredit",
 "birdsdie"), and one row (OsteoStrong) holding two credits merged into one
 script by the pre-AI parser — and the flag with no consequence meant a host
@@ -1297,8 +1336,8 @@ windows behind a disclosure, expands new copy (whole script) and library
 updates (old and new), folds unchanged reuse to one line with a count, and
 folds operational notes the same way.
 
-*Revised 2026-09-24 — breaks come from the clock, content from the
-export, superseding item 1 and its 2026-08-24 revision.* Item 1 wrote the
+_Revised 2026-09-24 — breaks come from the clock, content from the
+export, superseding item 1 and its 2026-08-24 revision._ Item 1 wrote the
 export's printed windows as the rundown's breaks, on the reasoning that
 the export was WUWF's confirmed avail structure and most clocks had no
 opportunity overlay. The 2026-08-24 union then added the clock's
@@ -1347,7 +1386,7 @@ for `clock_slot`/`export` breaks and for rundowns imported before this
 change, which are left as they are — `syncRundownBreaks`'s window-overlap
 dedup still applies to both.
 
-*Revised again 2026-09-24 — breaks are keyed to clock slots.* The alignment
+_Revised again 2026-09-24 — breaks are keyed to clock slots._ The alignment
 above was a stopgap on top of breaks that had no identity of their own.
 `docs/log-slot-keyed-breaks-design.md` (built the same day) made every
 break one occurrence of one clock slot, `(clock_slot_id, hour_index)`, with
@@ -1373,4 +1412,3 @@ the host started from, since rundowns are created for the log's date. A clean im
 navigates to `/log?date=<log date>` with a success notice; one with a skipped
 rundown stays on the import page so the per-rundown reasons are readable. An
 existing rundown for a program and date is still skipped, never overwritten.
-

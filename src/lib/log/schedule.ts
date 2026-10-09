@@ -17,14 +17,14 @@ export interface ScheduleEntryLike {
 
 /**
  * Whether a schedule entry is in effect on the given ISO date (YYYY-MM-DD).
- * `days_of_week` only gates recurring entries — an override entry
- * with no days_of_week set covers every day in its date range.
+ * `days_of_week` gates any entry that lists days — recurring or one-time
+ * change; an empty list covers every day in its date range.
  */
 export function isScheduleEntryActiveOn(entry: ScheduleEntryLike, dateISO: string): boolean {
   if (entry.start_date > dateISO) return false;
   if (entry.end_date && entry.end_date < dateISO) return false;
 
-  if (entry.entry_type === "recurring" && entry.days_of_week.length > 0) {
+  if (entry.days_of_week.length > 0) {
     const dayOfWeek = dayOfWeekISO(dateISO);
     return entry.days_of_week.includes(dayOfWeek);
   }
