@@ -14,7 +14,7 @@
 import { parseCsv } from "./agreement-migration";
 import { estimateReadSeconds } from "@/lib/log/read-time";
 import { formatDateRange } from "./line-details";
-import { shortDate } from "./dates";
+import { addDays, shortDate } from "./dates";
 import { orderNumberLabel } from "./contract-label";
 import type {
   UwContractStatus,
@@ -575,12 +575,6 @@ function overlaps(
     (aFrom ?? "0000-00-00") <= (bTo ?? "9999-12-31") &&
     (bFrom ?? "0000-00-00") <= (aTo ?? "9999-12-31")
   );
-}
-
-function addDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 export function formatSourceDates(startDate: string | null, endDate: string | null): string {

@@ -7,6 +7,7 @@
 // with them: the planner plans with these, the database enforces with those.
 
 import type { UwDemandBucketStatus, UwScheduleLineStatus, UwTimeMode } from "@/lib/database.types";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { dayOfWeek, eachDate } from "./dates";
 
 /** How close (minutes) a break's start must be to an exact-mode line's time — uw_exact_time_tolerance() in SQL. */
@@ -78,10 +79,7 @@ export function eligibleDatesInBucket(line: LineEligibilityLike, bucket: BucketL
 }
 
 /** "HH:MM" / "HH:MM:SS" (station-local wall clock) as minutes since midnight. */
-export function minutesFromTimeString(time: string): number {
-  const [hourStr, minuteStr] = time.split(":");
-  return Number(hourStr) * 60 + Number(minuteStr);
-}
+export const minutesFromTimeString = parseTimeToMinutes;
 
 /**
  * Does a break starting at this station-local minute satisfy the line's

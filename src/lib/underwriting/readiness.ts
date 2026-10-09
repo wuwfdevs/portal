@@ -5,6 +5,7 @@
 // a warning (unapproved copy, a stated total that disagrees) is a fact to
 // see, not a gate.
 
+import { pluralize } from "@/lib/format";
 import { orderNumberLabel } from "./contract-label";
 
 export type ReadinessState = "ok" | "warn" | "missing";
@@ -72,7 +73,7 @@ export function computeReadiness(input: ReadinessInput): ReadinessItem[] {
     items.push({
       key: "schedule",
       state: mismatch ? "warn" : "ok",
-      title: `Schedule entered · ${input.lineCount} line${input.lineCount === 1 ? "" : "s"} compile to ${input.expectedTotal} credit${input.expectedTotal === 1 ? "" : "s"}`,
+      title: `Schedule entered · ${pluralize(input.lineCount, "line")} compile to ${pluralize(input.expectedTotal, "credit")}`,
       detail: mismatch
         ? `The order says ${input.statedTotalSpots} spots — check the lines against it before activating.`
         : input.statedTotalSpots != null
@@ -93,7 +94,7 @@ export function computeReadiness(input: ReadinessInput): ReadinessItem[] {
     items.push({
       key: "copy",
       state: input.copyApproved === 0 ? "warn" : pending > 0 ? "warn" : "ok",
-      title: `Copy · ${input.copyLinked} message${input.copyLinked === 1 ? "" : "s"} linked${pending > 0 ? `, ${pending} awaiting approval` : ""}`,
+      title: `Copy · ${pluralize(input.copyLinked, "message")} linked${pending > 0 ? `, ${pending} awaiting approval` : ""}`,
       detail:
         input.copyApproved === 0
           ? "None is approved yet. You can activate now; nothing places until one is."

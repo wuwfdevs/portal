@@ -17,6 +17,7 @@
 // can say it is counted at the full weekly quantity, never prorated.
 
 import type { UwScheduleEntryKind } from "@/lib/database.types";
+import { pluralize } from "@/lib/format";
 import {
   addDays,
   dayOfWeek,
@@ -293,7 +294,7 @@ export function totalQuantity(buckets: { quantity: number }[]): number {
   return buckets.reduce((sum, bucket) => sum + bucket.quantity, 0);
 }
 
-const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function describeDays(daysOfWeek: number[]): string {
   const sorted = [...new Set(daysOfWeek)].sort((a, b) => a - b);
@@ -309,7 +310,7 @@ export function describeDays(daysOfWeek: number[]): string {
  * on 12 listed dates", "540 credits across 48 listed weeks".
  */
 export function describeEntrySpec(spec: EntrySpec, daysOfWeek: number[], unit = "credit"): string {
-  const n = (count: number) => `${count} ${unit}${count === 1 ? "" : "s"}`;
+  const n = (count: number) => pluralize(count, unit);
   switch (spec.kind) {
     case "fixed_days":
       return `${n(spec.count_per_day)} ${daysOfWeek.length === 0 ? "each day" : `each ${describeDays(daysOfWeek)}`}`;
@@ -320,9 +321,9 @@ export function describeEntrySpec(spec: EntrySpec, daysOfWeek: number[], unit = 
     case "every_n_weeks":
       return `${n(spec.quantity)} every ${spec.interval_weeks === 2 ? "other week" : `${spec.interval_weeks} weeks`}, ${describeDays(daysOfWeek)}`;
     case "explicit_dates":
-      return `${n(totalQuantity(spec.dates))} on ${spec.dates.length} listed date${spec.dates.length === 1 ? "" : "s"}`;
+      return `${n(totalQuantity(spec.dates))} on ${pluralize(spec.dates.length, "listed date")}`;
     case "week_grid":
-      return `${n(totalQuantity(spec.weeks))} across ${spec.weeks.length} listed week${spec.weeks.length === 1 ? "" : "s"}, ${describeDays(daysOfWeek)}`;
+      return `${n(totalQuantity(spec.weeks))} across ${pluralize(spec.weeks.length, "listed week")}, ${describeDays(daysOfWeek)}`;
     case "range_total":
       return `${n(spec.quantity)} over the whole run, ${describeDays(daysOfWeek)}`;
   }
