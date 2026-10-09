@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
+import { countPieces, listPiecesForProject } from "@/lib/sourcework/piece-queries";
 import { sourcePath, projectPath } from "@/lib/transcription/links";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -17,30 +18,37 @@ import { AddSourceButton } from "./add-source-button";
 import { ExportExcerptsButton } from "./export-excerpts-button";
 import { ProjectDetails } from "./project-details";
 import { ProjectExcerptsView } from "./project-excerpts-view";
+import { PiecesTab } from "./pieces-tab";
 
 /**
  * One project: its sources, and the excerpts made from them. The working
  * surface for a recording or a document is its own screen
  * (`/sourcework/sources/[id]`), reached from a source card here and left with
  * its back link — this screen has no player, no transcript and no view state
- * beyond which of the two tabs is showing (`?view=excerpts`).
+ * beyond which of the tabs is showing (`?view=excerpts`, `?view=pieces`).
  */
 export default async function TranscriptionProjectPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; q?: string }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view } = await searchParams;
+  const { view, q } = await searchParams;
   const excerptsView = view === "excerpts";
+  const piecesView = view === "pieces";
+  const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
+  const [pieceCount, pieces] = await Promise.all([
+    countPieces(project.id),
+    piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
+  ]);
   const projectExcerpts = excerptsView ? await listLibraryClips(project.id) : [];
 
   // Only the person who started the project can delete it, so only they pay
@@ -98,7 +106,7 @@ export default async function TranscriptionProjectPage({
               {
                 href: projectPath(project.id),
                 label: "Sources",
-                active: !excerptsView,
+                active: !excerptsView && !piecesView,
                 badge: project.sources.length,
               },
               {
@@ -106,10 +114,22 @@ export default async function TranscriptionProjectPage({
                 label: "Excerpts",
                 active: excerptsView,
               },
+              {
+                href: projectPath(project.id, "pieces"),
+                label: "Pieces",
+                active: piecesView,
+              },
             ]}
           />
 
-          {excerptsView ? (
+          {piecesView ? (
+            <PiecesTab
+              projectId={project.id}
+              pieces={pieces}
+              search={pieceSearch}
+              totalCount={pieceCount}
+            />
+          ) : excerptsView ? (
             <>
               {projectExcerpts.length > 0 && (
                 <div className="mb-4 flex justify-end">

@@ -404,6 +404,25 @@ full-width and larger on a phone. Storage refusals go through `lib/storage-uploa
 the maximum allowed size" is the **project-wide Storage limit** (a bucket can only be stricter —
 `transcription-media` allows 2 GB), which is raised in the Supabase dashboard, not in code.
 
+**Sourcework analysis, Phase D (pieces by hand) has landed (2026-10-11).** Read
+`docs/sourcework-analysis-design.md` §6 first (Phases A–C and E are still design only); this is a
+pointer. A project's **Pieces** tab (`?view=pieces`, `[id]/pieces-tab.tsx`) lists `sw_pieces`; a
+piece opens blank at `/sourcework/[id]/pieces/[pieceId]`, a block editor of narration and
+actuality blocks (`pieces/[pieceId]/piece-editor.tsx`). Four things are load-bearing: (1) **the
+model is pure and shared** — `lib/sourcework/pieces.ts` (block shape, `parsePieceBody`, edits,
+length at 160 wpm) and `piece-text.ts` (an actuality's words are derived from the transcript for
+its range, never stored) run in the editor, the list and the server alike; SQL never computes a
+length. (2) **Content is insert-only versions** (`sw_piece_versions`, select + insert only); the
+one writer is `sw_save_piece_version()`, which checks the caller's base version (returns -1 on a
+conflict) and keeps `current_version`/`length_seconds`/`excerpt_ids` on the piece — the editor
+autosaves after 1.5 s and never overwrites someone else's save. (3) **A block references an
+excerpt by id only**, with no foreign key, so a deleted excerpt renders as a placeholder; a trim
+is the block's own `in_ms`/`out_ms` unless "Update the excerpt everywhere" is chosen, which goes
+through the existing `updateClipTrim`. (4) Only temporal excerpts can be actualities. Migrations
+`20261011120000` (schema) and `20261011130000` (Resources content) are written but **not yet
+applied** to preview or production — see `APPLIED.md`. Phase E (formats, Draft with AI, the
+assistant) and the `format_version_id` column are not built.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

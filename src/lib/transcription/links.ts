@@ -9,7 +9,11 @@
  * a source reached without it (from the library) is still the same source.
  */
 
-export function projectPath(projectId: string, view?: "excerpts"): string {
+export function piecePath(projectId: string, pieceId: string): string {
+  return `/sourcework/${projectId}/pieces/${pieceId}`;
+}
+
+export function projectPath(projectId: string, view?: "excerpts" | "pieces"): string {
   return view ? `/sourcework/${projectId}?view=${view}` : `/sourcework/${projectId}`;
 }
 

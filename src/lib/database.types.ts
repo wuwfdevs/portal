@@ -825,6 +825,44 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["sw_project_sources"]["Row"]>;
         Relationships: [];
       };
+      sw_pieces: {
+        Row: {
+          id: string;
+          project_id: string;
+          title: string;
+          target_seconds: number | null;
+          current_version: number;
+          length_seconds: number;
+          excerpt_ids: string[];
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_pieces"]["Row"]> & {
+          project_id: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_pieces"]["Row"]>;
+        Relationships: [];
+      };
+      sw_piece_versions: {
+        Row: {
+          piece_id: string;
+          version: number;
+          body: unknown;
+          saved_by: string;
+          saved_via: "person" | "assistant" | "generation";
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_piece_versions"]["Row"]> & {
+          piece_id: string;
+          version: number;
+          body: unknown;
+          saved_by: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       tw_speakers: {
         Row: {
           id: string;
@@ -3811,6 +3849,23 @@ export interface Database {
       };
     };
     Functions: {
+      /** Security invoker (20261011120000). Saves a piece's blocks as its next version; returns the new version, or -1 when the piece moved on since p_base_version. */
+      /** Security invoker (20261011120000). The speaker at each excerpt's first word, where the transcript has one. */
+      sw_excerpt_speakers: {
+        Args: { p_excerpt_ids: string[] };
+        Returns: { excerpt_id: string; diarization_label: string; display_name: string | null }[];
+      };
+      sw_save_piece_version: {
+        Args: {
+          p_piece_id: string;
+          p_base_version: number;
+          p_body: unknown;
+          p_saved_via: "person" | "assistant" | "generation";
+          p_length_seconds: number;
+          p_excerpt_ids: string[];
+        };
+        Returns: number;
+      };
       /** Security invoker; finance's RLS applies. Puts one version in use for estimates. */
       bk_set_version_in_use: {
         Args: { p_version_id: string };
