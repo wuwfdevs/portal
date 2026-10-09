@@ -16,7 +16,6 @@ export function safeLocalPath(
 ): string {
   if (!value) return fallback;
   if (!value.startsWith("/") || value.startsWith("//")) return fallback;
-  // eslint-disable-next-line no-control-regex
   if (/[\\\u0000-\u001f\u007f]/.test(value)) return fallback;
 
   const { prefixes } = options;
