@@ -19,12 +19,9 @@ import {
   agreementDocumentFromFile,
   importAgreementAsDraft,
 } from "@/lib/underwriting/agreement-import-service";
+import { field } from "@/lib/form-fields";
 
 const NEW_CONTRACT_PATH = "/underwriting/contracts/new";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 export async function createContractFromAgreement(formData: FormData): Promise<void> {
   const { profile } = await assertUnderwritingAccess();

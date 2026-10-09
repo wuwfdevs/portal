@@ -17,6 +17,7 @@ import {
 import { BatchProgress } from "./batch-progress";
 import { MigrationTabs } from "./migration-tabs";
 import { batchDocumentsPath, batchPath, NEW_BATCH_PATH } from "./paths";
+import { pluralize } from "@/lib/format";
 
 const TILES: { category: MigrationItemCategory; title: string; hint: string; tone: string }[] = [
   {
@@ -63,7 +64,7 @@ function NextStep({ batch }: { batch: MigrationBatchSummary }) {
   if (counts.not_run > 0)
     return (
       <SecondaryLink size="sm" href={batchDocumentsPath(batch.label)}>
-        Add {counts.not_run} {counts.not_run === 1 ? "document" : "documents"}
+        Add {pluralize(counts.not_run, "document", "documents")}
       </SecondaryLink>
     );
   if (counts.importing > 0) return <Badge variant="accent">Importing</Badge>;

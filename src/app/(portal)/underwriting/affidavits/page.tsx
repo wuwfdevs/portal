@@ -20,6 +20,7 @@ import { stationTodayISO } from "@/lib/log/timezone";
 import { generateAffidavitsForMonth } from "../affidavit-actions";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { pluralize } from "@/lib/format";
 
 /**
  * Workflow G as one list per month (docs/underwriting-traffic-redesign.md
@@ -82,7 +83,7 @@ export default async function AffidavitsPage({
         <span className="text-sm text-ink-500">
           {allRows.length === 0
             ? "Nothing aired for an affidavit this month."
-            : `${allRows.length} contract${allRows.length === 1 ? "" : "s"} · ${counts.generate} to generate · ${counts.sign} to sign · ${counts.signed} signed`}
+            : `${pluralize(allRows.length, "contract")} · ${counts.generate} to generate · ${counts.sign} to sign · ${counts.signed} signed`}
         </span>
         <span className="flex-1" />
         {toGenerate.length > 0 && (

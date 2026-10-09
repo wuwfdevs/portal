@@ -12,12 +12,9 @@ import {
   resolveCopyForBreak,
 } from "@/lib/underwriting/rotation-rebalance";
 import { getScheduleLine } from "@/lib/underwriting/queries";
+import { field } from "@/lib/form-fields";
 
 const LIST_PATH = "/underwriting/exceptions";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 function exceptionPath(id: string): string {
   return `/underwriting/exceptions/${id}`;
@@ -37,20 +34,22 @@ export async function createMakegood(formData: FormData): Promise<void> {
   const path = exceptionPath(exceptionId);
 
   const supabase = await createClient();
-  const { data: exception } = await supabase
+  const { data: exception, error: exceptionError } = await supabase
     .from("uw_exceptions")
     .select("schedule_line_id, scheduled_placement_id")
     .eq("id", exceptionId)
     .maybeSingle();
+  failIfError(exceptionError, path, "Could not read the exception");
   if (!exception) failWith(path, "That exception no longer exists.");
 
-  const { data: placement } = exception.scheduled_placement_id
+  const { data: placement, error: placementError } = exception.scheduled_placement_id
     ? await supabase
         .from("uw_scheduled_placements")
         .select("demand_bucket_id")
         .eq("id", exception.scheduled_placement_id)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  failIfError(placementError, path, "Could not read the missed placement");
 
   const { error } = await supabase.from("uw_makegoods").insert({
     exception_id: exceptionId,
@@ -112,11 +111,12 @@ export async function scheduleMakegoodAction(formData: FormData): Promise<void> 
   if (line) await rebalanceContractRotation(line.contract_id, profile.id);
 
   const supabase = await createClient();
-  const { data: placement } = await supabase
+  const { data: placement, error: placementError } = await supabase
     .from("uw_scheduled_placements")
     .select("override_reason")
     .eq("id", result.placementId)
     .maybeSingle();
+  failIfError(placementError, path, "Could not read the new placement");
 
   if (placement?.override_reason) {
     await logAuditEvent({
@@ -140,11 +140,12 @@ export async function cancelMakegoodAction(formData: FormData): Promise<void> {
   const path = exceptionPath(field(formData, "exception_id"));
 
   const supabase = await createClient();
-  const { data: makegood } = await supabase
+  const { data: makegood, error: makegoodError } = await supabase
     .from("uw_makegoods")
     .select("status, scheduled_placement_id")
     .eq("id", id)
     .maybeSingle();
+  failIfError(makegoodError, path, "Could not read the makegood");
   if (!makegood) failWith(path, "That makegood no longer exists.");
   if (makegood.status !== "scheduled")
     failWith(path, "Only a scheduled makegood can be cancelled.");

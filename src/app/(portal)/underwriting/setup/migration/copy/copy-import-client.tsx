@@ -21,6 +21,7 @@ import { Label, FieldError } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Steps } from "@/components/ui/steps";
 import { cn } from "@/lib/cn";
+import { pluralize } from "@/lib/format";
 import {
   SKIP,
   formatSourceDates,
@@ -37,6 +38,8 @@ import type { LegacyCopyImportResult } from "@/lib/underwriting/legacy-copy-impo
 import { importLegacyCopy } from "./actions";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { groupBy } from "@/lib/collections";
+import { actionFailureMessage } from "@/lib/use-action";
 
 const MAX_FILE_BYTES = 1024 * 1024;
 const STEPS = [{ label: "Choose the export" }, { label: "Review" }, { label: "Import" }];
@@ -78,10 +81,6 @@ function answerLabel(
   if (value.startsWith("id:"))
     return `Matched to ${underwriterNames.get(value.slice(3)) ?? "an underwriter on file"}`;
   return value;
-}
-
-function plural(count: number, one: string, many = `${one}s`): string {
-  return `${count} ${count === 1 ? one : many}`;
 }
 
 export function CopyImportClient({ snapshot }: { snapshot: LegacyCopySnapshot }) {
@@ -138,13 +137,17 @@ export function CopyImportClient({ snapshot }: { snapshot: LegacyCopySnapshot })
     if (!planned || !fileName) return;
     setImportError(null);
     startTransition(async () => {
-      const response = await importLegacyCopy({
-        csv: text,
-        answers: JSON.stringify(planned.effective),
-        fileName,
-      });
-      if (response.ok) setResult(response.data);
-      else setImportError(response.error);
+      try {
+        const response = await importLegacyCopy({
+          csv: text,
+          answers: JSON.stringify(planned.effective),
+          fileName,
+        });
+        if (response.ok) setResult(response.data);
+        else setImportError(response.error);
+      } catch (caught) {
+        setImportError(actionFailureMessage(caught));
+      }
     });
   };
 
@@ -300,7 +303,7 @@ function Review({
       <div className="flex flex-col gap-8 lg:col-span-8">
         <div className="flex flex-col gap-1.5">
           <p className="text-[13px] text-ink-500">
-            {fileName} · {plural(counts.rows, "row")} ·{" "}
+            {fileName} · {pluralize(counts.rows, "row")} ·{" "}
             <button type="button" onClick={onChooseAnother} className="font-bold text-brand-link">
               Choose another file
             </button>
@@ -310,7 +313,7 @@ function Review({
 
         {parsed.errors.length > 0 && (
           <Alert variant="warning">
-            {plural(parsed.errors.length, "row")} couldn’t be read and will be skipped:{" "}
+            {pluralize(parsed.errors.length, "row")} couldn’t be read and will be skipped:{" "}
             {parsed.errors
               .slice(0, 5)
               .map((error) => (error.row ? `row ${error.row}: ${error.message}` : error.message))
@@ -355,13 +358,13 @@ function Review({
           </h4>
           <details className="group rounded border border-line">
             <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-[15px]">
-              <strong>{plural(counts.ready, "row")}</strong>
+              <strong>{pluralize(counts.ready, "row")}</strong>
               <span className="text-ink-700">
                 {[
                   counts.create > 0 && `${counts.create} new copy`,
                   counts.reuse > 0 &&
                     `${counts.reuse} already in the portal${counts.updated > 0 ? ` (${counts.updated} updated)` : ""}`,
-                  counts.linksToCreate > 0 && plural(counts.linksToCreate, "contract link"),
+                  counts.linksToCreate > 0 && pluralize(counts.linksToCreate, "contract link"),
                   counts.underwriterOnly > 0 && `${counts.underwriterOnly} underwriter only`,
                 ]
                   .filter(Boolean)
@@ -376,7 +379,7 @@ function Review({
           </details>
           {counts.done > 0 && (
             <p className="text-[13px] text-ink-500">
-              {plural(counts.done, "row")} already in the portal exactly as exported; nothing to
+              {pluralize(counts.done, "row")} already in the portal exactly as exported; nothing to
               write for them.
             </p>
           )}
@@ -389,11 +392,11 @@ function Review({
             </h4>
             <details className="group rounded border border-line">
               <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-[15px]">
-                <strong>{plural(counts.excluded, "row")}</strong>
+                <strong>{pluralize(counts.excluded, "row")}</strong>
                 <span className="text-ink-700">
                   {[
                     counts.placeholders > 0 &&
-                      `${plural(counts.placeholders, "placeholder")} with no script yet`,
+                      `${pluralize(counts.placeholders, "placeholder")} with no script yet`,
                     counts.notCopy > 0 && `${counts.notCopy} not underwriting copy`,
                     counts.skipped > 0 && `${counts.skipped} left out by your answers`,
                   ]
@@ -429,19 +432,19 @@ function Review({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white">
         <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
           <p className="text-sm">
-            <strong>{plural(counts.ready, "row")} will import.</strong>{" "}
+            <strong>{pluralize(counts.ready, "row")} will import.</strong>{" "}
             <span className="text-ink-500">
               {open.length > 0
-                ? `${plural(counts.waiting, "row")} waiting on ${open.length === 1 ? "a question" : "questions"}, left out until answered.`
+                ? `${pluralize(counts.waiting, "row")} waiting on ${open.length === 1 ? "a question" : "questions"}, left out until answered.`
                 : counts.waiting > 0
-                  ? `${plural(counts.waiting, "row")} still waiting.`
+                  ? `${pluralize(counts.waiting, "row")} still waiting.`
                   : "Everything else is already here or staying out."}
             </span>
           </p>
           {importError && <FieldError>{importError}</FieldError>}
           <span className="flex-1" />
           <Button type="button" onClick={onImport} disabled={counts.ready === 0}>
-            Import {plural(counts.ready, "row")}
+            Import {pluralize(counts.ready, "row")}
           </Button>
         </div>
       </div>
@@ -651,12 +654,9 @@ function describeCopy(copy: PlannedCopy): string {
 function CopyList({ copies }: { copies: PlannedCopy[] }) {
   if (copies.length === 0)
     return <p className="border-t border-line px-5 py-3 text-sm text-ink-500">None.</p>;
-  const byUnderwriter = new Map<string, PlannedCopy[]>();
-  for (const copy of copies) {
-    const name =
-      copy.underwriter.kind === "unresolved" ? copy.sourceUnderwriter : copy.underwriter.name;
-    byUnderwriter.set(name, [...(byUnderwriter.get(name) ?? []), copy]);
-  }
+  const byUnderwriter = groupBy(copies, (copy) =>
+    copy.underwriter.kind === "unresolved" ? copy.sourceUnderwriter : copy.underwriter.name,
+  );
   return (
     <ul className="border-t border-line">
       {[...byUnderwriter.entries()]
@@ -728,10 +728,10 @@ function ImportResult({
       <Alert variant={failed.length > 0 ? "warning" : "success"} className="text-sm">
         <strong>
           Imported {fileName ?? "the export"}
-          {failed.length > 0 ? ` — ${plural(failed.length, "message")} didn’t go through` : ""}.
+          {failed.length > 0 ? ` — ${pluralize(failed.length, "message")} didn’t go through` : ""}.
         </strong>{" "}
         {result.rebalanced.changed > 0
-          ? `${plural(result.rebalanced.changed, "scheduled credit")} now carry a different message in rotation.`
+          ? `${pluralize(result.rebalanced.changed, "scheduled credit")} now carry a different message in rotation.`
           : "Linked copy joins each contract’s rotation when the contract is active."}
       </Alert>
 

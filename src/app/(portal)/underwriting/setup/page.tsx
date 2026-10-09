@@ -8,10 +8,7 @@ import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { listIndustryCategories, listInventoryPools } from "@/lib/underwriting/queries";
 import { poolReachability } from "@/lib/underwriting/pool-targets";
 import { SectionHeading } from "@/components/ui/section-heading";
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
+import { pluralize } from "@/lib/format";
 
 function SetupCard({
   href,
@@ -104,7 +101,7 @@ export default async function UnderwritingSetupPage() {
             description="What an order’s “AM Drive” or “Carpool” means in On Air programs and time windows."
             status={
               <>
-                <span>{plural(activePools.length, "pool", "pools")}</span>
+                <span>{pluralize(activePools.length, "pool", "pools")}</span>
                 {unreachablePools > 0 && (
                   <>
                     <span>· {unreachablePools} can’t reach a break</span>
@@ -120,8 +117,8 @@ export default async function UnderwritingSetupPage() {
             description="The categories auto-fill uses to keep competing underwriters out of the same break."
             status={
               <span>
-                {plural(activeCategories, "industry", "industries")} ·{" "}
-                {plural(uncategorized, "underwriter", "underwriters")} without one
+                {pluralize(activeCategories, "industry", "industries")} ·{" "}
+                {pluralize(uncategorized, "underwriter", "underwriters")} without one
               </span>
             }
           />
@@ -138,7 +135,7 @@ export default async function UnderwritingSetupPage() {
               href="/underwriting/setup/migration"
               title="Import agreements"
               description="Bring legacy signed agreements in as draft contracts, in batches."
-              status={<span>{plural(batchCount, "batch", "batches")}</span>}
+              status={<span>{pluralize(batchCount, "batch", "batches")}</span>}
             />
             <SetupCard
               href="/underwriting/setup/migration/copy"

@@ -1,5 +1,6 @@
 import type { BadgeVariant } from "@/components/ui/badge";
 import type { MigrationItemCategory } from "@/lib/underwriting/agreement-migration";
+import { pluralize } from "@/lib/format";
 
 // How the migration screens name and colour an entry's category
 // (agreement-migration.ts's migrationItemCategory), in one place so the
@@ -28,7 +29,7 @@ export const CATEGORY_META: Record<
 export function describeCounts(counts: Record<MigrationItemCategory, number>): string {
   const phrase: Record<MigrationItemCategory, (n: number) => string> = {
     ready: (n) => `${n} ready`,
-    needs_look: (n) => `${n} ${n === 1 ? "needs" : "need"} a look`,
+    needs_look: (n) => `${pluralize(n, "needs", "need")} a look`,
     failed: (n) => `${n} failed`,
     importing: (n) => `${n} importing`,
     not_run: (n) => `${n} not run`,

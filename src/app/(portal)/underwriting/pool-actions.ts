@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { collectTargetRows, parseTarget } from "@/lib/underwriting/pool-targets";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { field, optionalField } from "@/lib/form-fields";
 
 const POOLS_PATH = "/underwriting/setup/pools";
 /** The list with the inline "New pool" card open — where a create failure lands so its message renders inside the card. */
@@ -13,15 +14,6 @@ const NEW_POOL_PATH = `${POOLS_PATH}?new=1`;
 
 /** Postgres unique_violation — the case-insensitive name index (20260927120000). */
 const UNIQUE_VIOLATION = "23505";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
 
 /**
  * Inventory pools are station data (docs/underwriting-traffic-redesign.md
@@ -96,8 +88,11 @@ export async function removeInventoryPoolTarget(formData: FormData): Promise<voi
   const id = field(formData, "target_id");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("uw_inventory_pool_targets").delete().eq("id", id);
-  failIfError(error, POOLS_PATH, "Could not remove the target");
+  await deleteOrFail(
+    supabase.from("uw_inventory_pool_targets").delete().eq("id", id).select("id"),
+    POOLS_PATH,
+    "Could not remove the target",
+  );
 
   revalidatePath(POOLS_PATH);
   redirect(POOLS_PATH);

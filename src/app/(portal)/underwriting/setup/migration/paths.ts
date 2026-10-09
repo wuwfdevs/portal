@@ -1,15 +1,10 @@
 // Where the migration's screens live. A batch is named by its label (the
 // migration table has no batch row of its own), carried in `b`.
 
+import { withQuery } from "@/lib/paths";
+
 export const MIGRATION_PATH = "/underwriting/setup/migration";
 export const NEW_BATCH_PATH = `${MIGRATION_PATH}/new`;
-
-function withQuery(path: string, query: Record<string, string | undefined>): string {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
-  const text = params.toString();
-  return text ? `${path}?${text}` : path;
-}
 
 /** The batch's review page. */
 export function batchPath(label: string, query: Record<string, string | undefined> = {}): string {

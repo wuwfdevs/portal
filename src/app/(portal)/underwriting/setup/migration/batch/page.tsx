@@ -21,6 +21,8 @@ import { formatDateRange } from "@/lib/underwriting/line-details";
 import { CATEGORY_META } from "../batch-progress";
 import { batchDocumentsPath, batchPath, MIGRATION_PATH, NEW_BATCH_PATH } from "../paths";
 import { Card } from "@/components/ui/card";
+import { pluralize } from "@/lib/format";
+import { indexBy } from "@/lib/collections";
 
 type Show = MigrationItemCategory | "all";
 const SHOWS: Show[] = ["needs_look", "failed", "ready", "not_run", "importing", "all"];
@@ -89,7 +91,7 @@ export default async function MigrationBatchPage({
       .not("import_source_key", "is", null)
       .then((result) => unwrapRead(result, "the imported contracts") ?? []),
   ]);
-  const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
+  const contractById = indexBy(contracts, (contract) => contract.id);
 
   const now = new Date();
   const withCategory = items.map((item) => ({
@@ -133,7 +135,7 @@ export default async function MigrationBatchPage({
           <TextLink href={MIGRATION_PATH}>← Migrations</TextLink>
           <h2 className="mt-2 text-xl font-bold text-ink-900">{batchLabel ?? "Every batch"}</h2>
           <p className="mt-1 text-sm text-ink-500">
-            {items.length} {items.length === 1 ? "entry" : "entries"}
+            {pluralize(items.length, "entry", "entries")}
             {batchLabel ? (documentsOnly ? " · documents only" : " · from a manifest") : ""}
           </p>
         </div>
@@ -384,8 +386,8 @@ function EntryDetails({
           {result.unresolved > 0 && (
             <Card className="px-4 py-3 text-sm">
               <div className="font-bold text-ink-900">
-                {result.unresolved} {result.unresolved === 1 ? "instruction" : "instructions"}{" "}
-                couldn’t be saved as a line
+                {pluralize(result.unresolved, "instruction", "instructions")} couldn’t be saved as a
+                line
               </div>
               <p className="mt-1 text-ink-700">
                 The schedule step lists each one with what the document says, ready to enter.

@@ -15,6 +15,8 @@ import type { UwContractStatus } from "@/lib/database.types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CONTRACT_STATUS } from "@/lib/underwriting/status";
+import { pluralize } from "@/lib/format";
+import { countBy } from "@/lib/collections";
 
 const FILTERS = ["all", "active", "draft", "attention"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -45,14 +47,10 @@ export default async function ContractsPage({
   ]);
   const rollups = await listContractDeliveryRollups(contracts.map((contract) => contract.id));
   const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
-  const openExceptionsByContract = new Map<string, number>();
-  for (const exception of exceptions) {
-    if (exception.resolution_status !== "open") continue;
-    openExceptionsByContract.set(
-      exception.contract.id,
-      (openExceptionsByContract.get(exception.contract.id) ?? 0) + 1,
-    );
-  }
+  const openExceptionsByContract = countBy(
+    exceptions.filter((exception) => exception.resolution_status === "open"),
+    (exception) => exception.contract.id,
+  );
 
   const needsAttention = (contractId: string, contractStatus: UwContractStatus): boolean =>
     (openExceptionsByContract.get(contractId) ?? 0) > 0 || contractStatus === "draft";
@@ -195,7 +193,7 @@ export default async function ContractsPage({
                     <Cell label="Attention">
                       {openExceptions > 0 ? (
                         <Badge variant="warning">
-                          {openExceptions} exception{openExceptions === 1 ? "" : "s"} open
+                          {pluralize(openExceptions, "exception")} open
                         </Badge>
                       ) : contract.status === "draft" ? (
                         <Badge variant="warning">Finish setup</Badge>

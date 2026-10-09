@@ -8,10 +8,7 @@ import {
   createRevisionFromCurrent,
 } from "../../contract-actions";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
+import { pluralize } from "@/lib/format";
 
 /**
  * The Schedule tab's banner while a draft revision exists: what it is, one
@@ -58,8 +55,8 @@ export function DraftRevisionBanner({
       {activation && (
         <p className="mt-1 text-[13px] text-ink-700">
           Activating it would clear{" "}
-          {plural(activation.placementsToClear.length, "scheduled placement")} from that date and
-          make its {plural(draftLineCount, "line")} the ones that schedule.
+          {pluralize(activation.placementsToClear.length, "scheduled placement")} from that date and
+          make its {pluralize(draftLineCount, "line")} the ones that schedule.
         </p>
       )}
 
@@ -103,8 +100,8 @@ export function DraftRevisionBanner({
               </li>
             )}
             <li>
-              Make the draft&apos;s {plural(draftLineCount, "line")} the ones auto-fill and manual
-              placement schedule from.
+              Make the draft&apos;s {pluralize(draftLineCount, "line")} the ones auto-fill and
+              manual placement schedule from.
             </li>
           </ul>
           <div className="flex flex-wrap items-center gap-2">

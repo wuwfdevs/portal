@@ -11,6 +11,7 @@ import { estimateReadSeconds } from "@/lib/log/read-time";
 import { rebalanceRotationForCopy } from "@/lib/underwriting/rotation-rebalance";
 import { isPortalAssignedCut, normalizeDadCut } from "@/lib/underwriting/dad-cut";
 import { playsRecording } from "@/lib/underwriting/legacy-copy";
+import { field, optionalField } from "@/lib/form-fields";
 
 const LIST_PATH = "/underwriting/copy";
 const NEW_COPY_PATH = `${LIST_PATH}/new`;
@@ -39,17 +40,8 @@ function contractReturnPath(formData: FormData, contractId: string): string {
     : `${contractPath(contractId)}?tab=copy`;
 }
 
-function withQuery(path: string, query: string): string {
+function appendQuery(path: string, query: string): string {
   return `${path}${path.includes("?") ? "&" : "?"}${query}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
 }
 
 const EXECUTION_KINDS: UwCopyExecutionKind[] = ["live_read", "recorded"];
@@ -114,7 +106,7 @@ export async function createCopy(formData: FormData): Promise<void> {
   // A failure returns to whichever form posted: the library's /new page, or
   // the contract's own inline "New message" card.
   const failPath = contractId
-    ? withQuery(contractReturnPath(formData, contractId), "new=1")
+    ? appendQuery(contractReturnPath(formData, contractId), "new=1")
     : NEW_COPY_PATH;
   const label = field(formData, "label");
   if (label === "") failWith(failPath, 'Give this copy a short label (e.g. "Message A").');
@@ -136,15 +128,14 @@ export async function createCopy(formData: FormData): Promise<void> {
   // "Approved — ready to place" skips the draft round trip for wording the
   // sponsor has already signed off (docs/underwriting-traffic-redesign.md
   // §13).
-  const contract = contractId
-    ? (
-        await supabase
-          .from("uw_contracts")
-          .select("underwriter_id, effective_from")
-          .eq("id", contractId)
-          .maybeSingle()
-      ).data
-    : null;
+  const { data: contract, error: contractError } = contractId
+    ? await supabase
+        .from("uw_contracts")
+        .select("underwriter_id, effective_from")
+        .eq("id", contractId)
+        .maybeSingle()
+    : { data: null, error: null };
+  failIfError(contractError, failPath, "Could not read the contract");
   if (contractId && !contract) failWith(failPath, "That contract no longer exists.");
   const approveNow = contractId !== null && formData.get("approve_now") === "on";
   const { data, error } = await supabase
@@ -206,7 +197,7 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
   const id = field(formData, "copy_id");
   const contractId = optionalField(formData, "contract_id");
   const path = contractId
-    ? withQuery(contractReturnPath(formData, contractId), `edit=${id}`)
+    ? appendQuery(contractReturnPath(formData, contractId), `edit=${id}`)
     : editCopyPath(id);
 
   const durationRaw = optionalField(formData, "duration_seconds");
@@ -221,8 +212,12 @@ export async function updateCopyDetails(formData: FormData): Promise<void> {
 
   const script = optionalField(formData, "script");
   const supabase = await createClient();
-  const current = (await supabase.from("uw_copy").select("dad_cut").eq("id", id).maybeSingle())
-    .data;
+  const { data: current, error: currentError } = await supabase
+    .from("uw_copy")
+    .select("dad_cut")
+    .eq("id", id)
+    .maybeSingle();
+  failIfError(currentError, path, "Could not read this copy");
   if (!current) failWith(path, "That copy no longer exists.");
   const dadCut = resolveDadCut(formData, script, current.dad_cut);
   if ("error" in dadCut) failWith(path, dadCut.error);

@@ -18,6 +18,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertAgreementMigrationAccess } from "@/lib/underwriting/access";
 import { failWith } from "@/lib/editorial/action-result";
+import { field } from "@/lib/form-fields";
+import { indexBy } from "@/lib/collections";
+import { pluralize } from "@/lib/format";
 import { logAuditEvent } from "@/lib/audit";
 import {
   applyUnderwriterOverrides,
@@ -41,7 +44,7 @@ const ERRORS_SHOWN = 8;
 export async function submitMigrationManifest(formData: FormData): Promise<void> {
   const { profile } = await assertAgreementMigrationAccess();
 
-  const batchLabel = String(formData.get("batch_label") ?? "").trim();
+  const batchLabel = field(formData, "batch_label");
   if (batchLabel === "")
     failWith(NEW_BATCH_PATH, "Name the batch, e.g. “Business Drive, Sept 2026”.");
   if (batchLabel.length > BATCH_LABEL_MAX)
@@ -101,7 +104,7 @@ export async function submitMigrationManifest(formData: FormData): Promise<void>
     .from("uw_agreement_migration_items")
     .select("id, source_key, status, contract_id, started_at");
   if (readError) failWith(NEW_BATCH_PATH, `Could not read the migration: ${readError.message}`);
-  const existingByKey = new Map((existing ?? []).map((item) => [item.source_key, item]));
+  const existingByKey = indexBy(existing ?? [], (item) => item.source_key);
 
   const inserts = [];
   let updated = 0;
@@ -154,7 +157,7 @@ export async function submitMigrationManifest(formData: FormData): Promise<void>
   });
 
   const notice = [
-    `Loaded ${manifest.rows.length} ${manifest.rows.length === 1 ? "entry" : "entries"}: ${inserts.length} new, ${updated} updated, ${unchanged} already imported (left as they are).`,
+    `Loaded ${pluralize(manifest.rows.length, "entry", "entries")}: ${inserts.length} new, ${updated} updated, ${unchanged} already imported (left as they are).`,
     manifest.errors.length > 0 ? `Skipped — ${errorSummary}` : null,
   ]
     .filter(Boolean)
@@ -199,7 +202,7 @@ export async function registerDocumentOnlyEntries(input: {
     .from("uw_agreement_migration_items")
     .select("id, source_key, status, contract_id, started_at");
   if (readError) return { ok: false, error: `Could not read the migration: ${readError.message}` };
-  const byKey = new Map((existing ?? []).map((item) => [item.source_key, item]));
+  const byKey = indexBy(existing ?? [], (item) => item.source_key);
 
   const fresh = [
     ...new Map(

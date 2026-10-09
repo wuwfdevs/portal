@@ -32,6 +32,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { defineStatusMap, StatusBadge } from "@/components/ui/status-badge";
 import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
+import { pluralize } from "@/lib/format";
 
 // A draft message on a contract is a warning, not neutral: nothing places it
 // until someone approves it.
@@ -196,7 +197,7 @@ export async function ContractCopyPanel({
                   secondaryLabel: "Other messages",
                   secondaryHint:
                     context.linkableSecondary.length > 0
-                      ? `${context.linkableSecondary.length} other message${context.linkableSecondary.length === 1 ? "" : "s"} on file — other underwriters', or this one's expired or retired copy. They appear once your search matches one.`
+                      ? `${pluralize(context.linkableSecondary.length, "other message")} on file — other underwriters', or this one's expired or retired copy. They appear once your search matches one.`
                       : undefined,
                 }}
                 emptyMessage="No message on file matches — write a new one instead."
