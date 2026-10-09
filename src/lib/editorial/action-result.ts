@@ -26,3 +26,22 @@ export function failIfError(error: PostgrestError | null, path: string, summary:
   console.error(`${summary}:`, error);
   failWith(path, `${summary}: ${error.message}`);
 }
+
+/**
+ * Runs a `.delete()` that was given `.select("id")` and fails when it removed
+ * nothing. A delete refused by RLS, or aimed at an id that is already gone,
+ * is not an error to Postgres — it matches zero rows — so without this check
+ * the action redirects as though the row went. Usage:
+ *
+ *   await deleteOrFail(supabase.from("t").delete().eq("id", id).select("id"), path, "Could not delete the thing");
+ */
+export async function deleteOrFail(
+  query: PromiseLike<{ data: unknown[] | null; error: PostgrestError | null }>,
+  path: string,
+  summary: string,
+  notFound = "That no longer exists, or you don't have permission to remove it.",
+): Promise<void> {
+  const { data, error } = await query;
+  failIfError(error, path, summary);
+  if (!data || data.length === 0) failWith(path, notFound);
+}
