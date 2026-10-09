@@ -2,15 +2,18 @@
 
 Status: **design only, nothing built.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
-questions and data points; themes). It also scopes two things that doc did not:
-background context gathering and piece generation (a finished wrap, voicer or script). Read that doc's §2–§3
-first; this one builds on its Source / Representation / Excerpt model and does
-not restate it.
+questions and data points; themes). It also scopes what that doc did not:
+background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
+or a script built from a project's material). Read that doc's §2–§3 first; this
+one builds on its Source / Representation / Excerpt model and does not restate it.
 
-Written 2026-10-09 from a product conversation and a research pass over
-comparable tools and methods (§9). Most of the research was read through search
-snippets and background knowledge, not full texts, because several sites were
-unreachable from the research sandbox; §9 says which claims are verified.
+The screens are designed on a canvas, "Sourcework Research Workspace" (desktop and
+phone for every screen), which is the reference for layout and copy; this document
+is the reference for behavior and data. Written 2026-10-09 from a product
+conversation and a research pass over comparable tools and methods (§11). Most of
+that research was read through search snippets and background knowledge, not full
+texts, because several sites were unreachable from the research sandbox; §11 says
+which claims are verified.
 
 ## 1. What this is, and isn't
 
@@ -22,8 +25,9 @@ A reporter working on a project that holds several interviews wants to:
    the story;
 4. see, across sources, what **themes** are forming, as sources keep arriving;
 5. get a short list of the best **excerpts** (actualities) for those themes;
-6. optionally turn it into a **piece** (a script, a voicer, a wrap) from a
-   **format**, then edit it by hand or with the assistant.
+6. build a **piece** (a wrap, voicer or script) from narration and excerpts, by
+   hand, optionally starting from an AI draft, and refine it by hand or with the
+   assistant.
 
 Every output of the model is a **suggestion** until a person accepts it. The
 reporter is the interpreter; the tool proposes.
@@ -35,20 +39,24 @@ sensemaking workshops, voting, or any public surface; unattended processing
 plugin framework for analysis steps (see `sourcework-design.md` §2: developer-
 authored steps invoked in sequence).
 
+**Everything works on a phone.** No screen in this document is desktop-only (§7.2).
+
 ## 2. Principles
 
 These are the rules the research converged on. They decide the details below.
 
 1. **Everything the model produces is a suggestion with a status**
    (`suggested` / `accepted` / `rejected`). Reject hides; it never deletes.
-   Accepted items are pinned and later runs never alter them.
+   Accepted items are pinned and later runs never alter them. An unreviewed item
+   shows its Accept and Reject buttons and a dashed border; there is no separate
+   "Suggested" pill, since the buttons already say it.
 2. **A data point is a paraphrase; an excerpt is a literal cut.** They serve
    different purposes and are chosen by different criteria (§5.3, §5.5).
 3. **The model never types out source text.** Where the model points at source
    material it returns segment/word ranges (or page and block ids), and code
    derives the text and timestamps. This is a data-shape choice, not a
    verification layer; fidelity checking is left to a self-review instruction in
-   the prompt (§5.3) and to the reporter listening before accepting an excerpt.
+   the prompt (§5.2) and to the reporter listening before accepting an excerpt.
    The transcript is itself ASR output, so matching the transcript proves the
    model did not alter it, not that the speaker said it. Playback in the review
    UI is the real check.
@@ -59,21 +67,32 @@ These are the rules the research converged on. They decide the details below.
    speakers and sources support it, shown beside the data points that complicate
    it. One source is a flag, not a verdict.
 6. **Editors own wording; code owns structure.** Prompts and piece formats are
-   editable language over a fixed output schema and fixed variables (§6).
+   editable language over a fixed output schema and fixed variables (§8).
 7. **Keep each step small and re-runnable.** A run is keyed to its inputs and
    prompt version, and re-running never destroys accepted or edited work.
+8. **Do by hand first.** Every step the model can do, a person can do without it:
+   questions and themes can be written, excerpts made, a piece built block by block.
+   AI is an accelerant at each step, never a gate.
+9. **Reuse the app's components and rules.** The screens are built from `TabNav`,
+   `Segmented`, `FilterChips`, `Table`, `Badge`, `ActionMenu`, `BatchRunPanel`,
+   `Steps`, the excerpt card, the player bar, and the On Air insertion point; the
+   one new visual is a lime underline for evidence (excerpts are gold, the playhead
+   blue). Phone rules are the existing ones: panes become tabs, menus are bottom
+   sheets, tables become cards, controls are at least 44px.
 
 ## 3. The pipeline
 
 ```
  research questions ─┐
                      ├─► 1 Context ─► 2 Extract ─► 3 Themes ─► 4 Quotes ─► 5 Piece
- sources + transcripts┘     (per        (per         (per         (per         (per
-                          project)    source)      project)     theme)     format)
+ sources + transcripts┘     (per        (per         (per         (per      (by hand,
+                          project)    source)      project)     theme)    or drafted)
 ```
 
 Each arrow is a button, not a background job. Steps 1–2 run when a source is
-ready; 3 runs when the reporter asks to review themes; 4 and 5 are on demand.
+ready; 3 runs when the reporter asks to review themes; 4 is on demand. Step 5 does
+not depend on the earlier steps: a piece can be built by hand from any excerpts,
+including ones that exist today.
 
 ## 4. Data model
 
@@ -92,17 +111,18 @@ migration.
      │             └──1─< sw_source_excerpts   (exists; gains origin + review_status)
      │                          ▲
      │                          │ >─< sw_data_point_excerpts  ("exemplifies")
-     │                          │
+     │                          │ ◄── referenced by id from piece blocks
      ├──1─<── sw_data_points ──1─< sw_data_point_spans   (1..n evidence spans)
      │             │
      │             └──>─< sw_themes   via sw_data_point_themes (stance)
      │
      ├──1─<── sw_themes
-     ├──1─<── sw_pieces ──> sw_piece_format_versions
+     ├──1─<── sw_pieces ──1─< sw_piece_versions     (format_version_id optional)
      └── sw_analysis_runs (audit of every model call: kind, prompt version, counts)
 
- sw_prompt_versions   (editor-managed language per prompt slot, immutable versions)
- sw_piece_formats / _versions
+ sw_prompt_versions / sw_prompt_live   (editor-managed language per prompt slot)
+ sw_piece_formats / sw_piece_format_versions
+ sw_prompt_trials                      (private, expiring results of "Try this draft")
 ```
 
 ### 4.1 `sw_research_questions`
@@ -112,13 +132,13 @@ only. Archiving hides a question without orphaning its data points.
 
 ### 4.2 `sw_context_notes`
 
-Background the model gathered, shown in a collapsed **Background** list on the
-project, never in the way. `id, project_id, title, summary, url, retrieved_at,
-status ('active' | 'dismissed'), created_by`. Rules:
+Background the model gathered, listed in the project's **Setup** tab and never in
+the way. `id, project_id, title, summary, url, retrieved_at, status ('active' |
+'dismissed'), created_by`. Rules:
 
 - Gathered automatically (§5.1); no approval step.
-- Background only. It primes extraction and may be cited in a *piece's
-  internal notes*, but is never quotable and never an excerpt.
+- Background only. It primes extraction and is never quotable, never evidence, and
+  never an excerpt.
 - A reporter can dismiss a note. Dismissed notes are not sent to later runs.
 - Deliberately not stored in `sw_sources`: that table is immutable original
   media that everything else cites.
@@ -184,29 +204,35 @@ accepted excerpts linked to that theme's data points. There is no theme-to-
 excerpt table.
 
 Excerpts stay source-level, as today, so a quote can surface in any project that
-references the source.
+references the source, and in any piece.
 
-### 4.7 Prompts, formats, pieces
+### 4.7 Prompts, formats, pieces, trials
 
 - `sw_prompt_versions`: `id, slot, version, body, created_by, created_at,
   note`. Insert-only. `sw_prompt_live (slot, version_id)` is the movable pointer;
-  rollback is moving it. Slots are defined in code (§6).
+  rollback is moving it. Slots are defined in code (§8).
+- `sw_prompt_trials`: `id, slot, draft_body, live_version_id, sample_refs, results
+  (per side), created_by, expires_at`. Private to the editor who ran it, expires
+  after 14 days, never touches project data (§8.1).
 - `sw_piece_formats` / `sw_piece_format_versions`: a **format** has a name and
   kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and immutable versions
-  holding the section structure and style language (§5.6).
-- `sw_pieces`: `id, project_id, format_version_id (nullable), target_seconds (nullable), title, status, created_by`,
-  with `sw_piece_versions (piece_id, version, body jsonb, saved_by, saved_via
-  ('person' | 'assistant' | 'generation'), created_at)`, insert-only. `body` is an
-  ordered list of `{ id, type: 'narration', text }` and
-  `{ id, type: 'actuality', excerpt_id, in_ms?, out_ms? }` blocks, so an actuality
-  is always a real excerpt, never retyped text. Every save, by a person or by the
-  assistant, is a new version; undo is restoring one.
+  holding the section structure, length, actuality range and style language (§6.3).
+- `sw_pieces`: `id, project_id, title, format_version_id (nullable),
+  target_seconds (nullable), created_by`. `format_version_id` is null for a piece
+  written by hand. `sw_piece_versions (piece_id, version, body jsonb, saved_by,
+  saved_via ('person' | 'assistant' | 'generation'), created_at)` is insert-only.
+  `body` is an ordered list of `{ id, type: 'narration', text }` and
+  `{ id, type: 'actuality', excerpt_id, in_ms?, out_ms? }` blocks. An actuality is
+  always a real excerpt; `in_ms` and `out_ms`, when present, are this piece's own
+  trim of it, and the block's text is always derived from the transcript for that
+  range, never typed. Every save, by a person or by the assistant, is a new
+  version; undo is restoring one.
 - `sw_analysis_runs`: one row per model run, in the spirit of
   `sw_document_processing_runs` (an audit log, not a queue):
   `id, kind, project_id, source_id, prompt_version_id, model, status, counts,
   error, started_at, finished_at`.
 
-## 5. The steps
+## 5. The analysis steps
 
 ### 5.1 Context (per project, automatic and quiet)
 
@@ -215,8 +241,8 @@ questions change, one call with web search enabled gathers background on the
 people, places, events and terms the questions and sources mention (the Fort
 Barrancas / advanced redoubt case). Results become `sw_context_notes`.
 
-- **No approval step and no modal.** The Background list on the project shows
-  what was found; dismissing a note is the only control.
+- **No approval step and no modal.** The notes are listed in Setup; dismissing a
+  note is the only control.
 - Notes are passed to extraction as reference, labelled as unverified web
   material, so the model can read "the redoubt" correctly. They are never
   evidence.
@@ -229,7 +255,7 @@ Barrancas / advanced redoubt case). Results become `sw_context_notes`.
 ### 5.2 Extract (per source, on a click, batchable)
 
 Input: the source's transcript (or document text) in segments, the research
-questions, active context notes, and the **extraction guide** (§6). Output, per
+questions, active context notes, and the **extraction guide** (§8). Output, per
 data point: the claim, `relevance` and `question_id` / `story_element`, the
 speaker, `kind`, and the span ranges.
 
@@ -263,18 +289,13 @@ Data points**, and the choice drives both what the rail lists and which layer th
 transcript and the player's mark strip draw. Only one layer shows at a time, so
 there is no legend to learn: in Excerpts mode the transcript looks exactly as it
 does today (gold underlines); in Data points mode the evidence spans are
-underlined in the WUWF lime instead (the app's success palette, distinct from the
-gold excerpt marks and the blue playhead), a dashed underline meaning not yet
-reviewed.
+underlined in lime, a dashed underline meaning not yet reviewed.
 
 A data point card shows its claim, its kind and question or story element, its
 time ranges, and a play button. An unreviewed card has a dashed border and its
-Accept, Edit and Reject buttons; there is no separate "Suggested" pill, because the
-buttons already say it (same for suggested quotes and themes). A card links to the excerpt that
-exemplifies it, so the two kinds of item stay connected without sharing a view.
-The source tab row is unchanged on desktop (Transcript · Projects). On a phone the
-existing phone-only tabs gain **Data points** beside Excerpts and Speakers, for
-the same reason those are tabs there: the rail does not fit beside the transcript.
+Accept, Edit and Reject buttons. A card links to the excerpt that exemplifies it,
+so the two kinds of item stay connected without sharing a view. The source tab row
+is unchanged on desktop (Transcript · Projects).
 
 ### 5.4 Themes (per project)
 
@@ -296,15 +317,17 @@ Why not recluster: incremental clustering tools reshuffle labels between batches
 and a reporter's edits and memos would not survive it. Freeze the set, assign into
 it, and propose changes explicitly.
 
-The theme page is the main analysis view: definition, memo, supporting and
-complicating data points grouped by source, the breadth numbers from §4.5, and the
-representative excerpts. A theme backed by a single source says so.
+The **Themes tab** is where a project's research is worked cross-source (§7.1); the
+**theme page** is the main analysis view: definition, memo, breadth numbers,
+supporting and complicating data points grouped by source (a switch filters All |
+Supporting | Complicating), and the representative excerpts. A theme backed by a
+single source says so.
 
 ### 5.5 Quotes (per theme, on a click)
 
 Excerpt selection is driven by what makes a clip work on air, not by what is
 responsive. It is a separate step with a separate prompt, the **quote quality
-guide** (§6). Example criteria, all editable:
+guide** (§8). Example criteria, all editable:
 
 - it sings: concrete, emotionally specific, in the speaker's own voice;
 - it stands on its own without setup;
@@ -317,76 +340,89 @@ the paraphrase), and ASR confidence and audio flags where the providers supply
 them. The best clip may sit next to a span or cover only part of one, so the
 model is free to choose ranges anywhere in the neighbourhood. Output per
 suggestion: ranges (snapped to word boundaries in code), a one-line **why this
-works**, a quality tier, and the data points it exemplifies. These become
-`sw_source_excerpts` rows with `origin = 'suggested'`.
+works**, a quality tier (Strong, Good, Usable), and the data points it exemplifies.
+These become `sw_source_excerpts` rows with `origin = 'suggested'`.
 
-Review is one click with the clip playing right there. Accepting turns it into an
-ordinary excerpt; rejecting hides it. A reporter can also keep making excerpts by
-hand exactly as today.
+Review is one click with the clip playing right there, using the existing excerpt
+card and trim chips. Accepting turns it into an ordinary excerpt; rejecting hides
+it. A reporter can also keep making excerpts by hand exactly as today.
 
-### 5.6 Pieces (optional)
+## 6. Pieces
+
+### 6.1 Creating a piece
 
 A **piece** is a finished item made from a project's material: a wrap, a voicer,
 a script, a cut-and-copy. **A piece starts blank and is built by hand by default.**
-AI drafting from a format is optional and available at any point.
 
 The flow: **Pieces** tab → **+ New piece** → the editor opens at once on an empty
-piece with an editable title (no form first) → build it from narration and excerpts,
-or choose **Draft with AI** → pick a **format**, the **material** (accepted themes,
-all on by default; only accepted excerpts are ever used) and an optional
-**direction** → **Generate draft** → land back in the editor with the draft in place
-and a note ("Drafted from Radio wrap v3 · 0:57 of 1:00 · Undo") → iterate by hand or
-with the assistant. **Draft with AI appears once, in the empty state of a piece, and nowhere
-else.** A piece that already has content has no such button or menu item; starting
-over from a format is a request to the assistant, whose draft is a version and is
-undone from History. The
-piece records which format drafted it (`format_version_id`, null for a piece written
-by hand) and the Pieces list says "Written by hand" or "Radio wrap format, then
-edited". A piece with no format has no target length until the writer sets one.
+piece with an editable title (no form first) → build it from narration and
+excerpts, or choose **Draft with AI** → pick a **format**, the **material**
+(accepted themes, all on by default; only accepted excerpts are ever used) and an
+optional **direction** → **Generate draft** → land back in the editor with the draft
+in place and a note ("Drafted from Radio wrap v3 · 0:57 of 1:00 · Undo") → iterate
+by hand or with the assistant.
 
-A **format** defines: a name and kind; ordered sections,
-each `narration` or `actuality` with guidance and optional count limits; a target
-duration; the number of actualities; and style language. A run takes a project's
-accepted themes and accepted excerpts (or a subset the reporter picks), the format
-version, and project-level direction (angle, audience, sensitivities).
+**Draft with AI appears once, in the empty state of a piece, and nowhere else.** A
+piece that already has content has no such button or menu item; starting over from a
+format is a request to the assistant, whose draft is a version and is undone from
+History. The piece records which format drafted it, and the Pieces list says
+"Written by hand" or "Radio wrap format, then edited". A piece with no format has no
+target length until the writer sets one.
 
-The model writes **narration only**. Actualities are placed by excerpt id, so
-quote text and audio always match the source. Length is computed in code from
-`lib/log/read-time.ts` (160 words per minute) plus excerpt durations and shown
-as "0:52 of 1:00, 3s under". Nothing is generated from the model's memory of a
-transcript: the inputs are only data points and excerpts a person has accepted.
+### 6.2 The block editor
 
 A piece is **edited directly, as a block editor**. Narration blocks are inline text.
-An actuality block's wording is fixed because it is an excerpt, but it can be
-swapped, trimmed, moved or removed. Conventions:
+An actuality block's wording comes from its excerpt, but it can be swapped, trimmed,
+moved or removed. Conventions:
 
 - **Insertion points between every block**, before the first and after the last,
   built the way the On Air rundown's `insertion-point.tsx` is: visible at rest (a
   hairline, a circled +, a hairline), not hover-only. It opens a dashed panel with
   two modes, **Narration** and **Excerpt**; Excerpt is a search box over the
-  project's accepted excerpts with arrow-key navigation and Enter to add, and
-  shows duration and speaker.
+  project's accepted excerpts with arrow-key navigation and Enter to add, and shows
+  duration and speaker.
 - **Enter** at the end of a narration block adds a narration block below;
   **Backspace** in an empty one removes it.
 - **Trim in place.** An actuality block's ⋮ menu has **Trim…**, which opens the trim
   panel under the block (a bottom sheet on a phone): the clip's words highlighted in
   their transcript context, tap a word to move the start or end there, or nudge with
-  the existing −250 −50 +50 +250 chips, and **Play as cut**. The piece's length updates
-  as you trim. A trim is **per piece by default**: the block stores its own `in_ms` and
-  `out_ms`, and the excerpt itself is untouched. A switch, **Only in this piece |
-  Update the excerpt everywhere**, changes the excerpt itself, and says how many other
-  pieces use it. The block's text is always derived from the transcript for its range,
-  never typed.
-- **Reorder** by dragging the ⋮⋮ handle (desktop), or Move up and Move down in
-  the block's ⋮ menu, which also serves keyboard and phone. Every save is a
-version (§4.7); History shows who saved it, a person or the assistant, and restores
-any version. Export in this phase is copy as text plus the existing excerpt zip
-export (`clips.zip`).
+  the existing −250 −50 +50 +250 chips, and **Play as cut**. The piece's length
+  updates as you trim. A trim is **per piece by default** (the block's own `in_ms`
+  and `out_ms`; the excerpt is untouched). A switch, **Only in this piece | Update the
+  excerpt everywhere**, changes the excerpt itself and says how many other pieces
+  use it.
+- **Reorder** by dragging the ⋮⋮ handle (desktop), or Move up and Move down in the
+  block's ⋮ menu, which also serves keyboard and phone.
+- **Length** is computed in code from `lib/log/read-time.ts` (160 words per minute)
+  plus excerpt durations and shown as "0:52 of 1:00, 3s under".
+- **Versions.** Every save is a version; History shows who saved it, a person or the
+  assistant, and restores any version.
+- **Export** in this phase is copy as text plus the existing excerpt zip export
+  (`clips.zip`).
 
-No prior art was found for generating a script or wrap from interview audio, so
-this layer is kept deliberately small.
+### 6.3 Formats and AI drafting
 
-### 5.7 Assistant editing
+A **format** defines: a name and kind; ordered sections, each `narration` or
+`actuality` with a line of guidance; a target duration with a tolerance; a range for
+the number of actualities; and style language. A draft run takes a project's
+accepted themes and accepted excerpts (or a subset the reporter picks), the format
+version, and a direction (angle, audience, sensitivities).
+
+The model writes **narration only**. Actualities are placed by excerpt id, so quote
+text and audio always match the source. Nothing is generated from the model's memory
+of a transcript: the inputs are only data points and excerpts a person has accepted.
+
+Editors maintain formats on the Editors page like prompts (§8): a name, length and
+tolerance, actuality range, an ordered list of sections that reorder and insert the
+way blocks do, and a style paragraph. A format versions, publishes with a note, and
+has **Try this draft** (§8.1): drafting a piece from a chosen project's accepted
+themes and excerpts with the draft and live formats side by side, writing nothing to
+the project.
+
+No prior art was found for generating a script or wrap from interview audio, so this
+layer is kept deliberately small.
+
+### 6.4 The assistant
 
 AI help with a piece is the assistant that already exists
 (`src/components/agent-chat-widget.tsx`, `lib/agent/chat.ts`), not a new surface.
@@ -399,9 +435,10 @@ Reading the code, three things are needed:
 2. **Piece capabilities** (`lib/sourcework/piece-capabilities.ts`, registered in
    `lib/capabilities/registry.ts`, key `transcription`): read a piece; replace a
    narration block's text; insert, remove and **reorder** blocks; place or swap an
-   actuality **by excerpt id**; **trim an actuality** (to the piece, by default; the assistant can also widen it into the source audio); search excerpts (reusing `sourcework.project.search`);
-   **create a blank piece**, and **draft a piece from a format** (on request, including to start over) for a
-   project. Edits need no confirmation
+   actuality **by excerpt id**; **trim an actuality** (to the piece, by default; the
+   assistant can also widen it into the source audio); search excerpts (reusing
+   `sourcework.project.search`); **create a blank piece**; and **draft a piece from
+   a format** (on request, including to start over). Edits need no confirmation
    step, because every one writes a version and is undoable, which differs from
    `log.rundownItem.recordOutcome`; each call is still audited as `mcp.*`. An
    actuality is placed by id only, so the assistant cannot alter quote text, and
@@ -411,27 +448,60 @@ Reading the code, three things are needed:
    finishes, the widget refreshes the route. Blocks the assistant changed carry an
    "Edited by the assistant · Undo" marker until the next person edit.
 
-### 5.8 Where each step lives
+## 7. Where it lives: screens and phones
+
+### 7.1 Where each step lives
 
 How this fits the screens that exist, from the reporter's and editor's work:
 
 | Moment | Where |
 |---|---|
-| Set up | **Setup** tab, right-aligned like Traffic's (`TabNav` `end`): the research questions (editable, orderable, archivable), the web **background notes** (dismissable, refreshable), and a *Where this project stands* status. The project's own background text stays in the header. A project without questions behaves as it does today. |
+| Set up | **Setup** tab, right-aligned like Traffic's (`TabNav` `end`): the research questions (editable, orderable, archivable), the web **background notes** (dismissable, refreshable), and a *Where this project stands* status (`Steps`: Research questions · Add sources · Extract data points · Review themes). It is derived from the project's state and never enforces an order, because new sources send a project back to extraction. The project's own background text stays in the header. A project without questions behaves as it does today. |
 | Add and extract | **Sources** tab. Source cards gain an extraction line ("12 data points · 3 to review"); a `BatchRunPanel` shows progress. Extraction is a status on the source, not a destination. |
 | Review per source | Source workspace, **Data points** mode (§5.3). |
 | See what is emerging | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does. |
 | Go deep on one theme | **Theme page** (§5.4), then **Suggested quotes** (§5.5). |
-| Make something | **Pieces** tab → **+ New piece** opens a blank editor; **Draft with AI** (optional) picks a format and material; then edit by hand or with the assistant (§5.6, §5.7). |
-| Maintain the language | **Editors** page (prompts and piece formats), reached from Sourcework's setup, editors only (§6). |
+| Make something | **Pieces** tab → **+ New piece** (§6). |
+| Maintain the language | **Editors** page (prompts and piece formats), editors only (§8). |
 
-The project tab row becomes Sources · Themes · Excerpts · Pieces, with Setup at the right edge (`TabNav`; the
-Themes tab appears once a project has research questions or any data point). The
-projects list's "needs attention" filter also counts data points and suggested
-themes awaiting a decision. The tab and switch names are working names;
-the canvas that goes with this doc is the reference for the screens.
+The project tab row is Sources · Themes · Excerpts · Pieces, with Setup at the right
+edge (`TabNav`; the Themes tab appears once a project has research questions or any
+data point). The projects list's "needs attention" filter also counts data points
+and suggested themes awaiting a decision. On-going guidance is the Themes tab's
+"Waiting for you" strip and a run in progress uses `BatchRunPanel`; there is no
+persistent stepper across tabs. Tab and switch names are working names.
 
-## 6. Prompts and who edits them
+### 7.2 Phones
+
+**Every screen in this document has a phone design** on the canvas: Sources, Themes,
+Setup, source data points, theme page, suggested quotes, Pieces list, a new piece,
+Draft with AI, the piece editor (with the insert picker, block menu, trim sheet and
+the assistant as a full-screen sheet), and the Editors pages (prompt, try, piece
+format). The rules are the existing phone layout's, applied to the new screens:
+
+- Panes become tabs. The rail's Excerpts | Data points switch lives inside the
+  existing Excerpts tab, and the tab's count pill shows how many items await review;
+  tapping a card's time opens it in the Transcript tab. The player docks to the
+  bottom, as now, and its mark strip follows the switch.
+- Tables become stacked cards (`Table stack`): the Themes list is a card per theme
+  with labelled Sources and Evidence lines and 44px Accept, Edit and Reject.
+- The Themes tab's "Waiting for you" strip condenses to three lines; the project
+  `TabNav` overflows into ⋯ with Setup kept at the right edge.
+- Menus, the piece's insert picker and the trim panel are bottom sheets or full
+  sheets. Reordering is Move up and Move down in the block menu, not drag. Insertion
+  points stay visible at rest and are 44px tall.
+- The assistant opens as a full-screen sheet from a bar at the bottom of the piece.
+- Controls are at least 44px and text inputs 16px.
+- **The Editors pages work on a phone too.** A slot picker replaces the side list,
+  the text area is full width at 16px, and Publish and Try this draft sit in a fixed
+  bottom bar. On the Try screen the Live and Draft texts stack inside each row
+  instead of sitting in columns, and the pickers stack with a full-width Run both. A
+  piece format's sections are cards reordered with Move up and Move down.
+
+Where a desktop interaction has no touch equivalent (dragging a block), the same
+action is reachable another way.
+
+## 8. Prompts and who edits them
 
 Slots (defined in code, each with a fixed output schema and variable list):
 
@@ -448,17 +518,17 @@ Rules, borrowed from prompt-management tools:
 - Versions are immutable; "live" is a pointer; rollback is moving it.
 - Saving checks that required variables are present and that nothing outside the
   allowed placeholders is referenced.
-- **Try this draft** compares a draft with the live version before it is
-  published (§6.1).
+- **Try this draft** compares a draft with the live version before it is published
+  (§8.1).
 - Each run records the prompt version; the **accept rate per prompt version**
   (accepted ÷ reviewed) is the quality metric.
 
-Access: a `tool_roles` grant carrying `editor` on the `transcription` tool
-(the stacking-roles mechanism, `docs/broadcast-roles.md`) edits prompts and
-piece formats. Everyone with tool access can run steps, review, and accept. See §10
-for the one open access question.
+Access: a `tool_roles` grant carrying `editor` on the `transcription` tool (the
+stacking-roles mechanism, `docs/broadcast-roles.md`) edits prompts and piece
+formats. Everyone with tool access can run steps, review, accept, and make pieces.
+See §12 for the one open access question.
 
-### 6.1 Trying a draft: the full flow
+### 8.1 Trying a draft: the full flow
 
 Purpose: an editor changes wording and wants to see its effect before it reaches
 every project. It is a preview, not a test suite; the real quality signal is the
@@ -472,15 +542,14 @@ accepted share per version that builds from actual reviews.
 2. **Pick a sample.** *Try this draft* opens its own screen. The sample is chosen
    for the slot: a *project and source* for the extraction guide (the project
    supplies the questions and background), a *theme* for the quote quality guide, a
-   *project* for theme wording and review. It defaults to the last sample used, and
-   the screen says what it will cost ("two extraction runs").
+   *project* for theme wording, review, and piece formats. It defaults to the last
+   sample used, and the screen says what it will cost ("two extraction runs").
 3. **Run both.** The live version and the draft run on identical inputs, in
    parallel, as ordinary runs flagged as trials, with a `BusyPanel` while they work.
-   Results are stored in `sw_prompt_trials (slot, draft body snapshot, live
-   version, sample refs, result per side, created_by, expires_at)` so leaving or
-   reloading loses nothing; they expire after 14 days. A trial writes nothing to any
-   project: no data points, themes or excerpts. A failure shows the error and can be
-   retried at no cost.
+   Results are stored in `sw_prompt_trials` so leaving or reloading loses nothing;
+   they expire after 14 days. A trial writes nothing to any project: no data points,
+   themes, excerpts or pieces. A failure shows the error and can be retried at no
+   cost.
 4. **Compare.** Rows are aligned by the transcript they point at (spans that overlap
    by at least half match). Groups are *In both*, *Only in draft*, *Only in live*,
    with counts for each side and a filter. For the quote guide, the two ranked clip
@@ -492,13 +561,14 @@ accepted share per version that builds from actual reviews.
 It ships for the extraction guide first and the quote quality guide with Phase C;
 the other slots follow. Editors only.
 
-## 7. Operations and constraints
+## 9. Operations and constraints
 
 - **No job queue.** Every step is a click. Extraction across several sources uses
   the existing batch pattern (`useTaskQueue` / `BatchRunPanel`, three at a time).
-- **`OPENAI_API_KEY` is required** for this feature; an unset key fails the run
+- **`OPENAI_API_KEY` is required** for the AI steps; an unset key fails the run
   clearly, as the program-log import does. Embeddings stay optional elsewhere
-  and are not made mandatory for existing search.
+  and are not made mandatory for existing search. Building a piece by hand needs no
+  key.
 - **Model**: structured outputs on the model `editorial-inquiry/ai.ts` and the
   program-log importer pin; reasoning mode on, since the self-review of claims
   against spans depends on it.
@@ -507,24 +577,29 @@ the other slots follow. Editors only.
 - Interview audio and text go to a third party. That is already true of ASR; the
   design records it so it is not a surprise.
 
-## 8. Phasing
+## 10. Phasing
 
 Each phase ships usable value and its own migration, applied through
 `APPLIED.md` as usual, with Resources release notes and guides per CLAUDE.md.
 
+Pieces built by hand depend only on excerpts, which exist today, so **Phase D can
+ship first, or at any point, independently of the analysis phases.** The
+recommended order is D, then A, B, C, then E.
+
 | Phase | Ships | Notes |
 |---|---|---|
-| **A. Questions, context, data points** | Research questions on the project; Background list; extraction run per source; review UI; spans playable in the transcript and PDF viewer | `sw_research_questions`, `sw_context_notes`, `sw_data_points`, `sw_data_point_spans`, `sw_analysis_runs`, `sw_prompt_versions` (extraction + context only), editor role |
-| **B. Themes** | Assignment, Review themes, theme page with breadth numbers, memos | `sw_themes`, `sw_data_point_themes`, embeddings |
-| **C. Suggested quotes** | Quote selection per theme; suggested excerpts with a why-line; review | `sw_data_point_excerpts`, two excerpt columns, `quote_quality` slot |
-| **D. Pieces** | Formats (editor-managed), generation, hand editing with block reordering, versions, assistant editing and creation, length check, copy/export | `sw_piece_formats`, `sw_pieces`, `sw_piece_versions`, piece capabilities, assistant page context (§5.7) |
+| **A. Questions, context, data points** | Setup tab (questions, background notes, status); extraction run per source; extraction status on source cards; Excerpts \| Data points switch and review in the source workspace; spans playable in the transcript and PDF viewer; the Editors page for the extraction guide with Try this draft | `sw_research_questions`, `sw_context_notes`, `sw_data_points`, `sw_data_point_spans`, `sw_analysis_runs`, `sw_prompt_versions`/`sw_prompt_live`, `sw_prompt_trials`, editor role |
+| **B. Themes** | Assignment, Review themes, Themes tab with "Waiting for you", theme page with breadth numbers, memos | `sw_themes`, `sw_data_point_themes`, embeddings |
+| **C. Suggested quotes** | Quote selection per theme; suggested excerpts with a why-line; review; the quote quality guide and its Try | `sw_data_point_excerpts`, two excerpt columns, `quote_quality` slot |
+| **D. Pieces by hand** | Pieces tab, new blank piece, the block editor (insertion points, reorder, trim in place), versions and History, length, copy and export. No AI, no analysis | `sw_pieces`, `sw_piece_versions` |
+| **E. Formats, AI drafting and the assistant** | Piece formats (editor-managed) with Try; Draft with AI; assistant page context, piece capabilities and the refresh after a write | `sw_piece_formats`, format versions, piece capabilities (§6.4) |
 
 Not scheduled: meta-themes (the `parent_theme_id` column exists), cross-project
 themes, a keyword-in-context view over all sources (the hybrid search already
 exists and can back one), a pairwise "which quote is better" picker, a theme
 change log table, member-checking or "shared with source" statuses.
 
-## 9. Prior art and what was taken
+## 11. Prior art and what was taken
 
 Verified items were read in search results or on the project's page; others are
 marked as background knowledge. Nothing here was copied verbatim; these are
@@ -577,47 +652,12 @@ patterns.
   altered or merged quotes, over-broad themes, fragmented codes, and
   paraphrases presented as quotes in newsroom incidents. These motivate
   principles 3 and 4.
+- **Block editors and prompt tools** (product conventions) — insertion points,
+  drag handles, versioned prompts with a movable live label. Taken: the On Air
+  rundown's own insertion point and the app's version-pointer pattern, rather than
+  a new editor library.
 
-### 5.9 Phones
-
-The rules are the existing phone layout's, applied to the new screens:
-
-- Panes become tabs. The rail's Excerpts | Data points switch lives inside the
-  existing Excerpts tab, and the tab's count pill shows how many items await review;
-  tapping a card's time opens it in the Transcript tab.
-- The player docks to the bottom, as now; its mark strip follows the switch.
-- Tables become stacked cards (`Table stack`): the Themes list is a card per theme
-  with labelled Sources and Evidence lines and 44px Accept, Edit and Reject.
-- The Themes tab's "Waiting for you" strip condenses to three lines; the project
-  `TabNav` overflows into ⋯ with Setup kept at the right edge.
-- Menus and the piece's insert picker are bottom sheets. Reordering is Move up and
-  Move down in the block menu, not drag. Insertion points stay visible at rest and
-  are 44px tall.
-- The assistant opens as a full-screen sheet from a bar at the bottom of the piece.
-- Controls are at least 44px and text inputs 16px.
-- **The Editors pages work on a phone too.** A slot picker replaces the side list, the
-  text area is full width at 16px, and Publish and Try this draft sit in a fixed bottom
-  bar. On the Try screen the Live and Draft texts stack inside each row instead of
-  sitting in columns, and the pickers stack with a full-width Run both. A piece format's
-  sections are cards reordered with Move up and Move down.
-
-**Every screen in this document has a phone design** on the canvas: Sources, Themes,
-Setup, source data points, theme page, suggested quotes, piece (with the insert picker,
-block menu and the assistant as a full-screen sheet), and the Editors pages (prompt,
-try, piece format). Nothing is desktop-only; where a desktop interaction has no touch
-equivalent (dragging a block), the same action is reachable another way (Move up and
-Move down).
-
-### 5.10 Piece formats editor
-
-A format is edited like a piece: a name, a length with a tolerance, a range of
-actualities, an ordered list of sections (each narration or actuality, with one line of
-guidance), and a style paragraph. Sections reorder, insert (the same insertion point as
-a piece) and remove. It versions, publishes with a note, and has Try the way prompts do:
-drafting a piece from a chosen project's accepted themes and excerpts with the draft and
-live formats side by side, writing nothing to the project.
-
-## 10. Open questions
+## 12. Open questions
 
 1. **Who may edit an accepted theme's definition?** Recommendation: anyone with
    tool access edits their project's themes; only `editor`s edit prompts and
@@ -629,39 +669,41 @@ live formats side by side, writing nothing to the project.
    only, per §4.2.
 4. **Excerpt scope**: suggested excerpts attach to the source (so they surface in
    any project using it), as all excerpts do today. Confirm this is wanted.
-5. **Similarity threshold and candidate count** for assignment are tuned on real
+5. **"Update the excerpt everywhere"** in the trim panel currently changes the
+   excerpt with the usage count shown, and no confirmation. Add a confirmation when
+   other pieces use it?
+6. **Themes tab visibility**: shown once a project has research questions or any
+   data point, so existing projects look unchanged. Confirm.
+7. **Similarity threshold and candidate count** for assignment are tuned on real
    transcripts, not designed here. Phase B includes a short calibration pass on
    a real project.
-6. **ASR confidence and audio-quality inputs** to quote selection depend on what
+8. **ASR confidence and audio-quality inputs** to quote selection depend on what
    the transcription provider returns; Phase C scopes what is actually
    available before promising it.
+9. **Phone Try comparison**: Live above Draft within each row, or one Live | Draft
+   toggle for the whole list?
 
-## 11. Decisions taken in review (2026-10-09)
+## 13. What review changed
 
-- **Trimming a clip happens in the piece editor**, from the block's ⋮ menu, per piece by
-  default (§5.6).
-
-- **A piece is written by hand by default; AI drafting from a format is optional** and
-  offered once, from an empty piece (the assistant can also draft on request). Creating a piece opens the editor
-  directly (§5.6).
-
-- **Everything must work on a phone.** No screen is desktop-only (§5.9).
-
-- **Research questions and background notes live in a Setup tab**, right-aligned.
-  Guidance is a `Steps` status inside Setup (Research questions · Add sources ·
-  Extract data points · Review themes), derived from the project's state and never
-  enforcing an order, because sources keep arriving and send a project back to
-  extraction. The ongoing guide is the Themes tab's "Waiting for you" strip, and a
-  run in progress uses `BatchRunPanel`; there is no persistent stepper across tabs.
+Decisions taken in review on 2026-10-09 that shaped this version, for anyone who
+read an earlier draft:
 
 - The unit is a **piece** made from a **format**; "deliverable" and "template" are
   retired as names.
-- Pieces are editable by hand, **blocks reorder**, and AI help is the existing
-  assistant, which may also **create** a piece from a format on request.
-- Data points and excerpts share the source workspace through a switch at the top
-  of the rail; one layer is drawn at a time. There is no separate Data points tab.
-- Research questions live in the project header, extraction is a status on source
-  cards, and a **Themes** tab is the cross-source place to work.
-- The screens use the app's existing components and tokens (TabNav, Segmented,
-  FilterChips, Table, Badge, ClipCard-style cards, ActionMenu, BatchRunPanel,
-  PlayerBar, SegmentRow); the one new visual is the lime evidence underline.
+- A piece is **written by hand by default**; AI drafting from a format is optional,
+  offered once from an empty piece, and starting over goes through the assistant.
+  There is no "Redraft" action.
+- Pieces are a block editor with visible insertion points, reorder, per-piece trim in
+  place, and versions; AI help is the existing assistant with page context and piece
+  capabilities, not a new surface.
+- Data points and excerpts share the source workspace through a switch at the top of
+  the rail, one layer at a time. There is no separate Data points tab, and no
+  "Suggested" pills where Accept and Reject buttons are present.
+- **Research questions and background notes moved to a Setup tab**; guidance is a
+  status inside Setup, not a persistent stepper. Extraction is a status on source
+  cards. A **Themes** tab is the cross-source place to work.
+- Editors maintain prompts and formats on one page; **Try this draft** is a full
+  flow with its own screen; formats have their own editor.
+- **Everything works on a phone.**
+- The screens use the app's existing components and tokens; excerpts stay gold and
+  evidence is lime.
