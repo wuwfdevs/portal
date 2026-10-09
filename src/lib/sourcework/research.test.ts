@@ -52,17 +52,35 @@ describe("hostLabel", () => {
 describe("dataPointTag", () => {
   const labels = new Map([["q1", "Q1"]]);
   it("names the question or the story element", () => {
-    expect(dataPointTag({ kind: "firsthand", relevance: "question", storyElement: null, questionId: "q1" }, labels)).toBe("Firsthand · Q1");
-    expect(dataPointTag({ kind: "secondhand", relevance: "story", storyElement: "place", questionId: null }, labels)).toBe("Secondhand · Story · Place");
+    expect(
+      dataPointTag(
+        { kind: "firsthand", relevance: "question", storyElement: null, questionId: "q1" },
+        labels,
+      ),
+    ).toBe("Firsthand · Q1");
+    expect(
+      dataPointTag(
+        { kind: "secondhand", relevance: "story", storyElement: "place", questionId: null },
+        labels,
+      ),
+    ).toBe("Secondhand · Story · Place");
   });
 });
 
 describe("spans", () => {
-  const temporal = (startMs: number, endMs: number): DataPointSpan => ({ kind: "temporal", startMs, endMs });
+  const temporal = (startMs: number, endMs: number): DataPointSpan => ({
+    kind: "temporal",
+    startMs,
+    endMs,
+  });
   it("formats one, several, and document spans", () => {
     expect(formatSpans([temporal(782_000, 791_000)])).toBe("13:02–13:11");
-    expect(formatSpans([temporal(761_000, 778_000), temporal(782_000, 786_000)])).toBe("12:41–12:58 · 13:02–13:06 · 2 spans");
-    expect(formatSpans([{ kind: "document", pageNumber: 3, firstBlockId: null, lastBlockId: null }])).toBe("p. 3");
+    expect(formatSpans([temporal(761_000, 778_000), temporal(782_000, 786_000)])).toBe(
+      "12:41–12:58 · 13:02–13:06 · 2 spans",
+    );
+    expect(
+      formatSpans([{ kind: "document", pageNumber: 3, firstBlockId: null, lastBlockId: null }]),
+    ).toBe("p. 3");
     expect(
       formatSpans([
         { kind: "document", pageNumber: 3, firstBlockId: null, lastBlockId: null },
@@ -73,7 +91,9 @@ describe("spans", () => {
   });
   it("finds the earliest start", () => {
     expect(firstStartMs([temporal(5, 9), temporal(2, 3)])).toBe(2);
-    expect(firstStartMs([{ kind: "document", pageNumber: 1, firstBlockId: null, lastBlockId: null }])).toBeNull();
+    expect(
+      firstStartMs([{ kind: "document", pageNumber: 1, firstBlockId: null, lastBlockId: null }]),
+    ).toBeNull();
   });
 });
 
@@ -85,7 +105,13 @@ describe("review", () => {
     { id: "4", status: "suggested" as const, relevance: "story" as const, spans: [] },
   ];
   it("counts what each chip shows", () => {
-    expect(reviewCounts(points)).toEqual({ total: 3, toReview: 2, accepted: 1, rejected: 1, story: 2 });
+    expect(reviewCounts(points)).toEqual({
+      total: 3,
+      toReview: 2,
+      accepted: 1,
+      rejected: 1,
+      story: 2,
+    });
   });
   it("filters", () => {
     expect(filterDataPoints(points, "to_review").map((p) => p.id)).toEqual(["1", "4"]);

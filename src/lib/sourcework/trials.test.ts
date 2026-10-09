@@ -8,7 +8,11 @@ import {
   type TrialPoint,
 } from "./trials";
 
-function point(unitIds: number[], claim = "c", relevance: "question" | "story" = "question"): TrialPoint {
+function point(
+  unitIds: number[],
+  claim = "c",
+  relevance: "question" | "story" = "question",
+): TrialPoint {
   return { claim, tag: "t", relevance, storyElement: null, spans: [], unitIds };
 }
 
@@ -54,14 +58,22 @@ describe("filters and counts", () => {
     expect(filterTrialRows(rows, "all")).toHaveLength(3);
   });
   it("describes a side like the design", () => {
-    expect(describeTrialSide([{ relevance: "question" }, { relevance: "story" }])).toBe("2 data points (1 responsive, 1 story)");
-    expect(describeTrialSide([{ relevance: "story" }])).toBe("1 data point (0 responsive, 1 story)");
+    expect(describeTrialSide([{ relevance: "question" }, { relevance: "story" }])).toBe(
+      "2 data points (1 responsive, 1 story)",
+    );
+    expect(describeTrialSide([{ relevance: "story" }])).toBe(
+      "1 data point (0 responsive, 1 story)",
+    );
   });
 });
 
 describe("parseTrialResults", () => {
   it("accepts a stored shape and refuses anything else", () => {
-    const stored = { live: { label: "Live v7", runId: null, points: [] }, draft: { label: "Draft", runId: null, points: [] }, rows: [] };
+    const stored = {
+      live: { label: "Live v7", runId: null, points: [] },
+      draft: { label: "Draft", runId: null, points: [] },
+      rows: [],
+    };
     expect(parseTrialResults(stored)).toEqual(stored);
     expect(parseTrialResults({})).toBeNull();
     expect(parseTrialResults(null)).toBeNull();

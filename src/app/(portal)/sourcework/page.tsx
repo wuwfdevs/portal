@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { TabNav } from "@/components/ui/tab-nav";
-import { requireToolAccess } from "@/lib/auth/authz";
+import { requireSourceworkContext } from "@/lib/sourcework/access";
 import {
   countProjectFilters,
   listProjectsPage,
@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { pluralize } from "@/lib/format";
 import { withQuery } from "@/lib/paths";
 
@@ -42,7 +42,8 @@ const FILTER_LABEL: Record<ProjectListFilter, string> = {
 const EMPTY_MESSAGE: Record<ProjectListFilter, string> = {
   all: "No projects yet. Start one, then add interviews and documents to it.",
   mine: "You haven’t started any projects yet.",
-  attention: "Nothing needs attention: every source uploaded and processed.",
+  attention:
+    "Nothing needs attention: every source is processed and no data points are waiting for review.",
   empty: "Every project has at least one source.",
 };
 
@@ -57,7 +58,7 @@ export default async function TranscriptionListPage({
     page?: string;
   }>;
 }) {
-  const { profile } = await requireToolAccess("transcription");
+  const { profile, isEditor } = await requireSourceworkContext();
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
   const activeTab: Tab =
@@ -98,6 +99,11 @@ export default async function TranscriptionListPage({
         title="Sourcework"
         description="Every interview here is shared with the rest of the team — search past projects to reuse a quote, or start a new one."
         className="mb-8"
+        actions={
+          isEditor ? (
+            <SecondaryLink href="/sourcework/editors">Research prompts</SecondaryLink>
+          ) : undefined
+        }
       />
 
       <form method="get" className="mb-6 max-w-xl">

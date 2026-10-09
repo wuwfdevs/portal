@@ -32,7 +32,11 @@ export function parseStreamBuffer(buffer: string): { events: ExtractStreamEvent[
       continue;
     }
     const event = parsed as Partial<ExtractStreamEvent> | null;
-    if (event?.type === "progress" && typeof event.done === "number" && typeof event.total === "number") {
+    if (
+      event?.type === "progress" &&
+      typeof event.done === "number" &&
+      typeof event.total === "number"
+    ) {
       events.push({ type: "progress", done: event.done, total: event.total });
     } else if (event?.type === "result" && event.ok === true) {
       const ok = event as Extract<ExtractStreamEvent, { type: "result"; ok: true }>;
@@ -45,7 +49,11 @@ export function parseStreamBuffer(buffer: string): { events: ExtractStreamEvent[
       });
     } else if (event?.type === "result" && event.ok === false) {
       const failed = event as Extract<ExtractStreamEvent, { type: "result"; ok: false }>;
-      events.push({ type: "result", ok: false, error: String(failed.error ?? "Extraction failed.") });
+      events.push({
+        type: "result",
+        ok: false,
+        error: String(failed.error ?? "Extraction failed."),
+      });
     }
   }
   return { events, rest };
@@ -58,7 +66,8 @@ export function progressDetail(done: number, total: number): string | null {
 }
 
 export type ExtractClientResult =
-  { ok: true; added: number; skippedReviewed: number; dropped: number } | { ok: false; error: string; retryable: boolean };
+  | { ok: true; added: number; skippedReviewed: number; dropped: number }
+  | { ok: false; error: string; retryable: boolean };
 
 /**
  * Runs one source's extraction from the browser and reports its progress. A
@@ -80,7 +89,11 @@ export async function requestExtraction(args: {
       signal: args.signal,
     });
   } catch {
-    return { ok: false, error: "The connection dropped before extraction finished.", retryable: true };
+    return {
+      ok: false,
+      error: "The connection dropped before extraction finished.",
+      retryable: true,
+    };
   }
   if (!response.ok || !response.body) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -103,13 +116,22 @@ export async function requestExtraction(args: {
       for (const event of parsed.events) {
         if (event.type === "progress") args.onProgress?.(event.done, event.total);
         else if (event.ok) {
-          return { ok: true, added: event.added, skippedReviewed: event.skippedReviewed, dropped: event.dropped };
+          return {
+            ok: true,
+            added: event.added,
+            skippedReviewed: event.skippedReviewed,
+            dropped: event.dropped,
+          };
         } else return { ok: false, error: event.error, retryable: false };
       }
       if (done) break;
     }
   } catch {
-    return { ok: false, error: "The connection dropped before extraction finished.", retryable: true };
+    return {
+      ok: false,
+      error: "The connection dropped before extraction finished.",
+      retryable: true,
+    };
   }
   return { ok: false, error: "The connection closed before extraction finished.", retryable: true };
 }

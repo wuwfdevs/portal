@@ -83,7 +83,9 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
   },
 ];
 
-export function promptSlotDefinition(value: string | null | undefined): PromptSlotDefinition | null {
+export function promptSlotDefinition(
+  value: string | null | undefined,
+): PromptSlotDefinition | null {
   return PROMPT_SLOTS.find((definition) => definition.slot === value) ?? null;
 }
 
@@ -102,7 +104,10 @@ export function validatePromptBody(slot: PromptSlot, raw: string): PromptValidat
   const body = raw.replace(/\r\n/g, "\n").trim();
   if (body === "") return { ok: false, error: "A prompt can't be empty." };
   if (body.length > PROMPT_BODY_MAX) {
-    return { ok: false, error: `A prompt can be at most ${PROMPT_BODY_MAX.toLocaleString("en-US")} characters.` };
+    return {
+      ok: false,
+      error: `A prompt can be at most ${PROMPT_BODY_MAX.toLocaleString("en-US")} characters.`,
+    };
   }
   const placeholder = /\{\{\s*([^{}]*?)\s*\}\}/.exec(body);
   if (placeholder) {
@@ -115,7 +120,9 @@ export function validatePromptBody(slot: PromptSlot, raw: string): PromptValidat
 }
 
 /** The one-line note a publish asks for; blank is allowed, over-long is trimmed by the caller's error. */
-export function validatePublishNote(raw: string): { ok: true; note: string } | { ok: false; error: string } {
+export function validatePublishNote(
+  raw: string,
+): { ok: true; note: string } | { ok: false; error: string } {
   const note = raw.trim();
   if (note.length > PROMPT_NOTE_MAX) {
     return { ok: false, error: `Keep the note under ${PROMPT_NOTE_MAX} characters.` };

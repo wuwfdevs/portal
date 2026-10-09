@@ -32,7 +32,9 @@ function revalidateSource(projectId: string, sourceId: string) {
 
 // Questions ---------------------------------------------------------------------------
 
-function validQuestionText(raw: unknown): { ok: true; text: string } | { ok: false; error: string } {
+function validQuestionText(
+  raw: unknown,
+): { ok: true; text: string } | { ok: false; error: string } {
   const text = typeof raw === "string" ? collapseWhitespace(raw) : "";
   if (text === "") return { ok: false, error: "Write the question first." };
   if (text.length > QUESTION_MAX) {
@@ -62,7 +64,9 @@ export async function addResearchQuestion(input: {
   }
   const active = existing.data.filter((row) => row.archived_at === null).length;
   if (active >= QUESTION_LIMIT) {
-    return actionError(`A project can have ${QUESTION_LIMIT} questions at a time. Archive one to add another.`);
+    return actionError(
+      `A project can have ${QUESTION_LIMIT} questions at a time. Archive one to add another.`,
+    );
   }
   const position = existing.data.reduce((max, row) => Math.max(max, row.position + 1), 0);
 
@@ -116,7 +120,11 @@ export async function moveResearchQuestion(input: {
   }
   const supabase = await createClient();
 
-  const target = await supabase.from("sw_research_questions").select("project_id").eq("id", id).maybeSingle();
+  const target = await supabase
+    .from("sw_research_questions")
+    .select("project_id")
+    .eq("id", id)
+    .maybeSingle();
   if (target.error || !target.data) return actionError("That question doesn't exist.");
   const projectId = target.data.project_id;
 
@@ -129,7 +137,12 @@ export async function moveResearchQuestion(input: {
     return actionError("Couldn't move the question. Try again.");
   }
   const ordered = all.data
-    .map((row) => ({ id: row.id, position: row.position, createdAt: row.created_at, archived: row.archived_at !== null }))
+    .map((row) => ({
+      id: row.id,
+      position: row.position,
+      createdAt: row.created_at,
+      archived: row.archived_at !== null,
+    }))
     .sort(compareQuestions);
   const nextOrder = moveAmongActive(ordered, id, input.direction);
   if (!nextOrder) return actionOk();
@@ -144,7 +157,10 @@ export async function moveResearchQuestion(input: {
     ),
   );
   if (results.some((result) => result.error)) {
-    console.error("Could not reorder research questions:", results.map((r) => r.error));
+    console.error(
+      "Could not reorder research questions:",
+      results.map((r) => r.error),
+    );
     return actionError("Couldn't move the question. Try again.");
   }
   revalidateProject(projectId);
@@ -247,7 +263,8 @@ export async function editDataPoint(input: { id: string; claim: string }): Promi
   if (!id) return actionError("That data point doesn't exist.");
   const claim = typeof input.claim === "string" ? collapseWhitespace(input.claim) : "";
   if (claim === "") return actionError("A data point needs some words.");
-  if (claim.length > CLAIM_MAX) return actionError(`Keep a data point under ${CLAIM_MAX} characters.`);
+  if (claim.length > CLAIM_MAX)
+    return actionError(`Keep a data point under ${CLAIM_MAX} characters.`);
 
   const supabase = await createClient();
   const updated = await supabase

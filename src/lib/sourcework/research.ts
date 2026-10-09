@@ -64,9 +64,7 @@ interface QuestionOrderRow {
 /** Position, then creation time, then id — the one order a project's questions are listed and numbered in. */
 export function compareQuestions(a: QuestionOrderRow, b: QuestionOrderRow): number {
   return (
-    a.position - b.position ||
-    a.createdAt.localeCompare(b.createdAt) ||
-    a.id.localeCompare(b.id)
+    a.position - b.position || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
   );
 }
 

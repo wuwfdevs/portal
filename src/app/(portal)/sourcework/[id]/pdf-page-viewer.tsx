@@ -33,6 +33,7 @@ export function PdfPageViewer({
   scale,
   fitWidth,
   highlightBbox,
+  evidenceBoxes,
   onLoadError,
   onLoadPageCount,
 }: {
@@ -58,6 +59,13 @@ export function PdfPageViewer({
    * without recomputation. Null/undefined hides it.
    */
   highlightBbox?: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** Data point evidence on this page: lime boxes, dashed while unreviewed, ringed when selected. */
+  evidenceBoxes?: {
+    id: string;
+    bbox: { x0: number; y0: number; x1: number; y1: number };
+    dashed: boolean;
+    selected: boolean;
+  }[];
   onLoadError?: (message: string) => void;
   /** The PDF's own page count. The workspace normally paginates by the extracted sw_document_pages rows, but when extraction failed there are none — this is the only page count available. */
   onLoadPageCount?: (pageCount: number) => void;
@@ -91,6 +99,21 @@ export function PdfPageViewer({
             renderAnnotationLayer={false}
             loading={<p className="p-4 text-sm text-ink-500">Loading page…</p>}
           />
+          {evidenceBoxes?.map((box) => (
+            <div
+              key={box.id}
+              data-evidence-box={box.id}
+              className={`pointer-events-none absolute border-2 border-evidence-line ${
+                box.dashed ? "border-dashed" : ""
+              } ${box.selected ? "bg-evidence-line/30 ring-2 ring-evidence-text" : "bg-evidence-line/15"}`}
+              style={{
+                left: `${box.bbox.x0 * 100}%`,
+                top: `${box.bbox.y0 * 100}%`,
+                width: `${Math.max(0, (box.bbox.x1 - box.bbox.x0) * 100)}%`,
+                height: `${Math.max(0, (box.bbox.y1 - box.bbox.y0) * 100)}%`,
+              }}
+            />
+          ))}
           {highlightBbox && (
             <div
               className="pointer-events-none absolute border-2 border-brand-primary bg-brand-primary/20"

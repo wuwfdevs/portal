@@ -56,7 +56,9 @@ export async function startRun(
       .eq("kind", args.kind)
       .eq("trial", false)
       .eq("status", "running");
-    existing = args.sourceId ? existing.eq("source_id", args.sourceId) : existing.is("source_id", null);
+    existing = args.sourceId
+      ? existing.eq("source_id", args.sourceId)
+      : existing.is("source_id", null);
     const found = await existing.maybeSingle();
     if (found.error) {
       console.error("Could not read the running research run:", found.error);
@@ -102,7 +104,9 @@ export async function finishRun(
     .update({
       status: outcome.status,
       counts: (outcome.counts ?? {}) as never,
-      ...(outcome.status === "succeeded" && outcome.queries ? { queries: outcome.queries as never } : {}),
+      ...(outcome.status === "succeeded" && outcome.queries
+        ? { queries: outcome.queries as never }
+        : {}),
       error: outcome.status === "failed" ? outcome.error : null,
       finished_at: new Date().toISOString(),
     })

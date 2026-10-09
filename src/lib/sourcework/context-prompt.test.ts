@@ -34,7 +34,10 @@ describe("extractCandidateTerms", () => {
   });
 
   it("respects the limit", () => {
-    const many = Array.from({ length: 60 }, (_, i) => `Fort Number${String.fromCharCode(65 + (i % 26))}${i}`).join(". ");
+    const many = Array.from(
+      { length: 60 },
+      (_, i) => `Fort Number${String.fromCharCode(65 + (i % 26))}${i}`,
+    ).join(". ");
     expect(extractCandidateTerms([many], { limit: 10 })).toHaveLength(10);
   });
 });
@@ -57,12 +60,18 @@ describe("buildContextInput", () => {
     const schema = buildContextOutputSchema() as {
       properties: { notes: { items: { required: string[]; properties: object } } };
     };
-    expect(schema.properties.notes.items.required.sort()).toEqual(Object.keys(schema.properties.notes.items.properties).sort());
+    expect(schema.properties.notes.items.required.sort()).toEqual(
+      Object.keys(schema.properties.notes.items.properties).sort(),
+    );
   });
 });
 
 describe("parseContextOutput", () => {
-  const note = { title: "Fort Barrancas", summary: "A fort.", url: "https://www.nps.gov/pere/fort.htm" };
+  const note = {
+    title: "Fort Barrancas",
+    summary: "A fort.",
+    url: "https://www.nps.gov/pere/fort.htm",
+  };
   const raw = (notes: unknown[]) => JSON.stringify({ notes });
 
   it("reads good notes and names their site", () => {
@@ -92,7 +101,11 @@ describe("parseContextOutput", () => {
     expect(result.notes.map((n) => n.title)).toEqual(["Fort Barrancas"]);
   });
   it("caps at eight notes", () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ title: `Subject ${i}`, summary: "x", url: `https://a.org/${i}` }));
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      title: `Subject ${i}`,
+      summary: "x",
+      url: `https://a.org/${i}`,
+    }));
     expect(parseContextOutput(raw(many)).notes).toHaveLength(8);
   });
   it("treats garbage as no notes", () => {
@@ -126,12 +139,23 @@ describe("contextNeedsRefresh", () => {
     expect(contextNeedsRefresh({ questions, lastRun: null })).toBe(true);
   });
   it("leaves a running run alone and retries a failed one", () => {
-    expect(contextNeedsRefresh({ questions, lastRun: { status: "running", fingerprint: null } })).toBe(false);
-    expect(contextNeedsRefresh({ questions, lastRun: { status: "failed", fingerprint: null } })).toBe(true);
+    expect(
+      contextNeedsRefresh({ questions, lastRun: { status: "running", fingerprint: null } }),
+    ).toBe(false);
+    expect(
+      contextNeedsRefresh({ questions, lastRun: { status: "failed", fingerprint: null } }),
+    ).toBe(true);
   });
   it("refreshes only when the questions changed since a good run", () => {
-    expect(contextNeedsRefresh({ questions, lastRun: { status: "succeeded", fingerprint } })).toBe(false);
-    expect(contextNeedsRefresh({ questions: [...questions, "And?"], lastRun: { status: "succeeded", fingerprint } })).toBe(true);
+    expect(contextNeedsRefresh({ questions, lastRun: { status: "succeeded", fingerprint } })).toBe(
+      false,
+    );
+    expect(
+      contextNeedsRefresh({
+        questions: [...questions, "And?"],
+        lastRun: { status: "succeeded", fingerprint },
+      }),
+    ).toBe(true);
     expect(questionsFingerprint(["  WHAT was it like? "])).toBe(fingerprint);
   });
 });

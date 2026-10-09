@@ -93,7 +93,10 @@ export function extractionLine(
     case "done":
       if (state.total === 0) return { text: "No data points found" };
       return state.toReview > 0
-        ? { text: `${pluralize(state.total, "data point")} · `, strong: `${state.toReview} to review` }
+        ? {
+            text: `${pluralize(state.total, "data point")} · `,
+            strong: `${state.toReview} to review`,
+          }
         : { text: `${pluralize(state.total, "data point")} · all reviewed` };
   }
 }
@@ -129,7 +132,9 @@ export function projectStanding(input: {
   const processing = extractable.filter((source) => source.state.kind === "waiting");
   const running = sources.filter((source) => source.state.kind === "running");
   const extracted = extractable.filter((source) => source.state.kind === "done");
-  const needing = extractable.filter((source) => canExtract(source.state) && source.state.kind !== "done");
+  const needing = extractable.filter(
+    (source) => canExtract(source.state) && source.state.kind !== "done",
+  );
 
   const hasQuestions = questionCount > 0;
   const hasSources = total > 0;
@@ -188,7 +193,9 @@ export function projectStanding(input: {
     };
   }
 
-  const parts: string[] = [`${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} extracted.`];
+  const parts: string[] = [
+    `${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} extracted.`,
+  ];
   if (running.length > 0) {
     parts.push(
       running.length === 1
@@ -205,9 +212,7 @@ export function projectStanding(input: {
     );
   }
   if (needing.length > 0 && processing.length === 0 && running.length === 0) {
-    parts.push(
-      `${needing.length === 1 ? "One is" : `${needing.length} are`} ready to extract.`,
-    );
+    parts.push(`${needing.length === 1 ? "One is" : `${needing.length} are`} ready to extract.`);
   }
   return { steps, message: parts.join(" "), link: { label: "Go to Sources", to: "sources" } };
 }

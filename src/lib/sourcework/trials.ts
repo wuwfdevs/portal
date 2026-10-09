@@ -64,7 +64,9 @@ export function matchTrialPoints(
     });
   });
   // Closest match first: whole-passage agreement beats one point sitting inside another.
-  candidates.sort((a, b) => b.similarity - a.similarity || b.ratio - a.ratio || a.l - b.l || a.d - b.d);
+  candidates.sort(
+    (a, b) => b.similarity - a.similarity || b.ratio - a.ratio || a.l - b.l || a.d - b.d,
+  );
 
   const livePaired = new Set<number>();
   const draftPaired = new Set<number>();
@@ -73,13 +75,18 @@ export function matchTrialPoints(
     if (livePaired.has(l) || draftPaired.has(d)) continue;
     livePaired.add(l);
     draftPaired.add(d);
-    rows.push({ row: { group: "both", live: live[l]!, draft: draft[d]! }, at: firstUnit(live[l]!) });
+    rows.push({
+      row: { group: "both", live: live[l]!, draft: draft[d]! },
+      at: firstUnit(live[l]!),
+    });
   }
   live.forEach((point, l) => {
-    if (!livePaired.has(l)) rows.push({ row: { group: "live_only", live: point, draft: null }, at: firstUnit(point) });
+    if (!livePaired.has(l))
+      rows.push({ row: { group: "live_only", live: point, draft: null }, at: firstUnit(point) });
   });
   draft.forEach((point, d) => {
-    if (!draftPaired.has(d)) rows.push({ row: { group: "draft_only", live: null, draft: point }, at: firstUnit(point) });
+    if (!draftPaired.has(d))
+      rows.push({ row: { group: "draft_only", live: null, draft: point }, at: firstUnit(point) });
   });
 
   return rows.sort((a, b) => a.at - b.at).map((entry) => entry.row);

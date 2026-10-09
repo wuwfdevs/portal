@@ -26,6 +26,14 @@ const config: Config = {
           hover: "#FBF2D2",
           selected: "#FBEFC0",
         },
+        // Words and blocks a data point points at (Sourcework analysis). Lime, so
+        // it never reads as an excerpt (gold) or the playhead (blue).
+        evidence: {
+          line: "#C0E040",
+          hover: "#F6FAE0",
+          selected: "#EEF6CC",
+          text: "#5D7A16",
+        },
         panel: {
           50: "#F5F7F9",
           100: "#ECEFF2",

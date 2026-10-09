@@ -16,6 +16,8 @@ import { pluralize } from "@/lib/format";
 const SKIP_MS = 5000;
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
 
+export type StripMark = RangeLike & { title: string; dashed?: boolean };
+
 /**
  * The persistent compact transport the design asks for (§4): play/pause,
  * time, seek, speed — plus the ±5s jump that re-hearing a phrase depends on
@@ -38,14 +40,17 @@ export function PlayerBar({
   onToggleFollow,
   marks = [],
   onSelectMark,
+  tone = "excerpt",
 }: {
   mediaRef: RefObject<HTMLMediaElement | null>;
   follow: boolean;
   onToggleFollow: () => void;
   /** Where the saved excerpts sit, drawn under the scrubber. */
-  marks?: (RangeLike & { title: string })[];
+  marks?: StripMark[];
   /** A click on one excerpt's mark (not on a merged stretch). */
   onSelectMark?: (clipId: string) => void;
+  /** "evidence" draws the marks as data points: lime, dashed while unreviewed. */
+  tone?: "excerpt" | "evidence";
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [currentMs, setCurrentMs] = useState(0);
@@ -170,6 +175,7 @@ export function PlayerBar({
         />
         <ScrubberStrip
           marks={marks}
+          tone={tone}
           durationMs={durationMs}
           view={view}
           onSelectMark={onSelectMark}
@@ -293,12 +299,14 @@ function TransportButton({
  */
 function ScrubberStrip({
   marks,
+  tone,
   durationMs,
   view,
   onSelectMark,
   onZoomBin,
 }: {
-  marks: (RangeLike & { title: string })[];
+  marks: StripMark[];
+  tone: "excerpt" | "evidence";
   durationMs: number;
   view: ScrubberWindow;
   onSelectMark?: (clipId: string) => void;
@@ -309,10 +317,13 @@ function ScrubberStrip({
     [marks, durationMs, view],
   );
   const titleById = useMemo(() => new Map(marks.map((mark) => [mark.id, mark.title])), [marks]);
+  const dashedById = useMemo(() => new Map(marks.map((mark) => [mark.id, mark.dashed])), [marks]);
   if (marks.length === 0 || durationMs <= 0) return null;
+  const noun = tone === "evidence" ? "data point" : "excerpt";
+  const fill = tone === "evidence" ? "bg-evidence-line" : "bg-clipped-line";
 
   return (
-    <div className="relative h-2.5" aria-label={`${marks.length} excerpts on the recording`}>
+    <div className="relative h-2.5" aria-label={`${marks.length} ${noun}s on the recording`}>
       {merged.mode === "marks"
         ? merged.marks.map((mark) => (
             <button
@@ -320,8 +331,13 @@ function ScrubberStrip({
               type="button"
               onClick={() => onSelectMark?.(mark.id)}
               title={titleById.get(mark.id)}
-              aria-label={`Excerpt: ${titleById.get(mark.id) ?? ""}`}
-              className="absolute inset-y-0 rounded-sm bg-clipped-line hover:brightness-90"
+              aria-label={`${noun === "excerpt" ? "Excerpt" : "Data point"}: ${titleById.get(mark.id) ?? ""}`}
+              className={cn(
+                "absolute inset-y-0 rounded-sm hover:brightness-90",
+                dashedById.get(mark.id)
+                  ? "border border-dashed border-evidence-text bg-evidence-selected"
+                  : fill,
+              )}
               style={{ left: `${mark.left}%`, width: `${mark.width}%` }}
             />
           ))
@@ -331,9 +347,9 @@ function ScrubberStrip({
                 key={bin.left}
                 type="button"
                 onClick={() => onZoomBin(bin)}
-                title={`${pluralize(bin.count, "excerpt")} here. Select to zoom in.`}
-                aria-label={`${bin.count} excerpts from ${formatDuration(bin.startMs)} to ${formatDuration(bin.endMs)}. Zoom in.`}
-                className="absolute inset-y-0 bg-clipped-line"
+                title={`${pluralize(bin.count, noun)} here. Select to zoom in.`}
+                aria-label={`${bin.count} ${noun}s from ${formatDuration(bin.startMs)} to ${formatDuration(bin.endMs)}. Zoom in.`}
+                className={cn("absolute inset-y-0", fill)}
                 style={{
                   left: `${bin.left}%`,
                   width: `${bin.width}%`,

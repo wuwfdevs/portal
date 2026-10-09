@@ -109,7 +109,8 @@ export async function runTrial(args: {
       .from("sw_prompt_trials")
       .update({ status: "failed", error, finished_at: new Date().toISOString() })
       .eq("id", trialId);
-    for (const runId of runIds) if (runId) await finishRun(supabase, runId, { status: "failed", error });
+    for (const runId of runIds)
+      if (runId) await finishRun(supabase, runId, { status: "failed", error });
     return { ok: false, error };
   }
 
@@ -148,8 +149,18 @@ export async function runTrial(args: {
     if (saved.error) throw new Error(saved.error.message);
 
     await Promise.all([
-      runIds[0] ? finishRun(supabase, runIds[0], { status: "succeeded", counts: { side: "live", added: liveSide.points.length } }) : null,
-      runIds[1] ? finishRun(supabase, runIds[1], { status: "succeeded", counts: { side: "draft", added: draftSide.points.length } }) : null,
+      runIds[0]
+        ? finishRun(supabase, runIds[0], {
+            status: "succeeded",
+            counts: { side: "live", added: liveSide.points.length },
+          })
+        : null,
+      runIds[1]
+        ? finishRun(supabase, runIds[1], {
+            status: "succeeded",
+            counts: { side: "draft", added: draftSide.points.length },
+          })
+        : null,
     ]);
     return { ok: true, trialId };
   } catch (error) {

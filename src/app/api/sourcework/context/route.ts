@@ -18,7 +18,10 @@ export async function POST(request: Request): Promise<Response> {
   const guard = await guardRoute(assertSourceworkContext);
   if (!guard.ok) return guard.response;
 
-  const body = (await request.json().catch(() => null)) as { projectId?: unknown; force?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as {
+    projectId?: unknown;
+    force?: unknown;
+  } | null;
   const projectId = uuidParam(body?.projectId);
   if (!projectId) return NextResponse.json({ error: "Choose a project." }, { status: 400 });
 

@@ -14,7 +14,8 @@ import {
   type ExtractionUnit,
 } from "./extraction-units";
 
-const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
+const fmt = (ms: number) =>
+  `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 
 function segment(startMs: number, text: string, speakerLabel = "Tom Reyes") {
   const texts = text.split(/\s+/);
@@ -142,7 +143,13 @@ describe("mergeRanges / resolveSpans", () => {
   it("makes one time span per run of transcript units", () => {
     const { units } = buildTranscriptUnits([segment(0, "One. Two. Three. Four.")], fmt);
     const byId = new Map(units.map((unit) => [unit.id, unit]));
-    const spans = resolveSpans([{ from: 1, to: 2 }, { from: 4, to: 4 }], byId);
+    const spans = resolveSpans(
+      [
+        { from: 1, to: 2 },
+        { from: 4, to: 4 },
+      ],
+      byId,
+    );
     expect(spans).toEqual([
       { kind: "temporal", startMs: 0, endMs: units[1]!.endMs },
       { kind: "temporal", startMs: units[3]!.startMs, endMs: units[3]!.endMs },
@@ -166,7 +173,10 @@ describe("mergeRanges / resolveSpans", () => {
 describe("unitIdsForSpan", () => {
   it("finds the transcript units a time span overlaps", () => {
     const { units } = buildTranscriptUnits([segment(0, "One. Two. Three.")], fmt);
-    const ids = unitIdsForSpan({ kind: "temporal", startMs: units[1]!.startMs!, endMs: units[2]!.endMs! }, units);
+    const ids = unitIdsForSpan(
+      { kind: "temporal", startMs: units[1]!.startMs!, endMs: units[2]!.endMs! },
+      units,
+    );
     expect([...ids]).toEqual([2, 3]);
   });
 
@@ -176,8 +186,18 @@ describe("unitIdsForSpan", () => {
       { id: "b", pageNumber: 1, blockType: "paragraph", text: "B." },
       { id: "c", pageNumber: 1, blockType: "paragraph", text: "C." },
     ]);
-    expect([...unitIdsForSpan({ kind: "document", pageNumber: 1, firstBlockId: "b", lastBlockId: "c" }, units)]).toEqual([2, 3]);
-    expect([...unitIdsForSpan({ kind: "document", pageNumber: 1, firstBlockId: null, lastBlockId: null }, units)]).toEqual([1, 2, 3]);
+    expect([
+      ...unitIdsForSpan(
+        { kind: "document", pageNumber: 1, firstBlockId: "b", lastBlockId: "c" },
+        units,
+      ),
+    ]).toEqual([2, 3]);
+    expect([
+      ...unitIdsForSpan(
+        { kind: "document", pageNumber: 1, firstBlockId: null, lastBlockId: null },
+        units,
+      ),
+    ]).toEqual([1, 2, 3]);
   });
 });
 

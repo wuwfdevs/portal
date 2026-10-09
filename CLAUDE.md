@@ -422,6 +422,24 @@ through the existing `updateClipTrim`. (4) Only temporal excerpts can be actuali
 `20261011120000` (schema) and `20261011130000` (Resources content) are applied to both projects. Phase E (formats, Draft with AI, the
 assistant) and the `format_version_id` column are not built.
 
+**Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
+`docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
+(`?view=setup`) holds its research questions, the web background notes the model gathered (background
+only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source is
+**extracted** into data points (`/api/sourcework/extract`, `extraction-run.ts`) and reviewed in the source
+workspace through an **Excerpts | Data points** switch (lime marks; dashed = unreviewed). Four things are
+load-bearing: (1) **the model returns numbered passage units, never text** — `extraction-units.ts` derives
+timestamps or page/block ids, and `parseExtractionOutput` drops anything it can't verify; (2) **a run
+replaces only `suggested` points** and never re-suggests onto a passage a person already decided on;
+(3) **prompts are editor-owned language over a fixed schema** — role `editor` on the `transcription` tool
+(`private.is_sourcework_editor`, a stacking role), `/sourcework/editors`, versions insert-only with a live
+pointer, publish via `sw_publish_prompt()` and audited; no published version means the built-in text in code;
+(4) **everything needs `OPENAI_API_KEY`** except building by hand. Migrations `20261012120000` (schema; it
+drops five empty legacy tables behind a guard) and `20261012130000` (Resources content) are **written but not
+applied** to either project — the Supabase MCP tool hangs on statements containing `drop`, so run them in the
+SQL editor, preview first, then record both dates in `APPLIED.md`. Nothing here has run against a live
+Supabase or OpenAI.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

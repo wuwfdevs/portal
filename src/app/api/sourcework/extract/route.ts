@@ -28,7 +28,10 @@ export async function POST(request: Request): Promise<Response> {
   const projectId = uuidParam(body?.projectId);
   const sourceId = uuidParam(body?.sourceId);
   if (!projectId || !sourceId) {
-    return NextResponse.json({ error: "Choose a source in a project to extract." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Choose a source in a project to extract." },
+      { status: 400 },
+    );
   }
 
   const userId = guard.value.profile.id;

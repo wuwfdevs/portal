@@ -80,6 +80,18 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/sourcework/:id/pieces/:pieceId"],
   },
   {
+    key: "sourcework.setup",
+    name: "Project setup",
+    toolKey: "transcription",
+    paths: ["/sourcework/:id?view=setup"],
+  },
+  {
+    key: "sourcework.editors",
+    name: "Research prompts",
+    toolKey: "transcription",
+    paths: ["/sourcework/editors", "/sourcework/editors/try"],
+  },
+  {
     key: "sourcework.sources",
     name: "Source Library",
     toolKey: "transcription",

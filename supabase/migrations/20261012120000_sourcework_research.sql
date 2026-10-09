@@ -13,6 +13,39 @@
 -- (a stacking role, tool_access.tool_roles), which maintains the prompts every
 -- project's runs use — private.is_sourcework_editor().
 
+-- Superseded tables ------------------------------------------------------------
+-- Both hosted projects carried five tables from an earlier, abandoned sketch of
+-- this phase (sw_research_questions with `prompt`/`active`, sw_data_points,
+-- sw_data_point_excerpts, sw_themes, sw_theme_data_points). No migration in this
+-- directory ever created them, no application code reads them, and both projects
+-- held zero rows in every one when this was written (checked 2026-10-12). The
+-- shapes differ from the design in docs/sourcework-analysis-design.md §4, so they
+-- are replaced rather than altered. The guard makes the migration refuse, loudly,
+-- if any of them has since gained a row; Phase B recreates the theme tables.
+do $$
+declare
+  t text;
+  n bigint;
+begin
+  foreach t in array array[
+    'sw_theme_data_points', 'sw_themes', 'sw_data_point_excerpts',
+    'sw_data_points', 'sw_research_questions'
+  ] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('select count(*) from public.%I', t) into n;
+      if n > 0 then
+        raise exception 'public.% holds % rows; refusing to replace it', t, n;
+      end if;
+    end if;
+  end loop;
+end $$;
+
+drop table if exists public.sw_theme_data_points cascade;
+drop table if exists public.sw_themes cascade;
+drop table if exists public.sw_data_point_excerpts cascade;
+drop table if exists public.sw_data_points cascade;
+drop table if exists public.sw_research_questions cascade;
+
 -- The elevation ---------------------------------------------------------------
 create function private.is_sourcework_editor(uid uuid)
 returns boolean
@@ -277,6 +310,59 @@ revoke all on public.sw_data_point_counts from anon;
 revoke all on public.sw_data_point_question_counts from anon;
 grant select on public.sw_data_point_counts to authenticated;
 grant select on public.sw_data_point_question_counts to authenticated;
+
+-- The Projects list ---------------------------------------------------------------------------
+-- "Needs attention" also counts data points awaiting a decision
+-- (docs/sourcework-analysis-design.md §7.1). review_count is appended to the view the list
+-- already reads; security_invoker still applies the caller's RLS to sw_data_points.
+create or replace view public.sw_project_overview
+with (security_invoker = true) as
+select
+  p.id,
+  p.title,
+  p.description,
+  p.created_at,
+  p.created_by,
+  pr.display_name as started_by_name,
+  coalesce(src.source_count, 0) as source_count,
+  coalesce(src.failed_count, 0) as failed_count,
+  coalesce(src.active_count, 0) as active_count,
+  coalesce(exc.excerpt_count, 0) as excerpt_count,
+  greatest(p.updated_at, src.last_source_at, exc.last_excerpt_at) as last_activity,
+  -- Appended last: create or replace view can add columns only at the end.
+  coalesce(rev.review_count, 0) as review_count
+from public.tw_projects p
+left join public.profiles pr on pr.id = p.created_by
+left join lateral (
+  select
+    count(distinct s.id)::integer as source_count,
+    -- A source whose upload failed, or whose transcript/text extraction did.
+    count(distinct s.id) filter (where s.status = 'failed' or r.status = 'failed')::integer
+      as failed_count,
+    -- Still on its way: uploading, or uploaded and not yet processed.
+    count(distinct s.id) filter (
+      where s.status = 'uploading' or (s.status = 'ready' and r.status in ('pending', 'processing'))
+    )::integer as active_count,
+    max(s.created_at) as last_source_at
+  from public.sw_project_sources ps
+  join public.sw_sources s on s.id = ps.source_id
+  left join public.sw_representations r
+    on r.source_id = s.id and r.kind in ('transcript', 'document_text')
+  where ps.project_id = p.id
+) src on true
+left join lateral (
+  select count(*)::integer as excerpt_count, max(e.created_at) as last_excerpt_at
+  from public.sw_source_excerpts e
+  where e.source_id in (
+    select ps2.source_id from public.sw_project_sources ps2 where ps2.project_id = p.id
+  )
+) exc on true
+left join lateral (
+  -- Data points a person has yet to decide on (Sourcework research, §7.1: "needs attention").
+  select count(*)::integer as review_count
+  from public.sw_data_points d
+  where d.project_id = p.id and d.status = 'suggested'
+) rev on true;
 
 -- Accepted ÷ reviewed, per prompt version (§8): a data point a person has decided on
 -- counts, one still waiting does not. A null version is the built-in text.

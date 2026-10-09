@@ -18,7 +18,12 @@ export interface SourceworkContext {
 
 async function contextFor(profile: Profile, tool: Tool): Promise<SourceworkContext> {
   const roles = parseSourceworkRoles((await lookupToolGrant(profile, tool)).roles);
-  return { profile, tool, roles, isEditor: roles.includes("editor") || isPlatformAdministrator(profile) };
+  return {
+    profile,
+    tool,
+    roles,
+    isEditor: roles.includes("editor") || isPlatformAdministrator(profile),
+  };
 }
 
 /** Page gate for a screen that needs to know whether the viewer is an editor. */

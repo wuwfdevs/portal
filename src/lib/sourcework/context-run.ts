@@ -11,7 +11,12 @@ import {
   questionsFingerprint,
   selectNewNotes,
 } from "./context-prompt";
-import { getLivePrompt, listContextNotes, listProjectRuns, listResearchQuestions } from "./research-queries";
+import {
+  getLivePrompt,
+  listContextNotes,
+  listProjectRuns,
+  listResearchQuestions,
+} from "./research-queries";
 import { finishRun, startRun } from "./research-runs";
 
 // Gathering a project's web background (docs/sourcework-analysis-design.md
@@ -46,7 +51,10 @@ export async function gatherContext(args: {
     .filter((question) => !question.archivedAt)
     .map((question) => question.question);
   if (questions.length === 0) {
-    return { ok: false, error: "Add a research question first; background is gathered for the questions." };
+    return {
+      ok: false,
+      error: "Add a research question first; background is gathered for the questions.",
+    };
   }
 
   const runs = await listProjectRuns(projectId);
@@ -54,13 +62,20 @@ export async function gatherContext(args: {
   const fingerprint = questionsFingerprint(questions);
   if (!force) {
     const fingerprintOfLast =
-      typeof last?.counts.questions_fingerprint === "string" ? last.counts.questions_fingerprint : null;
+      typeof last?.counts.questions_fingerprint === "string"
+        ? last.counts.questions_fingerprint
+        : null;
     const needs = contextNeedsRefresh({
       questions,
       lastRun: last ? { status: last.status, fingerprint: fingerprintOfLast } : null,
     });
     if (!needs) {
-      return { ok: true, added: 0, refreshed: false, skipped: last?.status === "running" ? "running" : "fresh" };
+      return {
+        ok: true,
+        added: 0,
+        refreshed: false,
+        skipped: last?.status === "running" ? "running" : "fresh",
+      };
     }
   }
 
@@ -87,15 +102,27 @@ export async function gatherContext(args: {
     // The names and terms the sources use, and the people to keep out of a search.
     const texts: string[] = [];
     const speakerNames = new Set<string>();
-    for (const entry of project.sources.filter((candidate) => candidate.status === "ready").slice(0, MAX_SOURCES_READ)) {
+    for (const entry of project.sources
+      .filter((candidate) => candidate.status === "ready")
+      .slice(0, MAX_SOURCES_READ)) {
       const representation = entry.transcript;
       if (!representation || representation.status !== "ready") continue;
       if (entry.source.kind === "document") {
         const content = await getDocumentContentForRepresentation(representation.id);
-        texts.push(content.blocks.map((block) => block.text).join("\n").slice(0, MAX_TEXT_PER_SOURCE));
+        texts.push(
+          content.blocks
+            .map((block) => block.text)
+            .join("\n")
+            .slice(0, MAX_TEXT_PER_SOURCE),
+        );
       } else {
         const transcript = await getTranscriptForRepresentation(representation.id);
-        texts.push(transcript.segments.map((segment) => segment.text).join(" ").slice(0, MAX_TEXT_PER_SOURCE));
+        texts.push(
+          transcript.segments
+            .map((segment) => segment.text)
+            .join(" ")
+            .slice(0, MAX_TEXT_PER_SOURCE),
+        );
         for (const speaker of transcript.speakers) {
           if (speaker.displayName?.trim()) speakerNames.add(speaker.displayName.trim());
         }
@@ -135,7 +162,8 @@ export async function gatherContext(args: {
           created_by: userId,
         })),
       );
-      if (inserted.error) throw new Error(`Could not save the background notes: ${inserted.error.message}`);
+      if (inserted.error)
+        throw new Error(`Could not save the background notes: ${inserted.error.message}`);
     }
 
     await finishRun(supabase, started.runId, {

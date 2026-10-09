@@ -31,7 +31,8 @@ const IN_CHUNK = 100;
 
 function chunked<T>(values: readonly T[], size = IN_CHUNK): T[][] {
   const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) chunks.push(values.slice(index, index + size));
+  for (let index = 0; index < values.length; index += size)
+    chunks.push(values.slice(index, index + size));
   return chunks;
 }
 
@@ -58,9 +59,7 @@ export async function listResearchQuestions(projectId: string): Promise<Research
     ]),
   );
 
-  const ordered = rows
-    .map((row) => ({ ...row, createdAt: row.created_at }))
-    .sort(compareQuestions);
+  const ordered = rows.map((row) => ({ ...row, createdAt: row.created_at })).sort(compareQuestions);
   const labels = questionLabels(ordered);
   return ordered.map((row) => ({
     id: row.id,
@@ -154,7 +153,11 @@ export interface SourceResearch {
  */
 export async function getSourceResearch(
   projectId: string,
-  sources: readonly { sourceId: string; status: SourceExtractionInput["sourceStatus"]; kind: SourceExtractionInput["sourceKind"] }[],
+  sources: readonly {
+    sourceId: string;
+    status: SourceExtractionInput["sourceStatus"];
+    kind: SourceExtractionInput["sourceKind"];
+  }[],
 ): Promise<Map<string, SourceResearch>> {
   const supabase = await createClient();
   const [runs, countRows] = await Promise.all([
@@ -223,7 +226,9 @@ async function spansFor(dataPointIds: readonly string[]): Promise<Map<string, Da
       ...(unwrapRead(
         await supabase
           .from("sw_data_point_spans")
-          .select("id, data_point_id, position, locator_kind, start_ms, end_ms, page_number, first_block_id, last_block_id")
+          .select(
+            "id, data_point_id, position, locator_kind, start_ms, end_ms, page_number, first_block_id, last_block_id",
+          )
           .in("data_point_id", ids)
           .order("position"),
         "these data points' passages",
@@ -366,7 +371,8 @@ export async function getExtractionAcceptRates(): Promise<
 > {
   const supabase = await createClient();
   const rows =
-    unwrapRead(await supabase.rpc("sw_extraction_accept_rates"), "the extraction accept rates") ?? [];
+    unwrapRead(await supabase.rpc("sw_extraction_accept_rates"), "the extraction accept rates") ??
+    [];
   return new Map(
     rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
   );

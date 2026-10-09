@@ -31,7 +31,9 @@ export async function savePromptDraft(input: {
   const definition = promptSlotDefinition(input.slot);
   if (!definition) return actionError("That prompt doesn't exist.");
   if (typeof input.body !== "string" || input.body.length > PROMPT_BODY_MAX) {
-    return actionError(`A prompt can be at most ${PROMPT_BODY_MAX.toLocaleString("en-US")} characters.`);
+    return actionError(
+      `A prompt can be at most ${PROMPT_BODY_MAX.toLocaleString("en-US")} characters.`,
+    );
   }
 
   const savedAt = new Date().toISOString();

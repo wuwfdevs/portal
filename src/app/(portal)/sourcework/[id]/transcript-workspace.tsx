@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { findActiveSegmentIndex } from "@/lib/transcription/transcript";
 import { findInTranscript, highlightedTokensBySegment } from "@/lib/transcription/find";
 import {
@@ -25,6 +26,15 @@ import { SelectionToolbar } from "./selection-toolbar";
 import { PaneTabs, type PaneTab } from "./pane-tabs";
 import { PlayerBar } from "./player-bar";
 import { ShortcutsHelp } from "./shortcuts-help";
+import { DataPointRail, type SourceResearchView } from "./data-point-rail";
+import type { PointSelectionOrigin } from "./data-point-card";
+import {
+  pointIdFromMarkId,
+  scrubberMarks,
+  suggestedIds,
+  transcriptRanges,
+} from "@/lib/sourcework/data-point-view";
+import { firstStartMs, reviewCounts } from "@/lib/sourcework/research";
 
 const SKIP_MS = 5000;
 
@@ -66,6 +76,7 @@ export function TranscriptWorkspace({
   highlightClipId = null,
   projectsPane = null,
   projectCount = 0,
+  research = null,
 }: {
   /** Null for a source that is in no project — nothing here needs one beyond refreshing the right screen. */
   projectId: string | null;
@@ -88,6 +99,8 @@ export function TranscriptWorkspace({
   /** The standalone source view's list of projects using this source — a fourth tab in the same row. Absent when the source was opened from a project. */
   projectsPane?: ReactNode;
   projectCount?: number;
+  /** Present only when the source was opened from a project that has research questions: it switches the rail and the marks to data points. */
+  research?: SourceResearchView | null;
 }) {
   const router = useRouter();
   const mediaRef = useRef<HTMLMediaElement | null>(null);
@@ -101,9 +114,23 @@ export function TranscriptWorkspace({
   // Below lg the three working surfaces are tabs of one screen rather than a
   // column and a rail; from lg up all of them are on screen and this is unused.
   const [pane, setPane] = useState<Pane>("transcript");
+  // One layer at a time: the rail, the transcript's marks and the player's strip
+  // all follow this.
+  const [layer, setLayer] = useState<"excerpts" | "evidence">("excerpts");
+  const evidence = research !== null && layer === "evidence";
+  const pointCounts = useMemo(() => reviewCounts(research?.points ?? []), [research]);
+  const [selectedPoint, setSelectedPoint] = useState<{
+    id: string;
+    origin: PointSelectionOrigin;
+  } | null>(null);
   const workspaceTabs: PaneTab<Pane>[] = [
     { id: "transcript", label: "Transcript" },
-    { id: "excerpts", label: "Excerpts", count: clips.length, phoneOnly: true },
+    {
+      id: "excerpts",
+      label: "Excerpts",
+      count: evidence ? pointCounts.toReview : clips.length,
+      phoneOnly: true,
+    },
     { id: "speakers", label: "Speakers", count: speakers.length, phoneOnly: true },
     ...(projectsPane ? [{ id: "projects" as const, label: "Projects", count: projectCount }] : []),
   ];
@@ -173,6 +200,26 @@ export function TranscriptWorkspace({
     [tokensBySegment, clips, pendingTrims],
   );
 
+  const pointCoverage = useMemo(
+    () => resolveClipCoverage(tokensBySegment, transcriptRanges(research?.points ?? [])),
+    [tokensBySegment, research],
+  );
+  const pointDashed = useMemo(() => suggestedIds(research?.points ?? []), [research]);
+  const activeCoverage = evidence ? pointCoverage : clipCoverage;
+  const activeSelectedId = evidence ? (selectedPoint?.id ?? null) : selectedClipId;
+  const stripMarks = useMemo(
+    () =>
+      evidence
+        ? scrubberMarks(research?.points ?? [])
+        : clips.map((clip) => ({
+            id: clip.id,
+            title: clip.title,
+            startMs: clip.startMs,
+            endMs: clip.endMs,
+          })),
+    [evidence, research, clips],
+  );
+
   function goToMatch(index: number) {
     if (matches.length === 0) return;
     const wrapped = (index + matches.length) % matches.length;
@@ -240,11 +287,12 @@ export function TranscriptWorkspace({
    * straight back to the playhead and the clip would never arrive.
    */
   function handleSelectFromRail(clipId: string) {
-    setSelectedClip({ id: clipId, origin: "rail" });
+    if (evidence) setSelectedPoint({ id: clipId, origin: "rail" });
+    else setSelectedClip({ id: clipId, origin: "rail" });
     setFollow(false);
 
     const root = transcriptRef.current;
-    const start = findClipStart(clipCoverage, clipId);
+    const start = findClipStart(activeCoverage, clipId);
     if (!root || !start) return;
     root
       .querySelector(
@@ -256,8 +304,9 @@ export function TranscriptWorkspace({
   // Choosing an excerpt on the Excerpts tab has nothing to scroll to while the
   // transcript is hidden; returning to the Transcript tab lands on its words.
   useEffect(() => {
-    if (pane !== "transcript" || selectedClip?.origin !== "rail") return;
-    const start = findClipStart(clipCoverage, selectedClip.id);
+    const current = evidence ? selectedPoint : selectedClip;
+    if (pane !== "transcript" || current?.origin !== "rail") return;
+    const start = findClipStart(activeCoverage, current.id);
     if (!start) return;
     transcriptRef.current
       ?.querySelector(
@@ -356,7 +405,10 @@ export function TranscriptWorkspace({
     // Dragging out a new clip supersedes whichever one was open: the composer
     // takes the panel anyway, and leaving the old clip tinted underneath a
     // fresh selection makes it ambiguous which words are about to be cut.
-    if (resolved) setSelectedClip(null);
+    if (resolved) {
+      setSelectedClip(null);
+      setSelectedPoint(null);
+    }
   }, [tokensBySegment]);
 
   /**
@@ -577,13 +629,9 @@ export function TranscriptWorkspace({
 
         <PlayerBar
           mediaRef={mediaRef}
-          marks={clips.map((clip) => ({
-            id: clip.id,
-            title: clip.title,
-            startMs: clip.startMs,
-            endMs: clip.endMs,
-          }))}
-          onSelectMark={handleSelectFromRail}
+          marks={stripMarks}
+          tone={evidence ? "evidence" : "excerpt"}
+          onSelectMark={(id) => handleSelectFromRail(evidence ? pointIdFromMarkId(id) : id)}
           follow={follow}
           onToggleFollow={toggleFollow}
         />
@@ -701,9 +749,11 @@ export function TranscriptWorkspace({
                       projectId={projectId}
                       segment={segment}
                       tokens={tokensBySegment[index] ?? []}
-                      clipSpans={clipCoverage[index] ?? []}
-                      selectedClipId={selectedClipId}
-                      hoveredClipId={hoveredClipId}
+                      clipSpans={activeCoverage[index] ?? []}
+                      selectedClipId={activeSelectedId}
+                      hoveredClipId={evidence ? null : hoveredClipId}
+                      markTone={evidence ? "evidence" : "excerpt"}
+                      dashedIds={evidence ? pointDashed : undefined}
                       speakers={speakers}
                       segmentIndex={index}
                       found={highlights.get(index)}
@@ -717,7 +767,9 @@ export function TranscriptWorkspace({
                       onStopEditing={() => setEditingSegmentId(null)}
                       onSeek={seekTo}
                       onSelectClip={(clipId) =>
-                        setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
+                        evidence
+                          ? setSelectedPoint(clipId ? { id: clipId, origin: "transcript" } : null)
+                          : setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
                       }
                       onMakeExcerpt={() => makeExcerptFromLine(index)}
                     />
@@ -759,18 +811,57 @@ export function TranscriptWorkspace({
           pane === "excerpts" ? "flex" : pane === "projects" ? "hidden" : "hidden lg:flex",
         )}
       >
-        <ClipRail
-          clips={clips}
-          selectedClipId={selectedClipId}
-          selectionOrigin={selectedClip?.origin ?? null}
-          onSelect={handleSelectFromRail}
-          onHover={setHoveredClipId}
-          onTrimPreview={(clipId, range) =>
-            setPendingTrims((current) => ({ ...current, [clipId]: range }))
-          }
-          onPreview={previewRange}
-          onShowInTranscript={() => setPane("transcript")}
-        />
+        {research && (
+          <Segmented
+            name="rail-layer"
+            options={[
+              { value: "excerpts", label: `Excerpts · ${clips.length}` },
+              { value: "evidence", label: `Data points · ${pointCounts.total}` },
+            ]}
+            value={layer}
+            onChange={setLayer}
+            className="self-start max-lg:[&_span]:h-11"
+          />
+        )}
+        {evidence && research && projectId ? (
+          <DataPointRail
+            projectId={projectId}
+            sourceId={sourceId}
+            research={research}
+            selectedId={selectedPoint?.id ?? null}
+            selectionOrigin={selectedPoint?.origin ?? null}
+            onSelect={handleSelectFromRail}
+            onPlay={(point) => {
+              const span = point.spans.find((candidate) => candidate.kind === "temporal");
+              if (span?.kind === "temporal") previewRange(span.startMs, span.endMs);
+            }}
+            onOpen={(point) => {
+              // A tap on a card's time: select it, go to the words, and put the
+              // playhead there without starting playback.
+              handleSelectFromRail(point.id);
+              const startMs = firstStartMs(point.spans);
+              const el = mediaRef.current;
+              if (startMs !== null && el) {
+                el.currentTime = startMs / 1000;
+                setActiveIndex(findActiveSegmentIndex(segments, startMs));
+              }
+              setPane("transcript");
+            }}
+          />
+        ) : (
+          <ClipRail
+            clips={clips}
+            selectedClipId={selectedClipId}
+            selectionOrigin={selectedClip?.origin ?? null}
+            onSelect={handleSelectFromRail}
+            onHover={setHoveredClipId}
+            onTrimPreview={(clipId, range) =>
+              setPendingTrims((current) => ({ ...current, [clipId]: range }))
+            }
+            onPreview={previewRange}
+            onShowInTranscript={() => setPane("transcript")}
+          />
+        )}
       </div>
 
       {projectsPane && (

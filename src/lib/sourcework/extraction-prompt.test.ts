@@ -43,7 +43,11 @@ describe("parseExtractionOutput", () => {
       raw([{ ...good, relevance: "story", question_number: 1, story_element: "place" }]),
       context,
     );
-    expect(points[0]).toMatchObject({ relevance: "story", questionId: null, storyElement: "place" });
+    expect(points[0]).toMatchObject({
+      relevance: "story",
+      questionId: null,
+      storyElement: "place",
+    });
   });
 
   it("drops what it can't trust, and counts why", () => {
@@ -72,10 +76,20 @@ describe("parseExtractionOutput", () => {
   });
 
   it("swaps a reversed range, merges touching ones, and refuses a range that is a chapter", () => {
-    const wide = { validUnitIds: new Set(Array.from({ length: 40 }, (_, i) => i + 1)), questionIds: ["qa"] };
+    const wide = {
+      validUnitIds: new Set(Array.from({ length: 40 }, (_, i) => i + 1)),
+      questionIds: ["qa"],
+    };
     const { points } = parseExtractionOutput(
       raw([
-        { ...good, question_number: 1, spans: [{ from_unit: 3, to_unit: 2 }, { from_unit: 4, to_unit: 4 }] },
+        {
+          ...good,
+          question_number: 1,
+          spans: [
+            { from_unit: 3, to_unit: 2 },
+            { from_unit: 4, to_unit: 4 },
+          ],
+        },
         { ...good, question_number: 1, spans: [{ from_unit: 1, to_unit: 30 }] },
       ]),
       wide,
@@ -101,7 +115,9 @@ describe("sumDropped", () => {
 describe("schema and input", () => {
   it("lists every property as required, which strict mode demands", () => {
     const schema = buildExtractionOutputSchema() as {
-      properties: { data_points: { items: { required: string[]; properties: Record<string, unknown> } } };
+      properties: {
+        data_points: { items: { required: string[]; properties: Record<string, unknown> } };
+      };
     };
     const item = schema.properties.data_points.items;
     expect(item.required.sort()).toEqual(Object.keys(item.properties).sort());

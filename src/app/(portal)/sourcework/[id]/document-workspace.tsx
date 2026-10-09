@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, FieldError } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import {
@@ -23,6 +24,14 @@ import type {
 } from "@/lib/transcription/document-content";
 import type { DocumentExcerptSummary } from "@/lib/transcription/document-excerpts";
 import { createDocumentExcerpt, deleteDocumentExcerpt } from "./document-excerpt-actions";
+import { DataPointRail, type SourceResearchView } from "./data-point-rail";
+import {
+  blockCoverage,
+  firstPageNumber,
+  pointAtBlock,
+  suggestedIds,
+} from "@/lib/sourcework/data-point-view";
+import { reviewCounts } from "@/lib/sourcework/research";
 import { searchSourceAction } from "./workspace-search-actions";
 
 const PdfPageViewer = dynamic(() => import("./pdf-page-viewer").then((mod) => mod.PdfPageViewer), {
@@ -52,6 +61,7 @@ export function DocumentWorkspace({
   blocks,
   excerpts,
   initialPage,
+  research = null,
 }: {
   /**
    * Scopes the excerpt search box below to this project + source. Nullable
@@ -68,6 +78,8 @@ export function DocumentWorkspace({
   blocks: DocumentBlockSummary[];
   excerpts: DocumentExcerptSummary[];
   initialPage?: number | null;
+  /** Present only when opened from a project with research questions: adds the Data points layer. */
+  research?: SourceResearchView | null;
 }) {
   const router = useRouter();
   // Normally the extracted pages are the page count. When extraction failed
@@ -125,6 +137,16 @@ export function DocumentWorkspace({
   const [selectedExcerptId, setSelectedExcerptId] = useState<string | null>(null);
   const [hoveredExcerptId, setHoveredExcerptId] = useState<string | null>(null);
 
+  const [layer, setLayer] = useState<"excerpts" | "evidence">("excerpts");
+  const evidence = research !== null && layer === "evidence";
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const pointCounts = useMemo(() => reviewCounts(research?.points ?? []), [research]);
+  const pointDashed = useMemo(() => suggestedIds(research?.points ?? []), [research]);
+  const pointCover = useMemo(
+    () => blockCoverage(research?.points ?? [], blocks),
+    [research, blocks],
+  );
+
   const blocksByPage = useMemo(() => {
     const map = new Map<number, DocumentBlockSummary[]>();
     for (const block of blocks) {
@@ -177,6 +199,10 @@ export function DocumentWorkspace({
       // the same two-purpose click segment-row.tsx's handleTextClick uses
       // for a clipped word.
       const anchor = resolveAnchor(selection.anchorNode, selection.anchorOffset);
+      if (evidence) {
+        setSelectedPointId(anchor ? pointAtBlock(pointCover, anchor.blockId) : null);
+        return;
+      }
       setHighlightedBlockId(anchor?.blockId ?? null);
       setSelectedExcerptId(
         anchor
@@ -260,6 +286,22 @@ export function DocumentWorkspace({
     await deleteDocumentExcerpt(excerptId);
     router.refresh();
   }
+
+  // Evidence on the rendered page: one box per covered block that has geometry.
+  const evidenceBoxes = evidence
+    ? (blocksByPage.get(currentPage) ?? []).flatMap((block) => {
+        const ids = pointCover.byBlock.get(block.id);
+        if (!ids || !block.bbox) return [];
+        return [
+          {
+            id: block.id,
+            bbox: block.bbox,
+            dashed: ids.every((id) => pointDashed.has(id)),
+            selected: selectedPointId !== null && ids.includes(selectedPointId),
+          },
+        ];
+      })
+    : undefined;
 
   const currentPageData = pages.find((page) => page.pageNumber === currentPage) ?? null;
   // A block highlight only means something on the page it was set on — the
@@ -354,6 +396,7 @@ export function DocumentWorkspace({
             scale={zoom}
             fitWidth={fitWidth}
             highlightBbox={activeHighlightedBlock?.bbox ?? null}
+            evidenceBoxes={evidenceBoxes}
             onLoadPageCount={setPdfPageCount}
           />
         </div>
@@ -379,20 +422,35 @@ export function DocumentWorkspace({
             {currentPageData &&
               (blocksByPage.get(currentPageData.pageNumber) ?? []).map((block) => {
                 const runs = buildExcerptRuns(block.text, excerptRangesByBlock.get(block.id) ?? []);
+                const coveredBy = evidence ? pointCover.byBlock.get(block.id) : undefined;
                 return (
                   <p
                     key={block.id}
                     data-block-id={block.id}
                     className={`mb-2 ${BLOCK_TYPE_CLASS[block.blockType] ?? ""} ${
                       highlightedBlockId === block.id ? "rounded bg-brand-surface/60" : ""
+                    } ${
+                      coveredBy
+                        ? `border-b-2 border-evidence-line ${
+                            coveredBy.every((id) => pointDashed.has(id)) ? "border-dashed" : ""
+                          } ${
+                            selectedPointId !== null && coveredBy.includes(selectedPointId)
+                              ? "bg-evidence-selected"
+                              : ""
+                          }`
+                        : ""
                     }`}
                   >
                     {runs.map((run, index) => (
                       <span
                         key={index}
-                        className={excerptMarkClass(
-                          excerptRunMark(run.excerptIds, selectedExcerptId, hoveredExcerptId),
-                        )}
+                        className={
+                          evidence
+                            ? ""
+                            : excerptMarkClass(
+                                excerptRunMark(run.excerptIds, selectedExcerptId, hoveredExcerptId),
+                              )
+                        }
                       >
                         {run.text}
                       </span>
@@ -439,76 +497,106 @@ export function DocumentWorkspace({
           placeholder="Search this document's text and excerpts…"
           onSearch={(query) => searchSourceAction(projectId, sourceId, query)}
         >
-          <div>
-            <SectionHeading level="eyebrow" className="mb-2">
-              Excerpts from this document
-            </SectionHeading>
-            {excerpts.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                Select text above and save it as an excerpt to see it here.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {excerpts.map((excerpt) => (
-                  <li
-                    key={excerpt.id}
-                    // Clicking anywhere on the card marks this excerpt without
-                    // switching tabs — same "the whole card is the control"
-                    // reasoning as ClipCard (a nested Delete button rules out
-                    // making this a button). Whichever tab is already open
-                    // shows the result immediately: staying on Document
-                    // outlines the excerpt's block right away (no forced
-                    // switch to Text just to reveal it), and staying on Text
-                    // tints its underline and turns to the right page.
-                    onClick={() => {
-                      setSelectedExcerptId(excerpt.id);
-                      const bboxLocation = excerpt.locations.find((l) => l.bbox && l.blockId);
-                      setHighlightedBlockId(bboxLocation?.blockId ?? null);
-                      setCurrentPage(bboxLocation?.pageNumber ?? excerpt.pages[0] ?? currentPage);
-                    }}
-                    onMouseEnter={() => setHoveredExcerptId(excerpt.id)}
-                    onMouseLeave={() => setHoveredExcerptId(null)}
-                    onFocus={() => setHoveredExcerptId(excerpt.id)}
-                    onBlur={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                        setHoveredExcerptId(null);
-                      }
-                    }}
-                    className={`rounded border bg-white p-3 ${
-                      selectedExcerptId === excerpt.id
-                        ? "border-brand-primary ring-2 ring-brand-surface"
-                        : "border-line"
-                    }`}
-                  >
-                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="text-left font-semibold text-brand-link">
-                        {excerpt.title}
-                      </span>
-                      <span className="text-xs text-ink-400">
-                        {excerpt.pages.length === 1
-                          ? `p. ${excerpt.pages[0]}`
-                          : `pp. ${excerpt.pages.join(", ")}`}
-                      </span>
-                    </div>
-                    {excerpt.excerpt && (
-                      <p className="line-clamp-2 text-sm text-ink-700">{excerpt.excerpt}</p>
-                    )}
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleDeleteExcerpt(excerpt.id);
+          {research && (
+            <Segmented
+              name="rail-layer"
+              options={[
+                { value: "excerpts", label: `Excerpts · ${excerpts.length}` },
+                { value: "evidence", label: `Data points · ${pointCounts.total}` },
+              ]}
+              value={layer}
+              onChange={setLayer}
+              className="mb-3 max-lg:[&_span]:h-11"
+            />
+          )}
+          {evidence && research && projectId ? (
+            <DataPointRail
+              projectId={projectId}
+              sourceId={sourceId}
+              research={research}
+              selectedId={selectedPointId}
+              selectionOrigin="rail"
+              onSelect={(id) => setSelectedPointId(id)}
+              onOpen={(point) => {
+                setSelectedPointId(point.id);
+                const page = firstPageNumber(point);
+                if (page !== null)
+                  setCurrentPage(Math.min(Math.max(page, 1), Math.max(pageCount, 1)));
+                setHighlightedBlockId(null);
+              }}
+            />
+          ) : (
+            <div>
+              <SectionHeading level="eyebrow" className="mb-2">
+                Excerpts from this document
+              </SectionHeading>
+              {excerpts.length === 0 ? (
+                <p className="text-sm text-ink-500">
+                  Select text above and save it as an excerpt to see it here.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {excerpts.map((excerpt) => (
+                    <li
+                      key={excerpt.id}
+                      // Clicking anywhere on the card marks this excerpt without
+                      // switching tabs — same "the whole card is the control"
+                      // reasoning as ClipCard (a nested Delete button rules out
+                      // making this a button). Whichever tab is already open
+                      // shows the result immediately: staying on Document
+                      // outlines the excerpt's block right away (no forced
+                      // switch to Text just to reveal it), and staying on Text
+                      // tints its underline and turns to the right page.
+                      onClick={() => {
+                        setSelectedExcerptId(excerpt.id);
+                        const bboxLocation = excerpt.locations.find((l) => l.bbox && l.blockId);
+                        setHighlightedBlockId(bboxLocation?.blockId ?? null);
+                        setCurrentPage(bboxLocation?.pageNumber ?? excerpt.pages[0] ?? currentPage);
                       }}
-                      className="mt-1 font-normal text-ink-400 hover:text-danger"
+                      onMouseEnter={() => setHoveredExcerptId(excerpt.id)}
+                      onMouseLeave={() => setHoveredExcerptId(null)}
+                      onFocus={() => setHoveredExcerptId(excerpt.id)}
+                      onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          setHoveredExcerptId(null);
+                        }
+                      }}
+                      className={`rounded border bg-white p-3 ${
+                        selectedExcerptId === excerpt.id
+                          ? "border-brand-primary ring-2 ring-brand-surface"
+                          : "border-line"
+                      }`}
                     >
-                      Delete
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-left font-semibold text-brand-link">
+                          {excerpt.title}
+                        </span>
+                        <span className="text-xs text-ink-400">
+                          {excerpt.pages.length === 1
+                            ? `p. ${excerpt.pages[0]}`
+                            : `pp. ${excerpt.pages.join(", ")}`}
+                        </span>
+                      </div>
+                      {excerpt.excerpt && (
+                        <p className="line-clamp-2 text-sm text-ink-700">{excerpt.excerpt}</p>
+                      )}
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDeleteExcerpt(excerpt.id);
+                        }}
+                        className="mt-1 font-normal text-ink-400 hover:text-danger"
+                      >
+                        Delete
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </ScopedSearchPanel>
       </div>
     </div>

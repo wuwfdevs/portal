@@ -40,6 +40,8 @@ export function SegmentRow({
   clipSpans,
   selectedClipId,
   hoveredClipId,
+  markTone = "excerpt",
+  dashedIds,
   speakers,
   segmentIndex,
   found,
@@ -60,6 +62,10 @@ export function SegmentRow({
   clipSpans: ClipSpan[];
   selectedClipId: string | null;
   hoveredClipId: string | null;
+  /** "evidence" draws the spans as data points (lime) instead of excerpts (gold). */
+  markTone?: MarkTone;
+  /** Span ids drawn with a dashed underline: data points not yet reviewed. */
+  dashedIds?: ReadonlySet<string>;
   speakers: TranscriptSpeaker[];
   segmentIndex: number;
   /** Words to highlight for "Find in this transcript": every match, and the one being looked at. */
@@ -106,6 +112,18 @@ export function SegmentRow({
       else if (mark === "none") mark = "clipped";
     }
     return mark;
+  }
+
+  /** An underline is dashed only while every point over the word is still unreviewed. */
+  function tokenDashed(tokenIndex: number): boolean {
+    if (!dashedIds || dashedIds.size === 0) return false;
+    let any = false;
+    for (const span of clipSpans) {
+      if (tokenIndex < span.fromTokenIndex || tokenIndex > span.toTokenIndex) continue;
+      if (!dashedIds.has(span.clipId)) return false;
+      any = true;
+    }
+    return any;
   }
 
   /**
@@ -336,11 +354,21 @@ export function SegmentRow({
                   without a data-token-index, so selection still ignores it. */}
               {tokens.map((token, tokenIndex) => (
                 <Fragment key={tokenIndex}>
-                  {tokenIndex > 0 && <span className={markClass(gapMark(tokenIndex))}> </span>}
+                  {tokenIndex > 0 && (
+                    <span
+                      className={markClass(
+                        gapMark(tokenIndex),
+                        markTone,
+                        tokenDashed(tokenIndex) && tokenDashed(tokenIndex - 1),
+                      )}
+                    >
+                      {" "}
+                    </span>
+                  )}
                   <span
                     data-token-index={tokenIndex}
                     className={cn(
-                      markClass(tokenMark(tokenIndex)),
+                      markClass(tokenMark(tokenIndex), markTone, tokenDashed(tokenIndex)),
                       found?.tokens.has(tokenIndex) &&
                         (found.currentTokens.has(tokenIndex)
                           ? "rounded-sm bg-brand-primary/50"
@@ -423,6 +451,7 @@ export function SegmentRow({
 const MARK_ORDER = ["none", "clipped", "hovered", "selected"] as const;
 
 type Mark = (typeof MARK_ORDER)[number];
+export type MarkTone = "excerpt" | "evidence";
 
 /**
  * Two channels, not two shades. "This is clipped" is an underline, because
@@ -432,7 +461,21 @@ type Mark = (typeof MARK_ORDER)[number];
  * tint is spent on the single clip that's active, which is the state a
  * background can afford to be loud about.
  */
-function markClass(mark: Mark): string {
+function markClass(mark: Mark, tone: MarkTone = "excerpt", dashed = false): string {
+  if (tone === "evidence") {
+    // Lime in place of gold; the same two channels. Dashed = not yet reviewed.
+    const dash = dashed ? " border-dashed" : "";
+    switch (mark) {
+      case "selected":
+        return `cursor-pointer border-b-2 border-evidence-line bg-evidence-selected${dash}`;
+      case "hovered":
+        return `cursor-pointer border-b-2 border-evidence-line bg-evidence-hover${dash}`;
+      case "clipped":
+        return `cursor-pointer border-b-2 border-evidence-line${dash}`;
+      case "none":
+        return "";
+    }
+  }
   switch (mark) {
     case "selected":
       return "cursor-pointer border-b-2 border-clipped-line bg-clipped-selected";

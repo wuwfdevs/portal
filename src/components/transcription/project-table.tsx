@@ -70,6 +70,11 @@ export function ProjectTable({
               </Cell>
               <Cell stack="aside">
                 <StatusBadge map={overviewStatusMap} value={overviewStatus(row)} />
+                {row.reviewCount > 0 && (
+                  <p className="mt-1 text-xs font-semibold text-ink-700">
+                    {row.reviewCount} to review
+                  </p>
+                )}
               </Cell>
             </Row>
           ))}

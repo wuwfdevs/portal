@@ -19,13 +19,20 @@ import { ExportExcerptsButton } from "./export-excerpts-button";
 import { ProjectDetails } from "./project-details";
 import { ProjectExcerptsView } from "./project-excerpts-view";
 import { PiecesTab } from "./pieces-tab";
+import { SetupTab } from "./setup-tab";
+import { ExtractionControls } from "./extraction-controls";
+import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
+import { extractionLine } from "@/lib/sourcework/run-state";
+import { sourcesToExtract } from "@/lib/sourcework/setup-view";
 
 /**
  * One project: its sources, and the excerpts made from them. The working
  * surface for a recording or a document is its own screen
  * (`/sourcework/sources/[id]`), reached from a source card here and left with
  * its back link — this screen has no player, no transcript and no view state
- * beyond which of the tabs is showing (`?view=excerpts`, `?view=pieces`).
+ * beyond which of the tabs is showing (`?view=excerpts`, `?view=pieces`,
+ * `?view=setup`). Setup sits at the right edge and is reachable before any
+ * source exists: the research questions come first.
  */
 export default async function TranscriptionProjectPage({
   params,
@@ -39,6 +46,8 @@ export default async function TranscriptionProjectPage({
   const { view, q } = await searchParams;
   const excerptsView = view === "excerpts";
   const piecesView = view === "pieces";
+  const setupView = view === "setup";
+  const sourcesView = !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
@@ -49,6 +58,37 @@ export default async function TranscriptionProjectPage({
     countPieces(project.id),
     piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
   ]);
+
+  // Research state is read only where the Sources tab shows it. A project with
+  // no active question reads nothing and looks as it always did.
+  const questions =
+    sourcesView && project.sources.length > 0 ? await listResearchQuestions(project.id) : [];
+  const hasQuestions = questions.some((question) => question.archivedAt === null);
+  const research = hasQuestions
+    ? await getSourceResearch(
+        project.id,
+        project.sources.map((entry) => ({
+          sourceId: entry.sourceId,
+          status: entry.status,
+          kind: entry.source.kind,
+        })),
+      )
+    : null;
+  const extractTargets = research
+    ? sourcesToExtract(
+        project.sources.map((entry) => ({
+          id: entry.sourceId,
+          title: entry.source.title,
+          state: research.get(entry.sourceId)?.state ?? { kind: "idle" as const },
+        })),
+      )
+    : [];
+  const anyExtracting = research
+    ? [...research.values()].some(
+        (item) => item.state.kind === "running" || item.state.kind === "waiting",
+      )
+    : false;
+
   const projectExcerpts = excerptsView ? await listLibraryClips(project.id) : [];
 
   // Only the person who started the project can delete it, so only they pay
@@ -92,7 +132,56 @@ export default async function TranscriptionProjectPage({
         </div>
       </div>
 
-      {project.sources.length === 0 ? (
+      <TabNav
+        tabs={[
+          {
+            href: projectPath(project.id),
+            label: "Sources",
+            active: sourcesView,
+            badge: project.sources.length,
+          },
+          {
+            href: projectPath(project.id, "excerpts"),
+            label: "Excerpts",
+            active: excerptsView,
+          },
+          {
+            href: projectPath(project.id, "pieces"),
+            label: "Pieces",
+            active: piecesView,
+          },
+          {
+            href: projectPath(project.id, "setup"),
+            label: "Setup",
+            active: setupView,
+            end: true,
+          },
+        ]}
+      />
+
+      {setupView ? (
+        <SetupTab projectId={project.id} sources={project.sources} />
+      ) : piecesView ? (
+        <PiecesTab
+          projectId={project.id}
+          pieces={pieces}
+          search={pieceSearch}
+          totalCount={pieceCount}
+        />
+      ) : excerptsView ? (
+        <>
+          {projectExcerpts.length > 0 && (
+            <div className="mb-4 flex justify-end">
+              <ExportExcerptsButton
+                projectId={project.id}
+                projectTitle={project.title}
+                exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
+              />
+            </div>
+          )}
+          <ProjectExcerptsView projectId={project.id} clips={projectExcerpts} />
+        </>
+      ) : project.sources.length === 0 ? (
         <EmptyState
           title="No sources yet"
           action={<AddSourceButton projectId={project.id} hasSources={false} primary />}
@@ -100,84 +189,67 @@ export default async function TranscriptionProjectPage({
           Upload interviews or PDFs, or reference ones already in the library.
         </EmptyState>
       ) : (
-        <>
-          <TabNav
-            tabs={[
-              {
-                href: projectPath(project.id),
-                label: "Sources",
-                active: !excerptsView && !piecesView,
-                badge: project.sources.length,
-              },
-              {
-                href: projectPath(project.id, "excerpts"),
-                label: "Excerpts",
-                active: excerptsView,
-              },
-              {
-                href: projectPath(project.id, "pieces"),
-                label: "Pieces",
-                active: piecesView,
-              },
-            ]}
-          />
-
-          {piecesView ? (
-            <PiecesTab
+        <section>
+          {research ? (
+            <ExtractionControls
               projectId={project.id}
-              pieces={pieces}
-              search={pieceSearch}
-              totalCount={pieceCount}
-            />
-          ) : excerptsView ? (
-            <>
-              {projectExcerpts.length > 0 && (
-                <div className="mb-4 flex justify-end">
-                  <ExportExcerptsButton
-                    projectId={project.id}
-                    projectTitle={project.title}
-                    exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
-                  />
-                </div>
-              )}
-              <ProjectExcerptsView projectId={project.id} clips={projectExcerpts} />
-            </>
+              targets={extractTargets.map((target) => ({ id: target.id, title: target.title }))}
+              anyRunning={anyExtracting}
+            >
+              <AddSourceButton projectId={project.id} hasSources />
+            </ExtractionControls>
           ) : (
-            <section>
-              <SectionHeading
-                level="eyebrow"
-                className="mb-3 items-center"
-                action={<AddSourceButton projectId={project.id} hasSources />}
-              >
-                Sources
-              </SectionHeading>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {project.sources.map((entry) => (
-                  <SourceCard
-                    key={entry.sourceId}
-                    href={sourcePath(entry.sourceId, { projectId: project.id })}
-                    kind={entry.source.kind}
-                    status={entry.status}
-                    title={entry.source.title}
-                    meta={formatSourceMeta({
-                      kind: entry.source.kind,
-                      date: entry.source.interview_date ?? entry.source.created_at,
-                      durationMs: entry.source.original_duration_ms,
-                      pageCount: entry.source.page_count,
-                    })}
-                    footnote={
-                      entry.status === "failed"
-                        ? (entry.source.error_message ??
-                          entry.transcript?.error_message ??
-                          "This source needs attention. Open it for details.")
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            </section>
+            <SectionHeading
+              level="eyebrow"
+              className="mb-3 items-center"
+              action={<AddSourceButton projectId={project.id} hasSources />}
+            >
+              Sources
+            </SectionHeading>
           )}
-        </>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {project.sources.map((entry) => (
+              <SourceCard
+                key={entry.sourceId}
+                href={sourcePath(entry.sourceId, { projectId: project.id })}
+                kind={entry.source.kind}
+                status={entry.status}
+                title={entry.source.title}
+                meta={formatSourceMeta({
+                  kind: entry.source.kind,
+                  date: entry.source.interview_date ?? entry.source.created_at,
+                  durationMs: entry.source.original_duration_ms,
+                  pageCount: entry.source.page_count,
+                })}
+                extraction={
+                  research
+                    ? (() => {
+                        const state = research.get(entry.sourceId)?.state;
+                        return state ? extractionLine(state, entry.source.kind) : null;
+                      })()
+                    : null
+                }
+                footnote={
+                  entry.status === "failed"
+                    ? (entry.source.error_message ??
+                      entry.transcript?.error_message ??
+                      "This source needs attention. Open it for details.")
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+          {!hasQuestions && (
+            <p className="mt-4 max-w-2xl text-xs text-ink-400">
+              A project without research questions works as it does today. Add them in{" "}
+              <TextLink href={projectPath(project.id, "setup")} className="px-0 text-xs">
+                Setup
+              </TextLink>{" "}
+              to get data points and themes; sources already in the project can be extracted
+              afterward.
+            </p>
+          )}
+        </section>
       )}
 
       {deletionPlan && (

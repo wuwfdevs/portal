@@ -4058,6 +4058,8 @@ export interface Database {
           active_count: number;
           excerpt_count: number;
           last_activity: string;
+          /** Data points still waiting for a decision (20261012120000). */
+          review_count: number;
         };
         Relationships: [];
       };

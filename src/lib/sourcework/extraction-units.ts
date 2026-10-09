@@ -180,7 +180,10 @@ export function buildDocumentUnits(blocks: readonly UnitBlock[]): UnitSet {
 }
 
 /** The units as the model reads them: a header per line or page, then "[n] sentence" in order. */
-export function renderUnits(units: readonly ExtractionUnit[], groups: readonly ExtractionGroup[]): string {
+export function renderUnits(
+  units: readonly ExtractionUnit[],
+  groups: readonly ExtractionGroup[],
+): string {
   const labelByGroup = new Map(groups.map((group) => [group.index, group.label]));
   const lines: string[] = [];
   let currentGroup: number | null = null;
@@ -297,13 +300,20 @@ export function resolveSpans(
     const first = covered[0]!;
     if (first.startMs !== undefined) {
       const last = covered[covered.length - 1]!;
-      spans.push({ kind: "temporal", startMs: first.startMs, endMs: last.endMs ?? first.startMs + 1 });
+      spans.push({
+        kind: "temporal",
+        startMs: first.startMs,
+        endMs: last.endMs ?? first.startMs + 1,
+      });
       continue;
     }
 
     let pageStart = 0;
     for (let index = 1; index <= covered.length; index++) {
-      if (index === covered.length || covered[index]!.pageNumber !== covered[pageStart]!.pageNumber) {
+      if (
+        index === covered.length ||
+        covered[index]!.pageNumber !== covered[pageStart]!.pageNumber
+      ) {
         const pageFirst = covered[pageStart]!;
         const pageLast = covered[index - 1]!;
         spans.push({

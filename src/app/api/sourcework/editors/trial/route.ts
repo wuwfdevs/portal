@@ -33,7 +33,10 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "That prompt can't be tried yet." }, { status: 400 });
   }
   if (!projectId || !sourceId) {
-    return NextResponse.json({ error: "Choose a project and a source to try it on." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Choose a project and a source to try it on." },
+      { status: 400 },
+    );
   }
 
   const draft = await getPromptDraft(definition.slot, guard.value.profile.id);

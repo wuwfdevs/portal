@@ -1,7 +1,11 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
-import { getProjectById, getSourceDetail, getTranscriptForRepresentation } from "@/lib/transcription/projects";
+import {
+  getProjectById,
+  getSourceDetail,
+  getTranscriptForRepresentation,
+} from "@/lib/transcription/projects";
 import { getDocumentContentForRepresentation } from "@/lib/transcription/document-content";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 import { formatDuration } from "@/lib/transcription/media";
@@ -30,7 +34,12 @@ import {
   type ExtractionNote,
   type ExtractionQuestion,
 } from "./extraction-prompt";
-import { listContextNotes, listDataPointsForSource, listResearchQuestions, getLivePrompt } from "./research-queries";
+import {
+  listContextNotes,
+  listDataPointsForSource,
+  listResearchQuestions,
+  getLivePrompt,
+} from "./research-queries";
 import { finishRun, startRun } from "./research-runs";
 import { ensureContext } from "./context-run";
 
@@ -54,7 +63,10 @@ export interface ReadSource {
 export type ReadSourceResult = { ok: true; source: ReadSource } | { ok: false; error: string };
 
 /** A source as numbered units: its transcript's sentences or its document's blocks. */
-export async function readSourceUnits(projectId: string, sourceId: string): Promise<ReadSourceResult> {
+export async function readSourceUnits(
+  projectId: string,
+  sourceId: string,
+): Promise<ReadSourceResult> {
   const detail = await getSourceDetail(sourceId);
   if (!detail || !detail.projects.some((project) => project.id === projectId)) {
     return { ok: false, error: "That source isn't part of this project." };
@@ -113,7 +125,8 @@ export async function readSourceUnits(projectId: string, sourceId: string): Prom
     }),
     formatDuration,
   );
-  if (units.length === 0) return { ok: false, error: "This recording's transcript has no speech to read." };
+  if (units.length === 0)
+    return { ok: false, error: "This recording's transcript has no speech to read." };
 
   const speakerByUnit = new Map<number, string | null>();
   for (const unit of units) {
@@ -144,14 +157,19 @@ export interface ExtractionContext {
   notes: ExtractionNote[];
 }
 
-export async function loadExtractionContext(projectId: string): Promise<
-  { ok: true; context: ExtractionContext } | { ok: false; error: string }
-> {
+export async function loadExtractionContext(
+  projectId: string,
+): Promise<{ ok: true; context: ExtractionContext } | { ok: false; error: string }> {
   const project = await getProjectById(projectId);
   if (!project) return { ok: false, error: "That project doesn't exist." };
-  const questions = (await listResearchQuestions(projectId)).filter((question) => !question.archivedAt);
+  const questions = (await listResearchQuestions(projectId)).filter(
+    (question) => !question.archivedAt,
+  );
   if (questions.length === 0) {
-    return { ok: false, error: "Add a research question on the Setup tab before extracting data points." };
+    return {
+      ok: false,
+      error: "Add a research question on the Setup tab before extracting data points.",
+    };
   }
   const notes = (await listContextNotes(projectId)).filter((note) => note.status === "active");
   return {
@@ -189,7 +207,10 @@ export async function extractCandidates(args: {
   const { source, context, guide, onProgress } = args;
   const windows = windowUnits(source.units);
   const questionIds = context.questions.map((question) => question.id);
-  const questions: ExtractionQuestion[] = context.questions.map(({ number, question }) => ({ number, question }));
+  const questions: ExtractionQuestion[] = context.questions.map(({ number, question }) => ({
+    number,
+    question,
+  }));
 
   const all: CandidatePoint[] = [];
   let dropped = emptyDropped();
@@ -216,7 +237,10 @@ export async function extractCandidates(args: {
       validUnitIds: new Set(window.map((unit) => unit.id)),
     });
     if (parsed.dropped.unreadable > 0 && parsed.points.length === 0) {
-      return { ok: false, error: "The extraction step returned an answer that couldn't be read. Try again." };
+      return {
+        ok: false,
+        error: "The extraction step returned an answer that couldn't be read. Try again.",
+      };
     }
     dropped = sumDropped(dropped, parsed.dropped);
     all.push(...parsed.points);
@@ -262,7 +286,9 @@ export async function runExtraction(args: {
   // Background first, so the model reads "the redoubt" correctly. Its failure never stops extraction.
   const ensured = await ensureContext({ projectId, userId });
   const context = ensured.refreshed
-    ? await loadExtractionContext(projectId).then((again) => (again.ok ? again.context : loaded.context))
+    ? await loadExtractionContext(projectId).then((again) =>
+        again.ok ? again.context : loaded.context,
+      )
     : loaded.context;
 
   const live = await getLivePrompt("extraction");
@@ -279,7 +305,12 @@ export async function runExtraction(args: {
   const runId = started.runId;
 
   try {
-    const extracted = await extractCandidates({ source: read.source, context, guide: live.body, onProgress });
+    const extracted = await extractCandidates({
+      source: read.source,
+      context,
+      guide: live.body,
+      onProgress,
+    });
     if (!extracted.ok) {
       await finishRun(supabase, runId, { status: "failed", error: extracted.error });
       return { ok: false, error: extracted.error };
@@ -293,7 +324,9 @@ export async function runExtraction(args: {
       .map((point) => ({
         relevance: point.relevance,
         questionKey: point.relevance === "question" ? point.questionId : null,
-        unitIds: new Set(point.spans.flatMap((span) => [...unitIdsForSpan(span, read.source.units)])),
+        unitIds: new Set(
+          point.spans.flatMap((span) => [...unitIdsForSpan(span, read.source.units)]),
+        ),
       }));
     const fresh = candidates.filter(
       (candidate) =>
@@ -339,10 +372,26 @@ export async function runExtraction(args: {
     );
 
     if (pointRows.length > 0) {
-      const inserted = await supabase
-        .from("sw_data_points")
-        .insert(pointRows.map(({ candidate: _candidate, ...row }) => row));
-      if (inserted.error) throw new Error(`Could not save the data points: ${inserted.error.message}`);
+      const inserted = await supabase.from("sw_data_points").insert(
+        pointRows.map((row) => ({
+          id: row.id,
+          project_id: row.project_id,
+          source_id: row.source_id,
+          representation_id: row.representation_id,
+          question_id: row.question_id,
+          relevance: row.relevance,
+          story_element: row.story_element,
+          claim: row.claim,
+          ai_claim: row.ai_claim,
+          speaker_id: row.speaker_id,
+          kind: row.kind,
+          status: row.status,
+          prompt_version_id: row.prompt_version_id,
+          run_id: row.run_id,
+        })),
+      );
+      if (inserted.error)
+        throw new Error(`Could not save the data points: ${inserted.error.message}`);
 
       const spansInserted = await supabase.from("sw_data_point_spans").insert(spanRows);
       if (spansInserted.error) {
@@ -360,7 +409,8 @@ export async function runExtraction(args: {
       .eq("source_id", sourceId)
       .eq("status", "suggested")
       .or(`run_id.is.null,run_id.neq.${runId}`);
-    if (cleared.error) throw new Error(`Could not replace the earlier suggestions: ${cleared.error.message}`);
+    if (cleared.error)
+      throw new Error(`Could not replace the earlier suggestions: ${cleared.error.message}`);
 
     const droppedTotal = Object.values(dropped).reduce((sum, count) => sum + count, 0);
     await finishRun(supabase, runId, {

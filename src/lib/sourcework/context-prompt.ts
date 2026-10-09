@@ -88,18 +88,19 @@ export function buildContextInput(input: ContextInput): string {
   const parts = [`Project: ${input.projectTitle}`];
   if (input.projectDescription?.trim()) parts.push(collapseWhitespace(input.projectDescription));
   parts.push(
-    "Research questions:\n" + input.questions.map((question, index) => `${index + 1}. ${question}`).join("\n"),
+    "Research questions:\n" +
+      input.questions.map((question, index) => `${index + 1}. ${question}`).join("\n"),
   );
   if (input.sourceTitles.length > 0) {
     parts.push("Sources:\n" + input.sourceTitles.map((title) => `- ${title}`).join("\n"));
   }
   if (input.terms.length > 0) {
-    parts.push("Names and terms the sources use most:\n" + input.terms.map((term) => `- ${term}`).join("\n"));
+    parts.push(
+      "Names and terms the sources use most:\n" + input.terms.map((term) => `- ${term}`).join("\n"),
+    );
   }
   if (input.speakerNames.length > 0) {
-    parts.push(
-      "Do not use any of these names in a search: " + input.speakerNames.join(", ") + ".",
-    );
+    parts.push("Do not use any of these names in a search: " + input.speakerNames.join(", ") + ".");
   }
   return parts.join("\n\n");
 }
@@ -191,7 +192,10 @@ export function parseContextOutput(
 
 /** What makes two notes the same subject. */
 export function noteKey(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 /**
