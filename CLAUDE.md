@@ -382,12 +382,16 @@ zone. It has no player, no transcript and no source switcher; `source-switcher.t
 `AddSourceButton` lives in `add-source-button.tsx`. A source is opened as its own screen
 (`/sourcework/sources/[id]`), which is the working surface; `?project=<id>` is only context (the back
 link, and the project "Remove from this project" detaches from) and `?t=`/`?clip=`/`?page=` land on a
-search hit. **Build every link to either screen with `lib/transcription/links.ts`'s
+search hit. **A source has two views.** With `?project=` it is that project's source: the back link is
+the way to the other sources, nothing lists projects, and the menu offers "Remove from this project…".
+Without it (the Source Library) it stands alone: back to the library, a "Used in N projects" button that
+opens a list (capped at 25 — a recording can be in dozens of projects), and only "Delete source…".
+**Build every link to either screen with `lib/transcription/links.ts`'s
 `projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
 `/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
 (Transcript / Excerpts / Speakers) with the player docked to the bottom and the transcript scrolling
 with the page (see `transcript-workspace.tsx`, `player-bar.tsx`); every `ActionMenu` in the portal opens as
-a bottom sheet there (`useMediaQuery`), and an item may carry `confirm` so a destructive choice reads its
+a bottom sheet there (`useMediaQuery`; rows are one divided list, groups are a band, and `triggerLabel` swaps the ⋮ for a labelled button when the menu is a list to pick from), and an item may carry `confirm` so a destructive choice reads its
 consequence inside the menu — `SourceActionsMenu`'s "Remove from this project…" and "Delete source…"
 do, and replace the panels that used to overflow the header. `ConfirmAction` (project delete) is
 full-width and larger on a phone. Storage refusals go through `lib/storage-upload-errors.ts`; "exceeded
