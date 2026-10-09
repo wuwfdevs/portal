@@ -11,6 +11,8 @@ import {
 import type { SwSourceKind } from "@/lib/database.types";
 
 import { pluralize } from "@/lib/format";
+import type { ExtractionLine } from "@/lib/sourcework/run-state";
+
 /** "Oct 7, 2026 · 22:52" or "Oct 7, 2026 · 14 pages": when it happened, then how long it is. */
 export function formatSourceMeta(source: {
   kind: SwSourceKind;
@@ -42,6 +44,7 @@ export function SourceCard({
   title,
   meta,
   footnote,
+  extraction,
 }: {
   href: string;
   kind: SwSourceKind;
@@ -49,6 +52,8 @@ export function SourceCard({
   title: string;
   meta: string;
   footnote?: ReactNode;
+  /** The data-point line under the meta, for a project that has research questions. */
+  extraction?: ExtractionLine | null;
 }) {
   return (
     <Link
@@ -63,6 +68,14 @@ export function SourceCard({
       </div>
       <p className="font-semibold text-ink-900">{title}</p>
       <p className="text-xs text-ink-500">{meta}</p>
+      {extraction && (
+        <p className="text-xs text-ink-500">
+          {extraction.text}
+          {extraction.strong && (
+            <strong className="font-semibold text-ink-900">{extraction.strong}</strong>
+          )}
+        </p>
+      )}
       {footnote && <p className="text-xs text-ink-400">{footnote}</p>}
     </Link>
   );

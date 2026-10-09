@@ -23,6 +23,13 @@ import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import { SourceActionsMenu } from "../../[id]/source-actions-menu";
+import {
+  listResearchQuestions,
+  listDataPointsForSource,
+  getSourceResearch,
+} from "@/lib/sourcework/research-queries";
+import { sortDataPointsBySpan } from "@/lib/sourcework/research";
+import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
 import { projectPath, sourcePath } from "@/lib/transcription/links";
@@ -94,6 +101,11 @@ export default async function SourceDetailPage({
   const representationStatus = source.transcript?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
+  // Data points mode: only from a project that has at least one active question.
+  const research: SourceResearchView | null = contextProject
+    ? await loadResearchView(contextProject.id, id, source.status, isDocument)
+    : null;
+
   const [signedUrl, transcript, excerpts, documentContent, documentExcerpts] = await Promise.all([
     fileReady && source.originalStoragePath
       ? getSignedMediaUrl(source.originalStoragePath)
@@ -121,6 +133,7 @@ export default async function SourceDetailPage({
       blocks={documentContent.blocks}
       excerpts={documentExcerpts}
       initialPage={initialPage}
+      research={research}
     />
   ) : (
     <p className="text-sm text-ink-500">
@@ -247,6 +260,7 @@ export default async function SourceDetailPage({
               highlightClipId={clip ?? null}
               projectsPane={projectsList}
               projectCount={source.projects.length}
+              research={research}
             />
           ) : (
             <p className="text-sm text-ink-500">
@@ -354,4 +368,27 @@ function RetryForm({
       </Button>
     </form>
   );
+}
+
+async function loadResearchView(
+  projectId: string,
+  sourceId: string,
+  status: Parameters<typeof getSourceResearch>[1][number]["status"],
+  isDocument: boolean,
+): Promise<SourceResearchView | null> {
+  const questions = await listResearchQuestions(projectId);
+  const active = questions.filter((question) => !question.archivedAt);
+  if (active.length === 0) return null;
+  const [points, researchBySource] = await Promise.all([
+    listDataPointsForSource(projectId, sourceId),
+    getSourceResearch(projectId, [
+      { sourceId, status, kind: isDocument ? "document" : "audio_video" },
+    ]),
+  ]);
+  const state = researchBySource.get(sourceId)?.state ?? { kind: "idle" as const };
+  return {
+    points: sortDataPointsBySpan(points),
+    labels: Object.fromEntries(questions.map((question) => [question.id, question.label])),
+    extraction: state,
+  };
 }

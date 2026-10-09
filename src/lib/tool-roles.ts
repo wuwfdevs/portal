@@ -10,6 +10,7 @@ import { ROLE_OPTIONS as LOG_ROLE_OPTIONS } from "@/lib/log/roles";
 import { ROLE_OPTIONS as UNDERWRITING_ROLE_OPTIONS } from "@/lib/underwriting/roles";
 import { ROLE_OPTIONS as RESOURCES_ROLE_OPTIONS } from "@/lib/resources/roles";
 import { ROLE_OPTIONS as BOOKINGS_ROLE_OPTIONS } from "@/lib/bookings/roles";
+import { ROLE_OPTIONS as SOURCEWORK_ROLE_OPTIONS } from "@/lib/sourcework/roles";
 
 export interface RoleOption {
   value: string;
@@ -27,13 +28,16 @@ const ROLE_CATALOG: Record<string, RoleOption[]> = {
   // Open to every active user like Roadmap; a grant only ever means "editor".
   resources: RESOURCES_ROLE_OPTIONS,
   bookings: BOOKINGS_ROLE_OPTIONS,
+  // Sourcework's registry key is still `transcription`. Everyone with access runs
+  // research; a grant only ever adds "editor" (the prompts) — lib/sourcework/roles.ts.
+  transcription: SOURCEWORK_ROLE_OPTIONS,
 };
 
 // Tools whose roles stack: a grant may carry any combination
 // (tool_access.tool_roles), and the admin screen shows a checkbox per role
 // instead of one dropdown. See docs/broadcast-roles.md; Bookings follows the
 // same shape (docs/bookings-design.md §3).
-const STACKING_TOOLS = new Set(["log", "underwriting", "bookings"]);
+const STACKING_TOOLS = new Set(["log", "underwriting", "bookings", "transcription"]);
 
 /** The role options for a tool (by `tools.key`), or null if it has none. */
 export function getRoleCatalog(toolKey: string): RoleOption[] | null {

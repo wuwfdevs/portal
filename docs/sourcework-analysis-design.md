@@ -1,6 +1,6 @@
 # Sourcework Analysis — Design and Phased Plan
 
-Status: **Phase D (pieces by hand) is built (2026-10-11); Phases A, B, C and E are design only.** This is the document
+Status: **Phases D (pieces by hand, 2026-10-11) and A (questions, background, data points, 2026-10-12) are built; Phases B, C and E are design only.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes what that doc did not:
 background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
@@ -199,7 +199,7 @@ source backs it. Reads go through a security-invoker view or query, the way
 'rejected')` (default `accepted`, so every existing excerpt is unchanged),
 plus `suggestion_reason text` and `quality_tier smallint` for suggested rows.
 `sw_data_point_excerpts (data_point_id, excerpt_id)` records "this excerpt
-exemplifies that data point". A theme's representative quotes are *derived*: the
+exemplifies that data point". A theme's representative quotes are _derived_: the
 accepted excerpts linked to that theme's data points. There is no theme-to-
 excerpt table.
 
@@ -209,18 +209,18 @@ references the source, and in any piece.
 ### 4.7 Prompts, formats, pieces, trials
 
 - `sw_prompt_versions`: `id, slot, version, body, created_by, created_at,
-  note`. Insert-only. `sw_prompt_live (slot, version_id)` is the movable pointer;
+note`. Insert-only. `sw_prompt_live (slot, version_id)` is the movable pointer;
   rollback is moving it. Slots are defined in code (§8).
 - `sw_prompt_trials`: `id, slot, draft_body, live_version_id, sample_refs, results
-  (per side), created_by, expires_at`. Private to the editor who ran it, expires
+(per side), created_by, expires_at`. Private to the editor who ran it, expires
   after 14 days, never touches project data (§8.1).
 - `sw_piece_formats` / `sw_piece_format_versions`: a **format** has a name and
   kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and immutable versions
   holding the section structure, length, actuality range and style language (§6.3).
 - `sw_pieces`: `id, project_id, title, format_version_id (nullable),
-  target_seconds (nullable), created_by`. `format_version_id` is null for a piece
+target_seconds (nullable), created_by`. `format_version_id` is null for a piece
   written by hand. `sw_piece_versions (piece_id, version, body jsonb, saved_by,
-  saved_via ('person' | 'assistant' | 'generation'), created_at)` is insert-only.
+saved_via ('person' | 'assistant' | 'generation'), created_at)` is insert-only.
   `body` is an ordered list of `{ id, type: 'narration', text }` and
   `{ id, type: 'actuality', excerpt_id, in_ms?, out_ms? }` blocks. An actuality is
   always a real excerpt; `in_ms` and `out_ms`, when present, are this piece's own
@@ -230,7 +230,7 @@ references the source, and in any piece.
 - `sw_analysis_runs`: one row per model run, in the spirit of
   `sw_document_processing_runs` (an audit log, not a queue):
   `id, kind, project_id, source_id, prompt_version_id, model, status, counts,
-  error, started_at, finished_at`.
+error, started_at, finished_at`.
 
 ## 5. The analysis steps
 
@@ -263,8 +263,8 @@ What qualifies:
 
 - **Responsive** — bears on a research question.
 - **Story** — outside the questions but a producer would want it. The fixed set:
-  *character* (who they are, how they talk), *place*, *moment* (a scene or
-  turning point), *detail* (a concrete or sensory specific), *background*
+  _character_ (who they are, how they talk), _place_, _moment_ (a scene or
+  turning point), _detail_ (a concrete or sensory specific), _background_
   (history or context). The tunnel between the fort and the redoubt, remembered
   from childhood, is a place and a moment with no question needed.
 
@@ -454,15 +454,15 @@ Reading the code, three things are needed:
 
 How this fits the screens that exist, from the reporter's and editor's work:
 
-| Moment | Where |
-|---|---|
-| Set up | **Setup** tab, right-aligned like Traffic's (`TabNav` `end`): the research questions (editable, orderable, archivable), the web **background notes** (dismissable, refreshable), and a *Where this project stands* status (`Steps`: Research questions · Add sources · Extract data points · Review themes). It is derived from the project's state and never enforces an order, because new sources send a project back to extraction. The project's own background text stays in the header. A project without questions behaves as it does today. |
-| Add and extract | **Sources** tab. Source cards gain an extraction line ("12 data points · 3 to review"); a `BatchRunPanel` shows progress. Extraction is a status on the source, not a destination. |
-| Review per source | Source workspace, **Data points** mode (§5.3). |
-| See what is emerging | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does. |
-| Go deep on one theme | **Theme page** (§5.4), then **Suggested quotes** (§5.5). |
-| Make something | **Pieces** tab → **+ New piece** (§6). |
-| Maintain the language | **Editors** page (prompts and piece formats), editors only (§8). |
+| Moment                | Where                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Set up                | **Setup** tab, right-aligned like Traffic's (`TabNav` `end`): the research questions (editable, orderable, archivable), the web **background notes** (dismissable, refreshable), and a _Where this project stands_ status (`Steps`: Research questions · Add sources · Extract data points · Review themes). It is derived from the project's state and never enforces an order, because new sources send a project back to extraction. The project's own background text stays in the header. A project without questions behaves as it does today. |
+| Add and extract       | **Sources** tab. Source cards gain an extraction line ("12 data points · 3 to review"); a `BatchRunPanel` shows progress. Extraction is a status on the source, not a destination.                                                                                                                                                                                                                                                                                                                                                                   |
+| Review per source     | Source workspace, **Data points** mode (§5.3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| See what is emerging  | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does.                                                                                                                                                                                                                           |
+| Go deep on one theme  | **Theme page** (§5.4), then **Suggested quotes** (§5.5).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Make something        | **Pieces** tab → **+ New piece** (§6).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Maintain the language | **Editors** page (prompts and piece formats), editors only (§8).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 The project tab row is Sources · Themes · Excerpts · Pieces, with Setup at the right
 edge (`TabNav`; the Themes tab appears once a project has research questions or any
@@ -505,13 +505,13 @@ action is reachable another way.
 
 Slots (defined in code, each with a fixed output schema and variable list):
 
-| Slot | Editors control | Code controls |
-|---|---|---|
-| `context` | what background to look for, and how | search tool, note schema |
-| `extraction` | what counts as responsive and as each story element; how to phrase precision | output schema, categories, range format |
-| `theme_assign` / `theme_review` | how a theme definition should read | schema, stance values, statuses |
-| `quote_quality` | the definition of a good actuality | range schema, tiers |
-| piece formats | sections, length, style | block schema, excerpt placement by id |
+| Slot                            | Editors control                                                              | Code controls                           |
+| ------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
+| `context`                       | what background to look for, and how                                         | search tool, note schema                |
+| `extraction`                    | what counts as responsive and as each story element; how to phrase precision | output schema, categories, range format |
+| `theme_assign` / `theme_review` | how a theme definition should read                                           | schema, stance values, statuses         |
+| `quote_quality`                 | the definition of a good actuality                                           | range schema, tiers                     |
+| piece formats                   | sections, length, style                                                      | block schema, excerpt placement by id   |
 
 Rules, borrowed from prompt-management tools:
 
@@ -539,10 +539,10 @@ accepted share per version that builds from actual reviews.
    text, **Publish…**, **Try this draft**, and a line with the live version, its
    accepted share, and History. What the model is given and returns is a link, not a
    panel.
-2. **Pick a sample.** *Try this draft* opens its own screen. The sample is chosen
-   for the slot: a *project and source* for the extraction guide (the project
-   supplies the questions and background), a *theme* for the quote quality guide, a
-   *project* for theme wording, review, and piece formats. It defaults to the last
+2. **Pick a sample.** _Try this draft_ opens its own screen. The sample is chosen
+   for the slot: a _project and source_ for the extraction guide (the project
+   supplies the questions and background), a _theme_ for the quote quality guide, a
+   _project_ for theme wording, review, and piece formats. It defaults to the last
    sample used, and the screen says what it will cost ("two extraction runs").
 3. **Run both.** The live version and the draft run on identical inputs, in
    parallel, as ordinary runs flagged as trials, with a `BusyPanel` while they work.
@@ -551,11 +551,11 @@ accepted share per version that builds from actual reviews.
    themes, excerpts or pieces. A failure shows the error and can be retried at no
    cost.
 4. **Compare.** Rows are aligned by the transcript they point at (spans that overlap
-   by at least half match). Groups are *In both*, *Only in draft*, *Only in live*,
+   by at least half match). Groups are _In both_, _Only in draft_, _Only in live_,
    with counts for each side and a filter. For the quote guide, the two ranked clip
    lists sit side by side with each clip playable.
-5. **Decide.** *Back to editing* returns to the draft untouched; the trial stays
-   under Recent trials. *Publish…* asks for a one-line note about what changed,
+5. **Decide.** _Back to editing_ returns to the draft untouched; the trial stays
+   under Recent trials. _Publish…_ asks for a one-line note about what changed,
    moves the live pointer, and keeps the previous version available for rollback.
 
 It ships for the extraction guide first and the quote quality guide with Phase C;
@@ -586,13 +586,13 @@ Pieces built by hand depend only on excerpts, which exist today, so **Phase D ca
 ship first, or at any point, independently of the analysis phases.** The
 recommended order is D, then A, B, C, then E.
 
-| Phase | Ships | Notes |
-|---|---|---|
-| **A. Questions, context, data points** | Setup tab (questions, background notes, status); extraction run per source; extraction status on source cards; Excerpts \| Data points switch and review in the source workspace; spans playable in the transcript and PDF viewer; the Editors page for the extraction guide with Try this draft | `sw_research_questions`, `sw_context_notes`, `sw_data_points`, `sw_data_point_spans`, `sw_analysis_runs`, `sw_prompt_versions`/`sw_prompt_live`, `sw_prompt_trials`, editor role |
-| **B. Themes** | Assignment, Review themes, Themes tab with "Waiting for you", theme page with breadth numbers, memos | `sw_themes`, `sw_data_point_themes`, embeddings |
-| **C. Suggested quotes** | Quote selection per theme; suggested excerpts with a why-line; review; the quote quality guide and its Try | `sw_data_point_excerpts`, two excerpt columns, `quote_quality` slot |
-| **D. Pieces by hand** | Pieces tab, new blank piece, the block editor (insertion points, reorder, trim in place), versions and History, length, copy and export. No AI, no analysis | `sw_pieces`, `sw_piece_versions` |
-| **E. Formats, AI drafting and the assistant** | Piece formats (editor-managed) with Try; Draft with AI; assistant page context, piece capabilities and the refresh after a write | `sw_piece_formats`, format versions, piece capabilities (§6.4) |
+| Phase                                         | Ships                                                                                                                                                                                                                                                                                            | Notes                                                                                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Questions, context, data points**        | Setup tab (questions, background notes, status); extraction run per source; extraction status on source cards; Excerpts \| Data points switch and review in the source workspace; spans playable in the transcript and PDF viewer; the Editors page for the extraction guide with Try this draft | `sw_research_questions`, `sw_context_notes`, `sw_data_points`, `sw_data_point_spans`, `sw_analysis_runs`, `sw_prompt_versions`/`sw_prompt_live`, `sw_prompt_trials`, editor role |
+| **B. Themes**                                 | Assignment, Review themes, Themes tab with "Waiting for you", theme page with breadth numbers, memos                                                                                                                                                                                             | `sw_themes`, `sw_data_point_themes`, embeddings                                                                                                                                  |
+| **C. Suggested quotes**                       | Quote selection per theme; suggested excerpts with a why-line; review; the quote quality guide and its Try                                                                                                                                                                                       | `sw_data_point_excerpts`, two excerpt columns, `quote_quality` slot                                                                                                              |
+| **D. Pieces by hand**                         | Pieces tab, new blank piece, the block editor (insertion points, reorder, trim in place), versions and History, length, copy and export. No AI, no analysis                                                                                                                                      | `sw_pieces`, `sw_piece_versions`                                                                                                                                                 |
+| **E. Formats, AI drafting and the assistant** | Piece formats (editor-managed) with Try; Draft with AI; assistant page context, piece capabilities and the refresh after a write                                                                                                                                                                 | `sw_piece_formats`, format versions, piece capabilities (§6.4)                                                                                                                   |
 
 Not scheduled: meta-themes (the `parent_theme_id` column exists), cross-project
 themes, a keyword-in-context view over all sources (the hybrid search already
@@ -707,3 +707,29 @@ read an earlier draft:
 - **Everything works on a phone.**
 - The screens use the app's existing components and tokens; excerpts stay gold and
   evidence is lime.
+
+## 14. Phase A as built (2026-10-12)
+
+Where the build departed from, or settled, the design above:
+
+- **Background is gathered lazily, not on a trigger.** There is no job queue and no hook on "first source
+  ready", so `lib/sourcework/context-run.ts` gathers when the Setup tab finds it missing or stale (the
+  questions' fingerprint differs from the last good run's), after a question is added or edited, before an
+  extraction, and on Refresh. A run adds notes, never removes one, and never re-adds a dismissed one.
+- **Spans are sentences, not segments.** The model is shown numbered units (a transcript's sentences, a
+  document's blocks) and returns unit ranges; `extraction-units.ts` derives the time ranges or page and block
+  ids. Long sources are read in overlapping windows and de-duplicated by passage overlap.
+- **Extraction runs in a route handler** (`/api/sourcework/extract`, NDJSON progress), three at a time from the
+  Sources tab; closing the tab ends the request and a dead run is recovered as stale.
+- **Re-running** replaces only still-suggested points; a fresh suggestion that lands on a passage already
+  accepted or rejected (same bearing) is not made again.
+- **The Editors page** (`/sourcework/editors`, role `editor`, a stacking role on the `transcription` tool) ships
+  Background and Extraction guide only; "Try this draft" exists for the extraction guide. Prompt text is plain
+  language appended to a fixed framing; a slot with no published version runs its built-in text
+  (`lib/sourcework/prompts.ts`, run rows record a null version for it).
+- **Not built in A:** the `embedding` columns (Phase B), the "Theme:" and "Excerpt:" lines on accepted cards
+  (they need Phases B and C), and the Themes tab. The Projects list's "needs attention" filter counts data
+  points awaiting review (`sw_project_overview.review_count`).
+- **Legacy tables.** Both hosted projects carried five empty tables from an earlier sketch of this phase
+  (`sw_research_questions` with different columns, `sw_data_points`, `sw_data_point_excerpts`, `sw_themes`,
+  `sw_theme_data_points`); the migration drops them (the tool is still in testing, so their contents are not kept).

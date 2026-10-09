@@ -586,6 +586,8 @@ export interface ProjectOverviewRow {
   activeCount: number;
   excerptCount: number;
   lastActivity: string;
+  /** Data points waiting for a decision. */
+  reviewCount: number;
 }
 
 /**
@@ -603,7 +605,7 @@ export async function listProjectsPage(options: {
   const { from, to } = pageRange(options.page);
   let query = supabase.from("sw_project_overview").select("*", { count: "exact" });
   if (options.filter === "mine") query = query.eq("created_by", options.userId);
-  else if (options.filter === "attention") query = query.gt("failed_count", 0);
+  else if (options.filter === "attention") query = query.or("failed_count.gt.0,review_count.gt.0");
   else if (options.filter === "empty") query = query.eq("source_count", 0);
   const result = await query
     .order("last_activity", { ascending: false })
@@ -626,6 +628,7 @@ export async function listProjectsPage(options: {
       activeCount: row.active_count,
       excerptCount: row.excerpt_count,
       lastActivity: row.last_activity,
+      reviewCount: row.review_count,
     })),
   };
 }
@@ -639,7 +642,7 @@ export async function countProjectFilters(
     PROJECT_LIST_FILTERS.map(async (filter) => {
       let query = supabase.from("sw_project_overview").select("id", { count: "exact", head: true });
       if (filter === "mine") query = query.eq("created_by", userId);
-      else if (filter === "attention") query = query.gt("failed_count", 0);
+      else if (filter === "attention") query = query.or("failed_count.gt.0,review_count.gt.0");
       else if (filter === "empty") query = query.eq("source_count", 0);
       const result = await query;
       unwrapRead(result, "the project counts");
