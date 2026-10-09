@@ -9,9 +9,10 @@ import type { SelectionRange } from "@/lib/transcription/selection";
 import { createClip } from "./clip-actions";
 
 /**
- * The bar that turns a transcript selection into an excerpt, docked over the
- * bottom of the transcript pane so it appears next to the words just
- * selected, not in a rail across the screen. On a phone it is a sheet that
+ * The bar that turns a transcript selection into an excerpt, sitting just below
+ * the transcript pane so it appears next to the words just selected, not in a
+ * rail across the screen. From lg up it is sticky to the bottom of the
+ * viewport, so it stays in reach when the pane ends below the fold. On a phone it is a sheet that
  * rises from just above the docked player (see PlayerBar's `--player-dock-h`),
  * with the title on its own full-width row and the buttons below it, so the
  * keyboard and a thumb both have room. The title is filled in from the
@@ -67,7 +68,7 @@ export function SelectionToolbar({
     <div
       role="toolbar"
       aria-label="Make an excerpt"
-      className="z-50 flex flex-col gap-2 border border-brand-primary bg-white p-3 shadow-lg max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[var(--player-dock-h,7rem)] max-lg:rounded-t-xl max-lg:border-x-0 lg:absolute lg:inset-x-3 lg:bottom-3 lg:z-10 lg:gap-1.5 lg:rounded lg:p-2.5"
+      className="z-50 flex flex-col gap-2 border border-brand-primary bg-white p-3 shadow-lg max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[var(--player-dock-h,7rem)] max-lg:rounded-t-xl max-lg:border-x-0 lg:sticky lg:bottom-3 lg:z-10 lg:mx-3 lg:mt-2 lg:gap-1.5 lg:rounded lg:p-2.5"
     >
       <div className="flex items-baseline justify-between gap-3 lg:hidden">
         <strong className="font-serif text-lg font-semibold text-ink-900">New excerpt</strong>
