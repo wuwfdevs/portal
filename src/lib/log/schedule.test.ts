@@ -34,13 +34,30 @@ describe("isScheduleEntryActiveOn", () => {
   // 2026-08-06 is a Thursday (day 4).
   it("for a recurring entry, only matches its listed weekdays", () => {
     expect(isScheduleEntryActiveOn(entry({ days_of_week: [4] }), "2026-08-06")).toBe(true);
-    expect(isScheduleEntryActiveOn(entry({ days_of_week: [1, 2, 3, 5] }), "2026-08-06")).toBe(false);
+    expect(isScheduleEntryActiveOn(entry({ days_of_week: [1, 2, 3, 5] }), "2026-08-06")).toBe(
+      false,
+    );
   });
 
-  it("days_of_week does not gate an override entry", () => {
+  it("days_of_week gates an override entry too; none means every day in its dates", () => {
+    // 2026-08-06 is a Thursday.
     expect(
       isScheduleEntryActiveOn(entry({ entry_type: "override", days_of_week: [1] }), "2026-08-06"),
+    ).toBe(false);
+    expect(
+      isScheduleEntryActiveOn(entry({ entry_type: "override", days_of_week: [4] }), "2026-08-06"),
     ).toBe(true);
+    expect(
+      isScheduleEntryActiveOn(entry({ entry_type: "override", days_of_week: [] }), "2026-08-06"),
+    ).toBe(true);
+  });
+
+  it("a day-limited override leaves the standing entry in force on its other days", () => {
+    const normal = entry({ days_of_week: [6, 0] });
+    const special = entry({ entry_type: "override", days_of_week: [6], start_date: "2026-08-01" });
+    // 2026-08-08 Sat, 2026-08-09 Sun.
+    expect(resolveEntryInForce([normal, special], "2026-08-08")).toBe(special);
+    expect(resolveEntryInForce([normal, special], "2026-08-09")).toBe(normal);
   });
 });
 
@@ -71,7 +88,11 @@ describe("resolveEntryInForce", () => {
   });
 
   it("between two one-time changes, the later start date wins", () => {
-    const wide = entry({ entry_type: "override", start_date: "2026-09-01", end_date: "2026-09-30" });
+    const wide = entry({
+      entry_type: "override",
+      start_date: "2026-09-01",
+      end_date: "2026-09-30",
+    });
     expect(resolveEntryInForce([wide, storm], "2026-09-03")).toBe(storm);
   });
 

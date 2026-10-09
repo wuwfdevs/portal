@@ -29,6 +29,13 @@ const LENGTH_CHIPS = [
   { minutes: 240, text: "4 h" },
 ];
 
+/** A program's standing (recurring) times, used to pre-fill a one-time change. */
+export interface StandingSchedule {
+  days_of_week: number[];
+  air_time: string;
+  duration_minutes: number;
+}
+
 export interface ScheduleEditorEntry {
   clock_template_id: string;
   entry_type: LogScheduleEntryType;
@@ -56,6 +63,7 @@ export function ScheduleEditor({
   templates,
   defaultClockId,
   others,
+  standing,
   todayISO,
   submitLabel = "Save schedule",
   cancelHref,
@@ -71,6 +79,12 @@ export function ScheduleEditor({
   defaultClockId?: string;
   /** Every schedule entry, for the overlap check (the entry being edited is skipped by id). */
   others: OverlapOther[];
+  /**
+   * The program's current standing times. Choosing "One-time change" on a form
+   * that is still blank pre-fills days, start and length from it, so a clock swap
+   * keeps the program's normal airing and only the clock and dates change.
+   */
+  standing?: StandingSchedule;
   /** Station "today" from the server — the client never reads the clock. */
   todayISO: string;
   submitLabel?: string;
@@ -90,6 +104,14 @@ export function ScheduleEditor({
   );
   const endRef = useRef<HTMLInputElement>(null);
 
+  const chooseEntryType = (next: LogScheduleEntryType) => {
+    setEntryType(next);
+    if (next === "recurring" || !standing) return;
+    if (days.length === 0) setDays(standing.days_of_week);
+    if (airTime === "") setAirTime(standing.air_time.slice(0, 5));
+    if (duration === "") setDuration(String(standing.duration_minutes));
+  };
+
   const toggleDay = (day: number) =>
     setDays((current) =>
       current.includes(day) ? current.filter((d) => d !== day) : [...current, day],
@@ -99,10 +121,7 @@ export function ScheduleEditor({
   const recurring = entryType === "recurring";
   const hasDays = !recurring || days.length > 0;
   const ready = hasDays && durationMinutes > 0 && airTime !== "";
-  const airingDays = useMemo(
-    () => effectiveDays({ entry_type: entryType, days_of_week: days }),
-    [entryType, days],
-  );
+  const airingDays = useMemo(() => effectiveDays({ days_of_week: days }), [days]);
 
   const overlaps = useMemo(
     () =>
@@ -145,7 +164,7 @@ export function ScheduleEditor({
       : "Set a time and length";
   const daysText = !hasDays
     ? "Pick at least one day"
-    : `${recurring ? describeDaysOfWeek(days) : "Every day in its dates"}${
+    : `${days.length > 0 ? describeDaysOfWeek(days) : "Every day in its dates"}${
         durationMinutes > 0 ? ` · ${formatLengthLong(durationMinutes)}` : ""
       }`;
 
@@ -207,7 +226,12 @@ export function ScheduleEditor({
               Every day
             </button>
           </div>
-          {!recurring && <FieldHint>Days are only used for a recurring entry.</FieldHint>}
+          {!recurring && (
+            <FieldHint>
+              A one-time change airs only on the days picked, between its start and end dates. Leave
+              every day off to cover all of them.
+            </FieldHint>
+          )}
         </fieldset>
 
         <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
@@ -329,7 +353,7 @@ export function ScheduleEditor({
               id="entry_type"
               name="entry_type"
               value={entryType}
-              onChange={(event) => setEntryType(event.target.value as LogScheduleEntryType)}
+              onChange={(event) => chooseEntryType(event.target.value as LogScheduleEntryType)}
             >
               <option value="recurring">Recurring</option>
               <option value="override">One-time change</option>
