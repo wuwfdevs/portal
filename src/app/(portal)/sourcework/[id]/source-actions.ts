@@ -11,7 +11,7 @@ import { getSourceRef } from "@/lib/transcription/projects";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { sourcePath } from "@/lib/transcription/links";
-import { likeTerm } from "@/lib/list-search";
+import { ilikeTerm } from "@/lib/list-search";
 import { field, optionalField } from "@/lib/form-fields";
 import { isValidDateISO } from "@/lib/dates";
 import type { SwSourceKind } from "@/lib/database.types";
@@ -60,7 +60,7 @@ export async function listAttachableSources(
     .select("id, kind, title, interview_date, original_duration_ms, page_count")
     .order("created_at", { ascending: false })
     .limit(50);
-  const term = likeTerm(query);
+  const term = ilikeTerm(query);
   if (term) sourceQuery = sourceQuery.ilike("title", `%${term}%`);
 
   const { data, error } = await sourceQuery;

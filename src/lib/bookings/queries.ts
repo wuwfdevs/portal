@@ -13,7 +13,7 @@ import { getDisplayNames } from "@/lib/profile-names";
 import type { Database } from "@/lib/database.types";
 import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
-import { likeTerm } from "@/lib/list-search";
+import { ilikeTerm } from "@/lib/list-search";
 import { stationTodayISO } from "@/lib/log/timezone";
 import {
   agreementConsumption,
@@ -432,7 +432,7 @@ export async function listProjectsPage(options: {
   for (const [column, operator, value] of viewFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  const titleTerm = likeTerm(options.q);
+  const titleTerm = ilikeTerm(options.q);
   if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
   const { rows, total } = await readPage(result, "requests", () =>
@@ -450,7 +450,7 @@ export async function countProjects(view: ProjectListView, q: string | null): Pr
   for (const [column, operator, value] of viewFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  const titleTerm = likeTerm(q);
+  const titleTerm = ilikeTerm(q);
   if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query;
   unwrapRead(result, "request count");
@@ -710,7 +710,7 @@ export async function listPartnersPage(options: {
   for (const [column, operator, value] of partnerFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  const nameTerm = likeTerm(options.q);
+  const nameTerm = ilikeTerm(options.q);
   if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query.order("name").order("id").range(from, to);
   const { rows, total } = await readPage(result, "partners", () =>
@@ -755,7 +755,7 @@ export async function countPartners(view: PartnerListView, q: string | null): Pr
   for (const [column, operator, value] of partnerFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  const nameTerm = likeTerm(q);
+  const nameTerm = ilikeTerm(q);
   if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query;
   unwrapRead(result, "partner count");

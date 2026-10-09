@@ -45,6 +45,15 @@ export async function inviteUser(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const newUserId = data.user.id;
 
+  // The invitation email is already out: record it before the writes below, which may bounce.
+  await logAuditEvent({
+    actorId: admin.id,
+    action: "user.invited",
+    targetType: "profile",
+    targetId: newUserId,
+    metadata: { email, display_name: displayName, platform_role: platformRole },
+  });
+
   if (toolGrants.length > 0) {
     const { error: grantError } = await supabase.from("tool_access").insert(
       toolGrants.map((grant) => ({
@@ -73,14 +82,6 @@ export async function inviteUser(formData: FormData): Promise<void> {
     USERS_PATH,
     `The invitation to ${email} was sent, but their access request could not be marked approved`,
   );
-
-  await logAuditEvent({
-    actorId: admin.id,
-    action: "user.invited",
-    targetType: "profile",
-    targetId: newUserId,
-    metadata: { email, display_name: displayName, platform_role: platformRole },
-  });
 
   redirect("/admin/users?invited=" + encodeURIComponent(email));
 }

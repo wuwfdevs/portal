@@ -28,7 +28,8 @@ export async function guardRoute<T>(
     return { ok: true, value: await assertFn() };
   } catch (error) {
     if (!(error instanceof ForbiddenError)) throw error;
-    const profile = await getCurrentProfile();
+    // If the profile can't be read, fail closed with 403 rather than letting a 500 escape.
+    const profile = await getCurrentProfile().catch(() => ({}) as object);
     const status = guardStatus(profile !== null);
     const body = options.body ? options.body(error.message) : { error: error.message };
     return { ok: false, response: NextResponse.json(body, { status }) };

@@ -46,7 +46,10 @@ export async function listPipelineSubmissions(): Promise<SubmissionListItem[]> {
       "the partnership pipeline",
     ) ?? [];
 
-  const names = await getDisplayNames(rows.map((row) => row.owner_id));
+  const names = await getDisplayNames(
+    rows.map((row) => row.owner_id),
+    { degrade: true },
+  );
   return rows.map((row) => ({
     ...row,
     ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
@@ -83,7 +86,10 @@ export async function listAllSubmissions(
       "the partnership submissions",
     ) ?? [];
 
-  const names = await getDisplayNames(rows.map((row) => row.owner_id));
+  const names = await getDisplayNames(
+    rows.map((row) => row.owner_id),
+    { degrade: true },
+  );
   return rows.map((row) => ({
     ...row,
     ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
@@ -124,10 +130,10 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
       "this submission's activity log",
     ) ?? [];
 
-  const names = await getDisplayNames([
-    submission.owner_id,
-    ...events.map((event) => event.actor_id),
-  ]);
+  const names = await getDisplayNames(
+    [submission.owner_id, ...events.map((event) => event.actor_id)],
+    { degrade: true },
+  );
 
   return {
     ...submission,

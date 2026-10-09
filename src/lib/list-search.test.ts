@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { likeTerm, listSearchHref, orIlike } from "./list-search";
+import { ilikeTerm, likeTerm, listSearchHref, orIlike } from "./list-search";
 
 describe("listSearchHref", () => {
   it("sets q and keeps the list's filters", () => {
@@ -24,16 +24,29 @@ describe("listSearchHref", () => {
   });
 });
 
+describe("ilikeTerm", () => {
+  it("escapes wildcards so they match literally and keeps everything else", () => {
+    expect(ilikeTerm("john_smith@x.edu")).toBe("john\\_smith@x.edu");
+    expect(ilikeTerm(" 50% off ")).toBe("50\\% off");
+    expect(ilikeTerm("Council (draft)")).toBe("Council (draft)");
+    expect(ilikeTerm("a\\b")).toBe("a\\\\b");
+  });
+
+  it("is null when nothing is left", () => {
+    expect(ilikeTerm(null)).toBeNull();
+    expect(ilikeTerm("   ")).toBeNull();
+  });
+});
+
 describe("likeTerm", () => {
-  it("strips wildcard and filter-syntax characters and tidies spacing", () => {
-    expect(likeTerm("  50%_off ")).toBe("50 off");
-    expect(likeTerm('a),b.eq.1,(c "d" \\')).toBe("a b.eq.1 c d");
+  it("drops the or() delimiters and escapes wildcards", () => {
+    expect(likeTerm('a),b.eq.1,(c "d"')).toBe("a b.eq.1 c d");
+    expect(likeTerm("interview_2026")).toBe("interview\\_2026");
   });
 
   it("is null when nothing searchable remains", () => {
     expect(likeTerm(null)).toBeNull();
-    expect(likeTerm(undefined)).toBeNull();
-    expect(likeTerm("  %_ ,() ")).toBeNull();
+    expect(likeTerm("  ,() ")).toBeNull();
   });
 });
 
@@ -44,6 +57,10 @@ describe("orIlike", () => {
 
   it("cannot be used to add a clause", () => {
     expect(orIlike(["title"], "x),id.eq.1,(y")).toBe("title.ilike.%x id.eq.1 y%");
+  });
+
+  it("matches an email address with an underscore literally", () => {
+    expect(orIlike(["email"], "john_smith@x.edu")).toBe("email.ilike.%john\\_smith@x.edu%");
   });
 
   it("is null for an empty search", () => {

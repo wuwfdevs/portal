@@ -18,7 +18,10 @@ describe("guardStatus", () => {
 });
 
 describe("guardRoute", () => {
-  beforeEach(() => getCurrentProfile.mockReset());
+  beforeEach(() => {
+    // Braces matter: returning the mock would make vitest call it as a teardown hook.
+    getCurrentProfile.mockReset();
+  });
 
   it("passes the assertion's value through", async () => {
     const result = await guardRoute(async () => "profile");
@@ -35,6 +38,17 @@ describe("guardRoute", () => {
       expect(result.response.status).toBe(401);
       expect(await result.response.json()).toEqual({ error: "No." });
     }
+  });
+
+  it("fails closed with 403 when the profile lookup itself fails", async () => {
+    getCurrentProfile.mockImplementation(async () => {
+      throw new Error("database down");
+    });
+    const result = await guardRoute(async () => {
+      throw new ForbiddenError("No.");
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(403);
   });
 
   it("answers 403 when someone is signed in but refused, with a custom body", async () => {
