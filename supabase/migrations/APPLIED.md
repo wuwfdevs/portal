@@ -242,6 +242,7 @@ repo and a project's history, not the version number.
 | `20261009150000_resources_log_weather_alerts.sql`                      | 2026-10-08 | 2026-10-08 |
 | `20261009160000_log_miss_reason_special_coverage.sql`                  | 2026-10-09 | 2026-10-09 |
 | `20261009160100_log_rundown_supersede.sql`                             | 2026-10-09 | 2026-10-09 |
+| `20261009160200_resources_log_one_time_clock_change.sql`               | 2026-10-09 | 2026-10-09 |
 | `20261007170000_resources_bookings_rates_navigation.sql`               | 2026-10-07 | 2026-10-07 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the

@@ -117,7 +117,7 @@ Owns the structural and operational core (source doc §4, §5, §7–§9, §11�
   piece carries across them by overrun chaining (`docs/log-design.md` §2 and
   §6's "Overruns and content that spans several breaks").
 - `log_schedule` — maps programs to the calendar: the recurring weekly grid
-  plus date-bounded substitutions and holiday overrides (§4.1).
+  plus date-bounded one-time changes (docs/log-design.md §3B).
 - `log_content_items` — every non-underwriting content type from §7.1 (news,
   station/program promo, membership message, university announcement, PSA,
   legal ID, interview/feature, host-created item). Underwriting credits are

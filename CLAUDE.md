@@ -3189,6 +3189,26 @@ they go stale; earlier dates keep theirs. Everyone sees "NPR rundown:
 Connected / Not connected"; producers also see the raw values and a warning
 when another program shares the collection. No schema change.
 
+**Log: one-time clock changes and superseding a rundown (2026-10-09).** Read
+`docs/log-design.md` §3B "One-time clock changes" before touching schedule entries
+or rundown generation; this is a pointer. FPREN Phase I storm coverage is a planned
+schedule change (decided days ahead, whole program airings), not a live switch. The
+existing `log_schedule` override entry carries it; `holiday` is no longer an entry
+type (`log_schedule_entry_type_check`; the enum value stays but may not be stored).
+Which entry is in force is decided only by `resolveEntryInForce` /
+`entriesInForceOn` (`lib/log/schedule.ts`) — don't filter with
+`isScheduleEntryActiveOn` alone. A rundown already generated for those dates is
+switched, not edited or deleted: `log_supersede_rundown()` marks it
+`log_rundowns.superseded_at` (the one-live-rundown-per-date rule is now a partial
+unique index), records each placed credit as missed with the new `special_coverage`
+reason so Traffic's exception and makegood flow reviews it, and a replacement is
+generated (`switchProgramRundowns`, offered on the program page from
+`lib/log/clock-sync.ts`). Any new reader of `log_rundowns` must exclude superseded
+rows (the readers are listed in the design doc). Migrations `20261009160000`,
+`20261009160100` and `20261009160200` are applied to both projects. Not verified
+against FPREN's live page (blocked from the sandbox); the three Phase I clocks still
+have to be entered from FPREN's diagrams.
+
 **Log: NPR and weather live under one Sources tab (2026-09-29).** The NPR and
 Weather tabs are replaced by **Sources** (`/log/sources`): an overview with one
 card per outside feed (state, last updated, what's saved, a link), and each
