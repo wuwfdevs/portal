@@ -5,6 +5,7 @@
 
 import { computeEndTime, formatAirTime } from "@/lib/log/schedule";
 import { formatDaysOfWeek } from "@/lib/log/program-status";
+import { addDaysISO, dayOfWeekISO, isValidDateISO, weekStartISO } from "@/lib/dates";
 import { shiftDateISO } from "@/lib/log/timezone";
 
 export const DEFAULT_START_HOUR = 5;
@@ -34,28 +35,13 @@ const DAY_PLURAL = [
   "Saturdays",
 ];
 
-function dayOfWeek(dateISO: string): number {
-  return new Date(`${dateISO}T12:00:00Z`).getUTCDay();
-}
-
-/** The Monday of the week (Monday..Sunday) containing `dateISO`. */
-export function weekStartISO(dateISO: string): string {
-  const sinceMonday = (dayOfWeek(dateISO) + 6) % 7;
-  return shiftDateISO(dateISO, -sinceMonday);
-}
-
 /** The seven ISO dates, Monday through Sunday, of the week containing `dateISO`. */
 export function weekDates(dateISO: string): string[] {
   const monday = weekStartISO(dateISO);
   return Array.from({ length: 7 }, (_, index) => shiftDateISO(monday, index));
 }
 
-/** Whether a string is a real YYYY-MM-DD calendar date. */
-export function isValidDateISO(value: string | undefined | null): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T12:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
+export { isValidDateISO, weekStartISO };
 
 /** "Sep 28 – Oct 4, 2026"; the year appears on both ends only when the week spans two. */
 export function formatWeekRange(mondayISO: string): string {

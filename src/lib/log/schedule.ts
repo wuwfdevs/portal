@@ -3,6 +3,7 @@
 // covers it; the "Today" screen and (once it exists) rundown generation
 // should both call this rather than re-deriving it.
 
+import { dayOfWeekISO } from "@/lib/dates";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 export interface ScheduleEntryLike {
@@ -22,7 +23,7 @@ export function isScheduleEntryActiveOn(entry: ScheduleEntryLike, dateISO: strin
   if (entry.end_date && entry.end_date < dateISO) return false;
 
   if (entry.entry_type === "recurring" && entry.days_of_week.length > 0) {
-    const dayOfWeek = new Date(`${dateISO}T00:00:00Z`).getUTCDay();
+    const dayOfWeek = dayOfWeekISO(dateISO);
     return entry.days_of_week.includes(dayOfWeek);
   }
 

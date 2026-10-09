@@ -6,6 +6,7 @@
 // returns the bookings or an exception in plain language with the nearest
 // alternatives. It never returns a partial or mismatched plan.
 
+import { dayOfWeekISO } from "@/lib/dates";
 import { shiftDateISO } from "@/lib/log/timezone";
 import type { BkPricingTreatment } from "@/lib/database.types";
 import {
@@ -313,7 +314,7 @@ export function buildBookingPlan(input: PlanInput, state: CalendarState): Bookin
 }
 
 function isWeekend(dateISO: string): boolean {
-  const day = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+  const day = dayOfWeekISO(dateISO);
   return day === 0 || day === 6;
 }
 

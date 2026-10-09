@@ -1,3 +1,5 @@
+import { addDaysISO } from "@/lib/dates";
+
 // Log operates one physical broadcast studio in Pensacola, FL — Escambia
 // County observes Central time (America/Chicago), not Eastern, despite being
 // in the Florida panhandle. Every wall-clock-facing display in this tool —
@@ -94,9 +96,7 @@ export function formatStationTimeHM(iso: string): string {
  * day is the same operation regardless of timezone.
  */
 export function shiftDateISO(dateISO: string, days: number): string {
-  const anchored = new Date(`${dateISO}T12:00:00Z`);
-  anchored.setUTCDate(anchored.getUTCDate() + days);
-  return anchored.toISOString().slice(0, 10);
+  return addDaysISO(dateISO, days);
 }
 
 /** The station's UTC offset, in minutes, at the given instant (e.g. -300 for CDT, -360 for CST). */

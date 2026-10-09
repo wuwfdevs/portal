@@ -12,6 +12,7 @@ import { listPlans } from "@/lib/bookings/queries";
 import { parseWindowLines, parseWindows, tentativeExpiry } from "@/lib/bookings/scheduling";
 import type { BkHoldKind, BkPricingTreatment, BkTermPlanStatus } from "@/lib/database.types";
 import { isValidDateISO } from "@/lib/log/week-layout";
+import { safeLocalPath } from "@/lib/safe-path";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
@@ -93,7 +94,7 @@ function revalidateCalendar(): void {
 /** The calendar screen a form came from, so a write lands back where it was made. */
 function returnTo(formData: FormData, fallback: string): string {
   const value = field(formData, "return_to");
-  return value.startsWith(CALENDAR_PATH) ? value : fallback;
+  return safeLocalPath(value, fallback, { prefixes: [CALENDAR_PATH] });
 }
 
 // Term plans ---------------------------------------------------------------------------------------
