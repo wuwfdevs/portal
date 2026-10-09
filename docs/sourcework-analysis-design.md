@@ -733,3 +733,6 @@ Where the build departed from, or settled, the design above:
 - **Legacy tables.** Both hosted projects carried five empty tables from an earlier sketch of this phase
   (`sw_research_questions` with different columns, `sw_data_points`, `sw_data_point_excerpts`, `sw_themes`,
   `sw_theme_data_points`); the migration drops them (the tool is still in testing, so their contents are not kept).
+- **Detached sources.** Removing a source from a project deletes only the link, so its data points stay (and return
+  if the source is re-attached) but stop counting anywhere: the three count views go through the project's
+  current `sw_project_sources` rows (`20261012140000`).
