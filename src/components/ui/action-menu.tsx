@@ -151,16 +151,14 @@ export function ActionMenu({
         )}
       </>
     );
-    // Between groups: a band on a phone, and a single rule in the popover. The
-    // band is its own child of the divided list (a Fragment, not a wrapper
-    // div), so it gets a rule above and below like a row does.
-    const divider = item.dividerBefore ? (
-      narrow ? (
-        <div role="separator" className="h-2 bg-panel-50" />
-      ) : (
+    // Between groups: a single rule in the popover. On a phone there is no
+    // separator at all — every row is divided from the next by the same hairline
+    // and a group is told apart by its row (a destructive one is red), because
+    // a band between two rows reads as a gap in an otherwise even list.
+    const divider =
+      item.dividerBefore && !narrow ? (
         <div role="separator" className="my-1 border-t border-line" />
-      )
-    ) : null;
+      ) : null;
     if (item.disabled) {
       return (
         <Fragment key={item.href ?? item.label}>

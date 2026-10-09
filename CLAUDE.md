@@ -397,7 +397,7 @@ which page to revalidate.
 `/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
 (Transcript / Excerpts / Speakers) with the player docked to the bottom and the transcript scrolling
 with the page (see `transcript-workspace.tsx`, `player-bar.tsx`); every `ActionMenu` in the portal opens as
-a bottom sheet there (`useMediaQuery`; rows are one divided list, groups are a band, and `triggerLabel` swaps the ⋮ for a labelled button when the menu is a list to pick from), and an item may carry `confirm` so a destructive choice reads its
+a bottom sheet there (`useMediaQuery`; rows are one evenly divided list with no band between groups, and `triggerLabel` swaps the ⋮ for a labelled button when the menu is a list to pick from), and an item may carry `confirm` so a destructive choice reads its
 consequence inside the menu — `SourceActionsMenu`'s "Remove from this project…" and "Delete source…"
 do, and replace the panels that used to overflow the header. `ConfirmAction` (project delete) is
 full-width and larger on a phone. Storage refusals go through `lib/storage-upload-errors.ts`; "exceeded
