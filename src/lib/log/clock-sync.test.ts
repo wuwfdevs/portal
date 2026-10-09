@@ -37,7 +37,6 @@ function rundown(airDate: string, overrides: Partial<SyncRundown> = {}): SyncRun
     id: `r-${airDate}`,
     air_date: airDate,
     status: "generated",
-    source: "generated",
     shift_start_at: shift.startAt,
     shift_end_at: shift.endAt,
     superseded_at: null,
@@ -86,7 +85,7 @@ describe("findOutOfStepRundowns", () => {
     expect(found[0]?.reason).toBe("times");
   });
 
-  it("never reports a rundown that has started, aired, been replaced, or was imported", () => {
+  it("never reports a rundown that has started, aired, or been replaced", () => {
     const entries = [entry(), storm];
     expect(
       findOutOfStepRundowns([rundown("2026-09-11", { status: "in_progress" })], entries, NOW),
@@ -101,9 +100,13 @@ describe("findOutOfStepRundowns", () => {
         NOW,
       ),
     ).toEqual([]);
-    expect(
-      findOutOfStepRundowns([rundown("2026-09-11", { source: "imported" })], entries, NOW),
-    ).toEqual([]);
+  });
+
+  it("reports an imported rundown like any other: source is provenance, not eligibility", () => {
+    // SyncRundown carries no source at all, so an imported rundown is
+    // indistinguishable here and is reported on the same rules.
+    const found = findOutOfStepRundowns([rundown("2026-09-11")], [entry(), storm], NOW);
+    expect(found).toHaveLength(1);
   });
 
   it("never reports a rundown whose shift has already begun", () => {

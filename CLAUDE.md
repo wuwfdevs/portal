@@ -3392,6 +3392,13 @@ band; the Programs week grid shades both (`week-layout.ts`'s `shadingBands`).
 Not built: per-line exemptions, moving already-placed credits when the hours
 change.
 
+**Log: imported rundowns can be switched too (2026-10-09).** Revises the entry above:
+`clock-sync.ts` no longer excludes `source = 'imported'` (`log_supersede_rundown()` never
+did); the guards are unchanged — `generated`, not started, no events, not superseded. A
+credit with no Traffic placement (all imported ones) can't raise an exception, so
+`switchProgramRundowns` reports how many were displaced, and the dates that already have a
+released DAD log. `20261009170000` is Resources content only.
+
 **Log: Florida News Exchange is a third Sources feed (2026-10-09).** Read
 `lib/log/fne.ts`'s header before touching it; this is a pointer. PRX's public RSS
 feed of stories other Florida stations share (`FNE_FEED_URL` overrides the default),

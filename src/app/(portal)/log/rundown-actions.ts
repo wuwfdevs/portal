@@ -21,7 +21,7 @@ import {
   WEATHER_DEFAULT_DURATION_SECONDS,
   WEATHER_ITEM_SENTINEL,
 } from "@/lib/log/content-library";
-import { stationLocalDateTimeToUTC, stationTodayISO } from "@/lib/log/timezone";
+import { shiftDateISO, stationLocalDateTimeToUTC, stationTodayISO } from "@/lib/log/timezone";
 import { estimateReadSeconds } from "@/lib/log/read-time";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
@@ -289,6 +289,8 @@ export async function generateRundown(formData: FormData): Promise<void> {
  * log_supersede_rundown keeps it, records its placed underwriting credits as
  * missed (special_coverage) so Traffic reviews them, and refuses one that has
  * started or has events — and a replacement is generated on the right clock.
+ * Imported and generated rundowns are treated alike. The result also reports
+ * credits Traffic never placed and DAD logs already released for those dates.
  * Program director only; the database function enforces it too.
  */
 export async function switchProgramRundowns(formData: FormData): Promise<void> {
@@ -310,8 +312,18 @@ export async function switchProgramRundowns(formData: FormData): Promise<void> {
   const supabase = await createClient();
   let switched = 0;
   let credits = 0;
+  let unplaced = 0;
+  const releasedDates = new Set<string>();
   const problems: string[] = [];
   for (const item of outOfStep) {
+    // Credits with no Traffic placement behind them (an imported log's) can't
+    // raise an exception — there is no contract line to be owed — so count
+    // them before the swap and report them instead of dropping them silently.
+    const { count: creditItems } = await supabase
+      .from("log_rundown_items")
+      .select("id, log_rundown_breaks!inner(rundown_id)", { count: "exact", head: true })
+      .eq("item_kind", "underwriting_credit")
+      .eq("log_rundown_breaks.rundown_id", item.rundown.id);
     const { data, error } = await supabase.rpc("log_supersede_rundown", {
       p_rundown_id: item.rundown.id,
       p_note: `Schedule entry in force: ${item.entry.id}.`,
@@ -322,6 +334,20 @@ export async function switchProgramRundowns(formData: FormData): Promise<void> {
       continue;
     }
     credits += data.credits_recorded;
+    unplaced += Math.max(0, (creditItems ?? 0) - data.credits_recorded);
+
+    // The DAD log for the day (or the next, for an overnight shift) may have
+    // been released with the old rundown's breaks in it.
+    const { data: released, error: releasedError } = await supabase
+      .from("log_dad_exports")
+      .select("air_date")
+      .in("air_date", [item.rundown.air_date, shiftDateISO(item.rundown.air_date, 1)]);
+    if (releasedError) {
+      problems.push(
+        `${item.rundown.air_date}: could not check for a released DAD log (${releasedError.message}) — check the DAD log screen.`,
+      );
+    }
+    for (const row of released ?? []) releasedDates.add(row.air_date);
 
     const generated = await generateRundownForEntry(item.entry, item.rundown.air_date);
     if (!generated.ok) {
@@ -336,6 +362,8 @@ export async function switchProgramRundowns(formData: FormData): Promise<void> {
   revalidatePath("/log");
   revalidatePath(path);
   const query = new URLSearchParams({ switched: String(switched), credits: String(credits) });
+  if (unplaced > 0) query.set("unplaced", String(unplaced));
+  if (releasedDates.size > 0) query.set("dad", [...releasedDates].sort().join(","));
   if (problems.length > 0) query.set("error", problems.join(" · "));
   redirect(`${path}?${query.toString()}`);
 }
