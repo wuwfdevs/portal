@@ -336,9 +336,10 @@ or choose **Draft with AI** → pick a **format**, the **material** (accepted th
 all on by default; only accepted excerpts are ever used) and an optional
 **direction** → **Generate draft** → land back in the editor with the draft in place
 and a note ("Drafted from Radio wrap v3 · 0:57 of 1:00 · Undo") → iterate by hand or
-with the assistant. **Draft with AI appears once, in the empty state.** On a piece that already has
-blocks it moves into the ⋮ menu as **Redraft with AI…**, which says it replaces what
-is there and is undone from History; there is no standing button in the header. The
+with the assistant. **Draft with AI appears once, in the empty state of a piece, and nowhere
+else.** A piece that already has content has no such button or menu item; starting
+over from a format is a request to the assistant, whose draft is a version and is
+undone from History. The
 piece records which format drafted it (`format_version_id`, null for a piece written
 by hand) and the Pieces list says "Written by hand" or "Radio wrap format, then
 edited". A piece with no format has no target length until the writer sets one.
@@ -390,7 +391,7 @@ Reading the code, three things are needed:
    `lib/capabilities/registry.ts`, key `transcription`): read a piece; replace a
    narration block's text; insert, remove and **reorder** blocks; place or swap an
    actuality **by excerpt id**; search excerpts (reusing `sourcework.project.search`);
-   **create a blank piece**, and **draft or redraft a piece from a format** for a
+   **create a blank piece**, and **draft a piece from a format** (on request, including to start over) for a
    project. Edits need no confirmation
    step, because every one writes a version and is undoable, which differs from
    `log.rundownItem.recordOutcome`; each call is still audited as `mcp.*`. An
@@ -629,7 +630,7 @@ live formats side by side, writing nothing to the project.
 ## 11. Decisions taken in review (2026-10-09)
 
 - **A piece is written by hand by default; AI drafting from a format is optional** and
-  available from an empty piece or later as Redraft. Creating a piece opens the editor
+  offered once, from an empty piece (the assistant can also draft on request). Creating a piece opens the editor
   directly (§5.6).
 
 - **Everything must work on a phone.** No screen is desktop-only (§5.9).
