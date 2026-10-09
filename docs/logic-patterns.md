@@ -15,27 +15,29 @@ UI: one implementation, in a module with a test, that every tool imports.
 
 ## Where each thing lives
 
-| Need                                    | Use                                                                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Read a form field                       | `lib/form-fields.ts` — `field`, `optionalField`, `optionalInt`, `checkboxField`, `csvField` |
-| Require a number, uuid or date          | `lib/action-fields.ts` — `numberField`, `uuidField`, `dateField` (they `failWith`)          |
-| Fail an action, bounce with a message   | `lib/editorial/action-result.ts` — `failWith`, `failIfError`                                |
-| Delete a row                            | `deleteOrFail(…delete().select("id"), path, summary)` — see below                           |
-| Return a result to client code          | `lib/action-response.ts` — `ActionResult`, `actionOk`, `actionError`                        |
-| Read rows                               | `lib/read-result.ts` — `unwrapRead`                                                         |
-| Read one page of a list                 | `lib/pagination-read.ts` — `readPage` (+ `lib/pagination.ts`)                               |
-| Put user text in a filter               | `lib/list-search.ts` — `likeTerm`, `orIlike`                                                |
-| Names for profile ids                   | `lib/profile-names.ts` — `getDisplayNames`                                                  |
-| A calendar date (`YYYY-MM-DD`)          | `lib/dates.ts`; the station's "today" and zone are in `lib/log/timezone.ts`                 |
-| A time of day                           | `lib/time-of-day.ts`                                                                        |
-| Money and rounding                      | `lib/money.ts`                                                                              |
-| Text (slug, truncate, word count)       | `lib/text.ts`                                                                               |
-| Group, index, count, sum rows           | `lib/collections.ts`                                                                        |
-| A `return_to` / `next` path from a user | `lib/safe-path.ts` — `safeLocalPath`                                                        |
-| A query string on a path                | `lib/paths.ts` — `withQuery`                                                                |
-| Sign a private-bucket URL               | `lib/storage-sign.ts` — `signedUrl`; check the path first with `lib/storage-paths.ts`       |
-| A tool's role for a user                | `lib/auth/tool-grant.ts` — `lookupToolGrant`; parse with `lib/role-keys.ts`                 |
-| A route handler's auth                  | `lib/auth/route-guard.ts`                                                                   |
+| Need                                          | Use                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Read a form field                             | `lib/form-fields.ts` — `field`, `optionalField`, `optionalInt`, `checkboxField`, `csvField` |
+| Require a number, uuid or date                | `lib/action-fields.ts` — `numberField`, `uuidField`, `dateField` (they `failWith`)          |
+| Fail an action, bounce with a message         | `lib/editorial/action-result.ts` — `failWith`, `failIfError`                                |
+| Delete a row                                  | `deleteOrFail(…delete().select("id"), path, summary)` — see below                           |
+| Return a result to client code                | `lib/action-response.ts` — `ActionResult`, `actionOk`, `actionError`                        |
+| Read rows                                     | `lib/read-result.ts` — `unwrapRead`                                                         |
+| Read one page of a list                       | `lib/pagination-read.ts` — `readPage` (+ `lib/pagination.ts`)                               |
+| Put user text in a filter                     | `lib/list-search.ts` — `likeTerm`, `orIlike`                                                |
+| Names for profile ids                         | `lib/profile-names.ts` — `getDisplayNames`                                                  |
+| A calendar date (`YYYY-MM-DD`)                | `lib/dates.ts`; the station's "today" and zone are in `lib/log/timezone.ts`                 |
+| A time of day                                 | `lib/time-of-day.ts`                                                                        |
+| Money and rounding                            | `lib/money.ts`                                                                              |
+| Text (slug, truncate, word count)             | `lib/text.ts`                                                                               |
+| Group, index, count, sum rows                 | `lib/collections.ts`                                                                        |
+| A `return_to` / `next` path from a user       | `lib/safe-path.ts` — `safeLocalPath`                                                        |
+| A query string on a path                      | `lib/paths.ts` — `withQuery`                                                                |
+| Sign a private-bucket URL                     | `lib/storage-sign.ts` — `signedUrl`; check the path first with `lib/storage-paths.ts`       |
+| A tool's role for a user                      | `lib/auth/tool-grant.ts` — `lookupToolGrant`; parse with `lib/role-keys.ts`                 |
+| A route handler's auth                        | `lib/auth/route-guard.ts` — `guardRoute` (401 signed out, 403 refused)                      |
+| A write whose failure is deliberately ignored | `lib/transcription/best-effort.ts` — logs and returns false                                 |
+| Which screens a Bookings write refreshes      | `lib/bookings/revalidate.ts`                                                                |
 
 ## Rules
 
@@ -92,6 +94,14 @@ UI: one implementation, in a module with a test, that every tool imports.
     those differ on purpose — but the lookup and the override are not restated.
 14. **RLS and triggers are the boundary; the gates are the courtesy in front.** Unchanged.
 
+### Enforcement
+
+ESLint (`no-restricted-syntax` in `eslint.config.mjs`) fails `const { data } = await …` with no
+`error` beside it — the shape behind most of the discarded errors the audit found. `auth.getUser()`
+(`data: { user }`) is exempt because no user just means signed out. A genuine exception takes an
+inline disable with the reason. It does not catch a bare awaited write (`await supabase.from(…)
+.update(…)`); review for those.
+
 ### SQL/TS twins
 
 Some logic exists twice — TypeScript so a screen can explain a decision, SQL so the database
@@ -130,3 +140,9 @@ second quick move; a stream with no abort lands state updates after navigation.
 - **Interval-overlap helpers.** Bookings' strict minute windows, inclusive date ranges, Log's
   week-wrap minutes and Underwriting's open-ended ranges have different edge rules.
 - **Hash and id generators.** Each is a few lines and tied to its tool's format.
+- **`useAction`** is built and tested but not adopted: the import clients share one `pending`
+  flag across two actions and a plan state, so the swap was not clean. Use it for new code.
+- **Station-time `shortDate`/`monthLabel`** in `lib/underwriting/dates.ts`: `formatShortDate`
+  parses a date-only string as UTC and would show the previous day west of Greenwich.
+- **Chunk-embedding `truncate`** in `lib/transcription/chunking.ts`: its limit is the content
+  length before the ellipsis, which is an embedding-input contract, not a display one.

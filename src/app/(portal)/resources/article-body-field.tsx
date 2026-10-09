@@ -62,6 +62,8 @@ export function ArticleBodyField({
       throw new Error(`The screenshot couldn't be recorded: ${rowError.message}`);
     }
 
+    // The preview is a nicety: if signing fails the local object URL below stands in.
+    // eslint-disable-next-line no-restricted-syntax
     const { data: signed } = await supabase.storage
       .from(RESOURCES_MEDIA_BUCKET)
       .createSignedUrl(objectPath, PREVIEW_SECONDS);

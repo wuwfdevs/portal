@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -17,7 +18,10 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   if (!user) return null;
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-
-  return profile;
+  // maybeSingle: a signed-in user with no profile row is "no profile" (null), but a failed read is
+  // an outage and must surface — otherwise every page would read it as "signed out" and bounce to /login.
+  return unwrapRead(
+    await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    "your profile",
+  );
 }
