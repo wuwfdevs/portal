@@ -444,7 +444,7 @@ export interface SourceDetail {
   /** This source's primary representation (transcript, or document_text), if processing has started — the workspace pane keys off its id and status. */
   transcript: SwRepresentation | null;
   /** Every project that references this source. */
-  projects: { id: string; title: string }[];
+  projects: { id: string; title: string; description: string | null }[];
 }
 
 /**
@@ -483,7 +483,11 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
     projectIds.length === 0
       ? []
       : (unwrapRead(
-          await supabase.from("tw_projects").select("id, title").in("id", projectIds),
+          await supabase
+            .from("tw_projects")
+            .select("id, title, description")
+            .in("id", projectIds)
+            .order("title"),
           "this source's projects",
         ) ?? []);
 

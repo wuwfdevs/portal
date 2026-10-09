@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getSourceDetail, getTranscriptForRepresentation } from "@/lib/transcription/projects";
@@ -20,6 +19,8 @@ import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import { SourceActionsMenu } from "../../[id]/source-actions-menu";
+import { DocumentTabs } from "./document-tabs";
+import { SourceProjectsList } from "./source-projects-list";
 import { projectPath, sourcePath } from "@/lib/transcription/links";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -67,6 +68,11 @@ export default async function SourceDetailPage({
   const primaryProjectId = contextProject?.id ?? source.projects[0]?.id ?? null;
   const otherProjectCount = source.projects.length - (contextProject ? 1 : 0);
   const returnTo = sourcePath(id, { projectId: contextProject?.id });
+  // Two views of one source. Opened from a project it is that project's source:
+  // the back link is the way to the others and nothing lists projects. Opened on
+  // its own (the library) it gains a Projects tab beside Transcript / Excerpts /
+  // Speakers — a real list, since a recording can be in dozens of projects.
+  const projectsList = contextProject ? null : <SourceProjectsList projects={source.projects} />;
   const hasMedia = Boolean(source.originalStoragePath);
   const isDocument = source.kind === "document";
   // See ../../[id]/representation-status-banner.tsx: the file and the text
@@ -89,6 +95,26 @@ export default async function SourceDetailPage({
       : Promise.resolve({ pages: [], blocks: [] }),
     isDocument ? listDocumentExcerptsForSource(id) : Promise.resolve([]),
   ]);
+
+  const documentView = signedUrl ? (
+    <DocumentWorkspace
+      // A fresh mount per distinct ?page= target — the viewer only reads
+      // initialPage in a useState initializer.
+      key={`${id}:${initialPage ?? ""}`}
+      projectId={primaryProjectId}
+      sourceId={id}
+      representationId={source.transcript?.id ?? null}
+      fileUrl={signedUrl}
+      pages={documentContent.pages}
+      blocks={documentContent.blocks}
+      excerpts={documentExcerpts}
+      initialPage={initialPage}
+    />
+  ) : (
+    <p className="text-sm text-ink-500">
+      Couldn&apos;t load the document right now. Reload the page to try again.
+    </p>
+  );
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -125,28 +151,6 @@ export default async function SourceDetailPage({
         }
       />
 
-      <section className="mb-6">
-        <SectionHeading level="eyebrow" className="mb-3">
-          Used in {source.projects.length} project{source.projects.length === 1 ? "" : "s"}
-        </SectionHeading>
-        {source.projects.length === 0 ? (
-          <p className="text-sm text-ink-500">Not attached to any project yet.</p>
-        ) : (
-          <ul className="flex flex-wrap gap-x-5 gap-y-1.5">
-            {source.projects.map((project) => (
-              <li key={project.id}>
-                <Link
-                  href={projectPath(project.id)}
-                  className="text-sm font-semibold text-brand-link"
-                >
-                  {project.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       {fileReady && isDocument && (
         <Card className="p-5">
           <RepresentationStatusBanner
@@ -157,24 +161,12 @@ export default async function SourceDetailPage({
             sourceId={id}
             returnTo={returnTo}
           />
-          {signedUrl ? (
-            <DocumentWorkspace
-              // A fresh mount per distinct ?page= target — the viewer only reads
-              // initialPage in a useState initializer.
-              key={`${id}:${initialPage ?? ""}`}
-              projectId={primaryProjectId}
-              sourceId={id}
-              representationId={source.transcript?.id ?? null}
-              fileUrl={signedUrl}
-              pages={documentContent.pages}
-              blocks={documentContent.blocks}
-              excerpts={documentExcerpts}
-              initialPage={initialPage}
-            />
+          {projectsList ? (
+            <DocumentTabs projectCount={source.projects.length} projectsPane={projectsList}>
+              {documentView}
+            </DocumentTabs>
           ) : (
-            <p className="text-sm text-ink-500">
-              Couldn&apos;t load the document right now. Reload the page to try again.
-            </p>
+            documentView
           )}
         </Card>
       )}
@@ -189,7 +181,7 @@ export default async function SourceDetailPage({
             sourceId={id}
             returnTo={returnTo}
           />
-          {signedUrl && primaryProjectId ? (
+          {signedUrl ? (
             <TranscriptWorkspace
               // A fresh mount per distinct ?t=/?clip= target. Both only ever seed
               // a useState/ref once, so a search result that only changes them
@@ -209,12 +201,12 @@ export default async function SourceDetailPage({
               clips={excerpts}
               initialSeekMs={initialSeekMs}
               highlightClipId={clip ?? null}
+              projectsPane={projectsList}
+              projectCount={source.projects.length}
             />
           ) : (
             <p className="text-sm text-ink-500">
-              {primaryProjectId
-                ? "Couldn't load the media right now. Reload the page to try again."
-                : "This source isn't attached to a project, so there's nothing to open here."}
+              Couldn&apos;t load the media right now. Reload the page to try again.
             </p>
           )}
         </Card>
@@ -237,9 +229,7 @@ export default async function SourceDetailPage({
               source.transcript?.error_message ??
               "Something went wrong with this source."}
           </p>
-          {hasMedia && primaryProjectId && (
-            <RetryForm projectId={primaryProjectId} sourceId={id} returnTo={returnTo} />
-          )}
+          {hasMedia && <RetryForm projectId={primaryProjectId} sourceId={id} returnTo={returnTo} />}
         </Card>
       )}
 
@@ -306,13 +296,13 @@ function RetryForm({
   sourceId,
   returnTo,
 }: {
-  projectId: string;
+  projectId: string | null;
   sourceId: string;
   returnTo: string;
 }) {
   return (
     <form action={retryTranscription} className="mt-4">
-      <input type="hidden" name="project_id" value={projectId} />
+      <input type="hidden" name="project_id" value={projectId ?? ""} />
       <input type="hidden" name="source_id" value={sourceId} />
       <input type="hidden" name="return_to" value={returnTo} />
       <Button type="submit" variant="secondary">

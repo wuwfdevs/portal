@@ -382,12 +382,22 @@ zone. It has no player, no transcript and no source switcher; `source-switcher.t
 `AddSourceButton` lives in `add-source-button.tsx`. A source is opened as its own screen
 (`/sourcework/sources/[id]`), which is the working surface; `?project=<id>` is only context (the back
 link, and the project "Remove from this project" detaches from) and `?t=`/`?clip=`/`?page=` land on a
-search hit. **Build every link to either screen with `lib/transcription/links.ts`'s
+search hit. **A source has two views.** With `?project=` it is that project's source: the back link is
+the way to the other sources, nothing lists projects, and the menu offers "Remove from this project…".
+Without it (the Source Library) it stands alone: back to the library, a fourth **Projects** tab in the
+same tab row (`sources/[id]/source-projects-list.tsx` — title and background per project, a filter once
+there are eight), and only "Delete source…". The row (`[id]/pane-tabs.tsx`) is Transcript · Excerpts ·
+Speakers · Projects on a phone; from `lg` up Excerpts and Speakers are `phoneOnly` (the rail and the
+speakers menu are already beside the transcript) so it is Transcript · Projects. A PDF is Document ·
+Projects (`sources/[id]/document-tabs.tsx`). Opened from a project there is no row on desktop. A source in
+no project opens like any other: the workspace actions take a nullable `projectId` that only decides
+which page to revalidate.
+**Build every link to either screen with `lib/transcription/links.ts`'s
 `projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
 `/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
 (Transcript / Excerpts / Speakers) with the player docked to the bottom and the transcript scrolling
 with the page (see `transcript-workspace.tsx`, `player-bar.tsx`); every `ActionMenu` in the portal opens as
-a bottom sheet there (`useMediaQuery`), and an item may carry `confirm` so a destructive choice reads its
+a bottom sheet there (`useMediaQuery`; rows are one divided list, groups are a band, and `triggerLabel` swaps the ⋮ for a labelled button when the menu is a list to pick from), and an item may carry `confirm` so a destructive choice reads its
 consequence inside the menu — `SourceActionsMenu`'s "Remove from this project…" and "Delete source…"
 do, and replace the panels that used to overflow the header. `ConfirmAction` (project delete) is
 full-width and larger on a phone. Storage refusals go through `lib/storage-upload-errors.ts`; "exceeded

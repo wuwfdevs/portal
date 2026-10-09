@@ -31,7 +31,7 @@ export function RepresentationStatusBanner({
   status: "pending" | "processing" | "ready" | "failed";
   kind: SwSourceKind;
   errorMessage: string | null;
-  /** Null when the source has no project left to revalidate through — the retry action is project-scoped, so it can't be offered. */
+  /** Null when the source is in no project; retry then goes by the source alone. */
   projectId: string | null;
   sourceId: string | null;
   returnTo?: string;
@@ -48,9 +48,9 @@ export function RepresentationStatusBanner({
               : "Couldn't transcribe this recording.")}{" "}
           The file itself uploaded fine and is shown below.
         </p>
-        {projectId && (
+        {(projectId || sourceId) && (
           <form action={retryTranscription} className="mt-2.5">
-            <input type="hidden" name="project_id" value={projectId} />
+            <input type="hidden" name="project_id" value={projectId ?? ""} />
             {sourceId && <input type="hidden" name="source_id" value={sourceId} />}
             {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
             <Button type="submit" variant="secondary">

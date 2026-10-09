@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { SegmentRow } from "./segment-row";
 import { ClipRail, type ClipSelectionOrigin } from "./clip-rail";
 import { TranscriptExport } from "./transcript-export";
 import { SelectionToolbar } from "./selection-toolbar";
+import { PaneTabs, type PaneTab } from "./pane-tabs";
 import { PlayerBar } from "./player-bar";
 import { ShortcutsHelp } from "./shortcuts-help";
 
@@ -30,7 +31,7 @@ const SKIP_MS = 5000;
 /** How long the selection must sit still before it is read — long enough for a drag of the handles to settle. */
 const SELECTION_SETTLE_MS = 250;
 
-type Pane = "transcript" | "excerpts" | "speakers";
+type Pane = "transcript" | "excerpts" | "speakers" | "projects";
 
 /**
  * The player, speaker naming, transcript, and clips as one coupled surface
@@ -63,8 +64,11 @@ export function TranscriptWorkspace({
   clips,
   initialSeekMs = null,
   highlightClipId = null,
+  projectsPane = null,
+  projectCount = 0,
 }: {
-  projectId: string;
+  /** Null for a source that is in no project — nothing here needs one beyond refreshing the right screen. */
+  projectId: string | null;
   /** The source (pill) this workspace is currently showing — a new excerpt belongs to this one, not necessarily the project's first-added source. */
   sourceId: string;
   representationId: string | null;
@@ -81,6 +85,9 @@ export function TranscriptWorkspace({
   initialSeekMs?: number | null;
   /** ?clip= from a clip result — which clip to surface in the rail. */
   highlightClipId?: string | null;
+  /** The standalone source view's list of projects using this source — a fourth tab in the same row. Absent when the source was opened from a project. */
+  projectsPane?: ReactNode;
+  projectCount?: number;
 }) {
   const router = useRouter();
   const mediaRef = useRef<HTMLMediaElement | null>(null);
@@ -94,6 +101,12 @@ export function TranscriptWorkspace({
   // Below lg the three working surfaces are tabs of one screen rather than a
   // column and a rail; from lg up all of them are on screen and this is unused.
   const [pane, setPane] = useState<Pane>("transcript");
+  const workspaceTabs: PaneTab<Pane>[] = [
+    { id: "transcript", label: "Transcript" },
+    { id: "excerpts", label: "Excerpts", count: clips.length, phoneOnly: true },
+    { id: "speakers", label: "Speakers", count: speakers.length, phoneOnly: true },
+    ...(projectsPane ? [{ id: "projects" as const, label: "Projects", count: projectCount }] : []),
+  ];
   // Whether the pending selection came from the browser's own text selection
   // (which a tap elsewhere in the text collapses) or from "excerpt from this
   // line" (which nothing in the DOM backs).
@@ -531,10 +544,13 @@ export function TranscriptWorkspace({
         </button>
       )}
       <PaneTabs
+        label="Workspace"
+        tabs={workspaceTabs}
         pane={pane}
         onChange={setPane}
-        excerptCount={clips.length}
-        speakerCount={speakers.length}
+        // Excerpts and Speakers are on screen beside the transcript from lg up,
+        // so the row only exists there when Projects gives it a second tab.
+        showOnDesktop={projectsPane !== null}
       />
       <div className="flex flex-col gap-4">
         {isVideo ? (
@@ -572,7 +588,12 @@ export function TranscriptWorkspace({
           onToggleFollow={toggleFollow}
         />
 
-        <div className={cn("flex-col gap-4", pane === "transcript" ? "flex" : "hidden lg:flex")}>
+        <div
+          className={cn(
+            "flex-col gap-4",
+            pane === "transcript" ? "flex" : pane === "projects" ? "hidden" : "hidden lg:flex",
+          )}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <SpeakersMenu
               projectId={projectId}
@@ -734,8 +755,8 @@ export function TranscriptWorkspace({
 
       <div
         className={cn(
-          "flex-col gap-4 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
-          pane === "excerpts" ? "flex" : "hidden",
+          "flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
+          pane === "excerpts" ? "flex" : pane === "projects" ? "hidden" : "hidden lg:flex",
         )}
       >
         <ClipRail
@@ -751,60 +772,12 @@ export function TranscriptWorkspace({
           onShowInTranscript={() => setPane("transcript")}
         />
       </div>
-    </div>
-  );
-}
 
-/**
- * The three working surfaces as tabs, below lg only. Buttons rather than the
- * link-based TabNav, because these switch what one screen shows and are not
- * places in the tool; the underline is the same, since it answers the same
- * question.
- */
-function PaneTabs({
-  pane,
-  onChange,
-  excerptCount,
-  speakerCount,
-}: {
-  pane: Pane;
-  onChange: (pane: Pane) => void;
-  excerptCount: number;
-  speakerCount: number;
-}) {
-  const tabs: { id: Pane; label: string; count?: number }[] = [
-    { id: "transcript", label: "Transcript" },
-    { id: "excerpts", label: "Excerpts", count: excerptCount },
-    { id: "speakers", label: "Speakers", count: speakerCount },
-  ];
-  return (
-    <div
-      role="tablist"
-      aria-label="Workspace"
-      className="sticky top-16 z-30 -mb-2 flex border-b border-line bg-white lg:hidden"
-    >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={pane === tab.id}
-          onClick={() => onChange(tab.id)}
-          className={cn(
-            "-mb-px flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-[3px] text-[15px] font-semibold transition-colors",
-            pane === tab.id
-              ? "border-brand-primary text-brand-link"
-              : "border-transparent text-ink-500",
-          )}
-        >
-          {tab.label}
-          {tab.count !== undefined && tab.count > 0 && (
-            <span className="rounded-full bg-panel-100 px-1.5 text-xs font-bold leading-5 text-ink-700">
-              {tab.count}
-            </span>
-          )}
-        </button>
-      ))}
+      {projectsPane && (
+        <div className={cn("lg:col-span-2", pane === "projects" ? "block" : "hidden")}>
+          {projectsPane}
+        </div>
+      )}
     </div>
   );
 }

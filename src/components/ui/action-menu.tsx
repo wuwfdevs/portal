@@ -48,12 +48,15 @@ export function ActionMenu({
   label = "Actions",
   items,
   trigger = "boxed",
+  triggerLabel,
   sheetHeading,
 }: {
   label?: string;
   items: ActionMenuItem[];
   /** `quiet` drops the border, for a menu repeated on every row of a long list. */
   trigger?: "boxed" | "quiet";
+  /** Replaces the ⋮ with a labelled button ("Used in 4 projects ▾") for a menu that is a list to pick from, not a set of actions. */
+  triggerLabel?: ReactNode;
   /** Shown at the top of the bottom sheet below lg, so it says which row the actions are for. */
   sheetHeading?: ReactNode;
 }) {
@@ -104,7 +107,7 @@ export function ActionMenu({
   const itemClasses = (item: ActionMenuItem) =>
     `${
       narrow
-        ? "flex min-h-[3.25rem] w-full flex-col justify-center border-b border-line px-4 text-left text-base"
+        ? "flex min-h-[3.25rem] w-full flex-col justify-center px-4 py-2 text-left text-base"
         : "block w-full px-3 py-1.5 text-left text-sm"
     } ${
       item.disabled
@@ -136,16 +139,30 @@ export function ActionMenu({
       <>
         <span className="block">{item.label}</span>
         {item.hint && (
-          <span className="block text-xs text-ink-400 sm:whitespace-nowrap">{item.hint}</span>
+          <span
+            className={
+              narrow
+                ? "block text-sm text-ink-500"
+                : "block text-xs text-ink-400 sm:whitespace-nowrap"
+            }
+          >
+            {item.hint}
+          </span>
         )}
       </>
     );
+    // Between groups: a band on a phone, where every row already has a rule
+    // around it, and a single rule in the popover.
     const divider = item.dividerBefore ? (
-      <div role="separator" className="my-1 border-t border-line" />
+      narrow ? (
+        <div role="separator" className="h-2 bg-panel-50" />
+      ) : (
+        <div role="separator" className="my-1 border-t border-line" />
+      )
     ) : null;
     if (item.disabled) {
       return (
-        <div key={item.label}>
+        <div key={item.href ?? item.label}>
           {divider}
           <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
             {body}
@@ -155,7 +172,7 @@ export function ActionMenu({
     }
     if (item.href) {
       return (
-        <div key={item.label}>
+        <div key={item.href ?? item.label}>
           {divider}
           <Link role="menuitem" href={item.href} onClick={close} className={itemClasses(item)}>
             {body}
@@ -164,7 +181,7 @@ export function ActionMenu({
       );
     }
     return (
-      <div key={item.label}>
+      <div key={item.href ?? item.label}>
         {divider}
         <button
           type="button"
@@ -230,17 +247,28 @@ export function ActionMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={label}
+        aria-label={triggerLabel ? undefined : label}
         onClick={() => (open ? close() : setOpen(true))}
         className={
-          trigger === "quiet"
-            ? "flex h-11 w-11 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface lg:h-8 lg:w-8"
-            : "flex h-11 w-11 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link lg:h-8 lg:w-8"
+          triggerLabel
+            ? "inline-flex h-11 items-center gap-1.5 rounded border border-line bg-white px-3 text-sm font-semibold text-brand-link hover:border-brand-primary lg:h-9"
+            : trigger === "quiet"
+              ? "flex h-11 w-11 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface lg:h-8 lg:w-8"
+              : "flex h-11 w-11 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link lg:h-8 lg:w-8"
         }
       >
-        <span aria-hidden="true" className="text-lg leading-none">
-          ⋮
-        </span>
+        {triggerLabel ? (
+          <>
+            {triggerLabel}
+            <span aria-hidden="true" className="text-[10px]">
+              ▾
+            </span>
+          </>
+        ) : (
+          <span aria-hidden="true" className="text-lg leading-none">
+            ⋮
+          </span>
+        )}
       </button>
       {narrow ? (
         open &&
@@ -262,11 +290,9 @@ export function ActionMenu({
               {confirmStep ?? (
                 <>
                   {sheetHeading && (
-                    <div className="border-b border-line px-4 pb-3 pt-1 text-sm text-ink-700">
-                      {sheetHeading}
-                    </div>
+                    <div className="px-4 pb-3 pt-1 text-sm text-ink-700">{sheetHeading}</div>
                   )}
-                  {itemList}
+                  <div className="divide-y divide-line border-y border-line">{itemList}</div>
                   <div className="px-4 pt-3">
                     <button
                       type="button"

@@ -53,7 +53,7 @@ export function SegmentRow({
   onSelectClip,
   onMakeExcerpt,
 }: {
-  projectId: string;
+  projectId: string | null;
   segment: TranscriptSegment;
   tokens: TimedToken[];
   /** Which runs of this line's words belong to clips — precomputed once by the workspace. */

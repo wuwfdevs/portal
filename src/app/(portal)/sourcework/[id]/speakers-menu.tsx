@@ -31,7 +31,7 @@ export function SpeakersMenu({
   onSeek,
   onRenamed,
 }: {
-  projectId: string;
+  projectId: string | null;
   speakers: TranscriptSpeaker[];
   segments: TranscriptSegment[];
   onSeek: (startMs: number) => void;
@@ -130,7 +130,7 @@ export function SpeakersPane({
   onSeek,
   onRenamed,
 }: {
-  projectId: string;
+  projectId: string | null;
   speakers: TranscriptSpeaker[];
   segments: TranscriptSegment[];
   onSeek: (startMs: number) => void;
@@ -181,7 +181,7 @@ function SpeakersPanelBody({
   onRenamed,
   scrollable = true,
 }: {
-  projectId: string;
+  projectId: string | null;
   rows: ReturnType<typeof speakerRows>;
   summary: ReturnType<typeof speakerSummary>;
   visible: ReturnType<typeof speakerRows>;
@@ -248,7 +248,7 @@ function SpeakerEditRow({
   onSeek,
   onRenamed,
 }: {
-  projectId: string;
+  projectId: string | null;
   row: ReturnType<typeof speakerRows>[number];
   others: ReturnType<typeof speakerRows>;
   onSeek: (startMs: number) => void;
