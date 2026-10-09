@@ -18,33 +18,27 @@
 -- this phase (sw_research_questions with `prompt`/`active`, sw_data_points,
 -- sw_data_point_excerpts, sw_themes, sw_theme_data_points). No migration in this
 -- directory ever created them, no application code reads them, and both projects
--- held zero rows in every one when this was written (checked 2026-10-12). The
--- shapes differ from the design in docs/sourcework-analysis-design.md §4, so they
--- are replaced rather than altered. The guard makes the migration refuse, loudly,
--- if any of them has since gained a row; Phase B recreates the theme tables.
+-- held zero rows in every one when this was written (checked 2026-10-12). Their
+-- shapes differ from docs/sourcework-analysis-design.md §4, so they are replaced
+-- rather than altered. They are moved out of the way, not dropped: a schema that
+-- PostgREST does not expose frees their names (indexes are named per schema) and
+-- keeps whatever they hold. Drop the `legacy_sourcework` schema once nobody wants
+-- them. Phase B recreates the theme tables.
+create schema if not exists legacy_sourcework;
+
 do $$
 declare
   t text;
-  n bigint;
 begin
   foreach t in array array[
     'sw_theme_data_points', 'sw_themes', 'sw_data_point_excerpts',
     'sw_data_points', 'sw_research_questions'
   ] loop
     if to_regclass('public.' || t) is not null then
-      execute format('select count(*) from public.%I', t) into n;
-      if n > 0 then
-        raise exception 'public.% holds % rows; refusing to replace it', t, n;
-      end if;
+      execute format('alter table public.%I set schema legacy_sourcework', t);
     end if;
   end loop;
 end $$;
-
-drop table if exists public.sw_theme_data_points cascade;
-drop table if exists public.sw_themes cascade;
-drop table if exists public.sw_data_point_excerpts cascade;
-drop table if exists public.sw_data_points cascade;
-drop table if exists public.sw_research_questions cascade;
 
 -- The elevation ---------------------------------------------------------------
 create function private.is_sourcework_editor(uid uuid)
