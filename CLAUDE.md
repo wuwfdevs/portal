@@ -435,7 +435,7 @@ replaces only `suggested` points** and never re-suggests onto a passage a person
 (`private.is_sourcework_editor`, a stacking role), `/sourcework/editors`, versions insert-only with a live
 pointer, publish via `sw_publish_prompt()` and audited; no published version means the built-in text in code;
 (4) **everything needs `OPENAI_API_KEY`** except building by hand. Migrations `20261012120000` (schema; it
-drops five empty legacy tables behind a guard) and `20261012130000` (Resources content) are **written but not
+drops five legacy tables) and `20261012130000` (Resources content) are **written but not
 applied** to either project — the Supabase MCP tool hangs on statements containing `drop`, so run them in the
 SQL editor, preview first, then record both dates in `APPLIED.md`. Nothing here has run against a live
 Supabase or OpenAI.

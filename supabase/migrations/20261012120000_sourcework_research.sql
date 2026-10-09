@@ -17,28 +17,15 @@
 -- Both hosted projects carried five tables from an earlier, abandoned sketch of
 -- this phase (sw_research_questions with `prompt`/`active`, sw_data_points,
 -- sw_data_point_excerpts, sw_themes, sw_theme_data_points). No migration in this
--- directory ever created them, no application code reads them, and both projects
--- held zero rows in every one when this was written (checked 2026-10-12). Their
--- shapes differ from docs/sourcework-analysis-design.md §4, so they are replaced
--- rather than altered. They are moved out of the way, not dropped: a schema that
--- PostgREST does not expose frees their names (indexes are named per schema) and
--- keeps whatever they hold. Drop the `legacy_sourcework` schema once nobody wants
--- them. Phase B recreates the theme tables.
-create schema if not exists legacy_sourcework;
-
-do $$
-declare
-  t text;
-begin
-  foreach t in array array[
-    'sw_theme_data_points', 'sw_themes', 'sw_data_point_excerpts',
-    'sw_data_points', 'sw_research_questions'
-  ] loop
-    if to_regclass('public.' || t) is not null then
-      execute format('alter table public.%I set schema legacy_sourcework', t);
-    end if;
-  end loop;
-end $$;
+-- directory ever created them and no application code reads them; their shapes
+-- differ from docs/sourcework-analysis-design.md §4, so they are replaced rather
+-- than altered. The tool is still being tested, so whatever they hold is not kept.
+-- Phase B recreates the theme tables.
+drop table if exists public.sw_theme_data_points cascade;
+drop table if exists public.sw_themes cascade;
+drop table if exists public.sw_data_point_excerpts cascade;
+drop table if exists public.sw_data_points cascade;
+drop table if exists public.sw_research_questions cascade;
 
 -- The elevation ---------------------------------------------------------------
 create function private.is_sourcework_editor(uid uuid)

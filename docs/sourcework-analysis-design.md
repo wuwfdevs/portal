@@ -732,4 +732,4 @@ Where the build departed from, or settled, the design above:
   points awaiting review (`sw_project_overview.review_count`).
 - **Legacy tables.** Both hosted projects carried five empty tables from an earlier sketch of this phase
   (`sw_research_questions` with different columns, `sw_data_points`, `sw_data_point_excerpts`, `sw_themes`,
-  `sw_theme_data_points`); the migration drops them behind a guard that refuses if any holds a row.
+  `sw_theme_data_points`); the migration drops them (the tool is still in testing, so their contents are not kept).
