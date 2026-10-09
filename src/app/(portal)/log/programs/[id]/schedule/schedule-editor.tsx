@@ -332,8 +332,7 @@ export function ScheduleEditor({
               onChange={(event) => setEntryType(event.target.value as LogScheduleEntryType)}
             >
               <option value="recurring">Recurring</option>
-              <option value="override">Override</option>
-              <option value="holiday">Holiday</option>
+              <option value="override">One-time change</option>
             </Select>
           </Field>
         </div>

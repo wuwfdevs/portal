@@ -2,7 +2,7 @@
 // the schedule editor shows what would air at the same time as an entry being
 // edited; nothing here blocks a save. Day/date conventions follow
 // `isScheduleEntryActiveOn` (schedule.ts): only a recurring entry with days
-// gates by weekday, so an empty list, or an override/holiday entry, covers
+// gates by weekday, so an empty list, or an override entry, covers
 // every day in its date range.
 
 import type { LogScheduleEntryType } from "@/lib/database.types";

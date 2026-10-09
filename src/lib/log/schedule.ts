@@ -14,7 +14,7 @@ export interface ScheduleEntryLike {
 
 /**
  * Whether a schedule entry is in effect on the given ISO date (YYYY-MM-DD).
- * `days_of_week` only gates recurring entries — an override or holiday entry
+ * `days_of_week` only gates recurring entries — an override entry
  * with no days_of_week set covers every day in its date range.
  */
 export function isScheduleEntryActiveOn(entry: ScheduleEntryLike, dateISO: string): boolean {

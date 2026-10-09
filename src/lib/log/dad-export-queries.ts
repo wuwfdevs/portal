@@ -17,7 +17,7 @@ import {
   type DadExportItem,
   type DadIssue,
 } from "./dad-export";
-import { isScheduleEntryActiveOn } from "./schedule";
+import { entriesInForceOn } from "./schedule";
 import { stationLocalParts, stationLocalToUTC } from "./automated-hours";
 import { shiftDateISO } from "./timezone";
 import { listScheduleEntries } from "./queries";
@@ -223,8 +223,7 @@ export async function loadDadDay(dateISO: string): Promise<DadDay> {
   );
   const warnings: DadIssue[] = [];
   const warned = new Set<string>();
-  for (const entry of scheduleEntries) {
-    if (entry.entry_type === "holiday" || !isScheduleEntryActiveOn(entry, dateISO)) continue;
+  for (const entry of entriesInForceOn(scheduleEntries, dateISO)) {
     if (withRundown.has(entry.program_id) || warned.has(entry.program_id)) continue;
     const start = Date.parse(stationLocalToUTC(dateISO, entry.air_time));
     const end = start + entry.duration_minutes * 60_000;

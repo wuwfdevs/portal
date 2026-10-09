@@ -56,7 +56,7 @@ export async function createProgram(formData: FormData): Promise<void> {
   redirect(programPath(data.id));
 }
 
-const ENTRY_TYPES: LogScheduleEntryType[] = ["recurring", "override", "holiday"];
+const ENTRY_TYPES: LogScheduleEntryType[] = ["recurring", "override"];
 
 type ScheduleEntryFields = {
   programId: string;
@@ -93,7 +93,8 @@ function readScheduleEntryFields(formData: FormData, formPath: string): Schedule
     programId,
     clockTemplateId,
     entryType,
-    daysOfWeek,
+    // Days gate only a recurring entry; a one-time change covers every day in its dates.
+    daysOfWeek: entryType === "recurring" ? daysOfWeek : [],
     startDate,
     endDate: optionalField(formData, "end_date"),
     airTime,

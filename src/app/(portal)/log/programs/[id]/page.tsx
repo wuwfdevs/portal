@@ -51,7 +51,7 @@ const SAVED_MESSAGE: Record<string, string> = {
 
 /**
  * A program's own page, schedule first ("When it airs"): each entry as a card
- * with its days (or, for a one-time change or holiday, its dates), time range
+ * with its days (or, for a one-time change, its dates), time range
  * and an Edit button, and below it the clock it runs on; for a program still
  * on the shared placeholder clock, a callout saying what that costs and how to
  * fix it. The right column is the program's own details, with its NPR
@@ -198,7 +198,7 @@ export default async function ProgramDetailPage({
                       `from ${formatDateShort(entry.start_date)}`,
                     ]
                   : [
-                      entry.entry_type === "override" ? "One-time change" : "Holiday",
+                      "One-time change",
                       formatLengthLong(entry.duration_minutes),
                     ];
                 if (recurring && entry.end_date && !isEnded)

@@ -69,7 +69,7 @@ describe("describeEntryDays", () => {
     expect(describeEntryDays({ entry_type: "recurring", days_of_week: [1, 2, 3, 4, 5] })).toBe(
       "Mon–Fri",
     );
-    expect(describeEntryDays({ entry_type: "override", days_of_week: [] })).toBe("Override");
+    expect(describeEntryDays({ entry_type: "override", days_of_week: [] })).toBe("One-time change");
   });
 });
 

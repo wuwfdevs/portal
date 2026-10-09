@@ -17,7 +17,7 @@ import {
   type ClosedWeeklyWindow,
   type UnderwritingHourChange,
 } from "@/lib/log/underwriting-hours";
-import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { entriesInForceOn } from "@/lib/log/schedule";
 import { shiftDateISO } from "@/lib/log/timezone";
 import { formatWeekRange, weekDates, weekStartISO } from "@/lib/log/week-layout";
 import type { ScheduleEntryWithNames } from "@/lib/log/queries";
@@ -292,18 +292,16 @@ function WeekView({
     num: Number(dateISO.slice(8)),
     blocks: primary.blocksOn(dateISO),
     bands: context.blocksOn(dateISO),
-    programs: entries
-      .filter((entry) => isScheduleEntryActiveOn(entry, dateISO))
-      .map((entry) => {
-        const [h = "0", m = "0"] = entry.air_time.split(":");
-        const start = Number(h) * 60 + Number(m);
-        return {
-          key: entry.id,
-          name: entry.programName,
-          top: (start / 60) * PX_PER_HOUR,
-          height: (Math.min(entry.duration_minutes, 1440 - start) / 60) * PX_PER_HOUR,
-        };
-      }),
+    programs: entriesInForceOn(entries, dateISO).map((entry) => {
+      const [h = "0", m = "0"] = entry.air_time.split(":");
+      const start = Number(h) * 60 + Number(m);
+      return {
+        key: entry.id,
+        name: entry.programName,
+        top: (start / 60) * PX_PER_HOUR,
+        height: (Math.min(entry.duration_minutes, 1440 - start) / 60) * PX_PER_HOUR,
+      };
+    }),
     summary: `${primary.summaryOn(dateISO)} · ${context.summaryOn(dateISO).toLowerCase()}`,
   }));
   const hourLabels = Array.from({ length: 8 }, (_, i) => i * 3);

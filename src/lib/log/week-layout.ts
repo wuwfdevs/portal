@@ -83,10 +83,9 @@ export function formatTimeRange(airTime: string, durationMinutes: number): strin
   return `${start} – ${end}`;
 }
 
-/** "Saturdays" for one weekday, otherwise "Mon–Fri" and the like; overrides and holidays say so. */
+/** "Saturdays" for one weekday, otherwise "Mon–Fri" and the like; a one-time change says so. */
 export function describeEntryDays(entry: { entry_type: string; days_of_week: number[] }): string {
-  if (entry.entry_type === "override") return "Override";
-  if (entry.entry_type === "holiday") return "Holiday";
+  if (entry.entry_type === "override") return "One-time change";
   const days = [...new Set(entry.days_of_week)];
   if (days.length === 1) return DAY_PLURAL[days[0]!] ?? formatDaysOfWeek(days);
   return formatDaysOfWeek(days);

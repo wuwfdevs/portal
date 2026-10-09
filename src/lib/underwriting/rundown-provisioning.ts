@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { isScheduleEntryActiveOn, type ScheduleEntryLike } from "@/lib/log/schedule";
+import { resolveEntryInForce, type ScheduleEntryLike } from "@/lib/log/schedule";
 import { resolveCurrentVersion, type ClockVersionLike } from "@/lib/log/clock-versions";
 import { buildRundownBreakDrafts, type RundownOpportunityLike } from "@/lib/log/rundown-generation";
 import {
@@ -115,24 +115,6 @@ export function minutesOfDayInStationTime(iso: string): number {
 }
 
 /**
- * Picks the schedule entry actually in effect on a given date, when more
- * than one of a program's entries could apply — a dated override or
- * holiday entry wins over the standing recurring one; between two active
- * recurring entries (shouldn't happen in practice), the one with the later
- * start_date is the more specific, more recently added one.
- */
-function pickScheduleEntry(
-  entries: ScheduleEntryContext[],
-  dateISO: string,
-): ScheduleEntryContext | null {
-  const active = entries.filter((entry) => isScheduleEntryActiveOn(entry, dateISO));
-  if (active.length === 0) return null;
-  const override = active.find((entry) => entry.entry_type !== "recurring");
-  if (override) return override;
-  return active.reduce((latest, entry) => (entry.start_date > latest.start_date ? entry : latest));
-}
-
-/**
  * Generates rundowns for candidateDates, in order, stopping as soon as
  * targetCount new ones have been generated (an unschedulable date is
  * skipped and doesn't count against the target — the next candidate date
@@ -178,7 +160,7 @@ export async function provisionRundownsForDates(
     if (generatedCount >= targetCount) break;
     if (existingDates.has(airDate)) continue; // shouldn't be in candidateDates at all, but stay safe
 
-    const scheduleEntry = pickScheduleEntry(context.schedule_entries, airDate);
+    const scheduleEntry = resolveEntryInForce(context.schedule_entries, airDate);
     if (!scheduleEntry) {
       unschedulableAirDates.push(airDate);
       continue;

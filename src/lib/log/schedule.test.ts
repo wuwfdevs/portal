@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeEndTime, formatAirTime, isScheduleEntryActiveOn, type ScheduleEntryLike } from "./schedule";
+import {
+  computeEndTime,
+  entriesInForceOn,
+  formatAirTime,
+  isScheduleEntryActiveOn,
+  resolveEntryInForce,
+  type ScheduleEntryLike,
+} from "./schedule";
 
 function entry(overrides: Partial<ScheduleEntryLike> = {}): ScheduleEntryLike {
   return {
@@ -30,10 +37,68 @@ describe("isScheduleEntryActiveOn", () => {
     expect(isScheduleEntryActiveOn(entry({ days_of_week: [1, 2, 3, 5] }), "2026-08-06")).toBe(false);
   });
 
-  it("days_of_week does not gate an override or holiday entry", () => {
+  it("days_of_week does not gate an override entry", () => {
     expect(
-      isScheduleEntryActiveOn(entry({ entry_type: "holiday", days_of_week: [1] }), "2026-08-06"),
+      isScheduleEntryActiveOn(entry({ entry_type: "override", days_of_week: [1] }), "2026-08-06"),
     ).toBe(true);
+  });
+});
+
+describe("resolveEntryInForce", () => {
+  const normal = entry({ days_of_week: [0, 1, 2, 3, 4, 5, 6] });
+  const storm = entry({ entry_type: "override", start_date: "2026-09-02", end_date: "2026-09-04" });
+
+  it("returns null when nothing covers the date", () => {
+    expect(resolveEntryInForce([entry({ start_date: "2026-10-01" })], "2026-09-01")).toBeNull();
+  });
+
+  it("lets a one-time change win over the recurring entry inside its dates", () => {
+    expect(resolveEntryInForce([normal, storm], "2026-09-03")).toBe(storm);
+    expect(resolveEntryInForce([storm, normal], "2026-09-03")).toBe(storm);
+  });
+
+  it("falls back to the recurring entry before the change starts", () => {
+    expect(resolveEntryInForce([normal, storm], "2026-09-01")).toBe(normal);
+  });
+
+  it("falls back to the recurring entry the day after the change ends", () => {
+    expect(resolveEntryInForce([normal, storm], "2026-09-05")).toBe(normal);
+  });
+
+  it("does not let a future-starting change win early", () => {
+    const later = entry({ entry_type: "override", start_date: "2026-12-01" });
+    expect(resolveEntryInForce([normal, later], "2026-09-03")).toBe(normal);
+  });
+
+  it("between two one-time changes, the later start date wins", () => {
+    const wide = entry({ entry_type: "override", start_date: "2026-09-01", end_date: "2026-09-30" });
+    expect(resolveEntryInForce([wide, storm], "2026-09-03")).toBe(storm);
+  });
+
+  it("between two recurring entries, the later start date wins", () => {
+    const older = entry({ start_date: "2026-01-01" });
+    const newer = entry({ start_date: "2026-06-01" });
+    expect(resolveEntryInForce([older, newer], "2026-09-03")).toBe(newer);
+  });
+
+  it("keeps the earlier entry on a complete tie", () => {
+    const a = entry();
+    const b = entry();
+    expect(resolveEntryInForce([a, b], "2026-09-03")).toBe(a);
+  });
+});
+
+describe("entriesInForceOn", () => {
+  it("returns one entry per program, keeping the input order", () => {
+    const withProgram = (program_id: string, o: Partial<ScheduleEntryLike> = {}) => ({
+      ...entry(o),
+      program_id,
+    });
+    const atcNormal = withProgram("atc");
+    const atcStorm = withProgram("atc", { entry_type: "override", start_date: "2026-09-02" });
+    const me = withProgram("me");
+    expect(entriesInForceOn([atcNormal, me, atcStorm], "2026-09-03")).toEqual([me, atcStorm]);
+    expect(entriesInForceOn([atcNormal, me, atcStorm], "2026-09-01")).toEqual([atcNormal, me]);
   });
 });
 

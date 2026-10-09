@@ -26,7 +26,7 @@ import {
   STATUS_LABEL,
   type ProgramScheduleStatus,
 } from "@/lib/log/program-status";
-import { formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { entriesInForceOn, formatAirTime } from "@/lib/log/schedule";
 import { automatedSegments, stationLocalParts } from "@/lib/log/automated-hours";
 import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import { closedSegments } from "@/lib/log/underwriting-hours";
@@ -151,7 +151,13 @@ export default async function ProgramsPage({
       const entries = entriesByProgram.get(program.id) ?? [];
       const live = entries
         .filter((entry) => entry.end_date === null || entry.end_date >= today)
-        .sort((a, b) => a.air_time.localeCompare(b.air_time));
+        // The standing schedule leads; a one-time change is listed after it
+        // rather than displacing it as the program's "primary" row.
+        .sort(
+          (a, b) =>
+            Number(a.entry_type !== "recurring") - Number(b.entry_type !== "recurring") ||
+            a.air_time.localeCompare(b.air_time),
+        );
       return { program, live, status: deriveProgramStatus(entries, today) };
     });
 
@@ -302,9 +308,7 @@ export default async function ProgramsPage({
                         {primary
                           ? primary.entry_type === "recurring"
                             ? formatDaysOfWeek(primary.days_of_week)
-                            : primary.entry_type === "override"
-                              ? "Override"
-                              : "Holiday"
+                            : "One-time change"
                           : "—"}
                       </Cell>
                       <Cell label="Clock">
@@ -429,8 +433,7 @@ async function WeekView({
   ]);
 
   const dayEntries = dates.map((dateISO) =>
-    entries
-      .filter((entry) => isScheduleEntryActiveOn(entry, dateISO))
+    entriesInForceOn(entries, dateISO)
       .map((entry) => ({
         entry,
         dateISO,

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
+import { resolveEntryInForce } from "@/lib/log/schedule";
 import {
   BREAK_OCCURRENCE_CONFLICT,
   breakInsertRow,
@@ -31,6 +32,7 @@ import {
   getRundownItem,
   getScheduleEntry,
   listLocalOpportunitiesForVersion,
+  listScheduleEntriesForProgram,
   toRundownOpportunity,
 } from "@/lib/log/queries";
 import type { LogContentType } from "@/lib/database.types";
@@ -167,8 +169,17 @@ export async function generateRundown(formData: FormData): Promise<void> {
   if (scheduleEntryId === "" || airDate === "")
     failWith("/log", "Choose a program to generate a rundown for.");
 
-  const scheduleEntry = await getScheduleEntry(scheduleEntryId);
-  if (!scheduleEntry) failWith("/log", "That schedule entry no longer exists.");
+  const postedEntry = await getScheduleEntry(scheduleEntryId);
+  if (!postedEntry) failWith("/log", "That schedule entry no longer exists.");
+
+  // Whatever row the click came from, the rundown is built from the entry in
+  // force for that program on that date — a one-time change replaces the
+  // recurring entry, so a stale Generate button can't build the wrong clock.
+  const scheduleEntry = resolveEntryInForce(
+    await listScheduleEntriesForProgram(postedEntry.program_id),
+    airDate,
+  );
+  if (!scheduleEntry) failWith("/log", "This program has no schedule entry in force on that date.");
 
   const existing = await getRundownForProgramOnDate(scheduleEntry.program_id, airDate);
   if (existing) redirect(rundownPath(existing.id));
