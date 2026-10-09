@@ -417,12 +417,20 @@ export function TranscriptWorkspace({
   // On a phone the sheet covers the lower part of the screen. Bring the words
   // being cut up above it, or the reporter is naming a quote they can't see.
   useEffect(() => {
-    if (!selection || !window.matchMedia("(max-width: 1023px)").matches) return;
+    if (!selection) return;
+    const onPhone = window.matchMedia("(max-width: 1023px)").matches;
     const frame = requestAnimationFrame(() => {
       const sheet = document.querySelector<HTMLElement>(
         '[role="toolbar"][aria-label="Make an excerpt"]',
       );
       if (!sheet) return;
+      // From lg up the bar is docked to the bottom of the transcript box, which
+      // on a shorter window can sit below the fold — choosing "Make an excerpt
+      // from this line" from the menu then looked like it did nothing.
+      if (!onPhone) {
+        sheet.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        return;
+      }
       const domSelection = window.getSelection();
       const lineIndex = lineSelectionRef.current;
       const target =
