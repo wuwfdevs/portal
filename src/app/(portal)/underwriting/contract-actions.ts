@@ -24,6 +24,9 @@ import { activateRevision } from "@/lib/underwriting/revisions";
 import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
 import { MAX_ROTATION_WEIGHT } from "@/lib/underwriting/rotation";
 import { stationTodayISO } from "@/lib/log/timezone";
+import { isUuid } from "@/lib/form-fields";
+import { pathIsUnder } from "@/lib/storage-paths";
+import { signedUrl } from "@/lib/storage-sign";
 import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types";
 
 const CONTRACTS_LIST_PATH = "/underwriting/contracts";
@@ -436,6 +439,9 @@ export async function completeContractDocumentUpload(
   storagePath: string,
 ): Promise<{ error?: string }> {
   await assertUnderwritingAccess();
+  if (!isUuid(contractId) || !pathIsUnder(contractId, storagePath)) {
+    return { error: "That document does not belong to this contract." };
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("uw_contracts")
@@ -454,12 +460,12 @@ export async function getContractDocumentDownloadUrl(
   storagePath: string,
 ): Promise<{ url?: string; error?: string }> {
   await assertUnderwritingAccess();
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from("underwriting-documents")
-    .createSignedUrl(storagePath, 300);
-  if (error || !data) return { error: "Could not create a download link." };
-  return { url: data.signedUrl };
+  if (!isUuid(contractId) || !pathIsUnder(contractId, storagePath)) {
+    return { error: "That document does not belong to this contract." };
+  }
+  const url = await signedUrl("underwriting-documents", storagePath, { ttlSeconds: 300 });
+  if (!url) return { error: "Could not create a download link." };
+  return { url };
 }
 
 // Revisions --------------------------------------------------------------------

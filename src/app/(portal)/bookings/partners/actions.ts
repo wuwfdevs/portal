@@ -30,6 +30,9 @@ import {
 } from "@/lib/bookings/paths";
 import type { BkPartnerKind } from "@/lib/database.types";
 import { shiftDateISO } from "@/lib/log/timezone";
+import { isUuid } from "@/lib/form-fields";
+import { pathIsUnder } from "@/lib/storage-paths";
+import { signedUrl } from "@/lib/storage-sign";
 import { isValidDateISO } from "@/lib/log/week-layout";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -399,7 +402,7 @@ export async function completeAgreementDocumentUpload(
   storagePath: string,
 ): Promise<{ error?: string }> {
   await assertBookingsScheduler();
-  if (!UUID.test(agreementId) || !storagePath.startsWith(`${agreementId}/`)) {
+  if (!isUuid(agreementId) || !pathIsUnder(agreementId, storagePath)) {
     return { error: "That upload does not belong to this agreement." };
   }
   const supabase = await createClient();
@@ -422,13 +425,10 @@ export async function getAgreementDocumentDownloadUrl(
   storagePath: string,
 ): Promise<{ url?: string; error?: string }> {
   await assertBookingsAccess();
-  if (!UUID.test(agreementId) || !storagePath.startsWith(`${agreementId}/`)) {
+  if (!isUuid(agreementId) || !pathIsUnder(agreementId, storagePath)) {
     return { error: "That document does not belong to this agreement." };
   }
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(DOCUMENTS_BUCKET)
-    .createSignedUrl(storagePath, 300);
-  if (error || !data) return { error: "Could not create a download link." };
-  return { url: data.signedUrl };
+  const url = await signedUrl(DOCUMENTS_BUCKET, storagePath, { ttlSeconds: 300 });
+  if (!url) return { error: "Could not create a download link." };
+  return { url };
 }
