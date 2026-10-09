@@ -250,6 +250,8 @@ repo and a project's history, not the version number.
 | `20261010150000_resources_sourcework_scrubber_zoom.sql`                  | 2026-10-08 | 2026-10-08 |
 | `20261010160000_resources_sourcework_edit_source.sql`                    | 2026-10-09 | 2026-10-09 |
 | `20261010170000_resources_logic_consolidation_notes.sql`                 | 2026-10-09 | 2026-10-09 |
+| `20261011120000_sourcework_pieces.sql`                                     2026-10-09 | 2026-10-09 |
+| `20261011130000_resources_sourcework_pieces.sql`                           2026-10-09 | 2026-10-09 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
