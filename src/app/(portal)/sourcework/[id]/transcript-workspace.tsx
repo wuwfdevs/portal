@@ -581,14 +581,14 @@ export function TranscriptWorkspace({
               onSeek={seekTo}
               onRenamed={handleSpeakerRenamed}
             />
-            <span className="flex-1" />
+            <span className="flex-1 max-lg:hidden" />
             <form
               role="search"
               onSubmit={(event) => {
                 event.preventDefault();
                 goToMatch(currentMatch + 1);
               }}
-              className="flex w-full items-center gap-1.5 lg:w-auto"
+              className="flex min-w-0 flex-1 items-center gap-1.5 lg:w-auto lg:flex-none"
             >
               <Input
                 type="search"

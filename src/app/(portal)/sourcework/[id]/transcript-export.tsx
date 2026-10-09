@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { buildTranscriptText } from "@/lib/transcription/transcript";
 import { buildTranscriptExportFilename } from "@/lib/transcription/media";
@@ -14,6 +15,9 @@ import { downloadBlob } from "./download-blob";
  * text carries this session's corrections and speaker names without a
  * round-trip — and without a second server-side formatter that could drift
  * from what the workspace shows.
+ *
+ * Two links on a wide screen; one ⋮ below lg, where they would only take a row
+ * of the screen from the transcript.
  */
 export function TranscriptExport({
   projectTitle,
@@ -56,16 +60,31 @@ export function TranscriptExport({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <Button type="button" variant="link" onClick={handleCopy} className="text-brand-link">
-        {status === "copied" ? "Copied" : "Copy transcript"}
-      </Button>
-      <Button type="button" variant="link" onClick={handleDownload} className="text-brand-link">
-        Download .txt
-      </Button>
-      {status === "failed" && (
-        <span className="text-xs text-danger">Couldn&apos;t copy — download it instead.</span>
-      )}
-    </div>
+    <>
+      <div className="flex items-center gap-3 max-lg:hidden">
+        <Button type="button" variant="link" onClick={handleCopy} className="text-brand-link">
+          {status === "copied" ? "Copied" : "Copy transcript"}
+        </Button>
+        <Button type="button" variant="link" onClick={handleDownload} className="text-brand-link">
+          Download .txt
+        </Button>
+        {status === "failed" && (
+          <span className="text-xs text-danger">Couldn&apos;t copy — download it instead.</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 lg:hidden">
+        <span className="text-sm text-ink-500" aria-live="polite">
+          {status === "copied" && "Copied"}
+          {status === "failed" && "Couldn’t copy — download it instead."}
+        </span>
+        <ActionMenu
+          label="Transcript actions"
+          items={[
+            { label: "Copy transcript", onClick: handleCopy },
+            { label: "Download as .txt", onClick: handleDownload },
+          ]}
+        />
+      </div>
+    </>
   );
 }
