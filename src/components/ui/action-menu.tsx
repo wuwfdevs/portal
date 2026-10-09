@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
@@ -151,8 +151,9 @@ export function ActionMenu({
         )}
       </>
     );
-    // Between groups: a band on a phone, where every row already has a rule
-    // around it, and a single rule in the popover.
+    // Between groups: a band on a phone, and a single rule in the popover. The
+    // band is its own child of the divided list (a Fragment, not a wrapper
+    // div), so it gets a rule above and below like a row does.
     const divider = item.dividerBefore ? (
       narrow ? (
         <div role="separator" className="h-2 bg-panel-50" />
@@ -162,26 +163,26 @@ export function ActionMenu({
     ) : null;
     if (item.disabled) {
       return (
-        <div key={item.href ?? item.label}>
+        <Fragment key={item.href ?? item.label}>
           {divider}
           <div role="menuitem" aria-disabled="true" className={itemClasses(item)}>
             {body}
           </div>
-        </div>
+        </Fragment>
       );
     }
     if (item.href) {
       return (
-        <div key={item.href ?? item.label}>
+        <Fragment key={item.href ?? item.label}>
           {divider}
           <Link role="menuitem" href={item.href} onClick={close} className={itemClasses(item)}>
             {body}
           </Link>
-        </div>
+        </Fragment>
       );
     }
     return (
-      <div key={item.href ?? item.label}>
+      <Fragment key={item.href ?? item.label}>
         {divider}
         <button
           type="button"
@@ -206,7 +207,7 @@ export function ActionMenu({
         >
           {body}
         </button>
-      </div>
+      </Fragment>
     );
   });
 
