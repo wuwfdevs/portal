@@ -336,8 +336,9 @@ or choose **Draft with AI** → pick a **format**, the **material** (accepted th
 all on by default; only accepted excerpts are ever used) and an optional
 **direction** → **Generate draft** → land back in the editor with the draft in place
 and a note ("Drafted from Radio wrap v3 · 0:57 of 1:00 · Undo") → iterate by hand or
-with the assistant. On a piece that already has blocks the same action reads
-**Redraft with AI**, says it replaces what is there, and is undone from History. The
+with the assistant. **Draft with AI appears once, in the empty state.** On a piece that already has
+blocks it moves into the ⋮ menu as **Redraft with AI…**, which says it replaces what
+is there and is undone from History; there is no standing button in the header. The
 piece records which format drafted it (`format_version_id`, null for a piece written
 by hand) and the Pieces list says "Written by hand" or "Radio wrap format, then
 edited". A piece with no format has no target length until the writer sets one.
