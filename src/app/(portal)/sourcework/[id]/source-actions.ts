@@ -1,12 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { createSourceForExistingProject } from "@/lib/transcription/ingest";
 import { finalizeSourceUpload } from "@/lib/transcription/source-upload";
 import { purgeSource } from "@/lib/transcription/source-deletion";
 import { getSourceRef } from "@/lib/transcription/projects";
+import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
+import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { sourcePath } from "@/lib/transcription/links";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
@@ -231,4 +235,47 @@ export async function failSourceUpload(input: {
     .eq("id", input.sourceId);
 
   revalidatePath(`/sourcework/${input.projectId}`);
+}
+
+/**
+ * Edits a source's own details — its title and, for a recording, the date it was
+ * made. A form action (the repo's edit pattern), posted from the source screen's
+ * inline edit card (`?edit=1`) and returning to the same screen. Any member can
+ * edit, like every other shared-workspace correction. A database trigger marks
+ * the source's search chunks stale when either field changes (both ride along on
+ * each chunk's embedding), so the re-embed below picks the change up.
+ */
+export async function updateSource(formData: FormData): Promise<void> {
+  await assertToolAccess("transcription");
+
+  const sourceId = String(formData.get("source_id") ?? "");
+  const projectId = String(formData.get("project_id") ?? "") || null;
+  const back = sourcePath(sourceId, { projectId });
+  const editPath = `${back}${back.includes("?") ? "&" : "?"}edit=1`;
+
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) failWith(editPath, "A source needs a title.");
+
+  const update: { title: string; interview_date?: string | null } = { title };
+  if (formData.has("interview_date")) {
+    const date = String(formData.get("interview_date") ?? "").trim();
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) failWith(editPath, "That date isn't valid.");
+    update.interview_date = date || null;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("sw_sources").update(update).eq("id", sourceId);
+  failIfError(error, editPath, "Could not save the source");
+
+  const { data: representations } = await supabase
+    .from("sw_representations")
+    .select("id")
+    .eq("source_id", sourceId);
+  for (const representation of representations ?? []) {
+    await embedPendingForRepresentation(supabase, representation.id);
+  }
+
+  revalidatePath(`/sourcework/sources/${sourceId}`);
+  revalidatePath("/sourcework");
+  redirect(back);
 }

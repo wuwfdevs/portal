@@ -29,6 +29,7 @@ export function SourceActionsMenu({
   sourceId,
   sourceTitle,
   otherProjectCount,
+  editHref,
 }: {
   /** The project this source was opened from; null when it wasn't (or is attached to none). */
   projectId: string | null;
@@ -36,6 +37,8 @@ export function SourceActionsMenu({
   sourceTitle: string;
   /** How many *other* projects also reference this source — shapes the consequence text. */
   otherProjectCount: number;
+  /** The source screen's own `?edit=1` view, where the title and date are changed. */
+  editHref: string;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -88,6 +91,7 @@ export function SourceActionsMenu({
         label="Source actions"
         sheetHeading={<span className="font-semibold">{sourceTitle}</span>}
         items={[
+          { label: "Edit details", href: editHref },
           { label: "Rebuild search index", onClick: handleReindex },
           ...(projectId
             ? [

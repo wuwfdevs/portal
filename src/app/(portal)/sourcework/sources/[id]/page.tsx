@@ -8,7 +8,11 @@ import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatDuration } from "@/lib/transcription/media";
 import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
 import { formatBytes, formatShortDate } from "@/lib/format";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { InlineCreateCard } from "@/components/ui/inline-create-card";
+import { Input, Label } from "@/components/ui/input";
+import { updateSource } from "../../[id]/source-actions";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -46,11 +50,18 @@ export default async function SourceDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ project?: string; t?: string; clip?: string; page?: string }>;
+  searchParams: Promise<{
+    project?: string;
+    t?: string;
+    clip?: string;
+    page?: string;
+    edit?: string;
+    error?: string;
+  }>;
 }) {
   await requireToolAccess("transcription");
   const { id } = await params;
-  const { project: projectParam, t, clip, page } = await searchParams;
+  const { project: projectParam, t, clip, page, edit, error } = await searchParams;
   // ?t= / ?page= / ?clip= arrive from a search result or an excerpt; anything
   // that isn't a plain number is ignored rather than trusted into a seek.
   const initialSeekMs = t !== undefined && /^\d+$/.test(t) ? Number(t) : null;
@@ -146,10 +157,42 @@ export default async function SourceDetailPage({
               sourceId={id}
               sourceTitle={source.title}
               otherProjectCount={otherProjectCount}
+              editHref={`${returnTo}${returnTo.includes("?") ? "&" : "?"}edit=1`}
             />
           </>
         }
       />
+
+      {edit === "1" && (
+        <InlineCreateCard
+          className="mb-6 max-w-xl"
+          title="Edit source"
+          action={updateSource}
+          submitLabel="Save"
+          cancelHref={returnTo}
+        >
+          <input type="hidden" name="source_id" value={id} />
+          <input type="hidden" name="project_id" value={contextProject?.id ?? ""} />
+          <div className="flex flex-col gap-3">
+            {error && <Alert>{error}</Alert>}
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" name="title" defaultValue={source.title} required />
+            </div>
+            {!isDocument && (
+              <div>
+                <Label htmlFor="interview_date">Date recorded</Label>
+                <Input
+                  id="interview_date"
+                  name="interview_date"
+                  type="date"
+                  defaultValue={source.interviewDate ?? ""}
+                />
+              </div>
+            )}
+          </div>
+        </InlineCreateCard>
+      )}
 
       {fileReady && isDocument && (
         <Card className="p-5">
