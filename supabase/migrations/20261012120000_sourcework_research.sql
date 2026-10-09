@@ -191,7 +191,7 @@ create table public.sw_data_points (
   updated_at timestamptz not null default now(),
   -- A responsive point names its question; a story point names its element. One
   -- passage that answers two questions is two data points.
-  constraint sw_data_points_relevance_check check (
+  constraint sw_data_points_bearing_check check (
     (relevance = 'question' and question_id is not null and story_element is null)
     or (relevance = 'story' and question_id is null and story_element is not null)
   )
