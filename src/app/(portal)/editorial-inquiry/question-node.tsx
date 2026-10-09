@@ -6,6 +6,7 @@ import {
   labelForDiagnosis,
   type LaidOutQuestion,
 } from "@/lib/editorial-inquiry/tree";
+import { pluralize } from "@/lib/format";
 
 export const NODE_WIDTH = 240;
 
@@ -134,7 +135,7 @@ export function QuestionNode({
                 isRoot && !isPromoted ? "text-white/70" : "text-ink-500",
               )}
             >
-              {contextCount} {contextCount === 1 ? "note" : "notes"}
+              {pluralize(contextCount, "note")}
             </span>
           )}
           {pending && (

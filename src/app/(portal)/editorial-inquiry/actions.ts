@@ -21,6 +21,7 @@ import {
   type EvidentiaryStatus,
   type QuestionRecord,
 } from "@/lib/editorial-inquiry/tree";
+import { field } from "@/lib/form-fields";
 
 // The non-streaming actions only. Branch, Drill down, Evaluate, and Discuss
 // turns — everything that runs the model — moved to
@@ -46,7 +47,7 @@ function err<T>(error: unknown): ActionResult<T> {
 /** Real HTML form, redirect-based like the rest of the portal — see design doc §3. */
 export async function startNewInquiry(formData: FormData): Promise<void> {
   await assertToolAccess(TOOL_KEY);
-  const pillarId = String(formData.get("pillar_id") ?? "").trim();
+  const pillarId = field(formData, "pillar_id");
   if (!pillarId) failWith(LIST_PATH, "Choose a guiding question to start an inquiry.");
 
   const supabase = await createClient();

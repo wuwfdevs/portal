@@ -2,6 +2,7 @@
 // Supabase — so the rules are tested directly; actions.ts reads the form and
 // hands the fields here. Colocated test.
 
+import { slugify as slugifyText } from "@/lib/text";
 import { SCREENS } from "./screens";
 
 export const TITLE_MAX = 160;
@@ -14,15 +15,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** A title as a slug: lowercase words joined by hyphens, ASCII only. */
 export function slugify(title: string): string {
-  return title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, SLUG_MAX)
-    .replace(/-+$/g, "");
+  return slugifyText(title, { max: SLUG_MAX });
 }
 
 export interface ArticleFormInput {

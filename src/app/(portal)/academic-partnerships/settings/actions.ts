@@ -6,14 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { assertAcademicPartnershipsCoordinator } from "@/lib/academic-partnerships/access";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { field } from "@/lib/form-fields";
 import { PARTNERSHIP_TYPES } from "@/lib/academic-partnerships/partnership-types";
 import type { ApPartnershipType } from "@/lib/database.types";
 
 const SETTINGS_PATH = "/academic-partnerships/settings";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 export async function updateSettings(formData: FormData): Promise<void> {
   const { profile } = await assertAcademicPartnershipsCoordinator();

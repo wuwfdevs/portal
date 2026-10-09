@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { closeScoring, concludeMeeting, updateMeetingNotes } from "../actions";
 import { ScoringSection } from "./scoring-section";
 import { AgendaSection, type AgendaItem } from "./agenda-section";
+import { pluralize } from "@/lib/format";
 
 export default async function MeetingPage({
   params,
@@ -142,8 +143,7 @@ export default async function MeetingPage({
         {meeting.status !== "open" && (
           <>
             {" "}
-            {distinctReviewers} {distinctReviewers === 1 ? "reviewer" : "reviewers"} scored this
-            slate
+            {pluralize(distinctReviewers, "reviewer")} scored this slate
             {meeting.agenda_at ? ` · scoring closed ${formatDate(meeting.agenda_at)}` : ""}
             {meeting.concluded_at ? ` · concluded ${formatDate(meeting.concluded_at)}` : ""}.
           </>

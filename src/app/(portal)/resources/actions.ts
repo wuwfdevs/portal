@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { field } from "@/lib/form-fields";
+import { safeLocalPath } from "@/lib/safe-path";
 import { assertResourcesEditor } from "@/lib/resources/access";
 import { validateArticleForm, type ArticleFormInput } from "@/lib/resources/article-form";
 import { RESOURCES_MEDIA_BUCKET } from "@/lib/resources/screenshot-rules";
@@ -20,10 +22,6 @@ import { figureMediaIds, parseRichText, type RichTextDoc } from "@/lib/rich-text
 // (updated_by, version_note).
 
 type ArticleKind = "procedure" | "guide";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 function readForm(formData: FormData, kind: ArticleKind): ArticleFormInput {
   return {
@@ -216,8 +214,9 @@ export async function deleteArticle(formData: FormData): Promise<void> {
   const { profile } = await assertResourcesEditor();
   const id = field(formData, "id");
   // Only ever back to an edit page under /resources.
-  const requested = field(formData, "return_to");
-  const returnPath = requested.startsWith("/resources/") ? requested : "/resources";
+  const returnPath = safeLocalPath(field(formData, "return_to"), "/resources", {
+    prefixes: ["/resources"],
+  });
   const supabase = await createClient();
 
   const { data: existing, error: readError } = await supabase
@@ -244,13 +243,12 @@ export async function deleteArticle(formData: FormData): Promise<void> {
       failWith(returnPath, `Could not delete its screenshots: ${storageError.message}`);
   }
 
-  const { data: deleted, error } = await supabase
-    .from("rc_articles")
-    .delete()
-    .eq("id", id)
-    .select("id");
-  failIfError(error, returnPath, "Could not delete");
-  if (!deleted || deleted.length === 0) failWith(returnPath, "You can't delete this article.");
+  await deleteOrFail(
+    supabase.from("rc_articles").delete().eq("id", id).select("id"),
+    returnPath,
+    "Could not delete",
+    "You can't delete this article.",
+  );
 
   await logAuditEvent({
     actorId: profile.id,
@@ -273,8 +271,9 @@ export async function setProcedurePinned(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   const pinned = field(formData, "pinned") === "1";
   // Only ever back to a page under /resources.
-  const requested = field(formData, "return_to");
-  const returnPath = requested.startsWith("/resources") ? requested : "/resources";
+  const returnPath = safeLocalPath(field(formData, "return_to"), "/resources", {
+    prefixes: ["/resources"],
+  });
   const supabase = await createClient();
 
   const { data: existing, error: readError } = await supabase
@@ -291,6 +290,7 @@ export async function setProcedurePinned(formData: FormData): Promise<void> {
       .upsert({ article_id: id }, { onConflict: "article_id", ignoreDuplicates: true });
     failIfError(error, returnPath, "Could not pin");
   } else {
+    // Idempotent: unpinning a procedure that is not pinned is not a failure.
     const { error } = await supabase.from("rc_pinned_procedures").delete().eq("article_id", id);
     failIfError(error, returnPath, "Could not unpin");
   }

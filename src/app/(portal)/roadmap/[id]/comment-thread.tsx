@@ -6,6 +6,7 @@ import { RichText } from "@/components/ui/rich-text";
 import { RichTextField } from "@/components/ui/rich-text-field";
 import type { PostComment } from "@/lib/roadmap/queries";
 import { addComment, deleteComment, updateComment } from "../actions";
+import { pluralize } from "@/lib/format";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -32,9 +33,7 @@ export function CommentThread({
   return (
     <section className="flex flex-col gap-3">
       <SectionHeading>
-        {comments.length === 0
-          ? "Discussion"
-          : `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}
+        {comments.length === 0 ? "Discussion" : pluralize(comments.length, "comment")}
       </SectionHeading>
 
       {comments.map((comment) => {

@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { countBy } from "@/lib/collections";
+import { getDisplayNames } from "@/lib/profile-names";
 import type { Database, RdPostKind, RdPostStatus } from "@/lib/database.types";
 import { sortPosts, type PostSort } from "./posts";
 
@@ -65,29 +67,6 @@ export interface PostFilters {
 }
 
 /**
- * Display names are a courtesy column: `profiles` RLS only shows a non-admin
- * their own row, so this read is frequently short and must never be an error.
- * Same commented exception as lib/audience-listening/queries.ts.
- */
-async function displayNames(userIds: string[]): Promise<Map<string, string>> {
-  const unique = Array.from(new Set(userIds.filter(Boolean)));
-  if (unique.length === 0) return new Map();
-
-  const supabase = await createClient();
-  const result = await supabase.from("profiles").select("id, display_name").in("id", unique);
-  const rows = result.error ? [] : (result.data ?? []);
-  return new Map(rows.map((row) => [row.id, row.display_name]));
-}
-
-function tally(rows: { post_id: string }[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    counts.set(row.post_id, (counts.get(row.post_id) ?? 0) + 1);
-  }
-  return counts;
-}
-
-/**
  * Deliberately four flat reads aggregated here rather than embedded selects:
  * `database.types.ts` is hand-written with empty `Relationships` (see its
  * header), so PostgREST embedding has no foreign-key metadata to type against.
@@ -117,11 +96,14 @@ export async function listPosts(viewerId: string, filters: PostFilters): Promise
       "the comments on these requests",
     ) ?? [],
     listTargetTools(),
-    displayNames(posts.map((post) => post.author_id)),
+    getDisplayNames(
+      posts.map((post) => post.author_id),
+      { degrade: true },
+    ),
   ]);
 
-  const voteCounts = tally(voteRows);
-  const commentCounts = tally(commentRows);
+  const voteCounts = countBy(voteRows, (row) => row.post_id);
+  const commentCounts = countBy(commentRows, (row) => row.post_id);
   const myVotes = new Set(voteRows.filter((row) => row.user_id === viewerId).map((r) => r.post_id));
   const toolsById = new Map(tools.map((tool) => [tool.id, tool]));
 
@@ -168,11 +150,14 @@ export async function getPostDetail(id: string, viewerId: string): Promise<PostD
     listTargetTools(),
   ]);
 
-  const names = await displayNames([
-    post.author_id,
-    ...(post.status_changed_by ? [post.status_changed_by] : []),
-    ...comments.map((comment) => comment.author_id),
-  ]);
+  const names = await getDisplayNames(
+    [
+      post.author_id,
+      ...(post.status_changed_by ? [post.status_changed_by] : []),
+      ...comments.map((comment) => comment.author_id),
+    ],
+    { degrade: true },
+  );
   const target = post.tool_id ? (tools.find((tool) => tool.id === post.tool_id) ?? null) : null;
 
   return {

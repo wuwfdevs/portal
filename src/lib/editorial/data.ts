@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { unwrapRead } from "@/lib/read-result";
+import { getDisplayNames } from "@/lib/profile-names";
 import { EDITORIAL_TOOL_KEY } from "./access";
 import { normalizeToolRole, type EditorialRole } from "./roles";
 import { isStalePitch } from "./staleness";
@@ -99,15 +100,8 @@ export async function getDefaultRubricProfile(): Promise<RubricProfileRow | null
 }
 
 /** Display names for arbitrary profile ids (submitters, reviewers, assignees). */
-export async function getProfileNames(ids: Iterable<string | null>): Promise<Map<string, string>> {
-  const unique = Array.from(new Set(Array.from(ids).filter((id): id is string => id !== null)));
-  if (unique.length === 0) return new Map();
-  const supabase = await createClient();
-  const data = unwrapRead(
-    await supabase.from("profiles").select("id, display_name").in("id", unique),
-    "member names",
-  );
-  return new Map((data ?? []).map((row) => [row.id, row.display_name]));
+export function getProfileNames(ids: Iterable<string | null>): Promise<Map<string, string>> {
+  return getDisplayNames(ids);
 }
 
 export interface Member {

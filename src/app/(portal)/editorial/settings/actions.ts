@@ -3,11 +3,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { listCriteria, listFormFields, listPillars, unwrapRead } from "@/lib/editorial/data";
 import { fieldKeyFromLabel, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
 import { logAuditEvent } from "@/lib/audit";
 import type { EpCriterionType, EpFieldType } from "@/lib/database.types";
+import { field, optionalField } from "@/lib/form-fields";
 
 const FIELD_TYPES: EpFieldType[] = [
   "short_text",
@@ -83,8 +84,8 @@ function parseAnchors(raw: string): {
 
 export async function createFormField(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const label = String(formData.get("label") ?? "").trim();
-  const helpText = String(formData.get("help_text") ?? "").trim() || null;
+  const label = field(formData, "label");
+  const helpText = optionalField(formData, "help_text");
   const fieldTypeRaw = String(formData.get("field_type") ?? "short_text");
   const fieldType = FIELD_TYPES.includes(fieldTypeRaw as EpFieldType)
     ? (fieldTypeRaw as EpFieldType)
@@ -135,33 +136,32 @@ export async function createFormField(formData: FormData): Promise<void> {
 
 export async function updateFormField(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const fieldId = String(formData.get("field_id") ?? "");
+  const fieldId = field(formData, "field_id");
   const editPath = `${FORM_PATH}/${fieldId}/edit`;
-  const label = String(formData.get("label") ?? "").trim();
+  const label = field(formData, "label");
   const required = formData.get("required") === "on";
 
   if (!label) failWith(editPath, "Give the field a label.");
 
   const supabase = await createClient();
-  const { data: field, error: loadError } = await supabase
+  const { data: fieldRow, error: loadError } = await supabase
     .from("ep_form_fields")
     .select("key, field_type")
     .eq("id", fieldId)
     .maybeSingle();
   failIfError(loadError, editPath, "Could not load the field");
-  if (!field) failWith(FORM_PATH, "That field no longer exists.");
+  if (!fieldRow) failWith(FORM_PATH, "That field no longer exists.");
 
   // primary_pillar's options/help_text are derived live from ep_pillars
   // (Settings → Pillars) — writing them here would just be silently
   // ignored, so this field only ever updates label/required for it.
-  const isPillarField = field.key === PRIMARY_PILLAR_FIELD_KEY;
-  const helpText = isPillarField
-    ? undefined
-    : String(formData.get("help_text") ?? "").trim() || null;
+  const isPillarField = fieldRow.key === PRIMARY_PILLAR_FIELD_KEY;
+  const helpText = isPillarField ? undefined : optionalField(formData, "help_text");
 
   // Field type is fixed after creation, so an options list is required for the
   // life of a select field — emptying the box would leave nothing to choose.
-  const options = !isPillarField && takesOptions(field.field_type) ? parseOptions(formData) : null;
+  const options =
+    !isPillarField && takesOptions(fieldRow.field_type) ? parseOptions(formData) : null;
   if (options !== null && options.length === 0) {
     failWith(editPath, "A select field needs at least one option, one per line.");
   }
@@ -190,8 +190,8 @@ export async function updateFormField(formData: FormData): Promise<void> {
 
 export async function toggleFormFieldActive(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const fieldId = String(formData.get("field_id") ?? "");
-  const nextActive = String(formData.get("next_active") ?? "") === "true";
+  const fieldId = field(formData, "field_id");
+  const nextActive = field(formData, "next_active") === "true";
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -212,8 +212,8 @@ export async function toggleFormFieldActive(formData: FormData): Promise<void> {
 
 export async function moveFormField(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
-  const fieldId = String(formData.get("field_id") ?? "");
-  const direction = String(formData.get("direction") ?? "") === "up" ? -1 : 1;
+  const fieldId = field(formData, "field_id");
+  const direction = field(formData, "direction") === "up" ? -1 : 1;
 
   const fields = await listFormFields();
   const index = fields.findIndex((field) => field.id === fieldId);
@@ -252,7 +252,7 @@ function parseCriterionType(formData: FormData): EpCriterionType {
 }
 
 function parseOptionalScale(formData: FormData, name: string): number | null {
-  const raw = String(formData.get(name) ?? "").trim();
+  const raw = field(formData, name);
   if (raw === "") return null;
   const value = Number(raw);
   return Number.isInteger(value) ? value : NaN;
@@ -260,12 +260,12 @@ function parseOptionalScale(formData: FormData, name: string): number | null {
 
 export async function createCriterion(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  const guidance = String(formData.get("guidance") ?? "").trim() || null;
+  const name = field(formData, "name");
+  const description = field(formData, "description");
+  const guidance = optionalField(formData, "guidance");
   const criterionType = parseCriterionType(formData);
   const weight = criterionType === "modifier" ? 1 : Number(formData.get("weight") ?? 1);
-  const profileId = String(formData.get("profile_id") ?? "");
+  const profileId = field(formData, "profile_id");
   const scaleMin = parseOptionalScale(formData, "scale_min");
   const scaleMax = parseOptionalScale(formData, "scale_max");
   const { anchors, error: anchorsError } = parseAnchors(String(formData.get("anchors") ?? ""));
@@ -321,11 +321,11 @@ export async function createCriterion(formData: FormData): Promise<void> {
 
 export async function updateCriterion(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const criterionId = String(formData.get("criterion_id") ?? "");
+  const criterionId = field(formData, "criterion_id");
   const editPath = `${RUBRIC_PATH}/${criterionId}/edit`;
-  const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  const guidance = String(formData.get("guidance") ?? "").trim() || null;
+  const name = field(formData, "name");
+  const description = field(formData, "description");
+  const guidance = optionalField(formData, "guidance");
 
   const supabase = await createClient();
   const existing = unwrapRead(
@@ -383,8 +383,8 @@ export async function updateCriterion(formData: FormData): Promise<void> {
 
 export async function toggleCriterionActive(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const criterionId = String(formData.get("criterion_id") ?? "");
-  const nextActive = String(formData.get("next_active") ?? "") === "true";
+  const criterionId = field(formData, "criterion_id");
+  const nextActive = field(formData, "next_active") === "true";
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -410,8 +410,8 @@ export async function toggleCriterionActive(formData: FormData): Promise<void> {
 /** Reordering is scoped to the criterion's own profile — the rubric page groups by profile. */
 export async function moveCriterion(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
-  const criterionId = String(formData.get("criterion_id") ?? "");
-  const direction = String(formData.get("direction") ?? "") === "up" ? -1 : 1;
+  const criterionId = field(formData, "criterion_id");
+  const direction = field(formData, "direction") === "up" ? -1 : 1;
 
   const all = await listCriteria();
   const moving = all.find((criterion) => criterion.id === criterionId);
@@ -511,8 +511,8 @@ export async function updateModifierThreshold(formData: FormData): Promise<void>
 
 export async function createPillar(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const name = String(formData.get("name") ?? "").trim();
-  const guidingQuestion = String(formData.get("guiding_question") ?? "").trim() || null;
+  const name = field(formData, "name");
+  const guidingQuestion = optionalField(formData, "guiding_question");
 
   if (!name) failWith(NEW_PILLAR_PATH, "Give the pillar a name.");
 
@@ -541,10 +541,10 @@ export async function createPillar(formData: FormData): Promise<void> {
 
 export async function updatePillar(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const pillarId = String(formData.get("pillar_id") ?? "");
+  const pillarId = field(formData, "pillar_id");
   const editPath = `${PILLARS_PATH}/${pillarId}/edit`;
-  const name = String(formData.get("name") ?? "").trim();
-  const guidingQuestion = String(formData.get("guiding_question") ?? "").trim() || null;
+  const name = field(formData, "name");
+  const guidingQuestion = optionalField(formData, "guiding_question");
 
   if (!name) failWith(editPath, "Give the pillar a name.");
 
@@ -568,8 +568,8 @@ export async function updatePillar(formData: FormData): Promise<void> {
 
 export async function togglePillarActive(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const pillarId = String(formData.get("pillar_id") ?? "");
-  const nextActive = String(formData.get("next_active") ?? "") === "true";
+  const pillarId = field(formData, "pillar_id");
+  const nextActive = field(formData, "next_active") === "true";
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -594,8 +594,8 @@ export async function togglePillarActive(formData: FormData): Promise<void> {
 
 export async function movePillar(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
-  const pillarId = String(formData.get("pillar_id") ?? "");
-  const direction = String(formData.get("direction") ?? "") === "up" ? -1 : 1;
+  const pillarId = field(formData, "pillar_id");
+  const direction = field(formData, "direction") === "up" ? -1 : 1;
 
   const pillars = await listPillars();
   const index = pillars.findIndex((pillar) => pillar.id === pillarId);
@@ -630,7 +630,7 @@ export async function movePillar(formData: FormData): Promise<void> {
  */
 export async function deletePillar(formData: FormData): Promise<void> {
   const editor = await assertEditorialRole("editor");
-  const pillarId = String(formData.get("pillar_id") ?? "");
+  const pillarId = field(formData, "pillar_id");
 
   const supabase = await createClient();
   const pillar = unwrapRead(
@@ -661,8 +661,11 @@ export async function deletePillar(formData: FormData): Promise<void> {
     }
   }
 
-  const { error } = await supabase.from("ep_pillars").delete().eq("id", pillarId);
-  failIfError(error, PILLARS_PATH, "Could not delete the pillar");
+  await deleteOrFail(
+    supabase.from("ep_pillars").delete().eq("id", pillarId).select("id"),
+    PILLARS_PATH,
+    "Could not delete the pillar",
+  );
 
   await logAuditEvent({
     actorId: editor.profile.id,

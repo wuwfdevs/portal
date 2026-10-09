@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { trimToNull } from "@/lib/validation";
 import { humanizeOpenAIError } from "@/lib/openai-error";
 import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
@@ -335,8 +336,8 @@ function extractProposedAction(response: OpenAI.Responses.Response): ProposedAct
       };
       return {
         kind: parsed.kind,
-        text: parsed.text?.trim() || null,
-        grounding: parsed.grounding?.trim() || null,
+        text: trimToNull(parsed.text),
+        grounding: trimToNull(parsed.grounding),
         evidentiaryStatus: parsed.evidentiary_status,
         sourceTitle: parsed.source_title,
         sourceUrl: parsed.source_url,

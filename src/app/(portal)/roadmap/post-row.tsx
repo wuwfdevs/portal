@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { POST_KIND_LABEL, POST_STATUS_BADGE } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
 import { VoteButton } from "./vote-button";
+import { pluralize } from "@/lib/format";
 
 function excerpt(text: string): string {
   const flat = text.replace(/\s+/g, " ").trim();
@@ -46,9 +47,7 @@ export function PostRow({ post, returnTo }: { post: PostSummary; returnTo: strin
           <span aria-hidden>·</span>
           <span>{post.authorName}</span>
           <span aria-hidden>·</span>
-          <span>
-            {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
-          </span>
+          <span>{pluralize(post.commentCount, "comment")}</span>
         </div>
       </div>
     </Card>

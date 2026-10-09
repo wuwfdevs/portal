@@ -94,7 +94,7 @@ export const getPitchFormFields = defineCapability({
 export type SavePitchResult =
   | { ok: true; pitchId: string; url: string }
   | { ok: false; kind: "invalid"; fieldErrors: Record<string, string> }
-  | { ok: false; kind: "error"; message: string };
+  | { ok: false; kind: "error"; error: string };
 
 /**
  * Create or update a pitch (update when pitchId is present). Submitter edit
@@ -134,17 +134,17 @@ export const savePitch = defineCapability({
         "the pitch",
       );
       if (!pitch) {
-        return { ok: false, kind: "error", message: "This pitch no longer exists." };
+        return { ok: false, kind: "error", error: "This pitch no longer exists." };
       }
       const isOwn = pitch.submitted_by === profile.id;
       if (!isOwn && role !== "editor") {
-        return { ok: false, kind: "error", message: "You can only edit your own pitches." };
+        return { ok: false, kind: "error", error: "You can only edit your own pitches." };
       }
       if (pitch.status !== "open" && role !== "editor") {
         return {
           ok: false,
           kind: "error",
-          message: "This pitch has been decided and can no longer be edited.",
+          error: "This pitch has been decided and can no longer be edited.",
         };
       }
 
@@ -157,7 +157,7 @@ export const savePitch = defineCapability({
         return {
           ok: false,
           kind: "error",
-          message: "Could not save the pitch — it may be under review right now.",
+          error: "Could not save the pitch — it may be under review right now.",
         };
       }
 
@@ -172,7 +172,7 @@ export const savePitch = defineCapability({
         return {
           ok: false,
           kind: "error",
-          message: "Could not save the pitch's details. Try again.",
+          error: "Could not save the pitch's details. Try again.",
         };
       }
       if (values.length > 0) {
@@ -186,7 +186,7 @@ export const savePitch = defineCapability({
           return {
             ok: false,
             kind: "error",
-            message: "Could not save the pitch's details. Try again.",
+            error: "Could not save the pitch's details. Try again.",
           };
         }
       }
@@ -203,7 +203,7 @@ export const savePitch = defineCapability({
       return {
         ok: false,
         kind: "error",
-        message: insertError
+        error: insertError
           ? `Could not submit the pitch: ${insertError.message}`
           : "Could not submit the pitch. Try again.",
       };
@@ -220,7 +220,7 @@ export const savePitch = defineCapability({
         return {
           ok: false,
           kind: "error",
-          message: "The pitch was created but its details could not be saved. Edit it to retry.",
+          error: "The pitch was created but its details could not be saved. Edit it to retry.",
         };
       }
     }
@@ -228,7 +228,7 @@ export const savePitch = defineCapability({
   },
 });
 
-export type SimpleCapabilityResult = { ok: true } | { ok: false; message: string };
+export type SimpleCapabilityResult = { ok: true } | { ok: false; error: string };
 
 export const archivePitch = defineCapability({
   id: "editorial.pitch.archive",
@@ -251,7 +251,7 @@ export const archivePitch = defineCapability({
       .eq("status", "open");
     if (error) {
       console.error("Could not archive the pitch:", error);
-      return { ok: false, message: `Could not archive the pitch: ${error.message}` };
+      return { ok: false, error: `Could not archive the pitch: ${error.message}` };
     }
 
     await logAuditEvent({
@@ -280,7 +280,7 @@ export const unarchivePitch = defineCapability({
       .eq("status", "archived");
     if (error) {
       console.error("Could not restore the pitch:", error);
-      return { ok: false, message: `Could not restore the pitch: ${error.message}` };
+      return { ok: false, error: `Could not restore the pitch: ${error.message}` };
     }
 
     await logAuditEvent({
@@ -319,7 +319,7 @@ export const archiveSelectedPitches = defineCapability({
       .eq("status", "open");
     if (error) {
       console.error("Could not archive the selected pitches:", error);
-      return { ok: false, message: `Could not archive the selected pitches: ${error.message}` };
+      return { ok: false, error: `Could not archive the selected pitches: ${error.message}` };
     }
 
     await logAuditEvent({
@@ -335,8 +335,7 @@ export const archiveSelectedPitches = defineCapability({
 // --- Meetings ----------------------------------------------------------------
 
 export type CreateMeetingResult =
-  | { ok: true; meetingId: string; url: string }
-  | { ok: false; message: string };
+  { ok: true; meetingId: string; url: string } | { ok: false; error: string };
 
 export const createMeeting = defineCapability({
   id: "editorial.meeting.create",
@@ -347,14 +346,14 @@ export const createMeeting = defineCapability({
   async handler({ supabase }, input): Promise<CreateMeetingResult> {
     const editor = await assertEditorialRole("editor");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.meetingDate)) {
-      return { ok: false, message: "Pick a meeting date." };
+      return { ok: false, error: "Pick a meeting date." };
     }
 
     const profiles = await listRubricProfiles({ activeOnly: true });
     const profile = input.rubricProfileId
       ? (profiles.find((p) => p.id === input.rubricProfileId) ?? null)
       : await getDefaultRubricProfile();
-    if (!profile) return { ok: false, message: "No active rubric profile is configured." };
+    if (!profile) return { ok: false, error: "No active rubric profile is configured." };
 
     const { data: meeting, error } = await supabase
       .from("ep_meetings")
@@ -367,10 +366,9 @@ export const createMeeting = defineCapability({
       .single();
     if (error) {
       console.error("Could not create the meeting:", error);
-      return { ok: false, message: `Could not create the meeting: ${error.message}` };
+      return { ok: false, error: `Could not create the meeting: ${error.message}` };
     }
-    if (!meeting)
-      return { ok: false, message: "Could not create the meeting — no row was created." };
+    if (!meeting) return { ok: false, error: "Could not create the meeting — no row was created." };
 
     await logAuditEvent({
       actorId: editor.profile.id,
@@ -386,7 +384,7 @@ export const createMeeting = defineCapability({
 export type MeetingWriteResult =
   | { ok: true }
   | { ok: false; reason: "not_open" | "not_agenda" }
-  | { ok: false; reason: "error"; message: string };
+  | { ok: false; reason: "error"; error: string };
 
 export const addPitchToSlate = defineCapability({
   id: "editorial.meeting.addPitch",
@@ -413,7 +411,7 @@ export const addPitchToSlate = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not add the pitch to the slate: ${error.message}`,
+        error: `Could not add the pitch to the slate: ${error.message}`,
       };
     }
     return { ok: true };
@@ -442,7 +440,7 @@ export const removePitchFromSlate = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not remove the pitch from the slate: ${error.message}`,
+        error: `Could not remove the pitch from the slate: ${error.message}`,
       };
     }
     return { ok: true };
@@ -450,9 +448,7 @@ export const removePitchFromSlate = defineCapability({
 });
 
 export type SubmitReviewResult =
-  | { ok: true }
-  | { ok: false; reason: "not_open" }
-  | { ok: false; reason: "error"; message: string };
+  { ok: true } | { ok: false; reason: "not_open" } | { ok: false; reason: "error"; error: string };
 
 /**
  * Upsert the caller's review of one slate item: per-criterion scores plus an
@@ -493,13 +489,13 @@ export const submitReview = defineCapability({
       min: settings.scale_min,
       max: settings.scale_max,
     });
-    if (scoreError) return { ok: false, reason: "error", message: scoreError };
+    if (scoreError) return { ok: false, reason: "error", error: scoreError };
 
     if (!RECOMMENDATIONS.includes(input.recommendation as EpRecommendation)) {
       return {
         ok: false,
         reason: "error",
-        message: "Pick a recommendation before saving your review.",
+        error: "Pick a recommendation before saving your review.",
       };
     }
     const recommendation = input.recommendation as EpRecommendation;
@@ -530,14 +526,14 @@ export const submitReview = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not save your review: ${reviewError.message}`,
+        error: `Could not save your review: ${reviewError.message}`,
       };
     }
     if (!review) {
       return {
         ok: false,
         reason: "error",
-        message: "Could not save your review — no row was written.",
+        error: "Could not save your review — no row was written.",
       };
     }
 
@@ -550,7 +546,7 @@ export const submitReview = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not save your review: ${clearError.message}`,
+        error: `Could not save your review: ${clearError.message}`,
       };
     }
 
@@ -573,7 +569,7 @@ export const submitReview = defineCapability({
         return {
           ok: false,
           reason: "error",
-          message: `Could not save your scores: ${scoresError.message}`,
+          error: `Could not save your scores: ${scoresError.message}`,
         };
       }
     }
@@ -581,7 +577,7 @@ export const submitReview = defineCapability({
   },
 });
 
-export type CloseScoringResult = { ok: true } | { ok: false; message: string };
+export type CloseScoringResult = { ok: true } | { ok: false; error: string };
 
 // Locks scoring for the whole team, not just the caller's own record — a
 // one-way transition other reviewers immediately feel, so it gets the same
@@ -602,7 +598,7 @@ export const closeScoring = defineCapability({
       .eq("status", "open");
     if (error) {
       console.error("Could not close scoring:", error);
-      return { ok: false, message: `Could not close scoring: ${error.message}` };
+      return { ok: false, error: `Could not close scoring: ${error.message}` };
     }
 
     await logAuditEvent({
@@ -620,7 +616,7 @@ const OUTCOMES: EpDecisionOutcome[] = ["assigned", "deferred", "archived"];
 export type RecordDecisionResult =
   | { ok: true }
   | { ok: false; reason: "invalid_outcome" | "not_agenda" | "not_found" }
-  | { ok: false; reason: "error"; message: string };
+  | { ok: false; reason: "error"; error: string };
 
 /**
  * Record the editorial decision for one slate item and move the pitch
@@ -648,7 +644,7 @@ export const recordDecision = defineCapability({
     const assignedTo = input.assignedTo || null;
     const rationale = input.rationale || null;
     if (outcome === "assigned" && !assignedTo) {
-      return { ok: false, reason: "error", message: "Pick who the story is assigned to." };
+      return { ok: false, reason: "error", error: "Pick who the story is assigned to." };
     }
     if ((await getMeeting({ supabase }, input.meetingId))?.status !== "agenda") {
       return { ok: false, reason: "not_agenda" };
@@ -681,7 +677,7 @@ export const recordDecision = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not record the decision: ${decisionError.message}`,
+        error: `Could not record the decision: ${decisionError.message}`,
       };
     }
 
@@ -712,7 +708,7 @@ export const recordDecision = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Recorded the decision but could not update the pitch: ${pitchError.message}`,
+        error: `Recorded the decision but could not update the pitch: ${pitchError.message}`,
       };
     }
 
@@ -734,7 +730,7 @@ export const recordDecision = defineCapability({
 export type ConcludeMeetingResult =
   | { ok: true }
   | { ok: false; reason: "not_agenda" }
-  | { ok: false; reason: "error"; message: string };
+  | { ok: false; reason: "error"; error: string };
 
 /** agenda -> concluded: anything undecided is recorded as deferred. */
 export const concludeMeeting = defineCapability({
@@ -760,7 +756,7 @@ export const concludeMeeting = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not defer the undecided pitches: ${deferError.message}`,
+        error: `Could not defer the undecided pitches: ${deferError.message}`,
       };
     }
 
@@ -774,7 +770,7 @@ export const concludeMeeting = defineCapability({
       return {
         ok: false,
         reason: "error",
-        message: `Could not conclude the meeting: ${error.message}`,
+        error: `Could not conclude the meeting: ${error.message}`,
       };
     }
 
@@ -802,7 +798,7 @@ export const updateMeetingNotes = defineCapability({
       .eq("id", input.meetingId);
     if (error) {
       console.error("Could not save the notes:", error);
-      return { ok: false, message: `Could not save the notes: ${error.message}` };
+      return { ok: false, error: `Could not save the notes: ${error.message}` };
     }
     return { ok: true };
   },

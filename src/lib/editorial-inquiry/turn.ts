@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import { assertToolAccess } from "@/lib/auth/authz";
 import {
   streamEditorialTurn,
@@ -208,13 +209,14 @@ export async function* streamEditorialTurnEvents(
   const supabase = await createClient();
 
   const priorRows =
-    (
+    unwrapRead(
       await supabase
         .from("ei_chat_messages")
         .select("*")
         .eq("question_id", questionId)
-        .order("created_at")
-    ).data ?? [];
+        .order("created_at"),
+      "the discussion thread",
+    ) ?? [];
   // Replay only the thread's recent tail, with long bodies clipped — the
   // whole thread was re-sent on every turn, growing without bound, which is
   // how one long discussion walked straight into the org's OpenAI
@@ -245,15 +247,13 @@ export async function* streamEditorialTurnEvents(
     }
     replayRows.push(row);
   }
-  const priorMessages: ChatTurnMessage[] = replayRows
-    .slice(-MAX_REPLAYED_MESSAGES)
-    .map((row) => ({
-      role: row.role as "user" | "assistant",
-      body:
-        row.body.length > MAX_REPLAYED_MESSAGE_CHARS
-          ? `${row.body.slice(0, MAX_REPLAYED_MESSAGE_CHARS)} […]`
-          : row.body,
-    }));
+  const priorMessages: ChatTurnMessage[] = replayRows.slice(-MAX_REPLAYED_MESSAGES).map((row) => ({
+    role: row.role as "user" | "assistant",
+    body:
+      row.body.length > MAX_REPLAYED_MESSAGE_CHARS
+        ? `${row.body.slice(0, MAX_REPLAYED_MESSAGE_CHARS)} […]`
+        : row.body,
+  }));
 
   const turn = streamEditorialTurn(
     mode,

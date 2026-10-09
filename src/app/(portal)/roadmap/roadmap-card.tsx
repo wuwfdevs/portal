@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { POST_KIND_LABEL } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
+import { pluralize } from "@/lib/format";
 
 /**
  * The presentational card, shared by the draggable kanban tile and its
@@ -31,8 +32,7 @@ export function RoadmapCard({ post }: { post: PostSummary }) {
       <div className="mt-2 flex items-center justify-between text-[11px] text-ink-400">
         <span>{post.authorName}</span>
         <span>
-          {post.voteCount} vote{post.voteCount === 1 ? "" : "s"} · {post.commentCount} comment
-          {post.commentCount === 1 ? "" : "s"}
+          {pluralize(post.voteCount, "vote")} · {pluralize(post.commentCount, "comment")}
         </span>
       </div>
     </Link>
