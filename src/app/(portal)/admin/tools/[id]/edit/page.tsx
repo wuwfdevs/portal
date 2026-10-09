@@ -1,3 +1,4 @@
+import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
 import { SecondaryLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
@@ -18,7 +19,10 @@ export default async function EditToolPage({
   const { id } = await params;
   const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: tool } = await supabase.from("tools").select("*").eq("id", id).maybeSingle();
+  const tool = unwrapRead(
+    await supabase.from("tools").select("*").eq("id", id).maybeSingle(),
+    "this tool",
+  );
 
   if (!tool) notFound();
 

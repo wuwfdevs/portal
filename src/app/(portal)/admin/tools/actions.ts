@@ -9,6 +9,7 @@ import type { ToolStatus, ToolDefaultAccess } from "@/lib/database.types";
 
 const TOOL_STATUSES: ToolStatus[] = ["available", "in_development", "planned", "proposed"];
 const NEW_TOOL_PATH = "/admin/tools/new";
+const TOOLS_PATH = "/admin/tools";
 const TOOL_KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const DEFAULT_ACCESS_VALUES: ToolDefaultAccess[] = ["invite_only", "approved_staff", "open"];
 
@@ -18,7 +19,8 @@ export async function toggleToolEnabled(formData: FormData): Promise<void> {
   const nextEnabled = String(formData.get("next_enabled") ?? "") === "true";
 
   const supabase = await createClient();
-  await supabase.from("tools").update({ enabled: nextEnabled }).eq("id", toolId);
+  const { error } = await supabase.from("tools").update({ enabled: nextEnabled }).eq("id", toolId);
+  failIfError(error, TOOLS_PATH, "Could not change whether the tool is enabled");
 
   await logAuditEvent({
     actorId: admin.id,
@@ -27,7 +29,7 @@ export async function toggleToolEnabled(formData: FormData): Promise<void> {
     targetId: toolId,
   });
 
-  redirect("/admin/tools");
+  redirect(TOOLS_PATH);
 }
 
 export async function updateTool(formData: FormData): Promise<void> {
@@ -45,15 +47,17 @@ export async function updateTool(formData: FormData): Promise<void> {
     ? (defaultAccessRaw as ToolDefaultAccess)
     : "invite_only";
 
+  const editPath = `/admin/tools/${toolId}/edit`;
   if (!name || !description || !route.startsWith("/")) {
-    redirect(`/admin/tools/${toolId}/edit?error=${encodeURIComponent("Route must start with /.")}`);
+    failWith(editPath, "Route must start with /.");
   }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("tools")
     .update({ name, description, route, status, default_access: defaultAccess })
     .eq("id", toolId);
+  failIfError(error, editPath, "Could not save the tool");
 
   await logAuditEvent({
     actorId: admin.id,
@@ -73,9 +77,6 @@ export async function updateTool(formData: FormData): Promise<void> {
  * cannot create a real one: status, enabled, route, and default_access are
  * fixed here, and an administrator promotes the row from the edit screen once
  * the tool is actually being built.
- *
- * Unlike the two actions above, this one routes its failures through
- * failIfError/failWith — they predate that rule (see CLAUDE.md).
  */
 export async function createProposedTool(formData: FormData): Promise<void> {
   const admin = await assertAdministrator();

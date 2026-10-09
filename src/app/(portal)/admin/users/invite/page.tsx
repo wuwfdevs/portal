@@ -1,3 +1,4 @@
+import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
 import { SecondaryLink } from "@/components/ui/primary-link";
 import { createClient } from "@/lib/supabase/server";
@@ -16,11 +17,10 @@ export default async function InviteUserPage({
   const { error, email, name } = await searchParams;
   const supabase = await createClient();
   // Proposed tools are ideas on the Roadmap, not software — nothing to grant.
-  const { data: tools } = await supabase
-    .from("tools")
-    .select("*")
-    .neq("status", "proposed")
-    .order("sort_order");
+  const tools = unwrapRead(
+    await supabase.from("tools").select("*").neq("status", "proposed").order("sort_order"),
+    "the tools",
+  );
 
   return (
     <div className="max-w-lg">

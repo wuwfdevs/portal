@@ -1,10 +1,11 @@
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import { formatShortDateTime as formatTimestamp } from "@/lib/format";
 
 export default async function AdminAuditPage() {
   const supabase = await createClient();
-  const [{ data: events }, { data: actors }] = await Promise.all([
+  const [eventsResult, actorsResult] = await Promise.all([
     supabase
       .from("audit_events")
       .select("id, action, target_type, target_id, metadata, created_at, actor_id")
@@ -12,6 +13,8 @@ export default async function AdminAuditPage() {
       .limit(100),
     supabase.from("profiles").select("id, display_name"),
   ]);
+  const events = unwrapRead(eventsResult, "the audit log");
+  const actors = unwrapRead(actorsResult, "the audit log's actors");
 
   const actorNameById = new Map((actors ?? []).map((actor) => [actor.id, actor.display_name]));
 

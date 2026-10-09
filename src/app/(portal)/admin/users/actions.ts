@@ -9,7 +9,10 @@ import { getSiteUrl } from "@/lib/site-url";
 import { isValidEmail } from "@/lib/validation";
 import type { PlatformRole, AccountStatus } from "@/lib/database.types";
 import { parseToolGrants, sameRoles } from "@/lib/tool-roles";
+import { failIfError, failWith } from "@/lib/editorial/action-result";
 
+const USERS_PATH = "/admin/users";
+const INVITE_PATH = "/admin/users/invite";
 const PLATFORM_ROLES: PlatformRole[] = ["administrator", "staff", "student", "faculty_partner"];
 
 export async function inviteUser(formData: FormData): Promise<void> {
@@ -26,9 +29,7 @@ export async function inviteUser(formData: FormData): Promise<void> {
   const toolGrants = parseToolGrants(formData);
 
   if (!isValidEmail(email) || !displayName) {
-    redirect(
-      "/admin/users/invite?error=" + encodeURIComponent("Enter a name and a valid email address."),
-    );
+    failWith(INVITE_PATH, "Enter a name and a valid email address.");
   }
 
   const adminClient = createAdminClient();
@@ -38,17 +39,14 @@ export async function inviteUser(formData: FormData): Promise<void> {
   });
 
   if (error || !data.user) {
-    redirect(
-      "/admin/users/invite?error=" +
-        encodeURIComponent(error?.message ?? "Could not send invitation."),
-    );
+    failWith(INVITE_PATH, error?.message ?? "Could not send invitation.");
   }
 
   const supabase = await createClient();
   const newUserId = data.user.id;
 
   if (toolGrants.length > 0) {
-    await supabase.from("tool_access").insert(
+    const { error: grantError } = await supabase.from("tool_access").insert(
       toolGrants.map((grant) => ({
         user_id: newUserId,
         tool_id: grant.toolId,
@@ -56,13 +54,25 @@ export async function inviteUser(formData: FormData): Promise<void> {
         granted_by: admin.id,
       })),
     );
+    // The invitation is already sent; say so, so the administrator grants the tools from the
+    // user's page rather than inviting a second time.
+    failIfError(
+      grantError,
+      USERS_PATH,
+      `The invitation to ${email} was sent, but their tool access could not be saved`,
+    );
   }
 
-  await supabase
+  const { error: requestError } = await supabase
     .from("access_requests")
     .update({ status: "approved", reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
     .eq("email", email)
     .eq("status", "pending");
+  failIfError(
+    requestError,
+    USERS_PATH,
+    `The invitation to ${email} was sent, but their access request could not be marked approved`,
+  );
 
   await logAuditEvent({
     actorId: admin.id,
@@ -80,15 +90,16 @@ export async function resendInvite(formData: FormData): Promise<void> {
   const userId = String(formData.get("user_id") ?? "");
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("email, display_name, platform_role")
     .eq("id", userId)
-    .single();
-  if (!profile) redirect("/admin/users");
+    .maybeSingle();
+  failIfError(profileError, USERS_PATH, "Could not load that user");
+  if (!profile) failWith(USERS_PATH, "That user no longer exists.");
 
   const adminClient = createAdminClient();
-  await adminClient.auth.admin.inviteUserByEmail(profile.email, {
+  const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(profile.email, {
     data: {
       display_name: profile.display_name,
       platform_role: profile.platform_role,
@@ -96,6 +107,7 @@ export async function resendInvite(formData: FormData): Promise<void> {
     },
     redirectTo: `${getSiteUrl()}/auth/callback`,
   });
+  if (inviteError) failWith(USERS_PATH, `Could not resend the invitation: ${inviteError.message}`);
 
   await logAuditEvent({
     actorId: admin.id,
@@ -113,10 +125,14 @@ export async function setAccountStatus(formData: FormData): Promise<void> {
   const userId = String(formData.get("user_id") ?? "");
   const status = String(formData.get("status") ?? "") as AccountStatus;
 
-  if (!["active", "disabled"].includes(status)) redirect("/admin/users");
+  if (!["active", "disabled"].includes(status)) redirect(USERS_PATH);
 
   const supabase = await createClient();
-  await supabase.from("profiles").update({ account_status: status }).eq("id", userId);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ account_status: status })
+    .eq("id", userId);
+  failIfError(error, USERS_PATH, "Could not change the account status");
 
   await logAuditEvent({
     actorId: admin.id,
@@ -144,26 +160,32 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
     String(formData.get("title") ?? "")
       .trim()
       .slice(0, 120) || null;
-  await supabase.from("profiles").update({ platform_role: platformRole, title }).eq("id", userId);
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ platform_role: platformRole, title })
+    .eq("id", userId);
+  failIfError(profileError, USERS_PATH, "Could not save the user's role");
 
-  const { data: existingGrants } = await supabase
+  const { data: existingGrants, error: grantsError } = await supabase
     .from("tool_access")
     .select("id, tool_id, tool_roles")
     .eq("user_id", userId)
     .is("revoked_at", null);
+  failIfError(grantsError, USERS_PATH, "Could not load the user's current access");
 
   const existingByToolId = new Map((existingGrants ?? []).map((row) => [row.tool_id, row]));
 
   // Revoke grants that were unchecked.
   const toRevoke = (existingGrants ?? []).filter((row) => !grantedToolIds.has(row.tool_id));
   if (toRevoke.length > 0) {
-    await supabase
+    const { error: revokeError } = await supabase
       .from("tool_access")
       .update({ revoked_at: new Date().toISOString(), revoked_by: admin.id })
       .in(
         "id",
         toRevoke.map((row) => row.id),
       );
+    failIfError(revokeError, USERS_PATH, "Could not remove the unchecked tool access");
   }
 
   // Insert newly checked grants; update the roles on ones that already existed.
@@ -171,17 +193,19 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
   for (const grant of toolGrants) {
     const existing = existingByToolId.get(grant.toolId);
     if (!existing) {
-      await supabase.from("tool_access").insert({
+      const { error: insertError } = await supabase.from("tool_access").insert({
         user_id: userId,
         tool_id: grant.toolId,
         tool_roles: grant.toolRoles,
         granted_by: admin.id,
       });
+      failIfError(insertError, USERS_PATH, "Could not grant tool access");
     } else if (!sameRoles(existing.tool_roles, grant.toolRoles)) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("tool_access")
         .update({ tool_roles: grant.toolRoles })
         .eq("id", existing.id);
+      failIfError(updateError, USERS_PATH, "Could not change tool roles");
     }
   }
 
@@ -205,10 +229,11 @@ export async function denyAccessRequest(formData: FormData): Promise<void> {
   const requestId = String(formData.get("request_id") ?? "");
   const supabase = await createClient();
 
-  await supabase
+  const { error } = await supabase
     .from("access_requests")
     .update({ status: "denied", reviewed_by: admin.id, reviewed_at: new Date().toISOString() })
     .eq("id", requestId);
+  failIfError(error, USERS_PATH, "Could not deny the access request");
 
   await logAuditEvent({
     actorId: admin.id,
