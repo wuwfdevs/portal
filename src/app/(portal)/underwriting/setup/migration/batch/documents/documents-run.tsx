@@ -11,7 +11,7 @@
 // one at a time (§14.5). Nothing here is the record: each entry's own row
 // is, and a closed tab leaves finished drafts in place and the rest to run.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,9 @@ import { formatBytes as formatMB } from "@/lib/format";
 import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/input";
+import { pluralize } from "@/lib/format";
+import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
+import { useInterval } from "@/lib/use-poller";
 
 export interface RunEntry {
   id: string;
@@ -221,16 +224,8 @@ export function DocumentsRun({
 
   // ---- Running -----------------------------------------------------------
 
-  useEffect(() => {
-    if (phase !== "running") return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    const clock = setInterval(() => setNow(Date.now()), 1000);
-    window.addEventListener("beforeunload", warn);
-    return () => {
-      window.removeEventListener("beforeunload", warn);
-      clearInterval(clock);
-    };
-  }, [phase]);
+  useInterval(() => setNow(Date.now()), phase === "running" ? 1000 : null);
+  useBeforeUnloadGuard(phase === "running");
 
   const setState = (id: string, state: TaskState) =>
     setStates((previous) => new Map(previous).set(id, state));
@@ -355,7 +350,7 @@ export function DocumentsRun({
               </h3>
               <p className="mt-0.5 max-w-3xl text-sm text-ink-700">
                 {phase === "running"
-                  ? `Reading ${MIGRATION_CONCURRENCY} at a time; each takes a minute or two${minutesLeft !== null ? ` — about ${minutesLeft} ${minutesLeft === 1 ? "minute" : "minutes"} left` : ""}. Keep this tab open. If it closes, finished drafts are kept and the rest wait on the batch page.`
+                  ? `Reading ${MIGRATION_CONCURRENCY} at a time; each takes a minute or two${minutesLeft !== null ? ` — about ${pluralize(minutesLeft, "minute", "minutes")} left` : ""}. Keep this tab open. If it closes, finished drafts are kept and the rest wait on the batch page.`
                   : "Every draft waits for review. Nothing schedules until someone activates it."}
               </p>
             </div>
@@ -533,7 +528,7 @@ export function DocumentsRun({
               ? documentsOnly
                 ? "Choose the documents to import"
                 : "Choose the signed agreements"
-              : `${files.length} ${files.length === 1 ? "file" : "files"} chosen`}
+              : `${pluralize(files.length, "file", "files")} chosen`}
           </div>
           <div className="text-[13px] text-ink-500">
             {documentsOnly
@@ -634,8 +629,8 @@ export function DocumentsRun({
           <Card className="flex flex-col gap-2.5 px-5 py-4">
             <h3 className="text-[15px] font-bold text-ink-900">
               {documentsOnly
-                ? `${matching.extras.length} ${matching.extras.length === 1 ? "document" : "documents"} to import`
-                : `${matching.extras.length} ${matching.extras.length === 1 ? "file isn’t" : "files aren’t"} in the manifest`}
+                ? `${pluralize(matching.extras.length, "document", "documents")} to import`
+                : `${pluralize(matching.extras.length, "file isn’t", "files aren’t")} in the manifest`}
             </h3>
             <p className="break-words font-mono text-xs leading-relaxed text-ink-700">
               {matching.extras.map((file) => file.name).join(", ")}
@@ -667,8 +662,8 @@ export function DocumentsRun({
         </SecondaryLink>
         {!documentsOnly && matching.attention.length > 0 && runCount > 0 && (
           <span className="text-[13px] text-ink-500">
-            {matching.attention.length} {matching.attention.length === 1 ? "entry" : "entries"}{" "}
-            still without a usable file stay as “Not run”. Add their files here any time.
+            {pluralize(matching.attention.length, "entry", "entries")} still without a usable file
+            stay as “Not run”. Add their files here any time.
           </span>
         )}
       </div>

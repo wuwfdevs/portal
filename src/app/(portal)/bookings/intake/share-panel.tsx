@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { buildGroveEmbedCode, embedFormUrl, publicFormUrl } from "@/lib/bookings/embed";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * The public URL, the Grove embed snippet, and a live preview of it — the
@@ -95,16 +96,10 @@ function LivePreviewFrame({ src }: { src: string }) {
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const { copy, status } = useCopyToClipboard();
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("copied");
-      setTimeout(() => setStatus("idle"), 2000);
-    } catch {
-      setStatus("failed");
-    }
+  function handleCopy() {
+    void copy(value);
   }
 
   return (

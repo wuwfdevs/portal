@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { KanbanBoardField } from "@/components/ui/kanban-board-field";
 import { availableStatusActions, KANBAN_STATUSES, POST_STATUS_BADGE } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
 import type { RdPostStatus } from "@/lib/database.types";
+import { useOptimisticList } from "@/lib/use-optimistic-list";
 import { movePostStatus } from "./actions";
 import { RoadmapCard } from "./roadmap-card";
 
@@ -36,24 +37,13 @@ const COLUMNS = KANBAN_STATUSES.map((status) => ({
  * optimistic and rolls back if the action fails.
  */
 export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
-  const [items, setItems] = useState(posts);
-  const [, startTransition] = useTransition();
+  const { items, apply, error } = useOptimisticList(posts, { getId: (post) => post.id });
   const [pendingDecline, setPendingDecline] = useState<{ id: string; title: string } | null>(null);
   const [declineNote, setDeclineNote] = useState("");
   const [declineError, setDeclineError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   function commit(id: string, status: RdPostStatus, note?: string) {
-    const previous = items;
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
-    setError(null);
-    startTransition(async () => {
-      const result = await movePostStatus(id, status, note);
-      if (result.error) {
-        setItems(previous);
-        setError(result.error);
-      }
-    });
+    apply(id, { status }, () => movePostStatus(id, status, note));
   }
 
   function requestMove(post: PostSummary, status: RdPostStatus) {

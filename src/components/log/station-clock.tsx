@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { formatStationClockTime } from "@/lib/log/timezone";
+import { useInterval } from "@/lib/use-poller";
 
 /**
  * A live-ticking wall clock in the station's own timezone, hh:mm:ss — the
@@ -22,9 +23,8 @@ export function StationClock() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- filling in the client's own clock after mount; the null placeholder avoids rendering the server's render-time instant and causing a hydration mismatch.
     setNowISO(new Date().toISOString());
-    const interval = setInterval(() => setNowISO(new Date().toISOString()), 1000);
-    return () => clearInterval(interval);
   }, []);
+  useInterval(() => setNowISO(new Date().toISOString()), 1000);
 
   return (
     <div className="rounded border-2 border-brand-primary bg-brand-surface/30 p-4">

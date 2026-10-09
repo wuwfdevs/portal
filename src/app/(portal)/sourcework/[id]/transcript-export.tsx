@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { buildTranscriptText } from "@/lib/transcription/transcript";
 import { buildTranscriptExportFilename } from "@/lib/transcription/media";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 import { downloadBlob } from "./download-blob";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * Copy the transcript, or save it as a .txt.
@@ -34,22 +34,14 @@ export function TranscriptExport({
   segments: TranscriptSegment[];
   speakers: TranscriptSpeaker[];
 }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const { copy, status } = useCopyToClipboard();
 
   function transcriptText() {
     return buildTranscriptText({ title: projectTitle, interviewDate }, segments, speakers);
   }
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(transcriptText());
-      setStatus("copied");
-      setTimeout(() => setStatus("idle"), 2000);
-    } catch {
-      // Clipboard access is refusable (and absent over plain http) — say so
-      // rather than silently doing nothing.
-      setStatus("failed");
-    }
+  function handleCopy() {
+    void copy(transcriptText());
   }
 
   function handleDownload() {

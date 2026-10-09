@@ -4,6 +4,8 @@ import { PrimaryLink, SecondaryLink } from "@/components/ui/primary-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatHourLabel, type WeekBand } from "@/lib/log/week-layout";
+import { useDismissable } from "@/lib/use-dismissable";
+import { useEventListener } from "@/lib/use-event-listener";
 
 /** Pixels per hour; a block's height is its minutes scaled by this. */
 const HOUR_PX = 34;
@@ -89,28 +91,21 @@ export function WeekGrid({
     if (restoreFocus) triggerRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close(true);
-    };
-    const onPointer = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (popoverRef.current?.contains(target)) return;
+  useDismissable({
+    open: selected !== null,
+    refs: [popoverRef],
+    onDismiss: (reason, event) => {
+      if (reason === "escape") return close(true);
       // A click on a block is handled by the block's own onClick (it toggles).
+      const target = event.target;
       if (target instanceof Element && target.closest("[data-week-block]")) return;
       close(false);
-    };
-    const onResize = () => close(false);
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onPointer);
-    window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onPointer);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [selected, close]);
+    },
+  });
+
+  useEventListener(typeof window === "undefined" ? null : window, "resize", () => close(false), {
+    active: selected !== null,
+  });
 
   const selectedKey = selected?.key ?? null;
   useEffect(() => {

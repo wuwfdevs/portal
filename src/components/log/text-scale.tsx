@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { FloatingPanel, useDetailsMenu } from "@/components/ui/floating-panel";
+import { safeGet, safeSet } from "@/lib/safe-storage";
 
 // A whole-screen text-size control for the rundown/console screen — as of
 // 2026-08-24 THE text-size control, full stop: it is how
@@ -48,14 +49,14 @@ export function TextScaleProvider({ children }: { children: ReactNode }) {
   const [scale, setScaleState] = useState<TextScaleKey>("normal");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = safeGet("local", STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the host's saved preference after mount; localStorage isn't available during SSR, so this can't be a lazy useState initializer.
     if (isTextScaleKey(stored)) setScaleState(stored);
   }, []);
 
   function setScale(next: TextScaleKey) {
     setScaleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    safeSet("local", STORAGE_KEY, next);
   }
 
   return (
@@ -75,7 +76,9 @@ export function TextScaleZoom({ children }: { children: ReactNode }) {
   // --text-zoom lets a descendant that sizes itself against the viewport (the
   // rundown sidebar's max height) divide the zoom back out.
   return (
-    <div style={{ zoom: TEXT_SCALES[scale].zoom, ["--text-zoom" as string]: TEXT_SCALES[scale].zoom }}>
+    <div
+      style={{ zoom: TEXT_SCALES[scale].zoom, ["--text-zoom" as string]: TEXT_SCALES[scale].zoom }}
+    >
       {children}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { formatDuration } from "@/lib/transcription/media";
 import { filterSpeakerRows, speakerRows, speakerSummary } from "@/lib/transcription/speakers";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 import { mergeSpeakers, renameSpeaker } from "./actions";
+import { useDismissable } from "@/lib/use-dismissable";
 
 /** Past this many speakers the panel offers a filter; below it a filter is clutter. */
 const FILTER_THRESHOLD = 6;
@@ -50,27 +51,15 @@ export function SpeakersMenu({
     [rows, query, unnamedOnly],
   );
 
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  // The panel is portaled, so the button and the panel both count as inside.
+  useDismissable({
+    open,
+    refs: [buttonRef, panelRef],
+    onDismiss: (reason) => {
+      setOpen(false);
+      if (reason === "escape") buttonRef.current?.focus();
+    },
+  });
 
   if (speakers.length === 0) return null;
 

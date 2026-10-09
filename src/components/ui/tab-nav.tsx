@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { FloatingPanel } from "@/components/ui/floating-panel";
+import { useDismissable } from "@/lib/use-dismissable";
 
 export interface TabNavItem {
   href: string;
@@ -94,25 +95,12 @@ export function TabNav({ tabs: allTabs, className }: { tabs: TabNavItem[]; class
     return () => ro.disconnect();
   }, [tabs, forced.length, endTabs.length]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      // The menu is portaled to <body>, so it's outside containerRef — check both.
-      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [menuOpen]);
+  // The menu is portaled to <body>, so it's outside containerRef — check both.
+  useDismissable({
+    open: menuOpen,
+    refs: [containerRef, menuRef],
+    onDismiss: () => setMenuOpen(false),
+  });
 
   const visible = tabs.slice(0, visibleCount);
   const overflow = [...tabs.slice(visibleCount), ...forced];

@@ -20,6 +20,7 @@ import {
   parseDadLibraryUpload,
   type ExecuteDadLibraryImportResult,
 } from "../import-actions";
+import { actionFailureMessage } from "@/lib/use-action";
 
 const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];
 
@@ -51,9 +52,13 @@ export function ImportClient() {
     startTransition(async () => {
       setError(null);
       setResult(null);
-      const response = await parseDadLibraryUpload(formData);
-      if (response.ok) setPlan(response.plan);
-      else setError(response.error);
+      try {
+        const response = await parseDadLibraryUpload(formData);
+        if (response.ok) setPlan(response.plan);
+        else setError(response.error);
+      } catch (caught) {
+        setError(actionFailureMessage(caught));
+      }
     });
   };
 
@@ -61,12 +66,16 @@ export function ImportClient() {
     if (!plan) return;
     startTransition(async () => {
       setError(null);
-      const response = await executeDadLibraryImport(JSON.stringify(plan));
-      if (response.ok) {
-        setResult(response);
-        setPlan(null);
-      } else {
-        setError(response.error);
+      try {
+        const response = await executeDadLibraryImport(JSON.stringify(plan));
+        if (response.ok) {
+          setResult(response);
+          setPlan(null);
+        } else {
+          setError(response.error);
+        }
+      } catch (caught) {
+        setError(actionFailureMessage(caught));
       }
     });
   };

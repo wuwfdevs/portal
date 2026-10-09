@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FloatingPanel } from "@/components/ui/floating-panel";
+import { useDismissable } from "@/lib/use-dismissable";
 
 const SHORTCUTS: [string, string][] = [
   ["Space", "Play / pause"],
@@ -19,24 +20,11 @@ export function ShortcutsHelp() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        setIsOpen(false);
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setIsOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen]);
+  useDismissable({
+    open: isOpen,
+    refs: [buttonRef, panelRef],
+    onDismiss: () => setIsOpen(false),
+  });
 
   return (
     <div className="relative">

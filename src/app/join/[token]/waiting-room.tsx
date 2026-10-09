@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { createClient } from "@/lib/supabase/client";
+import { usePoller } from "@/lib/use-poller";
 import { GuestShell } from "./guest-shell";
 
 const POLL_INTERVAL_MS = 4000;
@@ -23,30 +22,24 @@ export function WaitingRoom({
   participantId: string;
   displayName: string;
 }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    const interval = setInterval(async () => {
-      const { data } = await supabase
+  // One read at a time, paused while the tab is hidden; the page is refreshed
+  // only once the host has admitted (or removed) this guest.
+  usePoller({
+    intervalMs: POLL_INTERVAL_MS,
+    task: async () => {
+      const { data, error } = await createClient()
         .from("ri_participants")
         .select("admitted_at, revoked_at")
         .eq("id", participantId)
         .maybeSingle();
-
-      if (cancelled) return;
-      if (data?.admitted_at || data?.revoked_at) {
-        router.refresh();
+      if (error) {
+        // A failed read is not an admission; keep polling and try again next tick.
+        console.error("Could not check the waiting-room status:", error);
+        return false;
       }
-    }, POLL_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [participantId, router]);
+      return Boolean(data?.admitted_at || data?.revoked_at);
+    },
+  });
 
   return (
     <GuestShell>

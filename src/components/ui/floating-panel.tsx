@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -12,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
+import { useDismissable } from "@/lib/use-dismissable";
 
 /**
  * Glue for the `<details>`/`<summary>` menus: tracks the native open state
@@ -33,22 +33,7 @@ export function useDetailsMenu(
     detailsRef.current?.removeAttribute("open");
   }, [detailsRef]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!detailsRef.current?.contains(target) && !panelRef.current?.contains(target)) close();
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") close();
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, close, detailsRef, panelRef]);
+  useDismissable({ open, refs: [detailsRef, panelRef], onDismiss: close });
 
   function onToggle(event: React.SyntheticEvent<HTMLDetailsElement>) {
     // Toggle events from a nested <details> inside the panel bubble here through the portal.

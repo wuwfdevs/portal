@@ -8,6 +8,7 @@ import { buildMailtoUrl, interpolateTemplate } from "@/lib/academic-partnerships
 import type { ApEmailTemplateRow } from "@/lib/academic-partnerships/queries";
 import { recordEmailAction, sendInquiryEmail } from "../actions";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * Two ways an email leaves this system, both logged identically afterward
@@ -32,7 +33,8 @@ export function EmailPanel({
 }) {
   const [templateKey, setTemplateKey] = useState(templates[0]?.key ?? "");
   const [staffContext, setStaffContext] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { copy, status: copyStatus } = useCopyToClipboard();
+  const copied = copyStatus === "copied";
   const [showManual, setShowManual] = useState(!sendingConfigured);
 
   const template = templates.find((candidate) => candidate.key === templateKey) ?? null;
@@ -52,11 +54,9 @@ export function EmailPanel({
     : null;
   const isMeetingInvite = templateKey === "meeting_invite";
 
-  async function copyDraft() {
+  function copyDraft() {
     if (!interpolated) return;
-    await navigator.clipboard.writeText(`Subject: ${interpolated.subject}\n\n${interpolated.body}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    void copy(`Subject: ${interpolated.subject}\n\n${interpolated.body}`);
   }
 
   return (
@@ -145,7 +145,7 @@ export function EmailPanel({
             Open email draft
           </Button>
           <Button type="button" variant="secondary" onClick={copyDraft}>
-            {copied ? "Copied" : "Copy draft"}
+            {copied ? "Copied" : copyStatus === "failed" ? "Couldn't copy" : "Copy draft"}
           </Button>
           {sendingConfigured && !showManual && (
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowManual(true)}>

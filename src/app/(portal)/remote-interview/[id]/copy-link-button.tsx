@@ -1,20 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /** Copies a guest join link. Mirrors the transcript export's copy affordance. */
 export function CopyLinkButton({ link }: { link: string }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const { copy, status } = useCopyToClipboard();
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setStatus("copied");
-      setTimeout(() => setStatus("idle"), 2000);
-    } catch {
-      setStatus("failed");
-    }
+  function handleCopy() {
+    void copy(link);
   }
 
   return (

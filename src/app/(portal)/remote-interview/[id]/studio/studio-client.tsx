@@ -28,6 +28,7 @@ import {
   type ParticipantStatus,
 } from "@/lib/remote-interview/call-status";
 import { createClient } from "@/lib/supabase/client";
+import { useInterval, usePoller } from "@/lib/use-poller";
 import { useLocalCapture } from "@/lib/remote-interview/use-local-capture";
 import { useMicLevel } from "@/lib/remote-interview/use-mic-level";
 import {
@@ -36,6 +37,7 @@ import {
   startStudioRecording,
   stopStudioRecording,
 } from "./actions";
+import { pluralize } from "@/lib/format";
 
 /** Matches the guest's own WaitingRoom poll (join/[token]/waiting-room.tsx) — same reasoning: no notification layer, so a short client-side poll is the honest, minimal way to notice a new arrival. */
 const WAITING_ROOM_POLL_INTERVAL_MS = 4000;
@@ -147,11 +149,7 @@ export function StudioClient({
   });
   const localLevel = useMicLevel(localCapture.getStream());
 
-  useEffect(() => {
-    if (!recordingActive) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [recordingActive]);
+  useInterval(() => setNow(Date.now()), recordingActive ? 1000 : null);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +159,7 @@ export function StudioClient({
       const result = await getStudioCallCredentials(sessionId);
       if (cancelled) return;
       if (!result.ok) {
-        setCallError(result.message);
+        setCallError(result.error);
         setCallState("error");
         return;
       }
@@ -253,7 +251,7 @@ export function StudioClient({
     setActionError(null);
     const result = await startStudioRecording(sessionId);
     if (!result.ok) {
-      setActionError(result.message);
+      setActionError(result.error);
       setPending(false);
       return;
     }
@@ -291,7 +289,7 @@ export function StudioClient({
     setActionError(null);
     const result = await stopStudioRecording(sessionId);
     if (!result.ok) {
-      setActionError(result.message);
+      setActionError(result.error);
       setPending(false);
       return;
     }
@@ -325,12 +323,12 @@ export function StudioClient({
   // own WaitingRoom poll — this is the honest, minimal way for the host to
   // notice someone new waiting without leaving the live call to check the
   // session detail page.
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    async function poll() {
-      const { data, error } = await supabase
+  usePoller({
+    intervalMs: WAITING_ROOM_POLL_INTERVAL_MS,
+    immediate: true,
+    pauseWhenHidden: false,
+    task: async () => {
+      const { data, error } = await createClient()
         .from("ri_participants")
         .select("id, display_name, waiting_since")
         .eq("session_id", sessionId)
@@ -339,17 +337,11 @@ export function StudioClient({
         .is("admitted_at", null)
         .not("waiting_since", "is", null)
         .order("waiting_since", { ascending: true });
-      if (cancelled || error) return;
+      if (error) return false;
       setWaitingGuests((data ?? []).map((p) => ({ id: p.id, displayName: p.display_name })));
-    }
-
-    void poll();
-    const interval = setInterval(poll, WAITING_ROOM_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [sessionId]);
+      return false;
+    },
+  });
 
   async function handleAdmit(participantId: string) {
     setAdmittingId(participantId);
@@ -359,7 +351,7 @@ export function StudioClient({
       setParticipantList((prev) => [...prev, result.data]);
       setWaitingGuests((prev) => prev.filter((g) => g.id !== participantId));
     } else {
-      setActionError(result.message);
+      setActionError(result.error);
     }
     setAdmittingId(null);
   }
@@ -436,8 +428,7 @@ export function StudioClient({
       {waitingGuests.length > 0 && (
         <Alert variant="warning" className="mb-6 max-w-xl text-sm">
           <h2 className="font-bold">
-            Waiting room — {waitingGuests.length} guest{waitingGuests.length === 1 ? "" : "s"} ready
-            to join
+            Waiting room — {pluralize(waitingGuests.length, "guest")} ready to join
           </h2>
           <ul className="mt-2">
             {waitingGuests.map((guest) => (

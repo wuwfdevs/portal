@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { formatClock as formatDuration } from "@/lib/format";
+import { useInterval } from "@/lib/use-poller";
 
 // A live-ticking "how long until X" countdown — the sidebar's rejoin/next-
 // break widget's companion to StationClock's "what time is it right now",
@@ -27,9 +28,8 @@ export function Countdown({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- filling in the client's own clock after mount, same as StationClock; the null placeholder avoids a hydration mismatch against the server's render-time instant.
     setNowMs(Date.now());
-    const interval = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(interval);
   }, []);
+  useInterval(() => setNowMs(Date.now()), 1000);
 
   if (nowMs === null) {
     return (
