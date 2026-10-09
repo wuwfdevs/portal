@@ -157,15 +157,15 @@ export function ScheduleEditor({
         {error && <Alert>{error}</Alert>}
         <input type="hidden" name="program_id" value={programId} />
         {entryId && <input type="hidden" name="entry_id" value={entryId} />}
-        {days.map((day) => (
-          <input key={day} type="hidden" name="days_of_week" value={day} />
-        ))}
+        {recurring &&
+          days.map((day) => <input key={day} type="hidden" name="days_of_week" value={day} />)}
 
-        <fieldset className="min-w-0 border-0 p-0">
+        <fieldset className="min-w-0 border-0 p-0" disabled={!recurring}>
           <legend className="mb-2 p-0 text-sm font-bold text-ink-900">Days</legend>
-          <div className="flex flex-wrap gap-1.5">
+          <div className={cn("flex flex-wrap gap-1.5", !recurring && "opacity-50")}>
             {DAY_ORDER.map((day) => {
-              const on = days.includes(day);
+              // A one-time change airs every day between its dates, so no day reads as picked.
+              const on = recurring && days.includes(day);
               return (
                 <button
                   key={day}
@@ -184,30 +184,37 @@ export function ScheduleEditor({
               );
             })}
           </div>
-          <div className="mt-2 flex gap-4 text-sm font-semibold">
-            <button
-              type="button"
-              onClick={() => setDays([1, 2, 3, 4, 5])}
-              className="text-brand-link hover:underline"
-            >
-              Weekdays
-            </button>
-            <button
-              type="button"
-              onClick={() => setDays([6, 0])}
-              className="text-brand-link hover:underline"
-            >
-              Weekend
-            </button>
-            <button
-              type="button"
-              onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])}
-              className="text-brand-link hover:underline"
-            >
-              Every day
-            </button>
-          </div>
-          {!recurring && <FieldHint>Days are only used for a recurring entry.</FieldHint>}
+          {recurring && (
+            <div className="mt-2 flex gap-4 text-sm font-semibold">
+              <button
+                type="button"
+                onClick={() => setDays([1, 2, 3, 4, 5])}
+                className="text-brand-link hover:underline"
+              >
+                Weekdays
+              </button>
+              <button
+                type="button"
+                onClick={() => setDays([6, 0])}
+                className="text-brand-link hover:underline"
+              >
+                Weekend
+              </button>
+              <button
+                type="button"
+                onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])}
+                className="text-brand-link hover:underline"
+              >
+                Every day
+              </button>
+            </div>
+          )}
+          {!recurring && (
+            <FieldHint>
+              A one-time change airs every day between its start and end dates, so days aren&rsquo;t
+              picked here. Set the dates below.
+            </FieldHint>
+          )}
         </fieldset>
 
         <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
