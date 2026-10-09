@@ -8,7 +8,6 @@ import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { isVideoContentType, formatDuration } from "@/lib/transcription/media";
 import { SOURCE_KIND_LABEL, projectStatusMap } from "@/lib/transcription/status";
 import { formatBytes, formatShortDate } from "@/lib/format";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,15 +19,13 @@ import { TranscriptWorkspace } from "../../[id]/transcript-workspace";
 import { DocumentWorkspace } from "../../[id]/document-workspace";
 import { RepresentationStatusBanner } from "../../[id]/representation-status-banner";
 import { SourceActionsMenu } from "../../[id]/source-actions-menu";
+import { SourceProjectsList } from "./source-projects-list";
 import { projectPath, sourcePath } from "@/lib/transcription/links";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
 // than in actions.ts, and docs/sourcework-design.md §8.6 on why it's needed
 // at all: the retry action here can kick off a Mistral OCR call via after().
 export const maxDuration = 300;
-
-/** Projects named in the "Used in" list before it says how many more there are. */
-const USED_IN_LIMIT = 25;
 
 /**
  * One source, independent of any project (docs/sourcework-design.md §7.2) —
@@ -70,6 +67,11 @@ export default async function SourceDetailPage({
   const primaryProjectId = contextProject?.id ?? source.projects[0]?.id ?? null;
   const otherProjectCount = source.projects.length - (contextProject ? 1 : 0);
   const returnTo = sourcePath(id, { projectId: contextProject?.id });
+  // Two views of one source. Opened from a project it is that project's source:
+  // the back link is the way to the others and nothing lists projects. Opened on
+  // its own (the library) it gains a Projects tab beside Transcript / Excerpts /
+  // Speakers — a real list, since a recording can be in dozens of projects.
+  const projectsList = contextProject ? null : <SourceProjectsList projects={source.projects} />;
   const hasMedia = Boolean(source.originalStoragePath);
   const isDocument = source.kind === "document";
   // See ../../[id]/representation-status-banner.tsx: the file and the text
@@ -128,40 +130,6 @@ export default async function SourceDetailPage({
         }
       />
 
-      {/* Two views of one source. Opened from a project it is that project's
-          source: the back link is the way to the others, and nothing here lists
-          projects. Opened on its own (the library) it says where it is used — as
-          a count that opens a list, since a recording can be in dozens of
-          projects and a row of links does not scale. */}
-      {!contextProject && (
-        <div className="mb-6">
-          {source.projects.length === 0 ? (
-            <p className="text-sm text-ink-500">Not used in any project yet.</p>
-          ) : (
-            <ActionMenu
-              label="Projects using this source"
-              triggerLabel={`Used in ${source.projects.length} project${source.projects.length === 1 ? "" : "s"}`}
-              sheetHeading={<span className="font-semibold">Projects using “{source.title}”</span>}
-              items={[
-                ...source.projects.slice(0, USED_IN_LIMIT).map((project) => ({
-                  label: project.title,
-                  href: projectPath(project.id),
-                })),
-                ...(source.projects.length > USED_IN_LIMIT
-                  ? [
-                      {
-                        label: `${source.projects.length - USED_IN_LIMIT} more`,
-                        disabled: true,
-                        hint: `Showing the first ${USED_IN_LIMIT}.`,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-          )}
-        </div>
-      )}
-
       {fileReady && isDocument && (
         <Card className="p-5">
           <RepresentationStatusBanner
@@ -194,6 +162,15 @@ export default async function SourceDetailPage({
         </Card>
       )}
 
+      {fileReady && isDocument && projectsList && (
+        <section className="mt-8">
+          <SectionHeading level="eyebrow" className="mb-2">
+            Projects using this source
+          </SectionHeading>
+          {projectsList}
+        </section>
+      )}
+
       {fileReady && !isDocument && (
         <Card className="p-5 max-lg:border-0 max-lg:bg-transparent max-lg:p-0">
           <RepresentationStatusBanner
@@ -224,6 +201,8 @@ export default async function SourceDetailPage({
               clips={excerpts}
               initialSeekMs={initialSeekMs}
               highlightClipId={clip ?? null}
+              projectsPane={projectsList}
+              projectCount={source.projects.length}
             />
           ) : (
             <p className="text-sm text-ink-500">

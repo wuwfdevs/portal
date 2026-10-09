@@ -384,8 +384,9 @@ zone. It has no player, no transcript and no source switcher; `source-switcher.t
 link, and the project "Remove from this project" detaches from) and `?t=`/`?clip=`/`?page=` land on a
 search hit. **A source has two views.** With `?project=` it is that project's source: the back link is
 the way to the other sources, nothing lists projects, and the menu offers "Remove from this project…".
-Without it (the Source Library) it stands alone: back to the library, a "Used in N projects" button that
-opens a list (capped at 25 — a recording can be in dozens of projects), and only "Delete source…".
+Without it (the Source Library) it stands alone: back to the library, a fourth **Projects** tab in the
+same tab row (`sources/[id]/source-projects-list.tsx` — title and background per project, a filter once
+there are eight; a section below the workspace on desktop and for documents), and only "Delete source…".
 **Build every link to either screen with `lib/transcription/links.ts`'s
 `projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
 `/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs

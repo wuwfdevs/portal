@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ const SKIP_MS = 5000;
 /** How long the selection must sit still before it is read — long enough for a drag of the handles to settle. */
 const SELECTION_SETTLE_MS = 250;
 
-type Pane = "transcript" | "excerpts" | "speakers";
+type Pane = "transcript" | "excerpts" | "speakers" | "projects";
 
 /**
  * The player, speaker naming, transcript, and clips as one coupled surface
@@ -63,6 +63,8 @@ export function TranscriptWorkspace({
   clips,
   initialSeekMs = null,
   highlightClipId = null,
+  projectsPane = null,
+  projectCount = 0,
 }: {
   projectId: string;
   /** The source (pill) this workspace is currently showing — a new excerpt belongs to this one, not necessarily the project's first-added source. */
@@ -81,6 +83,9 @@ export function TranscriptWorkspace({
   initialSeekMs?: number | null;
   /** ?clip= from a clip result — which clip to surface in the rail. */
   highlightClipId?: string | null;
+  /** The standalone source view's list of projects using this source — a fourth tab in the same row. Absent when the source was opened from a project. */
+  projectsPane?: ReactNode;
+  projectCount?: number;
 }) {
   const router = useRouter();
   const mediaRef = useRef<HTMLMediaElement | null>(null);
@@ -535,6 +540,7 @@ export function TranscriptWorkspace({
         onChange={setPane}
         excerptCount={clips.length}
         speakerCount={speakers.length}
+        projectCount={projectsPane ? projectCount : null}
       />
       <div className="flex flex-col gap-4">
         {isVideo ? (
@@ -751,6 +757,15 @@ export function TranscriptWorkspace({
           onShowInTranscript={() => setPane("transcript")}
         />
       </div>
+
+      {projectsPane && (
+        <div className={cn("lg:col-span-2", pane === "projects" ? "block" : "hidden lg:block")}>
+          <h2 className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-ink-500 lg:block">
+            Projects using this source
+          </h2>
+          {projectsPane}
+        </div>
+      )}
     </div>
   );
 }
@@ -766,16 +781,22 @@ function PaneTabs({
   onChange,
   excerptCount,
   speakerCount,
+  projectCount,
 }: {
   pane: Pane;
   onChange: (pane: Pane) => void;
   excerptCount: number;
   speakerCount: number;
+  /** Null when the source was opened from a project, which has no Projects tab. */
+  projectCount: number | null;
 }) {
   const tabs: { id: Pane; label: string; count?: number }[] = [
     { id: "transcript", label: "Transcript" },
     { id: "excerpts", label: "Excerpts", count: excerptCount },
     { id: "speakers", label: "Speakers", count: speakerCount },
+    ...(projectCount !== null
+      ? [{ id: "projects" as const, label: "Projects", count: projectCount }]
+      : []),
   ];
   return (
     <div
