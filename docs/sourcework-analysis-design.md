@@ -368,6 +368,15 @@ swapped, trimmed, moved or removed. Conventions:
   shows duration and speaker.
 - **Enter** at the end of a narration block adds a narration block below;
   **Backspace** in an empty one removes it.
+- **Trim in place.** An actuality block's ⋮ menu has **Trim…**, which opens the trim
+  panel under the block (a bottom sheet on a phone): the clip's words highlighted in
+  their transcript context, tap a word to move the start or end there, or nudge with
+  the existing −250 −50 +50 +250 chips, and **Play as cut**. The piece's length updates
+  as you trim. A trim is **per piece by default**: the block stores its own `in_ms` and
+  `out_ms`, and the excerpt itself is untouched. A switch, **Only in this piece |
+  Update the excerpt everywhere**, changes the excerpt itself, and says how many other
+  pieces use it. The block's text is always derived from the transcript for its range,
+  never typed.
 - **Reorder** by dragging the ⋮⋮ handle (desktop), or Move up and Move down in
   the block's ⋮ menu, which also serves keyboard and phone. Every save is a
 version (§4.7); History shows who saved it, a person or the assistant, and restores
@@ -390,7 +399,7 @@ Reading the code, three things are needed:
 2. **Piece capabilities** (`lib/sourcework/piece-capabilities.ts`, registered in
    `lib/capabilities/registry.ts`, key `transcription`): read a piece; replace a
    narration block's text; insert, remove and **reorder** blocks; place or swap an
-   actuality **by excerpt id**; search excerpts (reusing `sourcework.project.search`);
+   actuality **by excerpt id**; **trim an actuality** (to the piece, by default; the assistant can also widen it into the source audio); search excerpts (reusing `sourcework.project.search`);
    **create a blank piece**, and **draft a piece from a format** (on request, including to start over) for a
    project. Edits need no confirmation
    step, because every one writes a version and is undoable, which differs from
@@ -628,6 +637,9 @@ live formats side by side, writing nothing to the project.
    available before promising it.
 
 ## 11. Decisions taken in review (2026-10-09)
+
+- **Trimming a clip happens in the piece editor**, from the block's ⋮ menu, per piece by
+  default (§5.6).
 
 - **A piece is written by hand by default; AI drafting from a format is optional** and
   offered once, from an empty piece (the assistant can also draft on request). Creating a piece opens the editor
