@@ -379,7 +379,7 @@ How this fits the screens that exist, from the reporter's and editor's work:
 
 | Moment | Where |
 |---|---|
-| Set up | Project header: title, background, and a compact **Research questions** card (edit, with a link to the background notes). A project without questions behaves as it does today. |
+| Set up | **Setup** tab, right-aligned like Traffic's (`TabNav` `end`): the research questions (editable, orderable, archivable), the web **background notes** (dismissable, refreshable), and a *Where this project stands* status. The project's own background text stays in the header. A project without questions behaves as it does today. |
 | Add and extract | **Sources** tab. Source cards gain an extraction line ("12 data points · 3 to review"); a `BatchRunPanel` shows progress. Extraction is a status on the source, not a destination. |
 | Review per source | Source workspace, **Data points** mode (§5.3). |
 | See what is emerging | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does. |
@@ -387,7 +387,7 @@ How this fits the screens that exist, from the reporter's and editor's work:
 | Make something | **Pieces** tab and the piece editor (§5.6, §5.7). |
 | Maintain the language | **Editors** page (prompts and piece formats), reached from Sourcework's setup, editors only (§6). |
 
-The project tab row becomes Sources · Themes · Excerpts · Pieces (`TabNav`; the
+The project tab row becomes Sources · Themes · Excerpts · Pieces, with Setup at the right edge (`TabNav`; the
 Themes tab appears once a project has research questions or any data point). The
 projects list's "needs attention" filter also counts data points and suggested
 themes awaiting a decision. The tab and switch names are working names;
@@ -527,6 +527,13 @@ patterns.
    available before promising it.
 
 ## 11. Decisions taken in review (2026-10-09)
+
+- **Research questions and background notes live in a Setup tab**, right-aligned.
+  Guidance is a `Steps` status inside Setup (Research questions · Add sources ·
+  Extract data points · Review themes), derived from the project's state and never
+  enforcing an order, because sources keep arriving and send a project back to
+  extraction. The ongoing guide is the Themes tab's "Waiting for you" strip, and a
+  run in progress uses `BatchRunPanel`; there is no persistent stepper across tabs.
 
 - The unit is a **piece** made from a **format**; "deliverable" and "template" are
   retired as names.
