@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
+import { field, optionalField } from "@/lib/form-fields";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { invokeCapability } from "@/lib/capabilities/registry";
@@ -24,17 +25,13 @@ const SESSIONS_PATH = "/remote-interview";
  * exactly as this action did before the capability was extracted.
  */
 export async function createSession(formData: FormData): Promise<void> {
-  const title = String(formData.get("title") ?? "").trim();
-  const notes = String(formData.get("notes") ?? "").trim();
-  const scheduledAt = String(formData.get("scheduled_at") ?? "").trim();
-
   const result = await invokeCapability(createSessionCapability, {
-    title,
-    notes: notes || undefined,
-    scheduledAt: scheduledAt || undefined,
+    title: field(formData, "title"),
+    notes: optionalField(formData, "notes") ?? undefined,
+    scheduledAt: optionalField(formData, "scheduled_at") ?? undefined,
   });
   if (!result.ok) {
-    failWith(`${SESSIONS_PATH}/new`, result.message);
+    failWith(`${SESSIONS_PATH}/new`, result.error);
   }
 
   redirect(`${SESSIONS_PATH}/${result.sessionId}`);
@@ -54,11 +51,11 @@ async function requireHost(sessionId: string, profileId: string, sessionPath: st
 
 export async function addParticipant(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("remote-interview");
-  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionId = field(formData, "session_id");
   const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
   await requireHost(sessionId, profile.id, sessionPath);
 
-  const displayName = String(formData.get("display_name") ?? "").trim();
+  const displayName = field(formData, "display_name");
   if (!displayName) {
     failWith(sessionPath, "Give the guest a name.");
   }
@@ -96,18 +93,20 @@ export async function addParticipant(formData: FormData): Promise<void> {
  */
 export async function admitParticipant(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("remote-interview");
-  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionId = field(formData, "session_id");
   const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
   await requireHost(sessionId, profile.id, sessionPath);
 
-  const participantId = String(formData.get("participant_id") ?? "");
+  const participantId = field(formData, "participant_id");
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("ri_participants")
     .update({ admitted_at: new Date().toISOString() })
     .eq("id", participantId)
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .select("id");
   failIfError(error, sessionPath, "Could not admit the guest");
+  if (!updated?.length) failWith(sessionPath, "That guest isn't part of this session.");
 
   await logAuditEvent({
     actorId: profile.id,
@@ -123,18 +122,20 @@ export async function admitParticipant(formData: FormData): Promise<void> {
 /** Revoking a link is immediate and doesn't disturb any other participant (design doc §3A). */
 export async function revokeParticipant(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("remote-interview");
-  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionId = field(formData, "session_id");
   const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
   await requireHost(sessionId, profile.id, sessionPath);
 
-  const participantId = String(formData.get("participant_id") ?? "");
+  const participantId = field(formData, "participant_id");
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("ri_participants")
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", participantId)
-    .eq("session_id", sessionId);
+    .eq("session_id", sessionId)
+    .select("id");
   failIfError(error, sessionPath, "Could not revoke the link");
+  if (!updated?.length) failWith(sessionPath, "That guest isn't part of this session.");
 
   await logAuditEvent({
     actorId: profile.id,
@@ -156,15 +157,15 @@ export async function revokeParticipant(formData: FormData): Promise<void> {
  */
 export async function assembleTrack(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("remote-interview");
-  const sessionId = String(formData.get("session_id") ?? "");
+  const sessionId = field(formData, "session_id");
   const sessionPath = `${SESSIONS_PATH}/${sessionId}`;
   await requireHost(sessionId, profile.id, sessionPath);
 
-  const trackId = String(formData.get("track_id") ?? "");
+  const trackId = field(formData, "track_id");
   const result = await assembleLocalTrack(trackId);
   await refreshSessionCompletionStatus(sessionId);
   if (!result.ok) {
-    failWith(sessionPath, result.message);
+    failWith(sessionPath, result.error);
   }
 
   await logAuditEvent({

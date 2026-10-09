@@ -8,6 +8,7 @@ import {
   type DeletionPlan,
 } from "@/lib/transcription/project-deletion";
 import { deleteProject } from "./actions";
+import { pluralize } from "@/lib/format";
 
 /**
  * The portal's two-step Danger zone for deleting a project, with the second
@@ -54,7 +55,7 @@ export function DeleteProjectPanel({
                 {removed.shown.map((source) => (
                   <li key={source.id}>
                     <strong>{source.title}</strong>: the file, its transcript or text, and{" "}
-                    {source.excerptCount} excerpt{source.excerptCount === 1 ? "" : "s"}.
+                    {pluralize(source.excerptCount, "excerpt")}.
                   </li>
                 ))}
                 {removed.more > 0 && <li>and {removed.more} more sources like these</li>}

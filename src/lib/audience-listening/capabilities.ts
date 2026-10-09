@@ -35,11 +35,14 @@ export const sendAnswerToSourcework = defineCapability({
     const result = await sendAnswerToTranscription(input.answerId);
     if (!result.ok) return result;
 
-    const { data: answer } = await supabase
+    const { data: answer, error: answerError } = await supabase
       .from("al_answers")
       .select("query_id")
       .eq("id", input.answerId)
       .maybeSingle();
+    // Deliberate degrade: the query id is only audit metadata and the handoff already succeeded.
+    if (answerError)
+      console.error("Could not read the answer's query for the audit event:", answerError);
 
     await logAuditEvent({
       actorId: profile.id,

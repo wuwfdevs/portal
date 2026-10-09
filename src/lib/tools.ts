@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import {
   compareToolsForDashboard,
   grantRequiredForTool,
@@ -19,7 +20,7 @@ export interface ToolWithAccess {
 export async function listToolsForCurrentUser(userId: string): Promise<ToolWithAccess[]> {
   const supabase = await createClient();
 
-  const [{ data: tools }, { data: access }] = await Promise.all([
+  const [toolsResult, accessResult] = await Promise.all([
     supabase.from("tools").select("*").order("sort_order"),
     supabase
       .from("tool_access")
@@ -27,6 +28,8 @@ export async function listToolsForCurrentUser(userId: string): Promise<ToolWithA
       .eq("user_id", userId)
       .is("revoked_at", null),
   ]);
+  const tools = unwrapRead(toolsResult, "the tool registry");
+  const access = unwrapRead(accessResult, "your tool access");
 
   const accessByToolId = new Map((access ?? []).map((row) => [row.tool_id, row.tool_role]));
 
@@ -50,6 +53,8 @@ export async function listToolsForCurrentUser(userId: string): Promise<ToolWithA
 
 export async function getToolByKey(key: string): Promise<Tool | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tools").select("*").eq("key", key).maybeSingle();
-  return data;
+  return unwrapRead(
+    await supabase.from("tools").select("*").eq("key", key).maybeSingle(),
+    "the tool registry",
+  );
 }

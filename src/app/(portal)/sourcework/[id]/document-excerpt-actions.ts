@@ -62,7 +62,10 @@ export async function createDocumentExcerpt(input: {
     })
     .select("id")
     .single();
-  if (excerptError || !excerpt) return { error: "Could not create the excerpt. Please try again." };
+  if (excerptError || !excerpt) {
+    console.error("Could not create the excerpt:", excerptError);
+    return { error: "Could not create the excerpt. Please try again." };
+  }
 
   const { error: locationError } = await supabase.from("sw_excerpt_document_locations").insert(
     input.locations.map((location, sequence) => ({
@@ -76,7 +79,12 @@ export async function createDocumentExcerpt(input: {
     })),
   );
   if (locationError) {
-    await supabase.from("sw_source_excerpts").delete().eq("id", excerpt.id);
+    console.error("Could not save the excerpt's location:", locationError);
+    const { error: rollbackError } = await supabase
+      .from("sw_source_excerpts")
+      .delete()
+      .eq("id", excerpt.id);
+    if (rollbackError) console.error("Could not roll back the excerpt:", rollbackError);
     return { error: "Could not save the excerpt's location. Please try again." };
   }
 
@@ -91,15 +99,30 @@ export async function deleteDocumentExcerpt(excerptId: string): Promise<{ error?
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: excerpt } = await supabase
+  const { data: excerpt, error: excerptError } = await supabase
     .from("sw_source_excerpts")
     .select("id, source_id")
     .eq("id", excerptId)
     .maybeSingle();
+  if (excerptError) {
+    console.error("Could not read the excerpt to delete:", excerptError);
+    return { error: "Could not delete the excerpt." };
+  }
   if (!excerpt) return { error: "That excerpt no longer exists." };
 
-  const { error } = await supabase.from("sw_source_excerpts").delete().eq("id", excerptId);
-  if (error) return { error: "Could not delete the excerpt." };
+  // deleteOrFail redirects; this action returns { error }, so check the rows directly.
+  const { data: deleted, error } = await supabase
+    .from("sw_source_excerpts")
+    .delete()
+    .eq("id", excerptId)
+    .select("id");
+  if (error) {
+    console.error("Could not delete the excerpt:", error);
+    return { error: "Could not delete the excerpt." };
+  }
+  if (!deleted || deleted.length === 0) {
+    return { error: "That excerpt no longer exists, or you don't have permission to delete it." };
+  }
 
   await revalidateSource(supabase, excerpt.source_id);
   return {};

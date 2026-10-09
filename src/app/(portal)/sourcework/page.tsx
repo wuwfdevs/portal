@@ -27,6 +27,8 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { pluralize } from "@/lib/format";
+import { withQuery } from "@/lib/paths";
 
 type Tab = "projects" | "sources" | "clips";
 
@@ -87,7 +89,7 @@ export default async function TranscriptionListPage({
   const kindCounts = countResultsByKind(results);
   const kindResults = filterResultsByKind(results, kind);
   const searchHref = (value: string) =>
-    `/sourcework?${new URLSearchParams({ q: query, ...(value === "all" ? {} : { kind: value }) })}`;
+    withQuery("/sourcework", { q: query, kind: value === "all" ? null : value });
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -121,7 +123,7 @@ export default async function TranscriptionListPage({
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-500">
             <span>
-              {results.length} result{results.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
+              {pluralize(results.length, "result")} for &ldquo;{query}&rdquo;
             </span>
             <TextLink href="/sourcework">Clear search</TextLink>
           </div>

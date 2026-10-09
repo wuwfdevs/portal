@@ -11,7 +11,6 @@ import {
   isAllowedMediaType,
   isDocumentContentType,
   isVideoContentType,
-  slugify,
   sourceObjectPath,
   titleFromFileName,
   classifySourceFile,
@@ -102,17 +101,32 @@ describe("excerptExportObjectPath", () => {
   });
 });
 
-describe("slugify", () => {
+describe("filename slugs", () => {
   it("lowercases and hyphenates", () => {
-    expect(slugify("Mayor Reeves on Bridge Funding")).toBe("mayor-reeves-on-bridge-funding");
+    expect(buildTranscriptExportFilename("2026-07-22", "Mayor Reeves on Bridge Funding")).toBe(
+      "2026-07-22_mayor-reeves-on-bridge-funding_transcript.txt",
+    );
   });
 
   it("strips punctuation and collapses repeated separators", () => {
-    expect(slugify('Reeves: "We\'ll fund it!"')).toBe("reeves-we-ll-fund-it");
+    expect(buildClipsZipFilename("2026-07-22", 'Reeves: "We\'ll fund it!"')).toBe(
+      "2026-07-22_reeves-we-ll-fund-it_clips.zip",
+    );
   });
 
-  it("falls back to a placeholder for a string with no alphanumeric characters", () => {
-    expect(slugify("***")).toBe("untitled");
+  it("falls back to a placeholder for a title with no alphanumeric characters", () => {
+    expect(buildClipsZipFilename("2026-07-22", "***")).toBe("2026-07-22_untitled_clips.zip");
+  });
+
+  it("folds accents and reads & as 'and' (the shared slugify)", () => {
+    expect(buildClipsZipFilename("2026-07-22", "Café R&D")).toBe(
+      "2026-07-22_cafe-r-and-d_clips.zip",
+    );
+  });
+
+  it("caps a long title at 60 characters", () => {
+    const name = buildClipsZipFilename("2026-07-22", "a".repeat(100));
+    expect(name).toBe(`2026-07-22_${"a".repeat(60)}_clips.zip`);
   });
 });
 

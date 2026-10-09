@@ -26,6 +26,7 @@ import { SourceActionsMenu } from "../../[id]/source-actions-menu";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
 import { projectPath, sourcePath } from "@/lib/transcription/links";
+import { pluralize } from "@/lib/format";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
 // than in actions.ts, and docs/sourcework-design.md §8.6 on why it's needed
@@ -142,7 +143,7 @@ export default async function SourceDetailPage({
           <>
             {isDocument
               ? source.pageCount
-                ? `${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
+                ? `${pluralize(source.pageCount, "page")}`
                 : ""
               : source.interviewDate && formatShortDate(source.interviewDate, { year: true })}
             {!isDocument && source.durationMs ? ` · ${formatDuration(source.durationMs)}` : ""}

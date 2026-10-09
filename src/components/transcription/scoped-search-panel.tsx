@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import type { SearchResult } from "@/lib/transcription/search";
 import { SearchResults } from "./search-results";
 
+import { pluralize } from "@/lib/format";
 const DEBOUNCE_MS = 250;
 
 /**
@@ -93,9 +94,7 @@ export function ScopedSearchPanel({
       {trimmed ? (
         <>
           <p className="mb-3 text-xs text-ink-500">
-            {isLoading
-              ? "Searching…"
-              : `${results.length} result${results.length === 1 ? "" : "s"} for “${trimmed}”`}
+            {isLoading ? "Searching…" : `${pluralize(results.length, "result")} for “${trimmed}”`}
           </p>
           {!isLoading && <SearchResults results={results} query={trimmed} />}
         </>

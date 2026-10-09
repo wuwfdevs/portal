@@ -67,13 +67,14 @@ async function resolveEmbeddingContext(
     .maybeSingle();
   if (sourceError) throw new Error(sourceError.message);
 
-  const { data: link } = await supabase
+  const { data: link, error: linkError } = await supabase
     .from("sw_project_sources")
     .select("project_id")
     .eq("source_id", representation.source_id)
     .order("added_at")
     .limit(1)
     .maybeSingle();
+  if (linkError) throw new Error(linkError.message);
 
   let project: { title: string; description: string | null } | null = null;
   if (link) {
@@ -82,7 +83,8 @@ async function resolveEmbeddingContext(
       .select("title, description")
       .eq("id", link.project_id)
       .maybeSingle();
-    if (!error) project = data;
+    if (error) throw new Error(error.message);
+    project = data;
   }
 
   return {
@@ -238,7 +240,7 @@ export async function embedPending(
   if (!provider) return { embedded: 0 };
 
   try {
-    const [{ data: staleChunks }, { data: staleClips }] = await Promise.all([
+    const [chunksResult, clipsResult] = await Promise.all([
       supabase
         .from("tw_chunks")
         .select("id, text")
@@ -252,9 +254,12 @@ export async function embedPending(
         .eq("embedding_stale", true)
         .limit(MAX_EMBEDS_PER_PASS),
     ]);
+    // Thrown into the catch below: never fatal, reported to the caller, retried next pass.
+    if (chunksResult.error) throw new Error(chunksResult.error.message);
+    if (clipsResult.error) throw new Error(clipsResult.error.message);
 
-    const chunkRows = staleChunks ?? [];
-    const clipRows = staleClips ?? [];
+    const chunkRows = chunksResult.data ?? [];
+    const clipRows = clipsResult.data ?? [];
     if (chunkRows.length === 0 && clipRows.length === 0) return { embedded: 0 };
 
     // One request covers both kinds — they share a model and a rate limit,
@@ -270,7 +275,7 @@ export async function embedPending(
     ];
     const vectors = await provider.embed(inputs);
 
-    await Promise.all([
+    const writes = await Promise.all([
       ...chunkRows.map((row, index) =>
         supabase
           .from("tw_chunks")
@@ -287,6 +292,8 @@ export async function embedPending(
           .eq("id", row.id),
       ),
     ]);
+    const failedWrite = writes.find((write) => write.error);
+    if (failedWrite?.error) throw new Error(failedWrite.error.message);
 
     return { embedded: chunkRows.length + clipRows.length };
   } catch (error) {

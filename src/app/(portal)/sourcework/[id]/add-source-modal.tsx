@@ -19,6 +19,7 @@ import {
   failSourceUpload,
   type AttachableSource,
 } from "./source-actions";
+import { pluralize } from "@/lib/format";
 
 type Mode = "find" | "upload";
 
@@ -190,7 +191,7 @@ function FindExistingPanel({
                     {source.interviewDate && formatShortDate(source.interviewDate, { year: true })}
                     {source.kind === "document"
                       ? source.pageCount
-                        ? ` · ${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
+                        ? ` · ${pluralize(source.pageCount, "page")}`
                         : ""
                       : source.durationMs
                         ? ` · ${formatDuration(source.durationMs)}`
@@ -271,9 +272,7 @@ function UploadNewPanel({
     <div className="flex flex-col gap-4">
       <StagedFiles staged={staged} onChange={setStaged} />
       <Button type="button" disabled={staged.length === 0} onClick={handleUpload}>
-        {staged.length === 0
-          ? "Upload"
-          : `Upload ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+        {staged.length === 0 ? "Upload" : `Upload ${pluralize(staged.length, "file")}`}
       </Button>
     </div>
   );

@@ -79,7 +79,10 @@ export async function createClip(input: {
     .select("id")
     .single();
 
-  if (error || !data) return { error: "Could not create the excerpt. Please try again." };
+  if (error || !data) {
+    console.error("Could not create the excerpt:", error);
+    return { error: "Could not create the excerpt. Please try again." };
+  }
 
   // Embeds as soon as the clip is created, so it is semantically searchable
   // immediately rather than at the next reindex — a clip's title is exactly
@@ -107,18 +110,26 @@ export async function updateClipTrim(input: {
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: clip } = await supabase
+  const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
     .select("source_id")
     .eq("id", input.clipId)
     .maybeSingle();
+  if (clipError) {
+    console.error("Could not read the excerpt to trim:", clipError);
+    return { error: "Could not save the trim. Please try again." };
+  }
   if (!clip) return { error: "That excerpt no longer exists." };
 
-  const { data: source } = await supabase
+  const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
     .select("original_duration_ms")
     .eq("id", clip.source_id)
     .maybeSingle();
+  if (sourceError) {
+    console.error("Could not read the source to trim against:", sourceError);
+    return { error: "Could not save the trim. Please try again." };
+  }
 
   const upperBound = source?.original_duration_ms ?? Number.MAX_SAFE_INTEGER;
   const startMs = Math.max(0, Math.min(input.startMs, upperBound - MIN_CLIP_DURATION_MS));
@@ -129,7 +140,10 @@ export async function updateClipTrim(input: {
     .update({ start_ms: startMs, end_ms: endMs })
     .eq("id", input.clipId);
 
-  if (error) return { error: "Could not save the trim. Please try again." };
+  if (error) {
+    console.error("Could not save the trim:", error);
+    return { error: "Could not save the trim. Please try again." };
+  }
   await revalidateSource(supabase, clip.source_id);
   return { startMs, endMs };
 }
@@ -150,7 +164,10 @@ export async function renameClip(input: {
     .select("source_id, representation_id")
     .maybeSingle();
 
-  if (error) return { error: "Could not rename the excerpt." };
+  if (error) {
+    console.error("Could not rename the excerpt:", error);
+    return { error: "Could not rename the excerpt." };
+  }
   if (!data) return { error: "That excerpt no longer exists." };
 
   if (data.representation_id) {
@@ -170,22 +187,40 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: clip } = await supabase
+  const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
     .select("id, source_id, export_storage_path")
     .eq("id", clipId)
     .maybeSingle();
+  if (clipError) {
+    console.error("Could not read the excerpt to delete:", clipError);
+    return { error: "Could not delete the excerpt." };
+  }
   if (!clip) return { error: "That excerpt no longer exists." };
 
   if (clip.export_storage_path) {
     const { error: storageError } = await supabase.storage
       .from(TRANSCRIPTION_MEDIA_BUCKET)
       .remove([clip.export_storage_path]);
-    if (storageError) return { error: "Could not remove the exported audio. Please try again." };
+    if (storageError) {
+      console.error("Could not remove the exported audio. Please try again:", storageError);
+      return { error: "Could not remove the exported audio. Please try again." };
+    }
   }
 
-  const { error } = await supabase.from("sw_source_excerpts").delete().eq("id", clipId);
-  if (error) return { error: "Could not delete the excerpt." };
+  // deleteOrFail redirects; this action returns { error }, so check the rows directly.
+  const { data: deleted, error } = await supabase
+    .from("sw_source_excerpts")
+    .delete()
+    .eq("id", clipId)
+    .select("id");
+  if (error) {
+    console.error("Could not delete the excerpt:", error);
+    return { error: "Could not delete the excerpt." };
+  }
+  if (!deleted || deleted.length === 0) {
+    return { error: "That excerpt no longer exists, or you don't have permission to delete it." };
+  }
 
   await revalidateSource(supabase, clip.source_id);
   return {};
@@ -202,26 +237,35 @@ export async function getClipDownloadUrl(
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: clip } = await supabase
+  const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
     .select("title, source_id, export_storage_path")
     .eq("id", clipId)
     .maybeSingle();
+  if (clipError) {
+    console.error("Could not read the excerpt to download:", clipError);
+    return { error: "Could not create a download link. Please try again." };
+  }
   if (!clip?.export_storage_path) {
     return { error: "This excerpt hasn't been exported yet." };
   }
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  const [{ data: project }, { data: source }] = await Promise.all([
-    projectId
-      ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("sw_sources")
-      .select("interview_date, created_at")
-      .eq("id", clip.source_id)
-      .maybeSingle(),
-  ]);
+  const [{ data: project, error: projectError }, { data: source, error: sourceError }] =
+    await Promise.all([
+      projectId
+        ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("sw_sources")
+        .select("interview_date, created_at")
+        .eq("id", clip.source_id)
+        .maybeSingle(),
+    ]);
+  if (projectError || sourceError) {
+    console.error("Could not read the download filename's inputs:", projectError ?? sourceError);
+    return { error: "Could not create a download link. Please try again." };
+  }
 
   const downloadUrl = await getSignedMediaUrl(
     clip.export_storage_path,
@@ -242,21 +286,29 @@ export async function exportClip(
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: clip } = await supabase
+  const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
     .select("id, source_id, title, start_ms, end_ms")
     .eq("id", clipId)
     .maybeSingle();
+  if (clipError) {
+    console.error("Could not read the excerpt to export:", clipError);
+    return { error: "Could not export this excerpt. Please try again." };
+  }
   if (!clip) return { error: "That excerpt no longer exists." };
   if (clip.start_ms == null || clip.end_ms == null) {
     return { error: "Only audio/video excerpts can be exported as WAV." };
   }
 
-  const { data: source } = await supabase
+  const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
     .select("original_storage_path, interview_date, created_at")
     .eq("id", clip.source_id)
     .maybeSingle();
+  if (sourceError) {
+    console.error("Could not read the source to export from:", sourceError);
+    return { error: "Could not export this excerpt. Please try again." };
+  }
   if (!source?.original_storage_path) return { error: "The source media isn't available." };
 
   const sourceUrl = await getSignedMediaUrl(source.original_storage_path);
@@ -273,17 +325,27 @@ export async function exportClip(
   const { error: uploadError } = await supabase.storage
     .from(TRANSCRIPTION_MEDIA_BUCKET)
     .upload(exportPath, wav, { contentType: "audio/wav", upsert: true });
-  if (uploadError) return { error: "Could not save the exported excerpt." };
+  if (uploadError) {
+    console.error("Could not upload the exported excerpt:", uploadError);
+    return { error: "Could not save the exported excerpt." };
+  }
 
-  await supabase
+  const { error: recordError } = await supabase
     .from("sw_source_excerpts")
     .update({ export_storage_path: exportPath, exported_at: new Date().toISOString() })
     .eq("id", clip.id);
+  if (recordError) {
+    console.error("Could not record the exported excerpt:", recordError);
+    return { error: "Could not save the exported excerpt." };
+  }
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  const { data: project } = projectId
+  const { data: project, error: projectError } = projectId
     ? await supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  // Deliberate degrade: the project title only names the download file.
+  if (projectError)
+    console.error("Could not read the project title for the filename:", projectError);
 
   const downloadFilename = buildClipExportFilename(
     source.interview_date ?? source.created_at,

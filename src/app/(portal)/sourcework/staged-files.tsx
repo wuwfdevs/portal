@@ -12,6 +12,7 @@ import {
   titleFromFileName,
 } from "@/lib/transcription/media";
 import type { StagedFile } from "./use-source-uploads";
+import { pluralize } from "@/lib/format";
 
 let stagedCounter = 0;
 
@@ -76,7 +77,7 @@ export function StagedFiles({
       {staged.length > 0 && (
         <div className="flex flex-col gap-2">
           <div className="text-xs font-semibold text-ink-700">
-            {staged.length} file{staged.length === 1 ? "" : "s"} · titles come from the file names
+            {pluralize(staged.length, "file")} · titles come from the file names
           </div>
           <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
             {staged.map((item) => (

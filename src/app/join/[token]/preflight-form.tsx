@@ -258,7 +258,7 @@ export function PreflightForm({
     });
 
     if (!result.ok) {
-      setSubmitError(result.message);
+      setSubmitError(result.error);
       setSubmitting(false);
       return;
     }

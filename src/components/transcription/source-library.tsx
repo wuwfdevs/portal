@@ -8,6 +8,7 @@ import type { SourceLibraryRow } from "@/lib/transcription/projects";
 import { SourceCard, formatSourceMeta } from "./source-card";
 import type { SwSourceKind } from "@/lib/database.types";
 
+import { pluralize } from "@/lib/format";
 const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "audio_video", label: "Audio" },
@@ -99,7 +100,7 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
               footnote={
                 source.projectCount === 0
                   ? "Not used in any project yet"
-                  : `Used in ${source.projectCount} project${source.projectCount === 1 ? "" : "s"}`
+                  : `Used in ${pluralize(source.projectCount, "project")}`
               }
             />
           ))}

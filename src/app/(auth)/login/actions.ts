@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getAuthRedirectOrigin } from "@/lib/site-url";
+import { field } from "@/lib/form-fields";
 import { isValidEmail } from "@/lib/validation";
 
 export type LoginState =
@@ -26,9 +27,7 @@ export async function requestSignInLink(
   _prevState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
+  const email = field(formData, "email").toLowerCase();
 
   if (!isValidEmail(email)) {
     return { status: "error", message: "Enter a valid email address." };
@@ -51,6 +50,7 @@ export async function requestSignInLink(
     if (error.code === "otp_disabled") {
       return { status: "no_account", email };
     }
+    console.error("Could not send the sign-in link:", error);
     return {
       status: "error",
       message: "Something went wrong sending the sign-in link. Please try again shortly.",

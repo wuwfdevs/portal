@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { hasToolAccess } from "@/lib/auth/authz";
+import type { ActionResult } from "@/lib/action-response";
 import { getToolByKey } from "@/lib/tools";
 import { getSiteUrl } from "@/lib/site-url";
 import { TRANSCRIPTION_MEDIA_BUCKET, sourceObjectPath } from "@/lib/transcription/media";
@@ -27,7 +28,7 @@ import { buildProjectTitle, buildProvenance } from "@/lib/audience-listening/pro
  * constraint 3. The grouping stays here, where it means something.
  */
 
-export type HandoffResult = { ok: true; projectId: string } | { ok: false; message: string };
+export type HandoffResult = ActionResult<{ projectId: string }>;
 
 /**
  * Creates the project, copies the audio, and kicks off transcription.
@@ -44,13 +45,13 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Your session expired. Sign in again." };
+  if (!user) return { ok: false, error: "Your session expired. Sign in again." };
 
   const transcriptionTool = await getToolByKey("transcription");
   if (!transcriptionTool || !(await hasToolAccess(user.id, transcriptionTool.id))) {
     return {
       ok: false,
-      message:
+      error:
         "Sending an answer to transcription needs Sourcework access as well. Ask an administrator to grant it.",
     };
   }
@@ -62,14 +63,14 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     .maybeSingle();
   if (answerError) {
     console.error("Could not read the answer for handoff:", answerError);
-    return { ok: false, message: `Could not read the answer: ${answerError.message}` };
+    return { ok: false, error: `Could not read the answer: ${answerError.message}` };
   }
-  if (!answer) return { ok: false, message: "That answer no longer exists." };
+  if (!answer) return { ok: false, error: "That answer no longer exists." };
   if (answer.status !== "uploaded") {
-    return { ok: false, message: "That answer has no completed audio to transcribe." };
+    return { ok: false, error: "That answer has no completed audio to transcribe." };
   }
 
-  const [{ data: submission }, { data: query }, { count: questionCount }] = await Promise.all([
+  const [submissionResult, queryResult, questionCountResult] = await Promise.all([
     supabase.from("al_submissions").select("*").eq("id", answer.submission_id).maybeSingle(),
     supabase.from("al_queries").select("*").eq("id", answer.query_id).maybeSingle(),
     supabase
@@ -77,8 +78,16 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
       .select("id", { count: "exact", head: true })
       .eq("query_id", answer.query_id),
   ]);
+  const readError = submissionResult.error ?? queryResult.error ?? questionCountResult.error;
+  if (readError) {
+    console.error("Could not read the answer's submission context for handoff:", readError);
+    return { ok: false, error: "Could not load this answer's submission." };
+  }
+  const { data: submission } = submissionResult;
+  const { data: query } = queryResult;
+  const { count: questionCount } = questionCountResult;
   if (!submission || !query) {
-    return { ok: false, message: "Could not load this answer's submission." };
+    return { ok: false, error: "Could not load this answer's submission." };
   }
 
   const contentType = normalizeContentType(answer.content_type);
@@ -100,7 +109,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     console.error("Could not create the transcription project:", created.error);
     return {
       ok: false,
-      message: `Could not create the transcription project: ${created.error}`,
+      error: `Could not create the transcription project: ${created.error}`,
     };
   }
   const { projectId, sourceId } = created;
@@ -117,7 +126,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
 
   if (downloadError || !file) {
     await failSource(supabase, sourceId, "Could not read the participant's audio.");
-    return { ok: false, message: "Could not read the participant's audio file." };
+    return { ok: false, error: "Could not read the participant's audio file." };
   }
 
   const { error: uploadError } = await supabase.storage
@@ -126,7 +135,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
 
   if (uploadError) {
     await failSource(supabase, sourceId, `Could not copy the audio: ${uploadError.message}`);
-    return { ok: false, message: `Could not copy the audio: ${uploadError.message}` };
+    return { ok: false, error: `Could not copy the audio: ${uploadError.message}` };
   }
 
   const { error: updateError } = await supabase
@@ -147,7 +156,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
       sourceId,
       `Could not save the media details: ${updateError.message}`,
     );
-    return { ok: false, message: `Could not save the media details: ${updateError.message}` };
+    return { ok: false, error: `Could not save the media details: ${updateError.message}` };
   }
 
   const ref = await getSourceRef(supabase, sourceId);
@@ -174,7 +183,7 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
     console.error("Could not record the transcription link on the answer:", linkError);
   }
 
-  if (started.error) return { ok: false, message: started.error };
+  if (started.error) return { ok: false, error: started.error };
   return { ok: true, projectId };
 }
 
@@ -183,10 +192,11 @@ async function failSource(
   sourceId: string,
   message: string,
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("sw_sources")
     .update({ status: "failed", error_message: message })
     .eq("id", sourceId);
+  if (error) console.error("Could not mark the handed-off source failed:", error);
 }
 
 /**
@@ -228,7 +238,7 @@ export async function sendQueuedAnswers(
       sent += 1;
     } else {
       failed += 1;
-      firstMessage ??= result.message;
+      firstMessage ??= result.error;
     }
   }
 

@@ -25,25 +25,44 @@ type Client = Awaited<ReturnType<typeof createClient>>;
  * database and Storage whenever a project referenced more than one.
  */
 export async function purgeSource(supabase: Client, sourceId: string): Promise<{ error?: string }> {
-  const { data: source } = await supabase
+  // Every step below stops short of the row delete on failure: deleting the row first
+  // (or anyway) would orphan the Storage objects with nothing left pointing at them.
+  const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
     .select("original_storage_path")
     .eq("id", sourceId)
     .maybeSingle();
+  if (sourceError) {
+    console.error("Could not read the source to delete:", sourceError);
+    return { error: "Could not delete this source." };
+  }
 
-  const { data: exportedClips } = await supabase.storage
+  const { data: exportedClips, error: listError } = await supabase.storage
     .from(TRANSCRIPTION_MEDIA_BUCKET)
     .list(`${sourceId}/excerpts`);
+  if (listError) {
+    console.error("Could not list the source's exported excerpts:", listError);
+    return { error: "Could not delete this source." };
+  }
 
   const objectPaths = [
     ...(source?.original_storage_path ? [source.original_storage_path] : []),
     ...(exportedClips ?? []).map((object) => `${sourceId}/excerpts/${object.name}`),
   ];
   if (objectPaths.length > 0) {
-    await supabase.storage.from(TRANSCRIPTION_MEDIA_BUCKET).remove(objectPaths);
+    const { error: removeError } = await supabase.storage
+      .from(TRANSCRIPTION_MEDIA_BUCKET)
+      .remove(objectPaths);
+    if (removeError) {
+      console.error("Could not remove the source's stored files:", removeError);
+      return { error: "Could not delete this source." };
+    }
   }
 
   const { error } = await supabase.from("sw_sources").delete().eq("id", sourceId);
-  if (error) return { error: "Could not delete this source." };
+  if (error) {
+    console.error("Could not delete this source:", error);
+    return { error: "Could not delete this source." };
+  }
   return {};
 }

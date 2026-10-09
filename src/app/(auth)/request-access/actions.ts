@@ -1,22 +1,19 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { field, optionalField } from "@/lib/form-fields";
 import { isValidEmail } from "@/lib/validation";
 
 export type RequestAccessState =
-  | { status: "idle" }
-  | { status: "submitted" }
-  | { status: "error"; message: string };
+  { status: "idle" } | { status: "submitted" } | { status: "error"; message: string };
 
 export async function submitAccessRequest(
   _prevState: RequestAccessState,
   formData: FormData,
 ): Promise<RequestAccessState> {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
-  const displayName = String(formData.get("display_name") ?? "").trim();
-  const note = String(formData.get("note") ?? "").trim();
+  const email = field(formData, "email").toLowerCase();
+  const displayName = field(formData, "display_name");
+  const note = optionalField(formData, "note");
 
   if (!isValidEmail(email) || !displayName) {
     return { status: "error", message: "Enter your name and a valid email address." };
@@ -26,11 +23,15 @@ export async function submitAccessRequest(
   const { error } = await supabase.from("access_requests").insert({
     email,
     display_name: displayName,
-    note: note || null,
+    note,
   });
 
   if (error) {
-    return { status: "error", message: "Something went wrong submitting your request. Please try again." };
+    console.error("Could not record the access request:", error);
+    return {
+      status: "error",
+      message: "Something went wrong submitting your request. Please try again.",
+    };
   }
 
   return { status: "submitted" };

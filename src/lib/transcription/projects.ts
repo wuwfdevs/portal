@@ -126,13 +126,16 @@ export async function getPrimarySourceForProject(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
 ): Promise<ProjectSourceRef | null> {
-  const { data: link } = await supabase
-    .from("sw_project_sources")
-    .select("source_id")
-    .eq("project_id", projectId)
-    .order("added_at")
-    .limit(1)
-    .maybeSingle();
+  const link = unwrapRead(
+    await supabase
+      .from("sw_project_sources")
+      .select("source_id")
+      .eq("project_id", projectId)
+      .order("added_at")
+      .limit(1)
+      .maybeSingle(),
+    "the project's primary source",
+  );
   if (!link) return null;
   return getSourceRef(supabase, link.source_id);
 }
@@ -142,12 +145,15 @@ export async function getSourceRef(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<ProjectSourceRef> {
-  const { data: representation } = await supabase
-    .from("sw_representations")
-    .select("id")
-    .eq("source_id", sourceId)
-    .in("kind", ["transcript", "document_text"])
-    .maybeSingle();
+  const representation = unwrapRead(
+    await supabase
+      .from("sw_representations")
+      .select("id")
+      .eq("source_id", sourceId)
+      .in("kind", ["transcript", "document_text"])
+      .maybeSingle(),
+    "the source's representation",
+  );
 
   return { sourceId, representationId: representation?.id ?? null };
 }
@@ -325,13 +331,16 @@ export async function getPrimaryProjectIdForSource(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<string | null> {
-  const { data } = await supabase
-    .from("sw_project_sources")
-    .select("project_id")
-    .eq("source_id", sourceId)
-    .order("added_at")
-    .limit(1)
-    .maybeSingle();
+  const data = unwrapRead(
+    await supabase
+      .from("sw_project_sources")
+      .select("project_id")
+      .eq("source_id", sourceId)
+      .order("added_at")
+      .limit(1)
+      .maybeSingle(),
+    "the source's primary project",
+  );
   return data?.project_id ?? null;
 }
 
@@ -345,10 +354,10 @@ export async function listProjectIdsForSource(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<string[]> {
-  const { data } = await supabase
-    .from("sw_project_sources")
-    .select("project_id")
-    .eq("source_id", sourceId);
+  const data = unwrapRead(
+    await supabase.from("sw_project_sources").select("project_id").eq("source_id", sourceId),
+    "the projects that reference this source",
+  );
   return (data ?? []).map((row) => row.project_id);
 }
 

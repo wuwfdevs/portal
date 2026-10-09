@@ -48,7 +48,10 @@ export async function renameSpeaker(input: {
     .update({ display_name: displayName || null })
     .eq("id", input.speakerId);
 
-  if (error) return { error: "Could not save the speaker name." };
+  if (error) {
+    console.error("Could not save the speaker name:", error);
+    return { error: "Could not save the speaker name." };
+  }
   revalidateProject(input.projectId);
   return {};
 }
@@ -86,13 +89,20 @@ export async function mergeSpeakers(input: {
     .from("tw_segments")
     .update({ speaker_id: input.intoSpeakerId })
     .eq("speaker_id", input.fromSpeakerId);
-  if (moveError) return { error: "Could not move that speaker's lines." };
+  if (moveError) {
+    console.error("Could not move that speaker's lines:", moveError);
+    return { error: "Could not move that speaker's lines." };
+  }
 
-  const { error: deleteError } = await supabase
+  const { data: removedSpeaker, error: deleteError } = await supabase
     .from("tw_speakers")
     .delete()
-    .eq("id", input.fromSpeakerId);
-  if (deleteError) return { error: "Moved the lines, but could not remove the old speaker." };
+    .eq("id", input.fromSpeakerId)
+    .select("id");
+  if (deleteError || !removedSpeaker?.length) {
+    console.error("Moved the lines, but could not remove the old speaker:", deleteError);
+    return { error: "Moved the lines, but could not remove the old speaker." };
+  }
 
   revalidateProject(input.projectId);
   return {};
@@ -110,7 +120,10 @@ export async function reassignSegmentSpeaker(input: {
     .update({ speaker_id: input.speakerId })
     .eq("id", input.segmentId);
 
-  if (error) return { error: "Could not reassign that line." };
+  if (error) {
+    console.error("Could not reassign that line:", error);
+    return { error: "Could not reassign that line." };
+  }
   revalidateProject(input.projectId);
   return {};
 }
@@ -139,7 +152,10 @@ export async function updateSegmentText(input: {
     .update({ text, text_edited: true })
     .eq("id", input.segmentId);
 
-  if (error) return { error: "Could not save the correction." };
+  if (error) {
+    console.error("Could not save the correction:", error);
+    return { error: "Could not save the correction." };
+  }
   revalidateProject(input.projectId);
   return {};
 }
@@ -164,13 +180,17 @@ export async function splitSegment(input: {
 }): Promise<{ error?: string }> {
   const supabase = await assertTranscriptionAccess();
 
-  const { data: segment } = await supabase
+  const { data: segment, error: segmentError } = await supabase
     .from("tw_segments")
     .select(
       "id, representation_id, position, start_ms, end_ms, text, text_edited, speaker_id, words",
     )
     .eq("id", input.segmentId)
     .maybeSingle();
+  if (segmentError) {
+    console.error("Could not read the line to split:", segmentError);
+    return { error: "Could not split this line. Please try again." };
+  }
   if (!segment) return { error: "That line no longer exists." };
 
   if (input.splitAtChar <= 0 || input.splitAtChar >= segment.text.length) {
@@ -196,7 +216,10 @@ export async function splitSegment(input: {
     after_position: segment.position,
     delta: 1,
   });
-  if (shiftError) return { error: "Could not split this line. Please try again." };
+  if (shiftError) {
+    console.error("Could not split this line. Please try again:", shiftError);
+    return { error: "Could not split this line. Please try again." };
+  }
 
   const { error: insertError } = await supabase.from("tw_segments").insert({
     representation_id: segment.representation_id,
@@ -208,13 +231,19 @@ export async function splitSegment(input: {
     text_edited: segment.text_edited,
     words: words.second,
   });
-  if (insertError) return { error: "Could not split this line. Please try again." };
+  if (insertError) {
+    console.error("Could not split this line. Please try again:", insertError);
+    return { error: "Could not split this line. Please try again." };
+  }
 
   const { error: updateError } = await supabase
     .from("tw_segments")
     .update({ text: firstText, end_ms: timing.firstEndMs, words: words.first })
     .eq("id", segment.id);
-  if (updateError) return { error: "Could not split this line. Please try again." };
+  if (updateError) {
+    console.error("Could not split this line. Please try again:", updateError);
+    return { error: "Could not split this line. Please try again." };
+  }
 
   revalidateProject(input.projectId);
   return {};
@@ -232,14 +261,18 @@ export async function mergeSegmentWithNext(input: {
 }): Promise<{ error?: string }> {
   const supabase = await assertTranscriptionAccess();
 
-  const { data: segment } = await supabase
+  const { data: segment, error: segmentError } = await supabase
     .from("tw_segments")
     .select("id, representation_id, position, end_ms, text, text_edited, words")
     .eq("id", input.segmentId)
     .maybeSingle();
+  if (segmentError) {
+    console.error("Could not read the line to merge:", segmentError);
+    return { error: "Could not merge these lines." };
+  }
   if (!segment) return { error: "That line no longer exists." };
 
-  const { data: nextSegment } = await supabase
+  const { data: nextSegment, error: nextError } = await supabase
     .from("tw_segments")
     .select("id, end_ms, text, text_edited, words")
     .eq("representation_id", segment.representation_id)
@@ -247,6 +280,10 @@ export async function mergeSegmentWithNext(input: {
     .order("position")
     .limit(1)
     .maybeSingle();
+  if (nextError) {
+    console.error("Could not read the next line to merge:", nextError);
+    return { error: "Could not merge these lines." };
+  }
   if (!nextSegment) return { error: "There's nothing after this line to merge with." };
 
   const { error: updateError } = await supabase
@@ -258,13 +295,20 @@ export async function mergeSegmentWithNext(input: {
       words: [...parseWords(segment.words), ...parseWords(nextSegment.words)],
     })
     .eq("id", segment.id);
-  if (updateError) return { error: "Could not merge these lines." };
+  if (updateError) {
+    console.error("Could not merge these lines:", updateError);
+    return { error: "Could not merge these lines." };
+  }
 
-  const { error: deleteError } = await supabase
+  const { data: removedSegment, error: deleteError } = await supabase
     .from("tw_segments")
     .delete()
-    .eq("id", nextSegment.id);
-  if (deleteError) return { error: "Merged, but the old line is still there. Reload the page." };
+    .eq("id", nextSegment.id)
+    .select("id");
+  if (deleteError || !removedSegment?.length) {
+    console.error("Merged, but the old line is still there. Reload the page:", deleteError);
+    return { error: "Merged, but the old line is still there. Reload the page." };
+  }
 
   revalidateProject(input.projectId);
   return {};

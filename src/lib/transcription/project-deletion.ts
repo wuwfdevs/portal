@@ -1,4 +1,5 @@
 import type { SwSourceKind } from "@/lib/database.types";
+import { pluralize } from "@/lib/format";
 
 export interface DeletionSource {
   id: string;
@@ -42,5 +43,5 @@ export function previewList<T>(items: T[], limit = 5): { shown: T[]; more: numbe
 export function deletionConfirmLabel(plan: DeletionPlan): string {
   const count = plan.removed.length;
   if (count === 0) return "Delete project";
-  return `Delete project and ${count} source${count === 1 ? "" : "s"}`;
+  return `Delete project and ${pluralize(count, "source")}`;
 }

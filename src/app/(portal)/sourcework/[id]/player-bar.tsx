@@ -11,6 +11,7 @@ import {
   type ScrubberWindow,
 } from "@/lib/transcription/scrubber-marks";
 import { PauseIcon, PlayIcon } from "./transport-icons";
+import { pluralize } from "@/lib/format";
 
 const SKIP_MS = 5000;
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
@@ -330,7 +331,7 @@ function ScrubberStrip({
                 key={bin.left}
                 type="button"
                 onClick={() => onZoomBin(bin)}
-                title={`${bin.count} excerpt${bin.count === 1 ? "" : "s"} here. Select to zoom in.`}
+                title={`${pluralize(bin.count, "excerpt")} here. Select to zoom in.`}
                 aria-label={`${bin.count} excerpts from ${formatDuration(bin.startMs)} to ${formatDuration(bin.endMs)}. Zoom in.`}
                 className="absolute inset-y-0 bg-clipped-line"
                 style={{

@@ -8,6 +8,7 @@ import { formatDuration } from "@/lib/transcription/media";
 import type { SearchResult, SearchResultKind } from "@/lib/transcription/search";
 import { groupResultsByProject, splitHighlight } from "@/lib/transcription/search-groups";
 
+import { pluralize } from "@/lib/format";
 // One ranked list, three kinds of result (design doc §3F). A saved clip and
 // an unclipped stretch of transcript answer the same question — "where do we
 // have someone saying this?" — so they compete in one list rather than
@@ -93,7 +94,7 @@ export function GroupedSearchResults({
                 </Link>
               </h2>
               <span className="text-xs text-ink-500">
-                {group.results.length} result{group.results.length === 1 ? "" : "s"}
+                {pluralize(group.results.length, "result")}
               </span>
             </div>
             {group.projectDescription && (

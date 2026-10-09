@@ -86,8 +86,12 @@ export function answerDownloadFilename(params: {
   return `q${params.questionPosition}${suffix}.${extensionForContentType(params.contentType)}`;
 }
 
-/** m:ss, for a recording timer and short answer durations. */
-export function formatClock(totalSeconds: number): string {
+/**
+ * m:ss, floored (a running timer must not show a second it hasn't reached) and
+ * never rolling into hours — answers are capped at a few minutes. Not the
+ * shared `formatClock` (@/lib/format), which rounds and adds hours.
+ */
+export function formatStopwatch(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;

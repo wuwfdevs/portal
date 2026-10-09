@@ -10,6 +10,7 @@ import {
 } from "@/lib/transcription/status";
 import type { SwSourceKind } from "@/lib/database.types";
 
+import { pluralize } from "@/lib/format";
 /** "Oct 7, 2026 · 22:52" or "Oct 7, 2026 · 14 pages": when it happened, then how long it is. */
 export function formatSourceMeta(source: {
   kind: SwSourceKind;
@@ -20,7 +21,7 @@ export function formatSourceMeta(source: {
   const length =
     source.kind === "document"
       ? source.pageCount
-        ? `${source.pageCount} page${source.pageCount === 1 ? "" : "s"}`
+        ? `${pluralize(source.pageCount, "page")}`
         : null
       : source.durationMs
         ? formatDuration(source.durationMs)

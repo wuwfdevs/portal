@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { field } from "@/lib/form-fields";
+import { safeLocalPath } from "@/lib/safe-path";
+import { failIfError } from "@/lib/editorial/action-result";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { reindexRepresentation, embedPendingForProject } from "@/lib/transcription/indexing";
 import { createBareProject, startTranscriptionForProject } from "@/lib/transcription/ingest";
@@ -140,28 +143,27 @@ export async function reindexProjectSearch(
  */
 export async function retryTranscription(formData: FormData): Promise<void> {
   await assertToolAccess("transcription");
-  const projectId = String(formData.get("project_id") ?? "");
-  const requestedSourceId = formData.get("source_id");
+  const projectId = field(formData, "project_id");
+  const requestedSourceId = field(formData, "source_id");
   // Source Detail retries from its own page rather than the project's — only
   // ever a same-tool path we rendered ourselves, but still checked against
   // an open redirect since it rides in on a form field.
-  const returnTo = formData.get("return_to");
-  const redirectTo =
-    typeof returnTo === "string" && returnTo.startsWith("/sourcework/")
-      ? returnTo
-      : `/sourcework/${projectId}`;
+  const redirectTo = safeLocalPath(field(formData, "return_to"), `/sourcework/${projectId}`, {
+    prefixes: ["/sourcework"],
+  });
 
   const supabase = await createClient();
   const ref = requestedSourceId
-    ? await getSourceRef(supabase, String(requestedSourceId))
+    ? await getSourceRef(supabase, requestedSourceId)
     : await getPrimarySourceForProject(supabase, projectId);
-  const { data: source } = ref
+  const { data: source, error: sourceError } = ref
     ? await supabase
         .from("sw_sources")
         .select("kind, original_storage_path")
         .eq("id", ref.sourceId)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  failIfError(sourceError, redirectTo, "Could not read the source to retry");
 
   if (ref?.representationId && source?.original_storage_path) {
     // Retry is only ever offered when the file itself is already in Storage
@@ -173,10 +175,11 @@ export async function retryTranscription(formData: FormData): Promise<void> {
     // was really about the representation (new-project-form.tsx,
     // add-source-modal.tsx) — without this, a source stuck that way stays
     // stuck forever, since nothing else ever clears it once set.
-    await supabase
+    const { error: clearError } = await supabase
       .from("sw_sources")
       .update({ status: "ready", error_message: null })
       .eq("id", ref.sourceId);
+    failIfError(clearError, redirectTo, "Could not reset the source");
 
     if (source.kind === "document") {
       // startDocumentProcessing does its own status flip (and its own
@@ -189,10 +192,11 @@ export async function retryTranscription(formData: FormData): Promise<void> {
         storagePath: source.original_storage_path,
       });
     } else {
-      await supabase
+      const { error: processingError } = await supabase
         .from("sw_representations")
         .update({ status: "processing", error_message: null })
         .eq("id", ref.representationId);
+      failIfError(processingError, redirectTo, "Could not restart transcription");
       await startTranscriptionForProject(supabase, {
         representationId: ref.representationId,
         storagePath: source.original_storage_path,
@@ -222,35 +226,59 @@ export async function deleteProject(projectId: string): Promise<{ error?: string
   const { profile } = await assertToolAccess("transcription");
 
   const supabase = await createClient();
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("tw_projects")
     .select("created_by")
     .eq("id", projectId)
     .maybeSingle();
+  if (projectError) {
+    console.error("Could not read the project to delete:", projectError);
+    return { error: "Could not delete the project. Please try again." };
+  }
 
   if (!project || project.created_by !== profile.id) {
     return { error: "Only the person who started this project can delete it." };
   }
 
-  const { data: projectSources } = await supabase
+  const { data: projectSources, error: sourcesError } = await supabase
     .from("sw_project_sources")
     .select("source_id")
     .eq("project_id", projectId);
+  if (sourcesError) {
+    console.error("Could not read the project's sources:", sourcesError);
+    return { error: "Could not delete the project. Please try again." };
+  }
 
   for (const { source_id: sourceId } of projectSources ?? []) {
-    const { count: otherReferences } = await supabase
+    const { count: otherReferences, error: referencesError } = await supabase
       .from("sw_project_sources")
       .select("project_id", { count: "exact", head: true })
       .eq("source_id", sourceId)
       .neq("project_id", projectId);
+    // Unknown references must never read as "none": that would purge a source another project uses.
+    if (referencesError) {
+      console.error("Could not check what else references a source:", referencesError);
+      return { error: "Could not delete the project. Please try again." };
+    }
 
     if (!otherReferences) {
       await purgeSource(supabase, sourceId);
     }
   }
 
-  const { error } = await supabase.from("tw_projects").delete().eq("id", projectId);
-  if (error) return { error: "Could not delete the project. Please try again." };
+  // deleteOrFail redirects; this action returns { error }, so check the rows directly.
+  const { data: deleted, error } = await supabase
+    .from("tw_projects")
+    .delete()
+    .eq("id", projectId)
+    .select("id");
+  if (error) {
+    console.error("Could not delete the project:", error);
+    return { error: "Could not delete the project. Please try again." };
+  }
+  if (!deleted || deleted.length === 0) {
+    return { error: "That project no longer exists, or you don't have permission to delete it." };
+  }
 
   revalidatePath("/sourcework");
   return {};

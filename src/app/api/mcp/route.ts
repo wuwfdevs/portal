@@ -1,5 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { assertActiveProfile, ForbiddenError } from "@/lib/auth/authz";
+import { assertActiveProfile } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { buildMcpServer } from "@/lib/mcp/server";
 
 /**
@@ -17,7 +18,7 @@ import { buildMcpServer } from "@/lib/mcp/server";
  * assertActiveProfile() below covers what middleware doesn't: a signed-in
  * but disabled account, the same account-status floor requireActiveProfile
  * enforces for pages — mapped to a JSON-RPC error here instead of a
- * redirect, mirroring tracks.zip's assertToolAccess/ForbiddenError pattern.
+ * redirect, through guardRoute (401 signed out, 403 refused).
  * Every individual capability still asserts its own tool/role access on top
  * of this — this route only gates "is there an active account at all"
  * (design doc §4: `requires` is discovery metadata, never the boundary).
@@ -26,18 +27,11 @@ import { buildMcpServer } from "@/lib/mcp/server";
 export const runtime = "nodejs";
 
 async function handle(request: Request): Promise<Response> {
-  let profile;
-  try {
-    profile = await assertActiveProfile();
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return Response.json(
-        { jsonrpc: "2.0", id: null, error: { code: -32001, message: error.message } },
-        { status: 401 },
-      );
-    }
-    throw error;
-  }
+  const guard = await guardRoute(assertActiveProfile, {
+    body: (message) => ({ jsonrpc: "2.0", id: null, error: { code: -32001, message } }),
+  });
+  if (!guard.ok) return guard.response;
+  const profile = guard.value;
 
   const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
   const server = buildMcpServer(profile);

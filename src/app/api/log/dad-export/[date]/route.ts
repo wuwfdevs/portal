@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ForbiddenError } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { assertLogAccess } from "@/lib/log/access";
 import { isValidDateISO } from "@/lib/log/week-layout";
 
@@ -25,14 +25,8 @@ export async function GET(
     return NextResponse.json({ error: "That isn't a date." }, { status: 400 });
   }
 
-  try {
-    await assertLogAccess();
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(assertLogAccess);
+  if (!guard.ok) return guard.response;
 
   const versionParam = new URL(request.url).searchParams.get("version");
   const supabase = await createClient();

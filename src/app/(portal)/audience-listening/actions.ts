@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { checkboxField, field, optionalField } from "@/lib/form-fields";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { generatePublicId } from "@/lib/audience-listening/public-id";
 import { DEFAULT_MAX_DURATION_SECONDS } from "@/lib/audience-listening/media";
@@ -23,10 +24,6 @@ const LIST_PATH = "/audience-listening";
 
 function queryPath(queryId: string, tab?: string): string {
   return tab ? `${LIST_PATH}/${queryId}?tab=${tab}` : `${LIST_PATH}/${queryId}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
 }
 
 function fieldMode(formData: FormData, name: string): AlFieldMode {
@@ -57,7 +54,7 @@ export async function createQuery(formData: FormData): Promise<void> {
       internal_title: internalTitle,
       public_title: publicTitle,
       public_intro: field(formData, "public_intro"),
-      internal_notes: field(formData, "internal_notes") || null,
+      internal_notes: optionalField(formData, "internal_notes"),
       created_by: profile.id,
     })
     .select("id")
@@ -105,7 +102,7 @@ export async function updateQuerySettings(formData: FormData): Promise<void> {
       internal_title: internalTitle,
       public_title: publicTitle,
       public_intro: field(formData, "public_intro"),
-      internal_notes: field(formData, "internal_notes") || null,
+      internal_notes: optionalField(formData, "internal_notes"),
       opens_at: opensAt,
       closes_at: closesAt,
       field_name: fieldMode(formData, "field_name"),
@@ -114,9 +111,9 @@ export async function updateQuerySettings(formData: FormData): Promise<void> {
       field_city: fieldMode(formData, "field_city"),
       field_note: fieldMode(formData, "field_note"),
       consent_text: consentText,
-      ask_contact_permission: formData.get("ask_contact_permission") === "on",
-      ask_attribution_permission: formData.get("ask_attribution_permission") === "on",
-      allow_anonymous_request: formData.get("allow_anonymous_request") === "on",
+      ask_contact_permission: checkboxField(formData, "ask_contact_permission"),
+      ask_attribution_permission: checkboxField(formData, "ask_attribution_permission"),
+      allow_anonymous_request: checkboxField(formData, "allow_anonymous_request"),
       transcription_mode:
         field(formData, "transcription_mode") === "automatic" ? "automatic" : "manual",
     })
@@ -193,8 +190,12 @@ export async function deleteQuery(formData: FormData): Promise<void> {
     failWith(path, "This query has submissions. Archive it instead — deleting would destroy them.");
   }
 
-  const { error } = await supabase.from("al_queries").delete().eq("id", queryId);
-  failIfError(error, path, "Could not delete the query");
+  await deleteOrFail(
+    supabase.from("al_queries").delete().eq("id", queryId).select("id"),
+    path,
+    "Could not delete the query",
+    "That query no longer exists, or you don't have permission to delete it.",
+  );
 
   await logAuditEvent({
     actorId: profile.id,
@@ -219,9 +220,9 @@ function questionInput(formData: FormData): {
   const raw = Number(field(formData, "max_duration_seconds"));
   return {
     prompt: field(formData, "prompt"),
-    guidance: field(formData, "guidance") || null,
-    internalContext: field(formData, "internal_context") || null,
-    required: formData.get("required") === "on",
+    guidance: optionalField(formData, "guidance"),
+    internalContext: optionalField(formData, "internal_context"),
+    required: checkboxField(formData, "required"),
     maxDurationSeconds: Number.isFinite(raw) ? Math.round(raw) : DEFAULT_MAX_DURATION_SECONDS,
   };
 }
@@ -354,14 +355,19 @@ export async function deleteQuestion(formData: FormData): Promise<void> {
     );
   }
 
-  const { error } = await supabase
-    .from("al_questions")
-    .delete()
-    .eq("id", questionId)
-    .eq("query_id", queryId);
-  failIfError(error, path, "Could not remove the question");
+  await deleteOrFail(
+    supabase
+      .from("al_questions")
+      .delete()
+      .eq("id", questionId)
+      .eq("query_id", queryId)
+      .select("id"),
+    path,
+    "Could not remove the question",
+    "That question no longer exists, or you don't have permission to remove it.",
+  );
 
-  await renumberQuestions(queryId);
+  await renumberQuestions(queryId, path);
 
   await logAuditEvent({
     actorId: profile.id,
@@ -413,15 +419,16 @@ export async function moveQuestion(queryId: string, formData: FormData): Promise
 }
 
 /** Closes the gap left by a removal so positions stay 1..n. */
-async function renumberQuestions(queryId: string): Promise<void> {
+async function renumberQuestions(queryId: string, path: string): Promise<void> {
   const supabase = await createClient();
   const questions = await listQuestions(queryId);
   for (const [index, question] of questions.entries()) {
     if (question.position !== index + 1) {
-      await supabase
+      const { error } = await supabase
         .from("al_questions")
         .update({ position: index + 1 })
         .eq("id", question.id);
+      failIfError(error, path, "Could not renumber the questions");
     }
   }
 }
@@ -473,7 +480,7 @@ export async function saveSubmissionNotes(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("al_submissions")
-    .update({ internal_notes: field(formData, "internal_notes") || null })
+    .update({ internal_notes: optionalField(formData, "internal_notes") })
     .eq("id", submissionId);
   failIfError(error, path, "Could not save the note");
 
@@ -516,7 +523,7 @@ export async function saveAnswerNote(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("al_answers")
-    .update({ internal_note: field(formData, "internal_note") || null })
+    .update({ internal_note: optionalField(formData, "internal_note") })
     .eq("id", answerId);
   failIfError(error, path, "Could not save the note");
 
@@ -539,7 +546,7 @@ export async function sendAnswerToTranscriptionAction(formData: FormData): Promi
   const path = `${LIST_PATH}/${queryId}/submissions/${submissionId}`;
 
   const result = await invokeCapability(sendAnswerToSourcework, { answerId }, { confirmed: true });
-  if (!result.ok) failWith(path, result.message);
+  if (!result.ok) failWith(path, result.error);
 
   redirect(path);
 }

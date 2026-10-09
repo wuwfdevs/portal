@@ -30,11 +30,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ffmpegPath from "ffmpeg-static";
 import { createClient } from "@/lib/supabase/server";
-import { REMOTE_INTERVIEW_MEDIA_BUCKET, assembledTrackObjectPath } from "@/lib/remote-interview/media";
+import {
+  REMOTE_INTERVIEW_MEDIA_BUCKET,
+  assembledTrackObjectPath,
+} from "@/lib/remote-interview/media";
 import { isReadableWav, wavDurationMs } from "@/lib/remote-interview/wav";
+import type { ActionResult } from "@/lib/action-response";
+import { pluralize } from "@/lib/format";
 import type { Database } from "@/lib/database.types";
 
-export type AssemblyResult = { ok: true } | { ok: false; message: string };
+export type AssemblyResult = ActionResult;
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type RiTrackUpdate = Database["public"]["Tables"]["ri_tracks"]["Update"];
@@ -61,7 +66,11 @@ async function logSessionEvent(
   if (error) console.error(`Could not log ${kind} event for session ${sessionId}:`, error);
 }
 
-function runFfmpegConcat(ffmpegBinary: string, listPath: string, outputPath: string): Promise<void> {
+function runFfmpegConcat(
+  ffmpegBinary: string,
+  listPath: string,
+  outputPath: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn(ffmpegBinary, [
       "-hide_banner",
@@ -113,10 +122,10 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
     .select("id, participant_id, source, status, expected_part_count, run_index")
     .eq("id", trackId)
     .maybeSingle();
-  if (trackError) return { ok: false, message: trackError.message };
-  if (!track) return { ok: false, message: "That track no longer exists." };
+  if (trackError) return { ok: false, error: trackError.message };
+  if (!track) return { ok: false, error: "That track no longer exists." };
   if (track.source !== "local") {
-    return { ok: false, message: "Only local masters can be assembled here." };
+    return { ok: false, error: "Only local masters can be assembled here." };
   }
   if (track.status === "complete") return { ok: true };
 
@@ -125,38 +134,39 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
     .select("id, session_id, storage_prefix, display_name")
     .eq("id", track.participant_id)
     .maybeSingle();
-  if (participantError) return { ok: false, message: participantError.message };
-  if (!participant) return { ok: false, message: "This track's participant no longer exists." };
+  if (participantError) return { ok: false, error: participantError.message };
+  if (!participant) return { ok: false, error: "This track's participant no longer exists." };
 
   const { data: parts, error: partsError } = await supabase
     .from("ri_track_parts")
     .select("sequence, storage_path")
     .eq("track_id", trackId)
     .order("sequence", { ascending: true });
-  if (partsError) return { ok: false, message: partsError.message };
+  if (partsError) return { ok: false, error: partsError.message };
 
   if (!parts || parts.length === 0) {
     await markTrack(supabase, trackId, {
       status: "missing",
       error_message: "No parts were ever uploaded for this track.",
     });
-    return { ok: false, message: "No parts were ever uploaded for this track." };
+    return { ok: false, error: "No parts were ever uploaded for this track." };
   }
 
   if (track.expected_part_count != null && parts.length < track.expected_part_count) {
     const missing = track.expected_part_count - parts.length;
     return {
       ok: false,
-      message: `Still waiting on ${missing} part${missing === 1 ? "" : "s"} to upload. Try again once upload catches up.`,
+      error: `Still waiting on ${pluralize(missing, "part")} to upload. Try again once upload catches up.`,
     };
   }
 
   if (!ffmpegPath) {
-    return { ok: false, message: "ffmpeg binary is not available in this environment." };
+    return { ok: false, error: "ffmpeg binary is not available in this environment." };
   }
   const ffmpegBinary: string = ffmpegPath;
 
-  const isKnownComplete = track.expected_part_count != null && parts.length === track.expected_part_count;
+  const isKnownComplete =
+    track.expected_part_count != null && parts.length === track.expected_part_count;
   await markTrack(supabase, trackId, { status: "assembling" });
 
   const workDir = await mkdtemp(join(tmpdir(), "ri-assembly-"));
@@ -173,7 +183,7 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
           track_id: trackId,
           message,
         });
-        return { ok: false, message };
+        return { ok: false, error: message };
       }
       const localPath = join(workDir, `part-${String(part.sequence).padStart(6, "0")}.wav`);
       await writeFile(localPath, Buffer.from(await data.arrayBuffer()));
@@ -195,7 +205,7 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
         track_id: trackId,
         message,
       });
-      return { ok: false, message };
+      return { ok: false, error: message };
     }
 
     const checksum = createHash("sha256").update(assembled).digest("hex");
@@ -211,7 +221,7 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
         track_id: trackId,
         message: uploadError.message,
       });
-      return { ok: false, message: uploadError.message };
+      return { ok: false, error: uploadError.message };
     }
 
     const now = new Date().toISOString();
@@ -243,7 +253,7 @@ export async function assembleLocalTrack(trackId: string): Promise<AssemblyResul
       track_id: trackId,
       message,
     });
-    return { ok: false, message };
+    return { ok: false, error: message };
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }

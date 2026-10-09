@@ -164,16 +164,8 @@ export function titleFromFileName(fileName: string): string {
   return withoutExtension.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** Lowercase, hyphenated, filesystem-safe. Falls back to "untitled" for a string with no alphanumeric characters. */
-export function slugify(text: string): string {
-  const slug = text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  return slug || "untitled";
-}
+/** Filename slugs: lowercase, hyphenated, at most 60 characters, "untitled" for text with nothing alphanumeric in it. */
+const FILENAME_SLUG = { max: 60, fallback: "untitled" } as const;
 
 /** Predictable export filename, e.g. "2026-07-22_reeves-interview_bridge-funding.wav". */
 export function buildClipExportFilename(
@@ -182,20 +174,21 @@ export function buildClipExportFilename(
   clipTitle: string,
 ): string {
   const date = dateIso.slice(0, 10);
-  return `${date}_${slugify(projectTitle)}_${slugify(clipTitle)}.wav`;
+  return `${date}_${slugify(projectTitle, FILENAME_SLUG)}_${slugify(clipTitle, FILENAME_SLUG)}.wav`;
 }
 
 /** Same shape as a clip export, for the whole project's transcript, e.g. "2026-07-22_reeves-interview_transcript.txt". */
 export function buildTranscriptExportFilename(dateIso: string, projectTitle: string): string {
-  return `${dateIso.slice(0, 10)}_${slugify(projectTitle)}_transcript.txt`;
+  return `${dateIso.slice(0, 10)}_${slugify(projectTitle, FILENAME_SLUG)}_transcript.txt`;
 }
 
 /** Same shape again, for the archive of every clip in a project. */
 export function buildClipsZipFilename(dateIso: string, projectTitle: string): string {
-  return `${dateIso.slice(0, 10)}_${slugify(projectTitle)}_clips.zip`;
+  return `${dateIso.slice(0, 10)}_${slugify(projectTitle, FILENAME_SLUG)}_clips.zip`;
 }
 
 import { formatClockMs } from "@/lib/format";
+import { slugify } from "@/lib/text";
 export { formatBytes } from "@/lib/format";
 
 /** mm:ss for under an hour, h:mm:ss beyond that. */

@@ -5,12 +5,14 @@
 // to (join the call, flip the record button), not a page redirect. So
 // unlike the parent route's actions.ts (whose failIfError/failWith bounce
 // back to a rendered page via ?error=), these return a plain
-// { ok, data | message } result, the same shape join/[token]/actions.ts
+// { ok, data | error } result, the same shape join/[token]/actions.ts
 // already uses for the same reason (completePreflight et al.).
 
+import type { ActionResult } from "@/lib/action-response";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
+import { bestEffort } from "@/lib/transcription/best-effort";
 import {
   createMeetingToken,
   ensureRoom,
@@ -23,7 +25,7 @@ import {
 } from "@/lib/remote-interview/sessions";
 import type { RiSession } from "@/lib/remote-interview/sessions";
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
+type StudioResult<T> = ActionResult<{ data: T }>;
 
 async function requireHostSession(sessionId: string, profileId: string): Promise<RiSession> {
   const session = await getSessionById(sessionId);
@@ -43,7 +45,7 @@ export interface StudioCredentials {
 /** Mints the host's own Daily join credentials, creating the room if this is the first visit to the studio. */
 export async function getStudioCallCredentials(
   sessionId: string,
-): Promise<ActionResult<StudioCredentials>> {
+): Promise<StudioResult<StudioCredentials>> {
   const { profile } = await assertToolAccess("remote-interview");
 
   let session: RiSession;
@@ -52,13 +54,13 @@ export async function getStudioCallCredentials(
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Could not open the studio.",
+      error: err instanceof Error ? err.message : "Could not open the studio.",
     };
   }
 
   const participants = await listActiveParticipants(sessionId);
   const host = participants.find((p) => p.role === "host" && p.profile_id === profile.id);
-  if (!host) return { ok: false, message: "You aren't an admitted participant in this session." };
+  if (!host) return { ok: false, error: "You aren't an admitted participant in this session." };
 
   try {
     const room = await ensureRoom(session.id);
@@ -82,7 +84,7 @@ export async function getStudioCallCredentials(
     console.error("getStudioCallCredentials failed:", err);
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Could not reach the call provider.",
+      error: err instanceof Error ? err.message : "Could not reach the call provider.",
     };
   }
 }
@@ -104,7 +106,7 @@ export interface AdmittedParticipant {
 export async function admitWaitingParticipant(
   sessionId: string,
   participantId: string,
-): Promise<ActionResult<AdmittedParticipant>> {
+): Promise<StudioResult<AdmittedParticipant>> {
   const { profile } = await assertToolAccess("remote-interview");
 
   try {
@@ -112,7 +114,7 @@ export async function admitWaitingParticipant(
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Could not admit the guest.",
+      error: err instanceof Error ? err.message : "Could not admit the guest.",
     };
   }
 
@@ -125,7 +127,8 @@ export async function admitWaitingParticipant(
     .select("id, display_name, role, storage_prefix")
     .single();
   if (error || !data) {
-    return { ok: false, message: error?.message ?? "Could not admit the guest." };
+    console.error("Could not admit the guest:", error);
+    return { ok: false, error: error?.message ?? "Could not admit the guest." };
   }
 
   await logAuditEvent({
@@ -165,7 +168,7 @@ export interface RecordingStarted {
  */
 export async function startStudioRecording(
   sessionId: string,
-): Promise<ActionResult<RecordingStarted>> {
+): Promise<StudioResult<RecordingStarted>> {
   const { profile } = await assertToolAccess("remote-interview");
 
   let session: RiSession;
@@ -174,16 +177,16 @@ export async function startStudioRecording(
   } catch (err) {
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Could not start recording.",
+      error: err instanceof Error ? err.message : "Could not start recording.",
     };
   }
   if (session.status === "recording") {
-    return { ok: false, message: "Recording is already in progress." };
+    return { ok: false, error: "Recording is already in progress." };
   }
 
   const participants = await listActiveParticipants(sessionId);
   if (participants.length === 0) {
-    return { ok: false, message: "Admit at least one participant before recording." };
+    return { ok: false, error: "Admit at least one participant before recording." };
   }
 
   const runIndex = await nextRunIndex(sessionId);
@@ -200,7 +203,8 @@ export async function startStudioRecording(
     })
     .eq("id", sessionId);
   if (sessionError) {
-    return { ok: false, message: `Could not start recording: ${sessionError.message}` };
+    console.error("Could not start recording:", sessionError);
+    return { ok: false, error: `Could not start recording: ${sessionError.message}` };
   }
 
   if (cloudBackupConfigured) {
@@ -219,11 +223,15 @@ export async function startStudioRecording(
     }
   }
 
-  await supabase.from("ri_session_events").insert({
-    session_id: sessionId,
-    kind: "recording_started",
-    detail: { run_index: runIndex, cloud_backup_configured: cloudBackupConfigured },
-  });
+  // The event is the session's log, not what the recording depends on; a miss is logged, not fatal.
+  await bestEffort(
+    supabase.from("ri_session_events").insert({
+      session_id: sessionId,
+      kind: "recording_started",
+      detail: { run_index: runIndex, cloud_backup_configured: cloudBackupConfigured },
+    }),
+    "Could not log the recording start",
+  );
 
   await logAuditEvent({
     actorId: profile.id,
@@ -253,17 +261,17 @@ export async function startStudioRecording(
  */
 export async function stopStudioRecording(
   sessionId: string,
-): Promise<ActionResult<{ stoppedAt: string }>> {
+): Promise<StudioResult<{ stoppedAt: string }>> {
   const { profile } = await assertToolAccess("remote-interview");
 
   let session: RiSession;
   try {
     session = await requireHostSession(sessionId, profile.id);
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Could not stop recording." };
+    return { ok: false, error: err instanceof Error ? err.message : "Could not stop recording." };
   }
   if (session.status !== "recording") {
-    return { ok: false, message: "Recording isn't in progress." };
+    return { ok: false, error: "Recording isn't in progress." };
   }
 
   const stoppedAt = new Date().toISOString();
@@ -273,27 +281,35 @@ export async function stopStudioRecording(
     .update({ status: "processing", recording_stopped_at: stoppedAt })
     .eq("id", sessionId);
   if (error) {
-    return { ok: false, message: `Could not stop recording: ${error.message}` };
+    console.error("Could not stop recording:", error);
+    return { ok: false, error: `Could not stop recording: ${error.message}` };
   }
 
   const participants = await listActiveParticipants(sessionId);
   if (participants.length > 0) {
-    await supabase
-      .from("ri_tracks")
-      .update({ status: "uploading" })
-      .eq("source", "cloud")
-      .eq("status", "recording")
-      .in(
-        "participant_id",
-        participants.map((p) => p.id),
-      );
+    // The session is already stopped; a failed cloud-track flip is logged and left for the detail screen.
+    await bestEffort(
+      supabase
+        .from("ri_tracks")
+        .update({ status: "uploading" })
+        .eq("source", "cloud")
+        .eq("status", "recording")
+        .in(
+          "participant_id",
+          participants.map((p) => p.id),
+        ),
+      "Could not move the cloud-backup tracks to uploading",
+    );
   }
 
-  await supabase.from("ri_session_events").insert({
-    session_id: sessionId,
-    kind: "recording_stopped",
-    detail: {},
-  });
+  await bestEffort(
+    supabase.from("ri_session_events").insert({
+      session_id: sessionId,
+      kind: "recording_stopped",
+      detail: {},
+    }),
+    "Could not log the recording stop",
+  );
 
   await logAuditEvent({
     actorId: profile.id,

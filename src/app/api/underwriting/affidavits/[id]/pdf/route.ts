@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ForbiddenError } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
 import { getAffidavitDetail } from "@/lib/underwriting/queries";
 import { affidavitFileName } from "@/lib/underwriting/affidavits";
@@ -35,14 +35,8 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
 
-  try {
-    await assertUnderwritingAccess();
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(assertUnderwritingAccess);
+  if (!guard.ok) return guard.response;
 
   const affidavit = await getAffidavitDetail(id);
   if (!affidavit) {

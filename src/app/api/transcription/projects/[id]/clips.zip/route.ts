@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { assertToolAccess, ForbiddenError } from "@/lib/auth/authz";
+import { assertToolAccess } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { createZipStream, uniqueEntryName, type ZipEntry } from "@/lib/transcription/zip";
@@ -44,14 +45,8 @@ export async function GET(
 ): Promise<Response> {
   const { id: projectId } = await params;
 
-  try {
-    await assertToolAccess("transcription");
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(() => assertToolAccess("transcription"));
+  if (!guard.ok) return guard.response;
 
   const supabase = await createClient();
 
@@ -81,7 +76,10 @@ export async function GET(
     return NextResponse.json({ error: "Could not load this project's source." }, { status: 500 });
   }
   if (!source) {
-    return NextResponse.json({ error: "This project doesn't have any clips yet." }, { status: 400 });
+    return NextResponse.json(
+      { error: "This project doesn't have any clips yet." },
+      { status: 400 },
+    );
   }
 
   // This route only ever renders WAV audio, so it's scoped to temporal
