@@ -11,6 +11,7 @@ import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
 import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
+import { likeTerm } from "@/lib/list-search";
 import { stationTodayISO } from "@/lib/log/timezone";
 import {
   agreementConsumption,
@@ -428,7 +429,8 @@ export async function listProjectsPage(options: {
   for (const [column, operator, value] of viewFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  if (options.q) query = query.ilike("title", `%${options.q.replace(/[%_]/g, "")}%`);
+  const titleTerm = likeTerm(options.q);
+  if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
   const { rows, total } = await readPage(result, "requests", () =>
     countProjects(options.view, options.q),
@@ -445,7 +447,8 @@ export async function countProjects(view: ProjectListView, q: string | null): Pr
   for (const [column, operator, value] of viewFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  if (q) query = query.ilike("title", `%${q.replace(/[%_]/g, "")}%`);
+  const titleTerm = likeTerm(q);
+  if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query;
   unwrapRead(result, "request count");
   return result.count ?? 0;
@@ -697,10 +700,6 @@ function partnerFilters(view: PartnerListView): [string, string, string][] {
   return view === "all" ? [] : [["kind", "eq", view]];
 }
 
-function escapeLike(q: string): string {
-  return q.replace(/[%_]/g, "");
-}
-
 /** One page of partners, filtered and searched in the query (docs/ui-patterns.md, "Pagination"), by name. */
 export async function listPartnersPage(options: {
   view: PartnerListView;
@@ -713,7 +712,8 @@ export async function listPartnersPage(options: {
   for (const [column, operator, value] of partnerFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  if (options.q) query = query.ilike("name", `%${escapeLike(options.q)}%`);
+  const nameTerm = likeTerm(options.q);
+  if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query.order("name").order("id").range(from, to);
   const { rows, total } = await readPage(result, "partners", () =>
     countPartners(options.view, options.q),
@@ -751,7 +751,8 @@ export async function countPartners(view: PartnerListView, q: string | null): Pr
   for (const [column, operator, value] of partnerFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  if (q) query = query.ilike("name", `%${escapeLike(q)}%`);
+  const nameTerm = likeTerm(q);
+  if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query;
   unwrapRead(result, "partner count");
   return result.count ?? 0;

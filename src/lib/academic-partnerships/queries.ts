@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { orIlike } from "@/lib/list-search";
 import type { ApDisposition, ApPartnershipType, ApStage, Database } from "@/lib/database.types";
 import { ACADEMIC_PARTNERSHIPS_TOOL_KEY } from "./access";
 
@@ -84,12 +85,11 @@ export async function listAllSubmissions(
   // track); "filter to this type" means "this type is among them".
   if (filters.partnershipType)
     query = query.contains("partnership_types", [filters.partnershipType]);
-  if (filters.search?.trim()) {
-    const term = filters.search.trim().replace(/[%,]/g, "");
-    query = query.or(
-      `faculty_name.ilike.%${term}%,email.ilike.%${term}%,department.ilike.%${term}%,course_title.ilike.%${term}%,description.ilike.%${term}%`,
-    );
-  }
+  const searchFilter = orIlike(
+    ["faculty_name", "email", "department", "course_title", "description"],
+    filters.search,
+  );
+  if (searchFilter) query = query.or(searchFilter);
 
   const rows =
     unwrapRead(

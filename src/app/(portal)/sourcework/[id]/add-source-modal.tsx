@@ -125,9 +125,10 @@ function FindExistingPanel({
   useEffect(() => {
     let cancelled = false;
     const timeout = setTimeout(async () => {
-      const sources = await listAttachableSources(projectId, query);
+      const { sources, error: loadError } = await listAttachableSources(projectId, query);
       if (!cancelled) {
         setResults(sources);
+        setError(loadError);
         setIsLoading(false);
       }
     }, 200);

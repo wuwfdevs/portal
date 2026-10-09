@@ -11,6 +11,7 @@ import { getSourceRef } from "@/lib/transcription/projects";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { sourcePath } from "@/lib/transcription/links";
+import { likeTerm } from "@/lib/list-search";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
@@ -38,14 +39,18 @@ export interface AttachableSource {
 export async function listAttachableSources(
   projectId: string,
   query: string,
-): Promise<AttachableSource[]> {
+): Promise<{ sources: AttachableSource[]; error: string | null }> {
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: attached } = await supabase
+  const { data: attached, error: attachedError } = await supabase
     .from("sw_project_sources")
     .select("source_id")
     .eq("project_id", projectId);
+  if (attachedError) {
+    console.error("Read failed (a project's attached sources):", attachedError);
+    return { sources: [], error: "Could not load the sources. Please try again." };
+  }
   const attachedIds = new Set((attached ?? []).map((row) => row.source_id));
 
   let sourceQuery = supabase
@@ -53,22 +58,28 @@ export async function listAttachableSources(
     .select("id, kind, title, interview_date, original_duration_ms, page_count")
     .order("created_at", { ascending: false })
     .limit(50);
-  const trimmed = query.trim();
-  if (trimmed) sourceQuery = sourceQuery.ilike("title", `%${trimmed}%`);
+  const term = likeTerm(query);
+  if (term) sourceQuery = sourceQuery.ilike("title", `%${term}%`);
 
   const { data, error } = await sourceQuery;
-  if (error) return [];
+  if (error) {
+    console.error("Read failed (the attachable sources):", error);
+    return { sources: [], error: "Could not load the sources. Please try again." };
+  }
 
-  return (data ?? [])
-    .filter((source) => !attachedIds.has(source.id))
-    .map((source) => ({
-      id: source.id,
-      kind: source.kind,
-      title: source.title,
-      interviewDate: source.interview_date,
-      durationMs: source.original_duration_ms,
-      pageCount: source.page_count,
-    }));
+  return {
+    error: null,
+    sources: (data ?? [])
+      .filter((source) => !attachedIds.has(source.id))
+      .map((source) => ({
+        id: source.id,
+        kind: source.kind,
+        title: source.title,
+        interviewDate: source.interview_date,
+        durationMs: source.original_duration_ms,
+        pageCount: source.page_count,
+      })),
+  };
 }
 
 /** Attaches an existing source to a project — the many-to-many shape sw_project_sources has carried since Phase 1. */

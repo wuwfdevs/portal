@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listSearchHref } from "./list-search";
+import { likeTerm, listSearchHref, orIlike } from "./list-search";
 
 describe("listSearchHref", () => {
   it("sets q and keeps the list's filters", () => {
@@ -21,5 +21,32 @@ describe("listSearchHref", () => {
 
   it("trims the term", () => {
     expect(listSearchHref("/x", {}, "  fresh air ")).toBe("/x?q=fresh+air");
+  });
+});
+
+describe("likeTerm", () => {
+  it("strips wildcard and filter-syntax characters and tidies spacing", () => {
+    expect(likeTerm("  50%_off ")).toBe("50 off");
+    expect(likeTerm('a),b.eq.1,(c "d" \\')).toBe("a b.eq.1 c d");
+  });
+
+  it("is null when nothing searchable remains", () => {
+    expect(likeTerm(null)).toBeNull();
+    expect(likeTerm(undefined)).toBeNull();
+    expect(likeTerm("  %_ ,() ")).toBeNull();
+  });
+});
+
+describe("orIlike", () => {
+  it("builds one ilike clause per column", () => {
+    expect(orIlike(["title", "script"], "hello")).toBe("title.ilike.%hello%,script.ilike.%hello%");
+  });
+
+  it("cannot be used to add a clause", () => {
+    expect(orIlike(["title"], "x),id.eq.1,(y")).toBe("title.ilike.%x id.eq.1 y%");
+  });
+
+  it("is null for an empty search", () => {
+    expect(orIlike(["title"], " ")).toBeNull();
   });
 });

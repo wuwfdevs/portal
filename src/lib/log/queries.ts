@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
+import { orIlike } from "@/lib/list-search";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import type { SyncRundown } from "@/lib/log/clock-sync";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
@@ -393,9 +394,7 @@ export interface ContentLibraryPageFilters extends ContentLibraryFilters {
  * they are stripped from the term rather than escaped.
  */
 function contentSearchFilter(search: string | undefined): string | null {
-  const term = (search ?? "").replace(/[%_,()"\\]/g, " ").trim();
-  if (!term) return null;
-  return `title.ilike.%${term}%,dad_cart_number.ilike.%${term}%,script.ilike.%${term}%`;
+  return orIlike(["title", "dad_cart_number", "script"], search);
 }
 
 /**
