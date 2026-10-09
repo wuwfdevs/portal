@@ -27,6 +27,10 @@ drop table if exists public.sw_data_point_excerpts cascade;
 drop table if exists public.sw_data_points cascade;
 drop table if exists public.sw_research_questions cascade;
 
+-- A stray empty probe table left on preview while testing whether the Supabase tool could run DDL.
+-- Harmless no-op anywhere it doesn't exist.
+drop table if exists public._probe_ddl;
+
 -- The elevation ---------------------------------------------------------------
 create function private.is_sourcework_editor(uid uuid)
 returns boolean
