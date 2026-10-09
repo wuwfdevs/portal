@@ -1,5 +1,6 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { lookupToolGrant } from "@/lib/auth/tool-grant";
+import { isPlatformAdministrator } from "@/lib/auth/predicates";
 import { ForbiddenError, assertToolAccess, requireToolAccess } from "@/lib/auth/authz";
 import type { Profile } from "@/lib/auth/session";
 import type { Tool } from "@/lib/tools";
@@ -19,20 +20,11 @@ export interface UnderwritingContext {
 }
 
 async function lookupRoles(profile: Profile, tool: Tool): Promise<UnderwritingRole[]> {
-  const supabase = await createClient();
-  const { data: grant } = await supabase
-    .from("tool_access")
-    .select("tool_roles")
-    .eq("user_id", profile.id)
-    .eq("tool_id", tool.id)
-    .is("revoked_at", null)
-    .maybeSingle();
-
-  return parseUnderwritingRoles(grant?.tool_roles ?? null);
+  return parseUnderwritingRoles((await lookupToolGrant(profile, tool)).roles);
 }
 
 function contextFor(profile: Profile, tool: Tool, roles: UnderwritingRole[]): UnderwritingContext {
-  const isAdministrator = profile.platform_role === "administrator";
+  const isAdministrator = isPlatformAdministrator(profile);
   return {
     profile,
     tool,

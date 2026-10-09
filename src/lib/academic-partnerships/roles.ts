@@ -7,10 +7,12 @@
 // see private.is_academic_partnerships_coordinator() in the migration, which
 // is where this is actually enforced.
 
+import { singleRole } from "@/lib/role-keys";
+
 export type AcademicPartnershipsRole = "member" | "coordinator";
 
 export function normalizeToolRole(toolRole: string | null): AcademicPartnershipsRole {
-  return toolRole?.trim().toLowerCase() === "coordinator" ? "coordinator" : "member";
+  return singleRole(toolRole, "coordinator", "member");
 }
 
 /** What each recognized tool_role value means, for the admin grant UI's dropdown. */

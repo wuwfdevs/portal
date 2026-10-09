@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isActive, isActiveAdministrator } from "./predicates";
+import { isActive, isActiveAdministrator, isPlatformAdministrator } from "./predicates";
 import type { Profile } from "./session";
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
@@ -53,5 +53,17 @@ describe("isActiveAdministrator", () => {
 
   it("rejects a null profile", () => {
     expect(isActiveAdministrator(null)).toBe(false);
+  });
+});
+
+describe("isPlatformAdministrator", () => {
+  it("looks only at the platform role, not the account status", () => {
+    expect(isPlatformAdministrator(makeProfile({ platform_role: "administrator" }))).toBe(true);
+    expect(
+      isPlatformAdministrator(
+        makeProfile({ platform_role: "administrator", account_status: "disabled" }),
+      ),
+    ).toBe(true);
+    expect(isPlatformAdministrator(makeProfile({ platform_role: "staff" }))).toBe(false);
   });
 });

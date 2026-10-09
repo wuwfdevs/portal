@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { lookupToolGrant } from "@/lib/auth/tool-grant";
+import { isPlatformAdministrator } from "@/lib/auth/predicates";
 import { ForbiddenError, assertToolAccess, requireToolAccess } from "@/lib/auth/authz";
 import type { Profile } from "@/lib/auth/session";
 import type { Tool } from "@/lib/tools";
@@ -17,16 +18,7 @@ export interface AcademicPartnershipsContext {
 }
 
 async function lookupRole(profile: Profile, tool: Tool): Promise<AcademicPartnershipsRole> {
-  const supabase = await createClient();
-  const { data: grant } = await supabase
-    .from("tool_access")
-    .select("tool_role")
-    .eq("user_id", profile.id)
-    .eq("tool_id", tool.id)
-    .is("revoked_at", null)
-    .maybeSingle();
-
-  return normalizeToolRole(grant?.tool_role ?? null);
+  return normalizeToolRole((await lookupToolGrant(profile, tool)).role);
 }
 
 function contextFor(
@@ -34,7 +26,7 @@ function contextFor(
   tool: Tool,
   role: AcademicPartnershipsRole,
 ): AcademicPartnershipsContext {
-  const isAdministrator = profile.platform_role === "administrator";
+  const isAdministrator = isPlatformAdministrator(profile);
   return {
     profile,
     tool,

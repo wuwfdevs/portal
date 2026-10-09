@@ -10,6 +10,8 @@
 //     (private.is_log_traffic()).
 // The SQL predicates are the boundary; this only shapes the screens.
 
+import { normalizeRoleKey, parseRoleSet } from "@/lib/role-keys";
+
 export type LogRole = "program_director" | "traffic";
 
 const KNOWN: readonly LogRole[] = ["program_director", "traffic"];
@@ -19,17 +21,11 @@ const KNOWN: readonly LogRole[] = ["program_director", "traffic"];
  * jobs and still reads as both.
  */
 export function parseLogRoles(toolRoles: readonly string[] | null | undefined): LogRole[] {
-  const found = new Set<LogRole>();
-  for (const raw of toolRoles ?? []) {
-    const role = raw.trim().toLowerCase();
-    if (role === "producer") {
-      found.add("program_director");
-      found.add("traffic");
-    } else if ((KNOWN as readonly string[]).includes(role)) {
-      found.add(role as LogRole);
-    }
-  }
-  return KNOWN.filter((role) => found.has(role));
+  // `producer`, the role before the split, held both jobs.
+  const expanded = (toolRoles ?? []).flatMap((raw): string[] =>
+    normalizeRoleKey(raw) === "producer" ? [...KNOWN] : [raw],
+  );
+  return parseRoleSet(expanded, KNOWN);
 }
 
 /** What each role means, for the admin grant screen's checkboxes. */
