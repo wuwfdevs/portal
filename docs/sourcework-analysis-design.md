@@ -268,8 +268,9 @@ gold excerpt marks and the blue playhead), a dashed underline meaning not yet
 reviewed.
 
 A data point card shows its claim, its kind and question or story element, its
-time ranges, and a play button; suggested cards have a dashed border and a
-Suggested badge with Accept, Edit and Reject. A card links to the excerpt that
+time ranges, and a play button. An unreviewed card has a dashed border and its
+Accept, Edit and Reject buttons; there is no separate "Suggested" pill, because the
+buttons already say it (same for suggested quotes and themes). A card links to the excerpt that
 exemplifies it, so the two kinds of item stay connected without sharing a view.
 The source tab row is unchanged on desktop (Transcript · Projects). On a phone the
 existing phone-only tabs gain **Data points** beside Excerpts and Speakers, for
@@ -338,10 +339,20 @@ quote text and audio always match the source. Length is computed in code from
 as "0:52 of 1:00, 3s under". Nothing is generated from the model's memory of a
 transcript: the inputs are only data points and excerpts a person has accepted.
 
-A piece is **edited directly**. Narration blocks are inline text. An actuality
-block's wording is fixed because it is an excerpt, but it can be swapped, trimmed,
-moved or removed. **Blocks reorder** by dragging a handle or from the block's menu
-(Move up, Move down), so reordering works by keyboard and on a phone. Every save is a
+A piece is **edited directly, as a block editor**. Narration blocks are inline text.
+An actuality block's wording is fixed because it is an excerpt, but it can be
+swapped, trimmed, moved or removed. Conventions:
+
+- **Insertion points between every block**, before the first and after the last,
+  built the way the On Air rundown's `insertion-point.tsx` is: visible at rest (a
+  hairline, a circled +, a hairline), not hover-only. It opens a dashed panel with
+  two modes, **Narration** and **Excerpt**; Excerpt is a search box over the
+  project's accepted excerpts with arrow-key navigation and Enter to add, and
+  shows duration and speaker.
+- **Enter** at the end of a narration block adds a narration block below;
+  **Backspace** in an empty one removes it.
+- **Reorder** by dragging the ⋮⋮ handle (desktop), or Move up and Move down in
+  the block's ⋮ menu, which also serves keyboard and phone. Every save is a
 version (§4.7); History shows who saved it, a person or the assistant, and restores
 any version. Export in this phase is copy as text plus the existing excerpt zip
 export (`clips.zip`).
@@ -410,9 +421,8 @@ Rules, borrowed from prompt-management tools:
 - Versions are immutable; "live" is a pointer; rollback is moving it.
 - Saving checks that required variables are present and that nothing outside the
   allowed placeholders is referenced.
-- A **try it** button runs a draft version on one chosen source and shows the
-  result without saving. A small saved example set per slot is a later addition
-  (Phase 4), not a launch requirement.
+- **Try this draft** compares a draft with the live version before it is
+  published (§6.1).
 - Each run records the prompt version; the **accept rate per prompt version**
   (accepted ÷ reviewed) is the quality metric.
 
@@ -420,6 +430,40 @@ Access: a `tool_roles` grant carrying `editor` on the `transcription` tool
 (the stacking-roles mechanism, `docs/broadcast-roles.md`) edits prompts and
 piece formats. Everyone with tool access can run steps, review, and accept. See §10
 for the one open access question.
+
+### 6.1 Trying a draft: the full flow
+
+Purpose: an editor changes wording and wants to see its effect before it reaches
+every project. It is a preview, not a test suite; the real quality signal is the
+accepted share per version that builds from actual reviews.
+
+1. **Edit.** The editor changes the draft; it autosaves ("Draft saved 2:41 PM").
+   There is one draft per slot per editor. The editor page itself holds only the
+   text, **Publish…**, **Try this draft**, and a line with the live version, its
+   accepted share, and History. What the model is given and returns is a link, not a
+   panel.
+2. **Pick a sample.** *Try this draft* opens its own screen. The sample is chosen
+   for the slot: a *project and source* for the extraction guide (the project
+   supplies the questions and background), a *theme* for the quote quality guide, a
+   *project* for theme wording and review. It defaults to the last sample used, and
+   the screen says what it will cost ("two extraction runs").
+3. **Run both.** The live version and the draft run on identical inputs, in
+   parallel, as ordinary runs flagged as trials, with a `BusyPanel` while they work.
+   Results are stored in `sw_prompt_trials (slot, draft body snapshot, live
+   version, sample refs, result per side, created_by, expires_at)` so leaving or
+   reloading loses nothing; they expire after 14 days. A trial writes nothing to any
+   project: no data points, themes or excerpts. A failure shows the error and can be
+   retried at no cost.
+4. **Compare.** Rows are aligned by the transcript they point at (spans that overlap
+   by at least half match). Groups are *In both*, *Only in draft*, *Only in live*,
+   with counts for each side and a filter. For the quote guide, the two ranked clip
+   lists sit side by side with each clip playable.
+5. **Decide.** *Back to editing* returns to the draft untouched; the trial stays
+   under Recent trials. *Publish…* asks for a one-line note about what changed,
+   moves the live pointer, and keeps the previous version available for rollback.
+
+It ships for the extraction guide first and the quote quality guide with Phase C;
+the other slots follow. Editors only.
 
 ## 7. Operations and constraints
 
@@ -506,6 +550,26 @@ patterns.
   altered or merged quotes, over-broad themes, fragmented codes, and
   paraphrases presented as quotes in newsroom incidents. These motivate
   principles 3 and 4.
+
+### 5.9 Phones
+
+The rules are the existing phone layout's, applied to the new screens:
+
+- Panes become tabs. The rail's Excerpts | Data points switch lives inside the
+  existing Excerpts tab, and the tab's count pill shows how many items await review;
+  tapping a card's time opens it in the Transcript tab.
+- The player docks to the bottom, as now; its mark strip follows the switch.
+- Tables become stacked cards (`Table stack`): the Themes list is a card per theme
+  with labelled Sources and Evidence lines and 44px Accept, Edit and Reject.
+- The Themes tab's "Waiting for you" strip condenses to three lines; the project
+  `TabNav` overflows into ⋯ with Setup kept at the right edge.
+- Menus and the piece's insert picker are bottom sheets. Reordering is Move up and
+  Move down in the block menu, not drag. Insertion points stay visible at rest and
+  are 44px tall.
+- The assistant opens as a full-screen sheet from a bar at the bottom of the piece.
+- Controls are at least 44px and text inputs 16px.
+- The Editors pages are desktop-first: they work on a phone but are not redesigned
+  for it, since writing prompt language is desk work.
 
 ## 10. Open questions
 
