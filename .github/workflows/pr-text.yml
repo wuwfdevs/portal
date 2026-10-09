@@ -1,0 +1,30 @@
+name: PR title and description
+
+# Fails a pull request whose title is a branch name, a merge-commit message or
+# cut off, or whose description is empty. See scripts/check-pr-text.mjs.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run the check's own tests
+        run: node --test scripts/check-pr-text.test.mjs
+      - name: Check the title and description
+        # Passed through env, never interpolated into the script, so PR text
+        # cannot inject commands.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: node scripts/check-pr-text.mjs

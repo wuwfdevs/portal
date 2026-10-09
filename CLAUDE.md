@@ -4331,6 +4331,16 @@ make explicitly, not by default.
 
 ## Rules for making changes
 
+- **Every pull request gets a written title and description.** Pass an explicit `title` and
+  `body` when creating one; never let either default to the branch name, a merge-commit
+  message or a commit message. The title says what the change does, in sentence case, and is
+  never cut off. The body follows `.github/pull_request_template.md` (Summary, What changed,
+  Database when there is a migration, Test plan, Not included) and says plainly what was not
+  tested. After any push that opens or updates a PR, re-read its title and body on GitHub;
+  a PR opened for you from a branch push still has to be fixed. `.github/workflows/pr-text.yml`
+  runs `scripts/check-pr-text.mjs` and fails a PR with a branch-name or merge-commit title, a
+  title ending in an ellipsis, or a description that is empty once commit trailers and links
+  are removed. The check is a backstop, not a substitute for writing it.
 - **Resources stay in step with the code.** Any change a user would notice ships a
   migration that writes its Resources content through
   `private.rc_release_note()` and `private.rc_release_guide()`
