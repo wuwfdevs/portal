@@ -568,8 +568,27 @@ The rules are the existing phone layout's, applied to the new screens:
   are 44px tall.
 - The assistant opens as a full-screen sheet from a bar at the bottom of the piece.
 - Controls are at least 44px and text inputs 16px.
-- The Editors pages are desktop-first: they work on a phone but are not redesigned
-  for it, since writing prompt language is desk work.
+- **The Editors pages work on a phone too.** A slot picker replaces the side list, the
+  text area is full width at 16px, and Publish and Try this draft sit in a fixed bottom
+  bar. On the Try screen the Live and Draft texts stack inside each row instead of
+  sitting in columns, and the pickers stack with a full-width Run both. A piece format's
+  sections are cards reordered with Move up and Move down.
+
+**Every screen in this document has a phone design** on the canvas: Sources, Themes,
+Setup, source data points, theme page, suggested quotes, piece (with the insert picker,
+block menu and the assistant as a full-screen sheet), and the Editors pages (prompt,
+try, piece format). Nothing is desktop-only; where a desktop interaction has no touch
+equivalent (dragging a block), the same action is reachable another way (Move up and
+Move down).
+
+### 5.10 Piece formats editor
+
+A format is edited like a piece: a name, a length with a tolerance, a range of
+actualities, an ordered list of sections (each narration or actuality, with one line of
+guidance), and a style paragraph. Sections reorder, insert (the same insertion point as
+a piece) and remove. It versions, publishes with a note, and has Try the way prompts do:
+drafting a piece from a chosen project's accepted themes and excerpts with the draft and
+live formats side by side, writing nothing to the project.
 
 ## 10. Open questions
 
@@ -591,6 +610,8 @@ The rules are the existing phone layout's, applied to the new screens:
    available before promising it.
 
 ## 11. Decisions taken in review (2026-10-09)
+
+- **Everything must work on a phone.** No screen is desktop-only (§5.9).
 
 - **Research questions and background notes live in a Setup tab**, right-aligned.
   Guidance is a `Steps` status inside Setup (Research questions · Add sources ·
