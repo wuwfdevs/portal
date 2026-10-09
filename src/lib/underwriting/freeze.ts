@@ -1,7 +1,7 @@
 // Frozen rundowns (docs/underwriting-traffic-redesign.md §10). Pure, tested.
 // Automated writes — auto-fill, rundown provisioning, and bumping — never
-// add, move or clear a credit in a rundown that is live or already
-// submitted, nor in a break whose start has already passed: the log is
+// add, move or clear a credit in a rundown that has been superseded by one
+// on another clock, is live, or is already submitted, nor in a break whose start has already passed: the log is
 // the host's once the broadcast starts, and the as-aired record after it.
 // Host actions (fill, move, aired/missed, relocate) and a traffic
 // staffer's own manual placement are not automation and stay
@@ -20,7 +20,7 @@ import type { LogRundownStatus } from "@/lib/database.types";
 
 export const FROZEN_RUNDOWN_STATUSES: readonly LogRundownStatus[] = ["in_progress", "submitted"];
 
-export type AutomationBlock = "rundown_frozen" | "break_in_past";
+export type AutomationBlock = "rundown_superseded" | "rundown_frozen" | "break_in_past";
 
 export function isRundownFrozen(status: LogRundownStatus): boolean {
   return FROZEN_RUNDOWN_STATUSES.includes(status);
@@ -34,6 +34,8 @@ export function isBreakInPast(scheduledAtISO: string, nowISO: string): boolean {
 export type AutomationPlacementBlock = AutomationBlock | "hours_closed";
 
 export interface FreezeCheckBreak {
+  /** The rundown was replaced by one on another clock (log_rundowns.superseded_at is set). */
+  rundownSuperseded?: boolean;
   rundownStatus: LogRundownStatus;
   scheduledAt: string;
   /** The break starts in hours closed to underwriting (isClosedToUnderwriting); automation never adds a credit there. */
@@ -42,6 +44,7 @@ export interface FreezeCheckBreak {
 
 /** Why automation may not write into this break, or null when it may. */
 export function automationBlockFor(brk: FreezeCheckBreak, nowISO: string): AutomationBlock | null {
+  if (brk.rundownSuperseded) return "rundown_superseded";
   if (isRundownFrozen(brk.rundownStatus)) return "rundown_frozen";
   if (isBreakInPast(brk.scheduledAt, nowISO)) return "break_in_past";
   return null;

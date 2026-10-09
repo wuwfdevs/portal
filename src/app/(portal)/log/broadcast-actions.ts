@@ -37,6 +37,28 @@ function rundownPath(rundownId: string): string {
 }
 
 /**
+ * A superseded rundown was replaced by one on another clock before it aired
+ * (log_supersede_rundown). It stays as the record of why its credits were
+ * lost, so nothing may start, submit or attest it — a host who opens it by
+ * its old link is sent to the live rundown instead.
+ */
+async function refuseSupersededRundown(rundownId: string, path: string): Promise<void> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("log_rundowns")
+    .select("superseded_at")
+    .eq("id", rundownId)
+    .maybeSingle();
+  failIfError(error, path, "Could not check this rundown");
+  if (data?.superseded_at) {
+    failWith(
+      path,
+      "This rundown was replaced by one on another clock before it aired, so it can't be started, attested or submitted. Open today's rundown from the On Air home screen.",
+    );
+  }
+}
+
+/**
  * Freezes a reference version of the rundown — docs/log-design.md Workflow
  * H. Not a lock for anything except underwriting: recording aired/missed
  * (syncBroadcastAction) checks nothing about status, so "documented management corrections"
@@ -53,6 +75,7 @@ export async function submitRundown(formData: FormData): Promise<void> {
   const rundownId = field(formData, "rundown_id");
   if (rundownId === "") failWith("/log", "Choose a rundown to submit.");
   const path = rundownPath(rundownId);
+  await refuseSupersededRundown(rundownId, path);
 
   const hasOpenExceptions = await hasOpenUnderwritingExceptions(rundownId);
   if (hasOpenExceptions) {
@@ -65,7 +88,11 @@ export async function submitRundown(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("log_rundowns")
-    .update({ status: "submitted", submitted_at: new Date().toISOString(), submitted_by: profile.id })
+    .update({
+      status: "submitted",
+      submitted_at: new Date().toISOString(),
+      submitted_by: profile.id,
+    })
     .eq("id", rundownId)
     .in("status", ["generated", "in_progress", "submitted"]);
   failIfError(error, path, "Could not submit this rundown");
@@ -80,6 +107,7 @@ export async function startBroadcast(formData: FormData): Promise<void> {
   await assertLogAccess();
   const rundownId = field(formData, "rundown_id");
   if (rundownId === "") failWith("/log", "Choose a rundown to start.");
+  await refuseSupersededRundown(rundownId, rundownPath(rundownId));
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -234,8 +262,12 @@ async function attestUnconfirmedItems(
 ): Promise<void> {
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith(path, "That rundown no longer exists.");
+  await refuseSupersededRundown(rundownId, path);
 
-  const itemIds = rundown.breaks.flatMap((brk) => brk.items).filter(matches).map((item) => item.id);
+  const itemIds = rundown.breaks
+    .flatMap((brk) => brk.items)
+    .filter(matches)
+    .map((item) => item.id);
   const events = await listBroadcastEventsForItems(itemIds);
   const confirmedIds = new Set(events.map((event) => event.rundown_item_id));
   const unconfirmedIds = itemIds.filter((id) => !confirmedIds.has(id));

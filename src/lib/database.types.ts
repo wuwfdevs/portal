@@ -486,7 +486,10 @@ export type LogMissReason =
   | "technical_problem"
   | "host_error"
   | "unavailable_copy"
-  | "other";
+  | "other"
+  // Added by 20261009160000: a credit lost because the station ran a special
+  // clock (log_supersede_rundown records it; a host never picks it).
+  | "special_coverage";
 
 // Underwriting & Traffic (uw_*) — Slice 1 (Foundation). See
 // supabase/migrations/20260807200000_underwriting_foundation.sql.
@@ -2080,6 +2083,11 @@ export interface Database {
           // (from the clock's local opportunities) or 'imported' (from a DAD
           // program-log export upload; breaks carry no local_opportunity_id).
           source: "generated" | "imported";
+          // Added by 20261009160100_log_rundown_supersede.sql — set when a
+          // rundown that had not aired was replaced by one on another clock.
+          // Superseded rundowns stay as the record and are hidden everywhere
+          // a live rundown is listed.
+          superseded_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["log_rundowns"]["Row"]> & {
           program_id: string;
@@ -4107,6 +4115,13 @@ export interface Database {
       log_delete_unplaced_credit_item: {
         Args: { p_item_id: string };
         Returns: { ok: true } | { error: string };
+      };
+      /** Added by 20261009160100_log_rundown_supersede.sql — retires a rundown that has not started and has no events so one on another clock can replace it; each placed credit is recorded as missed (special_coverage). Program director only. */
+      log_supersede_rundown: {
+        Args: { p_rundown_id: string; p_note?: string | null };
+        Returns:
+          | { ok: true; program_id: string; air_date: string; credits_recorded: number }
+          | { error: string };
       };
       log_place_underwriting_credit: {
         Args: {

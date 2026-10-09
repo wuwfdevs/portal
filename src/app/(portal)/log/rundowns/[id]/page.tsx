@@ -17,6 +17,7 @@ import {
 } from "@/lib/log/content-library";
 import {
   getRundownDetail,
+  getRundownForProgramOnDate,
   hasOpenUnderwritingExceptions,
   listBroadcastEventsForItems,
   listClockSlotsForVersion,
@@ -55,7 +56,12 @@ import {
   networkSlotLabelAt,
 } from "@/lib/log/timing";
 import { isWrapUpVisible, listUnresolvedEntries } from "@/lib/log/submission";
-import { getAlertsView, getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
+import {
+  getAlertsView,
+  getCurrentWeatherReading,
+  getDailyOutlook,
+  getForecastPeriods,
+} from "@/lib/log/weather";
 import { WeatherAlertsPanel } from "@/components/log/weather-alerts-panel";
 import { getNprEpisodeForProgramOnDate } from "@/lib/log/npr";
 import { getFneStories } from "@/lib/log/fne";
@@ -137,6 +143,9 @@ export default async function RundownDetailPage({
   if (!rundown) notFound();
 
   const live = rundown.status === "in_progress" || rundown.status === "submitted";
+  const replacement = rundown.superseded_at
+    ? await getRundownForProgramOnDate(rundown.program_id, rundown.air_date)
+    : null;
   const allItems = rundown.breaks.flatMap((brk) => brk.items);
   const underwritingCopyIds = [
     ...new Set(
@@ -926,6 +935,27 @@ export default async function RundownDetailPage({
 
       {error && <Alert className="mb-4">{error}</Alert>}
 
+      {rundown.superseded_at && (
+        <Alert
+          variant="warning"
+          className="mb-4"
+          action={
+            replacement && (
+              <SecondaryLink href={`/log/rundowns/${replacement.id}`}>
+                Open the new rundown
+              </SecondaryLink>
+            )
+          }
+        >
+          <p className="font-bold text-warning-fg">Replaced before it aired</p>
+          <p className="mt-1">
+            The schedule gave this date a different clock, so this rundown was kept as a record and
+            a new one was built. It can&apos;t be started, edited or submitted. Any underwriting
+            credit that was placed here is in Traffic&apos;s exception queue.
+          </p>
+        </Alert>
+      )}
+
       <div className="mb-6 flex flex-wrap gap-2 text-xs text-ink-700">
         <Badge variant={summary.ready ? "success" : "warning"}>{summary.filledBreaks} filled</Badge>
         <Badge variant="muted">{summary.carryingNetworkBreaks} carrying network</Badge>
@@ -946,7 +976,7 @@ export default async function RundownDetailPage({
         )}
       </div>
 
-      {missingBreakCount > 0 && (
+      {missingBreakCount > 0 && !rundown.superseded_at && (
         <Alert variant="note" className="mb-4">
           {rundown.source === "imported" ? (
             <>

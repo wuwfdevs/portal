@@ -50,6 +50,9 @@ export async function loadDadDay(dateISO: string): Promise<DadDay> {
     supabase
       .from("log_rundowns")
       .select("id, program_id, air_date")
+      // A superseded rundown was replaced by one on another clock; its breaks
+      // must never reach the file.
+      .is("superseded_at", null)
       .in("air_date", [shiftDateISO(dateISO, -1), dateISO]),
     supabase
       .from("log_dad_exports")

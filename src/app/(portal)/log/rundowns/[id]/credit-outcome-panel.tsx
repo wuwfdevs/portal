@@ -7,7 +7,9 @@ import { pendingOutcomeByItem } from "@/lib/log/broadcast-queue";
 import type { LogMissReason } from "@/lib/database.types";
 import { useBroadcastSync } from "../../broadcast-sync";
 
-const MISS_REASON_LABEL: Record<LogMissReason, string> = {
+// The reasons a host can choose. special_coverage is recorded only when a
+// rundown is superseded by one on another clock (log_supersede_rundown).
+const MISS_REASON_LABEL: Record<Exclude<LogMissReason, "special_coverage">, string> = {
   network_timing: "Network timing",
   breaking_news: "Breaking news",
   segment_overrun: "Segment overrun",

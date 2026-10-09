@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { pageRange } from "@/lib/pagination";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
+import type { SyncRundown } from "@/lib/log/clock-sync";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
 import type { Database } from "@/lib/database.types";
 
@@ -724,18 +725,22 @@ export async function listOpportunityAssignmentsForVersion(
   });
 }
 
-/** Every rundown for a given air date — the Today screen's per-program status column. */
+/** Every live (not superseded) rundown for a given air date — the Today screen's per-program status column. */
 export async function listRundownsForDate(airDateISO: string): Promise<LogRundownRow[]> {
   const supabase = await createClient();
   return (
     unwrapRead(
-      await supabase.from("log_rundowns").select("*").eq("air_date", airDateISO),
+      await supabase
+        .from("log_rundowns")
+        .select("*")
+        .eq("air_date", airDateISO)
+        .is("superseded_at", null),
       "today's rundowns",
     ) ?? []
   );
 }
 
-/** The rundown already generated for this program on this date, if any — generation checks this first to stay idempotent. */
+/** The live (not superseded) rundown already generated for this program on this date, if any — generation checks this first to stay idempotent. */
 export async function getRundownForProgramOnDate(
   programId: string,
   airDateISO: string,
@@ -747,9 +752,70 @@ export async function getRundownForProgramOnDate(
       .select("*")
       .eq("program_id", programId)
       .eq("air_date", airDateISO)
+      .is("superseded_at", null)
       .maybeSingle(),
     "this program's rundown",
   );
+}
+
+/**
+ * A program's live (not superseded) rundowns on or after a date, each with the
+ * clock template its clock version belongs to — what lib/log/clock-sync.ts
+ * compares against the schedule to find rundowns still on an old clock.
+ */
+export async function listUpcomingRundownsWithClock(
+  programId: string,
+  fromDateISO: string,
+): Promise<SyncRundown[]> {
+  const supabase = await createClient();
+  const rundowns =
+    unwrapRead(
+      await supabase
+        .from("log_rundowns")
+        .select("*")
+        .eq("program_id", programId)
+        .gte("air_date", fromDateISO)
+        .is("superseded_at", null)
+        .order("air_date"),
+      "this program's upcoming rundowns",
+    ) ?? [];
+  if (rundowns.length === 0) return [];
+
+  const versionIds = [...new Set(rundowns.map((rundown) => rundown.clock_version_id))];
+  const versions =
+    unwrapRead(
+      await supabase
+        .from("log_clock_versions")
+        .select("id, clock_template_id")
+        .in("id", versionIds),
+      "these rundowns' clock versions",
+    ) ?? [];
+  const templateByVersion = new Map(
+    versions.map((version) => [version.id, version.clock_template_id]),
+  );
+
+  return rundowns.map((rundown) => ({
+    id: rundown.id,
+    air_date: rundown.air_date,
+    status: rundown.status,
+    source: rundown.source,
+    shift_start_at: rundown.shift_start_at,
+    shift_end_at: rundown.shift_end_at,
+    superseded_at: rundown.superseded_at,
+    clockTemplateId: templateByVersion.get(rundown.clock_version_id) ?? null,
+  }));
+}
+
+/** Which of these air dates already have a released DAD log — a rebuilt rundown on one of them changes what DAD should play. */
+export async function listDadReleasedDates(dates: string[]): Promise<Set<string>> {
+  if (dates.length === 0) return new Set();
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(
+      await supabase.from("log_dad_exports").select("air_date").in("air_date", dates),
+      "the released DAD logs",
+    ) ?? [];
+  return new Set(rows.map((row) => row.air_date));
 }
 
 export interface RundownItemDetail extends LogRundownItemRow {

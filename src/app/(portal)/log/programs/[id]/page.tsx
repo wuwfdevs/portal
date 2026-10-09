@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
@@ -31,12 +32,16 @@ import {
   getProgram,
   listClockSummaries,
   listClockTemplates,
+  listDadReleasedDates,
   listPrograms,
   listScheduleEntries,
   listScheduleEntriesForProgram,
+  listUpcomingRundownsWithClock,
 } from "@/lib/log/queries";
+import { findOutOfStepRundowns } from "@/lib/log/clock-sync";
 import { cn } from "@/lib/cn";
 import { updateProgram } from "../../program-actions";
+import { switchProgramRundowns } from "../../rundown-actions";
 
 const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 /** Mon..Sun, as the day pills and the editor lay them out. */
@@ -64,10 +69,16 @@ export default async function ProgramDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; edit?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    edit?: string;
+    switched?: string;
+    credits?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { error, saved, edit } = await searchParams;
+  const { error, saved, edit, switched, credits } = await searchParams;
   const { isProgramDirector } = await requireLogAccess();
   const today = stationTodayISO();
   const [program, entries, templates, summaries, allEntries, allPrograms] = await Promise.all([
@@ -102,6 +113,18 @@ export default async function ProgramDetailPage({
     clockTemplateName: templateNameById.get(entry.clock_template_id) ?? "Unknown clock",
   }));
   const status = deriveProgramStatus(named, today);
+
+  // Rundowns generated before a schedule change are still on the old clock.
+  const outOfStep = isProgramDirector
+    ? findOutOfStepRundowns(
+        await listUpcomingRundownsWithClock(program.id, today),
+        entries,
+        new Date().toISOString(),
+      )
+    : [];
+  const releasedDates = await listDadReleasedDates(outOfStep.map((item) => item.rundown.air_date));
+  const switchedCount = switched && /^\d{1,4}$/.test(switched) ? Number(switched) : null;
+  const creditsCount = credits && /^\d{1,4}$/.test(credits) ? Number(credits) : 0;
   const live = named.filter((entry) => entry.end_date === null || entry.end_date >= today);
   const ended = named.filter((entry) => entry.end_date !== null && entry.end_date < today);
   const placeholderEntries = live.filter((entry) =>
@@ -136,6 +159,49 @@ export default async function ProgramDetailPage({
         />
 
         {error && !editing && <Alert>{error}</Alert>}
+
+        {switchedCount !== null && (
+          <Alert variant="success">
+            {switchedCount === 0
+              ? "Every upcoming rundown already matches the schedule."
+              : `Switched ${switchedCount} rundown${switchedCount === 1 ? "" : "s"} to the schedule's clock.`}
+            {creditsCount > 0 &&
+              ` ${creditsCount} underwriting credit${creditsCount === 1 ? "" : "s"} placed on the old rundowns ${creditsCount === 1 ? "was" : "were"} sent to Traffic's exception queue to review.`}
+          </Alert>
+        )}
+
+        {outOfStep.length > 0 && (
+          <Alert
+            variant="warning"
+            className="p-5"
+            action={
+              <form action={switchProgramRundowns} className="shrink-0">
+                <input type="hidden" name="program_id" value={program.id} />
+                <Button type="submit">
+                  Switch {outOfStep.length} rundown{outOfStep.length === 1 ? "" : "s"}
+                </Button>
+              </form>
+            }
+          >
+            <p className="text-sm font-bold text-warning-fg">
+              {outOfStep.length} upcoming rundown{outOfStep.length === 1 ? " is" : "s are"} not on
+              the schedule&apos;s clock
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-700">
+              {outOfStep
+                .slice(0, 6)
+                .map((item) => formatDateShort(item.rundown.air_date, true))
+                .join(", ")}
+              {outOfStep.length > 6 ? ` and ${outOfStep.length - 6} more` : ""} were built before
+              the schedule changed. Switching keeps each old rundown as a record and builds a new
+              one on the clock now in force. Any underwriting credit already placed on an old
+              rundown goes to Traffic&apos;s exception queue to review; nothing is placed again
+              automatically.
+              {releasedDates.size > 0 &&
+                ` ${releasedDates.size} of these dates already ha${releasedDates.size === 1 ? "s" : "ve"} a released DAD log, so Traffic will need to release a new one.`}
+            </p>
+          </Alert>
+        )}
 
         {placeholderEntries.length > 0 && (
           <Alert
@@ -197,10 +263,7 @@ export default async function ProgramDetailPage({
                       formatLengthLong(entry.duration_minutes),
                       `from ${formatDateShort(entry.start_date)}`,
                     ]
-                  : [
-                      "One-time change",
-                      formatLengthLong(entry.duration_minutes),
-                    ];
+                  : ["One-time change", formatLengthLong(entry.duration_minutes)];
                 if (recurring && entry.end_date && !isEnded)
                   summaryParts.push(`to ${formatDateShort(entry.end_date)}`);
                 if (next) summaryParts.push(`next airing ${formatDateShort(next, true)}`);
