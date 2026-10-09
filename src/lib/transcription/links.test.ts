@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { projectPath, sourcePath } from "./links";
+import { piecePath, projectPath, sourcePath } from "./links";
 
 describe("projectPath", () => {
   it("is the bare project, or its excerpts view", () => {
     expect(projectPath("p1")).toBe("/sourcework/p1");
     expect(projectPath("p1", "excerpts")).toBe("/sourcework/p1?view=excerpts");
+    expect(projectPath("p1", "pieces")).toBe("/sourcework/p1?view=pieces");
+    expect(piecePath("p1", "x")).toBe("/sourcework/p1/pieces/x");
   });
 });
 

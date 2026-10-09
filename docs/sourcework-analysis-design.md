@@ -1,6 +1,6 @@
 # Sourcework Analysis — Design and Phased Plan
 
-Status: **design only, nothing built.** This is the document
+Status: **Phase D (pieces by hand) is built (2026-10-11); Phases A, B, C and E are design only.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes what that doc did not:
 background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
