@@ -419,8 +419,7 @@ autosaves after 1.5 s and never overwrites someone else's save. (3) **A block re
 excerpt by id only**, with no foreign key, so a deleted excerpt renders as a placeholder; a trim
 is the block's own `in_ms`/`out_ms` unless "Update the excerpt everywhere" is chosen, which goes
 through the existing `updateClipTrim`. (4) Only temporal excerpts can be actualities. Migrations
-`20261011120000` (schema) and `20261011130000` (Resources content) are written but **not yet
-applied** to preview or production — see `APPLIED.md`. Phase E (formats, Draft with AI, the
+`20261011120000` (schema) and `20261011130000` (Resources content) are applied to both projects. Phase E (formats, Draft with AI, the
 assistant) and the `format_version_id` column are not built.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
