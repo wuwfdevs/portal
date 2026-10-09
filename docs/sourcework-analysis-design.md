@@ -3,7 +3,7 @@
 Status: **design only, nothing built.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes two things that doc did not:
-background context gathering and deliverable generation. Read that doc's §2–§3
+background context gathering and piece generation (a finished wrap, voicer or script). Read that doc's §2–§3
 first; this one builds on its Source / Representation / Excerpt model and does
 not restate it.
 
@@ -22,8 +22,8 @@ A reporter working on a project that holds several interviews wants to:
    the story;
 4. see, across sources, what **themes** are forming, as sources keep arriving;
 5. get a short list of the best **excerpts** (actualities) for those themes;
-6. optionally turn it into a **deliverable** (a script, a voicer, a wrap) from a
-   template.
+6. optionally turn it into a **piece** (a script, a voicer, a wrap) from a
+   **format**, then edit it by hand or with the assistant.
 
 Every output of the model is a **suggestion** until a person accepts it. The
 reporter is the interpreter; the tool proposes.
@@ -58,7 +58,7 @@ These are the rules the research converged on. They decide the details below.
 5. **Rank by breadth, not repetition.** A theme's strength is how many distinct
    speakers and sources support it, shown beside the data points that complicate
    it. One source is a flag, not a verdict.
-6. **Editors own wording; code owns structure.** Prompts and templates are
+6. **Editors own wording; code owns structure.** Prompts and piece formats are
    editable language over a fixed output schema and fixed variables (§6).
 7. **Keep each step small and re-runnable.** A run is keyed to its inputs and
    prompt version, and re-running never destroys accepted or edited work.
@@ -67,9 +67,9 @@ These are the rules the research converged on. They decide the details below.
 
 ```
  research questions ─┐
-                     ├─► 1 Context ─► 2 Extract ─► 3 Themes ─► 4 Quotes ─► 5 Deliverable
+                     ├─► 1 Context ─► 2 Extract ─► 3 Themes ─► 4 Quotes ─► 5 Piece
  sources + transcripts┘     (per        (per         (per         (per         (per
-                          project)    source)      project)     theme)     template)
+                          project)    source)      project)     theme)     format)
 ```
 
 Each arrow is a button, not a background job. Steps 1–2 run when a source is
@@ -98,11 +98,11 @@ migration.
      │             └──>─< sw_themes   via sw_data_point_themes (stance)
      │
      ├──1─<── sw_themes
-     ├──1─<── sw_deliverables ──> sw_deliverable_template_versions
+     ├──1─<── sw_pieces ──> sw_piece_format_versions
      └── sw_analysis_runs (audit of every model call: kind, prompt version, counts)
 
  sw_prompt_versions   (editor-managed language per prompt slot, immutable versions)
- sw_deliverable_templates / _versions
+ sw_piece_formats / _versions
 ```
 
 ### 4.1 `sw_research_questions`
@@ -117,7 +117,7 @@ project, never in the way. `id, project_id, title, summary, url, retrieved_at,
 status ('active' | 'dismissed'), created_by`. Rules:
 
 - Gathered automatically (§5.1); no approval step.
-- Background only. It primes extraction and may be cited in a *deliverable's
+- Background only. It primes extraction and may be cited in a *piece's
   internal notes*, but is never quotable and never an excerpt.
 - A reporter can dismiss a note. Dismissed notes are not sent to later runs.
 - Deliberately not stored in `sw_sources`: that table is immutable original
@@ -186,18 +186,21 @@ excerpt table.
 Excerpts stay source-level, as today, so a quote can surface in any project that
 references the source.
 
-### 4.7 Prompts, templates, deliverables
+### 4.7 Prompts, formats, pieces
 
 - `sw_prompt_versions`: `id, slot, version, body, created_by, created_at,
   note`. Insert-only. `sw_prompt_live (slot, version_id)` is the movable pointer;
   rollback is moving it. Slots are defined in code (§6).
-- `sw_deliverable_templates` / `sw_deliverable_template_versions`: a template
-  has a name and kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and
-  immutable versions holding the section structure and style language (§5.6).
-- `sw_deliverables`: `id, project_id, template_version_id, title, body jsonb,
-  status, created_by`. `body` is an ordered list of
-  `{ type: 'narration', text }` and `{ type: 'actuality', excerpt_id }` blocks,
-  so an actuality is always a real excerpt, never retyped text.
+- `sw_piece_formats` / `sw_piece_format_versions`: a **format** has a name and
+  kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and immutable versions
+  holding the section structure and style language (§5.6).
+- `sw_pieces`: `id, project_id, format_version_id, title, status, created_by`,
+  with `sw_piece_versions (piece_id, version, body jsonb, saved_by, saved_via
+  ('person' | 'assistant' | 'generation'), created_at)`, insert-only. `body` is an
+  ordered list of `{ id, type: 'narration', text }` and
+  `{ id, type: 'actuality', excerpt_id, in_ms?, out_ms? }` blocks, so an actuality
+  is always a real excerpt, never retyped text. Every save, by a person or by the
+  assistant, is a new version; undo is restoring one.
 - `sw_analysis_runs`: one row per model run, in the spirit of
   `sw_document_processing_runs` (an audit log, not a queue):
   `id, kind, project_id, source_id, prompt_version_id, model, status, counts,
@@ -254,10 +257,23 @@ Re-running a source replaces its `suggested` data points and leaves `accepted`,
 
 ### 5.3 Review data points
 
-A source's data points appear in its workspace (a new tab or rail alongside
-excerpts), each with its spans highlighted in the transcript and playable. Accept,
-edit the claim, or reject. Suggested rows look visibly different from accepted
-ones.
+Reviewing happens in the **source workspace that already exists**, not in a new
+screen. The rail beside the transcript gets a switch at its top, **Excerpts |
+Data points**, and the choice drives both what the rail lists and which layer the
+transcript and the player's mark strip draw. Only one layer shows at a time, so
+there is no legend to learn: in Excerpts mode the transcript looks exactly as it
+does today (gold underlines); in Data points mode the evidence spans are
+underlined in the WUWF lime instead (the app's success palette, distinct from the
+gold excerpt marks and the blue playhead), a dashed underline meaning not yet
+reviewed.
+
+A data point card shows its claim, its kind and question or story element, its
+time ranges, and a play button; suggested cards have a dashed border and a
+Suggested badge with Accept, Edit and Reject. A card links to the excerpt that
+exemplifies it, so the two kinds of item stay connected without sharing a view.
+The source tab row is unchanged on desktop (Transcript · Projects). On a phone the
+existing phone-only tabs gain **Data points** beside Excerpts and Speakers, for
+the same reason those are tabs there: the rail does not fit beside the transcript.
 
 ### 5.4 Themes (per project)
 
@@ -307,24 +323,75 @@ Review is one click with the clip playing right there. Accepting turns it into a
 ordinary excerpt; rejecting hides it. A reporter can also keep making excerpts by
 hand exactly as today.
 
-### 5.6 Deliverables (optional)
+### 5.6 Pieces (optional)
 
-A template defines: a name and kind; ordered sections, each `narration` or
-`actuality` with guidance and optional count limits; a target duration; the
-number of actualities; and style language. A run takes a project's accepted
-themes and accepted excerpts (or a subset the reporter picks), the template
+A **piece** is a finished item made from a project's material: a wrap, a voicer,
+a script, a cut-and-copy. A **format** defines: a name and kind; ordered sections,
+each `narration` or `actuality` with guidance and optional count limits; a target
+duration; the number of actualities; and style language. A run takes a project's
+accepted themes and accepted excerpts (or a subset the reporter picks), the format
 version, and project-level direction (angle, audience, sensitivities).
 
 The model writes **narration only**. Actualities are placed by excerpt id, so
 quote text and audio always match the source. Length is computed in code from
 `lib/log/read-time.ts` (160 words per minute) plus excerpt durations and shown
-as "3:42 of 3:30". The deliverable is an editable document of blocks; export in
-this phase is copy as text plus the existing excerpt zip export
-(`clips.zip`). Nothing is generated from the model's memory of a transcript: the
-inputs are only data points and excerpts a person has accepted.
+as "0:52 of 1:00, 3s under". Nothing is generated from the model's memory of a
+transcript: the inputs are only data points and excerpts a person has accepted.
+
+A piece is **edited directly**. Narration blocks are inline text. An actuality
+block's wording is fixed because it is an excerpt, but it can be swapped, trimmed,
+moved or removed. **Blocks reorder** by dragging a handle or from the block's menu
+(Move up, Move down), so reordering works by keyboard and on a phone. Every save is a
+version (§4.7); History shows who saved it, a person or the assistant, and restores
+any version. Export in this phase is copy as text plus the existing excerpt zip
+export (`clips.zip`).
 
 No prior art was found for generating a script or wrap from interview audio, so
 this layer is kept deliberately small.
+
+### 5.7 Assistant editing
+
+AI help with a piece is the assistant that already exists
+(`src/components/agent-chat-widget.tsx`, `lib/agent/chat.ts`), not a new surface.
+Reading the code, three things are needed:
+
+1. **Page context.** The assistant's instructions and tool set are global today; the
+   widget reads the path only to move its bubble. It sends the current route and,
+   on a piece, the piece id with each request, and the panel shows "Working in:
+   <piece title>". Without this, "tighten the setup" has no object.
+2. **Piece capabilities** (`lib/sourcework/piece-capabilities.ts`, registered in
+   `lib/capabilities/registry.ts`, key `transcription`): read a piece; replace a
+   narration block's text; insert, remove and **reorder** blocks; place or swap an
+   actuality **by excerpt id**; search excerpts (reusing `sourcework.project.search`);
+   and **create a piece from a format** for a project. Edits need no confirmation
+   step, because every one writes a version and is undoable, which differs from
+   `log.rundownItem.recordOutcome`; each call is still audited as `mcp.*`. An
+   actuality is placed by id only, so the assistant cannot alter quote text, and
+   length is reported from the same code the screen uses, not estimated by the model.
+3. **A refresh after a write.** The chat stream surfaces only reply text, so a tool
+   write never reaches the open page. When a turn that called a write capability
+   finishes, the widget refreshes the route. Blocks the assistant changed carry an
+   "Edited by the assistant · Undo" marker until the next person edit.
+
+### 5.8 Where each step lives
+
+How this fits the screens that exist, from the reporter's and editor's work:
+
+| Moment | Where |
+|---|---|
+| Set up | Project header: title, background, and a compact **Research questions** card (edit, with a link to the background notes). A project without questions behaves as it does today. |
+| Add and extract | **Sources** tab. Source cards gain an extraction line ("12 data points · 3 to review"); a `BatchRunPanel` shows progress. Extraction is a status on the source, not a destination. |
+| Review per source | Source workspace, **Data points** mode (§5.3). |
+| See what is emerging | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does. |
+| Go deep on one theme | **Theme page** (§5.4), then **Suggested quotes** (§5.5). |
+| Make something | **Pieces** tab and the piece editor (§5.6, §5.7). |
+| Maintain the language | **Editors** page (prompts and piece formats), reached from Sourcework's setup, editors only (§6). |
+
+The project tab row becomes Sources · Themes · Excerpts · Pieces (`TabNav`; the
+Themes tab appears once a project has research questions or any data point). The
+projects list's "needs attention" filter also counts data points and suggested
+themes awaiting a decision. The tab and switch names are working names;
+the canvas that goes with this doc is the reference for the screens.
 
 ## 6. Prompts and who edits them
 
@@ -336,7 +403,7 @@ Slots (defined in code, each with a fixed output schema and variable list):
 | `extraction` | what counts as responsive and as each story element; how to phrase precision | output schema, categories, range format |
 | `theme_assign` / `theme_review` | how a theme definition should read | schema, stance values, statuses |
 | `quote_quality` | the definition of a good actuality | range schema, tiers |
-| deliverable templates | sections, length, style | block schema |
+| piece formats | sections, length, style | block schema, excerpt placement by id |
 
 Rules, borrowed from prompt-management tools:
 
@@ -351,7 +418,7 @@ Rules, borrowed from prompt-management tools:
 
 Access: a `tool_roles` grant carrying `editor` on the `transcription` tool
 (the stacking-roles mechanism, `docs/broadcast-roles.md`) edits prompts and
-templates. Everyone with tool access can run steps, review, and accept. See §10
+piece formats. Everyone with tool access can run steps, review, and accept. See §10
 for the one open access question.
 
 ## 7. Operations and constraints
@@ -379,7 +446,7 @@ Each phase ships usable value and its own migration, applied through
 | **A. Questions, context, data points** | Research questions on the project; Background list; extraction run per source; review UI; spans playable in the transcript and PDF viewer | `sw_research_questions`, `sw_context_notes`, `sw_data_points`, `sw_data_point_spans`, `sw_analysis_runs`, `sw_prompt_versions` (extraction + context only), editor role |
 | **B. Themes** | Assignment, Review themes, theme page with breadth numbers, memos | `sw_themes`, `sw_data_point_themes`, embeddings |
 | **C. Suggested quotes** | Quote selection per theme; suggested excerpts with a why-line; review | `sw_data_point_excerpts`, two excerpt columns, `quote_quality` slot |
-| **D. Deliverables** | Templates (editor-managed), generation, length check, copy/export | `sw_deliverable_*` |
+| **D. Pieces** | Formats (editor-managed), generation, hand editing with block reordering, versions, assistant editing and creation, length check, copy/export | `sw_piece_formats`, `sw_pieces`, `sw_piece_versions`, piece capabilities, assistant page context (§5.7) |
 
 Not scheduled: meta-themes (the `parent_theme_id` column exists), cross-project
 themes, a keyword-in-context view over all sources (the hybrid search already
@@ -444,11 +511,11 @@ patterns.
 
 1. **Who may edit an accepted theme's definition?** Recommendation: anyone with
    tool access edits their project's themes; only `editor`s edit prompts and
-   templates.
+   piece formats.
 2. **Extraction trigger**: a click per source, or automatically when a
    transcript completes? Recommendation: a click, since there is no queue and
    cost should be a choice. Revisit once the accept rate is known.
-3. **Is web context ever citable in a deliverable?** Recommendation: background
+3. **Is web context ever citable in a piece?** Recommendation: background
    only, per §4.2.
 4. **Excerpt scope**: suggested excerpts attach to the source (so they surface in
    any project using it), as all excerpts do today. Confirm this is wanted.
@@ -458,3 +525,17 @@ patterns.
 6. **ASR confidence and audio-quality inputs** to quote selection depend on what
    the transcription provider returns; Phase C scopes what is actually
    available before promising it.
+
+## 11. Decisions taken in review (2026-10-09)
+
+- The unit is a **piece** made from a **format**; "deliverable" and "template" are
+  retired as names.
+- Pieces are editable by hand, **blocks reorder**, and AI help is the existing
+  assistant, which may also **create** a piece from a format on request.
+- Data points and excerpts share the source workspace through a switch at the top
+  of the rail; one layer is drawn at a time. There is no separate Data points tab.
+- Research questions live in the project header, extraction is a status on source
+  cards, and a **Themes** tab is the cross-source place to work.
+- The screens use the app's existing components and tokens (TabNav, Segmented,
+  FilterChips, Table, Badge, ClipCard-style cards, ActionMenu, BatchRunPanel,
+  PlayerBar, SegmentRow); the one new visual is the lime evidence underline.
