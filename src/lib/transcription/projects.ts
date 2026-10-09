@@ -5,6 +5,7 @@ import { parseWords } from "@/lib/transcription/transcript";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database, SwSourceKind } from "@/lib/database.types";
 import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
@@ -599,9 +600,12 @@ export async function listProjectsPage(options: {
     .order("last_activity", { ascending: false })
     .order("id")
     .range(from, to);
-  const data = unwrapRead(result, "the project list") ?? [];
+  const { rows: data, total } = await readPage(result, "the project list", async () => {
+    const counts = await countProjectFilters(options.userId);
+    return counts[options.filter];
+  });
   return {
-    total: result.count ?? data.length,
+    total,
     rows: data.map((row) => ({
       id: row.id,
       title: row.title,

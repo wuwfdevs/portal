@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 import { anyWordQuery, articleHref } from "./articles";
 import { embedSearchQuery } from "./embeddings";
@@ -78,13 +79,7 @@ export async function listProcedures(options: {
     .eq("kind", "procedure");
   if (options.area) query = query.eq("area", options.area);
   const result = await query.order("title").order("id").range(from, to);
-  // Past the end, PostgREST answers 416 (PGRST103) rather than an empty page;
-  // report no rows and let the screen redirect to the last page.
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countProcedures(options.area) };
-  }
-  const rows = unwrapRead(result, "procedures");
-  return { rows: rows ?? [], total: result.count ?? 0 };
+  return readPage(result, "procedures", () => countProcedures(options.area));
 }
 
 /** How many procedures the viewer can read, in total or in one area. */

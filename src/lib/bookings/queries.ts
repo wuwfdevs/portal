@@ -9,6 +9,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import type { Database } from "@/lib/database.types";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 import { stationTodayISO } from "@/lib/log/timezone";
 import {
@@ -429,13 +430,12 @@ export async function listProjectsPage(options: {
   }
   if (options.q) query = query.ilike("title", `%${options.q.replace(/[%_]/g, "")}%`);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countProjects(options.view, options.q) };
-  }
-  const rows = unwrapRead(result, "requests") ?? [];
+  const { rows, total } = await readPage(result, "requests", () =>
+    countProjects(options.view, options.q),
+  );
   return {
     rows: withPartners(rows, await partnersById(rows.map((row) => row.partner_id))),
-    total: result.count ?? 0,
+    total,
   };
 }
 
@@ -715,11 +715,10 @@ export async function listPartnersPage(options: {
   }
   if (options.q) query = query.ilike("name", `%${escapeLike(options.q)}%`);
   const result = await query.order("name").order("id").range(from, to);
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countPartners(options.view, options.q) };
-  }
-  const rows = unwrapRead(result, "partners") ?? [];
-  if (rows.length === 0) return { rows: [], total: result.count ?? 0 };
+  const { rows, total } = await readPage(result, "partners", () =>
+    countPartners(options.view, options.q),
+  );
+  if (rows.length === 0) return { rows: [], total };
   const ids = rows.map((row) => row.id);
   const [agreements, projects] = await Promise.all([
     supabase.from("bk_agreements").select("partner_id, status").in("partner_id", ids),
@@ -742,7 +741,7 @@ export async function listPartnersPage(options: {
       ).length,
       open_project_count: projectRows.filter((p) => p.partner_id === row.id).length,
     })),
-    total: result.count ?? 0,
+    total,
   };
 }
 

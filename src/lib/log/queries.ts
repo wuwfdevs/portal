@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import type { SyncRundown } from "@/lib/log/clock-sync";
@@ -416,13 +417,9 @@ export async function listContentLibraryPage(
   const searchFilter = contentSearchFilter(filters.search);
   if (searchFilter) query = query.or(searchFilter);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
-  // Past the end, PostgREST answers 416 (PGRST103) rather than an empty page;
-  // report no rows and let the screen redirect to the last page.
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countContentItems(filters) };
-  }
-  const items = unwrapRead(result, "the content library") ?? [];
-  const total = result.count ?? 0;
+  const { rows: items, total } = await readPage(result, "the content library", () =>
+    countContentItems(filters),
+  );
   if (items.length === 0) return { rows: [], total };
 
   const components =

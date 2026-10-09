@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 import type { Database } from "@/lib/database.types";
 import type { OnAirChange, WeeklyAutomatedWindow } from "./automated-hours";
@@ -91,8 +92,11 @@ export async function listOnAirChanges(
     scope === "upcoming"
       ? query.gt("ends_at", nowISO).order("starts_at", { ascending: true })
       : query.lte("ends_at", nowISO).order("starts_at", { ascending: false });
-  const result = await query.range(from, to);
-  return { rows: unwrapRead(result, "the one-time changes") ?? [], total: result.count ?? 0 };
+  const result = await query.order("id").range(from, to);
+  return readPage(result, "the one-time changes", async () => {
+    const counts = await countOnAirChanges(nowISO);
+    return counts[scope];
+  });
 }
 
 /** How many active changes are upcoming and past — the filter chips' counts. */
