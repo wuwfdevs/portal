@@ -22,10 +22,12 @@ export function WaitingRoom({
   participantId: string;
   displayName: string;
 }) {
-  // One read at a time, paused while the tab is hidden; the page is refreshed
-  // only once the host has admitted (or removed) this guest.
+  // One read at a time; the page is refreshed only once the host has admitted (or removed) this
+  // guest. Keeps polling in a hidden tab: a guest who switches away while waiting should still
+  // be let in (the browser throttles background timers, but it does not stop them).
   usePoller({
     intervalMs: POLL_INTERVAL_MS,
+    pauseWhenHidden: false,
     task: async () => {
       const { data, error } = await createClient()
         .from("ri_participants")

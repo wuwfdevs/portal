@@ -80,4 +80,32 @@ describe("useOptimisticList", () => {
     view.rerender([{ id: "a", col: "server" }]);
     expect(api.current.items).toEqual([{ id: "a", col: "server" }]);
   });
+
+  it("rolls two failed moves of one card back to what the server last accepted", async () => {
+    mount(rows());
+    const toB = deferred();
+    const toC = deferred();
+    act(() => {
+      api.current.apply("a", { col: "B" }, () => toB.promise);
+      api.current.apply("a", { col: "C" }, () => toC.promise);
+    });
+    expect(api.current.items[0]?.col).toBe("C");
+    await act(async () => toB.resolve({ ok: false, error: "first refused" }));
+    await act(async () => toC.resolve({ ok: false, error: "second refused" }));
+    // Not "B": the server never accepted it.
+    expect(api.current.items[0]?.col).toBe("x");
+  });
+
+  it("falls back to the earlier accepted move when only the later one fails", async () => {
+    mount(rows());
+    const toB = deferred();
+    const toC = deferred();
+    act(() => {
+      api.current.apply("a", { col: "B" }, () => toB.promise);
+      api.current.apply("a", { col: "C" }, () => toC.promise);
+    });
+    await act(async () => toB.resolve({ ok: true }));
+    await act(async () => toC.resolve({ ok: false, error: "refused" }));
+    expect(api.current.items[0]?.col).toBe("B");
+  });
 });

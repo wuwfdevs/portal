@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-import { useInterval, usePoller } from "./use-poller";
+import { STALLED_TASK_MS, useInterval, usePoller } from "./use-poller";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -92,5 +92,78 @@ describe("useInterval", () => {
     expect(a).not.toHaveBeenCalled();
     expect(b).toHaveBeenCalledTimes(2);
     act(() => root.unmount());
+  });
+});
+
+function setVisibility(state: "visible" | "hidden") {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+function Configured(props: Parameters<typeof usePoller>[0]) {
+  usePoller(props);
+  return null;
+}
+
+describe("usePoller options", () => {
+  afterEach(() => setVisibility("visible"));
+
+  it("skips ticks while the tab is hidden and catches up when it returns", () => {
+    const unmount = mount(<Configured intervalMs={1000} />);
+    setVisibility("hidden");
+    act(() => vi.advanceTimersByTime(3000));
+    expect(refresh).not.toHaveBeenCalled();
+    setVisibility("visible");
+    expect(refresh).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it("keeps polling in a hidden tab when pauseWhenHidden is false", () => {
+    const unmount = mount(<Configured intervalMs={1000} pauseWhenHidden={false} />);
+    setVisibility("hidden");
+    act(() => vi.advanceTimersByTime(2000));
+    expect(refresh).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
+  it("runs once at the start when immediate", () => {
+    const unmount = mount(<Configured intervalMs={1000} immediate />);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it("does nothing while disabled", () => {
+    const unmount = mount(<Configured intervalMs={1000} enabled={false} immediate />);
+    act(() => vi.advanceTimersByTime(3000));
+    expect(refresh).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("skips a tick when shouldSkip says so", () => {
+    const unmount = mount(<Configured intervalMs={1000} shouldSkip={() => true} />);
+    act(() => vi.advanceTimersByTime(3000));
+    expect(refresh).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("stops ticking after unmount", () => {
+    const unmount = mount(<Configured intervalMs={1000} />);
+    unmount();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not stay blocked behind a task that never settles", async () => {
+    let calls = 0;
+    const hung = () => {
+      calls += 1;
+      return new Promise<boolean>(() => {});
+    };
+    const unmount = mount(<Configured intervalMs={1000} task={hung} />);
+    await act(async () => vi.advanceTimersByTime(STALLED_TASK_MS - 1000));
+    expect(calls).toBe(1);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(calls).toBeGreaterThan(1);
+    unmount();
   });
 });

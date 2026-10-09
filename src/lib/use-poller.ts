@@ -20,6 +20,9 @@ export function useInterval(fn: () => void, ms: number | null) {
   }, [ms]);
 }
 
+/** How long a polled task may run before the next tick treats it as lost. */
+export const STALLED_TASK_MS = 15_000;
+
 /**
  * Re-render the current server page on an interval: the portal has no push
  * channel, so a screen waiting on something (a transcript, a waiting-room
@@ -29,7 +32,9 @@ export function useInterval(fn: () => void, ms: number | null) {
  * still running, so a slow request never stacks up. Pauses while the tab is
  * hidden (`pauseWhenHidden`) and while `enabled` is false; it runs once when the
  * tab becomes visible again, and once at the start when `immediate`.
- * `shouldSkip` skips a tick without running anything.
+ * `shouldSkip` skips a tick without running anything. A task still running
+ * after `STALLED_TASK_MS` (a request that never settles on a bad connection) is
+ * treated as lost, so the poll can't stay blocked until the page is reloaded.
  */
 export function usePoller({
   intervalMs,
@@ -58,7 +63,7 @@ export function usePoller({
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    let running = false;
+    let runningSince: number | null = null;
 
     const tick = async () => {
       if (pauseWhenHidden && document.visibilityState === "hidden") return;
@@ -68,15 +73,21 @@ export function usePoller({
         router.refresh();
         return;
       }
-      if (running) return;
-      running = true;
+      const startedAt = Date.now();
+      if (
+        runningSince !== null &&
+        startedAt - runningSince < Math.max(STALLED_TASK_MS, intervalMs * 3)
+      ) {
+        return;
+      }
+      runningSince = startedAt;
       try {
         const refresh = await run();
-        if (!cancelled && refresh === true) router.refresh();
+        if (!cancelled && runningSince === startedAt && refresh === true) router.refresh();
       } catch {
         // A failed tick (offline, a refused read) is retried on the next one.
       } finally {
-        running = false;
+        if (runningSince === startedAt) runningSince = null;
       }
     };
 
