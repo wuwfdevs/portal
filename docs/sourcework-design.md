@@ -148,6 +148,8 @@ explicitly **deferred**, not part of 3b; it remains a future transformation
 on any text-kind representation (transcript or document_text), unpicked and
 unscoped, same as before.
 
+**Phases 4–5: designed in `docs/sourcework-analysis-design.md` (2026-10-09), not built.** The paragraphs below are the original scoping.
+
 **Phase 4 (not started)** — `sw_source_excerpts` gains company: `research_
 questions` (project-scoped), `sw_data_points`, `sw_data_point_excerpts` as a
 many-to-many join.
