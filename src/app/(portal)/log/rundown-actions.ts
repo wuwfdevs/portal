@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { field, optionalInt } from "@/lib/form-fields";
 import { assertLogAccess, assertProgramDirector } from "@/lib/log/access";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { resolveEntryInForce } from "@/lib/log/schedule";
 import { findOutOfStepRundowns } from "@/lib/log/clock-sync";
@@ -39,10 +40,6 @@ import {
 } from "@/lib/log/queries";
 import type { LogScheduleRow } from "@/lib/log/queries";
 import type { LogContentType } from "@/lib/database.types";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 function rundownPath(id: string): string {
   return `/log/rundowns/${id}`;
@@ -462,7 +459,7 @@ export async function fillRundownItem(formData: FormData): Promise<void> {
   }
 
   const result = await invokeCapability(buildRundownItem, { breakId, contentItemId });
-  if (!result.ok) failWith(path, result.message);
+  if (!result.ok) failWith(path, result.error);
 
   const placeError = await placeNewItemAtPosition(supabase, breakId, beforeItemId, result.itemId);
   if (placeError) failWith(path, placeError);
@@ -727,12 +724,16 @@ export async function removeRundownItem(formData: FormData): Promise<void> {
     failIfError(error, path, "Could not remove this credit");
     if (data && typeof data === "object" && "error" in data) failWith(path, data.error);
   } else {
-    const { error } = await supabase
-      .from("log_rundown_items")
-      .delete()
-      .eq("id", itemId)
-      .neq("item_kind", "underwriting_credit");
-    failIfError(error, path, "Could not remove this item");
+    await deleteOrFail(
+      supabase
+        .from("log_rundown_items")
+        .delete()
+        .eq("id", itemId)
+        .neq("item_kind", "underwriting_credit")
+        .select("id"),
+      path,
+      "Could not remove this item",
+    );
   }
 
   revalidatePath(path);
@@ -751,19 +752,12 @@ export async function updateItemOverrides(formData: FormData): Promise<void> {
   const itemId = field(formData, "item_id");
   const path = rundownPath(rundownId);
 
-  const parseOptionalInt = (name: string): number | null => {
-    const raw = field(formData, name);
-    if (raw === "") return null;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
   const overrideScript = field(formData, "override_script");
   const overrideNotes = field(formData, "override_notes");
-  const overrideDurationSeconds = parseOptionalInt("override_duration_seconds");
-  const overrideLiveIntroSeconds = parseOptionalInt("override_live_intro_seconds");
-  const overrideLiveOutroSeconds = parseOptionalInt("override_live_outro_seconds");
-  const overrideTagSeconds = parseOptionalInt("override_tag_seconds");
+  const overrideDurationSeconds = optionalInt(formData, "override_duration_seconds");
+  const overrideLiveIntroSeconds = optionalInt(formData, "override_live_intro_seconds");
+  const overrideLiveOutroSeconds = optionalInt(formData, "override_live_outro_seconds");
+  const overrideTagSeconds = optionalInt(formData, "override_tag_seconds");
 
   const supabase = await createClient();
   const { data: item, error: itemError } = await supabase

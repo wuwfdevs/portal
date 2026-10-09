@@ -1,3 +1,4 @@
+import { pluralize } from "@/lib/format";
 import { SegmentedLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -31,13 +32,13 @@ import { automatedSegments, stationLocalParts } from "@/lib/log/automated-hours"
 import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import { closedSegments } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
+import { isValidDateISO } from "@/lib/dates";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import {
-  airTimeToMinutes,
   describeEntryDays,
   formatTimeRange,
   formatWeekRange,
-  isValidDateISO,
   layoutDayBlocks,
   shadingBands,
   visibleHourRange,
@@ -336,7 +337,7 @@ export default async function ProgramsPage({
                               </Link>
                               <span className="text-xs text-ink-500">
                                 {placeholder
-                                  ? `Shared by ${sharedBy} ${sharedBy === 1 ? "program" : "programs"}`
+                                  ? `Shared by ${pluralize(sharedBy, "program")}`
                                   : summary?.current
                                     ? `Version in effect since ${formatDateShort(summary.current.effective_from)}${
                                         summary.versionCount > 1
@@ -433,14 +434,13 @@ async function WeekView({
   ]);
 
   const dayEntries = dates.map((dateISO) =>
-    entriesInForceOn(entries, dateISO)
-      .map((entry) => ({
-        entry,
-        dateISO,
-        id: `${entry.id}:${dateISO}`,
-        startMinutes: airTimeToMinutes(entry.air_time),
-        durationMinutes: entry.duration_minutes,
-      })),
+    entriesInForceOn(entries, dateISO).map((entry) => ({
+      entry,
+      dateISO,
+      id: `${entry.id}:${dateISO}`,
+      startMinutes: parseTimeToMinutes(entry.air_time),
+      durationMinutes: entry.duration_minutes,
+    })),
   );
   const { startHour, endHour } = visibleHourRange(dayEntries.flat());
 

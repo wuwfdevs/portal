@@ -9,6 +9,7 @@
 // summary, and the real script is frequently on the PRX item page. Nothing here
 // guesses at one.
 
+import { truncate } from "@/lib/text";
 import type { FneItem } from "./providers/fne-response";
 
 export const NEW_CONTENT_ITEM_PATH = "/log/library/new";
@@ -25,10 +26,7 @@ export interface ContentItemPrefill {
 export function buildFnePrefill(
   item: Pick<FneItem, "title" | "holdNote" | "description" | "link">,
 ): ContentItemPrefill {
-  const description =
-    item.description.length > DESCRIPTION_MAX
-      ? `${item.description.slice(0, DESCRIPTION_MAX - 1)}…`
-      : item.description;
+  const description = truncate(item.description, DESCRIPTION_MAX);
   const parts = [
     item.holdNote ? `Hold note from the feed: ${item.holdNote}.` : null,
     description || null,

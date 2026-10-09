@@ -1,5 +1,6 @@
 "use server";
 
+import { field } from "@/lib/form-fields";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { assertLogAccess } from "@/lib/log/access";
@@ -11,8 +12,8 @@ const PATH = "/log/sources/npr";
 /** Manual "Refresh" button on the NPR source page — any member, same as reading it (Workflow D, docs/log-design.md §3). */
 export async function refreshNprEpisodeAction(formData: FormData): Promise<void> {
   await assertLogAccess();
-  const programId = String(formData.get("program_id") ?? "").trim();
-  const showDate = String(formData.get("show_date") ?? "").trim();
+  const programId = field(formData, "program_id");
+  const showDate = field(formData, "show_date");
   if (programId === "" || showDate === "") failWith(PATH, "Choose a program and a date first.");
   const path = `${PATH}?program=${programId}&date=${showDate}`;
 

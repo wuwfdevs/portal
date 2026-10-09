@@ -1,9 +1,8 @@
 import Link from "next/link";
+import { isValidDateISO } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatStationDateLong } from "@/lib/log/timezone";
 import { ImportClient } from "./import-client";
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 // Program-log import (see docs/log-design.md's "Importing the daily program
 // log"): upload the station's traffic-system daily log as a PDF, preview
@@ -19,7 +18,7 @@ export default async function ImportPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const { date } = await searchParams;
-  const fromDate = date && DATE_ONLY.test(date) ? date : null;
+  const fromDate = isValidDateISO(date) ? date : null;
   return (
     <div className="max-w-3xl">
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-500">

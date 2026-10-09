@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
+import { isValidDateISO } from "@/lib/dates";
 import { formatClock } from "@/lib/format";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
@@ -29,7 +30,6 @@ import { SourceHeader } from "../source-header";
 // NPR is allowed to be 15 minutes old (lib/log/staleness.ts); this only needs to
 // re-run that check often enough to notice — see log-poller.tsx.
 const POLL_INTERVAL_MS = 5 * 60_000;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function NprPage({
   searchParams,
@@ -56,7 +56,7 @@ export default async function NprPage({
 
   const matchedProgram = programs.find((program) => program.id === programParam);
   const selectedProgram = matchedProgram ?? programs[0]!;
-  const selectedDate = dateParam && DATE_ONLY.test(dateParam) ? dateParam : stationTodayISO();
+  const selectedDate = isValidDateISO(dateParam) ? dateParam : stationTodayISO();
 
   const result = await getNprEpisodeForProgramOnDate(selectedProgram.id, selectedDate);
   const canRefresh =

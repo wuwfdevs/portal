@@ -3,11 +3,16 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { field } from "@/lib/form-fields";
 import { assertProgramDirector } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
-import { overlapMessage, parseChangeForm, parseWeeklyWindowForm } from "@/lib/log/hour-window-form";
-import { isValidDateISO } from "@/lib/log/week-layout";
+import {
+  hoursPagePath,
+  overlapMessage,
+  parseChangeForm,
+  parseWeeklyWindowForm,
+} from "@/lib/log/hour-window-form";
 import type { LogUnderwritingHoursMode } from "@/lib/database.types";
 
 /**
@@ -23,20 +28,8 @@ import type { LogUnderwritingHoursMode } from "@/lib/database.types";
 const BASE_PATH = "/log/underwriting-hours";
 const MODES: readonly LogUnderwritingHoursMode[] = ["closed", "open"];
 
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-/** Where to land: the page with its view and date kept, plus any card to reopen on error. */
 function pathFrom(formData: FormData, extra: Record<string, string> = {}): string {
-  const params = new URLSearchParams();
-  const view = field(formData, "view");
-  if (view === "month") params.set("view", "month");
-  const date = field(formData, "date");
-  if (isValidDateISO(date)) params.set("date", date);
-  for (const [key, value] of Object.entries(extra)) params.set(key, value);
-  const query = params.toString();
-  return query ? `${BASE_PATH}?${query}` : BASE_PATH;
+  return hoursPagePath(BASE_PATH, formData, extra);
 }
 
 function done(formData: FormData): never {

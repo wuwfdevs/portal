@@ -5,6 +5,7 @@
 // gates by weekday, so an empty list, or an override entry, covers
 // every day in its date range.
 
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 export interface OverlapCandidate {
@@ -47,11 +48,6 @@ export function effectiveDays(
   return [0, 1, 2, 3, 4, 5, 6];
 }
 
-function minutesOfDay(airTime: string): number {
-  const [h, m] = airTime.split(":");
-  return Number(h) * 60 + Number(m);
-}
-
 function dateRangesOverlap(a: OverlapCandidate, b: OverlapCandidate): boolean {
   if (a.end_date && a.end_date < b.start_date) return false;
   if (b.end_date && b.end_date < a.start_date) return false;
@@ -70,14 +66,14 @@ export function findScheduleOverlaps(
 ): ScheduleOverlap[] {
   if (!(candidate.duration_minutes > 0)) return [];
   const candidateDays = effectiveDays(candidate);
-  const candidateStart = minutesOfDay(candidate.air_time);
+  const candidateStart = parseTimeToMinutes(candidate.air_time);
   const result: ScheduleOverlap[] = [];
 
   for (const other of others) {
     if (candidate.id && other.id === candidate.id) continue;
     if (!(other.duration_minutes > 0)) continue;
     if (!dateRangesOverlap(candidate, other)) continue;
-    const otherStart = minutesOfDay(other.air_time);
+    const otherStart = parseTimeToMinutes(other.air_time);
     const otherDays = effectiveDays(other);
     const days: number[] = [];
 

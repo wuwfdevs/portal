@@ -1,3 +1,4 @@
+import { getDisplayNames } from "@/lib/profile-names";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
@@ -27,9 +28,7 @@ import {
   shiftDateISO,
   stationTodayISO,
 } from "@/lib/log/timezone";
-import { isValidDateISO } from "@/lib/log/week-layout";
-import { createClient } from "@/lib/supabase/server";
-import { unwrapRead } from "@/lib/read-result";
+import { isValidDateISO } from "@/lib/dates";
 import { releaseDadLog } from "./actions";
 
 const NAV_LINK =
@@ -58,7 +57,7 @@ export default async function DadLogPage({
   const latest = day.releases[0] ?? null;
   const current = isReleaseCurrent(day);
   const nextVersion = (latest?.version ?? 0) + 1;
-  const releaserNames = await namesFor(day.releases.map((release) => release.released_by));
+  const releaserNames = await getDisplayNames(day.releases.map((release) => release.released_by));
 
   const href = (extra: Record<string, string>) =>
     `/log/dad-log?${new URLSearchParams({ date, ...extra }).toString()}`;
@@ -249,18 +248,6 @@ export default async function DadLogPage({
       </div>
     </div>
   );
-}
-
-async function namesFor(ids: string[]): Promise<Map<string, string>> {
-  const unique = [...new Set(ids)];
-  if (unique.length === 0) return new Map();
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase.from("profiles").select("id, display_name").in("id", unique),
-      "who released the DAD log",
-    ) ?? [];
-  return new Map(rows.map((row) => [row.id, row.display_name]));
 }
 
 function IssueList({

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { field, optionalField, optionalInt } from "@/lib/form-fields";
 import { assertCanPinContent, assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
@@ -30,19 +31,10 @@ function templatePath(id: string): string {
  * plain query string of ids is ignored.
  */
 function returnPath(formData: FormData, templateId: string): string {
-  const query = String(formData.get("return_query") ?? "").trim();
+  const query = field(formData, "return_query");
   return /^[A-Za-z0-9_=&.-]{1,400}$/.test(query)
     ? `${templatePath(templateId)}?${query}`
     : templatePath(templateId);
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
 }
 
 export async function createClockTemplate(formData: FormData): Promise<void> {
@@ -136,8 +128,7 @@ export async function addClockSlot(formData: FormData): Promise<void> {
   const timingMode = field(formData, "timing_mode") as LogSlotTimingMode;
   if (!TIMING_MODES.includes(timingMode)) failWith(path, "That is not a recognized timing mode.");
 
-  const startOffsetRaw = optionalField(formData, "start_offset_seconds");
-  const startOffsetSeconds = startOffsetRaw === null ? null : Number.parseInt(startOffsetRaw, 10);
+  const startOffsetSeconds = optionalInt(formData, "start_offset_seconds");
 
   const supabase = await createClient();
   const { error } = await supabase.from("log_clock_slots").insert({

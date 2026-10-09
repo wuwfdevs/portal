@@ -5,6 +5,7 @@
 // multi-hour program airs, but pinned content can differ by hour), and floating
 // breaks. Keeping the model here means the two views can't drift.
 
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { categorizeSlot } from "@/lib/log/clock-face";
 import type { LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
 
@@ -279,8 +280,7 @@ export function shiftTimeOfDay(
   hourIndex: number,
   offsetSeconds: number,
 ): string {
-  const [hourText, minuteText] = startTime.split(":");
-  const startMinutes = Number(hourText) * 60 + Number(minuteText);
+  const startMinutes = parseTimeToMinutes(startTime);
   const total = startMinutes + hourIndex * 60 + Math.floor(offsetSeconds / 60);
   const wrapped = ((total % 1440) + 1440) % 1440;
   const hour = Math.floor(wrapped / 60);

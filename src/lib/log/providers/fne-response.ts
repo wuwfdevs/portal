@@ -13,6 +13,8 @@
 // There is no XML dependency in this repo and the feed is flat, so this reads
 // it with small tag scans rather than a general parser.
 
+import { collapseWhitespace } from "@/lib/text";
+
 export interface FneItem {
   /** The feed's own guid (the PRX item URL) — the stable id. */
   guid: string;
@@ -107,7 +109,7 @@ export function parseFneTitle(rawTitle: string): {
   kind: FneItemKind;
   holdNote: string | null;
 } {
-  let title = rawTitle.replace(/\s+/g, " ").trim();
+  let title = collapseWhitespace(rawTitle);
   let kind: FneItemKind = "other";
   let holdNote: string | null = null;
 

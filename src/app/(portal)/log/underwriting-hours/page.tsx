@@ -42,7 +42,7 @@ import {
 import { formatDaysOfWeek } from "@/lib/log/program-status";
 import { listScheduleEntries, type ScheduleEntryWithNames } from "@/lib/log/queries";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
-import { isValidDateISO } from "@/lib/log/week-layout";
+import { isValidDateISO } from "@/lib/dates";
 import { isPastLastPage, pageHref, pageInfo, parsePage } from "@/lib/pagination";
 import { ScheduleTabs } from "../schedule-tabs";
 import {

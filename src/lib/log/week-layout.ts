@@ -6,6 +6,7 @@
 import { computeEndTime, formatAirTime } from "@/lib/log/schedule";
 import { formatDaysOfWeek } from "@/lib/log/program-status";
 import { isValidDateISO, weekStartISO } from "@/lib/dates";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { shiftDateISO } from "@/lib/log/timezone";
 
 export const DEFAULT_START_HOUR = 5;
@@ -54,11 +55,7 @@ export function formatWeekRange(mondayISO: string): string {
   return `${part(mondayISO)}, ${startYear} – ${part(sundayISO)}, ${endYear}`;
 }
 
-/** Minutes after midnight for a `time` column value ("HH:MM:SS"). */
-export function airTimeToMinutes(airTime: string): number {
-  const [hour, minute] = airTime.split(":");
-  return Number(hour) * 60 + Number(minute);
-}
+export const airTimeToMinutes = parseTimeToMinutes;
 
 /** "7:00 – 9:00 AM", or "11:00 AM – 1:00 PM" when the period changes. */
 export function formatTimeRange(airTime: string, durationMinutes: number): string {
