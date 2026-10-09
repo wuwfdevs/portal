@@ -5,10 +5,16 @@
 // SQL twin: a block nobody attached by its release deadline reads as released
 // at query time, with no scheduled job. Keep the two in step.
 
+import { isValidDateISO } from "@/lib/dates";
+import { isValidEmail } from "@/lib/validation";
 import type { BadgeVariant } from "@/components/ui/badge";
 import { defineStatusMap } from "@/components/ui/status-badge";
 import type { BkAgreementStatus, BkPricingTreatment } from "@/lib/database.types";
+import { pluralize } from "@/lib/format";
+import { clamp } from "@/lib/math";
+import { trimToNull } from "@/lib/validation";
 import { shiftDateISO } from "@/lib/log/timezone";
+import { roundCents } from "@/lib/money";
 import { commitmentMinutesPerWeek, type CommitmentLike } from "./airtime";
 import type { LaborClassFlag } from "./pricing";
 import type { BookingsRole } from "./roles";
@@ -174,18 +180,14 @@ export interface AgreementConsumption {
   blocks: Record<ReservedBlockState, number> & { total: number; pastBookingDeadline: number };
 }
 
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 function gauge(allowed: number, used: number): Gauge {
-  const a = round2(Number(allowed));
-  const u = round2(used);
+  const a = roundCents(Number(allowed));
+  const u = roundCents(used);
   return {
     allowed: a,
     used: u,
-    remaining: round2(a - u),
-    share: a > 0 ? Math.min(1, Math.max(0, u / a)) : 0,
+    remaining: roundCents(a - u),
+    share: a > 0 ? clamp(u / a, 0, 1) : 0,
   };
 }
 
@@ -264,7 +266,7 @@ export function agreementReserveCovers(
     asked += Number(draw[cls.id] ?? 0);
   }
   if (asked <= 0) return null;
-  return round2(asked) <= consumption.reserve.remaining;
+  return roundCents(asked) <= consumption.reserve.remaining;
 }
 
 // The proposal preview (§3H) ------------------------------------------------------------------------------
@@ -318,10 +320,10 @@ export function proposalDraw(
       blocksInTerm: inTerm.length,
     };
   }
-  const reserveRemainingAfter = round2(term.reserveRemaining - allocated);
-  const airtimeRemainingAfter = round2(term.airtimeRemainingMinutesPerWeek - airtime);
+  const reserveRemainingAfter = roundCents(term.reserveRemaining - allocated);
+  const airtimeRemainingAfter = roundCents(term.airtimeRemainingMinutesPerWeek - airtime);
   return {
-    reserveShare: term.reserveTotal > 0 ? round2(allocated / term.reserveTotal) : null,
+    reserveShare: term.reserveTotal > 0 ? roundCents(allocated / term.reserveTotal) : null,
     reserveRemainingAfter,
     reserveOverdrawn: reserveRemainingAfter < 0,
     airtimeRemainingAfter,
@@ -343,7 +345,6 @@ export interface PartnerFormValues {
   notes: string;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PARTNER_NAME_MAX = 160;
 
 /** Null when valid; otherwise the first problem, as a sentence. */
@@ -353,7 +354,7 @@ export function validatePartnerForm(values: PartnerFormValues): string | null {
     return `Keep the name under ${PARTNER_NAME_MAX} characters.`;
   if (!["uwf_unit", "external"].includes(values.kind))
     return "Say whether the partner is a UWF unit or outside the university.";
-  if (values.contactEmail.trim() !== "" && !EMAIL.test(values.contactEmail.trim()))
+  if (values.contactEmail.trim() !== "" && !isValidEmail(values.contactEmail))
     return "The contact email doesn't look like an email address.";
   return null;
 }
@@ -375,7 +376,6 @@ export interface AgreementFormValues {
   notes: string;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const AGREEMENT_LABEL_MAX = 160;
 
 function nonNegative(value: string): number | null {
@@ -390,8 +390,8 @@ export function validateAgreementForm(values: AgreementFormValues): string | nul
   if (values.label.trim() === "") return "Give the agreement a label.";
   if (values.label.trim().length > AGREEMENT_LABEL_MAX)
     return `Keep the label under ${AGREEMENT_LABEL_MAX} characters.`;
-  if (!DATE.test(values.startsOn)) return "The first day must be a date.";
-  if (!DATE.test(values.endsOn)) return "The last day must be a date.";
+  if (!isValidDateISO(values.startsOn)) return "The first day must be a date.";
+  if (!isValidDateISO(values.endsOn)) return "The last day must be a date.";
   if (values.endsOn < values.startsOn)
     return "The agreement must end on or after the day it starts.";
   if (nonNegative(values.reserveHoursAllocated) === null)
@@ -419,15 +419,15 @@ export function agreementColumns(values: AgreementFormValues) {
     ends_on: values.endsOn,
     reserve_hours_allocated: nonNegative(values.reserveHoursAllocated) ?? 0,
     funded_student_hours: nonNegative(values.fundedStudentHours) ?? 0,
-    expected_volume: values.expectedVolume.trim() || null,
+    expected_volume: trimToNull(values.expectedVolume),
     booking_deadline_days: nonNegative(values.bookingDeadlineDays) ?? 14,
     release_deadline_days: nonNegative(values.releaseDeadlineDays) ?? 7,
-    blackout_notes: values.blackoutNotes.trim() || null,
-    direct_cost_treatment: values.directCostTreatment.trim() || null,
-    capital_notes: values.capitalNotes.trim() || null,
-    beyond_envelope_note: values.beyondEnvelopeNote.trim() || null,
+    blackout_notes: trimToNull(values.blackoutNotes),
+    direct_cost_treatment: trimToNull(values.directCostTreatment),
+    capital_notes: trimToNull(values.capitalNotes),
+    beyond_envelope_note: trimToNull(values.beyondEnvelopeNote),
     airtime_minutes_per_week: nonNegative(values.airtimeMinutesPerWeek) ?? 0,
-    notes: values.notes.trim() || null,
+    notes: trimToNull(values.notes),
   };
 }
 
@@ -481,7 +481,7 @@ export function agreementActionItems(
           ...base,
           role: "director",
           kind: "blocks_past_booking_deadline",
-          text: `${late} reserved block${late === 1 ? "" : "s"} past the booking deadline — keep or release`,
+          text: `${pluralize(late, "reserved block")} past the booking deadline — keep or release`,
         });
       }
     }

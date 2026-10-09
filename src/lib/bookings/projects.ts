@@ -5,7 +5,10 @@
 // (settled is Finance's; an override onto the reserve is the executive's);
 // everything else here shapes the screens and is tested beside it.
 
+import { isValidDateISO } from "@/lib/dates";
+import { isValidEmail } from "@/lib/validation";
 import { defineStatusMap } from "@/components/ui/status-badge";
+import { pluralize } from "@/lib/format";
 import type {
   BkAirtimeHonoredIn,
   BkAirtimeTreatment,
@@ -259,8 +262,6 @@ export interface RequestFormValues {
   qualifiesStrategic: string;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const TITLE_MAX = 160;
 
 /** Null when valid; otherwise the first problem, as a sentence. */
@@ -283,12 +284,12 @@ export function validateRequestForm(values: RequestFormValues): string | null {
     [values.eventEndsOn, "The last event date"],
     [values.deliverablesDueOn, "The deliverables date"],
   ] as const) {
-    if (value !== "" && !DATE.test(value)) return `${label} must be a date.`;
+    if (value !== "" && !isValidDateISO(value)) return `${label} must be a date.`;
   }
   if (values.eventStartsOn && values.eventEndsOn && values.eventEndsOn < values.eventStartsOn) {
     return "The event must end on or after the day it starts.";
   }
-  if (values.contactEmail !== "" && !EMAIL.test(values.contactEmail.trim())) {
+  if (values.contactEmail !== "" && !isValidEmail(values.contactEmail)) {
     return "The contact email doesn't look like an email address.";
   }
   if (!["not_needed", "needed", "cleared"].includes(values.editorialReview)) {
@@ -365,7 +366,7 @@ export function actionItems(
           ...base,
           role: "production",
           kind: "estimate_expiring",
-          label: `Estimate expires in ${state.daysLeft} day${state.daysLeft === 1 ? "" : "s"}`,
+          label: `Estimate expires in ${pluralize(state.daysLeft, "day")}`,
         });
       }
     } else if (

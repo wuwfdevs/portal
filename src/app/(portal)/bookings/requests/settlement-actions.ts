@@ -1,16 +1,17 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { field, isUuid, parseNumberInput } from "@/lib/form-fields";
 import { assertBookingsFinance } from "@/lib/bookings/access";
 import { logProjectEvent } from "@/lib/bookings/events";
-import { BOOKINGS_PATH, REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
+import { REQUESTS_PATH, requestHref } from "@/lib/bookings/paths";
 import { unitCostsFromRows } from "@/lib/bookings/pricing";
 import { formatDollars } from "@/lib/bookings/rates";
 import { getPricingContext } from "@/lib/bookings/queries";
+import { revalidateRequestScreens } from "@/lib/bookings/revalidate";
 import {
   draftSettlement,
   settlementColumns,
@@ -22,23 +23,10 @@ import {
 // hours production confirmed and posts it with a journal entry number; posting settles
 // the project. The figures come from lib/bookings/settlements.ts — SQL only checks them.
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
 function projectIdField(formData: FormData): string {
   const id = field(formData, "project_id");
-  if (!UUID.test(id)) failWith(REQUESTS_PATH, "That request could not be found.");
+  if (!isUuid(id)) failWith(REQUESTS_PATH, "That request could not be found.");
   return id;
-}
-
-function revalidate(projectId: string): void {
-  revalidatePath(BOOKINGS_PATH);
-  revalidatePath(REQUESTS_PATH);
-  revalidatePath(requestHref(projectId));
-  revalidatePath(`${BOOKINGS_PATH}/report`);
 }
 
 const POST_ERRORS: Record<string, string> = {
@@ -59,26 +47,31 @@ export async function draftSettlementAction(formData: FormData): Promise<void> {
   const path = requestHref(projectId);
   const supabase = await createClient();
 
-  const [{ data: project }, { data: lines }, { data: used }, { data: existing }] =
-    await Promise.all([
-      supabase.from("bk_projects").select("*").eq("id", projectId).maybeSingle(),
-      supabase
-        .from("bk_estimate_lines")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("sort_order"),
-      supabase.from("bk_hours_used").select("*").eq("project_id", projectId),
-      supabase.from("bk_settlements").select("*").eq("project_id", projectId).maybeSingle(),
-    ]);
+  const [
+    { data: project, error: projectError },
+    { data: lines, error: linesError },
+    { data: used, error: usedError },
+    { data: existing, error: existingError },
+  ] = await Promise.all([
+    supabase.from("bk_projects").select("*").eq("id", projectId).maybeSingle(),
+    supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId).order("sort_order"),
+    supabase.from("bk_hours_used").select("*").eq("project_id", projectId),
+    supabase.from("bk_settlements").select("*").eq("project_id", projectId).maybeSingle(),
+  ]);
+  failIfError(projectError, path, "Could not read the request");
+  failIfError(linesError, path, "Could not read the estimate");
+  failIfError(usedError, path, "Could not read the hours used");
+  failIfError(existingError, path, "Could not read the settlement");
   if (!project || project.stage !== "delivered" || project.disposition !== null) {
     failWith(path, "A settlement is drafted for a delivered project.");
   }
   if (existing?.status === "posted") failWith(path, "That settlement is already posted.");
-  const { data: partner } = await supabase
+  const { data: partner, error: partnerError } = await supabase
     .from("bk_partners")
     .select("kind, default_funding_index")
     .eq("id", project.partner_id)
     .maybeSingle();
+  failIfError(partnerError, path, "Could not read the partner");
   if (!partner) failWith(path, "That request's partner could not be found.");
   const pricing = await getPricingContext(project.rate_model_version_id);
   if (!pricing || pricing.unitCosts.length === 0) {
@@ -91,9 +84,8 @@ export async function draftSettlementAction(formData: FormData): Promise<void> {
   const expenseActuals: Record<string, number> = {};
   for (const line of lines ?? []) {
     if (line.kind !== "expense") continue;
-    const raw = field(formData, `expense_${line.id}`).replace(/[$,\s]/g, "");
-    if (raw === "") continue;
-    const value = Number(raw);
+    const value = parseNumberInput(field(formData, `expense_${line.id}`));
+    if (value === null) continue;
     if (!Number.isFinite(value) || value < 0) {
       failWith(path, `${line.label}'s actual cost must be a number, zero or more.`);
     }
@@ -169,7 +161,7 @@ export async function draftSettlementAction(formData: FormData): Promise<void> {
     note: `Settlement drafted: ${formatDollars(result.figures.amount, { cents: true })} at actual cost.`,
     metadata: { amount: result.figures.amount, full_cost: result.figures.fullCost },
   });
-  revalidate(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "settlement" }));
 }
 
@@ -179,11 +171,12 @@ export async function postSettlementAction(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { data: settlement } = await supabase
+  const { data: settlement, error: settlementError } = await supabase
     .from("bk_settlements")
     .select("*")
     .eq("project_id", projectId)
     .maybeSingle();
+  failIfError(settlementError, path, "Could not read the settlement");
   if (!settlement) failWith(path, "Draft the settlement first.");
   const journal = field(formData, "journal_entry_number");
   const fundingIndex = field(formData, "funding_index") || settlement.funding_index || "";
@@ -220,6 +213,6 @@ export async function postSettlementAction(formData: FormData): Promise<void> {
     targetId: projectId,
     metadata,
   });
-  revalidate(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "settled" }));
 }

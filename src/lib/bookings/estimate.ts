@@ -156,13 +156,19 @@ export async function repriceProject(projectId: string): Promise<RepriceResult> 
     .maybeSingle();
   if (error || !project)
     return { ok: false, error: error?.message ?? "That request no longer exists." };
-  const [{ data: partner }, { data: lineRows }, { data: agreement }] = await Promise.all([
+  const [
+    { data: partner, error: partnerError },
+    { data: lineRows, error: linesError },
+    { data: agreement, error: agreementError },
+  ] = await Promise.all([
     supabase.from("bk_partners").select("kind").eq("id", project.partner_id).maybeSingle(),
     supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
     project.agreement_id
       ? supabase.from("bk_agreements").select("*").eq("id", project.agreement_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
   ]);
+  const readError = partnerError ?? linesError ?? agreementError;
+  if (readError) return { ok: false, error: readError.message };
   const context = await getPricingContext(project.rate_model_version_id);
   if (!context) {
     return {

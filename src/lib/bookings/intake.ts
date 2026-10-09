@@ -6,6 +6,8 @@
 // no React. bk_submit_request() re-checks everything here in one transaction;
 // this is the courtesy layer, the function is the boundary.
 
+import { isValidDateISO } from "@/lib/dates";
+import { isValidEmail } from "@/lib/validation";
 import type { BkPartnerKind, BkRequested } from "@/lib/database.types";
 
 export const INTAKE_TITLE_MAX = 160;
@@ -100,8 +102,6 @@ export interface IntakeInput {
   nowMs: number;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INTEGER = /^\d+$/;
 
 /** True when the honeypot was filled — the caller silently accepts and drops. */
@@ -120,7 +120,7 @@ export function validateIntakeInput(input: IntakeInput): string | null {
     return "That went a little too fast — please try again.";
   }
   if (input.contactName.trim() === "") return "Enter your name.";
-  if (!EMAIL.test(input.contactEmail.trim())) return "Enter a valid email address.";
+  if (!isValidEmail(input.contactEmail)) return "Enter a valid email address.";
   if (input.partnerName.trim() === "")
     return "Name your college, department, office or organization.";
   if (input.partnerName.trim().length > INTAKE_PARTNER_MAX) {
@@ -153,7 +153,7 @@ export function validateIntakeInput(input: IntakeInput): string | null {
     [input.airtimeStartsOn, "The first airing date"],
     [input.airtimeEndsOn, "The last airing date"],
   ] as const) {
-    if (value.trim() !== "" && !DATE.test(value.trim())) return `${label} must be a date.`;
+    if (value.trim() !== "" && !isValidDateISO(value.trim())) return `${label} must be a date.`;
   }
   if (input.eventStartsOn && input.eventEndsOn && input.eventEndsOn < input.eventStartsOn) {
     return "The event must end on or after the day it starts.";

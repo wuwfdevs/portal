@@ -1,54 +1,25 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { dateField, numberField, uuidField } from "@/lib/action-fields";
+import { field, isUuid, optionalField } from "@/lib/form-fields";
 import { assertBookingsDirector, assertBookingsScheduler } from "@/lib/bookings/access";
 import { CALENDAR_PATH, PLAN_PATH, calendarHref, withQuery } from "@/lib/bookings/paths";
 import { splitBlackoutAcrossPlans } from "@/lib/bookings/plans";
 import { listPlans } from "@/lib/bookings/queries";
+import { revalidateCalendarScreens } from "@/lib/bookings/revalidate";
 import { parseWindowLines, parseWindows, tentativeExpiry } from "@/lib/bookings/scheduling";
 import type { BkHoldKind, BkPricingTreatment, BkTermPlanStatus } from "@/lib/database.types";
-import { isValidDateISO } from "@/lib/log/week-layout";
 import { safeLocalPath } from "@/lib/safe-path";
 
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
-
-function numberField(formData: FormData, name: string, path: string, label: string): number {
-  const raw = field(formData, name).replace(/[$,%\s]/g, "");
-  if (raw === "") failWith(path, `${label} is required.`);
-  const value = Number(raw);
-  if (!Number.isFinite(value)) failWith(path, `${label} must be a number.`);
-  return value;
-}
-
-function dateField(formData: FormData, name: string, path: string, label: string): string {
-  const value = field(formData, name);
-  if (!isValidDateISO(value)) failWith(path, `${label} must be a date.`);
-  return value;
-}
-
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function timeField(formData: FormData, name: string, path: string, label: string): string {
   const value = field(formData, name).slice(0, 5);
   if (!TIME.test(value)) failWith(path, `${label} must be a time such as 08:00.`);
-  return value;
-}
-
-function uuidField(formData: FormData, name: string, path: string, label: string): string {
-  const value = field(formData, name);
-  if (!UUID.test(value)) failWith(path, `Choose ${label}.`);
   return value;
 }
 
@@ -75,7 +46,7 @@ function laborFields(
   for (const key of formData.keys()) {
     if (!key.startsWith("hours_")) continue;
     const id = key.slice("hours_".length);
-    if (!UUID.test(id)) continue;
+    if (!isUuid(id)) continue;
     const raw = field(formData, key);
     if (raw === "") continue;
     const hours = Number(raw);
@@ -84,11 +55,6 @@ function laborFields(
     if (hours > 0) rows.push({ labor_class_id: id, hours });
   }
   return rows;
-}
-
-function revalidateCalendar(): void {
-  revalidatePath(CALENDAR_PATH);
-  revalidatePath(PLAN_PATH);
 }
 
 /** The calendar screen a form came from, so a write lands back where it was made. */
@@ -163,7 +129,7 @@ export async function createPlan(formData: FormData): Promise<void> {
     );
   }
 
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(withQuery(PLAN_PATH, { plan: data.id }));
 }
 
@@ -175,7 +141,7 @@ export async function updatePlan(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("bk_term_plans").update(values).eq("id", planId);
   failIfError(error, path, "Could not save the term plan");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(path);
 }
 
@@ -208,7 +174,7 @@ export async function setPlanStatus(formData: FormData): Promise<void> {
       metadata: { label: before.label },
     });
   }
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(path);
 }
 
@@ -256,7 +222,7 @@ export async function saveCapacity(formData: FormData): Promise<void> {
     { onConflict: "plan_id,labor_class_id" },
   );
   failIfError(error, path, "Could not save the class's capacity");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(withQuery(PLAN_PATH, { plan: planId }));
 }
 
@@ -266,9 +232,12 @@ export async function removeCapacity(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   const path = withQuery(PLAN_PATH, { plan: planId });
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_term_capacity").delete().eq("id", id);
-  failIfError(error, path, "Could not remove the class's capacity");
-  revalidateCalendar();
+  await deleteOrFail(
+    supabase.from("bk_term_capacity").delete().eq("id", id).select("id"),
+    path,
+    "Could not remove the class's capacity",
+  );
+  revalidateCalendarScreens();
   redirect(path);
 }
 
@@ -300,7 +269,7 @@ export async function updateResource(formData: FormData): Promise<void> {
     { onConflict: "plan_id,pool_id" },
   );
   failIfError(error, path, "Could not save the resource");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(withQuery(PLAN_PATH, { plan: planId }));
 }
 
@@ -310,9 +279,12 @@ export async function removeResource(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   const path = withQuery(PLAN_PATH, { plan: planId });
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_term_resources").delete().eq("id", id);
-  failIfError(error, path, "Could not remove the resource");
-  revalidateCalendar();
+  await deleteOrFail(
+    supabase.from("bk_term_resources").delete().eq("id", id).select("id"),
+    path,
+    "Could not remove the resource",
+  );
+  revalidateCalendarScreens();
   redirect(path);
 }
 
@@ -331,7 +303,7 @@ export async function createBlackout(formData: FormData): Promise<void> {
   const poolIds = formData
     .getAll("pool_ids")
     .map(String)
-    .filter((value) => UUID.test(value));
+    .filter((value) => isUuid(value));
   const supabase = await createClient();
   // A blackout is kept per plan, so one that spans two terms (a winter break) is
   // stored once for each, clipped to that term's dates (§22.3).
@@ -351,7 +323,7 @@ export async function createBlackout(formData: FormData): Promise<void> {
     })),
   );
   failIfError(error, path, "Could not add the blackout");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -360,9 +332,12 @@ export async function deleteBlackout(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   const back = returnTo(formData, CALENDAR_PATH);
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_blackouts").delete().eq("id", id);
-  failIfError(error, back, "Could not remove the blackout");
-  revalidateCalendar();
+  await deleteOrFail(
+    supabase.from("bk_blackouts").delete().eq("id", id).select("id"),
+    back,
+    "Could not remove the blackout",
+  );
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -399,7 +374,7 @@ export async function createHold(formData: FormData): Promise<void> {
     p_labor: labor,
   });
   failIfError(error, path, "Could not add the hold");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -408,9 +383,12 @@ export async function deleteHold(formData: FormData): Promise<void> {
   const id = field(formData, "id");
   const back = returnTo(formData, CALENDAR_PATH);
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_holds").delete().eq("id", id);
-  failIfError(error, back, "Could not remove the hold");
-  revalidateCalendar();
+  await deleteOrFail(
+    supabase.from("bk_holds").delete().eq("id", id).select("id"),
+    back,
+    "Could not remove the hold",
+  );
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -471,7 +449,7 @@ export async function createBooking(formData: FormData): Promise<void> {
       metadata: { pool_id: poolId, date, window: `${start}-${end}`, reason: exceptionReason },
     });
   }
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -486,7 +464,7 @@ export async function confirmBooking(formData: FormData): Promise<void> {
     .eq("id", id)
     .neq("status", "released");
   failIfError(error, back, "Could not confirm the booking");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(back);
 }
 
@@ -497,6 +475,6 @@ export async function releaseBooking(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("bk_bookings").update({ status: "released" }).eq("id", id);
   failIfError(error, back, "Could not release the booking");
-  revalidateCalendar();
+  revalidateCalendarScreens();
   redirect(back);
 }

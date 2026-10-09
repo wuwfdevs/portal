@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { roundTo } from "@/lib/money";
 import { Alert } from "@/components/ui/alert";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatMinutes, type AirtimeEnvelope } from "@/lib/bookings/airtime";
@@ -227,7 +228,7 @@ export function AirtimePanel({
               value={formatMinutes(envelope.contributedMinutesPerWeek)}
               hint={
                 envelope.contributedShare !== null
-                  ? `${Math.round(envelope.contributedShare * 1000) / 10}% of eligible minutes`
+                  ? `${roundTo(envelope.contributedShare * 100, 1)}% of eligible minutes`
                   : "The executive's minutes a week"
               }
             />

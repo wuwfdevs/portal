@@ -30,7 +30,7 @@ import {
   bookingIsLive,
   capacitySummary,
   checkBooking,
-  formatClock,
+  formatClockTime12h,
   formatHours,
   formatWindow,
   monthlyCapacity,
@@ -43,6 +43,7 @@ import {
   type HoursByClass,
 } from "@/lib/bookings/scheduling";
 import type { BkPricingTreatment } from "@/lib/database.types";
+import { isUuid } from "@/lib/form-fields";
 import { formatDateShort } from "@/lib/log/program-status";
 import { stationTodayISO } from "@/lib/log/timezone";
 import { isValidDateISO, weekDates } from "@/lib/log/week-layout";
@@ -77,7 +78,6 @@ type Params = {
 };
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function describeHours(hours: HoursByClass, classes: BkLaborClassRow[]): string {
   const parts = Object.entries(hours)
@@ -820,7 +820,7 @@ function WindowFields({
         >
           {windows.map((w) => (
             <option key={`${w.start}-${w.end}`} value={`${w.start}-${w.end}`}>
-              {w.label} · {formatClock(w.start)} – {formatClock(w.end)}
+              {w.label} · {formatClockTime12h(w.start)} – {formatClockTime12h(w.end)}
             </option>
           ))}
           <option value="custom">Other times…</option>
@@ -887,7 +887,7 @@ function runCheck(params: Params, state: CalendarState) {
     if (!key.startsWith("c_hours_") || typeof value !== "string") continue;
     const classId = key.slice("c_hours_".length);
     const asked = Number(value);
-    if (UUID.test(classId) && Number.isFinite(asked) && asked > 0) hours[classId] = asked;
+    if (isUuid(classId) && Number.isFinite(asked) && asked > 0) hours[classId] = asked;
   }
   const request: BookingRequest = {
     pool_id: poolId,

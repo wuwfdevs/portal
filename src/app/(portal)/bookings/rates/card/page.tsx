@@ -1,4 +1,5 @@
 import { Alert } from "@/components/ui/alert";
+import { unwrapRead } from "@/lib/read-result";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -30,14 +31,14 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
     listRateCardLines(version.id),
   ]);
   // A snapshot with no unit costs can't price an adjusted package line (§20.6): stale.
-  const unitCostCount = (
-    await (
-      await createClient()
-    )
-      .from("bk_rate_card_unit_costs")
-      .select("id", { count: "exact", head: true })
-      .eq("version_id", version.id)
-  ).count;
+  const unitCostRead = await (
+    await createClient()
+  )
+    .from("bk_rate_card_unit_costs")
+    .select("id", { count: "exact", head: true })
+    .eq("version_id", version.id);
+  unwrapRead(unitCostRead, "rate card unit costs");
+  const unitCostCount = unitCostRead.count;
   const computed = cardForVersion(detail);
   const provisional = version.status !== "adopted";
   const packagesById = new Map(detail.packages.map((pkg) => [pkg.id, pkg]));

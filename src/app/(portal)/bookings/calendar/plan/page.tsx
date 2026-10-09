@@ -1,4 +1,5 @@
 import { Alert } from "@/components/ui/alert";
+import { roundCents, roundTo } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilterChips } from "@/components/ui/filter-chips";
@@ -220,7 +221,7 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                     max="100"
                                     defaultValue={
                                       row && row.reserve_share !== null
-                                        ? String(Math.round(Number(row.reserve_share) * 1000) / 10)
+                                        ? String(roundTo(Number(row.reserve_share) * 100, 1))
                                         : ""
                                     }
                                   />
@@ -289,9 +290,8 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                         </Cell>
                         <Cell label="Reserve" className="text-right">
                           {row && row.reserve_share !== null ? (
-                            `${Math.round(Number(row.reserve_share) * 1000) / 10}% · ${formatHours(
-                              Math.round(Number(row.net_hours) * Number(row.reserve_share) * 100) /
-                                100,
+                            `${roundTo(Number(row.reserve_share) * 100, 1)}% · ${formatHours(
+                              roundCents(Number(row.net_hours) * Number(row.reserve_share)),
                             )}`
                           ) : row ? (
                             <span className="text-ink-400">None</span>

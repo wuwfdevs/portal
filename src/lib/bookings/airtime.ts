@@ -5,6 +5,8 @@
 // already carries (and, from slice 3, commitments and Traffic's sales), and
 // the remainder is Traffic's to sell. Nothing here places an avail.
 
+import { roundTo } from "@/lib/money";
+
 export interface AirtimeProgramRead {
   program_id: string;
   name: string;
@@ -92,11 +94,11 @@ function trim(value: number): string {
 }
 
 function round1(value: number): number {
-  return Math.round((value + Number.EPSILON) * 10) / 10;
+  return roundTo(value, 1);
 }
 
 function round4(value: number): number {
-  return Math.round((value + Number.EPSILON) * 10_000) / 10_000;
+  return roundTo(value, 4);
 }
 
 // Commitments (slice 3) -------------------------------------------------------------------------------

@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { numberField } from "@/lib/action-fields";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { field, isUuid, optionalField } from "@/lib/form-fields";
 import { assertBookingsAccess, assertBookingsScheduler } from "@/lib/bookings/access";
 import { repriceProject } from "@/lib/bookings/estimate";
 import {
@@ -16,13 +17,7 @@ import {
 } from "@/lib/bookings/estimate-lines";
 import { syncBookingPlan } from "@/lib/bookings/plan-sync";
 import { logProjectEvent } from "@/lib/bookings/events";
-import {
-  BOOKINGS_PATH,
-  CALENDAR_PATH,
-  REQUESTS_PATH,
-  requestEditHref,
-  requestHref,
-} from "@/lib/bookings/paths";
+import { REQUESTS_PATH, requestEditHref, requestHref } from "@/lib/bookings/paths";
 import { estimateMargin, estimateTotals, legacyRateDelta, priceLine } from "@/lib/bookings/pricing";
 import {
   DISPOSITION_LABEL,
@@ -33,6 +28,7 @@ import {
 } from "@/lib/bookings/projects";
 import { plannedFigures } from "@/lib/bookings/observed";
 import { getPlanForDate, getPricingContext } from "@/lib/bookings/queries";
+import { revalidateRequestScreens } from "@/lib/bookings/revalidate";
 import { tentativeExpiry } from "@/lib/bookings/scheduling";
 import type {
   BkAirtimeHonoredIn,
@@ -44,39 +40,14 @@ import type {
   BkProjectDisposition,
   BkRequested,
 } from "@/lib/database.types";
-import { isValidDateISO } from "@/lib/log/week-layout";
+import { isValidDateISO } from "@/lib/dates";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
 
 function projectIdField(formData: FormData): string {
   const id = field(formData, "project_id");
-  if (!UUID.test(id)) failWith(REQUESTS_PATH, "That request could not be found.");
+  if (!isUuid(id)) failWith(REQUESTS_PATH, "That request could not be found.");
   return id;
-}
-
-function numberField(formData: FormData, name: string, path: string, label: string): number {
-  const raw = field(formData, name).replace(/[$,%\s]/g, "");
-  if (raw === "") failWith(path, `${label} is required.`);
-  const value = Number(raw);
-  if (!Number.isFinite(value)) failWith(path, `${label} must be a number.`);
-  return value;
-}
-
-function revalidateRequests(projectId?: string): void {
-  revalidatePath(BOOKINGS_PATH);
-  revalidatePath(REQUESTS_PATH);
-  revalidatePath(CALENDAR_PATH);
-  if (projectId) revalidatePath(requestHref(projectId));
 }
 
 /** Re-derive and reprice after a write; a failure bounces to the project page with the reason. */
@@ -91,7 +62,7 @@ async function repriceOrFail(projectId: string, path: string): Promise<void> {
  * report's refusals-by-resource view (docs/bookings-design.md §20.8). Read-only
  * input to the report; it feeds nothing.
  */
-async function liveBookingsOf(projectId: string, onlyBookingId?: string) {
+async function liveBookingsOf(projectId: string, path: string, onlyBookingId?: string) {
   const supabase = await createClient();
   let query = supabase
     .from("bk_bookings")
@@ -99,7 +70,8 @@ async function liveBookingsOf(projectId: string, onlyBookingId?: string) {
     .eq("project_id", projectId)
     .in("status", ["tentative", "confirmed"]);
   if (onlyBookingId) query = query.eq("id", onlyBookingId);
-  const { data } = await query;
+  const { data, error } = await query;
+  failIfError(error, path, "Could not read the request's dates");
   return data ?? [];
 }
 
@@ -111,7 +83,7 @@ async function recordReleased(
 ): Promise<void> {
   if (releasing.length === 0) return;
   const supabase = await createClient();
-  await supabase.from("bk_booking_events").insert(
+  const { error } = await supabase.from("bk_booking_events").insert(
     releasing.map((booking) => ({
       plan_id: booking.plan_id,
       project_id: projectId,
@@ -122,6 +94,9 @@ async function recordReleased(
       created_by: actorId,
     })),
   );
+  // The report's refusals-by-resource view is the only reader and the release already
+  // happened, so a failed note is logged rather than bounced to the screen.
+  if (error) console.error("Could not record the released dates:", error);
 }
 
 // The request --------------------------------------------------------------------------------------
@@ -155,7 +130,7 @@ async function resolvePartner(
 ): Promise<string> {
   const supabase = await createClient();
   if (values.partnerId) {
-    if (!UUID.test(values.partnerId)) failWith(path, "Choose the partner.");
+    if (!isUuid(values.partnerId)) failWith(path, "Choose the partner.");
     return values.partnerId;
   }
   const { data, error } = await supabase
@@ -241,12 +216,13 @@ export async function createRequest(formData: FormData): Promise<void> {
   let partnerName = values.newPartnerName.trim();
   let partnerKind = values.newPartnerKind;
   if (values.partnerId) {
-    if (!UUID.test(values.partnerId)) failWith(path, "Choose the partner.");
-    const { data: existing } = await supabase
+    if (!isUuid(values.partnerId)) failWith(path, "Choose the partner.");
+    const { data: existing, error: existingError } = await supabase
       .from("bk_partners")
       .select("name, kind")
       .eq("id", values.partnerId)
       .maybeSingle();
+    failIfError(existingError, path, "Could not read the partner");
     if (!existing) failWith(path, "That partner is no longer on file.");
     partnerName = existing.name;
     partnerKind = existing.kind;
@@ -311,7 +287,7 @@ export async function createRequest(formData: FormData): Promise<void> {
       note: `Estimate started with ${rows.map((r) => r.label).join(", ")}.`,
     });
   }
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "created" }));
 }
 
@@ -325,11 +301,12 @@ export async function updateRequest(formData: FormData): Promise<void> {
   const partnerId = await resolvePartner(values, profile.id, path);
 
   const supabase = await createClient();
-  const { data: before } = await supabase
+  const { data: before, error: beforeError } = await supabase
     .from("bk_projects")
     .select("qualifies_strategic, partner_id, event_starts_on")
     .eq("id", projectId)
     .maybeSingle();
+  failIfError(beforeError, path, "Could not read the request");
   const columns = projectColumns(values, profile.id);
   const { error } = await supabase
     .from("bk_projects")
@@ -351,18 +328,19 @@ export async function updateRequest(formData: FormData): Promise<void> {
     before &&
     (before.partner_id !== partnerId || before.qualifies_strategic !== columns.qualifies_strategic)
   ) {
-    const { data: priced } = await supabase
+    const { data: priced, error: pricedError } = await supabase
       .from("bk_projects")
       .select("priced_as")
       .eq("id", projectId)
       .maybeSingle();
+    failIfError(pricedError, path, "Could not read the request");
     if (priced?.priced_as) await repriceOrFail(projectId, requestHref(projectId));
   }
   // A moved event date moves the system-planned dates with it (§18.2).
   if (before && before.event_starts_on !== (columns.event_starts_on ?? null)) {
     await syncBookingPlan(projectId, profile.id);
   }
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "1" }));
 }
 
@@ -371,7 +349,7 @@ export async function assignOwner(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId);
   const ownerId = optionalField(formData, "owner_id");
-  if (ownerId && !UUID.test(ownerId)) failWith(path, "Choose an owner.");
+  if (ownerId && !isUuid(ownerId)) failWith(path, "Choose an owner.");
   const supabase = await createClient();
   const { error } = await supabase
     .from("bk_projects")
@@ -385,7 +363,7 @@ export async function assignOwner(formData: FormData): Promise<void> {
     note: ownerId ? "Owner changed." : "Unassigned.",
     metadata: { owner_id: ownerId },
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -396,7 +374,7 @@ export async function addNote(formData: FormData): Promise<void> {
   const note = field(formData, "note");
   if (!note) failWith(path, "Write something before adding a note.");
   await logProjectEvent({ projectId, actorId: profile.id, kind: "note", note });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -459,7 +437,7 @@ export async function setPricing(formData: FormData): Promise<void> {
       metadata: { treatment, reason },
     });
   }
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -551,13 +529,14 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
   );
   if (!priced.ok) failWith(path, priced.error);
 
-  const { data: last } = await supabase
+  const { data: last, error: lastError } = await supabase
     .from("bk_estimate_lines")
     .select("sort_order")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
+  failIfError(lastError, path, "Could not read the estimate");
   const { error } = await supabase.from("bk_estimate_lines").insert({
     project_id: projectId,
     ...row,
@@ -575,7 +554,7 @@ export async function addEstimateLine(formData: FormData): Promise<void> {
     kind: "line_added",
     note: `Added ${row.label} × ${quantity}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -587,12 +566,13 @@ export async function updateEstimateLine(formData: FormData): Promise<void> {
   const quantity = numberField(formData, "quantity", path, "The quantity");
   if (quantity <= 0) failWith(path, "The quantity must be more than zero.");
   const supabase = await createClient();
-  const { data: line } = await supabase
+  const { data: line, error: lineError } = await supabase
     .from("bk_estimate_lines")
     .select("kind, label")
     .eq("id", lineId)
     .eq("project_id", projectId)
     .maybeSingle();
+  failIfError(lineError, path, "Could not read the line");
   if (!line) failWith(path, "That line no longer exists.");
   const update: {
     quantity: number;
@@ -624,7 +604,7 @@ export async function updateEstimateLine(formData: FormData): Promise<void> {
     kind: "line_changed",
     note: `Changed ${line.label}: × ${quantity}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -634,17 +614,23 @@ export async function removeEstimateLine(formData: FormData): Promise<void> {
   const lineId = field(formData, "line_id");
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { data: line } = await supabase
+  const { data: line, error: lineError } = await supabase
     .from("bk_estimate_lines")
     .select("label")
     .eq("id", lineId)
     .maybeSingle();
-  const { error } = await supabase
-    .from("bk_estimate_lines")
-    .delete()
-    .eq("id", lineId)
-    .eq("project_id", projectId);
-  failIfError(error, path, "Could not remove the line");
+  failIfError(lineError, path, "Could not read the line");
+  await deleteOrFail(
+    supabase
+      .from("bk_estimate_lines")
+      .delete()
+      .eq("id", lineId)
+      .eq("project_id", projectId)
+      .select("id"),
+    path,
+    "Could not remove the line",
+    "That line no longer exists.",
+  );
   await repriceOrFail(projectId, path);
   await syncBookingPlan(projectId, profile.id);
   await logProjectEvent({
@@ -653,7 +639,7 @@ export async function removeEstimateLine(formData: FormData): Promise<void> {
     kind: "line_removed",
     note: `Removed ${line?.label ?? "a line"}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -669,7 +655,7 @@ function recordField(
   for (const key of formData.keys()) {
     if (!key.startsWith(prefix)) continue;
     const id = key.slice(prefix.length);
-    if (!UUID.test(id)) continue;
+    if (!isUuid(id)) continue;
     const raw = field(formData, key);
     if (raw === "") continue;
     const value = Number(raw);
@@ -699,20 +685,22 @@ export async function adjustLineScope(formData: FormData): Promise<void> {
     failWith(path, "An adjusted package still needs hours or equipment; remove the line instead.");
   }
   const supabase = await createClient();
-  const { data: line } = await supabase
+  const { data: line, error: lineError } = await supabase
     .from("bk_estimate_lines")
     .select("kind, label, recipe_labor_hours, recipe_resource_units")
     .eq("id", lineId)
     .eq("project_id", projectId)
     .maybeSingle();
+  failIfError(lineError, path, "Could not read the line");
   if (!line || line.kind !== "package" || !line.recipe_labor_hours || !line.recipe_resource_units) {
     failWith(path, "Only a package line can be adjusted.");
   }
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("bk_projects")
     .select("stage, disposition")
     .eq("id", projectId)
     .maybeSingle();
+  failIfError(projectError, path, "Could not read the request");
   if (
     !project ||
     project.disposition !== null ||
@@ -733,7 +721,7 @@ export async function adjustLineScope(formData: FormData): Promise<void> {
     kind: "scope_adjusted",
     note: `Adjusted the scope of ${line.label}: ${reason}`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "1" }));
 }
 
@@ -744,12 +732,13 @@ export async function resetLineScope(formData: FormData): Promise<void> {
   const lineId = field(formData, "line_id");
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { data: line } = await supabase
+  const { data: line, error: lineError } = await supabase
     .from("bk_estimate_lines")
     .select("label, recipe_labor_hours, recipe_resource_units")
     .eq("id", lineId)
     .eq("project_id", projectId)
     .maybeSingle();
+  failIfError(lineError, path, "Could not read the line");
   if (!line || !line.recipe_labor_hours || !line.recipe_resource_units) {
     failWith(path, "That line has no standard recipe to go back to.");
   }
@@ -770,7 +759,7 @@ export async function resetLineScope(formData: FormData): Promise<void> {
     kind: "scope_reset",
     note: `${line.label} is back on the standard recipe.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -785,7 +774,7 @@ function laborFields(
   for (const key of formData.keys()) {
     if (!key.startsWith("hours_")) continue;
     const id = key.slice("hours_".length);
-    if (!UUID.test(id)) continue;
+    if (!isUuid(id)) continue;
     const raw = field(formData, key);
     if (raw === "") continue;
     const hours = Number(raw);
@@ -806,7 +795,7 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId, { new: "date" });
   const poolId = field(formData, "pool_id");
-  if (!UUID.test(poolId)) failWith(path, "Choose a pool.");
+  if (!isUuid(poolId)) failWith(path, "Choose a pool.");
   const date = field(formData, "date");
   if (!isValidDateISO(date)) failWith(path, "The date must be a date.");
   // The booking's plan is the active one whose dates contain the date (§22.3).
@@ -833,17 +822,19 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
   const labor = laborFields(formData, path);
 
   const supabase = await createClient();
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("bk_projects")
     .select("title, priced_as, partner_id")
     .eq("id", projectId)
     .maybeSingle();
+  failIfError(projectError, path, "Could not read the request");
   if (!project) failWith(path, "That request no longer exists.");
-  const { data: partner } = await supabase
+  const { data: partner, error: partnerError } = await supabase
     .from("bk_partners")
     .select("name")
     .eq("id", project.partner_id)
     .maybeSingle();
+  failIfError(partnerError, path, "Could not read the partner");
 
   const { error } = await supabase.rpc("bk_create_booking", {
     p_booking: {
@@ -862,14 +853,18 @@ export async function addPlannedDate(formData: FormData): Promise<void> {
   });
   failIfError(error, path, "Could not add the date");
   // A date planned by hand is the "Adjust scope" path: the system stops regenerating the dates.
-  await supabase.from("bk_projects").update({ dates_mode: "manual" }).eq("id", projectId);
+  const { error: modeError } = await supabase
+    .from("bk_projects")
+    .update({ dates_mode: "manual" })
+    .eq("id", projectId);
+  failIfError(modeError, path, "Could not switch the request to hand-planned dates");
   await logProjectEvent({
     projectId,
     actorId: profile.id,
     kind: "date_added",
     note: `Planned ${date}, ${start}–${end}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -880,16 +875,21 @@ export async function removeDate(formData: FormData): Promise<void> {
   const bookingId = field(formData, "booking_id");
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { data: booking } = await supabase
+  const { data: booking, error: bookingError } = await supabase
     .from("bk_bookings")
     .select("status, date")
     .eq("id", bookingId)
     .eq("project_id", projectId)
     .maybeSingle();
+  failIfError(bookingError, path, "Could not read the date");
   if (!booking) failWith(path, "That date no longer exists.");
   if (booking.status === "planned") {
-    const { error } = await supabase.from("bk_bookings").delete().eq("id", bookingId);
-    failIfError(error, path, "Could not remove the date");
+    await deleteOrFail(
+      supabase.from("bk_bookings").delete().eq("id", bookingId).select("id"),
+      path,
+      "Could not remove the date",
+      "That date no longer exists.",
+    );
     await logProjectEvent({
       projectId,
       actorId: profile.id,
@@ -897,7 +897,7 @@ export async function removeDate(formData: FormData): Promise<void> {
       note: `Removed ${booking.date}.`,
     });
   } else {
-    const releasing = await liveBookingsOf(projectId, bookingId);
+    const releasing = await liveBookingsOf(projectId, path, bookingId);
     const { error } = await supabase
       .from("bk_bookings")
       .update({ status: "released" })
@@ -917,14 +917,18 @@ export async function removeDate(formData: FormData): Promise<void> {
     });
   }
   // Taking a date out by hand is planning by hand: the system stops regenerating them (§18.2).
-  await supabase.from("bk_projects").update({ dates_mode: "manual" }).eq("id", projectId);
+  const { error: modeError } = await supabase
+    .from("bk_projects")
+    .update({ dates_mode: "manual" })
+    .eq("id", projectId);
+  failIfError(modeError, path, "Could not switch the request to hand-planned dates");
   // A reserved block the date came from is the partner's again (slice 5).
   const { error: detachError } = await supabase
     .from("bk_reserved_blocks")
     .update({ project_id: null, booking_id: null })
     .eq("booking_id", bookingId);
   failIfError(detachError, path, "Could not hand the reserved block back");
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -940,11 +944,12 @@ export async function chooseAlternative(formData: FormData): Promise<void> {
   const window = field(formData, "window");
   const [start, end] = /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(window) ? window.split("-") : [null, null];
   const supabase = await createClient();
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("bk_projects")
     .select("event_starts_on, event_ends_on")
     .eq("id", projectId)
     .maybeSingle();
+  failIfError(projectError, path, "Could not read the request");
   if (!project) failWith(path, "That request no longer exists.");
   const { error } = await supabase
     .from("bk_projects")
@@ -965,7 +970,7 @@ export async function chooseAlternative(formData: FormData): Promise<void> {
     kind: "date_changed",
     note: `Event moved to ${date}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   if (result.status === "exception") failWith(path, result.plan.message);
   redirect(requestHref(projectId, { saved: "1" }));
 }
@@ -982,7 +987,7 @@ export async function resumeAutoPlan(formData: FormData): Promise<void> {
     .eq("id", projectId);
   failIfError(error, path, "Could not hand the dates back");
   const result = await syncBookingPlan(projectId, profile.id);
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   if (result.status === "exception") failWith(path, result.plan.message);
   redirect(requestHref(projectId, { saved: "1" }));
 }
@@ -1008,7 +1013,7 @@ export async function answerStrategic(formData: FormData): Promise<void> {
     kind: "qualification",
     note: answer === "yes" ? "Qualifies as strategic work." : "Does not qualify as strategic work.",
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -1020,21 +1025,23 @@ export async function setProjectAgreement(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId);
   const agreementId = optionalField(formData, "agreement_id");
-  if (agreementId && !UUID.test(agreementId)) failWith(path, "Choose an agreement.");
+  if (agreementId && !isUuid(agreementId)) failWith(path, "Choose an agreement.");
   const supabase = await createClient();
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("bk_projects")
     .select("partner_id, agreement_id, priced_as")
     .eq("id", projectId)
     .maybeSingle();
+  failIfError(projectError, path, "Could not read the request");
   if (!project) failWith(path, "That request no longer exists.");
   let label: string | null = null;
   if (agreementId) {
-    const { data: agreement } = await supabase
+    const { data: agreement, error: agreementError } = await supabase
       .from("bk_agreements")
       .select("label, status, partner_id")
       .eq("id", agreementId)
       .maybeSingle();
+    failIfError(agreementError, path, "Could not read the agreement");
     if (!agreement || agreement.partner_id !== project.partner_id)
       failWith(path, "That agreement belongs to another partner.");
     if (agreement.status !== "active")
@@ -1056,7 +1063,7 @@ export async function setProjectAgreement(formData: FormData): Promise<void> {
     note: label ? `Under the agreement "${label}".` : "No longer under an agreement.",
     metadata: { agreement_id: agreementId },
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -1085,7 +1092,7 @@ export async function attachReservedBlock(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId, { new: "block" });
   const blockId = field(formData, "block_id");
-  if (!UUID.test(blockId)) failWith(path, "Choose a reserved block.");
+  if (!isUuid(blockId)) failWith(path, "Choose a reserved block.");
   const labor = laborFields(formData, path);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("bk_attach_reserved_block", {
@@ -1103,8 +1110,7 @@ export async function attachReservedBlock(formData: FormData): Promise<void> {
     note: `Took a reserved block under the agreement (${status}).`,
     metadata: { block_id: blockId, status },
   });
-  revalidateRequests(projectId);
-  revalidatePath(CALENDAR_PATH);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -1146,7 +1152,7 @@ export async function sendEstimate(formData: FormData): Promise<void> {
     targetId: projectId,
     metadata: { expires_at: expiresAt, held },
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "sent" }));
 }
 
@@ -1162,10 +1168,11 @@ export async function approveEstimate(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { data: lines } = await supabase
+  const { data: lines, error: linesError } = await supabase
     .from("bk_estimate_lines")
     .select("*")
     .eq("project_id", projectId);
+  failIfError(linesError, path, "Could not read the estimate");
   const delta = legacyRateDelta(
     (lines ?? []).map((l) => ({ ...l, labor_hours: l.labor_hours ?? {} })),
   );
@@ -1190,7 +1197,7 @@ export async function approveEstimate(formData: FormData): Promise<void> {
     targetId: projectId,
     metadata: { confirmed, legacy_rate_delta: delta },
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "booked" }));
 }
 
@@ -1218,7 +1225,7 @@ export async function markDelivered(formData: FormData): Promise<void> {
     targetType: "bk_project",
     targetId: projectId,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "delivered" }));
 }
 
@@ -1247,14 +1254,17 @@ export async function setDisposition(formData: FormData): Promise<void> {
   const supabase = await createClient();
   let marginForegone: number | null = null;
   if (disposition === "declined" && formData.get("for_capacity") === "on") {
-    const [{ data: project }, { data: lines }] = await Promise.all([
-      supabase
-        .from("bk_projects")
-        .select("priced_as, rate_model_version_id")
-        .eq("id", projectId)
-        .maybeSingle(),
-      supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
-    ]);
+    const [{ data: project, error: projectError }, { data: lines, error: linesError }] =
+      await Promise.all([
+        supabase
+          .from("bk_projects")
+          .select("priced_as, rate_model_version_id")
+          .eq("id", projectId)
+          .maybeSingle(),
+        supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
+      ]);
+    failIfError(projectError, path, "Could not read the request");
+    failIfError(linesError, path, "Could not read the estimate");
     if (project?.priced_as === "external") {
       const context = await getPricingContext(project.rate_model_version_id);
       const total = estimateTotals(
@@ -1264,7 +1274,7 @@ export async function setDisposition(formData: FormData): Promise<void> {
     }
   }
 
-  const releasing = await liveBookingsOf(projectId);
+  const releasing = await liveBookingsOf(projectId, path);
   const { data, error } = await supabase.rpc("bk_set_project_disposition", {
     p_project_id: projectId,
     p_disposition: disposition as BkProjectDisposition,
@@ -1296,7 +1306,7 @@ export async function setDisposition(formData: FormData): Promise<void> {
     targetId: projectId,
     metadata: { disposition, released, margin_foregone: marginForegone },
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -1317,7 +1327,7 @@ export async function reopenProject(formData: FormData): Promise<void> {
     .eq("id", projectId);
   failIfError(error, path, "Could not reopen the request");
   await logProjectEvent({ projectId, actorId: profile.id, kind: "reopened", note: "Reopened." });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
 
@@ -1334,10 +1344,13 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
   const projectId = projectIdField(formData);
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const [{ data: project }, { data: lines }] = await Promise.all([
-    supabase.from("bk_projects").select("stage, disposition").eq("id", projectId).maybeSingle(),
-    supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
-  ]);
+  const [{ data: project, error: projectError }, { data: lines, error: linesError }] =
+    await Promise.all([
+      supabase.from("bk_projects").select("stage, disposition").eq("id", projectId).maybeSingle(),
+      supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
+    ]);
+  failIfError(projectError, path, "Could not read the request");
+  failIfError(linesError, path, "Could not read the estimate");
   if (!project || project.disposition !== null || project.stage !== "delivered") {
     failWith(path, "Hours and equipment used are confirmed once the work is delivered.");
   }
@@ -1391,6 +1404,7 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
       confirmed_by: profile.id,
     })),
   ];
+  // Clearing first is idempotent: a first confirmation has nothing to clear.
   const { error: clearError } = await supabase
     .from("bk_hours_used")
     .delete()
@@ -1408,7 +1422,7 @@ export async function confirmHoursUsed(formData: FormData): Promise<void> {
       ? "Hours and equipment confirmed as planned."
       : "Hours and equipment used confirmed, corrected from the plan.",
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId, { saved: "1" }));
 }
 
@@ -1436,7 +1450,7 @@ function commitmentFields(formData: FormData, path: string) {
   const honoredIn = (field(formData, "honored_in") || "pending") as BkAirtimeHonoredIn;
   if (!HONORED_IN.includes(honoredIn)) failWith(path, "Say where the airtime is honored.");
   const externalRef = optionalField(formData, "external_ref");
-  if (honoredIn !== "pending" && (!externalRef || !UUID.test(externalRef))) {
+  if (honoredIn !== "pending" && (!externalRef || !isUuid(externalRef))) {
     failWith(
       path,
       "Paste the Traffic contract's or the On Air pin's id to say where it is honored.",
@@ -1470,7 +1484,7 @@ export async function addCommitment(formData: FormData): Promise<void> {
     kind: "commitment_added",
     note: `Airtime: ${values.airings_per_week} × ${values.seconds}s a week from ${values.starts_on}, ${values.treatment}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -1493,7 +1507,7 @@ export async function updateCommitment(formData: FormData): Promise<void> {
     kind: "commitment_changed",
     note: `Airtime: ${values.airings_per_week} × ${values.seconds}s a week, ${values.treatment}, honored in ${values.honored_in}.`,
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(requestHref(projectId));
 }
 
@@ -1503,18 +1517,23 @@ export async function removeCommitment(formData: FormData): Promise<void> {
   const commitmentId = field(formData, "commitment_id");
   const path = requestHref(projectId);
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("bk_airtime_commitments")
-    .delete()
-    .eq("id", commitmentId)
-    .eq("project_id", projectId);
-  failIfError(error, path, "Could not remove the airtime commitment");
+  await deleteOrFail(
+    supabase
+      .from("bk_airtime_commitments")
+      .delete()
+      .eq("id", commitmentId)
+      .eq("project_id", projectId)
+      .select("id"),
+    path,
+    "Could not remove the airtime commitment",
+    "That airtime commitment no longer exists.",
+  );
   await logProjectEvent({
     projectId,
     actorId: profile.id,
     kind: "commitment_removed",
     note: "Airtime commitment removed.",
   });
-  revalidateRequests(projectId);
+  revalidateRequestScreens(projectId);
   redirect(path);
 }
