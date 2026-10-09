@@ -76,10 +76,12 @@ export default async function ProgramDetailPage({
     edit?: string;
     switched?: string;
     credits?: string;
+    unplaced?: string;
+    dad?: string;
   }>;
 }) {
   const { id } = await params;
-  const { error, saved, edit, switched, credits } = await searchParams;
+  const { error, saved, edit, switched, credits, unplaced, dad } = await searchParams;
   const { isProgramDirector } = await requireLogAccess();
   const today = stationTodayISO();
   const [program, entries, templates, summaries, allEntries, allPrograms] = await Promise.all([
@@ -125,6 +127,8 @@ export default async function ProgramDetailPage({
     : [];
   const releasedDates = await listDadReleasedDates(outOfStep.map((item) => item.rundown.air_date));
   const switchedCount = switched && /^\d{1,4}$/.test(switched) ? Number(switched) : null;
+  const unplacedCount = unplaced && /^\d{1,4}$/.test(unplaced) ? Number(unplaced) : 0;
+  const dadDates = (dad ?? "").split(",").filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
   const creditsCount = credits && /^\d{1,4}$/.test(credits) ? Number(credits) : 0;
   const live = named.filter((entry) => entry.end_date === null || entry.end_date >= today);
   const ended = named.filter((entry) => entry.end_date !== null && entry.end_date < today);
@@ -168,6 +172,10 @@ export default async function ProgramDetailPage({
               : `Switched ${switchedCount} rundown${switchedCount === 1 ? "" : "s"} to the schedule's clock.`}
             {creditsCount > 0 &&
               ` ${creditsCount} underwriting credit${creditsCount === 1 ? "" : "s"} placed on the old rundowns ${creditsCount === 1 ? "was" : "were"} sent to Traffic's exception queue to review.`}
+            {unplacedCount > 0 &&
+              ` ${unplacedCount} credit${unplacedCount === 1 ? " was" : "s were"} on those rundowns without a Traffic placement (from an imported log), so no exception was raised. They stay on the retired rundowns; add them to the new ones if they still apply.`}
+            {dadDates.length > 0 &&
+              ` The DAD log was already released for ${dadDates.join(", ")}; release a new version from the DAD log screen.`}
           </Alert>
         )}
 
